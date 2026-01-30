@@ -9,7 +9,7 @@ use crate::{
         response::{MessageResponse, ResponseContentBlock},
     },
     proto::opentelemetry_proto_common_v1::KeyValue as KeyValueInner,
-    spans::SpanError,
+    spans::{ResponseInfo, SpanError},
 };
 
 struct AttributeToolCall {
@@ -20,7 +20,7 @@ struct AttributeToolCall {
 
 pub fn extract_attributes(
     input: PostMessagesRequest,
-    output: MessageResponse,
+    output: ResponseInfo,
 ) -> HashMap<String, Value> {
     let mut attributes = HashMap::new();
     attributes.insert(
@@ -133,6 +133,29 @@ pub fn extract_attributes(
         }
     }
 
+    add_response_attributes(&mut attributes, output);
+
+    attributes
+}
+
+fn add_response_attributes(attributes: &mut HashMap<String, Value>, response_info: ResponseInfo) {
+    match response_info {
+        ResponseInfo::Success(response) => {
+            add_success_attributes(attributes, response);
+        }
+        ResponseInfo::Failure(response_failure) => {
+            attributes.insert(
+                "lmnr.span.output".to_string(),
+                String::from_utf8(response_failure.body.clone())
+                    .ok()
+                    .map(|s| Value::String(s))
+                    .unwrap_or_default(),
+            );
+        }
+    }
+}
+
+fn add_success_attributes(attributes: &mut HashMap<String, Value>, output: MessageResponse) {
     attributes.insert("gen_ai.response.id".to_string(), Value::String(output.id));
     attributes.insert(
         "gen_ai.response.model".to_string(),
@@ -259,8 +282,6 @@ pub fn extract_attributes(
             tool_call.input,
         );
     }
-
-    attributes
 }
 
 pub fn convert_attributes_to_proto_key_value(

@@ -76,6 +76,10 @@ class CreateAgentEndpointDetails(object):
             The value to assign to the compartment_id property of this CreateAgentEndpointDetails.
         :type compartment_id: str
 
+        :param provisioned_capacity_config:
+            The value to assign to the provisioned_capacity_config property of this CreateAgentEndpointDetails.
+        :type provisioned_capacity_config: oci.generative_ai_agent.models.ProvisionedCapacityConfig
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CreateAgentEndpointDetails.
         :type freeform_tags: dict(str, str)
@@ -100,6 +104,7 @@ class CreateAgentEndpointDetails(object):
             'should_enable_multi_language': 'bool',
             'session_config': 'SessionConfig',
             'compartment_id': 'str',
+            'provisioned_capacity_config': 'ProvisionedCapacityConfig',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))'
         }
@@ -118,6 +123,7 @@ class CreateAgentEndpointDetails(object):
             'should_enable_multi_language': 'shouldEnableMultiLanguage',
             'session_config': 'sessionConfig',
             'compartment_id': 'compartmentId',
+            'provisioned_capacity_config': 'provisionedCapacityConfig',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags'
         }
@@ -135,6 +141,7 @@ class CreateAgentEndpointDetails(object):
         self._should_enable_multi_language = None
         self._session_config = None
         self._compartment_id = None
+        self._provisioned_capacity_config = None
         self._freeform_tags = None
         self._defined_tags = None
 
@@ -457,6 +464,26 @@ class CreateAgentEndpointDetails(object):
         :type: str
         """
         self._compartment_id = compartment_id
+
+    @property
+    def provisioned_capacity_config(self):
+        """
+        Gets the provisioned_capacity_config of this CreateAgentEndpointDetails.
+
+        :return: The provisioned_capacity_config of this CreateAgentEndpointDetails.
+        :rtype: oci.generative_ai_agent.models.ProvisionedCapacityConfig
+        """
+        return self._provisioned_capacity_config
+
+    @provisioned_capacity_config.setter
+    def provisioned_capacity_config(self, provisioned_capacity_config):
+        """
+        Sets the provisioned_capacity_config of this CreateAgentEndpointDetails.
+
+        :param provisioned_capacity_config: The provisioned_capacity_config of this CreateAgentEndpointDetails.
+        :type: oci.generative_ai_agent.models.ProvisionedCapacityConfig
+        """
+        self._provisioned_capacity_config = provisioned_capacity_config
 
     @property
     def freeform_tags(self):

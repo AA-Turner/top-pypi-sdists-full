@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pathwaysutils
-Version: 0.1.3
+Version: 0.1.4
 Summary: Package of Pathways-on-Cloud utilities.
 Keywords: 
 Author-email: Pathways-on-Cloud Utilities Developers <pathwaysutils-dev@google.com>
@@ -10,7 +10,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
 Requires-Dist: absl-py
 Requires-Dist: fastapi
-Requires-Dist: jax>=0.4.26
+Requires-Dist: jax>=0.6.2
 Requires-Dist: orbax-checkpoint
 Requires-Dist: uvicorn
 Requires-Dist: requests

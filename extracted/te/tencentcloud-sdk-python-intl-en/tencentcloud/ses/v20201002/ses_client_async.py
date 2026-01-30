@@ -61,6 +61,24 @@ class SesClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def CreateCustomBlacklist(
+            self,
+            request: models.CreateCustomBlacklistRequest,
+            opts: Dict = None,
+    ) -> models.CreateCustomBlacklistResponse:
+        """
+        Add a custom blocklist.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateCustomBlacklist"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateCustomBlacklistResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def CreateEmailAddress(
             self,
             request: models.CreateEmailAddressRequest,
@@ -152,6 +170,24 @@ class SesClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def CreateReceiverDetailWithData(
+            self,
+            request: models.CreateReceiverDetailWithDataRequest,
+            opts: Dict = None,
+    ) -> models.CreateReceiverDetailWithDataResponse:
+        """
+        Add recipient addresses with Template parameters. Use this API to import Template parameters while adding recipient addresses, ensuring each recipient address uses Template variables with different values when sending emails. Users first call the CreateReceiver API to create a recipient list, then call this API to import recipient addresses and Template parameters for email sending, and finally use the BatchSendEmail API to complete batch email sending. Notably, after using this API, the Template parameter in the BatchSendEmail API does not need to be passed again. Users can also import recipient addresses, Template variables, and parameter values via the import file option in the console under Email Sending - Recipient List menu. This API limits the number of recipient addresses in a single request to 20,000 entries. It can also append recipient addresses to an already uploaded recipient list, but the total number of recipient addresses in the list must not exceed a certain limit, currently set at 50,000 entries. This API does not support removing duplicate recipient addresses. Users need to ensure uploaded and appended addresses are non-repeating and do not duplicate previously uploaded addresses.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateReceiverDetailWithData"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateReceiverDetailWithDataResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DeleteAddressUnsubscribeConfig(
             self,
             request: models.DeleteAddressUnsubscribeConfigRequest,
@@ -183,6 +219,24 @@ class SesClient(AbstractClient):
         kwargs["action"] = "DeleteBlackList"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.DeleteBlackListResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DeleteCustomBlackList(
+            self,
+            request: models.DeleteCustomBlackListRequest,
+            opts: Dict = None,
+    ) -> models.DeleteCustomBlackListResponse:
+        """
+        Delete a custom blocklist email address.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DeleteCustomBlackList"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DeleteCustomBlackListResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -302,8 +356,7 @@ class SesClient(AbstractClient):
             opts: Dict = None,
     ) -> models.GetSendEmailStatusResponse:
         """
-        This API is used to get email sending status. Only data within 30 days can be queried.
-        Default API request rate limit: 1 request/sec.
+        Search the email sending status. Only support querying data within 30 days.
         """
         
         kwargs = {}
@@ -369,6 +422,24 @@ class SesClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def ListCustomBlacklist(
+            self,
+            request: models.ListCustomBlacklistRequest,
+            opts: Dict = None,
+    ) -> models.ListCustomBlacklistResponse:
+        """
+        Retrieve the custom blocklist.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ListCustomBlacklist"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ListCustomBlacklistResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def ListEmailAddress(
             self,
             request: models.ListEmailAddressRequest,
@@ -418,6 +489,24 @@ class SesClient(AbstractClient):
         kwargs["action"] = "ListEmailTemplates"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.ListEmailTemplatesResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ListReceiverDetails(
+            self,
+            request: models.ListReceiverDetailsRequest,
+            opts: Dict = None,
+    ) -> models.ListReceiverDetailsResponse:
+        """
+        Query ALL recipient email addresses in the recipient list based on the recipient list id with paging query. Filter queries can be based on the recipient email address.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ListReceiverDetails"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ListReceiverDetailsResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -490,6 +579,24 @@ class SesClient(AbstractClient):
         kwargs["action"] = "UpdateAddressUnsubscribeConfig"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.UpdateAddressUnsubscribeConfigResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def UpdateCustomBlackList(
+            self,
+            request: models.UpdateCustomBlackListRequest,
+            opts: Dict = None,
+    ) -> models.UpdateCustomBlackListResponse:
+        """
+        Refresh custom blocklist.
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "UpdateCustomBlackList"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.UpdateCustomBlackListResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

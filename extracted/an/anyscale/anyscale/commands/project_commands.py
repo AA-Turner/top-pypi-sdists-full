@@ -187,7 +187,7 @@ def get(id: str, json: bool = False):  # noqa: A002
     default=False,
     help="Output the list in a structured JSON format.",
 )
-def list(  # noqa: A001
+def list(  # noqa: A001, PLR0913
     *,
     name: Optional[str] = None,
     creator: Optional[str] = None,

@@ -17,12 +17,11 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from coola.equality.testers import EqualityTester
+from coola.equality.tester import EqualNanEqualityTester, get_default_registry
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
 
 from iden.io.utils import generate_unique_tmp_path
-from iden.utils.comparator import ObjectEqualityComparator
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -360,7 +359,6 @@ def setup_saver(saver: BaseSaver[T] | dict[Any, Any]) -> BaseSaver[T]:
     return saver
 
 
-if not EqualityTester.has_comparator(BaseLoader):  # pragma: no cover
-    EqualityTester.add_comparator(BaseLoader, ObjectEqualityComparator())
-if not EqualityTester.has_comparator(BaseSaver):  # pragma: no cover
-    EqualityTester.add_comparator(BaseSaver, ObjectEqualityComparator())
+get_default_registry().register_many(
+    {BaseLoader: EqualNanEqualityTester(), BaseSaver: EqualNanEqualityTester()}, exist_ok=True
+)

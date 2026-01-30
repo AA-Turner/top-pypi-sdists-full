@@ -1,11 +1,82 @@
 [build-system]
-requires = ["setuptools>=64.0"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name="nbdev"
-requires-python=">=3.9"
-dynamic = [ "keywords", "description", "version", "dependencies", "optional-dependencies", "readme", "license", "authors", "classifiers", "entry-points", "scripts", "urls"]
+name = "nbdev"
+description = "Create delightful software with Jupyter Notebooks"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [{name = "Jeremy Howard and the fast.ai community", email = "j@fast.ai"}]
+keywords = ["nbdev", "fastai", "jupyter", "notebook", "export"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: Apache Software License",
+]
+dynamic = ["version"]
+dependencies = [ "fastcore>=1.12.3", "execnb>=0.1.12", "astunparse", "ghapi>=1.0.3", "watchdog", "asttokens",
+    "setuptools", "build", "fastgit", "pyyaml", "tomli; python_version < '3.11'", ]
 
-[tool.uv]
-cache-keys = [{ file = "pyproject.toml" }, { file = "settings.ini" }, { file = "setup.py" }]
+[project.optional-dependencies]
+dev = [ "ipywidgets", "nbdev-numpy", "nbdev-stdlib", "pandas", "matplotlib", "black", "svg.py", "nbclassic",
+    "pysymbol_llm", "llms-txt", "sphinx", "plum-dispatch", ]
+
+[project.urls]
+Repository = "https://github.com/AnswerDotAI/nbdev"
+Documentation = "https://nbdev.fast.ai/"
+
+[project.scripts]
+nbdev-create-config = "nbdev.config:nbdev_create_config"
+nbdev-update = "nbdev.sync:nbdev_update"
+nbdev-update-license = "nbdev.cli:nbdev_update_license"
+nbdev-export = "nbdev.doclinks:nbdev_export"
+nbdev-fix = "nbdev.merge:nbdev_fix"
+nbdev-merge = "nbdev.merge:nbdev_merge"
+nbdev-trust = "nbdev.clean:nbdev_trust"
+nbdev-clean = "nbdev.clean:nbdev_clean"
+nbdev-install-hooks = "nbdev.clean:nbdev_install_hooks"
+nbdev-filter = "nbdev.cli:nbdev_filter"
+nbdev-sidebar = "nbdev.quarto:nbdev_sidebar"
+nbdev-test = "nbdev.test:nbdev_test"
+nbdev-new = "nbdev.cli:nbdev_new"
+nbdev-migrate = "nbdev.migrate:nbdev_migrate"
+nbdev-migrate-config = "nbdev.migrate:nbdev_migrate_config"
+nbdev-install-quarto = "nbdev.quarto:install_quarto"
+nbdev-install = "nbdev.quarto:install"
+nbdev-docs = "nbdev.quarto:nbdev_docs"
+nbdev-preview = "nbdev.quarto:nbdev_preview"
+nbdev-prepare = "nbdev.quarto:prepare"
+nbdev-readme = "nbdev.quarto:nbdev_readme"
+nbdev-contributing = "nbdev.quarto:nbdev_contributing"
+nbdev-release-gh = "nbdev.release:release_gh"
+nbdev-release-git = "nbdev.release:release_git"
+nbdev-changelog = "nbdev.release:changelog"
+nbdev-pypi = "nbdev.release:release_pypi"
+nbdev-conda = "nbdev.release:release_conda"
+nbdev-release-both = "nbdev.release:release_both"
+nbdev-bump-version = "nbdev.release:nbdev_bump_version"
+nbdev-requirements = "nbdev.release:write_requirements"
+nbdev-proc-nbs = "nbdev.quarto:nbdev_proc_nbs"
+nbdev-help = "nbdev.cli:chelp"
+nb-export = "nbdev.cli:nb_export_cli"
+watch-export = "nbdev.cli:watch_export"
+
+[project.entry-points.nbdev]
+nbdev = "nbdev._modidx:d"
+
+[tool.setuptools.dynamic]
+version = {attr = "nbdev.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["nbdev"]
+
+[tool.nbdev]
+custom_sidebar = true
+readme_nb = "getting_started.ipynb"
+jupyter_hooks = true
+

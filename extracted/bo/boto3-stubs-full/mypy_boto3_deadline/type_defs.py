@@ -1656,6 +1656,8 @@ class UpdateJobRequestTypeDef(TypedDict):
     maxRetriesPerTask: NotRequired[int]
     lifecycleStatus: NotRequired[Literal["ARCHIVED"]]
     maxWorkerCount: NotRequired[int]
+    name: NotRequired[str]
+    description: NotRequired[str]
 
 
 class UpdateLimitRequestTypeDef(TypedDict):
@@ -3002,6 +3004,8 @@ class CreateJobRequestTypeDef(TypedDict):
     maxRetriesPerTask: NotRequired[int]
     maxWorkerCount: NotRequired[int]
     sourceJobId: NotRequired[str]
+    nameOverride: NotRequired[str]
+    descriptionOverride: NotRequired[str]
 
 
 SearchGroupedFilterExpressionsTypeDef = TypedDict(

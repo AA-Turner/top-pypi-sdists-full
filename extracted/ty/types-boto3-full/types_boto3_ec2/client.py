@@ -192,6 +192,7 @@ from .paginator import (
     ListSnapshotsInRecycleBinPaginator,
     SearchLocalGatewayRoutesPaginator,
     SearchTransitGatewayMulticastGroupsPaginator,
+    SearchTransitGatewayRoutesPaginator,
 )
 from .type_defs import (
     AcceptAddressTransferRequestTypeDef,
@@ -11247,6 +11248,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_transit_gateway_multicast_groups"]
     ) -> SearchTransitGatewayMulticastGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_transit_gateway_routes"]
+    ) -> SearchTransitGatewayRoutesPaginator:
         """
         Create a paginator for an operation.
 

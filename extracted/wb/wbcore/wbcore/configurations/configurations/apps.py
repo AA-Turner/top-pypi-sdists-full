@@ -30,7 +30,7 @@ class Apps:
         "wbcore.contrib.documents",
         "wbcore.contrib.workflow",
         "wbcore.contrib.color",
-        "wbcore.contrib.guardian",
+        "wbcore.contrib.permission",
         "django_celery_beat",
         "modeltrans",
         "maintenance_mode",

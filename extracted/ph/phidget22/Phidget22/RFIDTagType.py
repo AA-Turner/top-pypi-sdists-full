@@ -1,0 +1,47 @@
+import sys
+import ctypes
+class RFIDTagType:
+	# MIFARE Classic 1K
+	TAGTYPE_MIFARE_CLASSIC_1K = 1
+	# MIFARE Classic 4K
+	TAGTYPE_MIFARE_CLASSIC_4K = 2
+	# Generic Type 2
+	TAGTYPE_GENERIC_TYPE_2 = 3
+	# MIFARE Ultralight
+	TAGTYPE_MIFARE_ULTRALIGHT = 4
+	# MIFARE Ultralight EV1
+	TAGTYPE_MIFARE_ULTRALIGHT_EV1 = 5
+	# MIFARE Ultralight C
+	TAGTYPE_MIFARE_ULTRALIGHT_C = 6
+	# NTAG 213
+	TAGTYPE_MIFARE_NTAG_213 = 7
+	# NTAG 215
+	TAGTYPE_MIFARE_NTAG_215 = 8
+	# NTAG 216
+	TAGTYPE_MIFARE_NTAG_216 = 9
+	# Unsupported
+	TAGTYPE_UNSUPPORTED = 255
+
+	@classmethod
+	def getName(self, val):
+		if val == self.TAGTYPE_MIFARE_CLASSIC_1K:
+			return "TAGTYPE_MIFARE_CLASSIC_1K"
+		if val == self.TAGTYPE_MIFARE_CLASSIC_4K:
+			return "TAGTYPE_MIFARE_CLASSIC_4K"
+		if val == self.TAGTYPE_GENERIC_TYPE_2:
+			return "TAGTYPE_GENERIC_TYPE_2"
+		if val == self.TAGTYPE_MIFARE_ULTRALIGHT:
+			return "TAGTYPE_MIFARE_ULTRALIGHT"
+		if val == self.TAGTYPE_MIFARE_ULTRALIGHT_EV1:
+			return "TAGTYPE_MIFARE_ULTRALIGHT_EV1"
+		if val == self.TAGTYPE_MIFARE_ULTRALIGHT_C:
+			return "TAGTYPE_MIFARE_ULTRALIGHT_C"
+		if val == self.TAGTYPE_MIFARE_NTAG_213:
+			return "TAGTYPE_MIFARE_NTAG_213"
+		if val == self.TAGTYPE_MIFARE_NTAG_215:
+			return "TAGTYPE_MIFARE_NTAG_215"
+		if val == self.TAGTYPE_MIFARE_NTAG_216:
+			return "TAGTYPE_MIFARE_NTAG_216"
+		if val == self.TAGTYPE_UNSUPPORTED:
+			return "TAGTYPE_UNSUPPORTED"
+		return "<invalid enumeration value>"

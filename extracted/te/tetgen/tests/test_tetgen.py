@@ -1,4 +1,5 @@
 import os
+import sys
 
 import numpy as np
 import pytest
@@ -9,7 +10,7 @@ from tetgen.pytetgen import MeshNotTetrahedralizedError
 path = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_load_arrays():
+def test_load_arrays() -> None:
     sphere = pv.Sphere()
     v = sphere.points
     f = sphere.faces.reshape(-1, 4)[:, 1:]
@@ -18,14 +19,14 @@ def test_load_arrays():
     assert np.allclose(tet.mesh.faces, sphere.faces)
 
 
-def test_raise_on_too_few_points():
+def test_raise_on_too_few_points() -> None:
     points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     faces = np.array([[0, 1, 2]])
     with pytest.raises(ValueError, match="The vertex array should contain"):
         tetgen.TetGen(points, faces)
 
 
-def test_vtk_tetrahedralize():
+def test_vtk_tetrahedralize() -> None:
     sphere = pv.Sphere(theta_resolution=10, phi_resolution=10)
     tet = tetgen.TetGen(sphere)
     tet.tetrahedralize(order=1, mindihedral=20, minratio=1.5)
@@ -34,7 +35,7 @@ def test_vtk_tetrahedralize():
     assert grid.n_points
 
 
-def test_tetrahedralize_swithces():
+def test_tetrahedralize_switches() -> None:
     sphere = pv.Sphere(theta_resolution=10, phi_resolution=10)
     tet = tetgen.TetGen(sphere)
     tet.tetrahedralize(switches="pq1.1/10YQ")
@@ -73,6 +74,9 @@ def test_attributes() -> None:
     assert isinstance(tet.edges, np.ndarray)
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="Skip on Windows due to cross-drive relpath issue"
+)
 def test_numpy_tetrahedralize(tmpdir):
     v = np.array(
         [

@@ -4,7 +4,7 @@ import uuid
 from yookassa.client import ApiClient
 from yookassa.domain.common.http_verb import HttpVerb
 from yookassa.domain.request import PayoutRequest
-from yookassa.domain.response import PayoutResponse
+from yookassa.domain.response import PayoutResponse, PayoutListResponse
 
 
 class Payout:
@@ -61,3 +61,19 @@ class Payout:
 
         response = instance.client.request(HttpVerb.POST, path, None, headers, params_object)
         return PayoutResponse(response)
+
+    @classmethod
+    def list(cls, params=None):
+        """
+        Возвращает список выплат
+
+        :param params: Данные передаваемые в API
+        :return: PayoutListResponse Объект ответа, возвращаемого API при запросе списка платежей
+        """
+        if params is None:
+            params = {}
+        instance = cls()
+        path = cls.base_path
+
+        response = instance.client.request(HttpVerb.GET, path, params)
+        return PayoutListResponse(response)

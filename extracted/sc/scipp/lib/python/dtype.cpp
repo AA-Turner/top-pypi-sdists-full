@@ -4,6 +4,7 @@
 /// @author Simon Heybrock
 #include "dtype.h"
 
+#include <iostream>
 #include <regex>
 
 #include "scipp/core/eigen.h"
@@ -121,27 +122,27 @@ DType dtype_of(const py::object &x) {
 }
 
 scipp::core::DType scipp_dtype(const py::dtype &type) {
-  if (type.kind() == DTypeKind::Float) {
-    if (type.itemsize() == DTypeSize::Float64)
-      return scipp::core::dtype<double>;
-    if (type.itemsize() == DTypeSize::Float32)
-      return scipp::core::dtype<float>;
-  }
-  if (type.kind() == DTypeKind::Int) {
-    if (type.itemsize() == DTypeSize::Int64)
-      return scipp::core::dtype<std::int64_t>;
-    if (type.itemsize() == DTypeSize::Int32)
-      return scipp::core::dtype<std::int32_t>;
-  }
-  if (type.kind() == DTypeKind::Bool)
+  switch (type.normalized_num()) {
+  case py::dtype::num_of<double>():
+    return scipp::core::dtype<double>;
+  case py::dtype::num_of<float>():
+    return scipp::core::dtype<float>;
+  case py::dtype::num_of<std::int64_t>():
+    return scipp::core::dtype<std::int64_t>;
+  case py::dtype::num_of<std::int32_t>():
+    return scipp::core::dtype<std::int32_t>;
+  case py::dtype::num_of<bool>():
     return scipp::core::dtype<bool>;
+  case py::dtype::num_of<py::object>():
+    return scipp::core::dtype<python::PyObject>;
+  default:
+    break;
+  }
+  // These cannot be handled with the above switch:
   if (type.kind() == DTypeKind::String)
     return scipp::core::dtype<std::string>;
   if (type.kind() == DTypeKind::Datetime) {
-    return scipp::core::dtype<scipp::core::time_point>;
-  }
-  if (type.kind() == DTypeKind::Object) {
-    return scipp::core::dtype<scipp::python::PyObject>;
+    return scipp::core::dtype<time_point>;
   }
   throw std::runtime_error(
       "Unsupported numpy dtype: " +
@@ -167,6 +168,23 @@ scipp::core::DType dtype_from_scipp_class(const py::object &type) {
   }
 }
 
+namespace {
+py::dtype to_np_dtype(const py::object &type) {
+  try {
+    return py::dtype::from_args(type);
+  } catch (py::error_already_set &error) {
+    // NumPy normally raises a TypeError, but for Variable, DataArray, it raises
+    // ValueError because it sees the `.dtype` attribute and thinks that it is a
+    // compatible np.dtype object. For some reason that triggers a different
+    // error.
+    if (error.matches(PyExc_ValueError)) {
+      throw py::type_error(error.what());
+    }
+    throw;
+  }
+}
+} // namespace
+
 scipp::core::DType scipp_dtype(const py::object &type) {
   // Check None first, then native scipp Dtype, then numpy.dtype
   if (type.is_none())
@@ -178,8 +196,7 @@ scipp::core::DType scipp_dtype(const py::object &type) {
         type.attr("__module__").cast<std::string>() == "scipp._scipp.core") {
       return dtype_from_scipp_class(type);
     }
-
-    auto np_dtype = py::dtype::from_args(type);
+    const auto np_dtype = to_np_dtype(type);
     if (np_dtype.kind() == DTypeKind::RawData) {
       throw std::invalid_argument(
           "Unsupported numpy dtype: raw data. This can happen when you pass a "

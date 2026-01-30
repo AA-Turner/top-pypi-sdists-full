@@ -180,6 +180,8 @@ class AiController:
                     tunnel_session_path=get_session_path(),
                     human_approval=body.human_approval,
                     tool_calls_approval=body.tool_calls_approval,
+                    browser_tools=body.browser_tools,
+                    browser_tool_responses=body.browser_tool_responses,
                 )
             )
         except Exception as e:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-core
-Version: 3.23.3
+Version: 3.23.6
 Summary: Core microsimulation engine enabling country-specific policy models.
 Home-page: https://github.com/policyengine/policyengine-core
 Author: PolicyEngine

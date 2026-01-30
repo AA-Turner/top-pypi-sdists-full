@@ -469,7 +469,6 @@ class Map(ipyleaflet.Map):
         import pandas as pd
 
         if isinstance(asset_id, str):
-
             df = pd.read_csv(
                 "https://raw.githubusercontent.com/opengeos/ee-tile-layers/main/datasets.tsv",
                 sep="\t",
@@ -1234,6 +1233,381 @@ class Map(ipyleaflet.Map):
             "opacity": opacity,
             "layer_name": name,
             "type": "STAC",
+        }
+
+        self.cog_layer_dict[name] = params
+
+    def add_cmr_layer(
+        self,
+        concept_id: str,
+        datetime: Optional[str] = None,
+        backend: str = "rasterio",
+        variable: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        bands_regex: Optional[str] = None,
+        expression: Optional[str] = None,
+        name: str = "CMR Layer",
+        attribution: str = "NASA Earthdata",
+        opacity: float = 1.0,
+        shown: bool = True,
+        rescale: Optional[Union[str, List]] = None,
+        colormap_name: Optional[str] = None,
+        color_formula: Optional[str] = None,
+        titiler_cmr_endpoint: Optional[str] = None,
+        zoom_to_layer: bool = True,
+        layer_index: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        """Adds a NASA Earthdata CMR layer to the map using TiTiler CMR.
+
+        This method allows you to visualize NASA Earthdata collections directly
+        on the map using the TiTiler CMR endpoint.
+
+        Args:
+            concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+            datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or
+                '2024-01-01/2024-01-31'). Defaults to None.
+            backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for
+                NetCDF/Zarr. Defaults to 'rasterio'.
+            variable (str, optional): Variable name for xarray backend datasets. Required
+                when using backend='xarray'.
+            bands (str | list, optional): Band name(s) for rasterio backend.
+            bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+            expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+            name (str, optional): The layer name. Defaults to 'CMR Layer'.
+            attribution (str, optional): Attribution text. Defaults to 'NASA Earthdata'.
+            opacity (float, optional): Layer opacity (0.0 to 1.0). Defaults to 1.0.
+            shown (bool, optional): Whether the layer is visible. Defaults to True.
+            rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305'
+                or [[270, 305]]).
+            colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+            color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+            titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+            zoom_to_layer (bool, optional): Whether to zoom to the layer extent. Defaults to True.
+            layer_index (int, optional): Index to insert the layer. Defaults to None.
+            **kwargs: Additional arguments passed to the TiTiler CMR endpoint.
+
+        Examples:
+            >>> # Sea Surface Temperature using xarray backend
+            >>> m = leafmap.Map()
+            >>> m.add_cmr_layer(
+            ...     concept_id="C2036881735-POCLOUD",
+            ...     datetime="2024-01-15",
+            ...     backend="xarray",
+            ...     variable="analysed_sst",
+            ...     rescale="270,305",
+            ...     colormap_name="thermal",
+            ...     name="Sea Surface Temperature"
+            ... )
+
+            >>> # HLS Landsat using rasterio backend
+            >>> m.add_cmr_layer(
+            ...     concept_id="C2021957657-LPCLOUD",
+            ...     datetime="2024-06-20T00:00:00Z/2024-06-27T23:59:59Z",
+            ...     backend="rasterio",
+            ...     bands=["B04", "B03", "B02"],
+            ...     bands_regex="B[0-9][0-9]",
+            ...     color_formula="Gamma RGB 3.5 Saturation 1.7 Sigmoidal RGB 15 0.35",
+            ...     name="HLS Landsat"
+            ... )
+        """
+        from .stac import cmr_tile, cmr_bounds
+
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
+        tile_url = cmr_tile(
+            concept_id=concept_id,
+            datetime=datetime,
+            backend=backend,
+            variable=variable,
+            bands=bands,
+            bands_regex=bands_regex,
+            expression=expression,
+            rescale=rescale,
+            colormap_name=colormap_name,
+            color_formula=color_formula,
+            titiler_cmr_endpoint=titiler_cmr_endpoint,
+            **kwargs,
+        )
+
+        if tile_url is None:
+            print("Failed to get CMR tile URL")
+            return
+
+        self.add_tile_layer(tile_url, name, attribution, opacity, shown, layer_index)
+
+        if zoom_to_layer:
+            bounds = cmr_bounds(
+                concept_id=concept_id,
+                datetime=datetime,
+                backend=backend,
+                variable=variable,
+                titiler_cmr_endpoint=titiler_cmr_endpoint,
+            )
+            # Skip zooming if bounds are global (TiTiler CMR returns global bounds
+            # when actual data bounds are not available)
+            if bounds is not None and not common.is_global_bounds(bounds):
+                self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
+                common.arc_zoom_to_extent(bounds[0], bounds[1], bounds[2], bounds[3])
+
+    def add_cmr_timeseries(
+        self,
+        concept_id: str,
+        datetime: str,
+        step: str = "P1D",
+        temporal_mode: str = "point",
+        backend: str = "rasterio",
+        variable: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        bands_regex: Optional[str] = None,
+        expression: Optional[str] = None,
+        rescale: Optional[Union[str, List]] = None,
+        colormap_name: Optional[str] = None,
+        color_formula: Optional[str] = None,
+        name_prefix: str = "CMR",
+        attribution: str = "NASA Earthdata",
+        opacity: float = 1.0,
+        time_interval: int = 1,
+        position: str = "bottomright",
+        slider_length: str = "150px",
+        titiler_cmr_endpoint: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """Adds a NASA Earthdata CMR time series layer with an interactive time slider.
+
+        This method creates multiple tile layers for different time steps and adds
+        a time slider control to navigate through the time series.
+
+        Args:
+            concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+            datetime (str): RFC3339 datetime range (e.g., '2024-01-01/2024-01-31').
+            step (str, optional): ISO 8601 duration for time steps (e.g., 'P1D' for 1 day,
+                'P1M' for 1 month, 'P2W' for 2 weeks). Defaults to 'P1D'.
+            temporal_mode (str, optional): Temporal mode - 'point' or 'range'. Defaults to 'point'.
+            backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for
+                NetCDF/Zarr. Defaults to 'rasterio'.
+            variable (str, optional): Variable name for xarray backend datasets.
+            bands (str | list, optional): Band name(s) for rasterio backend.
+            bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+            expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+            rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305'
+                or [[270, 305]]).
+            colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+            color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+            name_prefix (str, optional): Prefix for layer names. Defaults to 'CMR'.
+            attribution (str, optional): Attribution text. Defaults to 'NASA Earthdata'.
+            opacity (float, optional): Layer opacity (0.0 to 1.0). Defaults to 1.0.
+            time_interval (int, optional): Time interval in seconds between frames. Defaults to 1.
+            position (str, optional): Position of the time slider ('topleft', 'topright',
+                'bottomleft', 'bottomright'). Defaults to 'bottomright'.
+            slider_length (str, optional): Length of the time slider. Defaults to '150px'.
+            titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+            **kwargs: Additional arguments passed to the TiTiler CMR endpoint.
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_cmr_timeseries(
+            ...     concept_id="C2036881735-POCLOUD",
+            ...     datetime="2023-11-01/2024-10-30",
+            ...     step="P1M",
+            ...     backend="xarray",
+            ...     variable="sea_ice_fraction",
+            ...     colormap_name="blues_r",
+            ...     rescale="0,1"
+            ... )
+        """
+        from .stac import cmr_timeseries_tilejson
+
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
+        tilejsons = cmr_timeseries_tilejson(
+            concept_id=concept_id,
+            datetime=datetime,
+            step=step,
+            temporal_mode=temporal_mode,
+            backend=backend,
+            variable=variable,
+            bands=bands,
+            bands_regex=bands_regex,
+            expression=expression,
+            rescale=rescale,
+            colormap_name=colormap_name,
+            color_formula=color_formula,
+            titiler_cmr_endpoint=titiler_cmr_endpoint,
+            **kwargs,
+        )
+
+        if tilejsons is None:
+            print("Failed to get CMR time series TileJSON")
+            return
+
+        layers_dict = {}
+
+        for dt_str, tilejson in tilejsons.items():
+            if "tiles" in tilejson:
+                tile_url = tilejson["tiles"][0]
+                # Format the datetime string for display (extract date portion)
+                if "T" in dt_str:
+                    label = dt_str.split("T")[0]
+                else:
+                    label = dt_str
+                layers_dict[label] = tile_url
+
+        if len(layers_dict) == 0:
+            print("No valid time series layers found")
+            return
+
+        self.add_time_slider(
+            layers=layers_dict,
+            time_interval=time_interval,
+            position=position,
+            slider_length=slider_length,
+        )
+
+    def add_zarr(
+        self,
+        url: str,
+        variable: Optional[str] = None,
+        name: str = "Zarr Layer",
+        attribution: str = "",
+        opacity: float = 1.0,
+        shown: bool = True,
+        titiler_endpoint: Optional[str] = None,
+        fit_bounds: bool = True,
+        layer_index: Optional[int] = None,
+        group: Optional[str] = None,
+        decode_times: bool = False,
+        time_index: Optional[int] = 0,
+        **kwargs,
+    ) -> None:
+        """Adds a Zarr dataset to the map as a tile layer.
+
+        This method uses titiler-xarray to dynamically serve tiles from Zarr
+        datasets (local or remote). It supports both single-variable and
+        multi-variable datasets.
+
+        Args:
+            url (str): URL to a Zarr dataset (HTTP, S3, or local path).
+                Examples:
+                - "https://example.com/data.zarr"
+                - "s3://bucket/data.zarr"
+            variable (str, optional): The variable name to visualize. Required for
+                multi-variable datasets. Defaults to None.
+            name (str, optional): The layer name. Defaults to "Zarr Layer".
+            attribution (str, optional): Attribution for the layer. Defaults to "".
+            opacity (float, optional): Layer opacity (0.0 to 1.0). Defaults to 1.0.
+            shown (bool, optional): Whether the layer is visible. Defaults to True.
+            titiler_endpoint (str, optional): TiTiler endpoint URL that supports
+                titiler-xarray. If not provided, the endpoint is resolved
+                automatically: the TITILER_XARRAY_ENDPOINT environment variable
+                is checked first, and if it is not set, the library's default
+                TiTiler endpoint is used.
+            fit_bounds (bool, optional): Zoom to layer extent. Defaults to True.
+            layer_index (int, optional): Index to insert the layer. Defaults to None.
+            group (str, optional): Zarr group path within the dataset. Defaults to None.
+            decode_times (bool, optional): Whether to decode times. Defaults to False.
+            time_index (int, optional): Index of the time dimension to visualize.
+                Required for datasets with a time dimension. Defaults to 0 (first time step).
+                Set to None if the dataset has no time dimension.
+            **kwargs: Additional arguments passed to the titiler endpoint:
+                - rescale (str): Value range, e.g., "0,255"
+                - colormap_name (str): Colormap name, e.g., "viridis", "terrain"
+                - colormap (str): JSON-encoded custom colormap
+                - nodata (float): Nodata value
+                - resampling (str): Resampling method (nearest, bilinear, etc.)
+                - sel (str): Custom dimension selection, e.g., "time=5"
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> url = "https://example.com/temperature.zarr"
+            >>> m.add_zarr(url, variable="temperature", colormap_name="viridis")
+        """
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
+        tile_url = common.zarr_tile(
+            url,
+            variable=variable,
+            titiler_endpoint=titiler_endpoint,
+            time_index=time_index,
+            group=group,
+            decode_times=decode_times,
+            **kwargs,
+        )
+
+        if tile_url is None:
+            print("Failed to get Zarr tile URL")
+            return
+
+        bounds = common.zarr_bounds(
+            url,
+            variable=variable,
+            titiler_endpoint=titiler_endpoint,
+            group=group,
+            decode_times=decode_times,
+        )
+
+        self.add_tile_layer(tile_url, name, attribution, opacity, shown, layer_index)
+
+        if fit_bounds and bounds is not None:
+            # Clamp bounds to valid lat/lng ranges
+            # bounds format: [minx, miny, maxx, maxy] = [min_lon, min_lat, max_lon, max_lat]
+            clamped_bounds = [
+                max(-180.0, min(180.0, bounds[0])),  # minx (longitude)
+                max(-90.0, min(90.0, bounds[1])),  # miny (latitude)
+                max(-180.0, min(180.0, bounds[2])),  # maxx (longitude)
+                max(-90.0, min(90.0, bounds[3])),  # maxy (latitude)
+            ]
+            self.fit_bounds(
+                [
+                    [clamped_bounds[1], clamped_bounds[0]],
+                    [clamped_bounds[3], clamped_bounds[2]],
+                ]
+            )
+            common.arc_zoom_to_extent(
+                clamped_bounds[0],
+                clamped_bounds[1],
+                clamped_bounds[2],
+                clamped_bounds[3],
+            )
+
+        if not hasattr(self, "cog_layer_dict"):
+            self.cog_layer_dict = {}
+
+        if "rescale" in kwargs:
+            rescale = kwargs["rescale"]
+            if isinstance(rescale, str):
+                vmin, vmax = [float(v) for v in rescale.split(",")]
+            else:
+                vmin, vmax = rescale[0], rescale[1]
+        else:
+            vmin, vmax = None, None
+
+        if "colormap_name" in kwargs:
+            colormap = kwargs["colormap_name"]
+        else:
+            colormap = None
+
+        if "nodata" in kwargs:
+            nodata = kwargs["nodata"]
+        else:
+            nodata = None
+
+        params = {
+            "url": url,
+            "titiler_endpoint": titiler_endpoint,
+            "variable": variable,
+            "tile_layer": self.find_layer(name),
+            "bounds": bounds,
+            "vmin": vmin,
+            "vmax": vmax,
+            "nodata": nodata,
+            "colormap": colormap,
+            "opacity": opacity,
+            "layer_name": name,
+            "type": "ZARR",
         }
 
         self.cog_layer_dict[name] = params
@@ -2033,7 +2407,6 @@ class Map(ipyleaflet.Map):
             legend_text = legend_text.replace("height: 16px", "height: 3px")
 
         try:
-
             legend_widget = widgets.HTML(value=legend_text)
             legend_control = ipyleaflet.WidgetControl(
                 widget=legend_widget, position=position
@@ -3213,6 +3586,184 @@ class Map(ipyleaflet.Map):
             info_mode,
             zoom_to_layer,
             encoding,
+            **kwargs,
+        )
+
+    def add_polars(
+        self,
+        df,
+        geometry: Optional[str] = "geometry",
+        crs: Optional[str] = None,
+        layer_name: Optional[str] = "Untitled",
+        style: Optional[dict] = {},
+        hover_style: Optional[dict] = {},
+        style_callback: Optional[Callable] = None,
+        fill_colors: Optional[List[str]] = None,
+        info_mode: Optional[str] = "on_hover",
+        zoom_to_layer: Optional[bool] = False,
+        encoding: Optional[str] = "utf-8",
+        **kwargs,
+    ) -> None:
+        """Adds a Polars DataFrame with geometry to the map.
+
+        This method supports Polars-ST DataFrames with spatial geometry columns
+        and enables direct visualization of Polars-based geospatial data without
+        manual conversion to GeoPandas.
+
+        Args:
+            df: A Polars DataFrame with a geometry column (e.g., from Polars-ST).
+            geometry (str, optional): The name of the geometry column. Defaults to "geometry".
+            crs (str, optional): The CRS of the geometry data (e.g., "EPSG:4326").
+                If None, defaults to EPSG:4326. For Polars-ST DataFrames, specify the CRS explicitly.
+            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
+            style (dict, optional): A dictionary specifying the style to be used. Defaults to {}.
+            hover_style (dict, optional): Hover style dictionary. Defaults to {}.
+            style_callback (function, optional): Styling function that is called
+                for each feature, and should return the feature style. This
+                styling function takes the feature as argument. Defaults to None.
+            fill_colors (list, optional): The random colors to use for filling
+                polygons. Defaults to ["black"].
+            info_mode (str, optional): Displays the attributes by either on_hover
+                or on_click. Any value other than "on_hover" or "on_click" will
+                be treated as None. Defaults to "on_hover".
+            zoom_to_layer (bool, optional): Whether to zoom to the layer. Defaults to False.
+            encoding (str, optional): The encoding of the GeoDataFrame. Defaults to "utf-8".
+            **kwargs: Additional keyword arguments to pass to add_gdf.
+
+        Raises:
+            ImportError: If polars or required dependencies are not installed.
+            ValueError: If the specified geometry column is not found or contains invalid data.
+            TypeError: If the input is not a Polars DataFrame.
+
+        Examples:
+            >>> import polars as pl
+            >>> # With Polars-ST
+            >>> df = pl.read_parquet("data.geoparquet")
+            >>> m = leafmap.Map()
+            >>> m.add_polars(df, geometry="geometry", crs="EPSG:4326")
+        """
+        import warnings
+
+        try:
+            import polars as pl
+        except ImportError:
+            raise ImportError(
+                "polars is required for add_polars(). "
+                "Install it with: pip install polars"
+            )
+
+        try:
+            import geopandas as gpd
+            from shapely import wkb, wkt
+        except ImportError:
+            raise ImportError(
+                "geopandas and shapely are required. "
+                "Install them with: pip install geopandas shapely"
+            )
+
+        # Validate input
+        if not isinstance(df, pl.DataFrame):
+            raise TypeError(
+                f"Expected a Polars DataFrame, got {type(df).__name__}. "
+                "Use add_gdf() for GeoPandas DataFrames."
+            )
+
+        # Check if geometry column exists
+        if geometry not in df.columns:
+            raise ValueError(
+                f"Geometry column '{geometry}' not found. "
+                f"Available columns: {df.columns}"
+            )
+
+        # Check for null/empty geometry column
+        if df[geometry].null_count() == len(df):
+            raise ValueError(
+                f"Geometry column '{geometry}' contains only null values. "
+                "Please provide valid geometry data."
+            )
+
+        # Convert Polars DataFrame to pandas
+        pdf = df.to_pandas()
+
+        # Handle datetime columns (same as add_gdf)
+        for col in pdf.columns:
+            try:
+                if pdf[col].dtype in ["datetime64[ns]", "datetime64[ns, UTC]"]:
+                    pdf[col] = pdf[col].astype(str)
+            except Exception:
+                pass
+
+        # Handle geometry column - could be WKB binary or WKT string
+        geom_col = pdf[geometry]
+
+        # Try to convert geometries using vectorized operations where possible
+        geometries = None
+        parse_error = None
+
+        # Try WKB first (most common for Polars-ST)
+        if pdf[geometry].dtype == object:
+            # Check if first non-null value is bytes
+            first_valid = (
+                geom_col.dropna().iloc[0] if len(geom_col.dropna()) > 0 else None
+            )
+
+            if first_valid is not None and isinstance(first_valid, bytes):
+                # Use vectorized from_wkb for better performance
+                try:
+                    geometries = gpd.GeoSeries.from_wkb(geom_col)
+                except (TypeError, ValueError) as e:
+                    parse_error = f"WKB parsing failed: {e}"
+            else:
+                # Try WKT string parsing
+                try:
+                    geometries = gpd.GeoSeries.from_wkt(geom_col)
+                except (TypeError, ValueError) as e:
+                    # Last resort: assume it's already shapely geometries
+                    try:
+                        geometries = gpd.GeoSeries(geom_col)
+                    except (TypeError, ValueError) as e2:
+                        parse_error = f"WKT parsing failed: {e}, Shapely geometry: {e2}"
+        else:
+            # Might be serialized as bytes dtype
+            try:
+                geometries = gpd.GeoSeries.from_wkb(geom_col)
+            except (TypeError, ValueError) as e:
+                parse_error = f"WKB parsing failed for bytes dtype: {e}"
+
+        if geometries is None or parse_error:
+            raise ValueError(
+                f"Failed to parse geometry column '{geometry}'. "
+                f"Expected WKB binary or WKT string format. {parse_error or ''}"
+            )
+
+        # Drop the original geometry column and create GeoDataFrame
+        pdf = pdf.drop(columns=[geometry])
+        gdf = gpd.GeoDataFrame(pdf, geometry=geometries)
+
+        # Set CRS
+        if crs is not None:
+            gdf.crs = crs
+        elif gdf.crs is None:
+            # Default to EPSG:4326 with warning
+            warnings.warn(
+                f"No CRS specified for geometry column '{geometry}'. "
+                "Defaulting to EPSG:4326. Use the 'crs' parameter to specify a different CRS.",
+                UserWarning,
+                stacklevel=2,
+            )
+            gdf.crs = "EPSG:4326"
+
+        # Now use the existing add_gdf method
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            style=style,
+            hover_style=hover_style,
+            style_callback=style_callback,
+            fill_colors=fill_colors,
+            info_mode=info_mode,
+            zoom_to_layer=zoom_to_layer,
+            encoding=encoding,
             **kwargs,
         )
 
@@ -4684,11 +5235,11 @@ class Map(ipyleaflet.Map):
         """
 
         if background:
-            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {'bold' if bold else 'normal'};
+            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {"bold" if bold else "normal"};
             padding: {padding}; background-color: {bg_color};
             border-radius: {border_radius};">{text}</div>"""
         else:
-            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {'bold' if bold else 'normal'};
+            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {"bold" if bold else "normal"};
             padding: {padding};">{text}</div>"""
 
         self.add_html(text, position=position, **kwargs)
@@ -5327,7 +5878,6 @@ class Map(ipyleaflet.Map):
             self.add_layer(popup)
 
             def save_changes(_):
-
                 original_data = copy.deepcopy(geojson_layer.data)
                 original_feature = copy.deepcopy(feature)
                 # Update the properties with the new values
@@ -6063,7 +6613,6 @@ class Map(ipyleaflet.Map):
         url = "https://www.mrlc.gov/downloads/sciweb1/shared/mrlc/data-bundles/Annual_NLCD_LndCov_{}_CU_C1V0.tif"
 
         if "colormap" not in kwargs:
-
             kwargs["colormap"] = {
                 "11": "#466b9f",
                 "12": "#d1def8",
@@ -6321,6 +6870,307 @@ class Map(ipyleaflet.Map):
         if "tile_args" not in kwargs:
             kwargs["tile_args"] = {"attribution": "Esri"}
         self.add_time_slider(images, **kwargs)
+
+    def add_fire_data(
+        self,
+        data: Optional[Union[str, "gpd.GeoDataFrame"]] = None,
+        bbox: Optional[List[float]] = None,
+        place: Optional[str] = None,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        farea_min: Optional[float] = None,
+        layer_name: str = "Fire Perimeters",
+        style: Optional[Dict] = None,
+        hover_style: Optional[Dict] = None,
+        style_callback: Optional[Callable] = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
+        **kwargs,
+    ) -> None:
+        """Add NASA fire perimeter data to the map.
+
+        This method fetches and displays fire perimeter data from the NASA Fire
+        Event Data Suite (FEDs) via the OpenVEDA OGC API Features.
+
+        Args:
+            data: Pre-loaded fire data as a file path or GeoDataFrame. If provided,
+                bbox and place are ignored.
+            bbox: Bounding box [west, south, east, north] in EPSG:4326.
+            place: Place name to geocode (e.g., "California").
+            collection: Fire collection ID. Options:
+                - "snapshot_perimeter_nrt": 20-day recent fire perimeters (default)
+                - "lf_perimeter_nrt": Current year large fires (>5 km²)
+                - "lf_perimeter_archive": 2018-2021 Western US archived fires
+                - "lf_fireline_nrt": Active fire lines
+                - "lf_newfirepix_nrt": New fire pixels
+            datetime: ISO 8601 date/time or interval (e.g., "2024-07-01/2024-07-31").
+            farea_min: Minimum fire area in km² to filter results.
+            layer_name: Name for the layer. Defaults to "Fire Perimeters".
+            style: Style dictionary for the fire perimeters. Defaults to orange/red.
+            hover_style: Hover style dictionary.
+            style_callback: Styling function called for each feature.
+            info_mode: Display attributes "on_hover" or "on_click".
+            zoom_to_layer: Whether to zoom to the layer bounds.
+            **kwargs: Additional keyword arguments for add_gdf().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_data(place="California", datetime="2024-07-01/2024-07-31")
+            >>> m
+        """
+        from . import fire as fire_module
+
+        if data is not None:
+            # Use provided data
+            if isinstance(data, str):
+                import geopandas as gpd
+
+                gdf = gpd.read_file(data)
+            else:
+                gdf = data
+        elif bbox is not None or place is not None:
+            # Fetch fire data
+            gdf = fire_module.search_fires(
+                bbox=bbox,
+                place=place,
+                collection=collection,
+                datetime=datetime,
+                farea_min=farea_min,
+            )
+        else:
+            raise ValueError("Either data, bbox, or place must be provided")
+
+        if gdf.empty:
+            print("No fire data found for the specified parameters.")
+            return
+
+        # Default fire styling
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        if hover_style is None:
+            hover_style = {"weight": 3, "fillOpacity": 0.7}
+
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            style=style,
+            hover_style=hover_style,
+            style_callback=style_callback,
+            info_mode=info_mode,
+            zoom_to_layer=zoom_to_layer,
+            **kwargs,
+        )
+
+    def add_fire_perimeters(
+        self,
+        bbox: Optional[List[float]] = None,
+        place: Optional[str] = None,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        farea_min: Optional[float] = None,
+        color_column: Optional[str] = "farea",
+        cmap: str = "YlOrRd",
+        layer_name: str = "Fire Perimeters",
+        style: Optional[Dict] = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
+        add_legend: bool = True,
+        legend_title: str = "Fire Area (km²)",
+        **kwargs,
+    ) -> None:
+        """Add fire perimeters with color scaling based on fire attributes.
+
+        Args:
+            bbox: Bounding box [west, south, east, north] in EPSG:4326.
+            place: Place name to geocode (e.g., "California").
+            collection: Fire collection ID. Defaults to "snapshot_perimeter_nrt".
+            datetime: ISO 8601 date/time or interval.
+            farea_min: Minimum fire area in km² to filter results.
+            color_column: Column to use for color scaling. Defaults to "farea".
+            cmap: Colormap name for color scaling. Defaults to "YlOrRd".
+            layer_name: Name for the layer.
+            style: Base style dictionary (color will be overridden by colormap).
+            info_mode: Display attributes "on_hover" or "on_click".
+            zoom_to_layer: Whether to zoom to the layer bounds.
+            add_legend: Whether to add a legend. Defaults to True.
+            legend_title: Title for the legend.
+            **kwargs: Additional keyword arguments for add_gdf().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_perimeters(
+            ...     place="California",
+            ...     datetime="2024-07-01/2024-07-31",
+            ...     color_column="farea"
+            ... )
+            >>> m
+        """
+        from . import fire as fire_module
+
+        gdf = fire_module.search_fires(
+            bbox=bbox,
+            place=place,
+            collection=collection,
+            datetime=datetime,
+            farea_min=farea_min,
+        )
+
+        if gdf.empty:
+            print("No fire data found for the specified parameters.")
+            return
+
+        # Create color-scaled styling based on the specified column
+        if color_column and color_column in gdf.columns:
+            try:
+                import matplotlib.pyplot as plt
+                import matplotlib.colors as mcolors
+
+                colormap = plt.get_cmap(cmap)
+                values = gdf[color_column].fillna(0)
+                vmin, vmax = values.min(), values.max()
+
+                if vmax > vmin:
+                    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+                    def style_callback(feature):
+                        value = feature["properties"].get(color_column, 0)
+                        if value is None:
+                            value = 0
+                        rgba = colormap(norm(value))
+                        hex_color = mcolors.rgb2hex(rgba)
+                        base_style = style or {}
+                        return {
+                            "color": hex_color,
+                            "weight": base_style.get("weight", 2),
+                            "fillColor": hex_color,
+                            "fillOpacity": base_style.get("fillOpacity", 0.5),
+                        }
+
+                    self.add_gdf(
+                        gdf,
+                        layer_name=layer_name,
+                        style_callback=style_callback,
+                        info_mode=info_mode,
+                        zoom_to_layer=zoom_to_layer,
+                        **kwargs,
+                    )
+
+                    if add_legend:
+                        self.add_colormap(
+                            cmap=cmap,
+                            vmin=vmin,
+                            vmax=vmax,
+                            label=legend_title,
+                        )
+                    return
+            except ImportError:
+                pass
+
+        # Fallback to default styling
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            style=style,
+            info_mode=info_mode,
+            zoom_to_layer=zoom_to_layer,
+            **kwargs,
+        )
+
+    def add_fire_timeseries(
+        self,
+        fire_id: str,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        time_column: str = "t",
+        layer_name: str = "Fire Evolution",
+        style: Optional[Dict] = None,
+        **kwargs,
+    ) -> None:
+        """Add fire perimeter evolution over time with a time slider.
+
+        Args:
+            fire_id: The fire ID to track over time.
+            collection: Fire collection ID. Defaults to "snapshot_perimeter_nrt".
+            datetime: ISO 8601 date/time or interval to filter by.
+            time_column: Column containing timestamps. Defaults to "t".
+            layer_name: Name for the layer.
+            style: Style dictionary for the fire perimeters.
+            **kwargs: Additional keyword arguments for add_gdf_time_slider().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_timeseries(fire_id="2024_CA_001")
+            >>> m
+        """
+        from . import fire as fire_module
+
+        gdf = fire_module.fire_timeseries(
+            fire_id=fire_id,
+            collection=collection,
+            datetime=datetime,
+        )
+
+        if gdf.empty:
+            print(f"No fire data found for fire ID: {fire_id}")
+            return
+
+        if time_column not in gdf.columns:
+            print(f"Time column '{time_column}' not found in data.")
+            # Fall back to regular display
+            if style is None:
+                style = {
+                    "color": "#FF4500",
+                    "weight": 2,
+                    "fillColor": "#FF6347",
+                    "fillOpacity": 0.5,
+                }
+            self.add_gdf(gdf, layer_name=layer_name, style=style)
+            return
+
+        # Get unique time values
+        time_values = sorted(gdf[time_column].dropna().unique())
+
+        if len(time_values) <= 1:
+            # Only one time point, display as regular layer
+            if style is None:
+                style = {
+                    "color": "#FF4500",
+                    "weight": 2,
+                    "fillColor": "#FF6347",
+                    "fillOpacity": 0.5,
+                }
+            self.add_gdf(gdf, layer_name=layer_name, style=style)
+            return
+
+        # Use the time slider for multiple time points
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        self.add_gdf_time_slider(
+            gdf,
+            time_columns=[time_column],
+            style=style,
+            **kwargs,
+        )
 
 
 # The functions below are outside the Map class.

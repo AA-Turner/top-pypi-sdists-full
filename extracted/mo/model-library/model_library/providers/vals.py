@@ -151,13 +151,17 @@ class DummyAIBatchMixin(LLMBatchMixin):
 class DummyAIModel(LLM):
     _client: Redis | None = None
 
-    @override
-    def get_client(self) -> Redis:
-        if not DummyAIModel._client:
-            DummyAIModel._client = redis.from_url(  # pyright: ignore[reportUnknownMemberType]
+    def _get_default_api_key(self) -> str:
+        return model_library_settings.REDIS_URL
+
+    def get_client(self, api_key: str | None = None) -> Redis:
+        if not self.has_client():
+            assert api_key
+            client = redis.from_url(  # pyright: ignore[reportUnknownMemberType]
                 model_library_settings.REDIS_URL, decode_responses=True
             )
-        return DummyAIModel._client
+            self.assign_client(client)
+        return super().get_client()
 
     def __init__(
         self,
@@ -238,11 +242,13 @@ class DummyAIModel(LLM):
         messages = await self.parse_input(input)
         body: dict[str, Any] = {
             "model": self.model_name,
-            "max_tokens": self.max_tokens,
             "seed": 0,
             "messages": messages,
             "tools": await self.parse_tools(tools),
         }
+
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
 
         if self.supports_temperature:
             if self.temperature is not None:

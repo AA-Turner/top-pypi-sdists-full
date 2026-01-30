@@ -1,5 +1,5 @@
 # This file is part of Pebble.
-# Copyright (c) 2013-2025, Matteo Cafasso
+# Copyright (c) 2013-2026, Matteo Cafasso
 
 # Pebble is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License
@@ -27,14 +27,14 @@ from typing import Any, Callable, Optional
 from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures import CancelledError, TimeoutError
 
+from pebble.pool.channel import WorkerChannel, channels
 from pebble.pool.base_pool import Worker, iter_chunks, run_initializer
 from pebble.pool.base_pool import PoolContext, BasePool, Task, TaskPayload
 from pebble.pool.base_pool import PoolStatus, ProcessMapFuture, map_results
-from pebble.pool.channel import ChannelError, WorkerChannel, channels
 from pebble.common import Result, ResultStatus, CONSTS
-from pebble.common import launch_process, stop_process
 from pebble.common import ProcessExpired, ProcessFuture
 from pebble.common import process_execute, launch_thread
+from pebble.common import launch_process, stop_process, process_exit
 
 
 class ProcessPool(BasePool):
@@ -155,12 +155,11 @@ class ProcessPool(BasePool):
 
 
 def task_scheduler_loop(pool_manager: 'PoolManager'):
-    context = pool_manager.context
-    task_queue = context.task_queue
+    task_queue = pool_manager.context.task_queue
 
     try:
-        while context.alive and not GLOBAL_SHUTDOWN:
-            task = task_queue.get()
+        while pool_manager.context.alive and not GLOBAL_SHUTDOWN:
+            task = pool_manager.context.task_queue.get()
 
             if task is not None:
                 if task.future.cancelled():
@@ -170,29 +169,25 @@ def task_scheduler_loop(pool_manager: 'PoolManager'):
                     pool_manager.schedule(task)
             else:
                 task_queue.task_done()  # Termination sentinel received
-    except BrokenProcessPool:
-        context.status = PoolStatus.ERROR
+    except BrokenProcessPool as error:
+        pool_manager.handle_broken_pool(error)
 
 
 def pool_manager_loop(pool_manager: 'PoolManager'):
-    context = pool_manager.context
-
     try:
-        while context.alive and not GLOBAL_SHUTDOWN:
+        while pool_manager.context.alive and not GLOBAL_SHUTDOWN:
             pool_manager.update_status()
             time.sleep(CONSTS.sleep_unit)
-    except BrokenProcessPool:
-        context.status = PoolStatus.ERROR
+    except BrokenProcessPool as error:
+        pool_manager.handle_broken_pool(error)
 
 
 def message_manager_loop(pool_manager: 'PoolManager'):
-    context = pool_manager.context
-
     try:
-        while context.alive and not GLOBAL_SHUTDOWN:
+        while pool_manager.context.alive and not GLOBAL_SHUTDOWN:
             pool_manager.process_next_message(CONSTS.sleep_unit)
-    except BrokenProcessPool:
-        context.status = PoolStatus.ERROR
+    except BrokenProcessPool as error:
+        pool_manager.handle_broken_pool(error)
 
 
 class PoolManager:
@@ -206,6 +201,7 @@ class PoolManager:
                                             mp_context)
 
     def start(self):
+        self.worker_manager.create_channels()
         self.worker_manager.create_workers()
 
     def stop(self):
@@ -276,6 +272,10 @@ class PoolManager:
 
         raise BrokenProcessPool("All workers expired")
 
+    def handle_broken_pool(self, error: BrokenProcessPool):
+        self.context.status = PoolStatus.ERROR
+        self.task_manager.tasks_abort(error)
+
 
 class TaskManager:
     """Manages the tasks flow within the Pool.
@@ -292,10 +292,14 @@ class TaskManager:
         self.tasks[task.id] = task
 
     def task_start(self, task_id: int, worker_id: Optional[int]):
-        task = self.tasks[task_id]
-        task.worker_id = worker_id
-        task.timestamp = time.time()
-        task.set_running_or_notify_cancel()
+        try:
+            task = self.tasks[task_id]
+        except KeyError:
+            return  # task already completed
+        else:
+            task.worker_id = worker_id
+            task.timestamp = time.time()
+            task.set_running_or_notify_cancel()
 
     def task_done(self, task_id: int, result: Result):
         """Set the tasks result and run the callback."""
@@ -317,6 +321,11 @@ class TaskManager:
         """Set the task with the error it caused within the Pool."""
         self.task_start(task_id, None)
         self.task_done(task_id, Result(ResultStatus.ERROR, error))
+
+    def tasks_abort(self, error: Exception):
+        """Abort all tasks due to critical error."""
+        for task_id in dictionary_keys(self.tasks):
+            self.task_problem(task_id, error)
 
     def timeout_tasks(self) -> tuple:
         return tuple(t for t in dictionary_values(self.tasks)
@@ -346,8 +355,9 @@ class WorkerManager:
         self.workers = {}
         self.workers_number = workers
         self.worker_parameters = worker_parameters
-        self.pool_channel, self.workers_channel = channels(mp_context)
         self.mp_context = mp_context
+        self.pool_channel = None
+        self.workers_channel = None
 
     def dispatch(self, task: Task):
         try:
@@ -363,7 +373,9 @@ class WorkerManager:
                 return self.pool_channel.recv()
             else:
                 return NoMessage()
-        except (OSError, TypeError) as error:
+        except PICKLING_ERRORS as error:
+            raise BrokenProcessPool("Unpicklable object from worker") from error
+        except OSError as error:
             raise BrokenProcessPool from error
         except EOFError:  # Pool shutdown
             return NoMessage()
@@ -382,13 +394,18 @@ class WorkerManager:
 
         return tuple((w.pid, w.exitcode) for w in expired if w.exitcode != 0)
 
+    def create_channels(self):
+        self.pool_channel, self.workers_channel = channels(self.mp_context)
+
+    def close_channels(self):
+        if self.pool_channel is not None:
+            self.pool_channel.close()
+        if self.workers_channel is not None:
+            self.workers_channel.close()
+
     def create_workers(self):
         for _ in range(self.workers_number - len(self.workers)):
             self.new_worker()
-
-    def close_channels(self):
-        self.pool_channel.close()
-        self.workers_channel.close()
 
     def force_stop_workers(self):
         for worker_id in tuple(self.workers.keys()):
@@ -421,18 +438,18 @@ class WorkerManager:
 def worker_process(params: Worker, channel: WorkerChannel):
     """The worker process routines."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, process_exit)
 
     channel.initialize()
 
     if params.initializer is not None:
         if not run_initializer(params.initializer, params.initargs):
-            os._exit(1)
+            process_exit(1)
 
     try:
         process_tasks(params, channel)
     except (OSError, RuntimeError) as error:
-        os._exit(getattr(error, 'errno', None) or 1)
+        process_exit(getattr(error, 'errno', None) or 1)
     except EOFError:  # pipe closed on main loop
         pass
 
@@ -504,6 +521,15 @@ def interpreter_shutdown():
 
     for worker in workers:
         stop_process(worker)
+
+
+def dictionary_keys(dictionary: dict) -> tuple:
+    """Returns a snapshot of the dictionary keys handling race conditions."""
+    while True:
+        try:
+            return tuple(dictionary.keys())
+        except RuntimeError:  # race condition
+            pass
 
 
 def dictionary_values(dictionary: dict) -> tuple:

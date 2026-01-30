@@ -1,24 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cadurso
-Version: 0.5.0
+Version: 0.6.0
 Summary: Authorization framework for Python-based applications
-License: MIT
-Author: cadu
-Author-email: cadu.coelho@gmail.com
-Requires-Python: >=3.11
+Project-URL: homepage, https://github.com/flipbit03/cadurso
+Project-URL: source, https://github.com/flipbit03/cadurso
+Project-URL: issues, https://github.com/flipbit03/cadurso/issues
+Author-email: cadu <cadu.coelho@gmail.com>
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # 🐻Cadurso[^1]
 Authorization framework for Python-based applications. Inspired by _[Oso](https://github.com/osohq/oso)_.
 
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cadurso)](https://pypi.org/project/cadurso/)
-[![PyPI - Version](https://img.shields.io/pypi/v/cadurso)](https://pypi.org/project/cadurso/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cadurso?v=2)](https://pypi.org/project/cadurso/)
+[![PyPI - Version](https://img.shields.io/pypi/v/cadurso?v=2)](https://pypi.org/project/cadurso/)
+[![PyPI - Types](https://img.shields.io/pypi/types/cadurso?v=2)](https://pypi.org/project/cadurso/)
 
 ## Overview
 
@@ -87,6 +90,8 @@ cadurso.freeze()
 ### Installation
 
 ```bash
+uv add cadurso      # or
+poetry add cadurso  # or
 pip install cadurso
 ```
 
@@ -179,14 +184,40 @@ await cadurso.is_allowed_async(john, DocumentPermission.EDIT, johns_document)  #
 await cadurso.can(john).do(DocumentPermission.EDIT).on_async(johns_document)   # Output: True
 ```
 
+#### Listing Allowed Actions
+
+Get all actions an actor can perform on a resource:
+
+```python
+# `.get_allowed_actions()` returns a set of all allowed actions
+cadurso.get_allowed_actions(john, johns_document)
+# Output: {DocumentPermission.EDIT, DocumentPermission.VIEW}
+
+cadurso.get_allowed_actions(john, gunnars_document)
+# Output: {DocumentPermission.VIEW}  (can view but not edit)
+
+cadurso.get_allowed_actions(gunnar, johns_document)
+# Output: {DocumentPermission.EDIT, DocumentPermission.VIEW}  (admin can do everything)
+
+# Alternate syntax with `.can()`
+cadurso.can(john).allowed_actions_on(johns_document)
+# Output: {DocumentPermission.EDIT, DocumentPermission.VIEW}
+
+# Async variants
+await cadurso.get_allowed_actions_async(john, johns_document)
+await cadurso.can(john).allowed_actions_on_async(johns_document)
+```
+
 #### More examples?
 
 - **ABAC** (Attribute-based Access Control) in Cadurso:
-  - Check [`/tests/akira/`](./tests/akira) for a full ABAC implementation set in the [Akira](https://en.wikipedia.org/wiki/Akira_(1988_film)) universe.
+  - Check [`/tests/akira/`](./tests/akira) for a full ABAC implementation set in the [Akira (1988 film)](https://en.wikipedia.org/wiki/Akira_(1988_film)) universe.
 
 
 - **RBAC** (Role-based Access Control) in Cadurso:
-  - The [`/tests/brazil/`](./tests/brazil) folder shows a full RBAC implementation set in the [Brazil](https://en.wikipedia.org/wiki/Brazil_(1985_film)) universe.
+  - The [`/tests/brazil/`](./tests/brazil) folder shows a full RBAC implementation set in the [Brazil (1985 film)](https://en.wikipedia.org/wiki/Brazil_(1985_film)) universe.
+
+> **Note:** If you've watched these films, the tests will be particularly enjoyable to read — you'll recognize characters, locations, and scenarios from the movies woven into the authorization rules! If you haven't seen them, I highly recommend watching these two excellent movies.
 
 
 ## Contributing
@@ -199,4 +230,3 @@ Cadurso is licensed under the MIT License. See the LICENSE file for details.
 
 [^2]: **Important:** Rules should be pure functions, and avoid mutating the actors or resources passed to them.
       As we cannot enforce this at runtime, it is the responsibility of the developer to ensure this.
-

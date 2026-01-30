@@ -62,6 +62,213 @@ from onnx2tf.utils.enums import (
 from onnx2tf.utils.logging import *
 from sng4onnx import generate as op_name_auto_generate
 
+def fuse_expanded_qdq_to_qdq(
+    *,
+    graph: gs.Graph,
+):
+    def _get_const_value(tensor):
+        if isinstance(tensor, gs.Constant):
+            return tensor.values
+        if isinstance(tensor, gs.Variable) and len(tensor.inputs) == 1:
+            producer = tensor.inputs[0]
+            if producer.op == 'Constant' and 'value' in producer.attrs:
+                return producer.attrs['value'].values
+        return None
+
+    def _split_const_and_var(inputs):
+        if len(inputs) != 2:
+            return None, None
+        const_val = _get_const_value(inputs[0])
+        if const_val is not None:
+            return const_val, inputs[1]
+        const_val = _get_const_value(inputs[1])
+        if const_val is not None:
+            return const_val, inputs[0]
+        return None, None
+
+    nodes_to_remove = []
+    nodes_to_add = []
+
+    for round_node in list(graph.nodes):
+        if round_node.op != 'Round' or len(round_node.inputs) < 1:
+            continue
+
+        round_in = round_node.inputs[0]
+        if len(round_in.inputs) != 1:
+            continue
+        mul1_node = round_in.inputs[0]
+        if mul1_node.op != 'Mul':
+            continue
+        if len(mul1_node.outputs) != 1 or len(mul1_node.outputs[0].outputs) != 1:
+            continue
+
+        inv_scale, x = _split_const_and_var(mul1_node.inputs)
+        if inv_scale is None or x is None:
+            continue
+
+        relu_node = round_node.outputs[0].outputs[0] if round_node.outputs else None
+        if relu_node is None:
+            continue
+        if relu_node.op == 'Relu':
+            relu_out = relu_node.outputs[0]
+        elif relu_node.op in ['Max', 'Maximum']:
+            max_const, max_var = _split_const_and_var(relu_node.inputs)
+            if max_const is None or max_var != round_node.outputs[0]:
+                continue
+            if np.asarray(max_const).size != 1 or float(np.asarray(max_const).item()) != 0.0:
+                continue
+            relu_out = relu_node.outputs[0]
+        else:
+            continue
+
+        if len(relu_out.outputs) != 1:
+            continue
+        min_node = relu_out.outputs[0]
+        if min_node.op not in ['Min', 'Minimum']:
+            continue
+
+        qmax, min_var = _split_const_and_var(min_node.inputs)
+        if qmax is None or min_var != relu_out:
+            continue
+        if np.asarray(qmax).size != 1:
+            continue
+
+        if len(min_node.outputs) != 1 or len(min_node.outputs[0].outputs) != 1:
+            continue
+        mul2_node = min_node.outputs[0].outputs[0]
+        if mul2_node.op != 'Mul':
+            continue
+
+        scale, min_out = _split_const_and_var(mul2_node.inputs)
+        if scale is None or min_out != min_node.outputs[0]:
+            continue
+        if np.asarray(scale).size != 1:
+            continue
+
+        scale_val = float(np.asarray(scale).item())
+        inv_scale_val = float(np.asarray(inv_scale).item())
+        if scale_val == 0.0 or not np.isfinite(scale_val) or not np.isfinite(inv_scale_val):
+            continue
+        if not np.isclose(scale_val * inv_scale_val, 1.0, rtol=1e-3, atol=1e-6):
+            continue
+
+        if len(mul2_node.outputs) != 1:
+            continue
+        output_var = mul2_node.outputs[0]
+
+        # Require linear chain
+        chain_nodes = [mul1_node, round_node, relu_node, min_node, mul2_node]
+        if any(len(n.outputs) == 0 for n in chain_nodes):
+            continue
+        if len(round_node.outputs[0].outputs) != 1 or len(relu_out.outputs) != 1 or len(min_node.outputs[0].outputs) != 1:
+            continue
+
+        # Build QDQ
+        scale_const = gs.Constant(
+            name=f"{mul2_node.name}_scale",
+            values=np.asarray(scale_val, dtype=np.float32),
+        )
+        zero_const = gs.Constant(
+            name=f"{mul2_node.name}_zero_point",
+            values=np.asarray(0, dtype=np.uint8),
+        )
+        quant_out = gs.Variable(
+            name=f"{output_var.name}_quant",
+            dtype=np.uint8,
+            shape=output_var.shape,
+        )
+        q_node = gs.Node(
+            op="QuantizeLinear",
+            name=f"{mul2_node.name}_QuantizeLinear",
+            inputs=[x, scale_const, zero_const],
+            outputs=[quant_out],
+        )
+        dq_node = gs.Node(
+            op="DequantizeLinear",
+            name=f"{mul2_node.name}_DequantizeLinear",
+            inputs=[quant_out, scale_const, zero_const],
+            outputs=[output_var],
+        )
+        output_var.inputs = [dq_node]
+
+        nodes_to_add.extend([q_node, dq_node])
+        nodes_to_remove.extend(chain_nodes)
+
+    if nodes_to_add:
+        graph.nodes.extend(nodes_to_add)
+    if nodes_to_remove:
+        for n in nodes_to_remove:
+            if n in graph.nodes:
+                graph.nodes.remove(n)
+        graph.cleanup().toposort()
+
+def apply_nonzero_passthrough(
+    *,
+    graph: gs.Graph,
+    onnx_tensor_infos: Optional[Dict[str, np.ndarray]],
+    onnx_input_datas_for_validation: Optional[Dict[str, np.ndarray]] = None,
+    update_graph_shape: bool = False,
+) -> None:
+    if onnx_tensor_infos is None:
+        return
+    for graph_node in graph.nodes:
+        if graph_node.op != 'NonZero':
+            continue
+        if len(graph_node.inputs) == 0 or len(graph_node.outputs) == 0:
+            continue
+        nonzero_input = graph_node.inputs[0]
+        nonzero_output = graph_node.outputs[0]
+        passthrough_tensor = None
+        input_name = nonzero_input.name
+
+        if input_name in onnx_tensor_infos:
+            passthrough_tensor = onnx_tensor_infos[input_name]
+        elif onnx_input_datas_for_validation and input_name in onnx_input_datas_for_validation:
+            passthrough_tensor = onnx_input_datas_for_validation[input_name]
+        elif hasattr(nonzero_input, 'values'):
+            passthrough_tensor = nonzero_input.values
+
+        if passthrough_tensor is not None:
+            onnx_tensor_infos[nonzero_output.name] = passthrough_tensor
+            if update_graph_shape and hasattr(passthrough_tensor, 'shape'):
+                nonzero_output.shape = list(passthrough_tensor.shape)
+
+def apply_nonzero_passthrough_tf(
+    *,
+    graph: gs.Graph,
+    tf_layers_dict: Dict[str, Any],
+    tf_tensor_infos: Optional[Dict[str, np.ndarray]],
+    tf_input_datas_for_validation: Optional[Dict[str, np.ndarray]] = None,
+) -> None:
+    if tf_tensor_infos is None:
+        return
+    for graph_node in graph.nodes:
+        if graph_node.op != 'NonZero':
+            continue
+        if len(graph_node.inputs) == 0 or len(graph_node.outputs) == 0:
+            continue
+        input_name = graph_node.inputs[0].name
+        output_name = graph_node.outputs[0].name
+        input_info = tf_layers_dict.get(input_name)
+        output_info = tf_layers_dict.get(output_name)
+        if input_info is None or output_info is None:
+            continue
+        input_tf_node = input_info.get('tf_node')
+        output_tf_node = output_info.get('tf_node')
+        if input_tf_node is None or output_tf_node is None:
+            continue
+        input_tf_name = input_tf_node.name
+        output_tf_name = output_tf_node.name
+        passthrough_tensor = None
+
+        if input_tf_name in tf_tensor_infos:
+            passthrough_tensor = tf_tensor_infos[input_tf_name]
+        elif tf_input_datas_for_validation and input_tf_name in tf_input_datas_for_validation:
+            passthrough_tensor = tf_input_datas_for_validation[input_tf_name]
+
+        if passthrough_tensor is not None:
+            tf_tensor_infos[output_tf_name] = passthrough_tensor
+
 def convert(
     input_onnx_file_path: Optional[str] = '',
     onnx_graph: Optional[onnx.ModelProto] = None,
@@ -781,6 +988,7 @@ def convert(
     if hasattr(onnx_graph, 'metadata_props'):
         metadata_props = onnx_graph.metadata_props
     graph = gs.import_onnx(onnx_graph)
+    fuse_expanded_qdq_to_qdq(graph=graph)
 
     # Cut the ONNX graph when an input name is specified that interrupts the conversion
     if not input_names_to_interrupt_model_conversion:
@@ -1113,6 +1321,7 @@ def convert(
         # Used to verify the output error of each OP in the TensorFlow model.
         full_ops_output_names = []
         onnx_tensor_infos_for_validation = None
+        onnx_input_datas_for_validation = {}
         for graph_node in graph.nodes:
             full_ops_output_names_sub = []
             for graph_node_output in graph_node.outputs:
@@ -1132,6 +1341,7 @@ def convert(
                     enable_ort_output_memmap=onnxruntime_output_memmap,
                     ort_output_memmap_dir=onnxruntime_output_memmap_dir,
                     shape_hints=shape_hints if (check_onnx_tf_outputs_elementwise_close or check_onnx_tf_outputs_elementwise_close_full) else None,
+                    input_datas_for_validation=onnx_input_datas_for_validation,
                 )
             """
             onnx_tensor_infos_for_validation:
@@ -1148,12 +1358,20 @@ def convert(
                         in zip(full_ops_output_names, onnx_outputs_for_validation)
             }
             del onnx_outputs_for_validation
+
+            apply_nonzero_passthrough(
+                graph=graph,
+                onnx_tensor_infos=onnx_tensor_infos_for_validation,
+                onnx_input_datas_for_validation=onnx_input_datas_for_validation,
+                update_graph_shape=True,
+            )
         except Exception as ex:
             warn(
                 f'The optimization process for shape estimation is skipped ' +
                 f'because it contains OPs that cannot be inferred by the standard onnxruntime.'
             )
             warn(f'{ex}')
+            onnx_input_datas_for_validation = None
         additional_parameters['onnx_tensor_infos_for_validation'] = onnx_tensor_infos_for_validation
         additional_parameters['test_data_nhwc'] = test_data_nhwc
         additional_parameters['custom_input_op_name_np_data_path'] = custom_input_op_name_np_data_path
@@ -1467,82 +1685,89 @@ def convert(
         SIGNATURE_KEY = 'serving_default'
 
         # saved_model
+        saved_model_log_level = get_log_level()
         try:
-            # concrete_func
-            info(Color.REVERSE(f'saved_model output started'), '=' * 58)
-            if not output_signaturedefs and not output_integer_quantized_tflite:
-                tf.saved_model.save(model, output_folder_path)
-            else:
-                export_archive = tf_keras.export.ExportArchive()
-                export_archive.add_endpoint(
-                    name=SIGNATURE_KEY,
-                    fn=lambda *inputs : model(inputs),
-                    input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
-                )
-                export_archive.write_out(output_folder_path)
-            info(Color.GREEN(f'saved_model output complete!'))
-        except TypeError as e:
-            # Switch to .pb
-            info(Color.GREEN(f'Switch to the output of an optimized protocol buffer file (.pb).'))
-        except (KeyError, AssertionError) as e:
-            msg_list = [s for s in e.args if isinstance(s, str)]
-            if len(msg_list) > 0:
-                try:
-                    for s in msg_list:
-                        if 'Failed to add concrete function' in s \
-                            or "Tried to export a function which references an 'untracked' resource" in s:
-                            export_archive = tf_keras.export.ExportArchive()
-                            export_archive.add_endpoint(
-                                name=SIGNATURE_KEY,
-                                fn=lambda *inputs : model(inputs),
-                                input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
-                            )
-                            export_archive.write_out(output_folder_path)
-                            break
-                except ValueError as e:
-                    msg_list = [s for s in e.args if isinstance(s, str)]
-                    if len(msg_list) > 0:
+            if saved_model_log_level <= LOG_LEVELS['debug']:
+                set_log_level('info')
+            try:
+                # concrete_func
+                info(Color.REVERSE(f'saved_model output started'), '=' * 58)
+                if not output_signaturedefs and not output_integer_quantized_tflite:
+                    tf.saved_model.save(model, output_folder_path)
+                else:
+                    export_archive = tf_keras.export.ExportArchive()
+                    export_archive.add_endpoint(
+                        name=SIGNATURE_KEY,
+                        fn=lambda *inputs : model(inputs),
+                        input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
+                    )
+                    export_archive.write_out(output_folder_path)
+                info(Color.GREEN(f'saved_model output complete!'))
+            except TypeError as e:
+                # Switch to .pb
+                info(Color.GREEN(f'Switch to the output of an optimized protocol buffer file (.pb).'))
+            except (KeyError, AssertionError) as e:
+                msg_list = [s for s in e.args if isinstance(s, str)]
+                if len(msg_list) > 0:
+                    try:
                         for s in msg_list:
-                            if 'A root scope name has to match the following pattern' in s:
-                                error(
-                                    f'Generation of saved_model failed because the OP name does not match the following pattern. ^[A-Za-z0-9.][A-Za-z0-9_.\\\\/>-]*$'
+                            if 'Failed to add concrete function' in s \
+                                or "Tried to export a function which references an 'untracked' resource" in s:
+                                export_archive = tf_keras.export.ExportArchive()
+                                export_archive.add_endpoint(
+                                    name=SIGNATURE_KEY,
+                                    fn=lambda *inputs : model(inputs),
+                                    input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
                                 )
-                                matches = re.findall(r"'([^']*)'", s)
-                                error(f'{matches[0]}')
-                                error(
-                                    f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
-                                )
-                                sys.exit(1)
-                    else:
-                        error(e)
-                        import traceback
-                        error(traceback.format_exc(), prefix=False)
-            else:
+                                export_archive.write_out(output_folder_path)
+                                break
+                    except ValueError as e:
+                        msg_list = [s for s in e.args if isinstance(s, str)]
+                        if len(msg_list) > 0:
+                            for s in msg_list:
+                                if 'A root scope name has to match the following pattern' in s:
+                                    error(
+                                        f'Generation of saved_model failed because the OP name does not match the following pattern. ^[A-Za-z0-9.][A-Za-z0-9_.\\\\/>-]*$'
+                                    )
+                                    matches = re.findall(r"'([^']*)'", s)
+                                    error(f'{matches[0]}')
+                                    error(
+                                        f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
+                                    )
+                                    sys.exit(1)
+                        else:
+                            error(e)
+                            import traceback
+                            error(traceback.format_exc(), prefix=False)
+                else:
+                    error(e)
+                    import traceback
+                    error(traceback.format_exc(), prefix=False)
+            except ValueError as e:
+                msg_list = [s for s in e.args if isinstance(s, str)]
+                if len(msg_list) > 0:
+                    for s in msg_list:
+                        if 'A root scope name has to match the following pattern' in s:
+                            error(
+                                f'Generation of saved_model failed because the OP name does not match the following pattern. ^[A-Za-z0-9.][A-Za-z0-9_.\\\\/>-]*$'
+                            )
+                            matches = re.findall(r"'([^']*)'", s)
+                            error(f'{matches[0]}')
+                            error(
+                                f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
+                            )
+                            sys.exit(1)
+                else:
+                    error(e)
+                    import traceback
+                    error(traceback.format_exc(), prefix=False)
+            except Exception as e:
                 error(e)
                 import traceback
                 error(traceback.format_exc(), prefix=False)
-        except ValueError as e:
-            msg_list = [s for s in e.args if isinstance(s, str)]
-            if len(msg_list) > 0:
-                for s in msg_list:
-                    if 'A root scope name has to match the following pattern' in s:
-                        error(
-                            f'Generation of saved_model failed because the OP name does not match the following pattern. ^[A-Za-z0-9.][A-Za-z0-9_.\\\\/>-]*$'
-                        )
-                        matches = re.findall(r"'([^']*)'", s)
-                        error(f'{matches[0]}')
-                        error(
-                            f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
-                        )
-                        sys.exit(1)
-            else:
-                error(e)
-                import traceback
-                error(traceback.format_exc(), prefix=False)
-        except Exception as e:
-            error(e)
-            import traceback
-            error(traceback.format_exc(), prefix=False)
+        finally:
+            if get_log_level() != saved_model_log_level:
+                set_log_level(saved_model_log_level)
 
         # TFv1 .pb
         if output_tfv1_pb:
@@ -1581,9 +1806,12 @@ def convert(
         Name: flatbuffers
         Version: 22.10.26
         """
-        converter = tf.lite.TFLiteConverter.from_concrete_functions(
-            [concrete_func]
-        )
+        try:
+            converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        except Exception as e:
+            converter = tf.lite.TFLiteConverter.from_concrete_functions(
+                [concrete_func]
+            )
         converter.target_spec.supported_ops = [
             tf.lite.OpsSet.TFLITE_BUILTINS,
             tf.lite.OpsSet.SELECT_TF_OPS,
@@ -2051,6 +2279,7 @@ def convert(
             dummy_onnx_outputs = None
             try:
                 # ONNX dummy inference
+                onnx_input_datas_for_validation = {}
                 dummy_onnx_outputs: List[np.ndarray] = \
                     dummy_onnx_inference(
                         onnx_graph=onnx_graph,
@@ -2062,6 +2291,7 @@ def convert(
                         enable_ort_output_memmap=onnxruntime_output_memmap,
                         ort_output_memmap_dir=onnxruntime_output_memmap_dir,
                         shape_hints=shape_hints,
+                        input_datas_for_validation=onnx_input_datas_for_validation,
                     )
             except Exception as ex:
                 warn(
@@ -2071,6 +2301,7 @@ def convert(
                 warn(f'{ex}')
             else:
                 # TF dummy inference
+                tf_input_datas_for_validation = {}
                 tf_tensor_infos: Dict[Any] = \
                     dummy_tf_inference(
                         model=model,
@@ -2078,6 +2309,7 @@ def convert(
                         test_data_nhwc=test_data_nhwc,
                         custom_input_op_name_np_data_path=custom_input_op_name_np_data_path,
                         shape_hints=shape_hints,
+                        input_datas_for_validation=tf_input_datas_for_validation,
                         keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
                         keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
                         keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
@@ -2087,6 +2319,17 @@ def convert(
                     output_name: dummy_onnx_output \
                         for output_name, dummy_onnx_output in zip(ops_output_names, dummy_onnx_outputs)
                 }
+                apply_nonzero_passthrough(
+                    graph=graph,
+                    onnx_tensor_infos=onnx_tensor_infos,
+                    onnx_input_datas_for_validation=onnx_input_datas_for_validation,
+                )
+                apply_nonzero_passthrough_tf(
+                    graph=graph,
+                    tf_layers_dict=tf_layers_dict,
+                    tf_tensor_infos=tf_tensor_infos,
+                    tf_input_datas_for_validation=tf_input_datas_for_validation,
+                )
                 """
                 np.allclose(
                     dummy_onnx_outputs,
@@ -2316,6 +2559,7 @@ def convert(
                 # Initial accuracy check
                 try:
                     # ONNX dummy inference
+                    onnx_input_datas_for_validation = {}
                     dummy_onnx_outputs: List[np.ndarray] = \
                         dummy_onnx_inference(
                             onnx_graph=onnx_graph,
@@ -2327,9 +2571,11 @@ def convert(
                             enable_ort_output_memmap=onnxruntime_output_memmap,
                             ort_output_memmap_dir=onnxruntime_output_memmap_dir,
                             shape_hints=shape_hints,
+                            input_datas_for_validation=onnx_input_datas_for_validation,
                         )
 
                     # TF dummy inference
+                    tf_input_datas_for_validation = {}
                     tf_tensor_infos: Dict[Any] = \
                         dummy_tf_inference(
                             model=validation_model,
@@ -2337,6 +2583,7 @@ def convert(
                             test_data_nhwc=test_data_nhwc,
                             custom_input_op_name_np_data_path=custom_input_op_name_np_data_path,
                             shape_hints=shape_hints,
+                            input_datas_for_validation=tf_input_datas_for_validation,
                             keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
                             keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
                             keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
@@ -2347,6 +2594,17 @@ def convert(
                         output_name: dummy_onnx_output \
                             for output_name, dummy_onnx_output in zip(ops_output_names, dummy_onnx_outputs)
                     }
+                    apply_nonzero_passthrough(
+                        graph=graph,
+                        onnx_tensor_infos=onnx_tensor_infos,
+                        onnx_input_datas_for_validation=onnx_input_datas_for_validation,
+                    )
+                    apply_nonzero_passthrough_tf(
+                        graph=graph,
+                        tf_layers_dict=tf_layers_dict,
+                        tf_tensor_infos=tf_tensor_infos,
+                        tf_input_datas_for_validation=tf_input_datas_for_validation,
+                    )
 
                     input_names = [k.name for k in inputs]
                     for k, v in tf_layers_dict.items():

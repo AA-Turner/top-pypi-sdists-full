@@ -1,6 +1,6 @@
 [project]
 name = "tmuxp"
-version = "1.63.1"
+version = "1.64.0"
 description = "Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -58,7 +58,7 @@ dev = [
   # Docs
   "aafigure",
   "pillow",
-  "sphinx",
+  "sphinx<9",
   "furo",
   "gp-libs",
   "sphinx-autobuild",
@@ -67,7 +67,6 @@ dev = [
   "sphinxext-opengraph",
   "sphinx-copybutton",
   "sphinxext-rediraffe",
-  "sphinx-argparse",
   "myst-parser",
   "linkify-it-py",
   # Testing
@@ -92,7 +91,7 @@ dev = [
 docs = [
   "aafigure",
   "pillow",
-  "sphinx",
+  "sphinx<9",
   "furo",
   "gp-libs",
   "sphinx-autobuild",
@@ -101,7 +100,6 @@ docs = [
   "sphinxext-opengraph",
   "sphinx-copybutton",
   "sphinxext-rediraffe",
-  "sphinx-argparse",
   "myst-parser",
   "linkify-it-py",
 ]
@@ -163,6 +161,9 @@ files = [
   "src/",
   "tests/",
 ]
+exclude = [
+  "tests/docs/",
+]
 enable_incomplete_feature = []
 
 [[tool.mypy.overrides]]
@@ -173,8 +174,15 @@ module = [
   "ptpython.*",
   "prompt_toolkit.*",
   "bpython",
-  "sphinxarg.*",
+  "sphinx_argparse_neo",
+  "sphinx_argparse_neo.*",
   "cli_usage_lexer",
+  "argparse_lexer",
+  "argparse_roles",
+  "docutils",
+  "docutils.*",
+  "pygments",
+  "pygments.*",
 ]
 ignore_missing_imports = true
 

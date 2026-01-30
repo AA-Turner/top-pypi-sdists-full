@@ -6,6 +6,8 @@ import os
 import os.path as osp
 import sys
 import traceback
+from pathlib import Path
+from typing import AnyStr
 
 import yaml
 from loguru import logger
@@ -15,15 +17,16 @@ from PyQt5 import QtWidgets
 from labelme import __appname__
 from labelme import __version__
 from labelme.app import MainWindow
-from labelme.config import get_config
+from labelme.config import get_user_config_file
 from labelme.utils import newIcon
 
 
 class _LoggerIO(io.StringIO):
-    def write(self, message: str) -> int:
-        if stripped_message := message.strip():
-            logger.debug(stripped_message)
-        return len(message)
+    def write(self, s: AnyStr) -> int:
+        assert isinstance(s, str)
+        if stripped_s := s.strip():
+            logger.debug(stripped_s)
+        return len(s)
 
     def flush(self) -> None:
         pass
@@ -113,7 +116,7 @@ def main():
         help="output file or directory (if it ends with .json it is "
         "recognized as file, else as directory)",
     )
-    default_config_file = os.path.join(os.path.expanduser("~"), ".labelmerc")
+    default_config_file = get_user_config_file()
     parser.add_argument(
         "--config",
         dest="config",
@@ -216,16 +219,23 @@ def main():
     reset_config = config_from_args.pop("reset_config")
     filename = config_from_args.pop("filename")
     output = config_from_args.pop("output")
-    config_file_or_yaml = config_from_args.pop("config")
-    config = get_config(config_file_or_yaml, config_from_args)
 
-    if not config["labels"] and config["validate_label"]:
-        logger.error(
-            "--labels must be specified with --validatelabel or "
-            "validate_label: true in the config file "
-            "(ex. ~/.labelmerc)."
-        )
-        sys.exit(1)
+    config_overrides: dict
+    config_file: Path | None
+    config_str: str = config_from_args.pop("config")
+    if isinstance(config_loaded := yaml.safe_load(config_str), dict):
+        config_overrides = config_loaded
+        config_file = None
+    else:
+        config_overrides = {}
+        config_file = Path(config_str)
+        if not config_file.is_file():
+            logger.error(
+                "Config file does not exist: {!r}", str(config_file.absolute())
+            )
+            sys.exit(1)
+    del config_str
+    config_overrides.update(config_from_args)
 
     output_file = None
     output_dir = None
@@ -241,11 +251,13 @@ def main():
         f"{osp.dirname(osp.abspath(__file__))}/translate",
     )
     app = QtWidgets.QApplication(sys.argv)
+    app.setStyle("Fusion")  # for consistent appearance across platforms
     app.setApplicationName(__appname__)
     app.setWindowIcon(newIcon("icon"))
     app.installTranslator(translator)
     win = MainWindow(
-        config=config,
+        config_file=config_file,
+        config_overrides=config_overrides,
         filename=filename,
         output_file=output_file,
         output_dir=output_dir,

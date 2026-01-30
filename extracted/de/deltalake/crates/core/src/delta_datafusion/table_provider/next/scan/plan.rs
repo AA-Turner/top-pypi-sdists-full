@@ -19,12 +19,13 @@ use arrow::datatypes::{Schema, SchemaRef};
 use arrow_schema::{DataType, Field, FieldRef, SchemaBuilder};
 use datafusion::common::error::Result;
 use datafusion::common::tree_node::{Transformed, TreeNode};
-use datafusion::common::{HashMap, HashSet, plan_err};
+use datafusion::common::{HashMap, HashSet, exec_err, plan_err};
 use datafusion::logical_expr::TableProviderFilterPushDown;
 use datafusion::logical_expr::utils::conjunction;
 use datafusion::prelude::Expr;
+use datafusion::scalar::ScalarValue;
 use datafusion_datasource::file_scan_config::wrap_partition_type_in_dict;
-use delta_kernel::engine::arrow_conversion::{TryIntoArrow, TryIntoKernel as _};
+use delta_kernel::engine::arrow_conversion::{TryIntoArrow as _, TryIntoKernel as _};
 use delta_kernel::schema::DataType as KernelDataType;
 use delta_kernel::table_configuration::TableConfiguration;
 use delta_kernel::table_features::TableFeature;
@@ -32,7 +33,9 @@ use delta_kernel::{Expression, Predicate, PredicateRef};
 use itertools::Itertools;
 
 use crate::delta_datafusion::DeltaScanConfig;
-use crate::delta_datafusion::engine::{to_datafusion_expr, to_delta_expression, to_predicate};
+use crate::delta_datafusion::engine::{
+    to_datafusion_expr, to_delta_expression, to_delta_predicate,
+};
 use crate::delta_datafusion::table_provider::next::FILE_ID_COLUMN_DEFAULT;
 use crate::kernel::{Scan, Snapshot};
 
@@ -47,7 +50,7 @@ use crate::kernel::{Scan, Snapshot};
 /// Manages three schemas:
 /// - **result_schema**: Logical schema exposed to query after all transformations
 /// - **output_schema**: Final schema including metadata columns (e.g., file_id)
-/// - **parquet_read_schema**: Physical schema for reading Parquet files
+/// - **parquet_read_schema**: Physical schema for Parquet reads + predicate evaluation
 ///
 /// # Predicate Pushdown
 ///
@@ -65,7 +68,7 @@ pub(crate) struct KernelScanPlan {
     /// If set, indicates a projection to apply to the
     /// scan output to obtain the result schema
     pub(crate) result_projection: Option<Vec<usize>>,
-    /// The schema the inner Parquet scan should read from data files.
+    /// Physical schema used for Parquet reads and predicate evaluation.
     pub(crate) parquet_read_schema: SchemaRef,
     /// If set, indicates a predicate to apply at the Parquet scan level
     pub(crate) parquet_predicate: Option<Expr>,
@@ -77,14 +80,29 @@ impl KernelScanPlan {
         projection: Option<&Vec<usize>>,
         filters: &[Expr],
         config: &DeltaScanConfig,
+        skipping_predicate: Option<Vec<Expr>>,
     ) -> Result<Self> {
         let table_config = snapshot.table_configuration();
         let table_schema = config.table_schema(table_config)?;
 
         // At this point we should only have supported predicates, but we decide where
         // when can handle them (kernel scan and/or parquet scan)
-        let (kernel_predicate, parquet_predicate) = process_filters(filters, table_config)?;
-        let scan_builder = snapshot.scan_builder().with_predicate(kernel_predicate);
+        let (kernel_predicate, parquet_predicate) = process_filters(filters, table_config, config)?;
+
+        // if some dedicated file skipping predicate is supplied,
+        // we do not push the scan filters into the kernel scan.
+        let scan_predicate = if let Some(sp) = skipping_predicate {
+            let (Some(pred), _) = process_filters(&sp, table_config, config)? else {
+                return exec_err!("Failed to convert file skipping perdicate to kernel.");
+            };
+            Some(pred)
+        } else {
+            kernel_predicate
+        };
+
+        let scan_builder = snapshot
+            .scan_builder()
+            .with_predicate(scan_predicate.clone());
 
         let Some(projection) = projection else {
             let scan = Arc::new(scan_builder.build()?);
@@ -110,8 +128,14 @@ impl KernelScanPlan {
             .cloned()
             .collect();
 
+        let file_id_field = config.file_id_field();
         let mut projection = projection.clone();
         for col in missing_columns {
+            // the file id field is not part of the table schema here, as
+            // it is managed on the table provider level.
+            if col == file_id_field.name() {
+                continue;
+            }
             projection.push(table_schema.index_of(col)?);
         }
 
@@ -194,6 +218,8 @@ impl KernelScanPlan {
 
 impl DeltaScanConfig {
     pub(crate) fn file_id_field(&self) -> FieldRef {
+        // NOTE: keep the synthetic file-id column as Dictionary<UInt16, Utf8>.
+        // Arrow's dictionary packing does not support Utf8View, and this column is internal.
         Arc::new(Field::new(
             self.file_column_name
                 .as_deref()
@@ -300,15 +326,43 @@ impl DeltaScanConfig {
             _ => field,
         }
     }
+
+    // internal helper function to map scalar values
+    //
+    // This is specifically meant to align file stats values with the parquet
+    // scan. We track it here to have one place where view type mapping is handled.
+    pub(super) fn map_scalar_value(&self, value: ScalarValue) -> ScalarValue {
+        match value {
+            ScalarValue::Utf8(Some(v)) if self.schema_force_view_types => {
+                ScalarValue::Utf8View(Some(v))
+            }
+            ScalarValue::Binary(Some(v)) if self.schema_force_view_types => {
+                ScalarValue::BinaryView(Some(v))
+            }
+            other => other,
+        }
+    }
 }
 
 pub(crate) fn supports_filters_pushdown(
     filter: &[&Expr],
     config: &TableConfiguration,
+    scan_config: &DeltaScanConfig,
 ) -> Vec<TableProviderFilterPushDown> {
+    let file_id_field = scan_config
+        .file_column_name
+        .as_deref()
+        .unwrap_or(FILE_ID_COLUMN_DEFAULT);
+
+    // Parquet predicate pushdown is enabled only when we can safely apply it at read time.
+    // Deletion vectors require preserving row order for selection masks, and row tracking
+    // disables predicate pushdown in the read plan.
+    let parquet_pushdown_enabled = scan_config.enable_parquet_pushdown
+        && !config.is_feature_enabled(&TableFeature::RowTracking)
+        && !config.is_feature_enabled(&TableFeature::DeletionVectors);
     filter
         .iter()
-        .map(|f| process_predicate(f, config).pushdown)
+        .map(|f| process_predicate(f, config, file_id_field, parquet_pushdown_enabled).pushdown)
         .collect()
 }
 
@@ -324,10 +378,19 @@ pub(crate) fn supports_filters_pushdown(
 fn process_filters(
     filters: &[Expr],
     config: &TableConfiguration,
+    scan_config: &DeltaScanConfig,
 ) -> Result<(Option<PredicateRef>, Option<Expr>)> {
+    let file_id_field = scan_config
+        .file_column_name
+        .as_deref()
+        .unwrap_or(FILE_ID_COLUMN_DEFAULT);
+
+    let parquet_pushdown_enabled = scan_config.enable_parquet_pushdown
+        && !config.is_feature_enabled(&TableFeature::RowTracking)
+        && !config.is_feature_enabled(&TableFeature::DeletionVectors);
     let (parquet, kernel): (Vec<_>, Vec<_>) = filters
         .iter()
-        .map(|f| process_predicate(f, config))
+        .map(|f| process_predicate(f, config, file_id_field, parquet_pushdown_enabled))
         .map(|p| (p.parquet_predicate, p.kernel_predicate))
         .unzip();
     let parquet = if config.is_feature_enabled(&TableFeature::ColumnMapping) {
@@ -350,18 +413,28 @@ struct ProcessedPredicate<'a> {
     pub parquet_predicate: Option<&'a Expr>,
 }
 
-fn process_predicate<'a>(expr: &'a Expr, config: &TableConfiguration) -> ProcessedPredicate<'a> {
+fn process_predicate<'a>(
+    expr: &'a Expr,
+    config: &TableConfiguration,
+    file_id_column: &str,
+    parquet_pushdown_enabled: bool,
+) -> ProcessedPredicate<'a> {
     let cols = config.metadata().partition_columns();
     let only_partition_refs = expr.column_refs().iter().all(|c| cols.contains(&c.name));
     let any_partition_refs =
         only_partition_refs || expr.column_refs().iter().any(|c| cols.contains(&c.name));
+    let has_file_id = expr.column_refs().iter().any(|c| file_id_column == &c.name);
 
     // TODO(roeap): we may allow pusing predicates referencing partition columns
     // into the parquet scan, if the table has materialized partition columns
     let _has_partition_data = config.is_feature_enabled(&TableFeature::MaterializePartitionColumns);
 
     // Try to convert the expression into a kernel predicate
-    if let Ok(kernel_predicate) = to_predicate(expr) {
+    if let Ok(kernel_predicate) = to_delta_predicate(expr)
+        // delta kernel is unaware of the file id field, so it cannot process
+        // predicates that reference it.
+        && !has_file_id
+    {
         let (pushdown, parquet_predicate) = if only_partition_refs {
             // All references are to partition columns so the kernel
             // scan can fully handle the predicate and return exact results
@@ -373,7 +446,13 @@ fn process_predicate<'a>(expr: &'a Expr, config: &TableConfiguration) -> Process
             // push down any predicate to parquet
             (TableProviderFilterPushDown::Inexact, None)
         } else {
-            (TableProviderFilterPushDown::Inexact, Some(expr))
+            // For non-partition predicates we can *attempt* Parquet pushdown, but it is not a
+            // correctness boundary (it may be partially applied or skipped). Keep this Inexact so
+            // DataFusion retains a post-scan Filter.
+            (
+                TableProviderFilterPushDown::Inexact,
+                parquet_pushdown_enabled.then_some(expr),
+            )
         };
         return ProcessedPredicate {
             pushdown,
@@ -395,7 +474,7 @@ fn process_predicate<'a>(expr: &'a Expr, config: &TableConfiguration) -> Process
     ProcessedPredicate {
         pushdown: TableProviderFilterPushDown::Inexact,
         kernel_predicate: None,
-        parquet_predicate: Some(expr),
+        parquet_predicate: parquet_pushdown_enabled.then_some(expr),
     }
 }
 
@@ -480,6 +559,7 @@ mod tests {
             None,
             &[expr.clone()],
             &DeltaScanConfig::default(),
+            None,
         )?;
         let expected_pq =
             col("col-3877fd94-0973-4941-ac6b-646849a1ff65").eq(lit("Anthony Johnson"));
@@ -491,6 +571,7 @@ mod tests {
             None,
             &[expr.clone()],
             &DeltaScanConfig::default(),
+            None,
         )?;
         assert!(scan_plan.parquet_predicate.is_none());
 
@@ -500,6 +581,7 @@ mod tests {
             None,
             &[expr.clone()],
             &DeltaScanConfig::default(),
+            None,
         )?;
         println!("Scan plan: {:?}", scan_plan.parquet_predicate);
 
@@ -531,8 +613,7 @@ mod tests {
         let batches = collect(scan, ctx.task_ctx()).await?;
         assert_batches_sorted_eq!(&expected, &batches);
 
-        let filter =
-            col(r#""Company Very Short""#).eq(lit(ScalarValue::Utf8View(Some("BME".to_string()))));
+        let filter = col(r#""Company Very Short""#).eq(lit("BME"));
         let batches = ctx
             .read_table(provider.clone())?
             .filter(filter.clone())?
@@ -546,18 +627,25 @@ mod tests {
             "+--------------------+--------------+",
         ];
         assert_batches_sorted_eq!(&expected, &batches);
+
+        // we need to pass a more specific type here since we are not going
+        // through datafusions predicate handling.
+        let filter =
+            col(r#""Company Very Short""#).eq(lit(ScalarValue::Utf8View(Some("BME".to_string()))));
         let scan = provider.scan(&ctx.state(), None, &[filter], None).await?;
         let batches = collect(scan, ctx.task_ctx()).await?;
         assert_batches_sorted_eq!(&expected, &batches);
 
-        let filter =
-            col(r#""Super Name""#).eq(lit(ScalarValue::Utf8View(Some("Timothy Lamb".to_string()))));
+        let filter = col(r#""Super Name""#).eq(lit("Timothy Lamb"));
         let batches = ctx
             .read_table(provider.clone())?
             .filter(filter.clone())?
             .collect()
             .await?;
         assert_batches_sorted_eq!(&expected, &batches);
+
+        let filter =
+            col(r#""Super Name""#).eq(lit(ScalarValue::Utf8View(Some("Timothy Lamb".to_string()))));
         let scan = provider
             .scan(&ctx.state(), None, &[filter.clone()], None)
             .await?;

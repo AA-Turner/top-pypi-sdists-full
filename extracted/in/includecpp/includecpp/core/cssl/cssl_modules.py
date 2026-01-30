@@ -1706,6 +1706,496 @@ class ConsoleModule(CSSLModuleBase):
 
 
 # =============================================================================
+# @fmt Module - Text formatting and colors (ANSI)
+# =============================================================================
+
+class FmtModule(CSSLModuleBase):
+    """
+    @fmt - Text formatting with ANSI colors and utilities
+
+    Usage: fmt::green("Success!"), fmt::bold("Important")
+
+    Colors (basic):
+      red, green, blue, yellow, cyan, magenta, white, black
+
+    Colors (extended):
+      pink, purple, orange, gold, lime, teal, navy, olive,
+      maroon, coral, salmon, turquoise, silver, brown, gray
+
+    Light/Dark variants:
+      light_red, dark_red, light_green, dark_green, etc.
+
+    Styles:
+      bold, dim, italic, underline, blink, reverse
+
+    Advanced:
+      color(text, fg, bg)  - Custom foreground/background
+      rgb(text, r, g, b)   - RGB color (24-bit)
+      hex(text, "#rrggbb") - Hex color
+      reset()              - Reset all formatting
+
+    Utilities:
+      clear()              - Clear screen
+      log(msg)             - Log with timestamp [INFO]
+      error(msg)           - Log error in red [ERROR]
+      warning(msg)         - Log warning in yellow [WARNING]
+      success(msg)         - Log success in green [SUCCESS]
+      debug(msg)           - Log debug in gray [DEBUG]
+      hidden_input(prompt) - Hidden input (for passwords)
+      cursor_up(n)         - Move cursor up n lines
+      cursor_down(n)       - Move cursor down n lines
+      cursor_hide()        - Hide cursor
+      cursor_show()        - Show cursor
+    """
+
+    def __init__(self, runtime=None):
+        super().__init__(runtime)
+
+    def _register_methods(self):
+        # Basic colors
+        self._methods['red'] = self.red
+        self._methods['green'] = self.green
+        self._methods['blue'] = self.blue
+        self._methods['yellow'] = self.yellow
+        self._methods['cyan'] = self.cyan
+        self._methods['magenta'] = self.magenta
+        self._methods['white'] = self.white
+        self._methods['black'] = self.black
+        # Bright colors
+        self._methods['bright_red'] = self.bright_red
+        self._methods['bright_green'] = self.bright_green
+        self._methods['bright_blue'] = self.bright_blue
+        self._methods['bright_yellow'] = self.bright_yellow
+        self._methods['bright_cyan'] = self.bright_cyan
+        self._methods['bright_magenta'] = self.bright_magenta
+        self._methods['bright_white'] = self.bright_white
+        # Extended colors (24-bit RGB)
+        self._methods['pink'] = self.pink
+        self._methods['purple'] = self.purple
+        self._methods['orange'] = self.orange
+        self._methods['gold'] = self.gold
+        self._methods['lime'] = self.lime
+        self._methods['teal'] = self.teal
+        self._methods['navy'] = self.navy
+        self._methods['olive'] = self.olive
+        self._methods['maroon'] = self.maroon
+        self._methods['coral'] = self.coral
+        self._methods['salmon'] = self.salmon
+        self._methods['turquoise'] = self.turquoise
+        self._methods['silver'] = self.silver
+        self._methods['brown'] = self.brown
+        self._methods['gray'] = self.gray
+        self._methods['grey'] = self.gray  # Alias
+        # Light variants
+        self._methods['light_red'] = self.light_red
+        self._methods['light_green'] = self.light_green
+        self._methods['light_blue'] = self.light_blue
+        self._methods['light_yellow'] = self.light_yellow
+        self._methods['light_cyan'] = self.light_cyan
+        self._methods['light_magenta'] = self.light_magenta
+        self._methods['light_pink'] = self.light_pink
+        self._methods['light_purple'] = self.light_purple
+        self._methods['light_gray'] = self.light_gray
+        self._methods['light_grey'] = self.light_gray  # Alias
+        # Dark variants
+        self._methods['dark_red'] = self.dark_red
+        self._methods['dark_green'] = self.dark_green
+        self._methods['dark_blue'] = self.dark_blue
+        self._methods['dark_yellow'] = self.dark_yellow
+        self._methods['dark_cyan'] = self.dark_cyan
+        self._methods['dark_magenta'] = self.dark_magenta
+        self._methods['dark_gray'] = self.dark_gray
+        self._methods['dark_grey'] = self.dark_gray  # Alias
+        # Styles
+        self._methods['bold'] = self.bold
+        self._methods['dim'] = self.dim
+        self._methods['italic'] = self.italic
+        self._methods['underline'] = self.underline
+        self._methods['blink'] = self.blink
+        self._methods['reverse'] = self.reverse
+        # Advanced
+        self._methods['color'] = self.color
+        self._methods['rgb'] = self.rgb
+        self._methods['hex'] = self.hex_color
+        # v4.8.8: Code-only variants (return just ANSI code, no text)
+        self._methods['rgb_code'] = self.rgb_code
+        self._methods['hex_code'] = self.hex_code_only
+        self._methods['reset'] = self.reset
+        self._methods['strip'] = self.strip_ansi
+        # Utilities
+        self._methods['clear'] = self.clear
+        self._methods['log'] = self.log
+        self._methods['error'] = self.error
+        self._methods['warning'] = self.warning
+        self._methods['warn'] = self.warning  # Alias
+        self._methods['success'] = self.success
+        self._methods['debug'] = self.debug
+        self._methods['info'] = self.info
+        self._methods['hidden_input'] = self.hidden_input
+        self._methods['password'] = self.hidden_input  # Alias
+        self._methods['cursor_up'] = self.cursor_up
+        self._methods['cursor_down'] = self.cursor_down
+        self._methods['cursor_hide'] = self.cursor_hide
+        self._methods['cursor_show'] = self.cursor_show
+        self._methods['cursor_save'] = self.cursor_save
+        self._methods['cursor_restore'] = self.cursor_restore
+        self._methods['erase_line'] = self.erase_line
+        self._methods['move_to'] = self.move_to
+        self._methods['progress'] = self.progress
+
+    def _to_str(self, value) -> str:
+        """Convert value to string."""
+        return str(value) if value is not None else "null"
+
+    # Basic colors
+    def red(self, text) -> str:
+        return f'\033[31m{self._to_str(text)}\033[0m'
+
+    def green(self, text) -> str:
+        return f'\033[32m{self._to_str(text)}\033[0m'
+
+    def blue(self, text) -> str:
+        return f'\033[34m{self._to_str(text)}\033[0m'
+
+    def yellow(self, text) -> str:
+        return f'\033[33m{self._to_str(text)}\033[0m'
+
+    def cyan(self, text) -> str:
+        return f'\033[36m{self._to_str(text)}\033[0m'
+
+    def magenta(self, text) -> str:
+        return f'\033[35m{self._to_str(text)}\033[0m'
+
+    def white(self, text) -> str:
+        return f'\033[37m{self._to_str(text)}\033[0m'
+
+    def black(self, text) -> str:
+        return f'\033[30m{self._to_str(text)}\033[0m'
+
+    # Bright colors
+    def bright_red(self, text) -> str:
+        return f'\033[91m{self._to_str(text)}\033[0m'
+
+    def bright_green(self, text) -> str:
+        return f'\033[92m{self._to_str(text)}\033[0m'
+
+    def bright_blue(self, text) -> str:
+        return f'\033[94m{self._to_str(text)}\033[0m'
+
+    def bright_yellow(self, text) -> str:
+        return f'\033[93m{self._to_str(text)}\033[0m'
+
+    def bright_cyan(self, text) -> str:
+        return f'\033[96m{self._to_str(text)}\033[0m'
+
+    def bright_magenta(self, text) -> str:
+        return f'\033[95m{self._to_str(text)}\033[0m'
+
+    def bright_white(self, text) -> str:
+        return f'\033[97m{self._to_str(text)}\033[0m'
+
+    # Extended colors (24-bit RGB)
+    def pink(self, text) -> str:
+        return f'\033[38;2;255;105;180m{self._to_str(text)}\033[0m'
+
+    def purple(self, text) -> str:
+        return f'\033[38;2;128;0;128m{self._to_str(text)}\033[0m'
+
+    def orange(self, text) -> str:
+        return f'\033[38;2;255;165;0m{self._to_str(text)}\033[0m'
+
+    def gold(self, text) -> str:
+        return f'\033[38;2;255;215;0m{self._to_str(text)}\033[0m'
+
+    def lime(self, text) -> str:
+        return f'\033[38;2;0;255;0m{self._to_str(text)}\033[0m'
+
+    def teal(self, text) -> str:
+        return f'\033[38;2;0;128;128m{self._to_str(text)}\033[0m'
+
+    def navy(self, text) -> str:
+        return f'\033[38;2;0;0;128m{self._to_str(text)}\033[0m'
+
+    def olive(self, text) -> str:
+        return f'\033[38;2;128;128;0m{self._to_str(text)}\033[0m'
+
+    def maroon(self, text) -> str:
+        return f'\033[38;2;128;0;0m{self._to_str(text)}\033[0m'
+
+    def coral(self, text) -> str:
+        return f'\033[38;2;255;127;80m{self._to_str(text)}\033[0m'
+
+    def salmon(self, text) -> str:
+        return f'\033[38;2;250;128;114m{self._to_str(text)}\033[0m'
+
+    def turquoise(self, text) -> str:
+        return f'\033[38;2;64;224;208m{self._to_str(text)}\033[0m'
+
+    def silver(self, text) -> str:
+        return f'\033[38;2;192;192;192m{self._to_str(text)}\033[0m'
+
+    def brown(self, text) -> str:
+        return f'\033[38;2;139;69;19m{self._to_str(text)}\033[0m'
+
+    def gray(self, text) -> str:
+        return f'\033[38;2;128;128;128m{self._to_str(text)}\033[0m'
+
+    # Light color variants
+    def light_red(self, text) -> str:
+        return f'\033[38;2;255;102;102m{self._to_str(text)}\033[0m'
+
+    def light_green(self, text) -> str:
+        return f'\033[38;2;144;238;144m{self._to_str(text)}\033[0m'
+
+    def light_blue(self, text) -> str:
+        return f'\033[38;2;173;216;230m{self._to_str(text)}\033[0m'
+
+    def light_yellow(self, text) -> str:
+        return f'\033[38;2;255;255;224m{self._to_str(text)}\033[0m'
+
+    def light_cyan(self, text) -> str:
+        return f'\033[38;2;224;255;255m{self._to_str(text)}\033[0m'
+
+    def light_magenta(self, text) -> str:
+        return f'\033[38;2;255;119;255m{self._to_str(text)}\033[0m'
+
+    def light_pink(self, text) -> str:
+        return f'\033[38;2;255;182;193m{self._to_str(text)}\033[0m'
+
+    def light_purple(self, text) -> str:
+        return f'\033[38;2;221;160;221m{self._to_str(text)}\033[0m'
+
+    def light_gray(self, text) -> str:
+        return f'\033[38;2;211;211;211m{self._to_str(text)}\033[0m'
+
+    # Dark color variants
+    def dark_red(self, text) -> str:
+        return f'\033[38;2;139;0;0m{self._to_str(text)}\033[0m'
+
+    def dark_green(self, text) -> str:
+        return f'\033[38;2;0;100;0m{self._to_str(text)}\033[0m'
+
+    def dark_blue(self, text) -> str:
+        return f'\033[38;2;0;0;139m{self._to_str(text)}\033[0m'
+
+    def dark_yellow(self, text) -> str:
+        return f'\033[38;2;204;153;0m{self._to_str(text)}\033[0m'
+
+    def dark_cyan(self, text) -> str:
+        return f'\033[38;2;0;139;139m{self._to_str(text)}\033[0m'
+
+    def dark_magenta(self, text) -> str:
+        return f'\033[38;2;139;0;139m{self._to_str(text)}\033[0m'
+
+    def dark_gray(self, text) -> str:
+        return f'\033[38;2;105;105;105m{self._to_str(text)}\033[0m'
+
+    # Styles
+    def bold(self, text) -> str:
+        return f'\033[1m{self._to_str(text)}\033[0m'
+
+    def dim(self, text) -> str:
+        return f'\033[2m{self._to_str(text)}\033[0m'
+
+    def italic(self, text) -> str:
+        return f'\033[3m{self._to_str(text)}\033[0m'
+
+    def underline(self, text) -> str:
+        return f'\033[4m{self._to_str(text)}\033[0m'
+
+    def blink(self, text) -> str:
+        return f'\033[5m{self._to_str(text)}\033[0m'
+
+    def reverse(self, text) -> str:
+        return f'\033[7m{self._to_str(text)}\033[0m'
+
+    # Advanced
+    def color(self, text, fg: str = None, bg: str = None) -> str:
+        """Apply custom foreground and/or background color."""
+        colors = {
+            'black': 30, 'red': 31, 'green': 32, 'yellow': 33,
+            'blue': 34, 'magenta': 35, 'cyan': 36, 'white': 37,
+            'bright_black': 90, 'bright_red': 91, 'bright_green': 92,
+            'bright_yellow': 93, 'bright_blue': 94, 'bright_magenta': 95,
+            'bright_cyan': 96, 'bright_white': 97
+        }
+        codes = []
+        if fg and fg.lower() in colors:
+            codes.append(str(colors[fg.lower()]))
+        if bg and bg.lower() in colors:
+            codes.append(str(colors[bg.lower()] + 10))
+        if codes:
+            return f'\033[{";".join(codes)}m{self._to_str(text)}\033[0m'
+        return self._to_str(text)
+
+    def rgb(self, text, r: int, g: int, b: int) -> str:
+        """Apply 24-bit RGB color."""
+        return f'\033[38;2;{r};{g};{b}m{self._to_str(text)}\033[0m'
+
+    def hex_color(self, text, hex_code: str) -> str:
+        """Apply hex color (#rrggbb or rrggbb)."""
+        hex_code = hex_code.lstrip('#')
+        if len(hex_code) == 6:
+            r = int(hex_code[0:2], 16)
+            g = int(hex_code[2:4], 16)
+            b = int(hex_code[4:6], 16)
+            return self.rgb(text, r, g, b)
+        return self._to_str(text)
+
+    def rgb_code(self, r: int, g: int, b: int) -> str:
+        """v4.8.8: Return just the RGB ANSI code (no text, no reset).
+
+        Usage:
+            OUTPUT_PREFIX = fmt::rgb_code(180, 66, 175);  // Just the color code
+            println(OUTPUT_PREFIX + "colored text" + fmt::reset());
+        """
+        return f'\033[38;2;{r};{g};{b}m'
+
+    def hex_code_only(self, hex_code: str) -> str:
+        """v4.8.8: Return just the hex color ANSI code (no text, no reset).
+
+        Usage:
+            OUTPUT_PREFIX = fmt::hex_code("#b442af");  // Just the color code
+            println(OUTPUT_PREFIX + "colored text" + fmt::reset());
+        """
+        hex_code = hex_code.lstrip('#')
+        if len(hex_code) == 6:
+            r = int(hex_code[0:2], 16)
+            g = int(hex_code[2:4], 16)
+            b = int(hex_code[4:6], 16)
+            return f'\033[38;2;{r};{g};{b}m'
+        return ''
+
+    def reset(self) -> str:
+        """Return ANSI reset code."""
+        return '\033[0m'
+
+    def strip_ansi(self, text) -> str:
+        """Strip all ANSI codes from text."""
+        import re
+        return re.sub(r'\033\[[0-9;]*m', '', self._to_str(text))
+
+    # Utilities
+    def clear(self) -> str:
+        """Clear screen and move cursor to top-left."""
+        import sys
+        sys.stdout.write('\033[2J\033[H')
+        sys.stdout.flush()
+        return ''
+
+    def log(self, msg, level: str = 'INFO') -> str:
+        """Log message with timestamp and level."""
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        colors = {
+            'INFO': '\033[36m',      # Cyan
+            'DEBUG': '\033[90m',     # Gray
+            'WARNING': '\033[33m',   # Yellow
+            'ERROR': '\033[31m',     # Red
+            'SUCCESS': '\033[32m',   # Green
+        }
+        color = colors.get(level.upper(), '\033[0m')
+        return f'\033[90m[{timestamp}]\033[0m {color}[{level.upper()}]\033[0m {self._to_str(msg)}'
+
+    def info(self, msg) -> str:
+        """Log info message."""
+        return self.log(msg, 'INFO')
+
+    def error(self, msg) -> str:
+        """Log error message in red."""
+        return self.log(msg, 'ERROR')
+
+    def warning(self, msg) -> str:
+        """Log warning message in yellow."""
+        return self.log(msg, 'WARNING')
+
+    def success(self, msg) -> str:
+        """Log success message in green."""
+        return self.log(msg, 'SUCCESS')
+
+    def debug(self, msg) -> str:
+        """Log debug message in gray."""
+        return self.log(msg, 'DEBUG')
+
+    def hidden_input(self, prompt: str = '') -> str:
+        """Get hidden input (for passwords). Returns the input string."""
+        import getpass
+        import sys
+        # Print prompt with formatting
+        if prompt:
+            sys.stdout.write(self._to_str(prompt))
+            sys.stdout.flush()
+        try:
+            return getpass.getpass(prompt='')
+        except Exception:
+            return input()
+
+    def cursor_up(self, n: int = 1) -> str:
+        """Move cursor up n lines."""
+        import sys
+        sys.stdout.write(f'\033[{n}A')
+        sys.stdout.flush()
+        return ''
+
+    def cursor_down(self, n: int = 1) -> str:
+        """Move cursor down n lines."""
+        import sys
+        sys.stdout.write(f'\033[{n}B')
+        sys.stdout.flush()
+        return ''
+
+    def cursor_hide(self) -> str:
+        """Hide cursor."""
+        import sys
+        sys.stdout.write('\033[?25l')
+        sys.stdout.flush()
+        return ''
+
+    def cursor_show(self) -> str:
+        """Show cursor."""
+        import sys
+        sys.stdout.write('\033[?25h')
+        sys.stdout.flush()
+        return ''
+
+    def cursor_save(self) -> str:
+        """Save cursor position."""
+        import sys
+        sys.stdout.write('\033[s')
+        sys.stdout.flush()
+        return ''
+
+    def cursor_restore(self) -> str:
+        """Restore cursor position."""
+        import sys
+        sys.stdout.write('\033[u')
+        sys.stdout.flush()
+        return ''
+
+    def erase_line(self) -> str:
+        """Erase current line."""
+        import sys
+        sys.stdout.write('\033[2K\r')
+        sys.stdout.flush()
+        return ''
+
+    def move_to(self, row: int, col: int) -> str:
+        """Move cursor to specific position (1-indexed)."""
+        import sys
+        sys.stdout.write(f'\033[{row};{col}H')
+        sys.stdout.flush()
+        return ''
+
+    def progress(self, current: int, total: int, width: int = 40, prefix: str = '', suffix: str = '') -> str:
+        """Create a progress bar string."""
+        percent = current / total if total > 0 else 0
+        filled = int(width * percent)
+        bar = '█' * filled + '░' * (width - filled)
+        percent_str = f'{percent * 100:.1f}%'
+        return f'{prefix}|{bar}| {percent_str} {suffix}'
+
+
+# =============================================================================
 # @Process Module - Process and subprocess management
 # =============================================================================
 
@@ -2732,6 +3222,113 @@ class AppServiceBuilder:
 
 
 # =============================================================================
+# @Async Module - Async/await operations (v4.9.3)
+# =============================================================================
+
+class AsyncCSSLModule(CSSLModuleBase):
+    """
+    @Async - Async/await operations for concurrent execution
+
+    v4.9.3: Full async support for CSSL.
+
+    Methods:
+      run(func, *args)          - Run function asynchronously, returns Future
+      stop(future)              - Cancel an async operation
+      wait(future, timeout)     - Wait for a Future to complete
+      all(futures, timeout)     - Wait for all Futures to complete
+      race(futures, timeout)    - Return first completed Future's result
+      sleep(ms)                 - Async sleep for milliseconds
+      create_generator(name)    - Create a generator
+
+    Example:
+      async define fetchData(url) {
+          return http.get(url);
+      }
+
+      future f = Async.run(fetchData, "http://example.com");
+      data = await f;
+
+      // Or with async function call:
+      future f = fetchData("http://example.com");
+      data = await f;
+
+      // Wait for multiple:
+      results = Async.all([f1, f2, f3]);
+
+      // First to complete:
+      result = Async.race([f1, f2, f3]);
+    """
+
+    def _register_methods(self):
+        self._methods['run'] = self.run
+        self._methods['stop'] = self.stop
+        self._methods['wait'] = self.wait
+        self._methods['all'] = self.all_futures
+        self._methods['race'] = self.race
+        self._methods['sleep'] = self.sleep
+        self._methods['create_generator'] = self.create_generator
+
+    def run(self, func, *args, **kwargs):
+        """Run a function asynchronously."""
+        from .cssl_types import AsyncModule, CSSLFuture
+        from .cssl_parser import ASTNode
+
+        # If func is a CSSL ASTNode function, wrap it for async execution
+        if isinstance(func, ASTNode) and func.type == 'function':
+            func_name = func.value.get('name', 'anonymous') if isinstance(func.value, dict) else 'anonymous'
+            future = CSSLFuture(func_name)
+            future._state = CSSLFuture.RUNNING
+
+            import threading
+            def execute():
+                try:
+                    if self.runtime:
+                        result = self.runtime._call_function(func, list(args), kwargs)
+                    else:
+                        result = None
+                    future.set_result(result)
+                except Exception as e:
+                    future.set_exception(e)
+
+            thread = threading.Thread(target=execute, daemon=True)
+            future._thread = thread
+            thread.start()
+            return future
+
+        return AsyncModule.run(func, *args, runtime=self.runtime, **kwargs)
+
+    def stop(self, future_or_name):
+        """Stop an async operation."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.stop(future_or_name)
+
+    def wait(self, future, timeout=None):
+        """Wait for a future to complete."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.wait(future, timeout)
+
+    def all_futures(self, futures, timeout=None):
+        """Wait for all futures to complete."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.all(futures, timeout)
+
+    def race(self, futures, timeout=None):
+        """Return result of first completed future."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.race(futures, timeout)
+
+    def sleep(self, ms):
+        """Async sleep for ms milliseconds."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.sleep(ms)
+
+    def create_generator(self, name, values=None):
+        """Create a generator."""
+        from .cssl_types import AsyncModule
+        return AsyncModule.create_generator(name, values)
+
+
+# =============================================================================
 # Module Registry
 # =============================================================================
 
@@ -2764,9 +3361,12 @@ class CSSLModuleRegistry:
             'Queue': QueueModule(),
             'Format': FormatModule(),
             'Console': ConsoleModule(),
+            'fmt': FmtModule(),
             'Process': ProcessModule(),
             'Config': ConfigModule(),
             'Server': ServerModule(),
+            'Async': AsyncCSSLModule(),  # v4.9.3: Async module
+            'async': AsyncCSSLModule(),  # v4.9.3: Async module (lowercase alias)
         }
 
         # Register Desktop module (lazy loaded)

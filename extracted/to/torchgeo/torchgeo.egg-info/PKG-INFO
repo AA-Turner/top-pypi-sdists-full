@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torchgeo
-Version: 0.8.0
+Version: 0.8.1
 Summary: TorchGeo: datasets, samplers, transforms, and pre-trained models for geospatial data
 Author-email: "Adam J. Stewart" <ajstewart426@gmail.com>
 Maintainer-email: "Adam J. Stewart" <ajstewart426@gmail.com>, Caleb Robinson <Caleb.Robinson@microsoft.com>, Isaac Corley <isaac.corley@my.utsa.edu>, Nils Lehmann <n.lehmann@tum.de>, Ashwin Nair <ashnair0007@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.11
@@ -45,7 +46,6 @@ Provides-Extra: datasets
 Requires-Dist: h5py>=3.8; extra == "datasets"
 Requires-Dist: laspy>=2.5.3; extra == "datasets"
 Requires-Dist: netcdf4>=1.6.1; extra == "datasets"
-Requires-Dist: opencv-python>=4.5.5.64; extra == "datasets"
 Requires-Dist: pandas[parquet]>=2; extra == "datasets"
 Requires-Dist: pycocotools>=2.0.7; extra == "datasets"
 Requires-Dist: requests>=2.23.0; extra == "datasets"
@@ -56,14 +56,18 @@ Requires-Dist: webdataset>=0.2.4; extra == "datasets"
 Requires-Dist: xarray>=0.17; extra == "datasets"
 Provides-Extra: docs
 Requires-Dist: ipywidgets>=7; extra == "docs"
+Requires-Dist: myst-parser>=0.18.0; extra == "docs"
 Requires-Dist: nbsphinx>=0.8.5; extra == "docs"
-Requires-Dist: pytorch-sphinx-theme; extra == "docs"
-Requires-Dist: sphinx<6,>=4; extra == "docs"
+Requires-Dist: pydata-sphinx-theme>=0.14.0; extra == "docs"
+Requires-Dist: sphinx>=5.3; extra == "docs"
 Provides-Extra: models
 Requires-Dist: microsoft-aurora>=1.6; extra == "models"
 Provides-Extra: style
-Requires-Dist: mypy>=0.900; extra == "style"
+Requires-Dist: mypy>=1.16; extra == "style"
+Requires-Dist: pandas-stubs>=1.5; extra == "style"
 Requires-Dist: ruff>=0.9; extra == "style"
+Requires-Dist: types-requests>=2.23; extra == "style"
+Requires-Dist: types-shapely>=2; extra == "style"
 Provides-Extra: tests
 Requires-Dist: nbmake>=1.3.3; extra == "tests"
 Requires-Dist: packaging>=20.9; extra == "tests"
@@ -73,7 +77,7 @@ Provides-Extra: all
 Requires-Dist: torchgeo[datasets,docs,models,style,tests]; extra == "all"
 Dynamic: license-file
 
-<img src="https://raw.githubusercontent.com/torchgeo/torchgeo/main/logo/logo-color.svg" width="400" alt="TorchGeo logo"/>
+<img class="dark-light" src="https://raw.githubusercontent.com/torchgeo/torchgeo/main/logo/logo-color.svg" width="400" alt="TorchGeo logo"/>
 
 TorchGeo is a [PyTorch](https://pytorch.org/) domain library, similar to [torchvision](https://pytorch.org/vision), providing datasets, samplers, transforms, and pre-trained models specific to geospatial data.
 
@@ -330,14 +334,15 @@ See the [Lightning documentation](https://lightning.ai/docs/pytorch/stable/cli/l
 If you use this software in your work, please cite our [paper](https://doi.org/10.1145/3707459):
 
 ```bibtex
-@article{Stewart_TorchGeo_Deep_Learning_2024,
+@article{stewart2024torchgeo,
     author = {Stewart, Adam J. and Robinson, Caleb and Corley, Isaac A. and Ortiz, Anthony and Lavista Ferres, Juan M. and Banerjee, Arindam},
-    doi = {10.1145/3707459},
-    journal = {ACM Transactions on Spatial Algorithms and Systems},
-    month = dec,
     title = {{TorchGeo}: Deep Learning With Geospatial Data},
-    url = {https://doi.org/10.1145/3707459},
-    year = {2024}
+    journal = {ACM Transactions on Spatial Algorithms and Systems},
+    volume = {11},
+    number = {4},
+    pages = {1--28},
+    month = aug,
+    year = {2025}
 }
 ```
 

@@ -17,11 +17,14 @@ from anyscale.schedule.commands import (
     _STATUS_EXAMPLE,
     _TRIGGER_ARG_DOCSTRINGS,
     _TRIGGER_EXAMPLE,
+    _URL_ARG_DOCSTRINGS,
+    _URL_EXAMPLE,
     apply as apply,
     list as list,  # noqa: A004
     set_state as set_state,
     status as status,
     trigger as trigger,
+    url as url,
 )
 from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStatus
 
@@ -94,8 +97,19 @@ class ScheduleSDK:
         """
         return self._private_sdk.trigger(id=id, name=name, cloud=cloud, project=project)
 
-    @sdk_docs(doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS)
-    def list(  # noqa: F811
+    @sdk_docs(doc_py_example=_URL_EXAMPLE, arg_docstrings=_URL_ARG_DOCSTRINGS)
+    def url(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Get the web UI URL for a schedule."""
+        return self._private_sdk.url(id=id, name=name, cloud=cloud, project=project)
+
+    def list(  # noqa: F811 PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -103,7 +117,8 @@ class ScheduleSDK:
         project: Optional[str] = None,
         cloud: Optional[str] = None,
         creator_id: Optional[str] = None,
-        page_size: Optional[int] = None,
+        include_all_users: bool = False,
+        page_size: int = 10,
         max_items: Optional[int] = None,
     ) -> ResultIterator[ScheduleStatus]:
         """List schedules with filtering and pagination.
@@ -116,7 +131,8 @@ class ScheduleSDK:
             project: Filter by project name.
             cloud: Filter by cloud name.
             creator_id: Filter by creator ID.
-            page_size: Number of items per page. Defaults to server default.
+            include_all_users: Include schedules from all users.
+            page_size: Number of items per page.
             max_items: Maximum total items to return.
 
         Returns:
@@ -128,6 +144,7 @@ class ScheduleSDK:
             project=project,
             cloud=cloud,
             creator_id=creator_id,
+            include_all_users=include_all_users,
             page_size=page_size,
             max_items=max_items,
         )

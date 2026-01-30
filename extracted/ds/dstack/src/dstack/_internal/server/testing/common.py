@@ -7,7 +7,9 @@ from typing import Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 import gpuhunt
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from dstack._internal.core.backends.base.compute import (
     Compute,
@@ -90,6 +92,7 @@ from dstack._internal.server.models import (
     BackendModel,
     ComputeGroupModel,
     DecryptedString,
+    EventModel,
     FileArchiveModel,
     FleetModel,
     GatewayComputeModel,
@@ -1109,6 +1112,19 @@ async def create_secret(
     session.add(secret_model)
     await session.commit()
     return secret_model
+
+
+async def list_events(session: AsyncSession) -> list[EventModel]:
+    res = await session.execute(
+        select(EventModel)
+        .order_by(EventModel.recorded_at, EventModel.id)
+        .options(joinedload(EventModel.targets))
+    )
+    return list(res.scalars().unique().all())
+
+
+async def clear_events(session: AsyncSession) -> None:
+    await session.execute(delete(EventModel))
 
 
 def get_private_key_string() -> str:

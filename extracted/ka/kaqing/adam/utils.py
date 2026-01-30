@@ -59,7 +59,15 @@ NO_SORT = 0
 SORT = 1
 REVERSE_SORT = -1
 
-def tabulize(lines: list[T], fn: Callable[..., T] = None, header: str = None, dashed_line = False, separator = ' ', to: int = 1, sorted: int = NO_SORT):
+def tabulize(lines: list[T],
+             fn: Callable[..., T] = None,
+             header: str = None,
+             dashed_line = False,
+             separator = ' ',
+             sorted: int = NO_SORT,
+             log_file: str = None,
+             err = False,
+             text_color: str = None):
     if fn:
         lines = list(map(fn, lines))
 
@@ -99,11 +107,7 @@ def tabulize(lines: list[T], fn: Callable[..., T] = None, header: str = None, da
         format_line(line)
 
     table = '\n'.join(nls)
-
-    if to == 1:
-        log(table)
-    elif to == 2:
-        log2(table)
+    _log(table, file=log_file, err=err, text_color=text_color)
 
     return table
 
@@ -121,45 +125,39 @@ def convert_seconds(total_seconds_float):
 def epoch(timestamp_string: str):
     return parser.parse(timestamp_string).timestamp()
 
-def log(s = None, text_color: str = None):
-    if not loggable():
-        return False
-
-    # want to print empty line for False or empty collection
-    if s == None:
-        print()
-    elif text_color:
-        print_formatted_text(HTML(f'<ansi{text_color}>{html.escape(s)}</ansi{text_color}>'))
-    else:
-        click.echo(s)
-
-    return True
+def log(s = None, file: str = None, text_color: str = None):
+    return _log(s=s, file=file, text_color=text_color)
 
 def log2(s = None, nl = True, file: str = None, text_color: str = None):
+    return _log(s=s, nl=nl, file=file, text_color=text_color, err=True)
+
+def _log(s = None, nl = True, file: str = None, text_color: str = None, err = False):
     if not loggable():
         return False
 
-    if s and isinstance(s, Exception):
-        s = html.escape(str(s))
-
     if s:
+        if isinstance(s, Exception):
+            s = str(s)
+
         if file:
             with open(file, 'at') as f:
                 f.write(s)
                 if nl:
                     f.write('\n')
         elif text_color:
-            print_formatted_text(HTML(f'<ansi{text_color}>{html.escape(s)}</ansi{text_color}>'))
+            l = f'<ansi{text_color}>{html.escape(s)}</ansi{text_color}>'
+            try:
+                print_formatted_text(HTML(l), file=sys.stderr if err else None, end='\n' if nl else '')
+            except:
+                click.echo(s, err=err, nl=nl)
         else:
-            click.echo(s, err=True, nl=nl)
+            click.echo(s, err=err, nl=nl)
     else:
         if file:
             with open(file, 'at') as f:
                 f.write('\n')
-        elif text_color:
-            print_formatted_text(HTML(f'<ansi{text_color}>{html.escape(s)}</ansi{text_color}>'), file=sys.stderr)
         else:
-            print(file=sys.stderr)
+            print(file=sys.stderr if err else None)
 
     return True
 
@@ -645,7 +643,6 @@ class ParallelMapHandler:
             self.start_time = time.time()
 
             self.executor = self.pool()
-            # self.executor = ThreadPoolExecutor(max_workers=self.workers)
             self.executor.__enter__()
 
         return ParallelService(self)

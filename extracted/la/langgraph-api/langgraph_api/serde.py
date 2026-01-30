@@ -16,7 +16,7 @@ from ipaddress import (
 )
 from pathlib import Path
 from re import Pattern
-from typing import Any, Literal, NamedTuple, cast
+from typing import Any, Literal, NamedTuple, cast, overload
 from zoneinfo import ZoneInfo
 
 import cloudpickle
@@ -158,6 +158,14 @@ def json_loads(content: bytes | Fragment | dict) -> Any:
     if isinstance(content, dict):
         return content
     return orjson.loads(content)
+
+
+@overload
+def json_dumpb_optional(obj: None) -> None: ...
+
+
+@overload
+def json_dumpb_optional(obj: Any) -> bytes: ...
 
 
 def json_dumpb_optional(obj: Any | None) -> bytes | None:

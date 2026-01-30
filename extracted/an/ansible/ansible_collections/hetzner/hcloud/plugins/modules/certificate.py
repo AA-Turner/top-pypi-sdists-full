@@ -105,7 +105,7 @@ RETURN = """
 hcloud_certificate:
     description: The certificate instance
     returned: Always
-    type: complex
+    type: dict
     contains:
         id:
             description: Numeric identifier of the certificate
@@ -147,9 +147,9 @@ hcloud_certificate:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.certificates import BoundCertificate
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.certificates import BoundCertificate
 
 
 class AnsibleHCloudCertificate(AnsibleHCloud):

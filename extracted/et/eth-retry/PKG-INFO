@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eth-retry
-Version: 0.3.6
+Version: 0.3.7
 Summary: Provides a decorator that automatically catches known transient exceptions that are common in the Ethereum/EVM ecosystem and reattempts to evaluate your decorated function
 License: MIT
 License-File: LICENSE

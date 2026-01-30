@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: docx2python
-Version: 3.5.0
+Version: 3.6.1
 Summary: Extract content from docx files
 Author-email: Shay Hill <shay_public@hotmail.com>
 License: MIT
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: lxml
@@ -17,6 +17,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: types-lxml; extra == "dev"
+Dynamic: license-file
 
 
 # New in docx2python Version 3

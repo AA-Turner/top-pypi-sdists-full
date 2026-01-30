@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-Authlib"
-version = "1.6.6.20260116"
+version = "1.6.6.20260130"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -12,7 +12,7 @@ readme = { text = """\
 ## Typing stubs for Authlib
 
 This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
-for the [`Authlib`](https://github.com/lepture/authlib) package. It can be used by type checkers
+for the [`Authlib`](https://github.com/authlib/authlib) package. It can be used by type checkers
 to check code that uses `Authlib`. This version of
 `types-Authlib` aims to provide accurate annotations for
 `Authlib==1.6.6`.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`ee1e94d4309f30e9a6e169da4e4db72aa6a98cc0`](https://github.com/python/typeshed/commit/ee1e94d4309f30e9a6e169da4e4db72aa6a98cc0).
+[`c79275d92eb624f5bba59b4e9cdf30b60195d67e`](https://github.com/python/typeshed/commit/c79275d92eb624f5bba59b4e9cdf30b60195d67e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

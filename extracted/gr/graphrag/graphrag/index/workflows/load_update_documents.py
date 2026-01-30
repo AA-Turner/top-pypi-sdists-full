@@ -6,14 +6,14 @@
 import logging
 
 import pandas as pd
+from graphrag_input.input_reader import InputReader
+from graphrag_input.input_reader_factory import create_input_reader
+from graphrag_storage import Storage
 
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.config.models.input_config import InputConfig
-from graphrag.index.input.factory import create_input
 from graphrag.index.typing.context import PipelineRunContext
 from graphrag.index.typing.workflow import WorkflowFunctionOutput
 from graphrag.index.update.incremental_index import get_delta_docs
-from graphrag.storage.pipeline_storage import PipelineStorage
 from graphrag.utils.storage import write_table_to_storage
 
 logger = logging.getLogger(__name__)
@@ -24,9 +24,9 @@ async def run_workflow(
     context: PipelineRunContext,
 ) -> WorkflowFunctionOutput:
     """Load and parse update-only input documents into a standard format."""
+    input_reader = create_input_reader(config.input, context.input_storage)
     output = await load_update_documents(
-        config.input,
-        context.input_storage,
+        input_reader,
         context.previous_storage,
     )
 
@@ -43,12 +43,11 @@ async def run_workflow(
 
 
 async def load_update_documents(
-    config: InputConfig,
-    input_storage: PipelineStorage,
-    previous_storage: PipelineStorage,
+    input_reader: InputReader,
+    previous_storage: Storage,
 ) -> pd.DataFrame:
     """Load and parse update-only input documents into a standard format."""
-    input_documents = await create_input(config, input_storage)
+    input_documents = pd.DataFrame(await input_reader.read_files())
     # previous storage is the output of the previous run
     # we'll use this to diff the input from the prior
     delta_documents = await get_delta_docs(input_documents, previous_storage)

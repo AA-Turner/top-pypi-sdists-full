@@ -51,7 +51,6 @@ style_check:
       when: always
     - when: never
 
-
 .basic_tests:
   stage: test
   coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
@@ -60,12 +59,6 @@ style_check:
     - coverage run -m pytest --verbose --junitxml=report.xml tests/
     - coverage report -m
     - coverage html
-
-basic_tests:linux:
-  image: $STABLE_IMAGE
-  extends: .basic_tests
-  needs:
-    - build:linux
   tags:
     - linux
     - GPU
@@ -76,14 +69,17 @@ basic_tests:linux:
     reports:
       junit: report.xml
 
-.test_tutorials:
+basic_tests:linux:
   image: $STABLE_IMAGE
+  extends: .basic_tests
+  needs:
+    - build:linux
+
+.test_tutorials:
   stage: test
   tags:
     - linux
     - GPU
-  needs:
-    - build:linux
   script:
     - cd tutorials
     - pytest --nbmake --nbmake-timeout=3600 $(find . -name '*.ipynb' | grep -v thermal_conductivity_from_bte)
@@ -92,12 +88,8 @@ test_tutorials:manual:
   image: $STABLE_IMAGE
   extends: .test_tutorials
   when: manual
-
-test_tutorials:schedules:
-  extends: .test_tutorials
-  allow_failure: true
-  only:
-   - schedules
+  needs:
+    - build:linux
 
 test_documentation:
   image: $STABLE_IMAGE
@@ -240,12 +232,11 @@ scheduled:basic_tests:linux:
     - .basic_tests
   needs:
     - scheduled:build
-  tags:
-    - linux
-    - GPU
-  artifacts:
-    expire_in: 2 days
-    paths:
-      - htmlcov/
-    reports:
-      junit: report.xml
+
+scheduled:test_tutorials:
+  stage: scheduled
+  extends: 
+    - .scheduled-job
+    - .test_tutorials
+  needs:
+    - scheduled:build

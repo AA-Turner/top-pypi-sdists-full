@@ -6,7 +6,7 @@ __all__ = ["ShardTupleGenerator"]
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola.utils import repr_indent, repr_mapping
+from coola.utils.format import repr_indent, repr_mapping
 
 from iden.shard import BaseShard, ShardTuple, create_shard_tuple
 from iden.shard.generator.base import BaseShardGenerator, setup_shard_generator

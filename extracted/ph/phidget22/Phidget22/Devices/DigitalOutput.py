@@ -2,6 +2,7 @@ import sys
 import ctypes
 from Phidget22.PhidgetSupport import PhidgetSupport
 from Phidget22.Async import *
+from Phidget22.DataAdapterVoltage import DataAdapterVoltage
 from Phidget22.LEDForwardVoltage import LEDForwardVoltage
 from Phidget22.PhidgetException import PhidgetException
 
@@ -28,6 +29,29 @@ class DigitalOutput(Phidget):
 
 	def __del__(self):
 		Phidget.__del__(self)
+
+	def getDataAdapterVoltage(self):
+		_DataAdapterVoltage = ctypes.c_int()
+
+		__func = PhidgetSupport.getDll().PhidgetDigitalOutput_getDataAdapterVoltage
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, ctypes.byref(_DataAdapterVoltage))
+
+		if result > 0:
+			raise PhidgetException(result)
+
+		return _DataAdapterVoltage.value
+
+	def setDataAdapterVoltage(self, DataAdapterVoltage):
+		_DataAdapterVoltage = ctypes.c_int(DataAdapterVoltage)
+
+		__func = PhidgetSupport.getDll().PhidgetDigitalOutput_setDataAdapterVoltage
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, _DataAdapterVoltage)
+
+		if result > 0:
+			raise PhidgetException(result)
+
 
 	def getDutyCycle(self):
 		_DutyCycle = ctypes.c_double()

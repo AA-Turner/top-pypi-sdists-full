@@ -54,6 +54,17 @@ PRIMITIVE_TO_BOXED = {
 BOXED_TO_PRIMITIVE = {v: k for k, v in PRIMITIVE_TO_BOXED.items()}
 BOXED_PRIMITIVE_TYPES = set(PRIMITIVE_TO_BOXED.values())
 
+_INPUT_VARIANT_TYPE_PAIRS = (
+    (snowpark_type.ArrayType, "array"),
+    (snowpark_type.MapType, "map"),
+    (snowpark_type.ByteType, "byte"),
+    (snowpark_type.BinaryType, "binary"),
+    (snowpark_type.DecimalType, "decimal"),
+)
+_INPUT_VARIANT_TYPES = frozenset(
+    typ for pair_type in _INPUT_VARIANT_TYPE_PAIRS for typ in pair_type
+)
+
 
 class ScalaUdf:
     """
@@ -288,6 +299,10 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
     input_types = (
         pciudf._scala_input_types if pciudf._scala_input_types else pciudf._input_types
     )
+    has_encoders = (
+        bool(pciudf._scala_input_types) is not None
+        and len(pciudf._scala_input_types) > 0
+    )
 
     scala_return_type = _map_type_to_scala_type(
         pciudf._original_return_type, is_input=False
@@ -321,20 +336,18 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
             param_name = "arg" + str(i)
             # Create the Scala arguments and input types string: "arg0: Type0, arg1: Type1, ...".
             scala_input_params.append(
-                Param(param_name, _map_type_to_scala_type(input_type, is_input=True))
+                Param(
+                    param_name,
+                    _map_type_to_scala_type(
+                        input_type, is_input=True, has_encoders=has_encoders
+                    ),
+                )
             )
             # Create the Snowflake SQL arguments and input types string: "arg0 TYPE0, arg1 TYPE1, ...".
-            # For arrays and structs, use VARIANT type in SQL signature
-            is_snowpark_type = isinstance(input_type, snowpark_type.DataType)
-            is_array = (
-                is_snowpark_type and isinstance(input_type, snowpark_type.ArrayType)
-            ) or (not is_snowpark_type and input_type.WhichOneof("kind") == "array")
-            is_map = (
-                is_snowpark_type and isinstance(input_type, snowpark_type.MapType)
-            ) or (not is_snowpark_type and input_type.WhichOneof("kind") == "map")
+            # For arrays, maps, bytes, decimals, and binary types, use VARIANT type in SQL signature
             sql_type = (
                 "VARIANT"
-                if is_array or is_map
+                if _is_sql_type_variant(input_type, has_encoders)
                 else map_type_to_snowflake_type(input_type)
             )
             sql_input_params.append(Param(param_name, sql_type))
@@ -408,30 +421,67 @@ def _get_input_arg_types_if_udfpacket_input_types_empty(
     return [arg for arg in args.split(", ") if arg]
 
 
+def _is_sql_type_variant(
+    input_type: Union[snowpark_type.DataType, types_proto.DataType], has_encoders: bool
+) -> bool:
+    """
+    Determine if an input type should be mapped to VARIANT in SQL.
+
+    Returns True if the input type is one of the following:
+    - ArrayType: Arrays need special handling as VARIANT
+    - MapType: Maps are represented as VARIANT in SQL
+    - ByteType: Snowflake's Scala UDF runtime doesn't support java.lang.Byte
+    - DecimalType: java.math.BigDecimal vs scala.math.BigDecimal conversion issues
+        (if doesn't have encoders we can't cast to VARIANT as it will not be converted to the proper type)
+    - BinaryType: Array[byte] is passed as binary, handled as VARIANT
+
+    Args:
+        input_type: The type to check (either Snowpark or Spark protobuf type)
+
+    Returns:
+        True if the type should be mapped to VARIANT, False otherwise
+    """
+    unified_type = (
+        type(input_type)
+        if isinstance(input_type, snowpark_type.DataType)
+        else input_type.WhichOneof("kind")
+    )
+    if not has_encoders and unified_type in (snowpark_type.DecimalType, "decimal"):
+        return False
+
+    return unified_type in _INPUT_VARIANT_TYPES
+
+
 def _map_type_to_scala_type(
-    t: Union[snowpark_type.DataType, types_proto.DataType], is_input: bool = False
+    t: Union[snowpark_type.DataType, types_proto.DataType],
+    is_input: bool = False,
+    has_encoders: bool = False,
 ) -> str:
     """Maps a Snowpark or Spark protobuf type to a Scala type string.
 
     Args:
         t: The type to map
-        is_input: If True, maps array types to Variant (for UDF inputs).
-                  If False, maps array types to Array[ElementType] (for UDF outputs).
+        is_input: If True, maps certain types to Variant (for UDF inputs).
+                  If False, maps types to their specific Scala equivalents (for UDF outputs).
+        has_encoders: If True, the udf has encoders, so we can cast to VARIANT and the proper type would be retrieved (useful only for input types)
     """
     if not t:
         return "String"
+
+    # For input types, check if this should be mapped to VARIANT as it has to be compatible with Snowflake's Scala UDF runtime.
+    # (arrays, maps, bytes, decimals, and binary types)
+    if is_input and _is_sql_type_variant(t, has_encoders):
+        return "Variant"
+
     is_snowpark_type = isinstance(t, snowpark_type.DataType)
     condition = type(t) if is_snowpark_type else t.WhichOneof("kind")
     match condition:
         case snowpark_type.ArrayType | "array":
-            if is_input:
-                return "Variant"
-            else:
-                return (
-                    f"Array[{_map_type_to_scala_type(t.element_type, is_input=False)}]"
-                    if is_snowpark_type
-                    else f"Array[{_map_type_to_scala_type(t.array.element_type, is_input=False)}]"
-                )
+            return (
+                f"Array[{_map_type_to_scala_type(t.element_type, is_input=False)}]"
+                if is_snowpark_type
+                else f"Array[{_map_type_to_scala_type(t.array.element_type, is_input=False)}]"
+            )
         case snowpark_type.BinaryType | "binary":
             return "Array[Byte]"
         case snowpark_type.BooleanType | "boolean":
@@ -453,8 +503,6 @@ def _map_type_to_scala_type(
         case snowpark_type.LongType | "long":
             return "Long"
         case snowpark_type.MapType | "map":
-            if is_input:
-                return "Variant"
             key_type = (
                 _map_type_to_scala_type(t.key_type)
                 if is_snowpark_type

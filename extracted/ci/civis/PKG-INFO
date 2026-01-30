@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: civis
-Version: 2.7.1
+Version: 2.8.0
 Summary: Civis API Python Client
 Author-email: Civis Analytics <opensource@civisanalytics.com>
 License: BSD-3-Clause
@@ -11,11 +11,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 Requires-Dist: click>=6.0
@@ -26,22 +26,28 @@ Requires-Dist: jsonschema>=2.5.1
 Requires-Dist: PyYAML>=3.0
 Requires-Dist: requests>=2.32.3
 Requires-Dist: tenacity>=6.2
+Requires-Dist: typing-extensions>=4.5.0; python_version < "3.13"
 Provides-Extra: dev-core
 Requires-Dist: bandit; extra == "dev-core"
-Requires-Dist: black==25.1.0; extra == "dev-core"
-Requires-Dist: build==1.2.2; extra == "dev-core"
-Requires-Dist: flake8==7.2.0; extra == "dev-core"
-Requires-Dist: pandas==2.3.0; extra == "dev-core"
+Requires-Dist: black==25.12.0; extra == "dev-core"
+Requires-Dist: build==1.3.0; extra == "dev-core"
+Requires-Dist: flake8==7.3.0; extra == "dev-core"
+Requires-Dist: mypy==1.19.1; extra == "dev-core"
+Requires-Dist: pandas==2.3.3; extra == "dev-core"
 Requires-Dist: pip-audit; extra == "dev-core"
-Requires-Dist: polars==1.31.0; extra == "dev-core"
-Requires-Dist: pytest==8.4.0; extra == "dev-core"
-Requires-Dist: pytest-cov==6.2.1; extra == "dev-core"
-Requires-Dist: twine==6.1.0; extra == "dev-core"
+Requires-Dist: polars==1.36.1; extra == "dev-core"
+Requires-Dist: pytest==9.0.2; extra == "dev-core"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev-core"
+Requires-Dist: twine==6.2.0; extra == "dev-core"
+Requires-Dist: pandas-stubs; extra == "dev-core"
+Requires-Dist: types-jsonschema; extra == "dev-core"
+Requires-Dist: types-PyYAML; extra == "dev-core"
+Requires-Dist: types-requests; extra == "dev-core"
 Provides-Extra: dev-civisml
 Requires-Dist: feather-format==0.4.1; extra == "dev-civisml"
-Requires-Dist: numpy==2.2.6; extra == "dev-civisml"
-Requires-Dist: scikit-learn==1.7.0; extra == "dev-civisml"
-Requires-Dist: scipy==1.15.3; extra == "dev-civisml"
+Requires-Dist: numpy==2.4.0; extra == "dev-civisml"
+Requires-Dist: scikit-learn==1.8.0; extra == "dev-civisml"
+Requires-Dist: scipy==1.16.3; extra == "dev-civisml"
 Provides-Extra: docs
 Requires-Dist: numpydoc==1.8.0; extra == "docs"
 Requires-Dist: Sphinx==8.2.3; extra == "docs"
@@ -262,9 +268,12 @@ For the public documentation at https://civis-python.readthedocs.io:
 The doc build has its full dependencies listed in ``docs/requirements.txt``.
 To update this file:
 
-* Install the latest version of ``pip-tools``: ``pip install --upgrade pip-tools``.
-* Run the ``pip-compile`` command at the top of ``docs/requirements.txt``, with the flag
-  ``--upgrade`` added to upgrade all transitive dependencies as well.
+* Set up a [uv](https://docs.astral.sh/uv/)-based virtual environment, as documented in
+  [CONTRIBUTING.md](CONTRIBUTING.md).
+* Run the ``uv pip compile`` command at the top of ``docs/requirements.txt``, with the flag
+  ``--upgrade`` added to upgrade all transitive dependencies as well
+  (which is necessary to resolve security vulnerabilities flagged for some of these
+  transitive dependencies from time to time).
 
 To build the documentation locally, for testing and development:
 

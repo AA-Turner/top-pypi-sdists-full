@@ -10,6 +10,11 @@ workflow:
   rules:
     - if: ($CI_COMMIT_BRANCH =~ /^branch\/.*/ || $CI_COMMIT_TAG) && $CI_PIPELINE_SOURCE !~ "/web|schedule/"
       when: never
+    - if: ($CI_COMMIT_BRANCH =~ /^branch\/.*/ || $CI_COMMIT_TAG) && $CI_COMMIT_REF_PROTECTED == "true"
+      when: always
+      variables:
+        WHEEL_MACOS_TAG: "macos-wheel"
+        WHEEL_WINDOWS_TAG: "windows-wheel"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
@@ -40,6 +45,8 @@ variables:
     # Instead of the two following lines:
     RE_BRANCH: '/^branch/.+$/'
     RE_TOPIC: '/^topic/.+/.+$/'
+    WHEEL_MACOS_TAG: "macos"
+    WHEEL_WINDOWS_TAG: "windows"
     PYTHON: python
     HG_CI_REG: "registry.heptapod.net/mercurial/ci-images"
     HG_CI_IMAGE_TAG: "v3.3"
@@ -108,6 +115,7 @@ trigger-nightly-build:
           - cp310-cp310
           - cp312-cp312
           - cp313-cp313
+          - cp314-cp314
   script:
     - PLATFORM=`/opt/python/cp313-cp313/bin/python -c 'import sys; print(sys.platform)'`
     - echo $WHEEL_TYPE
@@ -283,9 +291,11 @@ rust-cargo-test:
 
 .runtests-no-check:
   extends: .runtests
+  parallel: 10
   variables:
       FILTER: "--blacklist ${TMP_WORK_DIR}/check-tests.txt"
       TEST_HGTESTS_ALLOW_NETIO: "1"
+      CI_CLEVER_CLOUD_FLAVOR: "M"
 
 .test-c:
     extends: .runtests-no-check
@@ -309,10 +319,21 @@ test-pure:
     variables:
         FLAVOR: "--pure"
 
+test-pure-zstd:
+    extends: test-pure
+    image: "$HG_CI_REG/hg-core-test-zstd:$HG_CI_IMAGE_TAG"
+    rules:
+    - if: ($CI_COMMIT_BRANCH =~ $RE_BRANCH || $CI_COMMIT_TAG)
+      when: on_success
+      needs:
+        - trigger-nightly-build
+    - if: $CI_COMMIT_BRANCH =~ $RE_TOPIC
+      when: manual
+      allow_failure: true
+
 .test-rust:
     extends: .runtests-no-check
     variables:
-        HGWITHRUSTEXT: "cpython"
         FLAVOR: "--rust"
         WHEEL_TYPE: "rust"
 
@@ -320,7 +341,6 @@ test-rust:
     extends: .test-rust
     image: "$HG_CI_REG/hg-core-test:$HG_CI_IMAGE_TAG"
     variables:
-        HGWITHRUSTEXT: "cpython"
         FLAVOR: "--rust"
     needs:
       - job: build-rust-wheel-libc
@@ -334,7 +354,6 @@ test-rhg:
     extends: .runtests-no-check
     image: "$HG_CI_REG/hg-core-test-py-dev-rust-dev:$HG_CI_IMAGE_TAG"
     variables:
-        HGWITHRUSTEXT: "cpython"
         FLAVOR: "--rust --rhg"
 
 test-chg:
@@ -474,6 +493,19 @@ test-3.13-c:
           matrix:
             - BUILD_PY_ID: "cp313-cp313"
 
+test-3.14-c:
+    extends: .test-c-pycompat
+    image: "$HG_CI_REG/hg-core-test-py314:$HG_CI_IMAGE_TAG"
+    variables:
+        PYTHON: python3.14
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_MERCURIAL: "9.9.9"
+    needs:
+      - job: trigger-pycompat
+      - job: build-c-wheel-libc
+        parallel:
+          matrix:
+            - BUILD_PY_ID: "cp314-cp314"
+
 test-3.13-rust:
     extends: .test-rust-pycompat
     image: "$HG_CI_REG/hg-core-test-py313:$HG_CI_IMAGE_TAG"
@@ -485,6 +517,19 @@ test-3.13-rust:
             - BUILD_PY_ID: "cp313-cp313"
     variables:
         PYTHON: python3.13
+
+test-3.14-rust:
+    extends: .test-rust-pycompat
+    image: "$HG_CI_REG/hg-core-test-py314:$HG_CI_IMAGE_TAG"
+    needs:
+      - trigger-pycompat
+      - job: build-rust-wheel-libc
+        parallel:
+          matrix:
+            - BUILD_PY_ID: "cp314-cp314"
+    variables:
+        PYTHON: python3.14
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_MERCURIAL: "9.9.9"
 
 check-pytype:
     extends: .all
@@ -520,11 +565,8 @@ check-pytype:
     when: manual  # we don't have any Windows runners anymore at the moment
     tags:
       - windows
-    before_script:
-      - C:/hgdev/MinGW/msys/1.0/bin/sh.exe --login -c 'cd "$OLDPWD" && ls -1 tests/test-check-*.* > "${TMP_WORK_DIR}"/check-tests.txt'
-      # TODO: find/install cvs, bzr, perforce, gpg, sqlite3
     variables:
-        PYTHON: C:/hgdev/venvs/python39-x64/Scripts/python.exe
+        PYTHON: C:/hgdev/python39-x64/python.exe
 
 # a dummy job that only serve to trigger the wider windows build
 trigger-wheel-windows:
@@ -532,16 +574,28 @@ trigger-wheel-windows:
   tags:
     - windows
   stage: build
-  when: manual
-  allow_failure: true
+  rules:
+  - if: ($CI_COMMIT_BRANCH =~ $RE_BRANCH || $CI_COMMIT_TAG)
+    when: never
+  - if: $CI_COMMIT_BRANCH =~ $RE_TOPIC
+    when: manual
+    allow_failure: true
 
 build-c-wheel-windows:
     extends: .windows
+    tags:
+      - $WHEEL_WINDOWS_TAG
     stage: build
     # wait for someone to click on "trigger-wheel-windows"
     when: on_success
     needs:
-      - "trigger-wheel-windows"
+    rules:
+    - if: ($CI_COMMIT_BRANCH =~ $RE_BRANCH || $CI_COMMIT_TAG)
+      needs:
+        - trigger-nightly-build
+    - if: $CI_COMMIT_BRANCH =~ $RE_TOPIC
+      needs:
+        - "trigger-wheel-windows"
     script:
         - echo "Entering script section"
         - echo "python used, $Env:PYTHON"
@@ -549,7 +603,8 @@ build-c-wheel-windows:
         - echo "$Env:RUNTEST_ARGS"
         - echo "$Env:TMP"
         - echo "$Env:TEMP"
-        - "C:/hgdev/venvs/python39-x64/Scripts/python.exe -m cibuildwheel --output-dir wheels/win32"
+        - if ( $CI_COMMIT_REF_PROTECTED -eq 'true' ) { hg pull -r stable }
+        - "cibuildwheel.exe --output-dir wheels/win32"
     artifacts:
       paths:
         - wheels
@@ -563,6 +618,7 @@ build-c-wheel-windows:
           - "cp311-*"
           - "cp312-*"
           - "cp313-*"
+          - "cp314-*"
           CIBW_ARCHS:
           - "AMD64"
           - "x86"
@@ -570,6 +626,7 @@ build-c-wheel-windows:
           - "cp311-*"
           - "cp312-*"
           - "cp313-*"
+          - "cp314-*"
           CIBW_ARCHS:
           - "ARM64"
 
@@ -581,7 +638,7 @@ build-c-wheel-windows:
     # upon are manual anyway, so we can make this start automatically once the
     # associated wheel is ready.
     when: on_success
-    parallel: 20
+    parallel: 10
     script:
         - echo "Entering script section"
         - echo "python used, $Env:PYTHON"
@@ -593,10 +650,13 @@ build-c-wheel-windows:
         - echo "$Env:RUNTEST_ARGS"
         - echo "$Env:TMP"
         - echo "$Env:TEMP"
+        - C:/hgdev/MinGW/msys/1.0/bin/sh.exe
+          --login -c 'cd "$OLDPWD"
+            && ls -1 tests/test-check-*.* > "${TMP_WORK_DIR}"/check-tests.txt'
         # This test is hanging the worker and not that important, so lets skip
         # it for now
-        - C:/hgdev/MinGW/msys/1.0/bin/sh.exe -c 'cd "$OLDPWD" && echo tests/test-clonebundles-autogen.t > $TMP_WORK_DIR/windows-skip.txt'
-
+        - C:/hgdev/MinGW/msys/1.0/bin/sh.exe -c 'cd "$OLDPWD" 
+          && echo tests/test-clonebundles-autogen.t > $TMP_WORK_DIR/windows-skip.txt'
         # we immediately run with --retest in case of error as the windows test
         # are so flaky.
         - C:/hgdev/MinGW/msys/1.0/bin/sh.exe
@@ -622,6 +682,7 @@ build-c-wheel-windows:
                $FILTER
                $RUNTEST_ARGS;
           '
+        # TODO: find/install cvs, bzr, perforce, gpg, sqlite3
     variables:
       WHEEL_ARG: ""
       RUNTEST_ARGS: ""
@@ -677,11 +738,12 @@ build-c-wheel-macos:
     stage: build
     variables:
     tags:
-      - macos
+      - $WHEEL_MACOS_TAG
     script:
       - sh -c 'which "$PYTHON"'
       - sh -c '"$PYTHON" -V'
       - sh -c 'which cibuildwheel'
+      - if [ "$CI_COMMIT_REF_PROTECTED" == "true" ]; then hg pull -r stable; fi
       - PLATFORM=`$PYTHON -c 'import sys; print(sys.platform)'`
       - rm -rf tmp-wheels
       - cibuildwheel --output-dir tmp-wheels/
@@ -723,15 +785,39 @@ build-c-wheel-macos:
     - .nightly_build_step
     - .dummy
 
-test-result-linux:
+test-result-linux-main:
   extends: .sink
   needs:
     - test-c
+    - test-chg
+    - test-pure
+    - test-rhg
+    - test-rust
+
+test-result-linux-py-a:
+  extends: .sink
+  needs:
+    - test-pure-zstd
     - test-3.9-c
+    - test-3.9-rust
     - test-3.10-c
+    - test-3.10-rust
+
+test-result-linux-py-b:
+  extends: .sink
+  needs:
     - test-3.11-c
+    - test-3.11-rust
     - test-3.12-c
+    - test-3.12-rust
+
+test-result-linux-py-c:
+  extends: .sink
+  needs:
     - test-3.13-c
+    - test-3.13-rust
+    - test-3.14-c
+    - test-3.14-rust
 
 test-result-macos:
   extends: .sink
@@ -759,6 +845,8 @@ wheel-result-linux:
 
 wheel-result-windows:
   extends: .sink
+  tags:
+    - $WHEEL_WINDOWS_TAG
   needs:
     - build-c-wheel-windows
   artifacts:
@@ -784,7 +872,10 @@ upload-wheel-nightly:
     - wheel-result-linux
     - wheel-result-windows
     - build-c-wheel-macos
-    - test-result-linux
+    - test-result-linux-main
+    - test-result-linux-py-a
+    - test-result-linux-py-b
+    - test-result-linux-py-c
     - test-result-macos
     - test-result-windows
   # It would be nice to be able to restrict that a bit to protected branch only
@@ -799,3 +890,8 @@ upload-wheel-nightly:
       --skip-existing
       wheels/*/*/*/*.whl
       wheels/*/*.whl
+  # make all wheels available in one place
+  artifacts:
+      paths:
+        - wheels
+      expire_in: 1 week

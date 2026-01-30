@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.194"]
+requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.196"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,23 +19,23 @@ requires-python = ">=3.10"
 dependencies = [
     "cxxheaderparser",
     "GitPython",
-    "archinfo==9.2.194",
+    "archinfo==9.2.196",
     "cachetools",
     "capstone==5.0.3",
     "cffi>=1.14.0",
-    "claripy==9.2.194",
-    "cle==9.2.194",
+    "claripy==9.2.196",
+    "cle==9.2.196",
     "lmdb",
     "msgspec",
     "mulpyplexer",
     "networkx!=2.8.1,>=2.0",
     "protobuf>=6.33.0",
     "psutil",
-    "pycparser>=2.18,<3.0",
+    "pycparser~=3.0",
     "pydemumble",
     "pyformlang",
     "pypcode>=3.2.1,<4.0",
-    "pyvex==9.2.194",
+    "pyvex==9.2.196",
     "rich>=13.1.0",
     "sortedcontainers",
     "sympy",

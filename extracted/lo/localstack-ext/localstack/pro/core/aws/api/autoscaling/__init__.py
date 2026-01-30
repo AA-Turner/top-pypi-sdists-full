@@ -171,6 +171,12 @@ class CpuManufacturer(StrEnum):
     apple = "apple"
 
 
+class DeletionProtection(StrEnum):
+    none = "none"
+    prevent_force_deletion = "prevent-force-deletion"
+    prevent_all_deletion = "prevent-all-deletion"
+
+
 class ImpairedZoneHealthCheckBehavior(StrEnum):
     ReplaceUnhealthy = "ReplaceUnhealthy"
     IgnoreUnhealthy = "IgnoreUnhealthy"
@@ -611,10 +617,15 @@ class RetentionTriggers(TypedDict, total=False):
 
 
 class InstanceLifecyclePolicy(TypedDict, total=False):
-    """Defines the lifecycle policy for instances in an Auto Scaling group.
-    This policy controls instance behavior when lifecycles transition and
-    operations fail. Use lifecycle policies to ensure graceful shutdown for
-    stateful workloads or applications requiring extended draining periods.
+    """The instance lifecycle policy for the Auto Scaling group. This policy
+    controls instance behavior when an instance transitions through its
+    lifecycle states. Configure retention triggers to specify when instances
+    should move to a ``Retained`` state instead of automatic termination.
+
+    For more information, see `Control instance retention with instance
+    lifecycle
+    policies <https://docs.aws.amazon.com/autoscaling/ec2/userguide/instance-lifecycle-policy.html>`__
+    in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
     RetentionTriggers: RetentionTriggers | None
@@ -1068,6 +1079,7 @@ class AutoScalingGroup(TypedDict, total=False):
     DefaultInstanceWarmup: DefaultInstanceWarmup | None
     TrafficSources: TrafficSources | None
     InstanceMaintenancePolicy: InstanceMaintenancePolicy | None
+    DeletionProtection: DeletionProtection | None
     AvailabilityZoneDistribution: AvailabilityZoneDistribution | None
     AvailabilityZoneImpairmentPolicy: AvailabilityZoneImpairmentPolicy | None
     CapacityReservationSpecification: CapacityReservationSpecification | None
@@ -1318,6 +1330,7 @@ class CreateAutoScalingGroupType(ServiceRequest):
     NewInstancesProtectedFromScaleIn: InstanceProtected | None
     CapacityRebalance: CapacityRebalanceEnabled | None
     LifecycleHookSpecificationList: LifecycleHookSpecifications | None
+    DeletionProtection: DeletionProtection | None
     Tags: Tags | None
     ServiceLinkedRoleARN: ResourceName | None
     MaxInstanceLifetime: MaxInstanceLifetime | None
@@ -1777,6 +1790,7 @@ class DescribeScalingActivitiesType(ServiceRequest):
     IncludeDeletedGroups: IncludeDeletedGroups | None
     MaxRecords: MaxRecords | None
     NextToken: XmlString | None
+    Filters: Filters | None
 
 
 class DescribeScheduledActionsType(ServiceRequest):
@@ -2496,6 +2510,7 @@ class UpdateAutoScalingGroupType(ServiceRequest):
     SkipZonalShiftValidation: SkipZonalShiftValidation | None
     CapacityReservationSpecification: CapacityReservationSpecification | None
     InstanceLifecyclePolicy: InstanceLifecyclePolicy | None
+    DeletionProtection: DeletionProtection | None
 
 
 class AutoscalingApi:
@@ -2593,7 +2608,7 @@ class AutoscalingApi:
         **kwargs,
     ) -> AttachLoadBalancersResultType:
         """This API operation is superseded by
-        https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html,
+        `AttachTrafficSources <https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html>`__,
         which can attach multiple traffic sources types. We recommend using
         ``AttachTrafficSources`` to simplify how you manage traffic sources.
         However, we continue to support ``AttachLoadBalancers``. You can use
@@ -2861,6 +2876,7 @@ class AutoscalingApi:
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled.
         :param lifecycle_hook_specification_list: One or more lifecycle hooks to add to the Auto Scaling group before
         instances are launched.
+        :param deletion_protection: The deletion protection setting for the Auto Scaling group.
         :param tags: One or more tags.
         :param service_linked_role_arn: The Amazon Resource Name (ARN) of the service-linked role that the Auto
         Scaling group uses to call other Amazon Web Services service on your
@@ -3560,6 +3576,7 @@ class AutoscalingApi:
         include_deleted_groups: IncludeDeletedGroups | None = None,
         max_records: MaxRecords | None = None,
         next_token: XmlString | None = None,
+        filters: Filters | None = None,
         **kwargs,
     ) -> ActivitiesType:
         """Gets information about the scaling activities in the account and Region.
@@ -3585,6 +3602,7 @@ class AutoscalingApi:
         groups.
         :param max_records: The maximum number of items to return with this call.
         :param next_token: The token for the next set of items to return.
+        :param filters: One or more filters to limit the results based on specific criteria.
         :returns: ActivitiesType
         :raises InvalidNextToken:
         :raises ResourceContentionFault:
@@ -3785,7 +3803,7 @@ class AutoscalingApi:
         **kwargs,
     ) -> DetachLoadBalancerTargetGroupsResultType:
         """This API operation is superseded by
-        `DetachTrafficSources <https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DescribeTrafficSources.html>`__,
+        `DetachTrafficSources <https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DetachTrafficSources.html>`__,
         which can detach multiple traffic sources types. We recommend using
         ``DetachTrafficSources`` to simplify how you manage traffic sources.
         However, we continue to support ``DetachLoadBalancerTargetGroups``. You
@@ -4827,6 +4845,7 @@ class AutoscalingApi:
         capacity could become imbalanced across Availability Zones.
         :param capacity_reservation_specification: The capacity reservation specification for the Auto Scaling group.
         :param instance_lifecycle_policy: The instance lifecycle policy for the Auto Scaling group.
+        :param deletion_protection: The deletion protection setting for the Auto Scaling group.
         :raises ScalingActivityInProgressFault:
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:

@@ -53,6 +53,8 @@ class AMITypes(StrEnum):
     BOTTLEROCKET_x86_64_FIPS = "BOTTLEROCKET_x86_64_FIPS"
     BOTTLEROCKET_ARM_64_NVIDIA = "BOTTLEROCKET_ARM_64_NVIDIA"
     BOTTLEROCKET_x86_64_NVIDIA = "BOTTLEROCKET_x86_64_NVIDIA"
+    BOTTLEROCKET_ARM_64_NVIDIA_FIPS = "BOTTLEROCKET_ARM_64_NVIDIA_FIPS"
+    BOTTLEROCKET_x86_64_NVIDIA_FIPS = "BOTTLEROCKET_x86_64_NVIDIA_FIPS"
     WINDOWS_CORE_2019_x86_64 = "WINDOWS_CORE_2019_x86_64"
     WINDOWS_FULL_2019_x86_64 = "WINDOWS_FULL_2019_x86_64"
     WINDOWS_CORE_2022_x86_64 = "WINDOWS_CORE_2022_x86_64"
@@ -1030,8 +1032,8 @@ AssociatedAccessPoliciesList = list[AssociatedAccessPolicy]
 
 
 class AutoScalingGroup(TypedDict, total=False):
-    """An Amazon EC2 Auto Scaling group that is associated with an Amazon EKS
-    managed node group.
+    """An Auto Scaling group that is associated with an Amazon EKS managed node
+    group.
     """
 
     name: String | None
@@ -1816,11 +1818,10 @@ class RemoteAccessConfig(TypedDict, total=False):
 
 
 class NodegroupScalingConfig(TypedDict, total=False):
-    """An object representing the scaling configuration details for the Amazon
-    EC2 Auto Scaling group that is associated with your node group. When
-    creating a node group, you must specify all or none of the properties.
-    When updating a node group, you can specify any or none of the
-    properties.
+    """An object representing the scaling configuration details for the Auto
+    Scaling group that is associated with your node group. When creating a
+    node group, you must specify all or none of the properties. When
+    updating a node group, you can specify any or none of the properties.
     """
 
     minSize: ZeroCapacity | None
@@ -3228,10 +3229,9 @@ class EksApi:
         using launch templates, see `Customizing managed nodes with launch
         templates <https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html>`__.
 
-        An Amazon EKS managed node group is an Amazon EC2 Amazon EC2 Auto
-        Scaling group and associated Amazon EC2 instances that are managed by
-        Amazon Web Services for an Amazon EKS cluster. For more information, see
-        `Managed node
+        An Amazon EKS managed node group is an Amazon EC2 Auto Scaling group and
+        associated Amazon EC2 instances that are managed by Amazon Web Services
+        for an Amazon EKS cluster. For more information, see `Managed node
         groups <https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html>`__
         in the *Amazon EKS User Guide*.
 

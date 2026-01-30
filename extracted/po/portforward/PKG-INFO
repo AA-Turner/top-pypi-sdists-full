@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: portforward
-Version: 0.7.5
+Version: 0.7.6
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -21,9 +21,9 @@ Author-email: Sebastian Ziemann <corka149@mailbox.org>
 License: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst; charset=UTF-8
+Project-URL: Changelog, https://github.com/pytogo/portforward/blob/main/HISTORY.rst
 Project-URL: Documentation, https://portforward.readthedocs.io
 Project-URL: Repository, https://github.com/pytogo/portforward.git
-Project-URL: Changelog, https://github.com/pytogo/portforward/blob/main/HISTORY.rst
 
 ===========
 portforward

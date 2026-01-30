@@ -5,18 +5,25 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.edit_error_handler_json_body import EditErrorHandlerJsonBody
+from ...models.edit_error_handler_json_body_type_0 import EditErrorHandlerJsonBodyType0
+from ...models.edit_error_handler_json_body_type_1 import EditErrorHandlerJsonBodyType1
 from ...types import Response
 
 
 def _get_kwargs(
     workspace: str,
     *,
-    json_body: EditErrorHandlerJsonBody,
+    json_body: Union["EditErrorHandlerJsonBodyType0", "EditErrorHandlerJsonBodyType1"],
 ) -> Dict[str, Any]:
     pass
 
-    json_json_body = json_body.to_dict()
+    json_json_body: Dict[str, Any]
+
+    if isinstance(json_body, EditErrorHandlerJsonBodyType0):
+        json_json_body = json_body.to_dict()
+
+    else:
+        json_json_body = json_body.to_dict()
 
     return {
         "method": "post",
@@ -47,13 +54,15 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
-    json_body: EditErrorHandlerJsonBody,
+    json_body: Union["EditErrorHandlerJsonBodyType0", "EditErrorHandlerJsonBodyType1"],
 ) -> Response[Any]:
     """edit error handler
 
     Args:
         workspace (str):
-        json_body (EditErrorHandlerJsonBody):
+        json_body (Union['EditErrorHandlerJsonBodyType0', 'EditErrorHandlerJsonBodyType1']):
+            Request body for editing the workspace error handler. Accepts both new grouped format and
+            legacy flat format for backward compatibility.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -79,13 +88,15 @@ async def asyncio_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
-    json_body: EditErrorHandlerJsonBody,
+    json_body: Union["EditErrorHandlerJsonBodyType0", "EditErrorHandlerJsonBodyType1"],
 ) -> Response[Any]:
     """edit error handler
 
     Args:
         workspace (str):
-        json_body (EditErrorHandlerJsonBody):
+        json_body (Union['EditErrorHandlerJsonBodyType0', 'EditErrorHandlerJsonBodyType1']):
+            Request body for editing the workspace error handler. Accepts both new grouped format and
+            legacy flat format for backward compatibility.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

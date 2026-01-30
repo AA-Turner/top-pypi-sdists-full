@@ -205,7 +205,12 @@ __all__ = (
     "SlaInputConfigurationTypeDef",
     "SlaInputContentTypeDef",
     "SortTypeDef",
+    "TagFilterTypeDef",
+    "TagPropagationConfigurationOutputTypeDef",
+    "TagPropagationConfigurationTypeDef",
+    "TagPropagationConfigurationUnionTypeDef",
     "TagResourceRequestTypeDef",
+    "TagValueTypeDef",
     "TemplateRuleTypeDef",
     "TemplateSummaryTypeDef",
     "UntagResourceRequestTypeDef",
@@ -513,6 +518,11 @@ class GetTemplateRequestTypeDef(TypedDict):
     templateId: str
 
 
+class TagPropagationConfigurationOutputTypeDef(TypedDict):
+    resourceType: Literal["Cases"]
+    tagMap: dict[str, str]
+
+
 class LayoutSummaryTypeDef(TypedDict):
     layoutId: str
     layoutArn: str
@@ -574,13 +584,6 @@ class ListTemplatesRequestTypeDef(TypedDict):
     status: NotRequired[Sequence[TemplateStatusType]]
 
 
-class TemplateSummaryTypeDef(TypedDict):
-    templateId: str
-    templateArn: str
-    name: str
-    status: TemplateStatusType
-
-
 class SlaFilterTypeDef(TypedDict):
     name: NotRequired[str]
     status: NotRequired[SlaStatusType]
@@ -594,6 +597,16 @@ class SearchAllRelatedItemsSortTypeDef(TypedDict):
 class SortTypeDef(TypedDict):
     fieldId: str
     sortOrder: OrderType
+
+
+class TagValueTypeDef(TypedDict):
+    key: NotRequired[str]
+    value: NotRequired[str]
+
+
+class TagPropagationConfigurationTypeDef(TypedDict):
+    resourceType: Literal["Cases"]
+    tagMap: Mapping[str, str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -758,43 +771,6 @@ class ListCasesForContactResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class CreateTemplateRequestTypeDef(TypedDict):
-    domainId: str
-    name: str
-    description: NotRequired[str]
-    layoutConfiguration: NotRequired[LayoutConfigurationTypeDef]
-    requiredFields: NotRequired[Sequence[RequiredFieldTypeDef]]
-    status: NotRequired[TemplateStatusType]
-    rules: NotRequired[Sequence[TemplateRuleTypeDef]]
-
-
-class GetTemplateResponseTypeDef(TypedDict):
-    templateId: str
-    templateArn: str
-    name: str
-    description: str
-    layoutConfiguration: LayoutConfigurationTypeDef
-    requiredFields: list[RequiredFieldTypeDef]
-    tags: dict[str, str]
-    status: TemplateStatusType
-    deleted: bool
-    createdTime: datetime
-    lastModifiedTime: datetime
-    rules: list[TemplateRuleTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateTemplateRequestTypeDef(TypedDict):
-    domainId: str
-    templateId: str
-    name: NotRequired[str]
-    description: NotRequired[str]
-    layoutConfiguration: NotRequired[LayoutConfigurationTypeDef]
-    requiredFields: NotRequired[Sequence[RequiredFieldTypeDef]]
-    status: NotRequired[TemplateStatusType]
-    rules: NotRequired[Sequence[TemplateRuleTypeDef]]
-
-
 class ListDomainsResponseTypeDef(TypedDict):
     domains: list[DomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -851,6 +827,31 @@ SlaConfigurationTypeDef = TypedDict(
 FieldValueUnionUnionTypeDef = Union[FieldValueUnionTypeDef, FieldValueUnionOutputTypeDef]
 
 
+class GetTemplateResponseTypeDef(TypedDict):
+    templateId: str
+    templateArn: str
+    name: str
+    description: str
+    layoutConfiguration: LayoutConfigurationTypeDef
+    requiredFields: list[RequiredFieldTypeDef]
+    tags: dict[str, str]
+    status: TemplateStatusType
+    deleted: bool
+    createdTime: datetime
+    lastModifiedTime: datetime
+    rules: list[TemplateRuleTypeDef]
+    tagPropagationConfigurations: list[TagPropagationConfigurationOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TemplateSummaryTypeDef(TypedDict):
+    templateId: str
+    templateArn: str
+    name: str
+    status: TemplateStatusType
+    tagPropagationConfigurations: NotRequired[list[TagPropagationConfigurationOutputTypeDef]]
+
+
 class ListLayoutsResponseTypeDef(TypedDict):
     layouts: list[LayoutSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -862,12 +863,13 @@ class ListCaseRulesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListTemplatesResponseTypeDef(TypedDict):
-    templates: list[TemplateSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class TagFilterTypeDef(TypedDict):
+    equalTo: NotRequired[TagValueTypeDef]
 
 
+TagPropagationConfigurationUnionTypeDef = Union[
+    TagPropagationConfigurationTypeDef, TagPropagationConfigurationOutputTypeDef
+]
 AuditEventTypeDef = TypedDict(
     "AuditEventTypeDef",
     {
@@ -949,6 +951,35 @@ SlaInputConfigurationTypeDef = TypedDict(
         "targetFieldValues": NotRequired[Sequence[FieldValueUnionUnionTypeDef]],
     },
 )
+
+
+class ListTemplatesResponseTypeDef(TypedDict):
+    templates: list[TemplateSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class CreateTemplateRequestTypeDef(TypedDict):
+    domainId: str
+    name: str
+    description: NotRequired[str]
+    layoutConfiguration: NotRequired[LayoutConfigurationTypeDef]
+    requiredFields: NotRequired[Sequence[RequiredFieldTypeDef]]
+    status: NotRequired[TemplateStatusType]
+    rules: NotRequired[Sequence[TemplateRuleTypeDef]]
+    tagPropagationConfigurations: NotRequired[Sequence[TagPropagationConfigurationUnionTypeDef]]
+
+
+class UpdateTemplateRequestTypeDef(TypedDict):
+    domainId: str
+    templateId: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    layoutConfiguration: NotRequired[LayoutConfigurationTypeDef]
+    requiredFields: NotRequired[Sequence[RequiredFieldTypeDef]]
+    status: NotRequired[TemplateStatusType]
+    rules: NotRequired[Sequence[TemplateRuleTypeDef]]
+    tagPropagationConfigurations: NotRequired[Sequence[TagPropagationConfigurationUnionTypeDef]]
 
 
 class GetCaseAuditEventsResponseTypeDef(TypedDict):
@@ -1080,6 +1111,7 @@ class CreateCaseRequestTypeDef(TypedDict):
     fields: Sequence[FieldValueUnionExtraTypeDef]
     clientToken: NotRequired[str]
     performedBy: NotRequired[UserUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class CustomInputContentTypeDef(TypedDict):
@@ -1156,6 +1188,7 @@ CaseFilterPaginatorTypeDef = TypedDict(
     {
         "field": NotRequired[FieldFilterTypeDef],
         "not": NotRequired[Mapping[str, Any]],
+        "tag": NotRequired[TagFilterTypeDef],
         "andAll": NotRequired[Sequence[Mapping[str, Any]]],
         "orAll": NotRequired[Sequence[Mapping[str, Any]]],
     },
@@ -1165,6 +1198,7 @@ CaseFilterTypeDef = TypedDict(
     {
         "field": NotRequired[FieldFilterTypeDef],
         "not": NotRequired[Mapping[str, Any]],
+        "tag": NotRequired[TagFilterTypeDef],
         "andAll": NotRequired[Sequence[Mapping[str, Any]]],
         "orAll": NotRequired[Sequence[Mapping[str, Any]]],
     },

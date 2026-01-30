@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: PyMatting
-Version: 1.1.14
+Version: 1.1.15
 Summary: Python package for alpha matting.
-Home-page: https://pymatting.github.io
-Author: The PyMatting Developers
-Author-email: pymatting@gmail.com
+Author-email: The PyMatting Developers <pymatting@gmail.com>
 License: MIT
+Project-URL: Homepage, https://pymatting.github.io
 Project-URL: Source, https://github.com/pymatting/pymatting
 Keywords: alpha matting
 Classifier: Programming Language :: Python :: 3
@@ -16,21 +15,15 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: numpy>=1.16.0
 Requires-Dist: pillow>=5.2.0
-Requires-Dist: numba!=0.49.0
+Requires-Dist: numba>=0.60.0
 Requires-Dist: scipy>=1.1.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: gpu
+Requires-Dist: cupy-cuda12x>=13.6.0; extra == "gpu"
+Requires-Dist: pyopencl>=2019.1.2; extra == "gpu"
+Provides-Extra: test
+Requires-Dist: flake8>=3.7.9; extra == "test"
+Requires-Dist: pytest>=5.3.4; extra == "test"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # PyMatting: A Python Library for Alpha Matting
 [![License: MIT](https://img.shields.io/github/license/pymatting/pymatting?color=brightgreen)](https://opensource.org/licenses/MIT)
@@ -126,8 +119,8 @@ All other values indicate unknown pixels which will be estimated by the algorith
 
 Run the tests from the main directory:
 ```
-pip3 install -r requirements_tests.txt
-ppytest
+pip3 install -r .[test]
+pytest
 ```
 
 Currently 89% of the code is covered by tests.
@@ -138,6 +131,34 @@ Currently 89% of the code is covered by tests.
 pip3 install --upgrade pymatting
 python3 -c "import pymatting"
 ```
+
+## GPU-Support
+
+There is
+[CuPy](https://pymatting.github.io/foreground.html#estimate_foreground_ml_cupy)
+and
+[PyOpenCL](https://pymatting.github.io/foreground.html#estimate_foreground_ml_pyopencl)
+support for foreground estimation.
+
+```
+pip3 install -r .[gpu]
+pytest tests/test_foreground.py
+```
+
+You still need to install proper drivers for GPU support separately.
+
+If you have installed drivers, but CuPy can not find `libnvrtc.so.12`, you might have link to CUDA libraries manually:
+
+```
+sudo apt install plocate
+# might resolve to something like /home/user/myenv/lib/python3.12/site-packages/nvidia/cuda_nvrtc/lib/
+export LD_LIBRARY_PATH="$(dirname $(locate libnvrtc.so.12)):$LD_LIBRARY_PATH"
+```
+
+For PyOpenCL, see [docs](https://documen.tician.de/pyopencl/misc.html).  <!-- codespell:ignore documen -->
+You can select computing device by setting `PYOPENCL_CTX` environment variable.
+
+There currently is no GPU support for alpha estimation, only for foreground estimation.
 
 ## Bug Reports, Questions and Pull-Requests
 

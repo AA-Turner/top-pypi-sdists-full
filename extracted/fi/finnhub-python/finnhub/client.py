@@ -373,11 +373,14 @@ class Client:
     def etfs_holdings(self, symbol=None, isin=None, skip=None, date=None):
         return self._get("/etf/holdings", params={"symbol": symbol, "isin": isin, "skip": skip, "date": date})
 
-    def etfs_sector_exp(self, symbol):
-        return self._get("/etf/sector", params={"symbol": symbol})
+    def etfs_sector_exp(self, symbol=None, isin=None):
+        return self._get("/etf/sector", params={"symbol": symbol, "isin": isin})
 
-    def etfs_country_exp(self, symbol):
-        return self._get("/etf/country", params={"symbol": symbol})
+    def etfs_country_exp(self, symbol=None, isin=None):
+        return self._get("/etf/country", params={"symbol": symbol, "isin": isin})
+
+    def etfs_allocation(self, symbol=None, isin=None):
+        return self._get("/etf/allocation", params={"symbol": symbol, "isin": isin})
 
     def international_filings(self, symbol="", country=""):
         return self._get("/stock/international-filings", params={"symbol": symbol, "country": country})

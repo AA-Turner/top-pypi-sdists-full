@@ -708,6 +708,20 @@ def delete(
 ) -> None:
     """Remove selected nodes"""
 
+def delete_copy_reconnect(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    NODE_OT_clipboard_copy: clipboard_copy | None = None,
+    NODE_OT_delete_reconnect: delete_reconnect | None = None,
+) -> None:
+    """Copy nodes to clipboard, remove and reconnect them.
+
+    :param NODE_OT_clipboard_copy: Copy to Clipboard, Copy the selected nodes to the internal clipboard
+    :param NODE_OT_delete_reconnect: Delete with Reconnect, Remove nodes and reconnect nodes as if deletion was muted
+    """
+
 def delete_reconnect(
     execution_context: int | str | None = None,
     undo: bool | None = None,

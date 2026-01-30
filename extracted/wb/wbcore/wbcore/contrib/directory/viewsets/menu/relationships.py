@@ -1,20 +1,19 @@
 from django.utils.translation import gettext as _
 
 from wbcore.menus import ItemPermission, MenuItem
-from wbcore.permissions.shortcuts import is_internal_user
 
 RELATIONSHIPTYPE_MENUITEM = MenuItem(
     label=_("Relationship Types"),
     endpoint="wbcore:directory:relationship-type-list",
     permission=ItemPermission(
-        method=lambda request: is_internal_user(request.user),
+        method=lambda request: request.user.is_internal,
         permissions=["directory.view_relationshiptype"],
     ),
     add=MenuItem(
         label=_("Create Relationship Type"),
         endpoint="wbcore:directory:relationship-type-list",
         permission=ItemPermission(
-            method=lambda request: is_internal_user(request.user),
+            method=lambda request: request.user.is_internal,
             permissions=["directory.add_relationshiptype"],
         ),
     ),

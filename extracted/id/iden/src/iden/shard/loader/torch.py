@@ -6,7 +6,7 @@ __all__ = ["TorchShardLoader"]
 
 from typing import Any, TypeVar
 
-from coola.utils import check_torch
+from coola.utils.imports import check_torch
 
 from iden.shard.loader.base import BaseShardLoader
 from iden.shard.torch import TorchShard

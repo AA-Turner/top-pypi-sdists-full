@@ -1,7 +1,7 @@
 import threading
 import time
 from pathlib import Path, PurePath
-from typing import Callable, Dict, List, Literal, Optional, Union
+from typing import Callable, List, Literal, Optional, Union
 
 from watchdog.events import (
     FileCreatedEvent,
@@ -14,8 +14,6 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from abstra_internals.settings import Settings
-from abstra_internals.utils.crdt import CRDTManager
-from abstra_internals.utils.file import safe_read_file, safe_write_file
 
 IGNORED_PATHS = [
     ".abstra/",
@@ -35,8 +33,6 @@ IGNORED_PATHS = [
 ]
 FSEventType = Literal["changed", "created", "deleted", "moved"]
 Handler = Callable[[Path, FSEventType, Optional[str]], None]
-
-crdt_managers: Dict[str, CRDTManager] = {}
 
 
 class FileWatcher(FileSystemEventHandler):
@@ -68,19 +64,6 @@ class FileWatcher(FileSystemEventHandler):
             event_type = "moved"
         elif isinstance(event, FileModifiedEvent):
             event_type = "changed"
-            content = safe_read_file(filepath, 2.0)
-            if not content:
-                return
-
-            if filepath_str not in crdt_managers or crdt_managers[filepath_str] is None:
-                crdt_managers[filepath_str] = CRDTManager(file_path=filepath)
-
-            old_content = crdt_managers[filepath_str].get_content()
-            if old_content != content:
-                crdt_managers[filepath_str].apply_operations_from_diff(content)
-                new_content = crdt_managers[filepath_str].get_content()
-                if content != new_content:
-                    safe_write_file(filepath, new_content, 2.0)
 
         else:
             return

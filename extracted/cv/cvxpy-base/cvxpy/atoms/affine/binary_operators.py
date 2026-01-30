@@ -26,6 +26,7 @@ import cvxpy.lin_ops.lin_utils as lu
 import cvxpy.utilities as u
 from cvxpy.atoms.affine.add_expr import AddExpression
 from cvxpy.atoms.affine.affine_atom import AffAtom
+from cvxpy.atoms.affine.broadcast_to import broadcast_to
 from cvxpy.atoms.affine.conj import conj
 from cvxpy.atoms.affine.reshape import deep_flatten, reshape
 from cvxpy.atoms.affine.sum import sum as cvxpy_sum
@@ -51,11 +52,36 @@ class BinaryOperator(AffAtom):
 
     def name(self):
         pretty_args = []
-        for a in self.args:
+        for i, a in enumerate(self.args):
+            # Always parenthesize AddExpression and DivExpression
             if isinstance(a, (AddExpression, DivExpression)):
+                pretty_args.append('(' + a.name() + ')')
+            # For division, also parenthesize multiplication on the right
+            elif isinstance(self, DivExpression) and i == 1 and \
+                    isinstance(a, (MulExpression, multiply)):
                 pretty_args.append('(' + a.name() + ')')
             else:
                 pretty_args.append(a.name())
+        return pretty_args[0] + ' ' + self.OP_NAME + ' ' + pretty_args[1]
+    
+    def format_labeled(self):
+        """Format binary operation with labels where available."""
+        # Check for own label first
+        if self._label is not None:
+            return self._label
+        
+        # Build from sub-expressions using their labels
+        pretty_args = []
+        for i, a in enumerate(self.args):
+            # Always parenthesize AddExpression and DivExpression
+            if isinstance(a, (AddExpression, DivExpression)):
+                pretty_args.append('(' + a.format_labeled() + ')')
+            # For division, also parenthesize multiplication on the right
+            elif isinstance(self, DivExpression) and i == 1 and \
+                    isinstance(a, (MulExpression, multiply)):
+                pretty_args.append('(' + a.format_labeled() + ')')
+            else:
+                pretty_args.append(a.format_labeled())
         return pretty_args[0] + ' ' + self.OP_NAME + ' ' + pretty_args[1]
 
     def numeric(self, values):
@@ -105,6 +131,52 @@ class MulExpression(BinaryOperator):
     OP_NAME = "@"
     OP_FUNC = op.mul
 
+    def __init__(self, lh_exp, rh_exp) -> None:
+        # Broadcast batch dimensions for ND matmul
+        lh_exp, rh_exp = self._broadcast_batch_dims(lh_exp, rh_exp)
+        super(MulExpression, self).__init__(lh_exp, rh_exp)
+
+    @staticmethod
+    def _broadcast_batch_dims(lh_exp, rh_exp):
+        """
+        Broadcast batch dimensions for ND matrix multiplication.
+
+        For A @ B where A has shape (...a, m, k) and B has shape (...b, k, n),
+        broadcasts both to have batch shape broadcast(...a, ...b).
+        """
+        lh_exp = Expression.cast_to_const(lh_exp)
+        rh_exp = Expression.cast_to_const(rh_exp)
+
+        lh_shape = lh_exp.shape
+        rh_shape = rh_exp.shape
+
+        # Only apply batch broadcasting for ND arrays (ndim > 2)
+        if len(lh_shape) <= 2 and len(rh_shape) <= 2:
+            return lh_exp, rh_exp
+
+        # Extract batch dimensions (all but last 2)
+        lh_batch = lh_shape[:-2] if len(lh_shape) > 2 else ()
+        rh_batch = rh_shape[:-2] if len(rh_shape) > 2 else ()
+
+        # Compute broadcast batch shape
+        try:
+            broadcast_batch = np.broadcast_shapes(lh_batch, rh_batch)
+        except ValueError:
+            # Let shape validation handle the error with a clearer message
+            return lh_exp, rh_exp
+
+        # Broadcast lhs if needed
+        if lh_batch != broadcast_batch:
+            target_shape = broadcast_batch + lh_shape[-2:]
+            lh_exp = broadcast_to(lh_exp, target_shape)
+
+        # Broadcast rhs if needed
+        if rh_batch != broadcast_batch:
+            target_shape = broadcast_batch + rh_shape[-2:]
+            rh_exp = broadcast_to(rh_exp, target_shape)
+
+        return lh_exp, rh_exp
+
     def numeric(self, values):
         """Matrix multiplication.
         """
@@ -113,11 +185,6 @@ class MulExpression(BinaryOperator):
         else:
             return values[0] @ values[1]
 
-    def validate_arguments(self):
-        """Validate that the arguments can be multiplied together."""
-        if self.args[0].ndim > 2 or self.args[1].ndim > 2:
-            raise ValueError("Multiplication with N-d arrays is not yet supported")
-    
     def shape_from_args(self) -> Tuple[int, ...]:
         """Returns the (row, col) shape of the expression.
         """
@@ -175,6 +242,12 @@ class MulExpression(BinaryOperator):
         """Gives the (sub/super)gradient of the atom w.r.t. each argument.
 
         Matrix expressions are vectorized, so the gradient is a matrix.
+        CVXPY convention: grad[i, j] = d(output[j]) / d(input[i])
+        Uses Fortran (column-major) ordering for vectorization.
+
+        For matrix multiplication C = X @ Y:
+        - grad_X = kron(Y, I_m) where m = X.shape[0]
+        - grad_Y = kron(I_n, X).T where n = Y.shape[1] (or 1 for vectors)
 
         Args:
             values: A list of numeric values for the arguments.
@@ -185,29 +258,37 @@ class MulExpression(BinaryOperator):
         if self.args[0].is_constant() or self.args[1].is_constant():
             return super(MulExpression, self)._grad(values)
 
-        # TODO(akshayka): Verify that the following code is correct for
-        # non-affine arguments.
-        X = values[0]
-        Y = values[1]
+        X = np.atleast_2d(values[0])
+        Y = np.atleast_2d(values[1])
 
-        DX_rows = self.args[0].size
-        cols = self.args[0].size
+        # Handle 1D shapes: promote to 2D for consistent Kronecker computation
+        x_shape = self.args[0].shape
+        y_shape = self.args[1].shape
 
         # dot product of two vectors with shape (n,)
-        if len(self.args[0].shape) == 1 and len(self.args[1].shape) == 1:
-            DX = sp.csc_array(Y.reshape(-1, 1))  # y as column vector
-            DY = sp.csc_array(X.reshape(-1, 1))  # x as column vector
+        if len(x_shape) == 1 and len(y_shape) == 1:
+            # For 1D @ 1D -> scalar: grad is simply the other vector
+            DX = sp.csc_array(values[1].reshape(-1, 1))
+            DY = sp.csc_array(values[0].reshape(-1, 1))
             return [DX, DY]
 
-        # DX = [diag(Y11), diag(Y12), ...]
-        #      [diag(Y21), diag(Y22), ...]
-        #      [   ...        ...     ...]
-        DX = sp.dok_array((DX_rows, cols))
-        for k in range(self.args[0].shape[0]):
-            DX[k::self.args[0].shape[0], k::self.args[0].shape[0]] = Y
-        DX = sp.csc_array(DX)
-        cols = 1 if len(self.args[1].shape) == 1 else self.args[1].shape[1]
-        DY = sp.block_diag([np.atleast_2d(X.T) for k in range(cols)], "csc")
+        # For matrix @ vector, Y is (k,) -> treat as (k, 1)
+        # Note: atleast_2d converts (k,) to (1, k), so we transpose to get (k, 1)
+        if len(y_shape) == 1:
+            Y = Y.T  # (1, k) from atleast_2d -> (k, 1)
+
+        # For vector @ matrix, X is (k,) -> treat as (1, k)
+        if len(x_shape) == 1:
+            X = X  # already (1, k) from atleast_2d
+
+        m = X.shape[0]  # rows of X
+        n = Y.shape[1]  # cols of Y
+
+        # grad_X = kron(Y, I_m) with shape (m*k, m*n)
+        DX = sp.kron(Y, sp.eye_array(m), format='csc')
+
+        # grad_Y = kron(I_n, X).T with shape (k*n, m*n)
+        DY = sp.kron(sp.eye_array(n), X, format='csc').T
 
         return [DX, DY]
 
@@ -302,6 +383,35 @@ class multiply(MulExpression):
         """
         return (self.args[0].is_psd() and self.args[1].is_nsd()) or \
                (self.args[0].is_nsd() and self.args[1].is_psd())
+
+    def _grad(self, values):
+        """Gives the (sub/super)gradient of elementwise multiply.
+
+        For z = multiply(x, y), we have z[i] = x[i] * y[i].
+        Gradient is diagonal: grad_x = diag(y), grad_y = diag(x).
+        CVXPY convention: grad[i, j] = d(output[j]) / d(input[i])
+
+        Args:
+            values: A list of numeric values for the arguments.
+
+        Returns:
+            A list of SciPy CSC sparse matrices or None.
+        """
+        if self.args[0].is_constant() or self.args[1].is_constant():
+            return super(multiply, self)._grad(values)
+
+        X = values[0]
+        Y = values[1]
+
+        # Flatten in F-order for CVXPY convention
+        x_flat = np.asarray(X).flatten(order='F')
+        y_flat = np.asarray(Y).flatten(order='F')
+
+        # Gradient is diagonal: grad_x[i, i] = y[i], grad_y[i, i] = x[i]
+        DX = sp.diags(y_flat, format='csc')
+        DY = sp.diags(x_flat, format='csc')
+
+        return [DX, DY]
 
     def graph_implementation(
         self, arg_objs, shape: Tuple[int, ...], data=None

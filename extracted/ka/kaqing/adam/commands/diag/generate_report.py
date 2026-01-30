@@ -8,6 +8,7 @@ from adam.commands.command import Command
 from adam.commands.commands_utils import kaqing_log_file
 from adam.repl_state import ReplState
 from adam.utils import log2
+from adam.utils_context import Context
 
 class GenerateReport(Command):
     COMMAND = 'generate report'
@@ -33,7 +34,7 @@ class GenerateReport(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, ['-s', '--show']) as (args, show_out):
-                results = run_checks(state.sts, state.namespace, state.pod, show_out=show_out)
+                results = run_checks(state.sts, state.namespace, state.pod, ctx=Context(show_verbose=show_out))
                 output = CheckResult.report(results)
 
                 if state.in_repl:

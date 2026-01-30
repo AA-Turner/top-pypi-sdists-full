@@ -35,11 +35,12 @@ import asyncio
 from asyncio import Semaphore
 from collections.abc import Mapping
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, unique
 from functools import partial
 import logging
 import os
 from pathlib import Path
+import re
 from ssl import SSLContext
 from typing import TYPE_CHECKING, Any, Final
 from urllib.parse import unquote
@@ -127,7 +128,35 @@ from aiohomematic.support import (
 
 _LOGGER: Final = logging.getLogger(__name__)
 
+# Pattern to match unescaped control characters (U+0000 to U+001F) in JSON strings.
+# These must be escaped as \uXXXX per RFC 8259.
+_CONTROL_CHAR_PATTERN: Final = re.compile(r"[\x00-\x1f]")
 
+
+def _sanitize_json_control_chars(*, data: str) -> str:
+    """
+    Escape unescaped control characters in JSON data.
+
+    The CCU may return JSON with unescaped control characters in string values
+    (e.g., device names containing newlines or tabs). This function escapes them
+    to valid JSON unicode escape sequences.
+
+    Args:
+        data: Raw JSON string that may contain unescaped control characters.
+
+    Returns:
+        JSON string with control characters properly escaped.
+
+    """
+
+    def escape_control_char(match: re.Match[str]) -> str:
+        """Convert control character to unicode escape sequence."""
+        return f"\\u{ord(match.group()):04x}"
+
+    return _CONTROL_CHAR_PATTERN.sub(escape_control_char, data)
+
+
+@unique
 class _JsonKey(StrEnum):
     """Enum for Homematic json keys."""
 
@@ -149,6 +178,7 @@ class _JsonKey(StrEnum):
     INSTALL_MODE = "installMode"
     INTERFACE = "interface"
     IS_ACTIVE = "isActive"
+    IS_HA_ADDON = "is_ha_addon"
     IS_INTERNAL = "isInternal"
     KEY = "key"
     KEYMODE = "keymode"
@@ -185,6 +215,7 @@ class _JsonKey(StrEnum):
     VERSION = "version"
 
 
+@unique
 class _JsonRpcMethod(StrEnum):
     """Enum for Homematic json rpc methods types."""
 
@@ -1002,10 +1033,11 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
         """Get system information of the the backend."""
         auth_enabled = await self._get_auth_enabled()
 
-        # Get backend info (version, product, hostname, ccu_type)
+        # Get backend info (version, product, hostname, ccu_type, is_ha_addon)
         version = ""
         hostname = ""
         ccu_type = CCUType.UNKNOWN
+        is_ha_addon = False
         try:
             response = await self._post_script(script_name=RegaScript.GET_BACKEND_INFO)
             _LOGGER.debug("GET_SYSTEM_INFORMATION: Getting backend information")
@@ -1013,6 +1045,7 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
                 version = json_result.get(_JsonKey.VERSION, "")
                 ccu_type = _determine_ccu_type(product=json_result.get(_JsonKey.PRODUCT, ""))
                 hostname = json_result.get(_JsonKey.HOSTNAME, "")
+                is_ha_addon = json_result.get(_JsonKey.IS_HA_ADDON, False)
         except JSONDecodeError as jderr:
             _LOGGER.error(
                 i18n.tr(
@@ -1029,6 +1062,7 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
             version=version,
             hostname=hostname,
             ccu_type=ccu_type,
+            is_ha_addon=is_ha_addon,
         )
 
     async def get_system_update_info(self) -> SystemUpdateData:
@@ -1702,13 +1736,23 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
         return await self._do_login()
 
     async def _get_auth_enabled(self) -> bool:
-        """Get the auth_enabled flag of the backend."""
+        """
+        Get the auth_enabled flag of the backend.
+
+        Note:
+            If CCU.getAuthEnabled fails with AuthFailure (e.g., "access denied (ADMIN needed)"),
+            we assume auth is enabled. This error indicates that the user doesn't have ADMIN
+            rights, which itself proves that authentication is enabled on the CCU.
+
+        """
         _LOGGER.debug("GET_AUTH_ENABLED: Getting the flag auth_enabled")
         try:
             response = await self._post(method=_JsonRpcMethod.CCU_GET_AUTH_ENABLED)
             if (json_result := response[_JsonKey.RESULT]) is not None:
                 return bool(json_result)
-        except InternalBackendException:
+        except (AuthFailure, InternalBackendException):
+            # AuthFailure: "access denied (ADMIN needed)" means auth is enabled
+            # InternalBackendException: Backend error, assume auth is enabled to be safe
             return True
 
         return True
@@ -1731,8 +1775,10 @@ class AioJsonRpcAioHttpClient(LogContextMixin):
                 "DO_POST: ValueError [%s] Unable to parse JSON. Trying workaround",
                 extract_exc_args(exc=verr),
             )
-            # Workaround for bug in CCU
-            return compat.loads(data=(await response.read()).decode(encoding=UTF_8))
+            # Workaround for bug in CCU: device names may contain unescaped control characters
+            raw_data = (await response.read()).decode(encoding=UTF_8)
+            sanitized_data = _sanitize_json_control_chars(data=raw_data)
+            return compat.loads(data=sanitized_data)
 
     async def _get_program_descriptions(self) -> Mapping[str, str]:
         """Get all program descriptions from the backend via script."""

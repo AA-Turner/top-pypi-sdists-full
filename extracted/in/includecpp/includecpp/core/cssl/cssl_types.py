@@ -21,6 +21,994 @@ from collections import deque
 T = TypeVar('T')
 
 
+class Bit:
+    """CSSL Bit type - single binary value (0 or 1).
+
+    Usage in CSSL:
+        bit flag = 1;
+        bit enabled = 0;
+
+        if (flag == 1) { ... }
+        flag = 0;  // Toggle
+    """
+
+    def __init__(self, value: int = 0):
+        if value not in (0, 1):
+            raise ValueError(f"Bit must be 0 or 1, got {value}")
+        self._value = value
+
+    @property
+    def value(self) -> int:
+        return self._value
+
+    @value.setter
+    def value(self, v: int):
+        if v not in (0, 1):
+            raise ValueError(f"Bit must be 0 or 1, got {v}")
+        self._value = v
+
+    def __bool__(self) -> bool:
+        return self._value == 1
+
+    def __int__(self) -> int:
+        return self._value
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Bit):
+            return self._value == other._value
+        return self._value == other
+
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+
+    def __repr__(self) -> str:
+        return str(self._value)
+
+    def __str__(self) -> str:
+        return str(self._value)
+
+    def toggle(self) -> 'Bit':
+        """Toggle the bit value (0->1, 1->0)."""
+        self._value = 1 if self._value == 0 else 0
+        return self
+
+    def switch(self) -> 'Bit':
+        """Switch the bit value (0->1, 1->0). Alias for toggle()."""
+        return self.toggle()
+
+    def set(self, new: int = 1) -> 'Bit':
+        """Set to value (default 1). If new is 0, clears the bit."""
+        if new not in (0, 1):
+            raise ValueError(f"Bit must be 0 or 1, got {new}")
+        self._value = new
+        return self
+
+    def clear(self) -> 'Bit':
+        """Clear to 0."""
+        self._value = 0
+        return self
+
+    def assign(self, value: int) -> 'Bit':
+        """Assign a new value (0 or 1). Alias for set()."""
+        return self.set(value)
+
+    def is_set(self) -> bool:
+        """Check if bit is set (1)."""
+        return self._value == 1
+
+    def is_clear(self) -> bool:
+        """Check if bit is clear (0)."""
+        return self._value == 0
+
+    def copy(self) -> 'Bit':
+        """Create a copy of this bit."""
+        return Bit(self._value)
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def and_(self, other: 'Bit') -> 'Bit':
+        """Logical AND with another bit."""
+        other_val = other._value if isinstance(other, Bit) else int(other)
+        return Bit(self._value & other_val)
+
+    def or_(self, other: 'Bit') -> 'Bit':
+        """Logical OR with another bit."""
+        other_val = other._value if isinstance(other, Bit) else int(other)
+        return Bit(self._value | other_val)
+
+    def xor_(self, other: 'Bit') -> 'Bit':
+        """Logical XOR with another bit."""
+        other_val = other._value if isinstance(other, Bit) else int(other)
+        return Bit(self._value ^ other_val)
+
+    def not_(self) -> 'Bit':
+        """Logical NOT (invert)."""
+        return Bit(1 if self._value == 0 else 0)
+
+    def nand_(self, other: 'Bit') -> 'Bit':
+        """Logical NAND with another bit."""
+        return self.and_(other).not_()
+
+    def nor_(self, other: 'Bit') -> 'Bit':
+        """Logical NOR with another bit."""
+        return self.or_(other).not_()
+
+    def xnor_(self, other: 'Bit') -> 'Bit':
+        """Logical XNOR with another bit."""
+        return self.xor_(other).not_()
+
+    def implies(self, other: 'Bit') -> 'Bit':
+        """Logical implication (A implies B = NOT A OR B)."""
+        return self.not_().or_(other)
+
+    def to_int(self) -> int:
+        """Convert to integer."""
+        return self._value
+
+    def to_bool(self) -> bool:
+        """Convert to boolean."""
+        return self._value == 1
+
+    def to_str(self) -> str:
+        """Convert to string."""
+        return str(self._value)
+
+    def from_int(self, n: int) -> 'Bit':
+        """Set from integer (0 or non-zero)."""
+        self._value = 0 if n == 0 else 1
+        return self
+
+    def from_bool(self, b: bool) -> 'Bit':
+        """Set from boolean."""
+        self._value = 1 if b else 0
+        return self
+
+    def count(self) -> int:
+        """Return count of set bits (0 or 1)."""
+        return self._value
+
+    def flip_if(self, condition: bool) -> 'Bit':
+        """Flip the bit if condition is true."""
+        if condition:
+            self.toggle()
+        return self
+
+    def set_if(self, condition: bool) -> 'Bit':
+        """Set to 1 if condition is true."""
+        if condition:
+            self._value = 1
+        return self
+
+    def clear_if(self, condition: bool) -> 'Bit':
+        """Clear to 0 if condition is true."""
+        if condition:
+            self._value = 0
+        return self
+
+    def compare(self, other: 'Bit') -> int:
+        """Compare with another bit. Returns -1, 0, or 1."""
+        other_val = other._value if isinstance(other, Bit) else int(other)
+        if self._value < other_val:
+            return -1
+        elif self._value > other_val:
+            return 1
+        return 0
+
+    def equals(self, other: 'Bit') -> bool:
+        """Check equality with another bit."""
+        return self.__eq__(other)
+
+    def hash(self) -> int:
+        """Return hash value."""
+        return hash(self._value)
+
+    def serialize(self) -> str:
+        """Serialize to string."""
+        return str(self._value)
+
+    def deserialize(self, data: str) -> 'Bit':
+        """Deserialize from string."""
+        self._value = int(data) if data in ('0', '1') else 0
+        return self
+
+    def pulse(self) -> 'Bit':
+        """Pulse: set to 1 then back to 0, return self."""
+        old = self._value
+        self._value = 1
+        # In real hardware this would have a delay
+        self._value = old
+        return self
+
+    def latch(self, enable: bool = True) -> 'Bit':
+        """Latch: if enable is true, keep current value."""
+        # This is a placeholder for hardware-like behavior
+        return self
+
+    def rising_edge(self, previous: 'Bit') -> bool:
+        """Detect rising edge (0->1 transition)."""
+        prev_val = previous._value if isinstance(previous, Bit) else int(previous)
+        return prev_val == 0 and self._value == 1
+
+    def falling_edge(self, previous: 'Bit') -> bool:
+        """Detect falling edge (1->0 transition)."""
+        prev_val = previous._value if isinstance(previous, Bit) else int(previous)
+        return prev_val == 1 and self._value == 0
+
+    def swap(self, other: 'Bit') -> 'Bit':
+        """Swap values with another bit."""
+        self._value, other._value = other._value, self._value
+        return self
+
+    def get(self) -> int:
+        """Get the bit value."""
+        return self._value
+
+    def info(self) -> dict:
+        """Return info about the bit."""
+        return {'value': self._value, 'is_set': self.is_set(), 'is_clear': self.is_clear()}
+
+
+class Byte:
+    """CSSL Byte type - 8-bit value with special notation.
+
+    Supports special notation:
+        byte b = 1^250;   // Binary 1 with weight 250 (value = 250)
+        byte b = 0^102;   // Binary 0 with weight 102 (value = 102 as negative context)
+
+    The notation `x^y` means:
+        - x: base bit (0 or 1)
+        - y: value/weight (0-255)
+
+    When base is 1: value is stored directly (1^250 = 250)
+    When base is 0: value is stored as complement (0^102 = -102 or 256-102)
+
+    Usage in CSSL:
+        byte high = 1^200;
+        byte low = 0^50;
+
+        if (high == low) { ... }
+        printl(high.value());  // 200
+        printl(low.raw());     // 50
+    """
+
+    def __init__(self, base: int = 0, weight: int = 0):
+        if base not in (0, 1):
+            raise ValueError(f"Byte base must be 0 or 1, got {base}")
+        if not (0 <= weight <= 255):
+            raise ValueError(f"Byte weight must be 0-255, got {weight}")
+        self._base = base
+        self._weight = weight
+
+    @property
+    def base(self) -> int:
+        return self._base
+
+    @property
+    def weight(self) -> int:
+        return self._weight
+
+    def value(self) -> int:
+        """Get the effective value based on base and weight."""
+        if self._base == 1:
+            return self._weight
+        else:
+            # 0^x represents complement or negative context
+            return -self._weight if self._weight > 0 else 0
+
+    def raw(self) -> int:
+        """Get the raw weight value."""
+        return self._weight
+
+    def unsigned(self) -> int:
+        """Get as unsigned byte (0-255)."""
+        if self._base == 1:
+            return self._weight
+        else:
+            return (256 - self._weight) % 256
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Byte):
+            return self._base == other._base and self._weight == other._weight
+        if isinstance(other, int):
+            return self.value() == other
+        return False
+
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+
+    def __lt__(self, other) -> bool:
+        if isinstance(other, Byte):
+            return self.value() < other.value()
+        return self.value() < other
+
+    def __le__(self, other) -> bool:
+        if isinstance(other, Byte):
+            return self.value() <= other.value()
+        return self.value() <= other
+
+    def __gt__(self, other) -> bool:
+        if isinstance(other, Byte):
+            return self.value() > other.value()
+        return self.value() > other
+
+    def __ge__(self, other) -> bool:
+        if isinstance(other, Byte):
+            return self.value() >= other.value()
+        return self.value() >= other
+
+    def __int__(self) -> int:
+        return self.value()
+
+    def __repr__(self) -> str:
+        return f"Byte({self._base}^{self._weight})"
+
+    def __str__(self) -> str:
+        return f"{self._base}^{self._weight}"
+
+    def __add__(self, other) -> 'Byte':
+        if isinstance(other, Byte):
+            result = (self.unsigned() + other.unsigned()) % 256
+        else:
+            result = (self.unsigned() + int(other)) % 256
+        return Byte(1, result)
+
+    def __sub__(self, other) -> 'Byte':
+        if isinstance(other, Byte):
+            result = (self.unsigned() - other.unsigned()) % 256
+        else:
+            result = (self.unsigned() - int(other)) % 256
+        return Byte(1, result)
+
+    def __and__(self, other) -> 'Byte':
+        """Bitwise AND."""
+        if isinstance(other, Byte):
+            result = self.unsigned() & other.unsigned()
+        else:
+            result = self.unsigned() & int(other)
+        return Byte(1, result)
+
+    def __or__(self, other) -> 'Byte':
+        """Bitwise OR."""
+        if isinstance(other, Byte):
+            result = self.unsigned() | other.unsigned()
+        else:
+            result = self.unsigned() | int(other)
+        return Byte(1, result)
+
+    def __xor__(self, other) -> 'Byte':
+        """Bitwise XOR."""
+        if isinstance(other, Byte):
+            result = self.unsigned() ^ other.unsigned()
+        else:
+            result = self.unsigned() ^ int(other)
+        return Byte(1, result)
+
+    def __invert__(self) -> 'Byte':
+        """Bitwise NOT (complement)."""
+        return Byte(1, (~self.unsigned()) & 0xFF)
+
+    def to_bits(self) -> List['Bit']:
+        """Convert to list of 8 Bits (MSB first)."""
+        val = self.unsigned()
+        return [Bit((val >> (7 - i)) & 1) for i in range(8)]
+
+    def reverse(self) -> 'Byte':
+        """Reverse the bit order of the byte."""
+        val = self.unsigned()
+        reversed_val = 0
+        for i in range(8):
+            if val & (1 << i):
+                reversed_val |= (1 << (7 - i))
+        return Byte(1, reversed_val)
+
+    def to_str(self) -> str:
+        """Convert to binary string representation (8 bits)."""
+        return format(self.unsigned(), '08b')
+
+    def copy(self) -> 'Byte':
+        """Create a copy of this byte."""
+        return Byte(self._base, self._weight)
+
+    def get(self, index: int) -> 'Bit':
+        """Get bit at index (0 = LSB, 7 = MSB)."""
+        if not (0 <= index <= 7):
+            raise IndexError(f"Bit index must be 0-7, got {index}")
+        return Bit((self.unsigned() >> index) & 1)
+
+    def set_bit(self, index: int, value: int = 1) -> 'Byte':
+        """Set bit at index to value (0 or 1). Internal method."""
+        if not (0 <= index <= 7):
+            raise IndexError(f"Bit index must be 0-7, got {index}")
+        if value not in (0, 1):
+            raise ValueError(f"Bit value must be 0 or 1, got {value}")
+        current = self.unsigned()
+        if value:
+            current |= (1 << index)
+        else:
+            current &= ~(1 << index)
+        self._base = 1
+        self._weight = current
+        return self
+
+    def set(self, index: int, new: int) -> 'Byte':
+        """Set bit at index to new value (0 or 1)."""
+        return self.set_bit(index, new)
+
+    def change(self, index: int, new: int) -> 'Byte':
+        """Change bit at index to new value. Alias for set()."""
+        return self.set_bit(index, new)
+
+    def switch(self, index: int) -> 'Byte':
+        """Toggle bit at index (0->1, 1->0)."""
+        if not (0 <= index <= 7):
+            raise IndexError(f"Bit index must be 0-7, got {index}")
+        current_bit = (self.unsigned() >> index) & 1
+        return self.set_bit(index, 1 - current_bit)
+
+    def write(self, index: int, cnt: int) -> 'Byte':
+        """Write value to bits starting at index for cnt bits.
+
+        Args:
+            index: Starting bit position (0 = LSB)
+            cnt: Value to write (will be masked to fit)
+        """
+        if not (0 <= index <= 7):
+            raise IndexError(f"Bit index must be 0-7, got {index}")
+        # Calculate how many bits we can write
+        max_bits = 8 - index
+        mask = (1 << max_bits) - 1
+        cnt = cnt & mask
+
+        current = self.unsigned()
+        # Clear the bits we're writing to
+        clear_mask = ~(mask << index) & 0xFF
+        current = current & clear_mask
+        # Set the new bits
+        current = current | (cnt << index)
+        self._base = 1
+        self._weight = current
+        return self
+
+    def info(self) -> dict:
+        """Get detailed information about the byte."""
+        return {
+            'base': self._base,
+            'weight': self._weight,
+            'value': self.value(),
+            'unsigned': self.unsigned(),
+            'binary': self.to_str(),
+            'hex': hex(self.unsigned()),
+            'bits': [int(b) for b in self.to_bits()]
+        }
+
+    def len(self) -> int:
+        """Return the number of bits (always 8)."""
+        return 8
+
+    def at(self, index: int) -> 'Bit':
+        """Get bit at index (0 = LSB, 7 = MSB). Alias for get()."""
+        return self.get(index)
+
+    @classmethod
+    def from_bits(cls, bits: List['Bit']) -> 'Byte':
+        """Create Byte from 8 Bits (MSB first)."""
+        if len(bits) != 8:
+            raise ValueError("from_bits requires exactly 8 bits")
+        val = sum(int(bits[i]) << (7 - i) for i in range(8))
+        return cls(1, val)
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def rotate_left(self, n: int = 1) -> 'Byte':
+        """Rotate bits left by n positions."""
+        val = self.unsigned()
+        n = n % 8
+        rotated = ((val << n) | (val >> (8 - n))) & 0xFF
+        return Byte(1, rotated)
+
+    def rotate_right(self, n: int = 1) -> 'Byte':
+        """Rotate bits right by n positions."""
+        val = self.unsigned()
+        n = n % 8
+        rotated = ((val >> n) | (val << (8 - n))) & 0xFF
+        return Byte(1, rotated)
+
+    def shift_left(self, n: int = 1) -> 'Byte':
+        """Shift bits left by n positions (fill with 0)."""
+        val = (self.unsigned() << n) & 0xFF
+        return Byte(1, val)
+
+    def shift_right(self, n: int = 1) -> 'Byte':
+        """Shift bits right by n positions (fill with 0)."""
+        val = (self.unsigned() >> n) & 0xFF
+        return Byte(1, val)
+
+    def popcount(self) -> int:
+        """Count the number of set bits (1s)."""
+        return bin(self.unsigned()).count('1')
+
+    def leading_zeros(self) -> int:
+        """Count leading zeros (from MSB)."""
+        val = self.unsigned()
+        if val == 0:
+            return 8
+        count = 0
+        for i in range(7, -1, -1):
+            if (val >> i) & 1:
+                break
+            count += 1
+        return count
+
+    def trailing_zeros(self) -> int:
+        """Count trailing zeros (from LSB)."""
+        val = self.unsigned()
+        if val == 0:
+            return 8
+        count = 0
+        for i in range(8):
+            if (val >> i) & 1:
+                break
+            count += 1
+        return count
+
+    def parity(self) -> int:
+        """Return parity (0 if even number of 1s, 1 if odd)."""
+        return self.popcount() % 2
+
+    def swap_nibbles(self) -> 'Byte':
+        """Swap high and low nibbles (4 bits each)."""
+        val = self.unsigned()
+        swapped = ((val & 0x0F) << 4) | ((val & 0xF0) >> 4)
+        return Byte(1, swapped)
+
+    def mirror(self) -> 'Byte':
+        """Mirror/reverse all bits."""
+        val = self.unsigned()
+        result = 0
+        for i in range(8):
+            if (val >> i) & 1:
+                result |= (1 << (7 - i))
+        return Byte(1, result)
+
+    @classmethod
+    def from_hex(cls, s: str) -> 'Byte':
+        """Create Byte from hex string (e.g., 'FF', '0x3A')."""
+        val = int(s, 16) & 0xFF
+        return cls(1, val)
+
+    def to_hex(self) -> str:
+        """Convert to hex string."""
+        return f'{self.unsigned():02X}'
+
+    @classmethod
+    def from_binary(cls, s: str) -> 'Byte':
+        """Create Byte from binary string (e.g., '10110101')."""
+        s = s.replace('0b', '').replace(' ', '')
+        val = int(s, 2) & 0xFF
+        return cls(1, val)
+
+    def to_binary(self) -> str:
+        """Convert to binary string (8 chars)."""
+        return f'{self.unsigned():08b}'
+
+    @classmethod
+    def from_decimal(cls, n: int) -> 'Byte':
+        """Create Byte from decimal integer."""
+        return cls(1, n & 0xFF)
+
+    def clamp(self, min_val: int, max_val: int) -> 'Byte':
+        """Clamp value to range [min_val, max_val]."""
+        val = max(min_val, min(max_val, self.unsigned()))
+        return Byte(1, val & 0xFF)
+
+    def saturating_add(self, n: int) -> 'Byte':
+        """Add with saturation (max 255)."""
+        result = min(255, self.unsigned() + n)
+        return Byte(1, result)
+
+    def saturating_sub(self, n: int) -> 'Byte':
+        """Subtract with saturation (min 0)."""
+        result = max(0, self.unsigned() - n)
+        return Byte(1, result)
+
+    def wrapping_add(self, n: int) -> 'Byte':
+        """Add with wrapping (overflow wraps around)."""
+        result = (self.unsigned() + n) & 0xFF
+        return Byte(1, result)
+
+    def wrapping_sub(self, n: int) -> 'Byte':
+        """Subtract with wrapping (underflow wraps around)."""
+        result = (self.unsigned() - n) & 0xFF
+        return Byte(1, result)
+
+    def is_power_of_two(self) -> bool:
+        """Check if value is a power of two."""
+        val = self.unsigned()
+        return val > 0 and (val & (val - 1)) == 0
+
+    def next_power_of_two(self) -> 'Byte':
+        """Get next power of two >= current value."""
+        val = self.unsigned()
+        if val == 0:
+            return Byte(1, 1)
+        val -= 1
+        val |= val >> 1
+        val |= val >> 2
+        val |= val >> 4
+        val += 1
+        return Byte(1, min(val, 255))
+
+    def log2(self) -> int:
+        """Get floor(log2) of value. Returns -1 for 0."""
+        val = self.unsigned()
+        if val == 0:
+            return -1
+        result = 0
+        while val > 1:
+            val >>= 1
+            result += 1
+        return result
+
+    def msb(self) -> int:
+        """Get most significant bit position (0-7) or -1 if 0."""
+        val = self.unsigned()
+        if val == 0:
+            return -1
+        pos = 0
+        while val > 1:
+            val >>= 1
+            pos += 1
+        return pos
+
+    def lsb(self) -> int:
+        """Get least significant bit position (0-7) or -1 if 0."""
+        val = self.unsigned()
+        if val == 0:
+            return -1
+        pos = 0
+        while (val & 1) == 0:
+            val >>= 1
+            pos += 1
+        return pos
+
+    def slice_bits(self, start: int, end: int) -> 'Byte':
+        """Extract bits from start to end (inclusive)."""
+        if start > end:
+            start, end = end, start
+        mask = ((1 << (end - start + 1)) - 1) << start
+        val = (self.unsigned() & mask) >> start
+        return Byte(1, val)
+
+    def pack(self, *bytes_list) -> list:
+        """Pack this byte with others into a list."""
+        return [self] + list(bytes_list)
+
+    def interleave(self, other: 'Byte') -> int:
+        """Interleave bits with another byte (returns 16-bit int)."""
+        a = self.unsigned()
+        b = other.unsigned() if isinstance(other, Byte) else int(other)
+        result = 0
+        for i in range(8):
+            result |= ((a >> i) & 1) << (2 * i)
+            result |= ((b >> i) & 1) << (2 * i + 1)
+        return result
+
+    def extract_nibble(self, high: bool = False) -> int:
+        """Extract high or low nibble (4 bits)."""
+        val = self.unsigned()
+        if high:
+            return (val >> 4) & 0x0F
+        return val & 0x0F
+
+    def set_nibble(self, value: int, high: bool = False) -> 'Byte':
+        """Set high or low nibble."""
+        current = self.unsigned()
+        value = value & 0x0F
+        if high:
+            new_val = (current & 0x0F) | (value << 4)
+        else:
+            new_val = (current & 0xF0) | value
+        return Byte(1, new_val)
+
+
+class Address:
+    """CSSL Address type - Memory reference (pointer-like).
+
+    Stores a memory address and can reflect back to get the original object.
+    Works like a pointer but with Python's reference semantics.
+
+    Usage in CSSL:
+        string text = "Hello";
+        address addr = memory(text).get("address");
+
+        // Reflect to get object
+        obj = addr.reflect();
+        printl(obj);  // "Hello"
+
+        // Or use builtin
+        obj = reflect(addr);
+    """
+
+    # Class-level registry to map addresses to objects
+    _registry: dict = {}
+    _next_id: int = 0
+
+    def __init__(self, address_str: str = None, obj: any = None):
+        """Create an Address from an address string or object.
+
+        Args:
+            address_str: Memory address string (e.g., "0x7fff3adb4ed8")
+            obj: Object to store (auto-generates address if provided)
+        """
+        if obj is not None:
+            # Store object and generate address
+            self._address = hex(id(obj))
+            Address._registry[self._address] = obj
+        elif address_str is not None:
+            self._address = address_str
+        else:
+            self._address = "0x0"  # Null address
+
+    @property
+    def value(self) -> str:
+        """Get the address value as string."""
+        return self._address
+
+    def __str__(self) -> str:
+        return self._address
+
+    def __repr__(self) -> str:
+        return self._address
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Address):
+            return self._address == other._address
+        if isinstance(other, str):
+            return self._address == other
+        return False
+
+    def __hash__(self) -> int:
+        return hash(self._address)
+
+    def reflect(self) -> any:
+        """Reflect the address to get the original object.
+
+        Returns:
+            The object at this address, or None if not found
+
+        Example:
+            string text = "Hello";
+            address addr = memory(text).get("address");
+            obj = addr.reflect();
+            printl(obj);  // "Hello"
+        """
+        return Address._registry.get(self._address)
+
+    def get_address(self) -> str:
+        """Get the address string (hex memory address).
+
+        Returns:
+            The address as a hex string (e.g., "0x7f8b2c001a00")
+
+        Example:
+            pointer p;
+            p.from_object(myObj);
+            printl(p.get_address());  // "0x7f8b2c001a00"
+        """
+        return self._address
+
+    def hex(self) -> str:
+        """Get the address as hex string (alias for get_address)."""
+        return self._address
+
+    def is_null(self) -> bool:
+        """Check if this is a null address."""
+        return self._address == "0x0" or self._address is None
+
+    def is_address(self) -> bool:
+        """Check if this pointer holds a valid address (not null).
+
+        Returns:
+            True if the address is valid (not null), False otherwise.
+
+        Example:
+            pointer p = myObj;
+            if (p.is_address()) {
+                printl("Pointer has valid address: " + p.get_address());
+            }
+        """
+        return not self.is_null()
+
+    def is_valid(self) -> bool:
+        """Check if this address points to a valid, accessible object.
+
+        Returns:
+            True if the address is not null AND the object exists in registry.
+
+        Example:
+            pointer p = myObj;
+            if (p.is_valid()) {
+                printl("Object still exists");
+            }
+        """
+        if self.is_null():
+            return False
+        return self._address in Address._registry
+
+    def copy(self) -> 'Address':
+        """Create a copy of this address."""
+        addr = Address(self._address)
+        return addr
+
+    def from_object(self, obj: any) -> 'Address':
+        """Point this Address to an object.
+
+        Args:
+            obj: Object to get address of
+
+        Returns:
+            self (for chaining)
+        """
+        self._address = hex(id(obj))
+        self._obj_ref = obj
+        Address._registry[self._address] = obj
+        return self
+
+    @classmethod
+    def register(cls, address_str: str, obj: any) -> None:
+        """Register an object at a specific address.
+
+        Args:
+            address_str: Address string
+            obj: Object to store
+        """
+        cls._registry[address_str] = obj
+
+    def destroy(self) -> bool:
+        """Destroy the object at this address and free memory.
+
+        Removes the object from the registry and sets this pointer to null.
+
+        Returns:
+            True if successfully destroyed, False if already null or not found.
+
+        Example:
+            pointer p;
+            p.from_object(myObj);
+            p.destroy();  // Object freed, p is now null
+            printl(p.is_null());  // true
+        """
+        if self.is_null():
+            return False
+
+        # Remove from registry
+        if self._address in Address._registry:
+            obj = Address._registry.pop(self._address)
+            # Call destructor if object has one
+            if hasattr(obj, '__del__'):
+                try:
+                    obj.__del__()
+                except:
+                    pass
+            elif hasattr(obj, 'destroy'):
+                try:
+                    obj.destroy()
+                except:
+                    pass
+
+        # Clear this pointer
+        self._address = "0x0"
+        self._obj_ref = None
+        return True
+
+    def reset(self) -> 'Address':
+        """Reset pointer to null without destroying the object.
+
+        Returns:
+            self (for chaining)
+        """
+        self._address = "0x0"
+        self._obj_ref = None
+        return self
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+
+class CSSLNamespace:
+    """CSSL Namespace - groups functions, classes, structs, enums, and nested namespaces.
+
+    Provides C++-style namespace organization accessible via the :: operator.
+
+    Usage in CSSL:
+        namespace mylib {
+            void greet() { printl("Hello!"); }
+            class MyClass { ... }
+            namespace nested { ... }
+        }
+
+        mylib::greet();
+        new mylib::MyClass();
+        mylib::nested::innerFunc();
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+        self.functions: Dict[str, Any] = {}  # Function AST nodes
+        self.classes: Dict[str, Any] = {}    # CSSLClass instances
+        self.structs: Dict[str, Any] = {}    # Struct AST nodes
+        self.enums: Dict[str, Any] = {}      # Enum dicts
+        self.namespaces: Dict[str, 'CSSLNamespace'] = {}  # Nested namespaces
+        self.variables: Dict[str, Any] = {}  # Namespace-level variables
+
+    def get(self, member_name: str) -> Any:
+        """Get a member by name - searches functions, classes, enums, structs, nested namespaces."""
+        # Check nested namespaces first (for chained :: access)
+        if member_name in self.namespaces:
+            return self.namespaces[member_name]
+        # Check classes
+        if member_name in self.classes:
+            return self.classes[member_name]
+        # Check functions
+        if member_name in self.functions:
+            return self.functions[member_name]
+        # Check enums
+        if member_name in self.enums:
+            return self.enums[member_name]
+        # Check structs
+        if member_name in self.structs:
+            return self.structs[member_name]
+        # Check variables
+        if member_name in self.variables:
+            return self.variables[member_name]
+        return None
+
+    def __contains__(self, name: str) -> bool:
+        """Check if namespace contains a member."""
+        return (name in self.namespaces or
+                name in self.classes or
+                name in self.functions or
+                name in self.enums or
+                name in self.structs or
+                name in self.variables)
+
+    def __getitem__(self, name: str) -> Any:
+        """Dict-like access for compatibility."""
+        return self.get(name)
+
+    def __repr__(self) -> str:
+        members = []
+        if self.functions:
+            members.append(f"{len(self.functions)} functions")
+        if self.classes:
+            members.append(f"{len(self.classes)} classes")
+        if self.enums:
+            members.append(f"{len(self.enums)} enums")
+        if self.structs:
+            members.append(f"{len(self.structs)} structs")
+        if self.namespaces:
+            members.append(f"{len(self.namespaces)} namespaces")
+        content = ", ".join(members) if members else "empty"
+        return f"<namespace {self.name}: {content}>"
+
+
 class DataStruct(list):
     """Universal container - lazy declarator that can hold any type.
 
@@ -266,6 +1254,305 @@ class DataStruct(list):
         """Return iterator to end (C++ style)"""
         return len(self)
 
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def chunk(self, size: int) -> list:
+        """Split into chunks of given size."""
+        with self._lock:
+            return [list(self[i:i+size]) for i in range(0, len(self), size)]
+
+    def partition(self, predicate: Callable) -> tuple:
+        """Split into (matching, non-matching)."""
+        with self._lock:
+            matching = [x for x in self if predicate(x)]
+            non_matching = [x for x in self if not predicate(x)]
+            return (matching, non_matching)
+
+    def groupBy(self, key_func: Callable) -> dict:
+        """Group elements by key function."""
+        with self._lock:
+            groups = {}
+            for x in self:
+                k = key_func(x)
+                if k not in groups:
+                    groups[k] = []
+                groups[k].append(x)
+            return groups
+
+    def zip_with(self, *others) -> list:
+        """Zip with other iterables."""
+        with self._lock:
+            return list(zip(self, *others))
+
+    def unzip(self) -> tuple:
+        """Unzip list of pairs into tuple of lists."""
+        with self._lock:
+            if not self:
+                return ([], [])
+            return tuple(list(x) for x in zip(*self))
+
+    def rotate(self, n: int = 1) -> 'DataStruct':
+        """Rotate elements by n positions (positive=right)."""
+        with self._lock:
+            if not self:
+                return self
+            n = n % len(self)
+            self[:] = list(self[-n:]) + list(self[:-n])
+            return self
+
+    def interleave(self, other) -> 'DataStruct':
+        """Interleave with another sequence."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            other_list = list(other)
+            for i in range(max(len(self), len(other_list))):
+                if i < len(self):
+                    result.append(self[i])
+                if i < len(other_list):
+                    result.append(other_list[i])
+            return result
+
+    def compact(self) -> 'DataStruct':
+        """Remove None values."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend([x for x in self if x is not None])
+            return result
+
+    def frequencies(self) -> dict:
+        """Count occurrences of each value."""
+        with self._lock:
+            freq = {}
+            for x in self:
+                key = x if isinstance(x, (int, str, float, bool)) else str(x)
+                freq[key] = freq.get(key, 0) + 1
+            return freq
+
+    def sample(self, n: int = 1) -> list:
+        """Random sample of n elements."""
+        import random
+        with self._lock:
+            return random.sample(list(self), min(n, len(self)))
+
+    def takeWhile(self, predicate: Callable) -> 'DataStruct':
+        """Take elements while predicate is true."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            for x in self:
+                if not predicate(x):
+                    break
+                result.append(x)
+            return result
+
+    def dropWhile(self, predicate: Callable) -> 'DataStruct':
+        """Drop elements while predicate is true."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            dropping = True
+            for x in self:
+                if dropping and predicate(x):
+                    continue
+                dropping = False
+                result.append(x)
+            return result
+
+    def take(self, n: int) -> 'DataStruct':
+        """Take first n elements."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend(self[:n])
+            return result
+
+    def drop(self, n: int) -> 'DataStruct':
+        """Drop first n elements."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend(self[n:])
+            return result
+
+    def head(self, n: int = 1) -> 'DataStruct':
+        """Get first n elements."""
+        return self.take(n)
+
+    def tail(self, n: int = 1) -> 'DataStruct':
+        """Get last n elements."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend(self[-n:] if n > 0 else [])
+            return result
+
+    def splitAt(self, index: int) -> tuple:
+        """Split at index into two DataStructs."""
+        with self._lock:
+            left = DataStruct(self._element_type)
+            right = DataStruct(self._element_type)
+            left.extend(self[:index])
+            right.extend(self[index:])
+            return (left, right)
+
+    def span(self, predicate: Callable) -> tuple:
+        """Split where predicate becomes false."""
+        with self._lock:
+            for i, x in enumerate(self):
+                if not predicate(x):
+                    left = DataStruct(self._element_type)
+                    right = DataStruct(self._element_type)
+                    left.extend(self[:i])
+                    right.extend(self[i:])
+                    return (left, right)
+            left = DataStruct(self._element_type)
+            left.extend(self)
+            return (left, DataStruct(self._element_type))
+
+    def distinct(self) -> 'DataStruct':
+        """Remove duplicates (preserving order)."""
+        return self.unique()
+
+    def dedupe(self) -> 'DataStruct':
+        """Remove consecutive duplicates."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            prev = None
+            for x in self:
+                if x != prev:
+                    result.append(x)
+                    prev = x
+            return result
+
+    def min_val(self):
+        """Get minimum value."""
+        with self._lock:
+            return min(self) if self else None
+
+    def max_val(self):
+        """Get maximum value."""
+        with self._lock:
+            return max(self) if self else None
+
+    def sum_val(self):
+        """Get sum of values."""
+        with self._lock:
+            return sum(self) if self else 0
+
+    def avg(self):
+        """Get average of values."""
+        with self._lock:
+            return sum(self) / len(self) if self else 0
+
+    def product(self):
+        """Get product of values."""
+        with self._lock:
+            result = 1
+            for x in self:
+                result *= x
+            return result
+
+    def sortBy(self, key_func: Callable) -> 'DataStruct':
+        """Sort by key function."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend(sorted(self, key=key_func))
+            return result
+
+    def sortDesc(self) -> 'DataStruct':
+        """Sort descending."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend(sorted(self, reverse=True))
+            return result
+
+    def shuffle_elements(self) -> 'DataStruct':
+        """Shuffle elements randomly."""
+        import random
+        with self._lock:
+            items = list(self)
+            random.shuffle(items)
+            self[:] = items
+            return self
+
+    def randomElement(self):
+        """Get a random element."""
+        import random
+        with self._lock:
+            return random.choice(list(self)) if self else None
+
+    def findLast(self, predicate: Callable):
+        """Find last element matching predicate."""
+        with self._lock:
+            for x in reversed(self):
+                if predicate(x):
+                    return x
+            return None
+
+    def findLastIndex(self, predicate: Callable) -> int:
+        """Find index of last element matching predicate."""
+        with self._lock:
+            for i in range(len(self) - 1, -1, -1):
+                if predicate(self[i]):
+                    return i
+            return -1
+
+    def countWhere(self, predicate: Callable) -> int:
+        """Count elements matching predicate."""
+        with self._lock:
+            return sum(1 for x in self if predicate(x))
+
+    def none(self, predicate: Callable) -> bool:
+        """Check if no elements match predicate."""
+        with self._lock:
+            return not any(predicate(x) for x in self)
+
+    def insertAt(self, index: int, value) -> 'DataStruct':
+        """Insert value at index."""
+        with self._lock:
+            self.insert(index, value)
+            return self
+
+    def removeRange(self, start: int, end: int) -> 'DataStruct':
+        """Remove elements in range [start, end)."""
+        with self._lock:
+            del self[start:end]
+            return self
+
+    def replaceAll(self, old_val, new_val) -> 'DataStruct':
+        """Replace all occurrences of old_val with new_val."""
+        with self._lock:
+            for i in range(len(self)):
+                if self[i] == old_val:
+                    self[i] = new_val
+            return self
+
+    def flatMap(self, func: Callable) -> 'DataStruct':
+        """Map then flatten."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            for x in self:
+                mapped = func(x)
+                if isinstance(mapped, (list, tuple)):
+                    result.extend(mapped)
+                else:
+                    result.append(mapped)
+            return result
+
+    def mapIndexed(self, func: Callable) -> 'DataStruct':
+        """Map with index: func(index, element)."""
+        with self._lock:
+            result = DataStruct(self._element_type)
+            result.extend([func(i, x) for i, x in enumerate(self)])
+            return result
+
+    def forEachIndexed(self, func: Callable) -> None:
+        """ForEach with index: func(index, element)."""
+        with self._lock:
+            for i, x in enumerate(self):
+                func(i, x)
+
 
 class Stack(list):
     """Stack data structure (LIFO). v4.7.1: Thread-safe.
@@ -459,6 +1746,14 @@ class Stack(list):
     def end(self) -> int:
         """Return iterator to end (C++ style)"""
         return len(self)
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
 
 
 class Vector(list):
@@ -791,6 +2086,273 @@ class Vector(list):
         """Return iterator to end (C++ style)"""
         return len(self)
 
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def chunk(self, size: int) -> list:
+        """Split into chunks of given size."""
+        with self._lock:
+            return [list(self[i:i+size]) for i in range(0, len(self), size)]
+
+    def partition(self, predicate: Callable) -> tuple:
+        """Split into (matching, non-matching)."""
+        with self._lock:
+            matching = [x for x in self if predicate(x)]
+            non_matching = [x for x in self if not predicate(x)]
+            return (matching, non_matching)
+
+    def groupBy(self, key_func: Callable) -> dict:
+        """Group elements by key function."""
+        with self._lock:
+            groups = {}
+            for x in self:
+                k = key_func(x)
+                if k not in groups:
+                    groups[k] = []
+                groups[k].append(x)
+            return groups
+
+    def zip_with(self, *others) -> list:
+        """Zip with other iterables."""
+        with self._lock:
+            return list(zip(self, *others))
+
+    def unzip(self) -> tuple:
+        """Unzip list of pairs."""
+        with self._lock:
+            if not self:
+                return ([], [])
+            return tuple(list(x) for x in zip(*self))
+
+    def rotate(self, n: int = 1) -> 'Vector':
+        """Rotate elements by n positions."""
+        with self._lock:
+            if not self:
+                return self
+            n = n % len(self)
+            self[:] = list(self[-n:]) + list(self[:-n])
+            return self
+
+    def interleave(self, other) -> 'Vector':
+        """Interleave with another sequence."""
+        with self._lock:
+            result = Vector(self._element_type)
+            other_list = list(other)
+            for i in range(max(len(self), len(other_list))):
+                if i < len(self):
+                    result.append(self[i])
+                if i < len(other_list):
+                    result.append(other_list[i])
+            return result
+
+    def compact(self) -> 'Vector':
+        """Remove None values."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend([x for x in self if x is not None])
+            return result
+
+    def frequencies(self) -> dict:
+        """Count occurrences."""
+        with self._lock:
+            freq = {}
+            for x in self:
+                key = x if isinstance(x, (int, str, float, bool)) else str(x)
+                freq[key] = freq.get(key, 0) + 1
+            return freq
+
+    def sample(self, n: int = 1) -> list:
+        """Random sample."""
+        import random
+        with self._lock:
+            return random.sample(list(self), min(n, len(self)))
+
+    def takeWhile(self, predicate: Callable) -> 'Vector':
+        """Take while predicate is true."""
+        with self._lock:
+            result = Vector(self._element_type)
+            for x in self:
+                if not predicate(x):
+                    break
+                result.append(x)
+            return result
+
+    def dropWhile(self, predicate: Callable) -> 'Vector':
+        """Drop while predicate is true."""
+        with self._lock:
+            result = Vector(self._element_type)
+            dropping = True
+            for x in self:
+                if dropping and predicate(x):
+                    continue
+                dropping = False
+                result.append(x)
+            return result
+
+    def take(self, n: int) -> 'Vector':
+        """Take first n elements."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend(self[:n])
+            return result
+
+    def drop(self, n: int) -> 'Vector':
+        """Drop first n elements."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend(self[n:])
+            return result
+
+    def head(self, n: int = 1) -> 'Vector':
+        """Get first n elements."""
+        return self.take(n)
+
+    def tail(self, n: int = 1) -> 'Vector':
+        """Get last n elements."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend(self[-n:] if n > 0 else [])
+            return result
+
+    def splitAt(self, index: int) -> tuple:
+        """Split at index."""
+        with self._lock:
+            left = Vector(self._element_type)
+            right = Vector(self._element_type)
+            left.extend(self[:index])
+            right.extend(self[index:])
+            return (left, right)
+
+    def distinct(self) -> 'Vector':
+        """Remove duplicates."""
+        with self._lock:
+            seen = set()
+            result = Vector(self._element_type)
+            for x in self:
+                key = x if isinstance(x, (int, str, float, bool)) else id(x)
+                if key not in seen:
+                    seen.add(key)
+                    result.append(x)
+            return result
+
+    def dedupe(self) -> 'Vector':
+        """Remove consecutive duplicates."""
+        with self._lock:
+            result = Vector(self._element_type)
+            prev = object()
+            for x in self:
+                if x != prev:
+                    result.append(x)
+                    prev = x
+            return result
+
+    def min_val(self):
+        """Get minimum."""
+        with self._lock:
+            return min(self) if self else None
+
+    def max_val(self):
+        """Get maximum."""
+        with self._lock:
+            return max(self) if self else None
+
+    def sum_val(self):
+        """Get sum."""
+        with self._lock:
+            return sum(self) if self else 0
+
+    def avg(self):
+        """Get average."""
+        with self._lock:
+            return sum(self) / len(self) if self else 0
+
+    def product(self):
+        """Get product."""
+        with self._lock:
+            result = 1
+            for x in self:
+                result *= x
+            return result
+
+    def sortBy(self, key_func: Callable) -> 'Vector':
+        """Sort by key function."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend(sorted(self, key=key_func))
+            return result
+
+    def sortDesc(self) -> 'Vector':
+        """Sort descending."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend(sorted(self, reverse=True))
+            return result
+
+    def shuffle_elements(self) -> 'Vector':
+        """Shuffle randomly."""
+        import random
+        with self._lock:
+            items = list(self)
+            random.shuffle(items)
+            self[:] = items
+            return self
+
+    def randomElement(self):
+        """Get random element."""
+        import random
+        with self._lock:
+            return random.choice(list(self)) if self else None
+
+    def findLast(self, predicate: Callable):
+        """Find last matching."""
+        with self._lock:
+            for x in reversed(self):
+                if predicate(x):
+                    return x
+            return None
+
+    def findLastIndex(self, predicate: Callable) -> int:
+        """Find index of last matching."""
+        with self._lock:
+            for i in range(len(self) - 1, -1, -1):
+                if predicate(self[i]):
+                    return i
+            return -1
+
+    def countWhere(self, predicate: Callable) -> int:
+        """Count matching."""
+        with self._lock:
+            return sum(1 for x in self if predicate(x))
+
+    def none(self, predicate: Callable) -> bool:
+        """Check if none match."""
+        with self._lock:
+            return not any(predicate(x) for x in self)
+
+    def flatMap(self, func: Callable) -> 'Vector':
+        """Map then flatten."""
+        with self._lock:
+            result = Vector(self._element_type)
+            for x in self:
+                mapped = func(x)
+                if isinstance(mapped, (list, tuple)):
+                    result.extend(mapped)
+                else:
+                    result.append(mapped)
+            return result
+
+    def mapIndexed(self, func: Callable) -> 'Vector':
+        """Map with index."""
+        with self._lock:
+            result = Vector(self._element_type)
+            result.extend([func(i, x) for i, x in enumerate(self)])
+            return result
+
 
 class Array(list):
     """Array data structure with CSSL methods. v4.7.1: Thread-safe.
@@ -1037,6 +2599,272 @@ class Array(list):
         """Return iterator to end (C++ style)"""
         return len(self)
 
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def chunk(self, size: int) -> list:
+        """Split into chunks."""
+        with self._lock:
+            return [list(self[i:i+size]) for i in range(0, len(self), size)]
+
+    def partition(self, predicate: Callable) -> tuple:
+        """Split into (matching, non-matching)."""
+        with self._lock:
+            matching = [x for x in self if predicate(x)]
+            non_matching = [x for x in self if not predicate(x)]
+            return (matching, non_matching)
+
+    def groupBy(self, key_func: Callable) -> dict:
+        """Group by key function."""
+        with self._lock:
+            groups = {}
+            for x in self:
+                k = key_func(x)
+                if k not in groups:
+                    groups[k] = []
+                groups[k].append(x)
+            return groups
+
+    def zip_with(self, *others) -> list:
+        """Zip with other iterables."""
+        with self._lock:
+            return list(zip(self, *others))
+
+    def rotate(self, n: int = 1) -> 'Array':
+        """Rotate elements."""
+        with self._lock:
+            if not self:
+                return self
+            n = n % len(self)
+            self[:] = list(self[-n:]) + list(self[:-n])
+            return self
+
+    def interleave(self, other) -> 'Array':
+        """Interleave with another sequence."""
+        with self._lock:
+            result = Array(self._element_type)
+            other_list = list(other)
+            for i in range(max(len(self), len(other_list))):
+                if i < len(self):
+                    result.append(self[i])
+                if i < len(other_list):
+                    result.append(other_list[i])
+            return result
+
+    def compact(self) -> 'Array':
+        """Remove None values."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend([x for x in self if x is not None])
+            return result
+
+    def frequencies(self) -> dict:
+        """Count occurrences."""
+        with self._lock:
+            freq = {}
+            for x in self:
+                key = x if isinstance(x, (int, str, float, bool)) else str(x)
+                freq[key] = freq.get(key, 0) + 1
+            return freq
+
+    def sample(self, n: int = 1) -> list:
+        """Random sample."""
+        import random
+        with self._lock:
+            return random.sample(list(self), min(n, len(self)))
+
+    def takeWhile(self, predicate: Callable) -> 'Array':
+        """Take while predicate is true."""
+        with self._lock:
+            result = Array(self._element_type)
+            for x in self:
+                if not predicate(x):
+                    break
+                result.append(x)
+            return result
+
+    def dropWhile(self, predicate: Callable) -> 'Array':
+        """Drop while predicate is true."""
+        with self._lock:
+            result = Array(self._element_type)
+            dropping = True
+            for x in self:
+                if dropping and predicate(x):
+                    continue
+                dropping = False
+                result.append(x)
+            return result
+
+    def take(self, n: int) -> 'Array':
+        """Take first n."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(self[:n])
+            return result
+
+    def drop(self, n: int) -> 'Array':
+        """Drop first n."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(self[n:])
+            return result
+
+    def head(self, n: int = 1) -> 'Array':
+        """Get first n."""
+        return self.take(n)
+
+    def tail(self, n: int = 1) -> 'Array':
+        """Get last n."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(self[-n:] if n > 0 else [])
+            return result
+
+    def splitAt(self, index: int) -> tuple:
+        """Split at index."""
+        with self._lock:
+            left = Array(self._element_type)
+            right = Array(self._element_type)
+            left.extend(self[:index])
+            right.extend(self[index:])
+            return (left, right)
+
+    def distinct(self) -> 'Array':
+        """Remove duplicates."""
+        return self.unique()
+
+    def dedupe(self) -> 'Array':
+        """Remove consecutive duplicates."""
+        with self._lock:
+            result = Array(self._element_type)
+            prev = object()
+            for x in self:
+                if x != prev:
+                    result.append(x)
+                    prev = x
+            return result
+
+    def min_val(self):
+        """Get minimum."""
+        with self._lock:
+            return min(self) if self else None
+
+    def max_val(self):
+        """Get maximum."""
+        with self._lock:
+            return max(self) if self else None
+
+    def sum_val(self):
+        """Get sum."""
+        with self._lock:
+            return sum(self) if self else 0
+
+    def avg(self):
+        """Get average."""
+        with self._lock:
+            return sum(self) / len(self) if self else 0
+
+    def product(self):
+        """Get product."""
+        with self._lock:
+            result = 1
+            for x in self:
+                result *= x
+            return result
+
+    def sortBy(self, key_func: Callable) -> 'Array':
+        """Sort by key function."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(sorted(self, key=key_func))
+            return result
+
+    def sortDesc(self) -> 'Array':
+        """Sort descending."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(sorted(self, reverse=True))
+            return result
+
+    def shuffle_elements(self) -> 'Array':
+        """Shuffle randomly."""
+        import random
+        with self._lock:
+            items = list(self)
+            random.shuffle(items)
+            self[:] = items
+            return self
+
+    def randomElement(self):
+        """Get random element."""
+        import random
+        with self._lock:
+            return random.choice(list(self)) if self else None
+
+    def findLast(self, predicate: Callable):
+        """Find last matching."""
+        with self._lock:
+            for x in reversed(self):
+                if predicate(x):
+                    return x
+            return None
+
+    def findLastIndex(self, predicate: Callable) -> int:
+        """Find index of last matching."""
+        with self._lock:
+            for i in range(len(self) - 1, -1, -1):
+                if predicate(self[i]):
+                    return i
+            return -1
+
+    def countWhere(self, predicate: Callable) -> int:
+        """Count matching."""
+        with self._lock:
+            return sum(1 for x in self if predicate(x))
+
+    def none(self, predicate: Callable) -> bool:
+        """Check if none match."""
+        with self._lock:
+            return not any(predicate(x) for x in self)
+
+    def flatMap(self, func: Callable) -> 'Array':
+        """Map then flatten."""
+        with self._lock:
+            result = Array(self._element_type)
+            for x in self:
+                mapped = func(x)
+                if isinstance(mapped, (list, tuple)):
+                    result.extend(mapped)
+                else:
+                    result.append(mapped)
+            return result
+
+    def mapIndexed(self, func: Callable) -> 'Array':
+        """Map with index."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend([func(i, x) for i, x in enumerate(self)])
+            return result
+
+    def reverse_copy(self) -> 'Array':
+        """Return reversed copy."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(reversed(self))
+            return result
+
+    def sort_copy(self) -> 'Array':
+        """Return sorted copy."""
+        with self._lock:
+            result = Array(self._element_type)
+            result.extend(sorted(self))
+            return result
+
 
 class List(list):
     """Python-like list with all standard operations. v4.7.1: Thread-safe.
@@ -1265,6 +3093,273 @@ class List(list):
         """Return iterator to end"""
         return len(self)
 
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
+
+    def chunk(self, size: int) -> list:
+        """Split into chunks."""
+        with self._lock:
+            return [list(self[i:i+size]) for i in range(0, len(self), size)]
+
+    def partition(self, predicate: Callable) -> tuple:
+        """Split into (matching, non-matching)."""
+        with self._lock:
+            matching = [x for x in self if predicate(x)]
+            non_matching = [x for x in self if not predicate(x)]
+            return (matching, non_matching)
+
+    def groupBy(self, key_func: Callable) -> dict:
+        """Group by key function."""
+        with self._lock:
+            groups = {}
+            for x in self:
+                k = key_func(x)
+                if k not in groups:
+                    groups[k] = []
+                groups[k].append(x)
+            return groups
+
+    def zip_with(self, *others) -> list:
+        """Zip with other iterables."""
+        with self._lock:
+            return list(zip(self, *others))
+
+    def rotate(self, n: int = 1) -> 'List':
+        """Rotate elements."""
+        with self._lock:
+            if not self:
+                return self
+            n = n % len(self)
+            self[:] = list(self[-n:]) + list(self[:-n])
+            return self
+
+    def interleave(self, other) -> 'List':
+        """Interleave with another sequence."""
+        with self._lock:
+            result = List()
+            other_list = list(other)
+            for i in range(max(len(self), len(other_list))):
+                if i < len(self):
+                    result.append(self[i])
+                if i < len(other_list):
+                    result.append(other_list[i])
+            return result
+
+    def compact(self) -> 'List':
+        """Remove None values."""
+        with self._lock:
+            result = List()
+            result.extend([x for x in self if x is not None])
+            return result
+
+    def frequencies(self) -> dict:
+        """Count occurrences."""
+        with self._lock:
+            freq = {}
+            for x in self:
+                key = x if isinstance(x, (int, str, float, bool)) else str(x)
+                freq[key] = freq.get(key, 0) + 1
+            return freq
+
+    def sample_items(self, n: int = 1) -> list:
+        """Random sample."""
+        import random
+        with self._lock:
+            return random.sample(list(self), min(n, len(self)))
+
+    def takeWhile(self, predicate: Callable) -> 'List':
+        """Take while predicate is true."""
+        with self._lock:
+            result = List()
+            for x in self:
+                if not predicate(x):
+                    break
+                result.append(x)
+            return result
+
+    def dropWhile(self, predicate: Callable) -> 'List':
+        """Drop while predicate is true."""
+        with self._lock:
+            result = List()
+            dropping = True
+            for x in self:
+                if dropping and predicate(x):
+                    continue
+                dropping = False
+                result.append(x)
+            return result
+
+    def take(self, n: int) -> 'List':
+        """Take first n."""
+        with self._lock:
+            result = List()
+            result.extend(self[:n])
+            return result
+
+    def drop(self, n: int) -> 'List':
+        """Drop first n."""
+        with self._lock:
+            result = List()
+            result.extend(self[n:])
+            return result
+
+    def head(self, n: int = 1) -> 'List':
+        """Get first n."""
+        return self.take(n)
+
+    def tail_items(self, n: int = 1) -> 'List':
+        """Get last n."""
+        with self._lock:
+            result = List()
+            result.extend(self[-n:] if n > 0 else [])
+            return result
+
+    def splitAt(self, index: int) -> tuple:
+        """Split at index."""
+        with self._lock:
+            left = List()
+            right = List()
+            left.extend(self[:index])
+            right.extend(self[index:])
+            return (left, right)
+
+    def distinct(self) -> 'List':
+        """Remove duplicates."""
+        return self.unique()
+
+    def dedupe(self) -> 'List':
+        """Remove consecutive duplicates."""
+        with self._lock:
+            result = List()
+            prev = object()
+            for x in self:
+                if x != prev:
+                    result.append(x)
+                    prev = x
+            return result
+
+    def min_val(self):
+        """Get minimum."""
+        with self._lock:
+            return min(self) if self else None
+
+    def max_val(self):
+        """Get maximum."""
+        with self._lock:
+            return max(self) if self else None
+
+    def sum_val(self):
+        """Get sum."""
+        with self._lock:
+            return sum(self) if self else 0
+
+    def avg(self):
+        """Get average."""
+        with self._lock:
+            return sum(self) / len(self) if self else 0
+
+    def product(self):
+        """Get product."""
+        with self._lock:
+            result = 1
+            for x in self:
+                result *= x
+            return result
+
+    def sortBy(self, key_func: Callable) -> 'List':
+        """Sort by key function."""
+        with self._lock:
+            result = List()
+            result.extend(sorted(self, key=key_func))
+            return result
+
+    def sortDesc(self) -> 'List':
+        """Sort descending."""
+        with self._lock:
+            result = List()
+            result.extend(sorted(self, reverse=True))
+            return result
+
+    def randomElement(self):
+        """Get random element."""
+        import random
+        with self._lock:
+            return random.choice(list(self)) if self else None
+
+    def findLast(self, predicate: Callable):
+        """Find last matching."""
+        with self._lock:
+            for x in reversed(self):
+                if predicate(x):
+                    return x
+            return None
+
+    def findLastIndex(self, predicate: Callable) -> int:
+        """Find index of last matching."""
+        with self._lock:
+            for i in range(len(self) - 1, -1, -1):
+                if predicate(self[i]):
+                    return i
+            return -1
+
+    def countWhere(self, predicate: Callable) -> int:
+        """Count matching."""
+        with self._lock:
+            return sum(1 for x in self if predicate(x))
+
+    def none(self, predicate: Callable) -> bool:
+        """Check if none match."""
+        with self._lock:
+            return not any(predicate(x) for x in self)
+
+    def flatMap(self, func: Callable) -> 'List':
+        """Map then flatten."""
+        with self._lock:
+            result = List()
+            for x in self:
+                mapped = func(x)
+                if isinstance(mapped, (list, tuple)):
+                    result.extend(mapped)
+                else:
+                    result.append(mapped)
+            return result
+
+    def mapIndexed(self, func: Callable) -> 'List':
+        """Map with index."""
+        with self._lock:
+            result = List()
+            result.extend([func(i, x) for i, x in enumerate(self)])
+            return result
+
+    def concat(self, *others) -> 'List':
+        """Concatenate with other lists."""
+        with self._lock:
+            result = List()
+            result.extend(self)
+            for other in others:
+                result.extend(other)
+            return result
+
+    def flatten(self, depth: int = 1) -> 'List':
+        """Flatten nested lists."""
+        def _flatten(lst, d):
+            result = []
+            for item in lst:
+                if isinstance(item, (list, tuple)) and d > 0:
+                    result.extend(_flatten(item, d - 1))
+                else:
+                    result.append(item)
+            return result
+        with self._lock:
+            flat_list = List()
+            flat_list.extend(_flatten(self, depth))
+            return flat_list
+
 
 class Dictionary(dict):
     """Python-like dictionary with all standard operations. v4.7.1: Thread-safe.
@@ -1398,6 +3493,14 @@ class Dictionary(dict):
         """Find all keys with given value"""
         with self._lock:
             return [k for k, v in self.items() if v == value]
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
 
 
 class Shuffled(list):
@@ -1884,6 +3987,10 @@ class Map(dict):
             self[key] = value
         return self
 
+    def set(self, key: Any, value: Any) -> 'Map':
+        """Set key-value pair (alias for insert)."""
+        return self.insert(key, value)
+
     def find(self, key: Any) -> Optional[Any]:
         """Find value by key, returns None if not found (C++ style)"""
         with self._lock:
@@ -2058,6 +4165,14 @@ class Map(dict):
             new_map = Map(self._key_type, self._value_type)
             new_map.update(self)
             return new_map
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
 
 
 def create_map(key_type: str = 'dynamic', value_type: str = 'dynamic') -> Map:
@@ -2313,6 +4428,14 @@ class Queue:
             new_queue = Queue(self._element_type, self._max_size or 'dynamic')
             new_queue._data = deque(self._data, maxlen=self._max_size)
             return new_queue
+
+    # v4.9.2: New methods
+    def methods(self) -> 'DataStruct':
+        """Return a DataStruct containing all method names."""
+        method_names = [m for m in dir(self) if not m.startswith('_') and callable(getattr(self, m))]
+        ds = DataStruct('string')
+        ds.extend(method_names)
+        return ds
 
 
 def create_queue(element_type: str = 'dynamic', size: Union[int, str] = 'dynamic') -> Queue:
@@ -3797,6 +5920,478 @@ def create_pipe(data: Any = None) -> Pipe:
     return Pipe(data)
 
 
+# ============================================================================
+# v4.9.3: Async/Await/Generator Types
+# ============================================================================
+
+class CSSLFuture:
+    """CSSL Future - represents an async operation result.
+
+    Usage in CSSL:
+        future f = async.run(myAsyncFunc);
+        result = await f;
+        // or
+        result = f.result();
+    """
+
+    # States
+    PENDING = 'pending'
+    RUNNING = 'running'
+    COMPLETED = 'completed'
+    CANCELLED = 'cancelled'
+    FAILED = 'failed'
+
+    def __init__(self, func_name: str = None):
+        self._state = CSSLFuture.PENDING
+        self._result = None
+        self._exception = None
+        self._func_name = func_name
+        self._callbacks: List[Callable] = []
+        self._lock = threading.Lock()
+        self._event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    def is_pending(self) -> bool:
+        return self._state == CSSLFuture.PENDING
+
+    def is_running(self) -> bool:
+        return self._state == CSSLFuture.RUNNING
+
+    def is_done(self) -> bool:
+        return self._state in (CSSLFuture.COMPLETED, CSSLFuture.CANCELLED, CSSLFuture.FAILED)
+
+    def is_completed(self) -> bool:
+        return self._state == CSSLFuture.COMPLETED
+
+    def is_cancelled(self) -> bool:
+        return self._state == CSSLFuture.CANCELLED
+
+    def is_failed(self) -> bool:
+        return self._state == CSSLFuture.FAILED
+
+    def result(self, timeout: float = None) -> Any:
+        """Get the result, blocking if not ready."""
+        if not self._event.wait(timeout):
+            raise TimeoutError(f"Future '{self._func_name}' timed out")
+        if self._exception:
+            raise self._exception
+        return self._result
+
+    def set_result(self, result: Any):
+        """Set the result (called internally)."""
+        with self._lock:
+            self._result = result
+            self._state = CSSLFuture.COMPLETED
+            self._event.set()
+            for cb in self._callbacks:
+                try:
+                    cb(self)
+                except:
+                    pass
+
+    def set_exception(self, exc: Exception):
+        """Set an exception (called internally)."""
+        with self._lock:
+            self._exception = exc
+            self._state = CSSLFuture.FAILED
+            self._event.set()
+
+    def cancel(self) -> bool:
+        """Attempt to cancel the future."""
+        with self._lock:
+            if self._state in (CSSLFuture.PENDING, CSSLFuture.RUNNING):
+                self._state = CSSLFuture.CANCELLED
+                self._event.set()
+                return True
+            return False
+
+    def add_callback(self, callback: Callable):
+        """Add a callback to run when done."""
+        with self._lock:
+            if self.is_done():
+                callback(self)
+            else:
+                self._callbacks.append(callback)
+
+    def then(self, callback: Callable) -> 'CSSLFuture':
+        """Chain a callback, return new future for chaining."""
+        new_future = CSSLFuture(f"{self._func_name}.then")
+
+        def on_complete(f):
+            try:
+                result = callback(f.result())
+                new_future.set_result(result)
+            except Exception as e:
+                new_future.set_exception(e)
+
+        self.add_callback(on_complete)
+        return new_future
+
+    def __repr__(self):
+        return f"<Future '{self._func_name}' state={self._state}>"
+
+    def __str__(self):
+        if self.is_completed():
+            return str(self._result)
+        return f"<Future {self._state}>"
+
+
+class CSSLGenerator:
+    """CSSL Generator - supports yield for lazy iteration.
+
+    Usage in CSSL:
+        generator define range(n) {
+            for (int i = 0; i < n; i++) {
+                yield i;
+            }
+        }
+
+        foreach (x in range(10)) {
+            printl(x);
+        }
+    """
+
+    def __init__(self, func_name: str, iterator=None):
+        self._func_name = func_name
+        self._iterator = iterator
+        self._cached_values: List[Any] = []
+        self._cache_index = 0
+        self._exhausted = False
+        self._peeked = False
+        self._peeked_value = None
+        self._started = False  # Track if generator has been started
+        self._sent_value = {'value': None}  # Mutable container for sent values
+
+    def _fetch_next(self) -> bool:
+        """Fetch the next value from iterator if available. Returns True if value available."""
+        if self._exhausted:
+            return False
+        if self._peeked:
+            return True
+        if self._iterator is None:
+            return self._cache_index < len(self._cached_values)
+
+        try:
+            self._peeked_value = next(self._iterator)
+            self._peeked = True
+            self._started = True
+            return True
+        except StopIteration:
+            self._exhausted = True
+            return False
+
+    def send(self, value: Any = None) -> Any:
+        """Send a value into the generator.
+
+        The sent value becomes the result of the yield expression in CSSL.
+        Example:
+            counter = Counter();
+            counter.next();      // returns 0
+            counter.send(100);   // resumes, sets received=100, returns next value
+        """
+        if self._peeked:
+            # Return peeked value, but store sent value for the yield expression
+            result = self._peeked_value
+            self._peeked = False
+            self._peeked_value = None
+            self._sent_value['value'] = value
+            return result
+
+        if self._iterator is not None:
+            try:
+                # Use iterator's send() if available and generator has started
+                if hasattr(self._iterator, 'send') and self._started:
+                    result = self._iterator.send(value)
+                else:
+                    result = next(self._iterator)
+                    self._started = True
+                return result
+            except StopIteration:
+                self._exhausted = True
+                raise
+
+        if self._cache_index < len(self._cached_values):
+            result = self._cached_values[self._cache_index]
+            self._cache_index += 1
+            return result
+
+        self._exhausted = True
+        raise StopIteration
+
+    def get_sent_value(self) -> Any:
+        """Get the last value sent via send(). Used internally for yield expressions."""
+        return self._sent_value['value']
+
+    def __next__(self) -> Any:
+        return self.send(None)
+
+    def __iter__(self):
+        return self
+
+    def next(self) -> Any:
+        """Get next value (CSSL style). Returns None when exhausted."""
+        try:
+            return self.send(None)
+        except StopIteration:
+            return None
+
+    def has_next(self) -> bool:
+        """Check if more values available."""
+        return self._fetch_next()
+
+    def to_list(self) -> list:
+        """Consume generator into list."""
+        result = []
+        for item in self:
+            result.append(item)
+        return result
+
+    def take(self, n: int) -> list:
+        """Take up to n values."""
+        result = []
+        for _ in range(n):
+            try:
+                result.append(next(self))
+            except StopIteration:
+                break
+        return result
+
+    def skip(self, n: int) -> 'CSSLGenerator':
+        """Skip n values."""
+        for _ in range(n):
+            try:
+                next(self)
+            except StopIteration:
+                break
+        return self
+
+    def map(self, func: Callable) -> 'CSSLGenerator':
+        """Map a function over values."""
+        new_gen = CSSLGenerator(f"{self._func_name}.map")
+        new_gen._iterator = (func(x) for x in self)
+        return new_gen
+
+    def filter(self, predicate: Callable) -> 'CSSLGenerator':
+        """Filter values by predicate."""
+        new_gen = CSSLGenerator(f"{self._func_name}.filter")
+        new_gen._iterator = (x for x in self if predicate(x))
+        return new_gen
+
+    def __repr__(self):
+        return f"<Generator '{self._func_name}' exhausted={self._exhausted}>"
+
+
+class CSSLAsyncFunction:
+    """Wrapper for async-defined functions in CSSL.
+
+    Usage in CSSL:
+        async define fetchData(url) {
+            result = await http.get(url);
+            return result;
+        }
+
+        future f = fetchData("http://example.com");  // Returns Future immediately
+        data = await f;                               // Wait for result
+
+        // Or use async module:
+        future f = async.run(fetchData, "http://example.com");
+    """
+
+    def __init__(self, name: str, func_node, runtime=None):
+        self._name = name
+        self._func_node = func_node
+        self._runtime = runtime
+        self._is_generator = False
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_async(self) -> bool:
+        return True
+
+    @property
+    def is_generator(self) -> bool:
+        return self._is_generator
+
+    @property
+    def func_node(self):
+        """Access to the underlying function AST node."""
+        return self._func_node
+
+    def __repr__(self):
+        return f"<AsyncFunction '{self._name}'>"
+
+    def __call__(self, *args, **kwargs):
+        """Calling an async function starts execution and returns a Future."""
+        return AsyncModule.run(self, *args, runtime=self._runtime, **kwargs)
+
+    def start(self, *args, **kwargs) -> 'CSSLFuture':
+        """Start the async function and return its Future."""
+        return self.__call__(*args, **kwargs)
+
+
+class AsyncModule:
+    """CSSL async module - provides async utilities.
+
+    Usage in CSSL:
+        // Run async function
+        future f = async.run(myFunc, arg1, arg2);
+
+        // Wait for result
+        result = await f;
+        // or
+        result = async.wait(f);
+
+        // Run multiple and wait for all
+        results = async.all([f1, f2, f3]);
+
+        // Run multiple and get first completed
+        result = async.race([f1, f2, f3]);
+
+        // Stop async operation
+        async.stop(f);
+
+        // Sleep
+        async.sleep(1000);  // ms
+    """
+
+    _active_futures: Dict[str, CSSLFuture] = {}
+    _executor_pool: List[threading.Thread] = []
+    _lock = threading.Lock()
+
+    @classmethod
+    def run(cls, func, *args, runtime=None, **kwargs) -> CSSLFuture:
+        """Run a function asynchronously."""
+        if isinstance(func, CSSLAsyncFunction):
+            func_name = func.name
+        elif callable(func):
+            func_name = getattr(func, '__name__', 'anonymous')
+        else:
+            func_name = str(func)
+
+        future = CSSLFuture(func_name)
+        future._state = CSSLFuture.RUNNING
+
+        def execute():
+            try:
+                if isinstance(func, CSSLAsyncFunction) and runtime:
+                    result = runtime._call_function(func._func_node, list(args), kwargs)
+                elif callable(func):
+                    result = func(*args, **kwargs)
+                else:
+                    result = func
+                future.set_result(result)
+            except Exception as e:
+                future.set_exception(e)
+            finally:
+                with cls._lock:
+                    cls._active_futures.pop(func_name, None)
+
+        thread = threading.Thread(target=execute, daemon=True)
+        future._thread = thread
+
+        with cls._lock:
+            cls._active_futures[func_name] = future
+
+        thread.start()
+        return future
+
+    @classmethod
+    def stop(cls, future_or_name) -> bool:
+        """Stop an async operation."""
+        if isinstance(future_or_name, CSSLFuture):
+            return future_or_name.cancel()
+        elif isinstance(future_or_name, str):
+            with cls._lock:
+                future = cls._active_futures.get(future_or_name)
+                if future:
+                    return future.cancel()
+        return False
+
+    @classmethod
+    def wait(cls, future: CSSLFuture, timeout: float = None) -> Any:
+        """Wait for a future to complete."""
+        return future.result(timeout)
+
+    @classmethod
+    def all(cls, futures: List[CSSLFuture], timeout: float = None) -> List[Any]:
+        """Wait for all futures to complete."""
+        results = []
+        for f in futures:
+            results.append(f.result(timeout))
+        return results
+
+    @classmethod
+    def race(cls, futures: List[CSSLFuture], timeout: float = None) -> Any:
+        """Return result of first completed future."""
+        import time
+        start = time.time()
+        while True:
+            for f in futures:
+                if f.is_done():
+                    # Cancel others
+                    for other in futures:
+                        if other != f:
+                            other.cancel()
+                    return f.result()
+            if timeout and (time.time() - start) > timeout:
+                raise TimeoutError("async.race() timed out")
+            time.sleep(0.001)  # Small sleep to prevent busy waiting
+
+    @classmethod
+    def sleep(cls, ms: int) -> CSSLFuture:
+        """Async sleep for ms milliseconds."""
+        import time
+        future = CSSLFuture("sleep")
+        future._state = CSSLFuture.RUNNING
+
+        def do_sleep():
+            time.sleep(ms / 1000.0)
+            future.set_result(None)
+
+        thread = threading.Thread(target=do_sleep, daemon=True)
+        thread.start()
+        return future
+
+    @classmethod
+    def create_generator(cls, func_name: str, values: list = None) -> CSSLGenerator:
+        """Create a generator."""
+        gen = CSSLGenerator(func_name)
+        if values:
+            gen._values = list(values)
+        return gen
+
+    @classmethod
+    def is_future(cls, obj) -> bool:
+        """Check if object is a Future."""
+        return isinstance(obj, CSSLFuture)
+
+    @classmethod
+    def is_generator(cls, obj) -> bool:
+        """Check if object is a Generator."""
+        return isinstance(obj, CSSLGenerator)
+
+
+# Factory functions for async types
+def create_future(name: str = None) -> CSSLFuture:
+    """Create a new Future."""
+    return CSSLFuture(name)
+
+def create_generator(name: str, values: list = None) -> CSSLGenerator:
+    """Create a new Generator."""
+    return AsyncModule.create_generator(name, values)
+
+def create_async_function(name: str, func_node, runtime=None) -> CSSLAsyncFunction:
+    """Create an async function wrapper."""
+    return CSSLAsyncFunction(name, func_node, runtime)
+
+
 __all__ = [
     'DataStruct', 'Shuffled', 'Iterator', 'Combo', 'DataSpace', 'OpenQuote',
     'OpenFind', 'Parameter', 'Stack', 'Vector', 'Array', 'List', 'Dictionary', 'Map',
@@ -3804,6 +6399,8 @@ __all__ = [
     'CSSLClass', 'CSSLInstance', 'UniversalInstance',
     # v4.8.4: C++ I/O Streams & C-Style Types
     'CStruct', 'OutputStream', 'InputStream', 'FileStream', 'Pipe',
+    # v4.9.3: Async/Await/Generator Types
+    'CSSLFuture', 'CSSLGenerator', 'CSSLAsyncFunction', 'AsyncModule',
     # Factory functions
     'create_datastruct', 'create_shuffled', 'create_iterator',
     'create_combo', 'create_dataspace', 'create_openquote', 'create_parameter',
@@ -3811,5 +6408,7 @@ __all__ = [
     'create_queue',
     # v4.8.4: New factory functions
     'create_struct', 'create_fstream', 'create_ifstream', 'create_ofstream', 'create_pipe',
-    '_create_cout', '_create_cerr', '_create_clog', '_create_cin'
+    '_create_cout', '_create_cerr', '_create_clog', '_create_cin',
+    # v4.9.3: Async factory functions
+    'create_future', 'create_generator', 'create_async_function',
 ]

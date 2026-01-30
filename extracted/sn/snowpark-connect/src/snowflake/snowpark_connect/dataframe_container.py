@@ -340,6 +340,9 @@ class DataFrameContainer:
             column_metadata=self._column_map.column_metadata,
             column_qualifiers=[c.qualifiers for c in visible_columns],
             parent_column_name_map=self._column_map._parent_column_name_map,
+            equivalent_snowpark_names=[
+                c.equivalent_snowpark_names for c in visible_columns
+            ],
         )
 
         return DataFrameContainer(

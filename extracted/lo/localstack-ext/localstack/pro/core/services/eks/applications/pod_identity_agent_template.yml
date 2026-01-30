@@ -30,6 +30,10 @@ spec:
       terminationGracePeriodSeconds: 30
       tolerations:
         - operator: Exists
+        - key: node-role.kubernetes.io/control-plane
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

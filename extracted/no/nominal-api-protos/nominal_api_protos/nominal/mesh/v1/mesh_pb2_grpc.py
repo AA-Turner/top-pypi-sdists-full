@@ -5,6 +5,7 @@ import warnings
 
 from nominal.mesh.v1 import links_pb2 as nominal_dot_mesh_dot_v1_dot_links__pb2
 from nominal.mesh.v1 import mesh_pb2 as nominal_dot_mesh_dot_v1_dot_mesh__pb2
+from nominal.mesh.v1 import remote_connections_pb2 as nominal_dot_mesh_dot_v1_dot_remote__connections__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -27,7 +28,7 @@ if _version_not_supported:
 
 
 class MeshServiceStub(object):
-    """Manages mesh links between source and sink environments.
+    """Manages mesh links between local and remote environments.
     """
 
     def __init__(self, channel):
@@ -40,6 +41,11 @@ class MeshServiceStub(object):
                 '/nominal.mesh.v1.MeshService/Mesh',
                 request_serializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshRequest.SerializeToString,
                 response_deserializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshResponse.FromString,
+                _registered_method=True)
+        self.HealthCheck = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/HealthCheck',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
         self.CreateLink = channel.unary_unary(
                 '/nominal.mesh.v1.MeshService/CreateLink',
@@ -61,15 +67,48 @@ class MeshServiceStub(object):
                 request_serializer=nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkRequest.SerializeToString,
                 response_deserializer=nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkResponse.FromString,
                 _registered_method=True)
+        self.CreateRemoteConnection = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/CreateRemoteConnection',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionResponse.FromString,
+                _registered_method=True)
+        self.GetRemoteConnection = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/GetRemoteConnection',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionResponse.FromString,
+                _registered_method=True)
+        self.UpdateRemoteConnection = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/UpdateRemoteConnection',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionResponse.FromString,
+                _registered_method=True)
+        self.DeleteRemoteConnection = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/DeleteRemoteConnection',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionResponse.FromString,
+                _registered_method=True)
+        self.ListRemoteConnections = channel.unary_unary(
+                '/nominal.mesh.v1.MeshService/ListRemoteConnections',
+                request_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsRequest.SerializeToString,
+                response_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsResponse.FromString,
+                _registered_method=True)
 
 
 class MeshServiceServicer(object):
-    """Manages mesh links between source and sink environments.
+    """Manages mesh links between local and remote environments.
     """
 
     def Mesh(self, request, context):
         """Core Mesh operations.
         ------------------------------------------------------------------------------------------------------------
+        Used to mesh resources between stacks.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def HealthCheck(self, request, context):
+        """Used to determine the health of a stack and its availability for meshing.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -106,6 +145,44 @@ class MeshServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateRemoteConnection(self, request, context):
+        """Creates a remote connection for mesh links.
+        Throws MESH_SERVICE_ERROR_REMOTE_CONNECTION_ALREADY_EXISTS if a remote connection with the same name already exists.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetRemoteConnection(self, request, context):
+        """Retrieves a remote connection by RID.
+        Throws MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND if there is no remote connection.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateRemoteConnection(self, request, context):
+        """Updates a remote connection by RID.
+        Throws MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND if there is no remote connection.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteRemoteConnection(self, request, context):
+        """Deletes a remote connection by RID.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListRemoteConnections(self, request, context):
+        """Lists all remote connections.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MeshServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -113,6 +190,11 @@ def add_MeshServiceServicer_to_server(servicer, server):
                     servicer.Mesh,
                     request_deserializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshRequest.FromString,
                     response_serializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshResponse.SerializeToString,
+            ),
+            'HealthCheck': grpc.unary_unary_rpc_method_handler(
+                    servicer.HealthCheck,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckResponse.SerializeToString,
             ),
             'CreateLink': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateLink,
@@ -134,6 +216,31 @@ def add_MeshServiceServicer_to_server(servicer, server):
                     request_deserializer=nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkRequest.FromString,
                     response_serializer=nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkResponse.SerializeToString,
             ),
+            'CreateRemoteConnection': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateRemoteConnection,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionResponse.SerializeToString,
+            ),
+            'GetRemoteConnection': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRemoteConnection,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionResponse.SerializeToString,
+            ),
+            'UpdateRemoteConnection': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateRemoteConnection,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionResponse.SerializeToString,
+            ),
+            'DeleteRemoteConnection': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteRemoteConnection,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionResponse.SerializeToString,
+            ),
+            'ListRemoteConnections': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListRemoteConnections,
+                    request_deserializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsRequest.FromString,
+                    response_serializer=nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'nominal.mesh.v1.MeshService', rpc_method_handlers)
@@ -143,7 +250,7 @@ def add_MeshServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class MeshService(object):
-    """Manages mesh links between source and sink environments.
+    """Manages mesh links between local and remote environments.
     """
 
     @staticmethod
@@ -163,6 +270,33 @@ class MeshService(object):
             '/nominal.mesh.v1.MeshService/Mesh',
             nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshRequest.SerializeToString,
             nominal_dot_mesh_dot_v1_dot_mesh__pb2.MeshResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def HealthCheck(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/HealthCheck',
+            nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_mesh__pb2.HealthCheckResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -271,6 +405,141 @@ class MeshService(object):
             '/nominal.mesh.v1.MeshService/DeleteLink',
             nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkRequest.SerializeToString,
             nominal_dot_mesh_dot_v1_dot_links__pb2.DeleteLinkResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateRemoteConnection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/CreateRemoteConnection',
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.CreateRemoteConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetRemoteConnection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/GetRemoteConnection',
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.GetRemoteConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateRemoteConnection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/UpdateRemoteConnection',
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.UpdateRemoteConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteRemoteConnection(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/DeleteRemoteConnection',
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.DeleteRemoteConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListRemoteConnections(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.mesh.v1.MeshService/ListRemoteConnections',
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsRequest.SerializeToString,
+            nominal_dot_mesh_dot_v1_dot_remote__connections__pb2.ListRemoteConnectionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zhinst-toolkit
-Version: 1.2.0
+Version: 1.3.0
 Summary: Zurich Instruments Toolkit High Level API
 Project-URL: homepage, https://github.com/zhinst/zhinst-toolkit
 Author-email: Zurich Instrument <info@zhinst.com>
@@ -12,14 +12,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: jsonref>=0.2
 Requires-Dist: jsonschema>=3.2.0
 Requires-Dist: numpy>=1.13
@@ -43,7 +42,7 @@ that allows communication with Zurich Instruments devices from the Python
 programming language. It is based on top of the native
 [Python API](https://pypi.org/project/zhinst-core/) (``zhinst.core``) of LabOne®,
 the Zurich Instruments control software. It comes in the form of a package
-compatible with Python 3.9+.
+compatible with Python 3.10+.
 
 The central goal of zhinst-toolkit is to provide a pythonic approach to interact
 with any Zurich Instruments device and is intended as a full replacement for the

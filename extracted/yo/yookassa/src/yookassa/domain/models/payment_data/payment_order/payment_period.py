@@ -11,7 +11,7 @@ class PaymentPeriod(BaseObject):
     """Месяц периода. Например, ~`1` — январь. """  # noqa: E501
 
     __year = None
-    """Год периода. Например, ~`2025`. """  # noqa: E501
+    """Год периода. Значение должно быть в диапазоне 1920–2050. Например, ~`2025`. """  # noqa: E501
 
     @property
     def month(self):
@@ -51,6 +51,10 @@ class PaymentPeriod(BaseObject):
         :param value: year модели PaymentPeriod.
         :type value: int
         """
+        if value is None:  # noqa: E501
+            raise ValueError("Invalid value for `year`, must not be `None`")  # noqa: E501
+        if value is not None and value > 2050:  # noqa: E501
+            raise ValueError("Invalid value for `year`, must be a value less than or equal to `2050`")  # noqa: E501
+        if value is not None and value < 1920:  # noqa: E501
+            raise ValueError("Invalid value for `year`, must be a value greater than or equal to `1920`")  # noqa: E501
         self.__year = value
-
-

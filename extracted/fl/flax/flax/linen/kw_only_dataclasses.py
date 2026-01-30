@@ -23,7 +23,7 @@ aliases for `dataclasses.dataclass` and `dataclasses.field`.
 
 For earlier Python versions, when constructing a dataclass, any fields that have
 been marked as keyword-only (including inherited fields) will be moved to the
-end of the constuctor's argument list. This makes it possible to have a base
+end of the constructor's argument list. This makes it possible to have a base
 class that defines a field with a default, and a subclass that defines a field
 without a default. E.g.:
 
@@ -53,6 +53,7 @@ end of the parameter list (after all non-keyword-only parameters).
 import dataclasses
 import functools
 import inspect
+import sys
 from types import MappingProxyType
 from typing import Any, TypeVar
 
@@ -77,7 +78,7 @@ KW_ONLY = _KwOnlyType()
 
 
 def field(*, metadata=None, kw_only=dataclasses.MISSING, **kwargs):
-  """Wrapper for dataclassess.field that adds support for kw_only fields.
+  """Wrapper for dataclasses.field that adds support for kw_only fields.
 
   Args:
     metadata: A mapping or None, containing metadata for the field.
@@ -127,7 +128,7 @@ def dataclass(cls=None, extra_fields=None, **kwargs):
 
 def _process_class(cls: type[M], extra_fields=None, **kwargs):
   """Transforms `cls` into a dataclass that supports kw_only fields."""
-  if '__annotations__' not in cls.__dict__:
+  if sys.version_info < (3, 14) and '__annotations__' not in cls.__dict__:
     cls.__annotations__ = {}
 
   # The original __dataclass_fields__ dicts for all base classes.  We will
@@ -174,7 +175,11 @@ def _process_class(cls: type[M], extra_fields=None, **kwargs):
   for base in reversed(cls.__mro__[1:]):
     if not dataclasses.is_dataclass(base):
       continue
-    base_annotations = base.__dict__.get('__annotations__', {})
+    if sys.version_info < (3, 14):
+      base_annotations = base.__dict__.get('__annotations__', {})
+    else:
+      base_annotations = inspect.get_annotations(base)
+
     base_dataclass_fields[base] = dict(
       getattr(base, '__dataclass_fields__', {})
     )
@@ -188,7 +193,10 @@ def _process_class(cls: type[M], extra_fields=None, **kwargs):
         del base.__dataclass_fields__[field_name]
 
   # Remove any keyword-only fields from this class.
-  cls_annotations = cls.__dict__['__annotations__']
+  if sys.version_info < (3, 14):
+    cls_annotations = cls.__dict__['__annotations__']
+  else:
+    cls_annotations = cls.__annotations__
   for name, annotation in list(cls_annotations.items()):
     value = getattr(cls, name, None)
     if (

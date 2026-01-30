@@ -146,7 +146,7 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
     if cmd in ("\\u", "\\r"):
         return [{"type": "database"}]
 
-    if cmd in ("\\T"):
+    if cmd in (r'\T', r'\Tr'):
         return [{"type": "table_format"}]
 
     if cmd in ["\\f", "\\fs", "\\fd"]:
@@ -254,6 +254,8 @@ def suggest_based_on_last_token(
 
         # We're probably in a function argument list
         return [{"type": "column", "tables": extract_tables(full_text)}]
+    elif token_v in ("call"):
+        return [{"type": "procedure", "schema": []}]
     elif token_v in ("set", "order by", "distinct"):
         return [{"type": "column", "tables": extract_tables(full_text)}]
     elif token_v == "as":
@@ -290,8 +292,12 @@ def suggest_based_on_last_token(
                 {"type": "alias", "aliases": aliases},
                 {"type": "keyword"},
             ]
-    elif (token_v.endswith("join") and isinstance(token, Token) and token.is_keyword) or (
-        token_v in ("copy", "from", "update", "into", "describe", "truncate", "desc", "explain")
+    elif (
+        (token_v.endswith("join") and isinstance(token, Token) and token.is_keyword)
+        or (token_v in ("copy", "from", "update", "into", "describe", "truncate", "desc", "explain"))
+        # todo: the create table regex fails to match on multi-statement queries, which
+        # suggests a bug above in suggest_type()
+        or (token_v == "like" and re.match(r'^\s*create\s+table\s', full_text, re.IGNORECASE))
     ):
         schema = (identifier and identifier.get_parent_name()) or []
 
@@ -348,7 +354,7 @@ def suggest_based_on_last_token(
         # "\c <db", "use <db>", "DROP DATABASE <db>",
         # "CREATE DATABASE <newdb> WITH TEMPLATE <db>"
         return [{"type": "database"}]
-    elif token_v == "tableformat":
+    elif token_v in ("tableformat", "redirectformat"):
         return [{"type": "table_format"}]
     elif token_v.endswith(",") or is_operand(token_v) or token_v in ["=", "and", "or"]:
         original_text = text_before_cursor

@@ -191,3 +191,13 @@ class TestRSASigner(object):
 
         assert signer.key_id == SERVICE_ACCOUNT_INFO[base._JSON_FILE_PRIVATE_KEY_ID]
         assert isinstance(signer._key, rsa.key.PrivateKey)
+
+
+class TestModule(object):
+    def test_import_warning(self):
+        from google.auth.crypt import _python_rsa
+
+        with pytest.warns(DeprecationWarning, match="The 'rsa' library is deprecated"):
+            _python_rsa.RSAVerifier(None)
+        with pytest.warns(DeprecationWarning, match="The 'rsa' library is deprecated"):
+            _python_rsa.RSASigner(None)

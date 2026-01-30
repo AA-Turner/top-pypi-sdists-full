@@ -22,7 +22,7 @@ class TailLocal(Command):
         return TailLocal.COMMAND
 
     def required(self):
-        return [RequiredState.CLUSTER_OR_POD, RequiredState.APP_APP, ReplState.P]
+        return [RequiredState.CLUSTER_OR_POD, RequiredState.APP_APP, ReplState.P, ReplState.X, ReplState.L]
 
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):

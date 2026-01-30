@@ -48,7 +48,7 @@ RETURN = """
 hcloud_server_type_info:
     description: The server type infos as list
     returned: always
-    type: complex
+    type: list
     contains:
         id:
             description: Numeric identifier of the server type
@@ -167,9 +167,9 @@ hcloud_server_type_info:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.server_types import BoundServerType
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.server_types import BoundServerType
 
 
 class AnsibleHCloudServerTypeInfo(AnsibleHCloud):

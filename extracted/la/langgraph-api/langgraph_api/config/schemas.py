@@ -6,6 +6,7 @@ from pydantic.functional_validators import AfterValidator
 from typing_extensions import TypedDict
 
 __all__ = [
+    "VALID_WEBHOOK_ALLOWED_FIELDS",
     "CheckpointerConfig",
     "ConfigurableHeaders",
     "CorsConfig",
@@ -19,6 +20,27 @@ __all__ = [
     "TTLConfig",
     "ThreadTTLConfig",
 ]
+
+# Valid field names that can appear in webhook payloads.
+# This set is used to validate the allowed_fields configuration.
+VALID_WEBHOOK_ALLOWED_FIELDS: frozenset[str] = frozenset(
+    {
+        "run_id",
+        "thread_id",
+        "assistant_id",
+        "created_at",
+        "updated_at",
+        "metadata",
+        "kwargs",
+        "multitask_strategy",
+        "status",
+        "run_started_at",
+        "run_ended_at",
+        "webhook_sent_at",
+        "values",
+        "error",
+    }
+)
 
 
 class CorsConfig(TypedDict, total=False):
@@ -387,9 +409,37 @@ class WebhooksConfig(TypedDict, total=False):
     are resolved via the process environment after verifying `VAR` starts with
     `env_prefix`. Mixed literals and multiple templates are allowed.
     """
+    allowed_fields: set[str] | None
+    """Allow-list of fields to include in webhook payloads.
+
+    When configured, only the specified fields are sent in the webhook payload.
+    When omitted or None, all fields are sent (backward compatible).
+
+    Valid field names: run_id, thread_id, assistant_id, created_at, updated_at,
+    metadata, kwargs, multitask_strategy, status, run_started_at, run_ended_at,
+    webhook_sent_at, values, error.
+    """
 
 
 def webhooks_validator(cfg: "WebhooksConfig") -> "WebhooksConfig":
+    # Validate allowed_fields if present
+    allowed_fields = cfg.get("allowed_fields")
+    if allowed_fields is not None:
+        if not isinstance(allowed_fields, list):
+            raise ValueError(
+                f"webhooks.allowed_fields must be a list of strings. Got: {type(allowed_fields).__name__}"
+            )
+        for field in allowed_fields:
+            if not isinstance(field, str):
+                raise ValueError(
+                    f"webhooks.allowed_fields must contain only strings. Got: {type(field).__name__}"
+                )
+            if field not in VALID_WEBHOOK_ALLOWED_FIELDS:
+                raise ValueError(
+                    f"webhooks.allowed_fields contains invalid field '{field}'. "
+                    f"Valid fields are: {sorted(VALID_WEBHOOK_ALLOWED_FIELDS)}"
+                )
+
     # Enforce env prefix & actual env presence at the aggregate level
     headers = cfg.get("headers") or {}
     if headers:

@@ -3,6 +3,7 @@ import os
 import io
 import math
 
+from honeybee.typing import clean_rad_string
 from ladybug_geometry.geometry3d import Vector3D, Point3D
 from honeybee_radiance_command.ies2rad import Ies2rad, Ies2radOptions
 from honeybee_radiance.config import folders
@@ -39,6 +40,7 @@ class Luminaire(object):
         * ies_path
         * ies_content
         * identifier
+        * display_name
         * full_identifier
         * luminaire_zone
         * custom_lamp
@@ -54,15 +56,16 @@ class Luminaire(object):
         * max_candela
         * unit_scale
     """
-    __slots__ = ('_ies_path', '_ies_content', '_identifier', '_luminaire_zone',
-                 '_custom_lamp', '_light_loss_factor', '_candela_multiplier',
-                 '_vertical_angles', '_horizontal_angles', '_candela_values',
-                 '_unit_type', '_width', '_length', '_height', '_max_candela',
-                 '_unit_scale')
+    __slots__ = ('_ies_path', '_ies_content', '_identifier', '_display_name',
+                 '_luminaire_zone', '_custom_lamp', '_light_loss_factor',
+                 '_candela_multiplier', '_vertical_angles', '_horizontal_angles',
+                 '_candela_values', '_unit_type', '_width', '_length', '_height',
+                 '_max_candela', '_unit_scale')
     def __init__(self, ies_path, identifier=None, luminaire_zone=None, custom_lamp=None,
                  light_loss_factor=1, candela_multiplier=1):
         self.ies_path = ies_path
         self.identifier = identifier
+        self._display_name = None
         self.luminaire_zone = luminaire_zone
         self.custom_lamp = custom_lamp
         self.light_loss_factor = light_loss_factor
@@ -167,8 +170,23 @@ class Luminaire(object):
 
             if not value:
                 value = 'luminaire'
+        value = clean_rad_string(value)
 
         self._identifier = value
+
+    @property
+    def display_name(self):
+        """Get or set the display name of the luminaire."""
+        if self._display_name is None:
+            return self._identifier
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, value):
+        try:
+            self._display_name = str(value)
+        except UnicodeEncodeError:  # Python 2 machine lacking the character set
+            self._display_name = value  # keep it as unicode
 
     @property
     def full_identifier(self):
@@ -309,6 +327,9 @@ class Luminaire(object):
 
     def ies2rad(self, libdir=None, prefdir=None, outname=None, units=None):
         """Executes ies2rad.
+
+        The cwd is set to libdir to ensure that any relative paths are correctly
+        resolved.
         
         Args:
             libdir: Set the library directory.
@@ -325,8 +346,8 @@ class Luminaire(object):
         Returns:
             Radiance scene description (rad file).
         """
-        ies_path = self._ensure_ies_file(folder=prefdir)
-
+        ies_folder = os.path.join(libdir or '.', prefdir or '').replace('\\', '/')
+        ies_path = self._ensure_ies_file(folder=ies_folder)
         command = Ies2rad(ies=ies_path)
         options = Ies2radOptions()
 
@@ -400,7 +421,6 @@ class Luminaire(object):
 
             if libdir and prefdir.startswith('./'):
                 prefdir = prefdir[2:]
-
             elif not libdir and not prefdir.startswith('.'):
                 prefdir = './' + prefdir
 
@@ -416,7 +436,7 @@ class Luminaire(object):
         command.options = options
 
         env = dict(os.environ, **folders.env) if folders.env else None
-        command.run(env=env)
+        command.run(env=env, cwd=libdir)
 
         return rad_path
 
@@ -448,10 +468,8 @@ class Luminaire(object):
             units=units
         )
 
-        scene_dir = os.path.dirname(luminaire_rad_path) or '.'
+        scene_dir = os.path.join(libdir or '.', prefdir or '').replace('\\', '/')
         scene_path = os.path.join(scene_dir, '{}.rad'.format(self.identifier)).replace('\\', '/')
-        if not scene_path.startswith('.'):
-            scene_path = './' + scene_path
 
         with open(scene_path, 'w') as f:
             for inst in self.luminaire_zone.instances:
@@ -466,9 +484,9 @@ class Luminaire(object):
     def write_ies(self, folder, filename=None):
         """Write the stored IES content back to disk."""
         filename = filename or '{}.ies'.format(self.identifier)
-        path = os.path.join(folder, filename)
+        path = os.path.join(folder, filename).replace('\\', '/')
 
-        with open(path, 'w', encoding='utf-8') as f:
+        with io.open(path, 'w', encoding='utf-8') as f:
             f.write(self._ies_content)
 
         return path
@@ -719,12 +737,8 @@ class Luminaire(object):
         if not os.path.isdir(folder):
             os.makedirs(folder)
 
-        path = os.path.join(folder, '{}.ies'.format(self.identifier))
+        path = self.write_ies(folder, filename='{}.ies'.format(self.identifier))
 
-        with io.open(path, 'w', encoding='utf-8') as f:
-            f.write(self._ies_content)
-
-        self._ies_path = path
         return path
 
     def _identifier_from_ies_content(self):

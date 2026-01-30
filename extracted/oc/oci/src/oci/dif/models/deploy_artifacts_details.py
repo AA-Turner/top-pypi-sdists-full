@@ -31,6 +31,10 @@ class DeployArtifactsDetails(object):
     #: This constant has a value of "DATATRANSFORMATION"
     STACK_TEMPLATES_DATATRANSFORMATION = "DATATRANSFORMATION"
 
+    #: A constant which can be used with the stack_templates property of a DeployArtifactsDetails.
+    #: This constant has a value of "DEVOPSTOOLKIT"
+    STACK_TEMPLATES_DEVOPSTOOLKIT = "DEVOPSTOOLKIT"
+
     #: A constant which can be used with the services property of a DeployArtifactsDetails.
     #: This constant has a value of "ADB"
     SERVICES_ADB = "ADB"
@@ -51,6 +55,18 @@ class DeployArtifactsDetails(object):
     #: This constant has a value of "DATAFLOW"
     SERVICES_DATAFLOW = "DATAFLOW"
 
+    #: A constant which can be used with the services property of a DeployArtifactsDetails.
+    #: This constant has a value of "AIDATAPLATFORM"
+    SERVICES_AIDATAPLATFORM = "AIDATAPLATFORM"
+
+    #: A constant which can be used with the services property of a DeployArtifactsDetails.
+    #: This constant has a value of "OMK"
+    SERVICES_OMK = "OMK"
+
+    #: A constant which can be used with the services property of a DeployArtifactsDetails.
+    #: This constant has a value of "OKE"
+    SERVICES_OKE = "OKE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new DeployArtifactsDetails object with values from keyword arguments.
@@ -58,12 +74,12 @@ class DeployArtifactsDetails(object):
 
         :param stack_templates:
             The value to assign to the stack_templates property of this DeployArtifactsDetails.
-            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
         :type stack_templates: list[str]
 
         :param services:
             The value to assign to the services property of this DeployArtifactsDetails.
-            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
         :type services: list[str]
 
         :param subnet_id:
@@ -82,6 +98,14 @@ class DeployArtifactsDetails(object):
             The value to assign to the dataflow property of this DeployArtifactsDetails.
         :type dataflow: list[oci.dif.models.DataflowArtifactsDetail]
 
+        :param omk:
+            The value to assign to the omk property of this DeployArtifactsDetails.
+        :type omk: list[oci.dif.models.OmkArtifactsDetail]
+
+        :param oke:
+            The value to assign to the oke property of this DeployArtifactsDetails.
+        :type oke: list[oci.dif.models.OkeArtifactsDetail]
+
         """
         self.swagger_types = {
             'stack_templates': 'list[str]',
@@ -89,7 +113,9 @@ class DeployArtifactsDetails(object):
             'subnet_id': 'str',
             'adb': 'list[AdbArtifactsDetail]',
             'ggcs': 'list[GgcsArtifactsDetail]',
-            'dataflow': 'list[DataflowArtifactsDetail]'
+            'dataflow': 'list[DataflowArtifactsDetail]',
+            'omk': 'list[OmkArtifactsDetail]',
+            'oke': 'list[OkeArtifactsDetail]'
         }
         self.attribute_map = {
             'stack_templates': 'stackTemplates',
@@ -97,7 +123,9 @@ class DeployArtifactsDetails(object):
             'subnet_id': 'subnetId',
             'adb': 'adb',
             'ggcs': 'ggcs',
-            'dataflow': 'dataflow'
+            'dataflow': 'dataflow',
+            'omk': 'omk',
+            'oke': 'oke'
         }
         self._stack_templates = None
         self._services = None
@@ -105,6 +133,8 @@ class DeployArtifactsDetails(object):
         self._adb = None
         self._ggcs = None
         self._dataflow = None
+        self._omk = None
+        self._oke = None
 
     @property
     def stack_templates(self):
@@ -112,7 +142,7 @@ class DeployArtifactsDetails(object):
         **[Required]** Gets the stack_templates of this DeployArtifactsDetails.
         List of templates to be onboarded for the stack.
 
-        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
 
 
         :return: The stack_templates of this DeployArtifactsDetails.
@@ -130,7 +160,7 @@ class DeployArtifactsDetails(object):
         :param stack_templates: The stack_templates of this DeployArtifactsDetails.
         :type: list[str]
         """
-        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"]
+        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"]
 
         if stack_templates and stack_templates is not NONE_SENTINEL:
             for value in stack_templates:
@@ -146,7 +176,7 @@ class DeployArtifactsDetails(object):
         **[Required]** Gets the services of this DeployArtifactsDetails.
         List of services to be onboarded for the stack.
 
-        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
 
 
         :return: The services of this DeployArtifactsDetails.
@@ -164,7 +194,7 @@ class DeployArtifactsDetails(object):
         :param services: The services of this DeployArtifactsDetails.
         :type: list[str]
         """
-        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"]
+        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"]
 
         if services and services is not NONE_SENTINEL:
             for value in services:
@@ -269,6 +299,54 @@ class DeployArtifactsDetails(object):
         :type: list[oci.dif.models.DataflowArtifactsDetail]
         """
         self._dataflow = dataflow
+
+    @property
+    def omk(self):
+        """
+        Gets the omk of this DeployArtifactsDetails.
+        Omk artifact details if omk is included in the services.
+
+
+        :return: The omk of this DeployArtifactsDetails.
+        :rtype: list[oci.dif.models.OmkArtifactsDetail]
+        """
+        return self._omk
+
+    @omk.setter
+    def omk(self, omk):
+        """
+        Sets the omk of this DeployArtifactsDetails.
+        Omk artifact details if omk is included in the services.
+
+
+        :param omk: The omk of this DeployArtifactsDetails.
+        :type: list[oci.dif.models.OmkArtifactsDetail]
+        """
+        self._omk = omk
+
+    @property
+    def oke(self):
+        """
+        Gets the oke of this DeployArtifactsDetails.
+        Oke artifact details if oke is included in the services.
+
+
+        :return: The oke of this DeployArtifactsDetails.
+        :rtype: list[oci.dif.models.OkeArtifactsDetail]
+        """
+        return self._oke
+
+    @oke.setter
+    def oke(self, oke):
+        """
+        Sets the oke of this DeployArtifactsDetails.
+        Oke artifact details if oke is included in the services.
+
+
+        :param oke: The oke of this DeployArtifactsDetails.
+        :type: list[oci.dif.models.OkeArtifactsDetail]
+        """
+        self._oke = oke
 
     def __repr__(self):
         return formatted_flat_dict(self)

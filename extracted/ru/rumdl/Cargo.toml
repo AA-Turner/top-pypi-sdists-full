@@ -1,6 +1,6 @@
 [package]
 name = "rumdl"
-version = "0.1.0"
+version = "0.1.6"
 edition = "2024"
 rust-version = "1.91.0"
 description = "A fast Markdown linter written in Rust (Ru(st) MarkDown Linter)"
@@ -8,7 +8,7 @@ authors = ["Ruben J. Jongejan <ruben.jongejan@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/rvben/rumdl"
 homepage = "https://github.com/rvben/rumdl"
-documentation = "https://github.com/rvben/rumdl/blob/main/docs"
+documentation = "https://rumdl.dev"
 readme = "README.md"
 keywords = ["markdown", "linter", "markdown-linter", "static-analysis", "documentation"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
@@ -91,6 +91,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 futures = { version = "0.3.31", features = ["alloc"] }
+clap_complete = "4.5.65"
 
 [features]
 default = ["parallel", "native"]

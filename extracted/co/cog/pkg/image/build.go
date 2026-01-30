@@ -3,6 +3,8 @@ package image
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,6 +85,17 @@ func Build(
 
 	var cogBaseImageName string
 
+	tmpImageId := imageName
+	isR8imImage := strings.HasPrefix(imageName, "r8.im")
+	if isR8imImage {
+		hash := sha256.New()
+		_, err := hash.Write([]byte(imageName))
+		if err != nil {
+			return err
+		}
+		tmpImageId = fmt.Sprintf("cog-tmp:%s", hex.EncodeToString(hash.Sum(nil)))
+	}
+
 	if dockerfileFile != "" {
 		dockerfileContents, err := os.ReadFile(dockerfileFile)
 		if err != nil {
@@ -92,7 +105,7 @@ func Build(
 		buildOpts := command.ImageBuildOptions{
 			WorkingDir:         dir,
 			DockerfileContents: string(dockerfileContents),
-			ImageName:          imageName,
+			ImageName:          tmpImageId,
 			Secrets:            secrets,
 			NoCache:            noCache,
 			ProgressOutput:     progressOutput,
@@ -174,7 +187,7 @@ func Build(
 			buildOpts := command.ImageBuildOptions{
 				WorkingDir:         dir,
 				DockerfileContents: dockerfileContents,
-				ImageName:          imageName,
+				ImageName:          tmpImageId,
 				Secrets:            secrets,
 				NoCache:            noCache,
 				ProgressOutput:     progressOutput,
@@ -200,7 +213,7 @@ func Build(
 		schemaJSON = data
 	} else {
 		console.Info("Validating model schema...")
-		schema, err := GenerateOpenAPISchema(ctx, dockerCommand, imageName, cfg.Build.GPU)
+		schema, err := GenerateOpenAPISchema(ctx, dockerCommand, tmpImageId, cfg.Build.GPU)
 		if err != nil {
 			return fmt.Errorf("Failed to get type signature: %w", err)
 		}
@@ -239,12 +252,12 @@ func Build(
 		return fmt.Errorf("Failed to convert config to JSON: %w", err)
 	}
 
-	pipFreeze, err := GeneratePipFreeze(ctx, dockerCommand, imageName, fastFlag)
+	pipFreeze, err := GeneratePipFreeze(ctx, dockerCommand, tmpImageId, fastFlag)
 	if err != nil {
 		return fmt.Errorf("Failed to generate pip freeze from image: %w", err)
 	}
 
-	modelDependencies, err := GenerateModelDependencies(ctx, dockerCommand, imageName, cfg)
+	modelDependencies, err := GenerateModelDependencies(ctx, dockerCommand, tmpImageId, cfg)
 	if err != nil {
 		return fmt.Errorf("Failed to generate model dependencies from image: %w", err)
 	}
@@ -311,18 +324,25 @@ func Build(
 		labels[key] = val
 	}
 
-	if err := BuildAddLabelsAndSchemaToImage(ctx, dockerCommand, imageName, labels, bundledSchemaFile, progressOutput); err != nil {
+	if err := BuildAddLabelsAndSchemaToImage(ctx, dockerCommand, tmpImageId, imageName, labels, bundledSchemaFile, progressOutput); err != nil {
 		return fmt.Errorf("Failed to add labels to image: %w", err)
 	}
+
+	// We created a temp image, so delete it. Don't "-f" so it doesn't blow anything up
+	if isR8imImage {
+		if err = dockerCommand.RemoveImage(ctx, tmpImageId); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 // BuildAddLabelsAndSchemaToImage builds a cog model with labels and schema.
 //
 // The new image is based on the provided image with the labels and schema file appended to it.
-func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Command, image string, labels map[string]string, bundledSchemaFile string, progressOutput string) error {
-	dockerfile := "FROM " + image + "\n"
-	dockerfile += "COPY " + bundledSchemaFile + " .cog\n"
+func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Command, tmpName, image string, labels map[string]string, bundledSchemaFile string, progressOutput string) error {
+	dockerfile := fmt.Sprintf("FROM %s\nCOPY %s .cog\n", tmpName, bundledSchemaFile)
 
 	buildOpts := command.ImageBuildOptions{
 		DockerfileContents: dockerfile,

@@ -1,3 +1,5 @@
+import asyncio
+import time
 from typing import Dict, List, Optional, Union
 
 from pymilvus.client.abstract import AnnSearchRequest, BaseRanker
@@ -8,11 +10,16 @@ from pymilvus.client.types import (
     OmitZeroDict,
     ResourceGroupConfig,
     RoleInfo,
+    SegmentInfo,
     UserInfo,
 )
-from pymilvus.client.utils import convert_struct_fields_to_user_format, is_vector_type
+from pymilvus.client.utils import (
+    convert_struct_fields_to_user_format,
+    is_vector_type,
+)
 from pymilvus.exceptions import (
     DataTypeNotMatchException,
+    MilvusException,
     ParamError,
     PrimaryKeyException,
 )
@@ -21,9 +28,11 @@ from pymilvus.orm.connections import connections
 from pymilvus.orm.types import DataType
 
 from ._utils import create_connection
+from .async_optimize_task import AsyncOptimizeTask
 from .base import BaseMilvusClient
 from .check import validate_param
 from .index import IndexParam, IndexParams
+from .optimize_task import OptimizeResult, ProgressStage
 
 
 class AsyncMilvusClient(BaseMilvusClient):
@@ -40,10 +49,11 @@ class AsyncMilvusClient(BaseMilvusClient):
         timeout: Optional[float] = None,
         **kwargs,
     ) -> None:
+        self._db_name = self._extract_db_name_from_uri(uri, db_name)
         self._using = create_connection(
             uri,
             token,
-            db_name,
+            self._db_name,
             use_async=True,
             user=user,
             password=password,
@@ -122,7 +132,13 @@ class AsyncMilvusClient(BaseMilvusClient):
         conn = self._get_connection()
         if "consistency_level" not in kwargs:
             kwargs["consistency_level"] = DEFAULT_CONSISTENCY_LEVEL
-        await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
+        await conn.create_collection(
+            collection_name,
+            schema,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
         index_params = IndexParams()
         index_params.add_index(vector_field_name, index_type="AUTOINDEX", metric_type=metric_type)
@@ -142,7 +158,13 @@ class AsyncMilvusClient(BaseMilvusClient):
         conn = self._get_connection()
         if "consistency_level" not in kwargs:
             kwargs["consistency_level"] = DEFAULT_CONSISTENCY_LEVEL
-        await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
+        await conn.create_collection(
+            collection_name,
+            schema,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
         if index_params:
             await self.create_index(collection_name, index_params, timeout=timeout)
@@ -152,7 +174,23 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.drop_collection(collection_name, timeout=timeout, **kwargs)
+        await conn.drop_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
+
+    async def truncate_collection(
+        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+    ):
+        conn = self._get_connection()
+        await conn.truncate_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def rename_collection(
         self,
@@ -163,19 +201,36 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.rename_collection(old_name, new_name, target_db, timeout=timeout, **kwargs)
+        await conn.rename_collection(
+            old_name,
+            new_name,
+            target_db,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def load_collection(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.load_collection(collection_name, timeout=timeout, **kwargs)
+        await conn.load_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def release_collection(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.release_collection(collection_name, timeout=timeout, **kwargs)
+        await conn.release_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def create_index(
         self,
@@ -206,6 +261,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             index_param.get_index_configs(),
             timeout=timeout,
             index_name=index_param.index_name,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -213,19 +269,38 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, collection_name: str, index_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.drop_index(collection_name, "", index_name, timeout=timeout, **kwargs)
+        await conn.drop_index(
+            collection_name,
+            "",
+            index_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def create_partition(
         self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.create_partition(collection_name, partition_name, timeout=timeout, **kwargs)
+        await conn.create_partition(
+            collection_name,
+            partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def drop_partition(
         self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.drop_partition(collection_name, partition_name, timeout=timeout, **kwargs)
+        await conn.drop_partition(
+            collection_name,
+            partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def load_partitions(
         self,
@@ -238,7 +313,13 @@ class AsyncMilvusClient(BaseMilvusClient):
             partition_names = [partition_names]
 
         conn = self._get_connection()
-        await conn.load_partitions(collection_name, partition_names, timeout=timeout, **kwargs)
+        await conn.load_partitions(
+            collection_name,
+            partition_names,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def release_partitions(
         self,
@@ -250,19 +331,36 @@ class AsyncMilvusClient(BaseMilvusClient):
         if isinstance(partition_names, str):
             partition_names = [partition_names]
         conn = self._get_connection()
-        await conn.release_partitions(collection_name, partition_names, timeout=timeout, **kwargs)
+        await conn.release_partitions(
+            collection_name,
+            partition_names,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def has_partition(
         self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
     ) -> bool:
         conn = self._get_connection()
-        return await conn.has_partition(collection_name, partition_name, timeout=timeout, **kwargs)
+        return await conn.has_partition(
+            collection_name,
+            partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def list_partitions(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_partitions(collection_name, timeout=timeout, **kwargs)
+        return await conn.list_partitions(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def insert(
         self,
@@ -288,7 +386,12 @@ class AsyncMilvusClient(BaseMilvusClient):
         conn = self._get_connection()
         # Insert into the collection.
         res = await conn.insert_rows(
-            collection_name, data, partition_name=partition_name, timeout=timeout, **kwargs
+            collection_name,
+            data,
+            partition_name=partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
         return OmitZeroDict(
             {
@@ -345,7 +448,12 @@ class AsyncMilvusClient(BaseMilvusClient):
         # Upsert into the collection.
         try:
             res = await conn.upsert_rows(
-                collection_name, data, partition_name=partition_name, timeout=timeout, **kwargs
+                collection_name,
+                data,
+                partition_name=partition_name,
+                timeout=timeout,
+                context=self._generate_call_context(**kwargs),
+                **kwargs,
             )
         except Exception as ex:
             raise ex from ex
@@ -378,6 +486,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             partition_names=partition_names,
             output_fields=output_fields,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -410,6 +519,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             expr_params=kwargs.pop("filter_params", {}),
             timeout=timeout,
             ranker=ranker,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -436,8 +546,11 @@ class AsyncMilvusClient(BaseMilvusClient):
 
         if ids:
             try:
-                schema_dict, _ = await conn._get_schema_from_cache_or_remote(
-                    collection_name, timeout=timeout
+                schema_dict, _ = await conn._get_schema(
+                    collection_name,
+                    timeout=timeout,
+                    context=self._generate_call_context(**kwargs),
+                    **kwargs,
                 )
             except Exception as ex:
                 raise ex from ex
@@ -453,6 +566,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             partition_names=partition_names,
             timeout=timeout,
             expr_params=kwargs.pop("filter_params", {}),
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -473,8 +587,11 @@ class AsyncMilvusClient(BaseMilvusClient):
 
         conn = self._get_connection()
         try:
-            schema_dict, _ = await conn._get_schema_from_cache_or_remote(
-                collection_name, timeout=timeout
+            schema_dict, _ = await conn._get_schema(
+                collection_name,
+                timeout=timeout,
+                context=self._generate_call_context(**kwargs),
+                **kwargs,
             )
         except Exception as ex:
             raise ex from ex
@@ -489,6 +606,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             output_fields=output_fields,
             partition_names=partition_names,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -531,8 +649,11 @@ class AsyncMilvusClient(BaseMilvusClient):
         conn = self._get_connection()
         if len(pks) > 0:
             try:
-                schema_dict, _ = await conn._get_schema_from_cache_or_remote(
-                    collection_name, timeout=timeout
+                schema_dict, _ = await conn._get_schema(
+                    collection_name,
+                    timeout=timeout,
+                    context=self._generate_call_context(**kwargs),
+                    **kwargs,
                 )
             except Exception as ex:
                 raise ex from ex
@@ -549,6 +670,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             partition_name=partition_name,
             expr_params=kwargs.pop("filter_params", {}),
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
         if res.primary_keys:
@@ -564,7 +686,12 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> dict:
         conn = self._get_connection()
-        result = await conn.describe_collection(collection_name, timeout=timeout, **kwargs)
+        result = await conn.describe_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         # Convert internal struct_array_fields to user-friendly format
         if isinstance(result, dict) and "struct_array_fields" in result:
             converted_fields = convert_struct_fields_to_user_format(result["struct_array_fields"])
@@ -577,17 +704,29 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> bool:
         conn = self._get_connection()
-        return await conn.has_collection(collection_name, timeout=timeout, **kwargs)
+        return await conn.has_collection(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def list_collections(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_collections(timeout=timeout, **kwargs)
+        return await conn.list_collections(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def get_collection_stats(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> Dict:
         conn = self._get_connection()
-        stats = await conn.get_collection_stats(collection_name, timeout=timeout, **kwargs)
+        stats = await conn.get_collection_stats(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         result = {stat.key: stat.value for stat in stats}
         if "row_count" in result:
             result["row_count"] = int(result["row_count"])
@@ -598,7 +737,11 @@ class AsyncMilvusClient(BaseMilvusClient):
     ) -> Dict:
         conn = self._get_connection()
         stats = await conn.get_partition_stats(
-            collection_name, partition_name, timeout=timeout, **kwargs
+            collection_name,
+            partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
         result = {stat.key: stat.value for stat in stats}
         if "row_count" in result:
@@ -614,13 +757,21 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         state = await conn.get_load_state(
-            collection_name, partition_names, timeout=timeout, **kwargs
+            collection_name,
+            partition_names,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
         ret = {"state": state}
         if state == LoadState.Loading:
             progress = await conn.get_loading_progress(
-                collection_name, partition_names, timeout=timeout
+                collection_name,
+                partition_names,
+                timeout=timeout,
+                context=self._generate_call_context(**kwargs),
+                **kwargs,
             )
             ret["progress"] = progress
 
@@ -634,17 +785,42 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        return await conn.refresh_load(collection_name, partition_names, timeout=timeout, **kwargs)
+        return await conn.refresh_load(
+            collection_name,
+            partition_names,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
-    async def get_server_version(self, timeout: Optional[float] = None, **kwargs) -> str:
+    async def get_server_version(
+        self, timeout: Optional[float] = None, detail: bool = False, **kwargs
+    ) -> Union[str, Dict]:
+        """Get the running server's version
+
+        Args:
+            timeout: A duration of time in seconds to allow for the RPC.
+            detail: If True, return detailed server info. Defaults to False.
+
+        Returns:
+            str: Server version when detail=False.
+            dict: Detailed server info when detail=True.
+        """
         conn = self._get_connection()
-        return await conn.get_server_version(timeout=timeout, **kwargs)
+        return await conn.get_server_version(
+            timeout=timeout, detail=detail, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def describe_replica(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        return await conn.describe_replica(collection_name, timeout=timeout, **kwargs)
+        return await conn.describe_replica(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def alter_collection_properties(
         self, collection_name: str, properties: dict, timeout: Optional[float] = None, **kwargs
@@ -654,6 +830,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             properties=properties,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -666,7 +843,11 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.drop_collection_properties(
-            collection_name, property_keys=property_keys, timeout=timeout, **kwargs
+            collection_name,
+            property_keys=property_keys,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def alter_collection_field(
@@ -683,6 +864,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             field_name=field_name,
             field_params=field_params,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -705,6 +887,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             field_schema,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -729,6 +912,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             function,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -760,6 +944,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             function_name,
             function,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -784,6 +969,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             function_name,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -792,7 +978,9 @@ class AsyncMilvusClient(BaseMilvusClient):
 
     async def list_indexes(self, collection_name: str, field_name: Optional[str] = "", **kwargs):
         conn = self._get_connection()
-        indexes = await conn.list_indexes(collection_name, **kwargs)
+        indexes = await conn.list_indexes(
+            collection_name, context=self._generate_call_context(**kwargs), **kwargs
+        )
         index_name_list = []
         for index in indexes:
             if not index:
@@ -805,7 +993,13 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, collection_name: str, index_name: str, timeout: Optional[float] = None, **kwargs
     ) -> Dict:
         conn = self._get_connection()
-        return await conn.describe_index(collection_name, index_name, timeout=timeout, **kwargs)
+        return await conn.describe_index(
+            collection_name,
+            index_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def alter_index_properties(
         self,
@@ -817,7 +1011,12 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.alter_index_properties(
-            collection_name, index_name, properties=properties, timeout=timeout, **kwargs
+            collection_name,
+            index_name,
+            properties=properties,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def drop_index_properties(
@@ -830,42 +1029,77 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.drop_index_properties(
-            collection_name, index_name, property_keys=property_keys, timeout=timeout, **kwargs
+            collection_name,
+            index_name,
+            property_keys=property_keys,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def create_alias(
         self, collection_name: str, alias: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.create_alias(collection_name, alias, timeout=timeout, **kwargs)
+        await conn.create_alias(
+            collection_name,
+            alias,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def drop_alias(self, alias: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.drop_alias(alias, timeout=timeout, **kwargs)
+        await conn.drop_alias(
+            alias, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def alter_alias(
         self, collection_name: str, alias: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.alter_alias(collection_name, alias, timeout=timeout, **kwargs)
+        await conn.alter_alias(
+            collection_name,
+            alias,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def describe_alias(self, alias: str, timeout: Optional[float] = None, **kwargs) -> Dict:
         conn = self._get_connection()
-        return await conn.describe_alias(alias, timeout=timeout, **kwargs)
+        return await conn.describe_alias(
+            alias, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def list_aliases(
         self, collection_name: str = "", timeout: Optional[float] = None, **kwargs
     ) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_aliases(collection_name, timeout=timeout, **kwargs)
+        return await conn.list_aliases(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
-    def using_database(self, db_name: str, **kwargs):
-        conn = self._get_connection()
-        conn.reset_db_name(db_name)
+    async def using_database(self, db_name: str, **kwargs):
+        """Deprecated: Use use_database instead."""
+        await self.use_database(db_name, **kwargs)
 
-    def use_database(self, db_name: str, **kwargs):
-        conn = self._get_connection()
-        conn.reset_db_name(db_name)
+    async def use_database(self, db_name: str, **kwargs):
+        """Switch to a different database. Future operations will use this database.
+
+        Args:
+            db_name (str): The name of the database to switch to.
+            **kwargs: Additional keyword arguments (e.g., timeout).
+
+        Raises:
+            MilvusException: If the database does not exist (error code 800).
+        """
+        await self.describe_database(db_name, **kwargs)
+        self._db_name = db_name
 
     async def create_database(
         self,
@@ -876,38 +1110,58 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.create_database(
-            db_name=db_name, properties=properties, timeout=timeout, **kwargs
+            db_name=db_name,
+            properties=properties,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def drop_database(self, db_name: str, **kwargs):
         conn = self._get_connection()
-        await conn.drop_database(db_name, **kwargs)
+        await conn.drop_database(db_name, context=self._generate_call_context(**kwargs), **kwargs)
 
     async def list_databases(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_database(timeout=timeout, **kwargs)
+        return await conn.list_database(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def describe_database(self, db_name: str, **kwargs) -> dict:
         conn = self._get_connection()
-        return await conn.describe_database(db_name, **kwargs)
+        return await conn.describe_database(
+            db_name, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def alter_database_properties(self, db_name: str, properties: dict, **kwargs):
         conn = self._get_connection()
-        await conn.alter_database(db_name, properties, **kwargs)
+        await conn.alter_database(
+            db_name, properties, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def drop_database_properties(self, db_name: str, property_keys: List[str], **kwargs):
         conn = self._get_connection()
-        await conn.drop_database_properties(db_name, property_keys, **kwargs)
+        await conn.drop_database_properties(
+            db_name, property_keys, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def create_user(
         self, user_name: str, password: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.create_user(user_name, password, timeout=timeout, **kwargs)
+        await conn.create_user(
+            user_name,
+            password,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def drop_user(self, user_name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.drop_user(user_name, timeout=timeout, **kwargs)
+        await conn.drop_user(
+            user_name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def update_password(
         self,
@@ -918,17 +1172,32 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.update_password(user_name, old_password, new_password, timeout=timeout, **kwargs)
+        await conn.update_password(
+            user_name,
+            old_password,
+            new_password,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def list_users(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_users(timeout=timeout, **kwargs)
+        return await conn.list_users(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def describe_user(
         self, user_name: str, timeout: Optional[float] = None, **kwargs
     ) -> dict:
         conn = self._get_connection()
-        res = await conn.describe_user(user_name, True, timeout=timeout, **kwargs)
+        res = await conn.describe_user(
+            user_name,
+            True,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         if hasattr(res, "results") and res.results:
             user_info = UserInfo(res.results)
             if user_info.groups:
@@ -943,7 +1212,9 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.create_privilege_group(group_name, timeout=timeout, **kwargs)
+        await conn.create_privilege_group(
+            group_name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def drop_privilege_group(
         self,
@@ -952,7 +1223,9 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.drop_privilege_group(group_name, timeout=timeout, **kwargs)
+        await conn.drop_privilege_group(
+            group_name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def list_privilege_groups(
         self,
@@ -960,7 +1233,9 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ) -> List[Dict[str, Union[str, List[str]]]]:
         conn = self._get_connection()
-        res = await conn.list_privilege_groups(timeout=timeout, **kwargs)
+        res = await conn.list_privilege_groups(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
         ret = []
         for g in res:
             privileges = []
@@ -977,7 +1252,13 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.add_privileges_to_group(group_name, privileges, timeout=timeout, **kwargs)
+        await conn.add_privileges_to_group(
+            group_name,
+            privileges,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def remove_privileges_from_group(
         self,
@@ -987,29 +1268,55 @@ class AsyncMilvusClient(BaseMilvusClient):
         **kwargs,
     ):
         conn = self._get_connection()
-        await conn.remove_privileges_from_group(group_name, privileges, timeout=timeout, **kwargs)
+        await conn.remove_privileges_from_group(
+            group_name,
+            privileges,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def create_role(self, role_name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.create_role(role_name, timeout=timeout, **kwargs)
+        await conn.create_role(
+            role_name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def drop_role(
         self, role_name: str, force_drop: bool = False, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.drop_role(role_name, force_drop=force_drop, timeout=timeout, **kwargs)
+        await conn.drop_role(
+            role_name,
+            force_drop=force_drop,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def grant_role(
         self, user_name: str, role_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.grant_role(user_name, role_name, timeout=timeout, **kwargs)
+        await conn.grant_role(
+            user_name,
+            role_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def revoke_role(
         self, user_name: str, role_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.revoke_role(user_name, role_name, timeout=timeout, **kwargs)
+        await conn.revoke_role(
+            user_name,
+            role_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def grant_privilege(
         self,
@@ -1023,7 +1330,14 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.grant_privilege(
-            role_name, object_type, object_name, privilege, db_name, timeout=timeout, **kwargs
+            role_name,
+            object_type,
+            object_name,
+            privilege,
+            db_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def revoke_privilege(
@@ -1038,7 +1352,14 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.revoke_privilege(
-            role_name, object_type, object_name, privilege, db_name, timeout=timeout, **kwargs
+            role_name,
+            object_type,
+            object_name,
+            privilege,
+            db_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def grant_privilege_v2(
@@ -1057,6 +1378,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             db_name=db_name,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -1076,6 +1398,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             collection_name,
             db_name=db_name,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -1083,8 +1406,11 @@ class AsyncMilvusClient(BaseMilvusClient):
         self, role_name: str, timeout: Optional[float] = None, **kwargs
     ) -> Dict:
         conn = self._get_connection()
+        context = self._generate_call_context(**kwargs)
         db_name = kwargs.pop("db_name", "")
-        res = await conn.select_grant_for_one_role(role_name, db_name, timeout=timeout, **kwargs)
+        res = await conn.select_grant_for_one_role(
+            role_name, db_name, timeout=timeout, context=context, **kwargs
+        )
         ret = {}
         ret["role"] = role_name
         ret["privileges"] = [dict(i) for i in res.groups]
@@ -1092,32 +1418,44 @@ class AsyncMilvusClient(BaseMilvusClient):
 
     async def list_roles(self, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        res = await conn.list_roles(False, timeout=timeout, **kwargs)
+        res = await conn.list_roles(
+            False, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
         role_info = RoleInfo(res)
         return [g.role_name for g in role_info.groups]
 
     async def create_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.create_resource_group(name, timeout=timeout, **kwargs)
+        await conn.create_resource_group(
+            name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def drop_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.drop_resource_group(name, timeout=timeout, **kwargs)
+        await conn.drop_resource_group(
+            name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def update_resource_groups(
         self, configs: Dict[str, ResourceGroupConfig], timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        await conn.update_resource_groups(configs, timeout=timeout, **kwargs)
+        await conn.update_resource_groups(
+            configs, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def describe_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        return await conn.describe_resource_group(name, timeout=timeout, **kwargs)
+        return await conn.describe_resource_group(
+            name, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def list_resource_groups(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
         conn = self._get_connection()
-        return await conn.list_resource_groups(timeout=timeout, **kwargs)
+        return await conn.list_resource_groups(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def transfer_replica(
         self,
@@ -1130,12 +1468,23 @@ class AsyncMilvusClient(BaseMilvusClient):
     ):
         conn = self._get_connection()
         await conn.transfer_replica(
-            source, target, collection_name, num_replica, timeout=timeout, **kwargs
+            source,
+            target,
+            collection_name,
+            num_replica,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def flush(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        await conn.flush([collection_name], timeout=timeout, **kwargs)
+        await conn.flush(
+            [collection_name],
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
     async def flush_all(self, timeout: Optional[float] = None, **kwargs) -> None:
         """Flush all collections.
@@ -1145,7 +1494,9 @@ class AsyncMilvusClient(BaseMilvusClient):
             **kwargs: Additional arguments.
         """
         conn = self._get_connection()
-        await conn.flush_all(timeout=timeout, **kwargs)
+        await conn.flush_all(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def get_flush_all_state(self, timeout: Optional[float] = None, **kwargs) -> bool:
         """Get the flush all state.
@@ -1158,7 +1509,46 @@ class AsyncMilvusClient(BaseMilvusClient):
             bool: True if flush all operation is completed, False otherwise.
         """
         conn = self._get_connection()
-        return await conn.get_flush_all_state(timeout=timeout, **kwargs)
+        return await conn.get_flush_all_state(
+            timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
+
+    async def list_persistent_segments(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> List[SegmentInfo]:
+        """List persistent segments for a collection.
+
+        Args:
+            collection_name (str): The name of the collection.
+            timeout (Optional[float]): An optional duration of time in seconds to allow for the RPC.
+            **kwargs: Additional arguments.
+
+        Returns:
+            List[SegmentInfo]: A list of persistent segment information.
+        """
+        validate_param("collection_name", collection_name, str)
+        infos = await self._get_connection().get_persistent_segment_infos(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
+        return [
+            SegmentInfo(
+                segment_id=info.segmentID,
+                collection_id=info.collectionID,
+                collection_name=collection_name,
+                num_rows=info.num_rows,
+                is_sorted=info.is_sorted,
+                state=info.state,
+                level=info.level,
+                storage_version=info.storage_version,
+            )
+            for info in infos
+        ]
 
     async def compact(
         self,
@@ -1170,14 +1560,21 @@ class AsyncMilvusClient(BaseMilvusClient):
     ) -> int:
         conn = self._get_connection()
         return await conn.compact(
-            collection_name, is_clustering=is_clustering, is_l0=is_l0, timeout=timeout, **kwargs
+            collection_name,
+            is_clustering=is_clustering,
+            is_l0=is_l0,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
         )
 
     async def get_compaction_state(
         self, job_id: int, timeout: Optional[float] = None, **kwargs
     ) -> str:
         conn = self._get_connection()
-        result = await conn.get_compaction_state(job_id, timeout=timeout, **kwargs)
+        result = await conn.get_compaction_state(
+            job_id, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
         return result.state_name
 
     async def get_compaction_plans(
@@ -1197,7 +1594,9 @@ class AsyncMilvusClient(BaseMilvusClient):
             CompactionPlans: The compaction plans for the specified job.
         """
         conn = self._get_connection()
-        return await conn.get_compaction_plans(job_id, timeout=timeout, **kwargs)
+        return await conn.get_compaction_plans(
+            job_id, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
     async def run_analyzer(
         self,
@@ -1221,6 +1620,7 @@ class AsyncMilvusClient(BaseMilvusClient):
             field_name=field_name,
             analyzer_names=analyzer_names,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
         )
 
@@ -1261,5 +1661,243 @@ class AsyncMilvusClient(BaseMilvusClient):
             clusters=clusters,
             cross_cluster_topology=cross_cluster_topology,
             timeout=timeout,
+            context=self._generate_call_context(**kwargs),
             **kwargs,
+        )
+
+    async def _is_collection_loaded(
+        self, collection_name: str, timeout: Optional[float] = None
+    ) -> bool:
+        state_dict = await self.get_load_state(collection_name, timeout=timeout)
+        return state_dict.get("state") == LoadState.Loaded
+
+    async def _list_vector_indexes(
+        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+    ) -> List[str]:
+        schema_dict = await self._get_connection()._get_schema(
+            collection_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
+        vector_fields = {
+            field["name"]
+            for field in schema_dict.get("fields", [])
+            if is_vector_type(field.get("type"))
+        }
+
+        if not vector_fields:
+            return []
+
+        all_indexes = await self.list_indexes(collection_name, **kwargs)
+
+        vector_indexes = []
+        if all_indexes:
+            describe_tasks = [
+                self.describe_index(collection_name, index_name, timeout=timeout, **kwargs)
+                for index_name in all_indexes
+            ]
+            index_infos = await asyncio.gather(*describe_tasks)
+
+            vector_indexes = [
+                all_indexes[i]
+                for i, index_info in enumerate(index_infos)
+                if index_info and index_info.get("field_name") in vector_fields
+            ]
+        return vector_indexes
+
+    async def _wait_for_indexes(
+        self,
+        task: AsyncOptimizeTask,
+        collection_name: str,
+        index_names: List[str],
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> None:
+        if not index_names:
+            return
+
+        task.check_cancelled()
+
+        conn = self._get_connection()
+        wait_tasks = [
+            conn.wait_for_creating_index(
+                collection_name, index_name, context=self._generate_call_context(**kwargs), **kwargs
+            )
+            for index_name in index_names
+        ]
+
+        try:
+            await asyncio.wait_for(asyncio.gather(*wait_tasks), timeout=timeout)
+        except asyncio.TimeoutError as e:
+            raise MilvusException(
+                message=f"Timeout waiting for indexes to complete on collection {collection_name}"
+            ) from e
+
+    async def _wait_for_compaction_with_cancel(
+        self, task: AsyncOptimizeTask, compaction_id: int, timeout: Optional[float] = None, **kwargs
+    ) -> None:
+        start = time.time()
+        conn = self._get_connection()
+        while True:
+            task.check_cancelled()
+
+            if timeout is not None:
+                elapsed = time.time() - start
+                if elapsed >= timeout:
+                    raise MilvusException(
+                        message=f"Timeout waiting for compaction {compaction_id} to complete"
+                    )
+                remaining_timeout = timeout - elapsed
+            else:
+                remaining_timeout = None
+
+            state = await conn.get_compaction_state(
+                compaction_id,
+                timeout=remaining_timeout,
+                context=self._generate_call_context(**kwargs),
+                **kwargs,
+            )
+            if state.state == 2:
+                break
+            if state.state == 3:
+                raise MilvusException(message=f"Compaction {compaction_id} failed")
+
+            await asyncio.sleep(0.5)
+
+    async def optimize(
+        self,
+        collection_name: str,
+        target_size: Optional[str] = None,
+        wait: bool = True,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> Union[OptimizeResult, AsyncOptimizeTask]:
+        """Optimize collection to adjust segment sizes for better query performance.
+
+        WARNING: This is a Preview version feature for non-production use only (Benchmark, POC).
+
+        This method performs the following operations:
+        1. Waits for all indexes to complete building
+        2. Triggers force merge compaction with optional target size
+        3. Waits for compaction to complete
+        4. Waits for index rebuild to complete
+        5. Refreshes collection load if collection is loaded
+
+        Args:
+            collection_name (str): The name of the collection to optimize.
+            target_size (Optional[str]): Target segment size. Format: '1000MB', '1GB', '1.2gb'.
+                If not provided, uses system default.
+            wait (bool): Whether to wait for optimization to complete. Defaults to True.
+                If False, returns an OptimizeTask for async tracking.
+            timeout (Optional[float]): Maximum time in seconds to wait for optimization.
+                Only applies when wait=True.
+            **kwargs: Additional arguments.
+
+        Returns:
+            Union[OptimizeResult, AsyncOptimizeTask]: If wait=True, returns OptimizeResult with:
+                - status: "success"
+                - collection_name: str
+                - compaction_id: int
+                - target_size: str or None
+                - progress: list of progress stages completed
+            If wait=False, returns AsyncOptimizeTask for progress tracking.
+
+        Raises:
+            ParamError: If collection_name is invalid or target_size format is incorrect.
+            MilvusException: If index build fails, compaction fails, or timeout occurs.
+
+        Examples:
+            Synchronous usage:
+            >>> await client.optimize("my_collection", target_size="512MB")
+
+            Asynchronous usage:
+            >>> task = await client.optimize("my_collection", target_size="512MB", wait=False)
+            >>> while not task.done():
+            ...     print(f"Progress: {task.progress()}")
+            ...     await asyncio.sleep(1)
+            >>> result = task.result()
+
+            Cancelling a task:
+            >>> task = await client.optimize("my_collection", target_size="512MB", wait=False)
+            >>> # ... do some work ...
+            >>> if task.cancel():
+            ...     print("Task cancelled successfully")
+        """
+        validate_param("collection_name", collection_name, str)
+
+        task = AsyncOptimizeTask(
+            collection_name=collection_name,
+            target_size=target_size,
+            task_timeout=timeout,
+            execute_fn=self._execute_optimize,
+            **kwargs,
+        )
+        task.start()
+
+        if wait:
+            return await task.result(timeout=timeout)
+
+        return task
+
+    async def _execute_optimize(
+        self,
+        task: AsyncOptimizeTask,
+        collection_name: str,
+        size_mb: Optional[int],
+        timeout: Optional[float],
+        **kwargs,
+    ) -> OptimizeResult:
+        start = time.time()
+
+        def remaining_timeout() -> Optional[float]:
+            if timeout is None:
+                return None
+            elapsed = time.time() - start
+            return max(0, timeout - elapsed)
+
+        task.check_cancelled()
+        vector_indexes = await self._list_vector_indexes(
+            collection_name, timeout=remaining_timeout(), **kwargs
+        )
+
+        task.check_cancelled()
+        task.set_progress(ProgressStage.WAITING_FOR_INDEXES)
+        await self._wait_for_indexes(
+            task, collection_name, vector_indexes, timeout=remaining_timeout(), **kwargs
+        )
+
+        task.check_cancelled()
+        task.set_progress(ProgressStage.COMPACTING)
+        conn = self._get_connection()
+        compaction_id = await conn.compact(
+            collection_name=collection_name,
+            target_size=size_mb,
+            timeout=remaining_timeout(),
+            **kwargs,
+        )
+
+        task.check_cancelled()
+        task.set_progress(ProgressStage.WAITING_FOR_COMPACTION)
+        await self._wait_for_compaction_with_cancel(
+            task, compaction_id, timeout=remaining_timeout(), **kwargs
+        )
+
+        task.check_cancelled()
+        task.set_progress(ProgressStage.WAITING_FOR_INDEX_REBUILD)
+        await self._wait_for_indexes(
+            task, collection_name, vector_indexes, timeout=remaining_timeout(), **kwargs
+        )
+
+        task.check_cancelled()
+        if await self._is_collection_loaded(collection_name, timeout=remaining_timeout()):
+            task.set_progress(ProgressStage.REFRESHING_LOAD)
+            await self.refresh_load(collection_name, timeout=remaining_timeout(), **kwargs)
+
+        return OptimizeResult(
+            status="success",
+            collection_name=collection_name,
+            compaction_id=compaction_id,
+            target_size=task._target_size,
+            progress=task.progress_history(),
         )

@@ -137,6 +137,7 @@ DiskCount = int
 Double = float
 DoubleWithConstraints = float
 DrainSeconds = int
+EbsCardIndex = int
 EfaSupportedFlag = bool
 EgressOnlyInternetGatewayId = str
 EipAllocationPublicIp = str
@@ -173,6 +174,7 @@ GpuDeviceCount = int
 GpuDeviceManufacturerName = str
 GpuDeviceMemorySize = int
 GpuDeviceName = str
+GpuPartitionSize = float
 HibernationFlag = bool
 HostReservationId = str
 Hour = int
@@ -248,6 +250,7 @@ LocalGatewayRoutetableId = str
 LocalGatewayVirtualInterfaceGroupId = str
 LocalGatewayVirtualInterfaceId = str
 Location = str
+LogicalGpuCount = int
 MacModificationTaskId = str
 MarketplaceProductCode = str
 MarketplaceProductCodeRequest = str
@@ -260,6 +263,7 @@ MaximumBandwidthInMbps = int
 MaximumDaysSinceCreatedValue = int
 MaximumDaysSinceDeprecatedValue = int
 MaximumEbsAttachments = int
+MaximumEbsCards = int
 MaximumEfaInterfaces = int
 MaximumEnaQueueCount = int
 MaximumEnaQueueCountPerInterface = int
@@ -406,6 +410,7 @@ VpnConnectionDeviceSampleConfiguration = str
 VpnConnectionDeviceTypeId = str
 VpnConnectionId = str
 VpnGatewayId = str
+Workload = str
 customerGatewayConfiguration = str
 maxResults = int
 preSharedKey = str
@@ -2643,6 +2648,19 @@ class InstanceType(StrEnum):
     r8a_48xlarge = "r8a.48xlarge"
     r8a_metal_24xl = "r8a.metal-24xl"
     r8a_metal_48xl = "r8a.metal-48xl"
+    p6_b300_48xlarge = "p6-b300.48xlarge"
+    c8a_medium = "c8a.medium"
+    c8a_large = "c8a.large"
+    c8a_xlarge = "c8a.xlarge"
+    c8a_2xlarge = "c8a.2xlarge"
+    c8a_4xlarge = "c8a.4xlarge"
+    c8a_8xlarge = "c8a.8xlarge"
+    c8a_12xlarge = "c8a.12xlarge"
+    c8a_16xlarge = "c8a.16xlarge"
+    c8a_24xlarge = "c8a.24xlarge"
+    c8a_48xlarge = "c8a.48xlarge"
+    c8a_metal_24xl = "c8a.metal-24xl"
+    c8a_metal_48xl = "c8a.metal-48xl"
 
 
 class InstanceTypeHypervisor(StrEnum):
@@ -3226,6 +3244,12 @@ class Metric(StrEnum):
     spot_avg_run_time_before_interruption_inst = "spot-avg-run-time-before-interruption-inst"
     spot_max_run_time_before_interruption_inst = "spot-max-run-time-before-interruption-inst"
     spot_min_run_time_before_interruption_inst = "spot-min-run-time-before-interruption-inst"
+    spot_total_interruptions_inst = "spot-total-interruptions-inst"
+    spot_total_interruptions_vcpu = "spot-total-interruptions-vcpu"
+    spot_total_count_inst = "spot-total-count-inst"
+    spot_total_count_vcpu = "spot-total-count-vcpu"
+    spot_interruption_rate_inst = "spot-interruption-rate-inst"
+    spot_interruption_rate_vcpu = "spot-interruption-rate-vcpu"
 
 
 class MetricType(StrEnum):
@@ -5982,6 +6006,7 @@ class AttachVolumeRequest(ServiceRequest):
     Device: String
     InstanceId: InstanceId
     VolumeId: VolumeId
+    EbsCardIndex: BoxedInteger | None
     DryRun: Boolean | None
 
 
@@ -6295,6 +6320,7 @@ class EbsBlockDevice(TypedDict, total=False):
     Encrypted: Boolean | None
     VolumeInitializationRate: Integer | None
     AvailabilityZoneId: String | None
+    EbsCardIndex: Integer | None
 
 
 class BlockDeviceMapping(TypedDict, total=False):
@@ -7361,6 +7387,7 @@ class VolumeAttachment(TypedDict, total=False):
     DeleteOnTermination: Boolean | None
     AssociatedResource: String | None
     InstanceOwningService: String | None
+    EbsCardIndex: Integer | None
     VolumeId: String | None
     InstanceId: String | None
     Device: String | None
@@ -7894,6 +7921,7 @@ class FleetLaunchTemplateOverrides(TypedDict, total=False):
     InstanceRequirements: InstanceRequirements | None
     ImageId: ImageId | None
     BlockDeviceMappings: BlockDeviceMappingResponseList | None
+    AvailabilityZoneId: AvailabilityZoneId | None
 
 
 class FleetLaunchTemplateSpecification(TypedDict, total=False):
@@ -8041,6 +8069,7 @@ class FleetLaunchTemplateOverridesRequest(TypedDict, total=False):
     BlockDeviceMappings: FleetBlockDeviceMappingRequestList | None
     InstanceRequirements: InstanceRequirementsRequest | None
     ImageId: String | None
+    AvailabilityZoneId: AvailabilityZoneId | None
 
 
 FleetLaunchTemplateOverridesListRequest = list[FleetLaunchTemplateOverridesRequest]
@@ -8882,6 +8911,7 @@ class LaunchTemplateEbsBlockDeviceRequest(TypedDict, total=False):
     VolumeType: VolumeType | None
     Throughput: Integer | None
     VolumeInitializationRate: Integer | None
+    EbsCardIndex: Integer | None
 
 
 class LaunchTemplateBlockDeviceMappingRequest(TypedDict, total=False):
@@ -9164,6 +9194,7 @@ class LaunchTemplateEbsBlockDevice(TypedDict, total=False):
     VolumeType: VolumeType | None
     Throughput: Integer | None
     VolumeInitializationRate: Integer | None
+    EbsCardIndex: Integer | None
 
 
 class LaunchTemplateBlockDeviceMapping(TypedDict, total=False):
@@ -9811,6 +9842,7 @@ class CreatePlacementGroupRequest(ServiceRequest):
     PartitionCount: Integer | None
     TagSpecifications: TagSpecificationList | None
     SpreadLevel: SpreadLevel | None
+    LinkedGroupId: PlacementGroupId | None
     DryRun: Boolean | None
     GroupName: String | None
     Strategy: PlacementStrategy | None
@@ -9825,6 +9857,7 @@ class PlacementGroup(TypedDict, total=False):
     Tags: TagList | None
     GroupArn: String | None
     SpreadLevel: SpreadLevel | None
+    LinkedGroupId: PlacementGroupId | None
 
 
 class CreatePlacementGroupResult(TypedDict, total=False):
@@ -14402,10 +14435,16 @@ class GpuDeviceMemoryInfo(TypedDict, total=False):
     SizeInMiB: GpuDeviceMemorySize | None
 
 
+WorkloadsList = list[Workload]
+
+
 class GpuDeviceInfo(TypedDict, total=False):
     Name: GpuDeviceName | None
     Manufacturer: GpuDeviceManufacturerName | None
     Count: GpuDeviceCount | None
+    LogicalGpuCount: LogicalGpuCount | None
+    GpuPartitionSize: GpuPartitionSize | None
+    Workloads: WorkloadsList | None
     MemoryInfo: GpuDeviceMemoryInfo | None
 
 
@@ -14453,6 +14492,19 @@ class NetworkInfo(TypedDict, total=False):
     FlexibleEnaQueuesSupport: FlexibleEnaQueuesSupport | None
 
 
+class EbsCardInfo(TypedDict, total=False):
+    EbsCardIndex: EbsCardIndex | None
+    BaselineBandwidthInMbps: BaselineBandwidthInMbps | None
+    BaselineThroughputInMBps: BaselineThroughputInMBps | None
+    BaselineIops: BaselineIops | None
+    MaximumBandwidthInMbps: MaximumBandwidthInMbps | None
+    MaximumThroughputInMBps: MaximumThroughputInMBps | None
+    MaximumIops: MaximumIops | None
+
+
+EbsCardInfoList = list[EbsCardInfo]
+
+
 class EbsOptimizedInfo(TypedDict, total=False):
     BaselineBandwidthInMbps: BaselineBandwidthInMbps | None
     BaselineThroughputInMBps: BaselineThroughputInMBps | None
@@ -14469,6 +14521,8 @@ class EbsInfo(TypedDict, total=False):
     NvmeSupport: EbsNvmeSupport | None
     MaximumEbsAttachments: MaximumEbsAttachments | None
     AttachmentLimitType: AttachmentLimitType | None
+    MaximumEbsCards: MaximumEbsCards | None
+    EbsCards: EbsCardInfoList | None
 
 
 DiskSize = int
@@ -14722,6 +14776,7 @@ class EbsInstanceBlockDevice(TypedDict, total=False):
     AssociatedResource: String | None
     VolumeOwnerId: String | None
     Operator: OperatorResponse | None
+    EbsCardIndex: Integer | None
 
 
 class InstanceBlockDeviceMapping(TypedDict, total=False):
@@ -16355,6 +16410,7 @@ class LaunchTemplateOverrides(TypedDict, total=False):
     WeightedCapacity: Double | None
     Priority: Double | None
     InstanceRequirements: InstanceRequirements | None
+    AvailabilityZoneId: AvailabilityZoneId | None
 
 
 LaunchTemplateOverridesList = list[LaunchTemplateOverrides]
@@ -16380,6 +16436,7 @@ class SpotPlacement(TypedDict, total=False):
     AvailabilityZone: String | None
     GroupName: PlacementGroupName | None
     Tenancy: Tenancy | None
+    AvailabilityZoneId: String | None
 
 
 class InstanceNetworkInterfaceSpecification(TypedDict, total=False):
@@ -23183,6 +23240,7 @@ class Ec2Api:
         device: String,
         instance_id: InstanceId,
         volume_id: VolumeId,
+        ebs_card_index: BoxedInteger | None = None,
         dry_run: Boolean | None = None,
         **kwargs,
     ) -> VolumeAttachment:
@@ -24201,6 +24259,7 @@ class Ec2Api:
         partition_count: Integer | None = None,
         tag_specifications: TagSpecificationList | None = None,
         spread_level: SpreadLevel | None = None,
+        linked_group_id: PlacementGroupId | None = None,
         dry_run: Boolean | None = None,
         group_name: String | None = None,
         strategy: PlacementStrategy | None = None,

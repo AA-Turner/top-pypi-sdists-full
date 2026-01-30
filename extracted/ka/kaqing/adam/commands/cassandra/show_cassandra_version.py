@@ -1,6 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import Context
 
 class ShowCassandraVersion(Command):
     COMMAND = 'show cassandra version'
@@ -26,7 +27,7 @@ class ShowCassandraVersion(Command):
 
         with self.validate(args, state) as (_, state):
             with cassandra(state) as pods:
-                return pods.cql('show version', show_out=True, on_any=True)
+                return pods.cql('show version', on_any=True, ctx=Context.new(show_out=True))
 
     def completion(self, state: ReplState):
         return super().completion(state)

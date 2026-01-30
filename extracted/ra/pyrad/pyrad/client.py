@@ -8,14 +8,15 @@ import hashlib
 import select
 import socket
 import time
-import six
 import struct
+import six
 from pyrad import host
 from pyrad import packet
 
 EAP_CODE_REQUEST = 1
 EAP_CODE_RESPONSE = 2
 EAP_TYPE_IDENTITY = 1
+
 
 class Timeout(Exception):
     """Simple exception class which is raised when a timeout occurs
@@ -34,8 +35,7 @@ class Client(host.Host):
     :type timeout: float
     """
     def __init__(self, server, authport=1812, acctport=1813,
-            coaport=3799, secret=six.b(''), dict=None, retries=3, timeout=5):
-
+                 coaport=3799, secret=six.b(''), dict=None, retries=3, timeout=5, enforce_ma=False):
         """Constructor.
 
         :param   server: hostname or IP address of RADIUS server
@@ -50,6 +50,8 @@ class Client(host.Host):
         :type    secret: string
         :param     dict: RADIUS dictionary
         :type      dict: pyrad.dictionary.Dictionary
+        :param enforce_ma: Enforce usage and check of Message-Authenticator
+        :type  enforce_ma: boolean
         """
         host.Host.__init__(self, authport, acctport, coaport, dict)
 
@@ -58,6 +60,7 @@ class Client(host.Host):
         self._socket = None
         self.retries = retries
         self.timeout = timeout
+        self.enforce_ma = enforce_ma
         self._poll = select.poll()
 
     def bind(self, addr):
@@ -74,12 +77,12 @@ class Client(host.Host):
 
     def _SocketOpen(self):
         try:
-            family = socket.getaddrinfo(self.server, 'www')[0][0]
-        except:
+            family = socket.getaddrinfo(self.server, 80)[0][0]
+        except Exception:
             family = socket.AF_INET
         if not self._socket:
             self._socket = socket.socket(family,
-                                       socket.SOCK_DGRAM)
+                                         socket.SOCK_DGRAM)
             self._socket.setsockopt(socket.SOL_SOCKET,
                                     socket.SO_REUSEADDR, 1)
             self._poll.register(self._socket, select.POLLIN)
@@ -100,6 +103,9 @@ class Client(host.Host):
         :return: a new empty packet instance
         :rtype:  pyrad.packet.AuthPacket
         """
+        if self.enforce_ma:
+            return host.Host.CreateAuthPacket(self, secret=self.secret,
+                                              message_authenticator=True, **args)
         return host.Host.CreateAuthPacket(self, secret=self.secret, **args)
 
     def CreateAcctPacket(self, **args):
@@ -164,6 +170,8 @@ class Client(host.Host):
                 try:
                     reply = pkt.CreateReply(packet=rawreply)
                     if pkt.VerifyReply(reply, rawreply):
+                        if hasattr(pkt, 'authenticator'):
+                            reply.request_authenticator = pkt.authenticator
                         return reply
                 except packet.PacketError:
                     pass

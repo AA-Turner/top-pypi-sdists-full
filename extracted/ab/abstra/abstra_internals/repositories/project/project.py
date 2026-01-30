@@ -1577,25 +1577,33 @@ class Project:
     @staticmethod
     def _deduplicate_transitions(data: dict) -> dict:
         """
-        Remove duplicate transitions across all stages, keeping only the first occurrence.
+        Remove duplicate and orphan transitions across all stages.
 
         This is necessary to handle corrupted project files that may have accumulated
-        duplicate transitions over time, which can cause performance issues when
-        loading large workflows.
+        duplicate or orphan transitions over time, which can cause performance issues
+        or errors when loading large workflows.
 
         Rules:
         1. No duplicate IDs globally across all stages (keeps first occurrence)
         2. No duplicate targets within the same stage (keeps first occurrence)
         3. Allows bidirectional: a→b and b→a are in different stages, so both valid
+        4. Removes orphan transitions (pointing to non-existent stages)
 
         Args:
-            data: The project dictionary with potentially duplicate transitions
+            data: The project dictionary with potentially invalid transitions
 
         Returns:
-            The project dictionary with deduplicated transitions
+            The project dictionary with deduplicated and cleaned transitions
         """
-        seen_transition_ids = set()
         stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+
+        # First, collect all valid stage IDs
+        valid_stage_ids = set()
+        for key in stage_keys:
+            for stage in data.get(key, []):
+                valid_stage_ids.add(stage.get("id"))
+
+        seen_transition_ids = set()
 
         for key in stage_keys:
             for stage in data.get(key, []):
@@ -1606,10 +1614,16 @@ class Project:
                 seen_targets = set()
                 unique_transitions = []
                 original_count = len(transitions)
+                orphan_count = 0
 
                 for transition in transitions:
                     transition_id = transition.get("id")
                     target_id = transition.get("target_id")
+
+                    # Skip orphan transitions (pointing to non-existent stages)
+                    if target_id not in valid_stage_ids:
+                        orphan_count += 1
+                        continue
 
                     # Skip if duplicate ID globally
                     if transition_id in seen_transition_ids:
@@ -1626,13 +1640,20 @@ class Project:
 
                 stage["transitions"] = unique_transitions
 
+                # Log warning if orphan transitions were found
+                if orphan_count > 0:
+                    AbstraLogger.warning(
+                        f"Removed {orphan_count} orphan transition(s) from stage "
+                        f"'{stage.get('id', 'unknown')}' (pointed to deleted stages)"
+                    )
+
                 # Log warning if duplicates were found
                 deduped_count = len(unique_transitions)
-                if original_count > deduped_count:
-                    removed_count = original_count - deduped_count
+                duplicate_count = original_count - deduped_count - orphan_count
+                if duplicate_count > 0:
                     AbstraLogger.warning(
-                        f"Removed {removed_count} duplicate transitions from stage {stage.get('id', 'unknown')} "
-                        f"(had {original_count}, now {deduped_count})"
+                        f"Removed {duplicate_count} duplicate transition(s) from stage "
+                        f"'{stage.get('id', 'unknown')}'"
                     )
 
         return data

@@ -25,7 +25,10 @@ impl Telemetry for NoTelemetry {
 
 pub enum TelemetryEventKind {
     LspEvent(String),
-    Invalidate,
+    SetMemory,
+    InvalidateDisk,
+    InvalidateFind,
+    InvalidateEvents,
     InvalidateConfig,
     InvalidateOnClose,
     PopulateProjectFiles,
@@ -48,7 +51,9 @@ pub struct TelemetryEvent {
     pub task_id: Option<TelemetryTaskId>,
     pub sourcedb_rebuild_stats: Option<TelemetrySourceDbRebuildStats>,
     pub sourcedb_rebuild_instance_stats: Option<TelemetrySourceDbRebuildInstanceStats>,
+    pub file_watcher_stats: Option<TelemetryFileWatcherStats>,
     pub activity_key: Option<ActivityKey>,
+    pub canceled: bool,
 }
 
 pub struct TelemetryFileStats {
@@ -70,16 +75,17 @@ pub struct TelemetryTransactionStats {
     pub run_steps: usize,
     pub run_time: Duration,
     pub committed: bool,
+    pub state_lock_blocked: Duration,
 }
 
 #[derive(Clone)]
 pub struct TelemetryTaskId {
     pub queue_name: &'static str,
-    pub id: usize,
+    pub id: Option<usize>,
 }
 
 impl TelemetryTaskId {
-    pub fn new(queue_name: &'static str, id: usize) -> Self {
+    pub fn new(queue_name: &'static str, id: Option<usize>) -> Self {
         Self { queue_name, id }
     }
 }
@@ -106,6 +112,12 @@ pub struct TelemetrySourceDbRebuildInstanceStats {
     pub parse_time: Option<Duration>,
     pub process_time: Option<Duration>,
     pub raw_size: Option<usize>,
+}
+
+#[derive(Default)]
+pub struct TelemetryFileWatcherStats {
+    pub duration: Duration,
+    pub count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,7 +148,9 @@ impl TelemetryEvent {
                 task_id: None,
                 sourcedb_rebuild_stats: None,
                 sourcedb_rebuild_instance_stats: None,
+                file_watcher_stats: None,
                 activity_key: None,
+                canceled: false,
             },
             queue,
         )
@@ -161,7 +175,9 @@ impl TelemetryEvent {
             task_id,
             sourcedb_rebuild_stats: None,
             sourcedb_rebuild_instance_stats: None,
+            file_watcher_stats: None,
             activity_key: None,
+            canceled: false,
         }
     }
 
@@ -198,6 +214,10 @@ impl TelemetryEvent {
         stats: TelemetrySourceDbRebuildInstanceStats,
     ) {
         self.sourcedb_rebuild_instance_stats = Some(stats);
+    }
+
+    pub fn set_file_watcher_stats(&mut self, stats: TelemetryFileWatcherStats) {
+        self.file_watcher_stats = Some(stats);
     }
 
     pub fn finish_and_record(self, telemetry: &dyn Telemetry, error: Option<&Error>) -> Duration {

@@ -1,3 +1,4 @@
+from datetime import datetime
 import itertools
 import os
 import re
@@ -6,6 +7,8 @@ from adam.commands.devices.devices import Devices
 from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState
 from adam.utils import Color, PodLogFile, log2, log_dir, log_to_pods, pod_log_dir, tabulize
+from adam.utils_cassandra.node_restarter import NodeRestarter
+from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
@@ -67,13 +70,11 @@ def show_last_results(state: ReplState):
 
     if cmd and (tokens := cmd.command.strip(' &').split(' ')):
         if tokens[0] in ['export']:
-            show_last_results_for_export(state, cmd)
-
-            return
-        elif tokens[0] in ['show']:
-            show_last_results_for_show(state, cmd)
-
-            return
+            return show_last_results_for_export(state, cmd)
+        elif tokens[0] in ['show', 'xelect', 'audit']:
+            return show_last_results_for_local_command(state, cmd)
+        elif tokens[0] == 'restart':
+            return show_last_results_for_restart_nodes(state, cmd)
 
     # default to finding logs from pods
     container = Devices.of(state).default_container(state)
@@ -101,14 +102,38 @@ def show_last_results_for_export(state: ReplState, cmd: CommandInfo):
         log2(f'show export session {session}', text_color='gray')
         sessions.show_session(session)
 
-def show_last_results_for_show(state: ReplState, cmd: CommandInfo):
+def show_last_results_for_local_command(state: ReplState, cmd: CommandInfo):
         log2(f'[{cmd.job_id}] {cmd.command}')
         log_file = AsyncJobs.local_log_file(cmd.command, job_id = cmd.job_id)
         os.system(f'cat {log_file}')
         log2()
 
-def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, cmd: CommandInfo, remote: bool):
-    logs: list[PodLogFile] = PodFiles.find_files(pod, container, namespace, f'{dir}/{cmd.job_id}*', remote=remote, capture_pid=True, show_out=True, text_color='gray')
+def show_last_results_for_restart_nodes(state: ReplState, cmd: CommandInfo):
+        log2(f'[{cmd.job_id}] {cmd.command}')
+        log_file = AsyncJobs.local_log_file(cmd.command, job_id = cmd.job_id)
+        os.system(f'cat {log_file}')
+        log2()
+        lines = []
+
+        waiting_ons = NodeRestarter.waiting_ons()
+        def wo(pod: tuple[str, str]):
+            if pod in waiting_ons:
+                return waiting_ons[pod]
+
+            return '-'
+
+        for k, v in sorted(list(NodeRestarter.completed().items()), key=lambda kv: kv[1]):
+            lines.append(f'{k[0]}\t{k[1]}\tRestarted\t{datetime.fromtimestamp(v)}\t-')
+        for k, v in sorted(list(NodeRestarter.restartings().items()), key=lambda kv: kv[1]):
+            lines.append(f'{k[0]}\t{k[1]}\tIn Restart\t{datetime.fromtimestamp(v)}\t-')
+        for k, v in sorted(list(NodeRestarter.pending().items()), key=lambda kv: kv[1]):
+            lines.append(f'{k[0]}\t{k[1]}\tPending\t{datetime.fromtimestamp(v)}\t{wo(k)}')
+
+        tabulize(lines, header='POD\tNAMESPACE\tSTATUS\tSCHEDULED/COMPLETED\tWAITING_ON', separator='\t')
+
+def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, cmd: CommandInfo, remote: bool, ctx: Context = Context.NULL):
+    ctx = ctx.copy(show_out=True, text_color=Color.gray)
+    logs: list[PodLogFile] = PodFiles.find_files(pod, container, namespace, f'{dir}/{cmd.job_id}*', remote=remote, capture_pid=True, ctx=ctx)
 
     line = LogLine()
 
@@ -146,11 +171,11 @@ def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, cmd: C
 
     return line
 
-def proc_for_pid(pod: str, container: str, namespace: str, pid: str) -> list['ProcessInfo']:
+def proc_for_pid(pod: str, container: str, namespace: str, pid: str, ctx: Context = Context.NULL) -> list['ProcessInfo']:
     awk = "awk '{ print $1, $2, $8, $NF }'"
     cmd = f"ps -fp {pid} | tail -n +2 | {awk}"
 
-    r: PodExecResult = Pods.exec(pod, container, namespace, cmd, text_color=Color.gray)
+    r: PodExecResult = Pods.exec(pod, container, namespace, cmd, ctx.copy(text_color=Color.gray))
     return ProcessInfo.from_find_process_results(r)
 
 def find_pids_for_cluster(state: ReplState, keywords: list[str], match_last_arg = False, kill = False) -> list['ProcessInfo']:
@@ -164,14 +189,14 @@ def find_pids_for_cluster(state: ReplState, keywords: list[str], match_last_arg 
 
         return list(itertools.chain.from_iterable(r))
 
-def find_pids_for_pod(pod: str, container: str, namespace: str, keywords: list[str], match_last_arg = False, kill = False) -> list['ProcessInfo']:
-    r: PodExecResult = Pods.exec(pod, container, namespace, _find_procs_command(keywords), text_color=Color.gray)
+def find_pids_for_pod(pod: str, container: str, namespace: str, keywords: list[str], match_last_arg = False, kill = False, ctx: Context = Context.NULL) -> list['ProcessInfo']:
+    r: PodExecResult = Pods.exec(pod, container, namespace, _find_procs_command(keywords), ctx.copy(text_color=Color.gray))
 
     procs: list[ProcessInfo] = ProcessInfo.from_find_process_results(r, last_arg = keywords[-1] if match_last_arg else None)
 
     if kill:
         for proc in procs:
-            Pods.exec(pod, container, namespace, f'kill -9 {proc.pid}', show_out=True, text_color=Color.gray)
+            Pods.exec(pod, container, namespace, f'kill -9 {proc.pid}', ctx.copy(show_out=True, text_color=Color.gray))
 
     return procs
 

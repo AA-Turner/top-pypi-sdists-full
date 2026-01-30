@@ -1,7 +1,9 @@
 import type { StyleSheetLike } from "@bokehjs/core/dom";
+import type { DOMView } from "@bokehjs/core/dom_view";
 import { InlineStyleSheet } from "@bokehjs/core/dom";
 import type { CSSStyles, CSSStyleSheetDecl } from "@bokehjs/core/css";
 import type * as p from "@bokehjs/core/properties";
+import type { UIElementView } from "@bokehjs/models/ui/ui_element";
 import type { Transform } from "sucrase";
 import { ReactiveESM, ReactiveESMView, model_getter, model_setter } from "./reactive_esm";
 export declare class HostedStyleSheet extends InlineStyleSheet {
@@ -19,6 +21,7 @@ export declare class ReactComponentView extends ReactiveESMView {
     model_setter: typeof model_setter;
     react_root: any;
     _force_update_callbacks: (() => void)[];
+    _scheduled_removals: DOMView[];
     initialize(): void;
     get use_shadow_dom(): boolean;
     render_esm(): void;
@@ -30,6 +33,7 @@ export declare class ReactComponentView extends ReactiveESMView {
     render(): void;
     r_after_render(): void;
     _update_layout(): void;
+    build_child_views(): Promise<UIElementView[]>;
     update_children(): Promise<void>;
     _on_mounted(): void;
     patch_container(container: HTMLDivElement): void;

@@ -1,15 +1,14 @@
-use crate::pyo_utils::{map_to_py_dict, py_dict_to_json_value_map};
+use crate::pyo_utils::py_dict_to_json_value_map;
 use crate::safe_gil::SafeGil;
 use crate::statsig_options_py::{safe_convert_to_statsig_options, StatsigOptionsPy};
 use crate::statsig_persistent_storage_override_adapter_py::convert_dict_to_user_persisted_values;
 use crate::statsig_types_py::{
-    DynamicConfigPy, InitializeDetailsPy, LayerPy, ParameterStoreEvaluationOptionsPy,
-    ParameterStorePy,
+    InitializeDetailsPy, ParameterStoreEvaluationOptionsPy, ParameterStorePy,
 };
 use crate::{
     statsig_types_py::{
-        DynamicConfigEvaluationOptionsPy, ExperimentEvaluationOptionsPy, ExperimentPy,
-        FeatureGateEvaluationOptionsPy, FeatureGatePy, LayerEvaluationOptionsPy,
+        DynamicConfigEvaluationOptionsPy, ExperimentEvaluationOptionsPy,
+        FeatureGateEvaluationOptionsPy, LayerEvaluationOptionsPy,
     },
     statsig_user_py::StatsigUserPy,
 };
@@ -17,11 +16,11 @@ use parking_lot::Mutex;
 use pyo3::types::PyTuple;
 use pyo3::{prelude::*, types::PyDict};
 use pyo3_stub_gen::derive::*;
+use serde_json::Value;
 use statsig_rust::{
-    log_e, unwrap_or_return, ClientInitResponseOptions, DynamicConfigEvaluationOptions,
-    ExperimentEvaluationOptions, FeatureGateEvaluationOptions, HashAlgorithm,
-    LayerEvaluationOptions, ObservabilityClient, ParameterStoreEvaluationOptions, Statsig,
-    UserPersistedValues,
+    log_e, ClientInitResponseOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
+    FeatureGateEvaluationOptions, HashAlgorithm, LayerEvaluationOptions, ObservabilityClient,
+    ParameterStoreEvaluationOptions, Statsig, UserPersistedValues,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -206,14 +205,14 @@ impl StatsigBasePy {
         let local_metadata = extract_event_metadata(metadata);
 
         if let Some(num_value) = convert_to_number(value.as_ref()) {
-            self.inner.log_event_with_number(
+            self.inner.log_event_with_number_and_typed_metadata(
                 &user.inner,
                 event_name,
                 Some(num_value),
                 local_metadata,
             );
         } else {
-            self.inner.log_event(
+            self.inner.log_event_with_typed_metadata(
                 &user.inner,
                 event_name,
                 convert_to_string(value.as_ref()),
@@ -238,25 +237,18 @@ impl StatsigBasePy {
         )
     }
 
-    #[pyo3(signature = (user, name, options=None))]
-    pub fn get_feature_gate(
+    #[pyo3(name="_INTERNAL_get_feature_gate", signature = (user, name, options=None))]
+    pub fn _internal_get_feature_gate(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<FeatureGateEvaluationOptionsPy>,
-    ) -> FeatureGatePy {
-        let gate = self.inner.get_feature_gate_with_options(
+    ) -> String {
+        self.inner.get_raw_feature_gate_with_options(
             &user.inner,
             name,
             options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into()),
-        );
-        FeatureGatePy {
-            name: gate.name,
-            value: gate.value,
-            rule_id: gate.rule_id,
-            id_type: gate.id_type,
-            details: gate.details.into(),
-        }
+        )
     }
 
     #[pyo3(signature = (user, name))]
@@ -265,28 +257,18 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(signature = (user, name, options=None))]
-    pub fn get_dynamic_config(
+    #[pyo3(name="_INTERNAL_get_dynamic_config", signature = (user, name, options=None))]
+    pub fn _internal_get_dynamic_config(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<DynamicConfigEvaluationOptionsPy>,
-        py: Python,
-    ) -> DynamicConfigPy {
-        let config = self.inner.get_dynamic_config_with_options(
+    ) -> String {
+        self.inner.get_raw_dynamic_config_with_options(
             &user.inner,
             name,
             options.map_or(DynamicConfigEvaluationOptions::default(), |o| o.into()),
-        );
-
-        DynamicConfigPy {
-            name: config.name.clone(),
-            rule_id: config.rule_id.clone(),
-            id_type: config.id_type.clone(),
-            value: map_to_py_dict(py, &config.value),
-            details: config.details.clone().into(),
-            inner: config,
-        }
+        )
     }
 
     #[pyo3(signature = (user, name))]
@@ -300,14 +282,14 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(signature = (user, name, options=None))]
-    pub fn get_experiment(
+    #[pyo3(name="_INTERNAL_get_experiment", signature = (user, name, options=None))]
+    pub fn _internal_get_experiment(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<ExperimentEvaluationOptionsPy>,
         py: Python,
-    ) -> ExperimentPy {
+    ) -> String {
         let mut options_actual = options
             .as_ref()
             .map_or(ExperimentEvaluationOptions::default(), |o| o.into());
@@ -316,19 +298,8 @@ impl StatsigBasePy {
             .and_then(|o| o.user_persisted_values)
             .and_then(|v| extract_user_persisted_values(py, name, v));
 
-        let experiment = self
-            .inner
-            .get_experiment_with_options(&user.inner, name, options_actual);
-
-        ExperimentPy {
-            name: experiment.name.clone(),
-            rule_id: experiment.rule_id.clone(),
-            id_type: experiment.id_type.clone(),
-            group_name: experiment.group_name.clone(),
-            value: map_to_py_dict(py, &experiment.value),
-            details: experiment.details.clone().into(),
-            inner: experiment,
-        }
+        self.inner
+            .get_raw_experiment_with_options(&user.inner, name, options_actual)
     }
 
     #[pyo3(signature = (user, name))]
@@ -342,14 +313,14 @@ impl StatsigBasePy {
         Ok(())
     }
 
-    #[pyo3(signature = (user, name, options=None))]
-    pub fn get_layer(
+    #[pyo3(name="_INTERNAL_get_layer", signature = (user, name, options=None))]
+    pub fn _internal_get_layer(
         &self,
         user: &StatsigUserPy,
         name: &str,
         options: Option<LayerEvaluationOptionsPy>,
         py: Python,
-    ) -> LayerPy {
+    ) -> String {
         let mut options_actual = options
             .as_ref()
             .map_or(LayerEvaluationOptions::default(), |o| o.into());
@@ -358,19 +329,14 @@ impl StatsigBasePy {
             .and_then(|o| o.user_persisted_values)
             .and_then(|v| extract_user_persisted_values(py, name, v));
 
-        let layer = self
-            .inner
-            .get_layer_with_options(&user.inner, name, options_actual);
+        self.inner
+            .get_raw_layer_with_options(&user.inner, name, options_actual)
+    }
 
-        LayerPy {
-            name: layer.name.clone(),
-            rule_id: layer.rule_id.clone(),
-            group_name: layer.group_name.clone(),
-            allocated_experiment_name: layer.allocated_experiment_name.clone(),
-            value: map_to_py_dict(py, &layer.__value),
-            details: layer.details.clone().into(),
-            inner: layer,
-        }
+    #[pyo3(name="_INTERNAL_log_layer_param_exposure", signature = (raw, param_name))]
+    pub fn _internal_log_layer_param_exposure(&self, raw: String, param_name: String) {
+        self.inner
+            .log_layer_param_exposure_from_raw(raw, param_name);
     }
 
     #[pyo3(signature = (user, name, param_name))]
@@ -469,6 +435,19 @@ impl StatsigBasePy {
         Ok(())
     }
 
+    #[pyo3(signature = (parameter_store_name, value, id=None))]
+    pub fn override_parameter_store(
+        &self,
+        parameter_store_name: &str,
+        value: Bound<PyDict>,
+        id: Option<&str>,
+    ) -> PyResult<()> {
+        let value_inner = py_dict_to_json_value_map(&value);
+        self.inner
+            .override_parameter_store(parameter_store_name, value_inner, id);
+        Ok(())
+    }
+
     #[pyo3(signature = (experiment_name, group_name, id=None))]
     pub fn override_experiment_by_group_name(
         &self,
@@ -510,6 +489,17 @@ impl StatsigBasePy {
     #[pyo3(signature = (layer_name, id=None))]
     pub fn remove_layer_override(&self, layer_name: &str, id: Option<&str>) -> PyResult<()> {
         self.inner.remove_layer_override(layer_name, id);
+        Ok(())
+    }
+
+    #[pyo3(signature = (parameter_store_name, id=None))]
+    pub fn remove_parameter_store_override(
+        &self,
+        parameter_store_name: &str,
+        id: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner
+            .remove_parameter_store_override(parameter_store_name, id);
         Ok(())
     }
 
@@ -574,20 +564,8 @@ fn convert_to_string(value: Option<&Bound<PyAny>>) -> Option<String> {
     value.extract::<String>().ok()
 }
 
-fn extract_event_metadata(metadata: Option<Bound<PyDict>>) -> Option<HashMap<String, String>> {
-    if let Some(m) = metadata {
-        let mut local_map = HashMap::new();
-
-        for (k, v) in m.iter() {
-            let key: String = unwrap_or_return!(k.extract().ok(), None);
-            let value: String = unwrap_or_return!(v.extract().ok(), None);
-            local_map.insert(key, value);
-        }
-
-        return Some(local_map);
-    }
-
-    None
+fn extract_event_metadata(metadata: Option<Bound<PyDict>>) -> Option<HashMap<String, Value>> {
+    metadata.map(|m| py_dict_to_json_value_map(&m))
 }
 
 fn extract_user_persisted_values(

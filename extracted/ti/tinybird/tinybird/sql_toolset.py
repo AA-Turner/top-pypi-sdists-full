@@ -149,12 +149,11 @@ def format_where_for_mutation_command(where_clause: str) -> str:
 # Functions that take table/dictionary names as string literal arguments.
 # Normalizing these would cause incorrect cache hits since different table names
 # would map to the same cache key.
-# See: https://clickhouse.com/docs/en/sql-reference/functions/other-functions#joinget
-#      https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/cluster
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/remote
 _FUNCTIONS_WITH_TABLE_NAME_ARGS = re.compile(
-    r"\b(?:joinGet|joinGetOrNull|dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
+    r"\b(?:dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
     re.IGNORECASE,
 )
 
@@ -166,7 +165,7 @@ def _normalize_sql_for_cache(sql: str) -> str:
     while preserving table/column names, so queries with the same structure share
     cache entries.
 
-    However, some functions like joinGet(), dictGet*, remote(), cluster(), and
+    However, some functions like dictGet*, remote(), cluster(), and
     clusterAllReplicas() take table/dictionary names as arguments. Normalizing these
     would incorrectly map different tables to the same cache key, so we fall back to
     using the original SQL for such queries.
@@ -177,8 +176,6 @@ def _normalize_sql_for_cache(sql: str) -> str:
     'SELECT * FROM events WHERE id = ? AND name = ?'
     >>> _normalize_sql_for_cache("SELECT * FROM events")
     'SELECT * FROM events'
-    >>> _normalize_sql_for_cache("SELECT joinGet('my_table', 'col', id) FROM t")
-    "SELECT joinGet('my_table', 'col', id) FROM t"
     >>> _normalize_sql_for_cache("SELECT dictGet('my_dict', 'value', id) FROM t")
     "SELECT dictGet('my_dict', 'value', id) FROM t"
     >>> _normalize_sql_for_cache("SELECT * FROM remote('host', db, table)")

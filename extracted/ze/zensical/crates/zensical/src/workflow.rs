@@ -25,6 +25,8 @@
 
 //! Workflow definitions
 
+use pyo3::types::PyAnyMethods;
+use pyo3::Python;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -243,7 +245,29 @@ pub fn generate_nav(
     })
 }
 
-/// Generte search index
+/// Generate object inventory
+pub fn generate_object_inventory(
+    config: &Config, pages: &Stream<Id, Chunk<Id, Page>>,
+) {
+    // Retrieve inventory from Python interpreter using pyo3
+    let config = config.clone();
+    pages.map(move |_| {
+        let data = Python::attach(|py| {
+            let module = py.import("mkdocstrings._internal.extension")?;
+            module.call_method0("_get_inventory")?.extract::<Vec<u8>>()
+        });
+
+        // Write object inventory to disk
+        let site_dir = config.get_site_dir();
+        if let Ok(data) = data {
+            let path = site_dir.join("objects.inv");
+            let _ = fs::create_dir_all(path.parent().expect("invariant"));
+            let _ = fs::write(path, &data);
+        }
+    });
+}
+
+/// Generate search index
 pub fn generate_search_index(
     config: &Config, nav: &Stream<Id, Navigation>,
     pages: &Stream<Id, Chunk<Id, Page>>,
@@ -350,7 +374,7 @@ pub fn render_pages(
             // Render page if we don't have a recent cached version at our own
             // disposal. Otherwise, just return if the content did not change.
             let args = (config.hash, nav.hash, hash);
-            cached(&config, id, args, |(_, _, _)| page.render(&config, &nav))
+            cached(&config, id, args, |(_, _, _)| page.render(&config, nav))
                 .into_report()
                 .and_then(|report| {
                     let path = Path::new(&page.path);
@@ -390,6 +414,9 @@ pub fn create_workspace(config: &Config) -> Workspace<Id> {
     // Generate navigation and search index
     let nav = generate_nav(&config, &pages);
     generate_search_index(&config, &nav, &pages);
+
+    // Generate object inventory
+    generate_object_inventory(&config, &pages);
 
     // Render static and extra templates, as well as pages
     render_templates(&config, &files, &nav);

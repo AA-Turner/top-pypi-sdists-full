@@ -3,7 +3,7 @@ Type annotations for connectcases service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -42,6 +42,7 @@ __all__ = (
     "ServiceName",
     "SlaStatusType",
     "SlaTypeType",
+    "TagPropagationResourceTypeType",
     "TemplateStatusType",
 )
 
@@ -60,6 +61,7 @@ SearchCasesPaginatorName = Literal["search_cases"]
 SearchRelatedItemsPaginatorName = Literal["search_related_items"]
 SlaStatusType = Literal["Active", "Met", "NotMet", "Overdue"]
 SlaTypeType = Literal["CaseField"]
+TagPropagationResourceTypeType = Literal["Cases"]
 TemplateStatusType = Literal["Active", "Inactive"]
 ConnectCasesServiceName = Literal["connectcases"]
 ServiceName = Literal[
@@ -203,7 +205,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -468,6 +469,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -485,6 +487,7 @@ PaginatorName = Literal[
     "list_case_rules", "search_all_related_items", "search_cases", "search_related_items"
 ]
 RegionName = Literal[
+    "af-south-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-southeast-1",

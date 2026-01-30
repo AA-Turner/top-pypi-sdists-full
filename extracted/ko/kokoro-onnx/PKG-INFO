@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kokoro-onnx
-Version: 0.4.9
+Version: 0.5.0
 Summary: TTS with kokoro and onnx runtime
 Project-URL: Homepage, https://github.com/thewh1teagle/kokoro-onnx
 Project-URL: Repository, https://github.com/thewh1teagle/kokoro-onnx
@@ -8,7 +8,6 @@ Project-URL: Issues, https://github.com/thewh1teagle/kokoro-onnx/issues
 Author-email: thewh1teagle <61390950+thewh1teagle@users.noreply.github.com>
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: colorlog>=6.9.0
 Requires-Dist: espeakng-loader>=0.2.4
 Requires-Dist: numpy>=2.0.2
 Requires-Dist: onnxruntime>=1.20.1
@@ -55,9 +54,9 @@ pip install -U kokoro-onnx
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation) for isolated Python (Recommend).
 
-Basically open the terminal (PowerShell / Bash) and run the command listed in their website.
-
-_Note: you don't have to use `uv`. but it just make things much simpler. You can use regular Python as well._
+```console
+pip install uv
+```
 
 2. Create new project folder (you name it)
 3. Run in the project folder

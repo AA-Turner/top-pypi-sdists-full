@@ -44,7 +44,7 @@ from haystack.tools import (
     serialize_tools_or_toolset,
     warm_up_tools,
 )
-from haystack.utils import Secret, deserialize_callable, deserialize_secrets_inplace, serialize_callable
+from haystack.utils import Secret, deserialize_callable, serialize_callable
 from haystack.utils.http_client import init_http_client
 
 logger = logging.getLogger(__name__)
@@ -252,7 +252,7 @@ class OpenAIChatGenerator:
             api_base_url=self.api_base_url,
             organization=self.organization,
             generation_kwargs=generation_kwargs,
-            api_key=self.api_key.to_dict(),
+            api_key=self.api_key,
             timeout=self.timeout,
             max_retries=self.max_retries,
             tools=serialize_tools_or_toolset(self.tools),
@@ -269,7 +269,6 @@ class OpenAIChatGenerator:
         :returns:
             The deserialized component instance.
         """
-        deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
         deserialize_tools_or_toolset_inplace(data["init_parameters"], key="tools")
         init_params = data.get("init_parameters", {})
         serialized_callback_handler = init_params.get("streaming_callback")
@@ -634,7 +633,7 @@ def _convert_chat_completion_chunk_to_streaming_chunk(
     choice: ChunkChoice = chunk.choices[0]
 
     # create a list of ToolCallDelta objects from the tool calls
-    if choice.delta.tool_calls:
+    if choice.delta and choice.delta.tool_calls:
         tool_calls_deltas = []
         for tool_call in choice.delta.tool_calls:
             function = tool_call.function
@@ -668,7 +667,7 @@ def _convert_chat_completion_chunk_to_streaming_chunk(
     # On very first chunk the choice field only provides role info (e.g. "assistant") so we set index to None
     # We set all chunks missing the content field to index of None. E.g. can happen if chunk only contains finish
     # reason.
-    if choice.delta.content is None or choice.delta.role is not None:
+    if choice.delta and (choice.delta.content is None or choice.delta.role is not None):
         resolved_index = None
     else:
         # We set the index to be 0 since if text content is being streamed then no tool calls are being streamed
@@ -680,7 +679,7 @@ def _convert_chat_completion_chunk_to_streaming_chunk(
     meta = {
         "model": chunk.model,
         "index": choice.index,
-        "tool_calls": choice.delta.tool_calls,
+        "tool_calls": choice.delta.tool_calls if choice.delta and choice.delta.tool_calls else None,
         "finish_reason": choice.finish_reason,
         "received_at": datetime.now().isoformat(),
         "usage": _serialize_object(chunk.usage),
@@ -692,8 +691,12 @@ def _convert_chat_completion_chunk_to_streaming_chunk(
     if logprobs:
         meta["logprobs"] = logprobs
 
+    content = ""
+    if choice.delta and choice.delta.content:
+        content = choice.delta.content
+
     chunk_message = StreamingChunk(
-        content=choice.delta.content or "",
+        content=content,
         component_info=component_info,
         index=resolved_index,
         # The first chunk is always a start message chunk that only contains role information, so if we reach here

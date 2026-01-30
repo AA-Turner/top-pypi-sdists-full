@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protobuf
-Version: 6.33.4
+Version: 6.33.5
 Summary: Protocol Buffers
 Home-page: https://developers.google.com/protocol-buffers/
 Download-URL: https://github.com/protocolbuffers/protobuf/releases

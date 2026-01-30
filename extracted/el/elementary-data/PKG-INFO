@@ -1,18 +1,21 @@
 Metadata-Version: 2.4
 Name: elementary-data
-Version: 0.20.1
+Version: 0.22.0
 Summary: Data monitoring and lineage
 License: Apache-2.0
 License-File: LICENSE
 Keywords: data,lineage,data lineage,data warehouse,DWH,observability,data monitoring,data observability,Snowflake,BigQuery,Redshift,data reliability,analytics engineering
 Author: Elementary
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.10,<3.14
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: all
 Provides-Extra: athena
 Provides-Extra: bigquery
@@ -38,9 +41,8 @@ Requires-Dist: dbt-redshift (>=0.20,<2.0.0) ; extra == "redshift" or extra == "a
 Requires-Dist: dbt-snowflake (>=0.20,<2.0.0) ; extra == "snowflake" or extra == "all"
 Requires-Dist: dbt-spark (>=0.20,<2.0.0) ; extra == "spark" or extra == "all"
 Requires-Dist: dbt-trino (>=1.5.0,<2.0.0) ; extra == "trino" or extra == "all"
-Requires-Dist: google-cloud-storage (<3.0.0)
+Requires-Dist: google-cloud-storage (>=2.4,<3.2)
 Requires-Dist: networkx (>=2.3,<3)
-Requires-Dist: numpy (<2.0.0)
 Requires-Dist: packaging (>=20.9)
 Requires-Dist: posthog (<3.0.0)
 Requires-Dist: pydantic (<3.0)
@@ -63,7 +65,7 @@ Description-Content-Type: text/markdown
 <a href="https://join.slack.com/t/elementary-community/shared_invite/zt-uehfrq2f-zXeVTtXrjYRbdE_V6xq4Rg"><img src="https://img.shields.io/badge/join-Slack-ff69b4"/></a>
 <a href="https://docs.elementary-data.com/oss/quickstart/quickstart-cli-package"><img src="https://img.shields.io/badge/docs-quickstart-orange"/></a>
 <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-ff69b4"/>
-<img alt="Downloads" src="https://static.pepy.tech/personalized-badge/elementary-lineage?period=total&units=international_system&left_color=grey&right_color=orange"&left_text=Downloads/>
+<img alt="Downloads" src="https://static.pepy.tech/personalized-badge/elementary-data?period=month&units=international_system&left_color=grey&right_color=orange"&left_text=Downloads/>
 </p>
 
 <h2 align="center">
@@ -256,7 +258,10 @@ For additional information and help:
 <a href="https://github.com/Lawiss"><img src="https://avatars.githubusercontent.com/u/30115537?v=4" width="50" height="50" alt=""/></a>
 <a href="https://github.com/abhipalsingh"><img src="https://avatars.githubusercontent.com/u/57302403?v=4" width="50" height="50" alt=""/></a>
 <a href="https://github.com/pushrbx"><img src="https://avatars.githubusercontent.com/u/6832715?v=4" width="50" height="50" alt=""/></a>
-
+<a href="https://github.com/Ryosuke839"><img src="https://avatars.githubusercontent.com/u/389513?v=4" width="50" height="50" alt=""/></a>
+<a href="https://github.com/tlangton3"><img src="https://avatars.githubusercontent.com/u/155970791?v=4" width="50" height="50" alt=""/></a>
+<a href="https://github.com/SoloJ"><img src="https://avatars.githubusercontent.com/u/7585392?v=4" width="50" height="50" alt=""/></a>
+<a href="https://github.com/StevenReitsma"><img src="https://avatars.githubusercontent.com/u/4895139?v=4" width="50" height="50" alt=""/></a>
 
 
 <!-- markdownlint-restore -->

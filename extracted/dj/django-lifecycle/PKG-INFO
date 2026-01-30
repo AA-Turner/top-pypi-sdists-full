@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-lifecycle
-Version: 1.2.4
+Version: 1.2.6
 Summary: Declarative model lifecycle hooks.
 Home-page: https://github.com/rsinger86/django-lifecycle
 Author: Robert Singer
@@ -12,22 +12,30 @@ Keywords: django model lifecycle hooks callbacks
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: Django>=3.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 # Django Lifecycle Hooks
 
@@ -40,13 +48,14 @@ This project provides a `@hook` decorator as well as a base model and mixin to a
 
 **Django Lifecycle Hooks** supports:
 
-* Python 3.7, 3.8, 3.9, 3.10, 3.11, and 3.12
-* Django 2.2, 3.2, 4.0, 4.1, 4.2, and 5.0
+* Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 and 3.14
+* Django 4.2, 5.0, 5.2 and 6.0
 
 In short, you can write model code like this:
 
 ```python
 from django_lifecycle import LifecycleModel, hook, BEFORE_UPDATE, AFTER_UPDATE
+from django_lifecycle.conditions import WhenFieldValueIs, WhenFieldValueWas, WhenFieldHasChanged
 
 
 class Article(LifecycleModel):

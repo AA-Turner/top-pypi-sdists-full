@@ -35,6 +35,14 @@ class QwakConstants:
 
     TOKEN_AUDIENCE: str = "https://auth-token.qwak.ai/"  # nosec B105
 
+    QWAK_AUTHENTICATION_URL = "https://grpc.qwak.ai/api/v1/authentication/qwak-api-key"
+
+    QWAK_AUTHENTICATED_USER_ENDPOINT: str = (
+        "https://grpc.qwak.ai/api/v0/runtime/get-authenticated-user-context"
+    )
+
+    JFROG_TENANT_HEADER_KEY = "X-JFrog-Tenant-Id"
+
     QWAK_APP_URL: str = "https://app.qwak.ai"
 
     CONTROL_PLANE_GRPC_ADDRESS_ENVAR_NAME: str = "CONTROL_PLANE_GRPC_ADDRESS"

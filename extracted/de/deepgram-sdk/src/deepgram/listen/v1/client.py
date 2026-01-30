@@ -47,15 +47,14 @@ class V1Client:
         callback: typing.Optional[str] = None,
         callback_method: typing.Optional[str] = None,
         channels: typing.Optional[str] = None,
-        detect_entities: typing.Optional[str] = None,
         diarize: typing.Optional[str] = None,
         dictation: typing.Optional[str] = None,
         encoding: typing.Optional[str] = None,
         endpointing: typing.Optional[str] = None,
-        extra: typing.Optional[str] = None,
+        extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         interim_results: typing.Optional[str] = None,
-        keyterm: typing.Optional[str] = None,
-        keywords: typing.Optional[str] = None,
+        keyterm: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         mip_opt_out: typing.Optional[str] = None,
         model: str,
@@ -63,12 +62,12 @@ class V1Client:
         numerals: typing.Optional[str] = None,
         profanity_filter: typing.Optional[str] = None,
         punctuate: typing.Optional[str] = None,
-        redact: typing.Optional[str] = None,
-        replace: typing.Optional[str] = None,
+        redact: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        replace: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sample_rate: typing.Optional[str] = None,
-        search: typing.Optional[str] = None,
+        search: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         smart_format: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
+        tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         utterance_end_ms: typing.Optional[str] = None,
         vad_events: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -85,8 +84,6 @@ class V1Client:
         callback_method : typing.Optional[str]
 
         channels : typing.Optional[str]
-
-        detect_entities : typing.Optional[str]
 
         diarize : typing.Optional[str]
 
@@ -157,8 +154,6 @@ class V1Client:
             query_params = query_params.add("callback_method", callback_method)
         if channels is not None:
             query_params = query_params.add("channels", channels)
-        if detect_entities is not None:
-            query_params = query_params.add("detect_entities", detect_entities)
         if diarize is not None:
             query_params = query_params.add("diarize", diarize)
         if dictation is not None:
@@ -168,13 +163,25 @@ class V1Client:
         if endpointing is not None:
             query_params = query_params.add("endpointing", endpointing)
         if extra is not None:
-            query_params = query_params.add("extra", extra)
+            if isinstance(extra, (list, tuple)):
+                for item in extra:
+                    query_params = query_params.add("extra", str(item))
+            else:
+                query_params = query_params.add("extra", extra)
         if interim_results is not None:
             query_params = query_params.add("interim_results", interim_results)
         if keyterm is not None:
-            query_params = query_params.add("keyterm", keyterm)
+            if isinstance(keyterm, (list, tuple)):
+                for term in keyterm:
+                    query_params = query_params.add("keyterm", str(term))
+            else:
+                query_params = query_params.add("keyterm", keyterm)
         if keywords is not None:
-            query_params = query_params.add("keywords", keywords)
+            if isinstance(keywords, (list, tuple)):
+                for keyword in keywords:
+                    query_params = query_params.add("keywords", str(keyword))
+            else:
+                query_params = query_params.add("keywords", keywords)
         if language is not None:
             query_params = query_params.add("language", language)
         if mip_opt_out is not None:
@@ -190,17 +197,33 @@ class V1Client:
         if punctuate is not None:
             query_params = query_params.add("punctuate", punctuate)
         if redact is not None:
-            query_params = query_params.add("redact", redact)
+            if isinstance(redact, (list, tuple)):
+                for item in redact:
+                    query_params = query_params.add("redact", str(item))
+            else:
+                query_params = query_params.add("redact", redact)
         if replace is not None:
-            query_params = query_params.add("replace", replace)
+            if isinstance(replace, (list, tuple)):
+                for item in replace:
+                    query_params = query_params.add("replace", str(item))
+            else:
+                query_params = query_params.add("replace", replace)
         if sample_rate is not None:
             query_params = query_params.add("sample_rate", sample_rate)
         if search is not None:
-            query_params = query_params.add("search", search)
+            if isinstance(search, (list, tuple)):
+                for item in search:
+                    query_params = query_params.add("search", str(item))
+            else:
+                query_params = query_params.add("search", search)
         if smart_format is not None:
             query_params = query_params.add("smart_format", smart_format)
         if tag is not None:
-            query_params = query_params.add("tag", tag)
+            if isinstance(tag, (list, tuple)):
+                for item in tag:
+                    query_params = query_params.add("tag", str(item))
+            else:
+                query_params = query_params.add("tag", tag)
         if utterance_end_ms is not None:
             query_params = query_params.add("utterance_end_ms", utterance_end_ms)
         if vad_events is not None:
@@ -263,15 +286,14 @@ class AsyncV1Client:
         callback: typing.Optional[str] = None,
         callback_method: typing.Optional[str] = None,
         channels: typing.Optional[str] = None,
-        detect_entities: typing.Optional[str] = None,
         diarize: typing.Optional[str] = None,
         dictation: typing.Optional[str] = None,
         encoding: typing.Optional[str] = None,
         endpointing: typing.Optional[str] = None,
-        extra: typing.Optional[str] = None,
+        extra: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         interim_results: typing.Optional[str] = None,
-        keyterm: typing.Optional[str] = None,
-        keywords: typing.Optional[str] = None,
+        keyterm: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        keywords: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         language: typing.Optional[str] = None,
         mip_opt_out: typing.Optional[str] = None,
         model: str,
@@ -279,12 +301,12 @@ class AsyncV1Client:
         numerals: typing.Optional[str] = None,
         profanity_filter: typing.Optional[str] = None,
         punctuate: typing.Optional[str] = None,
-        redact: typing.Optional[str] = None,
-        replace: typing.Optional[str] = None,
+        redact: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        replace: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         sample_rate: typing.Optional[str] = None,
-        search: typing.Optional[str] = None,
+        search: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         smart_format: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
+        tag: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         utterance_end_ms: typing.Optional[str] = None,
         vad_events: typing.Optional[str] = None,
         version: typing.Optional[str] = None,
@@ -301,8 +323,6 @@ class AsyncV1Client:
         callback_method : typing.Optional[str]
 
         channels : typing.Optional[str]
-
-        detect_entities : typing.Optional[str]
 
         diarize : typing.Optional[str]
 
@@ -373,8 +393,6 @@ class AsyncV1Client:
             query_params = query_params.add("callback_method", callback_method)
         if channels is not None:
             query_params = query_params.add("channels", channels)
-        if detect_entities is not None:
-            query_params = query_params.add("detect_entities", detect_entities)
         if diarize is not None:
             query_params = query_params.add("diarize", diarize)
         if dictation is not None:
@@ -384,13 +402,25 @@ class AsyncV1Client:
         if endpointing is not None:
             query_params = query_params.add("endpointing", endpointing)
         if extra is not None:
-            query_params = query_params.add("extra", extra)
+            if isinstance(extra, (list, tuple)):
+                for item in extra:
+                    query_params = query_params.add("extra", str(item))
+            else:
+                query_params = query_params.add("extra", extra)
         if interim_results is not None:
             query_params = query_params.add("interim_results", interim_results)
         if keyterm is not None:
-            query_params = query_params.add("keyterm", keyterm)
+            if isinstance(keyterm, (list, tuple)):
+                for term in keyterm:
+                    query_params = query_params.add("keyterm", str(term))
+            else:
+                query_params = query_params.add("keyterm", keyterm)
         if keywords is not None:
-            query_params = query_params.add("keywords", keywords)
+            if isinstance(keywords, (list, tuple)):
+                for keyword in keywords:
+                    query_params = query_params.add("keywords", str(keyword))
+            else:
+                query_params = query_params.add("keywords", keywords)
         if language is not None:
             query_params = query_params.add("language", language)
         if mip_opt_out is not None:
@@ -406,17 +436,33 @@ class AsyncV1Client:
         if punctuate is not None:
             query_params = query_params.add("punctuate", punctuate)
         if redact is not None:
-            query_params = query_params.add("redact", redact)
+            if isinstance(redact, (list, tuple)):
+                for item in redact:
+                    query_params = query_params.add("redact", str(item))
+            else:
+                query_params = query_params.add("redact", redact)
         if replace is not None:
-            query_params = query_params.add("replace", replace)
+            if isinstance(replace, (list, tuple)):
+                for item in replace:
+                    query_params = query_params.add("replace", str(item))
+            else:
+                query_params = query_params.add("replace", replace)
         if sample_rate is not None:
             query_params = query_params.add("sample_rate", sample_rate)
         if search is not None:
-            query_params = query_params.add("search", search)
+            if isinstance(search, (list, tuple)):
+                for item in search:
+                    query_params = query_params.add("search", str(item))
+            else:
+                query_params = query_params.add("search", search)
         if smart_format is not None:
             query_params = query_params.add("smart_format", smart_format)
         if tag is not None:
-            query_params = query_params.add("tag", tag)
+            if isinstance(tag, (list, tuple)):
+                for item in tag:
+                    query_params = query_params.add("tag", str(item))
+            else:
+                query_params = query_params.add("tag", tag)
         if utterance_end_ms is not None:
             query_params = query_params.add("utterance_end_ms", utterance_end_ms)
         if vad_events is not None:

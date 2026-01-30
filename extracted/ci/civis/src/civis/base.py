@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import os
 import platform
 import threading
-import warnings
 from concurrent import futures
 from json.decoder import JSONDecodeError
 from posixpath import join
@@ -9,8 +10,8 @@ from posixpath import join
 import requests
 
 import civis
-from civis.response import PaginatedResponse, convert_response_data_type
-from civis._utils import retry_request, DEFAULT_RETRYING
+from civis.response import PaginatedResponse, convert_response_data_type, Response
+from civis._retries import retry_request
 
 FINISHED = ["success", "succeeded"]
 FAILED = ["failed"]
@@ -38,7 +39,13 @@ def tostr_urljoin(*x):
 
 
 class CivisJobFailure(Exception):
-    def __init__(self, err_msg, response=None, job_id=None, run_id=None):
+    def __init__(
+        self,
+        err_msg: str,
+        response: Response | None = None,
+        job_id: int | None = None,
+        run_id: int | None = None,
+    ):
         self.job_id = job_id
         self.run_id = run_id
         self._original_err_msg = err_msg
@@ -59,7 +66,7 @@ def _err_msg_with_job_run_ids(err_msg, job_id, run_id) -> str:
 
 
 class CivisAPIError(Exception):
-    def __init__(self, response):
+    def __init__(self, response: requests.Response):
         if response.content:  # the API itself gave an error response
             try:
                 json = response.json()
@@ -82,7 +89,9 @@ class CivisAPIError(Exception):
 
     def __str__(self):
         if self.status_code:
-            return "({}) {}".format(self.status_code, self.error_message)
+            method = self._response.request.method
+            url = self._response.request.path_url
+            return f"({self.status_code}) {self.error_message} ({method} {url})"
         else:
             return self.error_message
 
@@ -159,16 +168,13 @@ class Endpoint:
         params = self._handle_array_params(params)
 
         with self._lock:
-            if self._client._retrying is None:
-                retrying = self._session_kwargs.pop("retrying", None)
-                self._client._retrying = retrying if retrying else DEFAULT_RETRYING
             with open_session(self._session_kwargs["api_key"], self._headers) as sess:
                 request = requests.Request(
                     method, url, json=data, params=params, **kwargs
                 )
                 pre_request = sess.prepare_request(request)
                 response = retry_request(
-                    method, pre_request, sess, self._client._retrying
+                    method, pre_request, sess, self._session_kwargs["retrying"]
                 )
 
         if response.status_code == 401:
@@ -186,13 +192,8 @@ class Endpoint:
         path=None,
         params=None,
         data=None,
-        deprecation_warning=None,
         **kwargs,
     ):
-        if deprecation_warning:
-            # stacklevel=3 to point to the call just outside civis-python
-            warnings.warn(deprecation_warning, FutureWarning, stacklevel=3)
-
         iterator = kwargs.pop("iterator", False)
 
         if iterator:

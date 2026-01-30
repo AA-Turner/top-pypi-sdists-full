@@ -3,7 +3,6 @@
 # Copyright (c) 2016 Adam Karpierz
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
 import platform
 from pathlib import Path
 from functools import partial
@@ -19,25 +18,23 @@ __all__ = ('DLL_PATH', 'DLL', 'dlclose', 'CFUNC')
 this_dir = module_path()
 arch_dir = this_dir/(arch or "")
 
-found = False
 try:
     from ...__config__ import config  # type: ignore[attr-defined]
-    LIBPCAP = config.get("LIBPCAP", None)
+    config_var = config.get("LIBPCAP")
     del config
-    if LIBPCAP is None or LIBPCAP in ("", "None"):
-        raise ImportError()
+    if config_var in (None, "", "None"): raise ImportError()
 except ImportError:
-    LIBPCAP = find_library("pcap")
-    if not LIBPCAP:
+    dll_path = find_library("pcap")
+    if not dll_path:
         raise OSError("Cannot find libpcap.so library") from None
-    found = True
-
-if found or os.path.isabs(LIBPCAP):
-    DLL_PATH = Path(LIBPCAP)
-elif LIBPCAP == "tcpdump":
-    DLL_PATH = arch_dir/LIBPCAP/"libpcap.so"
+    DLL_PATH = Path(dll_path)
 else:
-    raise ValueError("Improper value of the LIBPCAP "
-                     f"configuration variable: {LIBPCAP}")
+    if config_var == "tcpdump":
+        DLL_PATH = arch_dir/config_var/"libpcap.so"
+    elif Path(config_var).is_absolute():
+        DLL_PATH = Path(config_var)
+    else:
+        raise ValueError("Improper value of the LIBPCAP "
+                         f"configuration variable: {config_var}")
 
 DLL = partial(_DLL, mode=ctypes.RTLD_GLOBAL)

@@ -1,0 +1,31 @@
+# See https://prek.j178.dev/ for more information
+# Install hooks with: prek install
+# Run hooks with: prek run --all-files
+repos:
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false

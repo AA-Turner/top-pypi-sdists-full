@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-httplib2
-Version: 0.31.1.20260115
+Version: 0.31.2.20260125
 Summary: Typing stubs for httplib2
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`httplib2`](https://github.com/httplib2/httplib2) package. It can be used by type checkers
 to check code that uses `httplib2`. This version of
 `types-httplib2` aims to provide accurate annotations for
-`httplib2==0.31.1`.
+`httplib2==0.31.2`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`cd8b26b0ceef26cd84ab614088140d48680ac7f7`](https://github.com/python/typeshed/commit/cd8b26b0ceef26cd84ab614088140d48680ac7f7).
+[`84c20674511bdfd9a0351471fa8a2e744fb9ca27`](https://github.com/python/typeshed/commit/84c20674511bdfd9a0351471fa8a2e744fb9ca27).

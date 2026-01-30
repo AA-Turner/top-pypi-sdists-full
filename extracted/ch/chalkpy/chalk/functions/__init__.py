@@ -391,6 +391,40 @@ def substr(expr: Underscore | Any, start: int, length: int | None = None):
     return UnderscoreFunction("substr", expr, start + 1, length)
 
 
+def str_slice(expr: Underscore | Any, start: int, end: int):
+    """
+    Extract a substring from a string using start and end indices.
+
+    This is a convenience function that wraps `substr` with Python-style slicing semantics,
+    where you provide start and end indices rather than start and length.
+
+    Parameters
+    ----------
+    expr
+        The string expression to slice.
+    start
+        The starting index (0-based, inclusive).
+    end
+        The ending index (0-based, exclusive).
+
+    Returns
+    -------
+    A substring from index `start` to `end` (exclusive).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    name: str
+    ...    first_three: str = F.str_slice(_.name, 0, 3)  # Extract first 3 characters
+    ...    middle: str = F.str_slice(_.name, 2, 5)  # Extract characters from index 2 to 4
+    """
+    return substr(expr, start, end - start)
+
+
 def reverse(expr: Underscore | Any):
     """
     Reverse the order of a string.
@@ -924,6 +958,38 @@ def strrpos(expr: Any, substring: Any):
     ...   domain_length: int = F.strrpos(_.email, "@")
     """
     return UnderscoreFunction("strrpos", expr, substring) - 1
+
+
+def str_contains(expr: Any, substring: Any):
+    """
+    Check if a string contains a substring.
+
+    This is a convenience function that checks whether `substring` appears anywhere
+    within the string `expr`. It returns a boolean value.
+
+    Parameters
+    ----------
+    expr
+        The string expression to search within.
+    substring
+        The substring to search for.
+
+    Returns
+    -------
+    Boolean indicating whether `substring` is found in `expr`.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    email: str
+    ...    is_gmail: bool = F.str_contains(_.email, "@gmail.com")
+    ...    has_admin: bool = F.str_contains(_.email, "admin")
+    """
+    return strpos(expr, substring) >= 0
 
 
 def chr(code: Underscore | Any):
@@ -5988,6 +6054,7 @@ __all__ = (
     "h3_cell_to_lat_lon",
     "if_then_else",
     "inference",
+    "is_in",
     "is_leap_year",
     "is_month_end",
     "is_not_null",
@@ -6078,6 +6145,8 @@ __all__ = (
     "strpos",
     "strrpos",
     "struct_pack",
+    "str_contains",
+    "str_slice",
     "substr",
     "to_base",
     "to_iso8601",

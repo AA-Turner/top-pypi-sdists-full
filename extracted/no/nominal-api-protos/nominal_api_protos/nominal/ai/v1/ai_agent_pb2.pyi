@@ -75,20 +75,44 @@ class ToolDeniedResponse(_message.Message):
     denial_reason: str
     def __init__(self, denial_reason: _Optional[str] = ...) -> None: ...
 
+class RetryRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UserPromptRequest(_message.Message):
+    __slots__ = ("message", "images")
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    IMAGES_FIELD_NUMBER: _ClassVar[int]
+    message: UserModelMessage
+    images: _containers.RepeatedCompositeFieldContainer[ImagePart]
+    def __init__(self, message: _Optional[_Union[UserModelMessage, _Mapping]] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ...) -> None: ...
+
+class ToolApprovalRequest(_message.Message):
+    __slots__ = ("tool_approvals",)
+    TOOL_APPROVALS_FIELD_NUMBER: _ClassVar[int]
+    tool_approvals: _containers.RepeatedCompositeFieldContainer[ToolApprovalResult]
+    def __init__(self, tool_approvals: _Optional[_Iterable[_Union[ToolApprovalResult, _Mapping]]] = ...) -> None: ...
+
 class StreamChatRequest(_message.Message):
-    __slots__ = ("conversation_rid", "message", "images", "tool_approval", "workbook")
+    __slots__ = ("conversation_rid", "message", "images", "tool_approvals", "retry", "user_prompt", "tool_approval", "workbook")
     CONVERSATION_RID_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
+    TOOL_APPROVALS_FIELD_NUMBER: _ClassVar[int]
+    RETRY_FIELD_NUMBER: _ClassVar[int]
+    USER_PROMPT_FIELD_NUMBER: _ClassVar[int]
     TOOL_APPROVAL_FIELD_NUMBER: _ClassVar[int]
     WORKBOOK_FIELD_NUMBER: _ClassVar[int]
     GLOBAL_FIELD_NUMBER: _ClassVar[int]
     conversation_rid: str
     message: UserModelMessage
     images: _containers.RepeatedCompositeFieldContainer[ImagePart]
-    tool_approval: ToolApprovalResult
+    tool_approvals: _containers.RepeatedCompositeFieldContainer[ToolApprovalResult]
+    retry: RetryRequest
+    user_prompt: UserPromptRequest
+    tool_approval: ToolApprovalRequest
     workbook: WorkbookContext
-    def __init__(self, conversation_rid: _Optional[str] = ..., message: _Optional[_Union[UserModelMessage, _Mapping]] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ..., tool_approval: _Optional[_Union[ToolApprovalResult, _Mapping]] = ..., workbook: _Optional[_Union[WorkbookContext, _Mapping]] = ..., **kwargs) -> None: ...
+    def __init__(self, conversation_rid: _Optional[str] = ..., message: _Optional[_Union[UserModelMessage, _Mapping]] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ..., tool_approvals: _Optional[_Iterable[_Union[ToolApprovalResult, _Mapping]]] = ..., retry: _Optional[_Union[RetryRequest, _Mapping]] = ..., user_prompt: _Optional[_Union[UserPromptRequest, _Mapping]] = ..., tool_approval: _Optional[_Union[ToolApprovalRequest, _Mapping]] = ..., workbook: _Optional[_Union[WorkbookContext, _Mapping]] = ..., **kwargs) -> None: ...
 
 class WorkbookContext(_message.Message):
     __slots__ = ("workbook_rid", "user_presence")
@@ -165,18 +189,18 @@ class GetConversationRequest(_message.Message):
     def __init__(self, conversation_rid: _Optional[str] = ..., page_start_message_id: _Optional[str] = ..., max_message_count: _Optional[int] = ...) -> None: ...
 
 class ModelMessageWithId(_message.Message):
-    __slots__ = ("message", "tool_action", "message_id", "snapshot_rid", "tool_approval_request")
+    __slots__ = ("message", "tool_action", "message_id", "snapshot_rid", "tool_approval_requests")
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     TOOL_ACTION_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_ID_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOT_RID_FIELD_NUMBER: _ClassVar[int]
-    TOOL_APPROVAL_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    TOOL_APPROVAL_REQUESTS_FIELD_NUMBER: _ClassVar[int]
     message: ModelMessage
     tool_action: ToolAction
     message_id: str
     snapshot_rid: str
-    tool_approval_request: ToolCallDescription
-    def __init__(self, message: _Optional[_Union[ModelMessage, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ..., message_id: _Optional[str] = ..., snapshot_rid: _Optional[str] = ..., tool_approval_request: _Optional[_Union[ToolCallDescription, _Mapping]] = ...) -> None: ...
+    tool_approval_requests: _containers.RepeatedCompositeFieldContainer[ToolCallDescription]
+    def __init__(self, message: _Optional[_Union[ModelMessage, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ..., message_id: _Optional[str] = ..., snapshot_rid: _Optional[str] = ..., tool_approval_requests: _Optional[_Iterable[_Union[ToolCallDescription, _Mapping]]] = ...) -> None: ...
 
 class GetConversationResponse(_message.Message):
     __slots__ = ("ordered_messages", "conversation_metadata")
@@ -325,14 +349,14 @@ class ToolCallDescription(_message.Message):
     def __init__(self, tool_call_id: _Optional[str] = ..., tool_name: _Optional[str] = ..., tool_args_json_string: _Optional[str] = ..., status: _Optional[_Union[ToolCallStatus, str]] = ...) -> None: ...
 
 class Finish(_message.Message):
-    __slots__ = ("ordered_message_ids", "new_title", "tool_approval_request")
+    __slots__ = ("ordered_message_ids", "new_title", "tool_approval_requests")
     ORDERED_MESSAGE_IDS_FIELD_NUMBER: _ClassVar[int]
     NEW_TITLE_FIELD_NUMBER: _ClassVar[int]
-    TOOL_APPROVAL_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    TOOL_APPROVAL_REQUESTS_FIELD_NUMBER: _ClassVar[int]
     ordered_message_ids: _containers.RepeatedScalarFieldContainer[str]
     new_title: str
-    tool_approval_request: ToolCallDescription
-    def __init__(self, ordered_message_ids: _Optional[_Iterable[str]] = ..., new_title: _Optional[str] = ..., tool_approval_request: _Optional[_Union[ToolCallDescription, _Mapping]] = ...) -> None: ...
+    tool_approval_requests: _containers.RepeatedCompositeFieldContainer[ToolCallDescription]
+    def __init__(self, ordered_message_ids: _Optional[_Iterable[str]] = ..., new_title: _Optional[str] = ..., tool_approval_requests: _Optional[_Iterable[_Union[ToolCallDescription, _Mapping]]] = ...) -> None: ...
 
 class Error(_message.Message):
     __slots__ = ("message",)

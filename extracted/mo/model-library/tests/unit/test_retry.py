@@ -5,6 +5,8 @@ Unit tests for retry logic.
 from typing import Type
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpcore
+import httpx
 import pytest
 
 from model_library.base import LLM, QueryResult
@@ -19,18 +21,19 @@ from model_library.exceptions import (
     RetryException,
     ToolCallingNotSupportedError,
     is_retriable_error,
-    jitter,
-    retry_llm_call,
 )
+from model_library.retriers.backoff import ExponentialBackoffRetrier
+from model_library.retriers.base import BaseRetrier, retry_decorator
+from model_library.retriers.utils import jitter
 
 
 @pytest.fixture(autouse=True)
 def mock_asyncio_sleep():
-    with patch("asyncio.sleep") as mock_sleep:
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
         yield mock_sleep
 
 
-def test_jitter():
+async def test_jitter():
     """
     Test that jitter function returns values within expected range
     """
@@ -54,9 +57,15 @@ async def test_retry_with_backoff_callback():
             raise Exception(tries, exception, elapsed, wait)
 
     callback_mock = Mock(side_effect=callback)
+
+    retrier = ExponentialBackoffRetrier(
+        MagicMock(), max_tries=2, retry_callback=callback_mock
+    )
+    decorator = retry_decorator(retrier)
+
     mock_func = Mock(side_effect=RetryException())
 
-    @retry_llm_call(MagicMock(), max_tries=2, backoff_callback=callback_mock)
+    @decorator
     async def func():
         mock_func()
 
@@ -73,7 +82,10 @@ async def test_max_retries_giveup():
     """
     mock_func = Mock(side_effect=RetryException())
 
-    @retry_llm_call(MagicMock(), max_tries=3)
+    retrier = ExponentialBackoffRetrier(MagicMock(), max_tries=3)
+    decorator = retry_decorator(retrier)
+
+    @decorator
     async def func():
         mock_func()
 
@@ -94,7 +106,10 @@ async def test_retry_success_after_failures():
         "success",
     ]
 
-    @retry_llm_call(MagicMock(), max_tries=5)
+    retrier = ExponentialBackoffRetrier(MagicMock(), max_tries=5)
+    decorator = retry_decorator(retrier)
+
+    @decorator
     async def failing_func():
         result = mock_func()
         if isinstance(result, Exception):
@@ -119,6 +134,11 @@ async def test_retry_success_after_failures():
         (ToolCallingNotSupportedError, False),
         (BadInputError, False),
         (ValueError, False),
+        # httpx/httpcore
+        (httpx.ReadError, True),
+        (httpx.ConnectError, True),
+        (httpcore.ReadError, True),
+        (httpx.RemoteProtocolError, True),
     ],
 )
 async def test_core_errors(
@@ -131,7 +151,7 @@ async def test_core_errors(
     """
 
     query_impl_mock = AsyncMock(
-        side_effect=[exception(), QueryResult(output_text="success")]
+        side_effect=[exception("Mock"), QueryResult(output_text="success")]
     )
     mock_llm._query_impl = query_impl_mock  # pyright: ignore[reportPrivateUsage]
 
@@ -161,10 +181,15 @@ async def test_immediate_retry_exception_success(mock_llm: LLM):
     # track calls
     with (
         patch.object(
-            LLM, "immediate_retry_wrapper", wraps=LLM.immediate_retry_wrapper
+            BaseRetrier,
+            "immediate_retry_wrapper",
+            wraps=BaseRetrier.immediate_retry_wrapper,
         ) as mock_immediate_retry,
         patch.object(
-            LLM, "backoff_retry_wrapper", wraps=LLM.backoff_retry_wrapper
+            ExponentialBackoffRetrier,
+            "execute",
+            autospec=True,
+            wraps=ExponentialBackoffRetrier.execute,
         ) as mock_backoff_retry,
     ):
         result = await mock_llm.query("Mock Input")
@@ -204,10 +229,15 @@ async def test_immediate_retry_exception_limit(mock_llm: LLM):
     # track calls
     with (
         patch.object(
-            LLM, "immediate_retry_wrapper", wraps=LLM.immediate_retry_wrapper
+            BaseRetrier,
+            "immediate_retry_wrapper",
+            wraps=BaseRetrier.immediate_retry_wrapper,
         ) as mock_immediate_retry,
         patch.object(
-            LLM, "backoff_retry_wrapper", wraps=LLM.backoff_retry_wrapper
+            ExponentialBackoffRetrier,
+            "execute",
+            autospec=True,
+            wraps=ExponentialBackoffRetrier.execute,
         ) as mock_backoff_retry,
     ):
         with pytest.raises(Exception):
@@ -216,34 +246,6 @@ async def test_immediate_retry_exception_limit(mock_llm: LLM):
     assert query_impl_mock.call_count == 12
     assert mock_immediate_retry.call_count == 2
     assert mock_backoff_retry.call_count == 1
-
-
-@pytest.mark.parametrize(
-    "exception_class",
-    [
-        pytest.param("httpx.ReadError", id="httpx_read_error"),
-        pytest.param("httpx.ConnectError", id="httpx_connect_error"),
-        pytest.param("httpcore.ReadError", id="httpcore_read_error"),
-        pytest.param("httpx.RemoteProtocolError", id="httpx_remote_protocol_error"),
-    ],
-)
-def test_httpx_network_errors_are_retriable(exception_class: str):
-    """
-    Test that httpx/httpcore network errors are retriable
-    """
-    import httpcore
-    import httpx
-
-    exception_map = {
-        "httpx.ReadError": httpx.ReadError,
-        "httpx.ConnectError": httpx.ConnectError,
-        "httpcore.ReadError": httpcore.ReadError,
-        "httpx.RemoteProtocolError": httpx.RemoteProtocolError,
-    }
-
-    exc_class = exception_map[exception_class]
-    exc = exc_class("Network error")
-    assert is_retriable_error(exc) is True
 
 
 @pytest.mark.parametrize(
@@ -268,7 +270,7 @@ def test_httpx_network_errors_are_retriable(exception_class: str):
         ("overloaded", True),  # overloaded error from anthropic
     ],
 )
-def test_retry_by_exception_message(
+async def test_retry_by_exception_message(
     exception_message: str,
     expected_retriable: bool,
 ):
@@ -303,6 +305,7 @@ async def test_context_window_error_gives_up(mock_llm: LLM):
         "too many tokens: size limit exceeded by 713295 tokens. Try using shorter or fewer inputs. The limit for this model is 288000 tokens.",
         "input length and max_tokens exceed context limit: 200043 + 32000 > 204658, decrease input length or max_tokens and try again",
         "Payload Too Large",
+        "invalid params, context window exceeds limit (2013)",  # minimax
     ]
 
     for exception_message in exception_messages:

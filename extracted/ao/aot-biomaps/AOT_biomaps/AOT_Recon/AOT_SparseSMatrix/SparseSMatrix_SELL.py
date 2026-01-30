@@ -96,7 +96,7 @@ class SparseSMatrix_SELL:
         """
         if self.sparse_mod is None:
             raise RuntimeError("CUDA module not loaded. Check compilation.")
-            
+
         count_kernel = self.sparse_mod.get_function("count_nnz_rows_kernel")
         fill_kernel  = self.sparse_mod.get_function("fill_kernel__SELL")
 
@@ -106,7 +106,7 @@ class SparseSMatrix_SELL:
 
         br = int(self.block_rows)
         dense_host = np.empty((br, num_cols), dtype=np.float32)
-        
+
         # Allocation dense buffer on device (size = br * num_cols)
         dense_gpu_size = dense_host.nbytes
         dense_gpu  = drv.mem_alloc(dense_gpu_size)
@@ -146,17 +146,35 @@ class SparseSMatrix_SELL:
             r0 = s * C
             r1 = min(num_rows, r0 + C)
             slice_len[s] = int(np.max(row_nnz[r0:r1])) if (r1>r0) else 0
+
+        # Vérification de slice_len
+        if np.all(slice_len == 0):
+            raise ValueError("slice_len contient uniquement des zéros. Vérifie row_nnz.")
+
+        # Calcul de slice_ptr
         slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
         for s in range(num_slices):
             slice_ptr[s+1] = slice_ptr[s] + (slice_len[s] * C)
+
         total_storage = int(slice_ptr[-1])
         self.total_storage = total_storage
+
+        # Taille des valeurs (float32) + indices (uint32) + métadonnées
+        taille_valeurs = total_storage * np.dtype(np.float32).itemsize
+        taille_indices = total_storage * np.dtype(np.uint32).itemsize
+        taille_slice_ptr = slice_ptr.nbytes
+        taille_slice_len = slice_len.nbytes
+
+        taille_totale = taille_valeurs + taille_indices + taille_slice_ptr + taille_slice_len
+        taille_go = taille_totale / (1024 ** 3)
+
         print(f"SELL: num_rows={num_rows}, num_slices={num_slices}, total_storage(padded)={total_storage}")
+        print(f"Estimated SELL-C-σ matrix size: {taille_go:.3f} GB (valeurs: {taille_valeurs/(1024**3):.3f} GB, indices: {taille_indices/(1024**3):.3f} GB, métadonnées: {(taille_slice_ptr + taille_slice_len)/(1024**3):.3f} GB)")
 
         # allocate device SELL arrays (values float32, colinds uint32)
         self.sell_values_gpu_size = total_storage * np.dtype(np.float32).itemsize
         self.sell_colinds_gpu_size = total_storage * np.dtype(np.uint32).itemsize
-        
+
         # allocate and optionally zero them
         self.sell_values_gpu = drv.mem_alloc(self.sell_values_gpu_size)
         # It's good practice to zero the values buffer to avoid leftover memory
@@ -168,20 +186,20 @@ class SparseSMatrix_SELL:
         # allocate slice metadata on device
         self.slice_ptr = slice_ptr
         self.slice_len = slice_len
-        
+
         self.slice_ptr_gpu_size = self.slice_ptr.nbytes
         self.slice_len_gpu_size = self.slice_len.nbytes
-        
+
         self.slice_ptr_gpu = drv.mem_alloc(self.slice_ptr_gpu_size)
         self.slice_len_gpu = drv.mem_alloc(self.slice_len_gpu_size)
-        
+
         drv.memcpy_htod(self.slice_ptr_gpu, self.slice_ptr)
         drv.memcpy_htod(self.slice_len_gpu, self.slice_len)
 
         # 3) fill SELL arrays by streaming blocks again (use GPU fill kernel)
         dense_host = np.empty((br, num_cols), dtype=np.float32)
         dense_gpu  = drv.mem_alloc(dense_host.nbytes)
-        
+
         # For per-block row_nnz pointer we allocate a buffer of max block size once, then reuse
         row_nnz_host_gpu = drv.mem_alloc(br * np.dtype(np.int32).itemsize)
 

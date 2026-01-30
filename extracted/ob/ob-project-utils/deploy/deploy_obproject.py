@@ -766,16 +766,17 @@ def deploy_flows(flows):
         ]
         print(f"⚙️ Deploying flow at {flow_dir}:")
 
-        # Set PYTHONPATH to project root so flows can import shared modules
-        # (e.g., `from src import ...`). This enables METAFLOW_PACKAGE_POLICY
-        # to work - modules with METAFLOW_PACKAGE_POLICY="include" in their
-        # __init__.py will be automatically included in the code package.
+        # Set PYTHONPATH to project root and src/ so flows can import shared modules.
+        # Including src/ enables direct imports like `from mymodule import ...` for
+        # modules in src/mymodule/. This also enables METAFLOW_PACKAGE_POLICY to work -
+        # modules with METAFLOW_PACKAGE_POLICY="include" in their __init__.py will be
+        # automatically included in the code package.
         #
         # In multi-project mode, also include REPO_ROOT so flows can import
         # shared modules at the repository root level (e.g., `import utils`
         # when utils/ is at repo root, not inside the project directory).
         env = os.environ.copy()
-        pythonpath_parts = [PROJECT_ROOT]
+        pythonpath_parts = [PROJECT_ROOT, os.path.join(PROJECT_ROOT, "src")]
         if REPO_ROOT and REPO_ROOT != PROJECT_ROOT:
             pythonpath_parts.append(REPO_ROOT)
         existing_pythonpath = env.get("PYTHONPATH", "")
@@ -857,9 +858,10 @@ def deploy_apps():
             f"OB_PROJECT={PROJECT}",
             "--env",
             f"OB_BRANCH={BRANCH}",
-            # Add project root to PYTHONPATH so apps can import from src/
+            # Add project root and src/ to PYTHONPATH so apps can import from src/
+            # using direct imports like `from mymodule import ...`
             "--env",
-            "PYTHONPATH=.",
+            "PYTHONPATH=.:./src",
         ]
         # Only add --dep-from-pyproject if config.yml doesn't have dependencies
         if not app_config_has_dependencies(app_config):

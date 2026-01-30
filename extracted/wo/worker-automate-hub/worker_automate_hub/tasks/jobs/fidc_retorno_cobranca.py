@@ -78,7 +78,7 @@ async def retorno_cobranca(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
     
         #Abre um novo emsys
         await kill_all_emsys()
-        app = Application(backend='win32').start("C:\\Rezende\\EMSys3\\EMSys3.exe")
+        app = Application(backend='win32').start("C:\\Rezende\\EMSys3\\EMSys3_10.exe")
         warnings.filterwarnings("ignore", category=UserWarning, message="32-bit application should be automated using 32-bit Python")
         console.print("\nEMSys iniciando...", style="bold green")
         return_login = await login_emsys(config.conConfiguracao, app, task)
@@ -126,13 +126,13 @@ async def retorno_cobranca(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
         await worker_sleep(5)
 
         #Uncheck "Deduzir automaticamente taxa de cobrança"
-        taxa_cobranca = window_ret_cob.child_window(class_name='TCheckBox', found_index=2)
+        taxa_cobranca = window_ret_cob.child_window(class_name='TCheckBox', found_index=3)
         taxa_cobranca.click()
 
         await worker_sleep(5)
 
         #Alterar data da liquidação check
-        taxa_cobranca = window_ret_cob.child_window(class_name='TCheckBox', found_index=1)
+        taxa_cobranca = window_ret_cob.child_window(class_name='TCheckBox', found_index=2)
         taxa_cobranca.click()
 
         await worker_sleep(5)

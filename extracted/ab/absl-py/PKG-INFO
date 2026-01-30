@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: absl-py
-Version: 2.3.1
+Version: 2.4.0
 Summary: Abseil Python Common Libraries, see https://github.com/abseil/abseil-py.
 Project-URL: Changelog, https://github.com/abseil/abseil-py/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://abseil.io/docs/python/
@@ -15,14 +15,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 [![Package version](https://img.shields.io/pypi/v/absl-py)](https://pypi.org/project/absl-py)

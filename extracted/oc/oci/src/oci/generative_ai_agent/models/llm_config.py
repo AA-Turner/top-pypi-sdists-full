@@ -24,14 +24,21 @@ class LlmConfig(object):
             The value to assign to the routing_llm_customization property of this LlmConfig.
         :type routing_llm_customization: oci.generative_ai_agent.models.LlmCustomization
 
+        :param runtime_version:
+            The value to assign to the runtime_version property of this LlmConfig.
+        :type runtime_version: str
+
         """
         self.swagger_types = {
-            'routing_llm_customization': 'LlmCustomization'
+            'routing_llm_customization': 'LlmCustomization',
+            'runtime_version': 'str'
         }
         self.attribute_map = {
-            'routing_llm_customization': 'routingLlmCustomization'
+            'routing_llm_customization': 'routingLlmCustomization',
+            'runtime_version': 'runtimeVersion'
         }
         self._routing_llm_customization = None
+        self._runtime_version = None
 
     @property
     def routing_llm_customization(self):
@@ -52,6 +59,30 @@ class LlmConfig(object):
         :type: oci.generative_ai_agent.models.LlmCustomization
         """
         self._routing_llm_customization = routing_llm_customization
+
+    @property
+    def runtime_version(self):
+        """
+        Gets the runtime_version of this LlmConfig.
+        The runtimeVersion of the system prompt.
+
+
+        :return: The runtime_version of this LlmConfig.
+        :rtype: str
+        """
+        return self._runtime_version
+
+    @runtime_version.setter
+    def runtime_version(self, runtime_version):
+        """
+        Sets the runtime_version of this LlmConfig.
+        The runtimeVersion of the system prompt.
+
+
+        :param runtime_version: The runtime_version of this LlmConfig.
+        :type: str
+        """
+        self._runtime_version = runtime_version
 
     def __repr__(self):
         return formatted_flat_dict(self)

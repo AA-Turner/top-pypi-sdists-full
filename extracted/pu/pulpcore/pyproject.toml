@@ -7,14 +7,14 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.101.0"
+version = "3.102.0"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
   {name="Pulp Team", email="pulp-list@redhat.com"},
 ]
+license = "GPL-2.0-or-later"
 classifiers=[
-  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
   "Operating System :: POSIX :: Linux",
   "Development Status :: 5 - Production/Stable",
   "Framework :: Django",
@@ -36,23 +36,23 @@ dependencies = [
   "django-filter>=23.1,<=25.2",  # Uses CalVer, not released often https://github.com/carltongibson/django-filter
   "django-guid>=3.3.0,<3.6",  # Looks like only bugfixes in z-Stream.
   "django-import-export>=2.9,<5.0",
-  "django-lifecycle>=1.0,<=1.2.4",
+  "django-lifecycle>=1.0,<=1.2.6",
   "djangorestframework>=3.14.0,<=3.16.1",
   "djangorestframework-queryfields>=1.0,<=1.1.0",
   "drf-access-policy>=1.1.2,<1.5.1",
   "drf-nested-routers>=0.93.4,<=0.95.0",
   "drf-spectacular==0.27.2",  # We monkeypatch this so we need a very narrow requirement string.
   "dynaconf>=3.2.5,<3.3.0",
-  "gunicorn>=22.0,<23.1.0",
+  "gunicorn>=22.0,<24.2.0",
   "jinja2>=3.1,<=3.1.6",
   "json_stream>=2.3.2,<2.5",
-  "jq>=1.6.0,<1.11.0",
+  "jq>=1.6.0,<1.12.0",
   "PyOpenSSL<26.0",
   "opentelemetry-api>=1.27.0,<1.40",
   "opentelemetry-sdk>=1.27.0,<1.40",
   "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.40",
   "protobuf>=4.21.1,<7.0",
-  "pulp-glue>=0.28.0,<0.38",
+  "pulp-glue>=0.30.0,<0.38",
   "pygtrie>=2.5,<=2.5.0",
   "psycopg[binary]>=3.1.8,<3.4",  # SemVer, not explicitely stated, but mentioned on multiple changes.
   "pyparsing>=3.1.0,<3.4",    # Looks like only bugfixes in z-Stream.
@@ -204,7 +204,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.101.0"
+current_version = "3.102.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

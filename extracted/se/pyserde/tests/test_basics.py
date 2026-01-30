@@ -764,21 +764,61 @@ def test_ext(se: Any, de: Any) -> None:
 
 
 def test_exception_on_not_supported_types() -> None:
+    """Test that unsupported types raise SerdeError at decoration time, not runtime."""
+
     class UnsupportedClass:
         def __init__(self) -> None:
             pass
 
+    # Error should be raised when the class is decorated, not at runtime
+    with pytest.raises(serde.SerdeError) as ex:
+
+        @serde.serde
+        class Foo:
+            b: UnsupportedClass
+
+    assert str(ex.value).startswith("Unsupported type: UnsupportedClass")
+
+
+def test_skip_with_unsupported_types() -> None:
+    class UnsupportedClass:
+        """A class that is NOT decorated with @serde."""
+
+        def __init__(self, value: int = 42) -> None:
+            self.value = value
+
+    # Decoration should succeed
     @serde.serde
     class Foo:
-        b: UnsupportedClass
+        name: str
+        internal: UnsupportedClass = serde.field(default_factory=UnsupportedClass, skip=True)
 
-    with pytest.raises(serde.SerdeError) as se_ex:
-        serde.to_dict(Foo(UnsupportedClass()))
-    assert str(se_ex.value).startswith("Unsupported type: UnsupportedClass")
+    # Serialization should work
+    f = Foo(name="test")
+    assert serde.to_dict(f) == {"name": "test"}
 
-    with pytest.raises(serde.SerdeError) as de_ex:
-        serde.from_dict(Foo, {"b": UnsupportedClass()})
-    assert str(de_ex.value).startswith("Unsupported type: UnsupportedClass")
+    # Deserialization should work, using default for skipped field
+    restored = serde.from_dict(Foo, {"name": "test"})
+    assert restored.name == "test"
+    assert isinstance(restored.internal, UnsupportedClass)
+
+    # Also test with List of unsupported types
+    @serde.serde
+    class Bar:
+        name: str
+        items: list[UnsupportedClass] = serde.field(default_factory=list, skip=True)
+
+    b = Bar(name="test")
+    b.items.append(UnsupportedClass(1))
+    b.items.append(UnsupportedClass(2))
+
+    # Serialization should work even with non-empty list
+    assert serde.to_dict(b) == {"name": "test"}
+
+    # Deserialization should work
+    restored_bar = serde.from_dict(Bar, {"name": "test"})
+    assert restored_bar.name == "test"
+    assert restored_bar.items == []
 
 
 def test_dataclass_inheritance() -> None:

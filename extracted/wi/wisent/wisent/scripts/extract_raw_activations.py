@@ -11,18 +11,27 @@ This script:
 Extracts up to 500 pairs per benchmark (or maximum available).
 
 Usage:
-    ./run_on_aws.sh python3 scripts/extract_all_missing_raw.py --model meta-llama/Llama-3.2-1B-Instruct
-    ./run_on_aws.sh python3 scripts/extract_all_missing_raw.py --model Qwen/Qwen3-8B --benchmark knowledge_qa/mmlu
+    python3 -m wisent.scripts.extract_raw_activations --model meta-llama/Llama-3.2-1B-Instruct
+    python3 -m wisent.scripts.extract_raw_activations --model Qwen/Qwen3-8B --benchmark knowledge_qa/mmlu
 """
 
 import argparse
 import os
 import struct
+import sys
 import time
 
+print("[STARTUP] Starting extract_raw_activations.py...", flush=True)
+print(f"[STARTUP] Python version: {sys.version}", flush=True)
+
+print("[STARTUP] Importing psycopg2...", flush=True)
 import psycopg2
 from psycopg2.extras import execute_values
+print("[STARTUP] psycopg2 imported", flush=True)
+
+print("[STARTUP] Importing torch...", flush=True)
 import torch
+print(f"[STARTUP] torch imported, version: {torch.__version__}, CUDA available: {torch.cuda.is_available()}", flush=True)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and '?' in DATABASE_URL:
@@ -222,8 +231,15 @@ def batch_create_raw_activations(activations_data: list):
 def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_id: int,
                       num_layers: int, device: str, limit: int = 500):
     """Extract raw activations for a single benchmark using 3 formats."""
+    print(f"  [EXTRACT] Importing extraction strategy...", flush=True)
     from wisent.core.activations.extraction_strategy import ExtractionStrategy, build_extraction_texts
+    print(f"  [EXTRACT] Extraction strategy imported", flush=True)
 
+    # Get actual device from model if available
+    actual_device = getattr(model, '_actual_device', device)
+    print(f"  [EXTRACT] Using device: {actual_device}", flush=True)
+
+    print(f"  [EXTRACT] Fetching pairs from database...", flush=True)
     conn = get_conn()
 
     cur = conn.cursor()
@@ -236,6 +252,7 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
     ''', (set_id, limit))
     db_pairs = cur.fetchall()
     cur.close()
+    print(f"  [EXTRACT] Fetched {len(db_pairs)} pairs from database", flush=True)
 
     if not db_pairs:
         print(f"  No pairs in database for {benchmark_name}", flush=True)
@@ -252,7 +269,8 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
 
     def get_hidden_states(text):
         enc = tokenizer(text, return_tensors="pt", truncation=True, max_length=2048, add_special_tokens=False)
-        enc = {k: v.to(device) for k, v in enc.items()}
+        # Use the actual device where the model is
+        enc = {k: v.to(actual_device) for k, v in enc.items()}
         with torch.inference_mode():
             out = model(**enc, output_hidden_states=True, use_cache=False)
         return [out.hidden_states[i].squeeze(0) for i in range(1, len(out.hidden_states))]
@@ -261,6 +279,9 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
     skipped = 0
 
     for pair_idx, (pair_id, pos_example, neg_example, category) in enumerate(db_pairs):
+        if pair_idx == 0:
+            print(f"  [EXTRACT] Processing first pair (id={pair_id})...", flush=True)
+
         if "\n\n" in pos_example:
             prompt = pos_example.rsplit("\n\n", 1)[0]
             pos = pos_example.rsplit("\n\n", 1)[1]
@@ -273,15 +294,23 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
         else:
             neg = neg_example
 
+        if pair_idx == 0:
+            print(f"  [EXTRACT] Checking if pair already extracted...", flush=True)
+
         if check_pair_fully_extracted(model_id, pair_id, num_layers, format_names):
             skipped += 1
             if skipped % 50 == 0:
                 print(f"    [skipped {skipped} already-extracted pairs]", flush=True)
             continue
 
+        if pair_idx == 0:
+            print(f"  [EXTRACT] Pair not extracted, starting extraction...", flush=True)
+
         activations_batch = []
 
         for prompt_format, strategy in all_prompt_formats:
+            if pair_idx == 0:
+                print(f"  [EXTRACT] Building texts for {prompt_format}...", flush=True)
             try:
                 if strategy == ExtractionStrategy.MC_BALANCED:
                     pos_text, pos_answer, pos_prompt_only = build_extraction_texts(
@@ -300,8 +329,15 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
             pos_prompt_len = len(tokenizer(pos_prompt_only, add_special_tokens=False)["input_ids"]) if pos_prompt_only else 0
             neg_prompt_len = len(tokenizer(neg_prompt_only, add_special_tokens=False)["input_ids"]) if neg_prompt_only else 0
 
+            if pair_idx == 0:
+                print(f"  [EXTRACT] Running model inference for {prompt_format}...", flush=True)
+
             pos_hidden = get_hidden_states(pos_text)
+            if pair_idx == 0:
+                print(f"  [EXTRACT] Positive hidden states: {len(pos_hidden)} layers, shape={pos_hidden[0].shape}", flush=True)
             neg_hidden = get_hidden_states(neg_text)
+            if pair_idx == 0:
+                print(f"  [EXTRACT] Negative hidden states: {len(neg_hidden)} layers", flush=True)
 
             for layer_idx in range(num_layers):
                 layer_num = layer_idx + 1
@@ -321,9 +357,15 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
 
             del pos_hidden, neg_hidden
 
+        if pair_idx == 0:
+            print(f"  [EXTRACT] First pair complete, inserting {len(activations_batch)} activation records to DB...", flush=True)
+
         reset_conn()
         batch_create_raw_activations(activations_batch)
         extracted += 1
+
+        if pair_idx == 0:
+            print(f"  [EXTRACT] First pair saved to database!", flush=True)
 
         if (pair_idx + 1) % 10 == 0:
             print(f"    Processed {pair_idx + 1}/{len(db_pairs)} pairs", flush=True)
@@ -336,18 +378,24 @@ def extract_benchmark(model, tokenizer, model_id: int, benchmark_name: str, set_
 
 
 def main():
+    print("[MAIN] Parsing arguments...", flush=True)
     parser = argparse.ArgumentParser(description="Extract raw activations for all missing benchmarks with 3 formats")
     parser.add_argument("--model", required=True, help="Model name (e.g., meta-llama/Llama-3.2-1B-Instruct)")
     parser.add_argument("--device", default="cuda", help="Device (cuda/mps/cpu)")
     parser.add_argument("--limit", type=int, default=500, help="Max pairs per benchmark (default: 500)")
     parser.add_argument("--benchmark", default=None, help="Single benchmark to extract (optional)")
     args = parser.parse_args()
+    print(f"[MAIN] Args: model={args.model}, device={args.device}, limit={args.limit}, benchmark={args.benchmark}", flush=True)
 
+    print("[MAIN] Importing transformers...", flush=True)
     from transformers import AutoTokenizer, AutoModelForCausalLM
+    print("[MAIN] transformers imported", flush=True)
 
-    print(f"Loading model {args.model}...", flush=True)
+    print(f"[MAIN] Loading tokenizer for {args.model}...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    print(f"[MAIN] Tokenizer loaded, vocab_size={tokenizer.vocab_size}", flush=True)
 
+    print(f"[MAIN] Loading model {args.model}...", flush=True)
     if args.device == "mps":
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
@@ -355,23 +403,35 @@ def main():
             trust_remote_code=True,
         )
         model = model.to("mps")
+        actual_device = "mps"
     else:
         num_gpus = torch.cuda.device_count()
+        print(f"[MAIN] Detected {num_gpus} GPUs", flush=True)
         use_device_map = "auto" if num_gpus > 1 else args.device
+        print(f"[MAIN] Using device_map={use_device_map}", flush=True)
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
             torch_dtype="auto",
             device_map=use_device_map,
             trust_remote_code=True,
         )
+        # Get actual device from model
+        actual_device = next(model.parameters()).device
+        print(f"[MAIN] Model device: {actual_device}", flush=True)
     model.eval()
 
     num_layers = model.config.num_hidden_layers
-    print(f"Model loaded: {num_layers} layers", flush=True)
+    print(f"[MAIN] Model loaded: {num_layers} layers, device={actual_device}", flush=True)
 
+    # Store actual device for use in extraction
+    model._actual_device = str(actual_device)
+
+    print("[MAIN] Connecting to database...", flush=True)
     conn = get_conn()
+    print("[MAIN] Database connected", flush=True)
+
     model_id = get_or_create_model(conn, args.model, num_layers)
-    print(f"Model ID: {model_id}", flush=True)
+    print(f"[MAIN] Model ID: {model_id}", flush=True)
 
     if args.benchmark:
         cur = conn.cursor()

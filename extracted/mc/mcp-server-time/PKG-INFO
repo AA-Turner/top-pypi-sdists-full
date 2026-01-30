@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-server-time
-Version: 2025.9.25
+Version: 2026.1.26
 Summary: A Model Context Protocol server providing tools for time queries and timezone conversions for LLMs
 Author-email: Mariusz 'maledorak' Korzekwa <mariusz@korzekwa.dev>
 License: MIT
@@ -11,13 +11,15 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
-Requires-Dist: mcp>=1.0.0
+Requires-Dist: mcp>=1.23.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: tzdata>=2024.2
 Requires-Dist: tzlocal>=5.3.1
 Description-Content-Type: text/markdown
 
 # Time MCP Server
+
+<!-- mcp-name: io.github.modelcontextprotocol/server-time -->
 
 A Model Context Protocol server that provides time and timezone conversion capabilities. This server enables LLMs to get current time information and perform timezone conversions using IANA timezone names, with automatic system timezone detection.
 

@@ -11,8 +11,9 @@ import tempfile
 import threading
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
-from typing import IO, Literal, Optional, TypedDict
+from typing import IO, Optional, TypedDict
 
 import boto3
 from botocore.exceptions import ClientError
@@ -80,7 +81,10 @@ class Invocation:
     user_agent: str | None = None
 
 
-InitializationType = Literal["on-demand", "provisioned-concurrency"]
+class InitializationType(StrEnum):
+    on_demand = "on-demand"
+    provisioned_concurrency = "provisioned-concurrency"
+    lambda_managed_instances = "lambda-managed-instances"
 
 
 class ArchiveCode(metaclass=ABCMeta):
@@ -218,11 +222,20 @@ class S3Code(ArchiveCode):
             if target_path.exists():
                 return
             LOG.debug("Saving code %s to disk", self.id)
-            target_path.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile() as file:
-                self._download_archive_to_file(file)
-                unzip(file.name, str(target_path))
-                chmod_r(str(target_path), 0o755)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            # Use a temp directory for atomic operation to prevent partial reads
+            # if the process crashes or is killed during unzip.
+            # Create temp dir in same parent to ensure same filesystem for atomic rename.
+            with tempfile.TemporaryDirectory(dir=target_path.parent) as temp_dir:
+                temp_path = Path(temp_dir)
+
+                with tempfile.NamedTemporaryFile() as file:
+                    self._download_archive_to_file(file)
+                    unzip(file.name, str(temp_path))
+                    chmod_r(str(temp_path), 0o755)
+
+                # Atomic move/rename
+                temp_path.rename(target_path)
 
     def destroy_cached(self) -> None:
         """

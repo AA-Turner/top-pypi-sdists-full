@@ -2,6 +2,4 @@
 
 import typing
 
-from .input_message_content_item import InputMessageContentItem
-
-Content = typing.Union[str, typing.List[InputMessageContentItem]]
+Content = typing.Union[str, typing.List[typing.Dict[str, typing.Optional[typing.Any]]]]

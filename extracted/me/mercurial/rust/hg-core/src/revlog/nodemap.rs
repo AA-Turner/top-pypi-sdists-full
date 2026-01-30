@@ -264,17 +264,15 @@ fn has_prefix_or_none(
     prefix: NodePrefix,
     rev: UncheckedRevision,
 ) -> Result<Option<Revision>, NodeMapError> {
+    if rev.is_nullrev() {
+        return Ok(None);
+    }
     match idx.check_revision(rev) {
-        Some(checked) => idx
-            .node(checked)
-            .ok_or(NodeMapError::RevisionNotInIndex(rev))
-            .map(|node| {
-                if prefix.is_prefix_of(node) {
-                    Some(checked)
-                } else {
-                    None
-                }
-            }),
+        Some(checked) => Ok(if prefix.is_prefix_of(idx.node(checked)) {
+            Some(checked)
+        } else {
+            None
+        }),
         None => Err(NodeMapError::RevisionNotInIndex(rev)),
     }
 }
@@ -321,8 +319,7 @@ pub(super) fn read_persistent_nodemap(
         let mut nodemap =
             NodeTree::load_bytes(Box::new(data), docket.data_length);
         if let Some(valid_tip_rev) = index.check_revision(docket.tip_rev) {
-            let valid_node =
-                index.node(valid_tip_rev) == Some(&docket.tip_node);
+            let valid_node = index.node(valid_tip_rev) == &docket.tip_node;
             if valid_node && (valid_tip_rev.0 as usize) < index.len() {
                 // The index moved forward but wasn't rewritten
                 nodemap
@@ -509,9 +506,20 @@ impl NodeTree {
         node: &Node,
         rev: Revision,
     ) -> Result<(), NodeMapError> {
+        self.insert_single(index, node, rev, &mut vec![])
+    }
+
+    /// See [`Self::insert`] and [`Self::insert_many`] for public interfaces
+    fn insert_single<I: RevlogIndex>(
+        &mut self,
+        index: &I,
+        node: &Node,
+        rev: Revision,
+        visit_steps: &mut Vec<NodeTreeVisitItem>,
+    ) -> Result<(), NodeMapError> {
         let ro_len = &self.readonly.len();
 
-        let mut visit_steps: Vec<_> = self.visit(node.into()).collect();
+        visit_steps.extend(self.visit(node.into()));
         let read_nybbles = visit_steps.len();
         // visit_steps cannot be empty, since we always visit the root block
         let deepest = visit_steps.pop().unwrap();
@@ -520,12 +528,15 @@ impl NodeTree {
             self.mutable_block(deepest.block_idx);
 
         if let Element::Rev(old_rev) = deepest.element {
-            let old_node = index
-                .check_revision(old_rev.into())
-                .and_then(|rev| index.node(rev))
-                .ok_or_else(|| {
-                    NodeMapError::RevisionNotInIndex(old_rev.into())
-                })?;
+            let o_rev = match index.check_revision(old_rev.into()) {
+                None => {
+                    return Err(NodeMapError::RevisionNotInIndex(
+                        old_rev.into(),
+                    ))
+                }
+                Some(rev) => rev,
+            };
+            let old_node = index.node(o_rev);
             if old_node == node {
                 return Ok(()); // avoid creating lots of useless blocks
             }
@@ -576,6 +587,32 @@ impl NodeTree {
         Ok(())
     }
 
+    /// Batched insertion method (see [`Self::insert`] for single insertions)
+    ///
+    /// This exists for performance reasons, implemented in a future patch.
+    pub fn insert_many<I: RevlogIndex>(
+        &mut self,
+        index: &I,
+        from: Revision,
+        to: Revision,
+    ) -> Result<(), NodeMapError> {
+        let revisions_to_add = 0.max(to.0 - from.0) as usize;
+        // There are about 5 blocks per revision for all persistent nodemaps
+        // observed in the wild, so we over-allocate slightly with 6.
+        const FACTOR: usize = 6;
+        self.growable.reserve(revisions_to_add * FACTOR);
+
+        // Reuse this vec for all visit planning to save a ton of allocations
+        // (about 5 per revision)
+        let mut visit_vec = vec![];
+        for revnum in from.0..=to.0 {
+            let rev = Revision(revnum);
+            self.insert_single(index, index.node(rev), rev, &mut visit_vec)?;
+            visit_vec.clear();
+        }
+        Ok(())
+    }
+
     /// Insert all [`Revision`] from `from` inclusive, up to
     /// [`RevlogIndex::len`] exclusive.
     ///
@@ -588,16 +625,8 @@ impl NodeTree {
         index: &impl RevlogIndex,
         from: Revision,
     ) -> Result<(), NodeMapError> {
-        for r in (from.0)..index.len() as BaseRevision {
-            let rev = Revision(r);
-            // in this case node() won't ever return None
-            self.insert(
-                index,
-                index.node(rev).expect("node should exist"),
-                rev,
-            )?;
-        }
-        Ok(())
+        let to = Revision(0.max(index.len() - 1) as BaseRevision);
+        self.insert_many(index, from, to)
     }
 
     /// Make the whole `NodeTree` logically empty, without touching the
@@ -818,8 +847,8 @@ pub mod tests {
     type TestIndex = HashMap<UncheckedRevision, Node>;
 
     impl RevlogIndex for TestIndex {
-        fn node(&self, rev: Revision) -> Option<&Node> {
-            self.get(&rev.into())
+        fn node(&self, rev: Revision) -> &Node {
+            self.get(&rev.into()).unwrap_or(&NULL_NODE)
         }
 
         fn len(&self) -> usize {
@@ -827,6 +856,10 @@ pub mod tests {
         }
 
         fn check_revision(&self, rev: UncheckedRevision) -> Option<Revision> {
+            if rev.is_nullrev() {
+                // return Some(NULL_REVISION)
+                return None;
+            }
             self.get(&rev).map(|_| Revision(rev.0))
         }
     }

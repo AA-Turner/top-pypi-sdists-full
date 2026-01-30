@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     import lxml.etree
     import numpy.typing
     import pandas
+    import pydantic
     import rdflib
 
 __all__ = [
@@ -88,12 +89,14 @@ __all__ = [
     "n",
     "name_from_s3_key",
     "name_from_url",
+    "open_inner_zipfile",
     "open_tarfile",
     "open_zip_reader",
     "open_zip_writer",
     "open_zipfile",
     "path_to_sqlite",
     "raise_on_digest_mismatch",
+    "read_pydantic_jsonl",
     "read_rdf",
     "read_tarfile_csv",
     "read_tarfile_xml",
@@ -108,6 +111,7 @@ __all__ = [
     "safe_open_writer",
     "write_lzma_csv",
     "write_pickle_gz",
+    "write_pydantic_jsonl",
     "write_tarfile_csv",
     "write_tarfile_xml",
     "write_zipfile_csv",
@@ -146,6 +150,11 @@ UnqualifiedMode: TypeAlias = Literal["r", "w"]
 QualifiedMode: TypeAlias = Literal["rt", "wt", "rb", "wb"]
 
 ModePair: TypeAlias = tuple[Operation, Representation]
+
+_MODE_TO_SIMPLE: Mapping[Operation, UnqualifiedMode] = {
+    "read": "r",
+    "write": "w",
+}
 
 #: A mapping between operation/representation pairs and qualified modes
 MODE_MAP: dict[ModePair, QualifiedMode] = {
@@ -765,7 +774,7 @@ def open_zipfile(
     inner_path: str,
     *,
     operation: Operation = ...,
-    representation: Literal["text"],
+    representation: Literal["text"] = ...,
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
 ) -> Generator[typing.TextIO, None, None]: ...
@@ -779,7 +788,7 @@ def open_zipfile(
     inner_path: str,
     *,
     operation: Operation = ...,
-    representation: Literal["binary"],
+    representation: Literal["binary"] = ...,
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
 ) -> Generator[typing.BinaryIO, None, None]: ...
@@ -791,29 +800,70 @@ def open_zipfile(
     inner_path: str,
     *,
     operation: Operation = "read",
-    representation: Representation,
+    representation: Representation = "text",
     zipfile_kwargs: Mapping[str, Any] | None = None,
     open_kwargs: Mapping[str, Any] | None = None,
 ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
     """Open a zipfile."""
-    mode: Literal["r", "w"]
-    if operation == "read":
-        mode = "r"
-    elif operation == "write":
-        mode = "w"
-    else:
-        raise InvalidOperationError(operation)
+    mode = _MODE_TO_SIMPLE[operation]
+    with (
+        zipfile.ZipFile(file=path, mode=mode, **(zipfile_kwargs or {})) as zip_file,
+        open_inner_zipfile(
+            zip_file,
+            inner_path,
+            operation=operation,
+            representation=representation,
+            open_kwargs=open_kwargs,
+        ) as file,
+    ):
+        yield file
 
-    # there might be a better way to deal with the mode here
-    with zipfile.ZipFile(file=path, mode=mode, **(zipfile_kwargs or {})) as zip_file:
-        with zip_file.open(inner_path, mode=mode, **(open_kwargs or {})) as binary_file:
-            if representation == "text":
-                with io.TextIOWrapper(binary_file, encoding="utf-8") as text_file:
-                    yield text_file
-            elif representation == "binary":
-                yield cast(typing.BinaryIO, binary_file)
-            else:
-                raise InvalidRepresentationError(representation)
+
+# docstr-coverage:excused `overload`
+@typing.overload
+@contextlib.contextmanager
+def open_inner_zipfile(
+    zip_file: zipfile.ZipFile,
+    inner_path: str,
+    *,
+    operation: Operation = ...,
+    representation: Literal["text"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.TextIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@typing.overload
+@contextlib.contextmanager
+def open_inner_zipfile(
+    zip_file: zipfile.ZipFile,
+    inner_path: str,
+    *,
+    operation: Operation = ...,
+    representation: Literal["binary"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.BinaryIO, None, None]: ...
+
+
+@contextlib.contextmanager
+def open_inner_zipfile(
+    zip_file: zipfile.ZipFile,
+    inner_path: str,
+    *,
+    operation: Operation = "read",
+    representation: Representation = "text",
+    open_kwargs: Mapping[str, Any] | None = None,
+) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
+    """Open a file inside an already opened zip archive."""
+    mode = _MODE_TO_SIMPLE[operation]
+    with zip_file.open(inner_path, mode=mode, **(open_kwargs or {})) as binary_file:
+        if representation == "text":
+            with io.TextIOWrapper(binary_file, encoding="utf-8") as text_file:
+                yield text_file
+        elif representation == "binary":
+            yield cast(typing.BinaryIO, binary_file)
+        else:
+            raise InvalidRepresentationError(representation)
 
 
 @contextlib.contextmanager
@@ -1382,7 +1432,21 @@ def gunzip(source: str | Path, target: str | Path) -> None:
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path, *, operation: Operation = ..., representation: Literal["text"] = "text"
+    path: typing.BinaryIO,
+    *,
+    operation: Operation = ...,
+    representation: Representation = ...,
+) -> Generator[typing.BinaryIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@typing.overload
+@contextlib.contextmanager
+def safe_open(
+    path: typing.TextIO,
+    *,
+    operation: Operation = ...,
+    representation: Representation = ...,
 ) -> Generator[typing.TextIO, None, None]: ...
 
 
@@ -1390,13 +1454,30 @@ def safe_open(
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path, *, operation: Operation = ..., representation: Literal["binary"] = "binary"
+    path: str | Path,
+    *,
+    operation: Operation = ...,
+    representation: Literal["text"] = "text",
+) -> Generator[typing.TextIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@typing.overload
+@contextlib.contextmanager
+def safe_open(
+    path: str | Path,
+    *,
+    operation: Operation = ...,
+    representation: Literal["binary"] = "binary",
 ) -> Generator[typing.BinaryIO, None, None]: ...
 
 
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path, *, operation: Operation = "read", representation: Representation = "text"
+    path: str | Path | typing.TextIO | typing.BinaryIO,
+    *,
+    operation: Operation = "read",
+    representation: Representation = "text",
 ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
     """Safely open a file for reading or writing text."""
     if operation not in OPERATION_VALUES:
@@ -1404,14 +1485,25 @@ def safe_open(
     if representation not in REPRESENTATION_VALUES:
         raise InvalidRepresentationError(representation)
 
-    mode = MODE_MAP[operation, representation]
-    path = Path(path).expanduser().resolve()
-    if path.suffix.endswith(".gz"):
-        with gzip.open(path, mode=mode) as file:
-            yield file  # type:ignore
+    if isinstance(path, (str, Path)):
+        mode = MODE_MAP[operation, representation]
+        path = Path(path).expanduser().resolve()
+        if path.suffix.endswith(".gz"):
+            with gzip.open(path, mode=mode) as file:
+                yield file  # type:ignore
+        else:
+            with open(path, mode=mode) as file:
+                yield file  # type:ignore
+    elif isinstance(path, typing.TextIO):
+        if representation != "text":
+            raise ValueError
+        yield path
+    elif isinstance(path, typing.BinaryIO):
+        if representation != "binary":
+            raise ValueError
+        yield path
     else:
-        with open(path, mode=mode) as file:
-            yield file  # type:ignore
+        raise TypeError
 
 
 @contextlib.contextmanager
@@ -1426,11 +1518,8 @@ def safe_open_writer(
 
     :yields: A CSV writer object, constructed from :func:`csv.writer`
     """
-    if isinstance(f, (str, Path)):
-        with safe_open(f, operation="write", representation="text") as file:
-            yield csv.writer(file, delimiter=delimiter, **kwargs)
-    else:
-        yield csv.writer(f, delimiter=delimiter, **kwargs)
+    with safe_open(f, operation="write", representation="text") as file:
+        yield csv.writer(file, delimiter=delimiter, **kwargs)
 
 
 @contextlib.contextmanager
@@ -1450,11 +1539,8 @@ def safe_open_dict_writer(
 
     :yields: A CSV dictionary writer object, constructed from :func:`csv.DictWriter`
     """
-    if isinstance(f, (str, Path)):
-        with safe_open(f, operation="write", representation="text") as file:
-            yield csv.DictWriter(file, fieldnames, delimiter=delimiter, **kwargs)
-    else:
-        yield csv.DictWriter(f, fieldnames, delimiter=delimiter, **kwargs)
+    with safe_open(f, operation="write", representation="text") as file:
+        yield csv.DictWriter(file, fieldnames, delimiter=delimiter, **kwargs)
 
 
 @contextlib.contextmanager
@@ -1469,11 +1555,8 @@ def safe_open_reader(
 
     :yields: A CSV reader object, constructed from :func:`csv.reader`
     """
-    if isinstance(f, (str, Path)):
-        with safe_open(f, operation="read", representation="text") as file:
-            yield csv.reader(file, delimiter=delimiter, **kwargs)
-    else:
-        yield csv.reader(f, delimiter=delimiter, **kwargs)
+    with safe_open(f, operation="read", representation="text") as file:
+        yield csv.reader(file, delimiter=delimiter, **kwargs)
 
 
 @contextlib.contextmanager
@@ -1488,11 +1571,8 @@ def safe_open_dict_reader(
 
     :yields: A CSV reader object, constructed from :func:`csv.DictReader`
     """
-    if isinstance(f, (str, Path)):
-        with safe_open(f, operation="read", representation="text") as file:
-            yield csv.DictReader(file, delimiter=delimiter, **kwargs)
-    else:
-        yield csv.DictReader(f, delimiter=delimiter, **kwargs)
+    with safe_open(f, operation="read", representation="text") as file:
+        yield csv.DictReader(file, delimiter=delimiter, **kwargs)
 
 
 def get_soup(
@@ -1522,3 +1602,30 @@ def get_soup(
     res = requests.get(url, verify=verify, timeout=timeout or 15, headers=headers)
     soup = BeautifulSoup(res.text, features="html.parser")
     return soup
+
+
+def write_pydantic_jsonl(
+    models: Iterable[pydantic.BaseModel], file: str | Path | TextIO, **kwargs: Any
+) -> None:
+    """Write models to a file as JSONL."""
+    kwargs.setdefault("exclude_none", True)
+    kwargs.setdefault("exclude_unset", True)
+    kwargs.setdefault("exclude_defaults", True)
+    with safe_open(file, operation="write", representation="text") as file:
+        for model in models:
+            file.write(model.model_dump_json(**kwargs) + "\n")
+
+
+M = typing.TypeVar("M", bound="pydantic.BaseModel")
+
+
+def read_pydantic_jsonl(file: str | Path | TextIO, model_cls: type[M]) -> list[M]:
+    """Read models to a file as JSONL."""
+    return list(_iterread_pydantic_jsonl(file, model_cls))
+
+
+def _iterread_pydantic_jsonl(file: str | Path | TextIO, model_cls: type[M]) -> Iterable[M]:
+    """Read models to a file as JSONL."""
+    with safe_open(file, operation="read", representation="text") as file:
+        for line in file:
+            yield model_cls.model_validate_json(line)

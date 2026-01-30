@@ -157,6 +157,7 @@ nav:
           - deckgl module: deckgl.md
           - download module: download.md
           - examples module: examples.md
+          - fire module: fire.md
           - foliumap module: foliumap.md
           - kepler module: kepler.md
           - maplibregl module: maplibregl.md
@@ -295,6 +296,7 @@ nav:
           - maplibre/video_on_a_map.ipynb
           - maplibre/visualize_population_density.ipynb
           - maplibre/wms_source.ipynb
+          - maplibre/wms_to_geotiff.ipynb
           - maplibre/zoom_to_linestring.ipynb
     - Notebooks:
           - notebooks/00_key_features.ipynb
@@ -407,3 +409,8 @@ nav:
           - notebooks/107_copernicus.ipynb
           - notebooks/108_add_geotiff.ipynb
           - notebooks/109_local_titiler.ipynb
+          - notebooks/110_polars.ipynb
+          - notebooks/111_zarr.ipynb
+          - notebooks/112_quackosm.ipynb
+          - notebooks/113_titiler_cmr.ipynb
+          - notebooks/114_nasa_fire.ipynb

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-BKYq3fBv.js";import{n as t,t as n}from"./tailwindUtil-B1qIgpoz.js";var r,i=e((()=>{n(),r=t([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`])}));export{i as n,r as t};
+//# sourceMappingURL=layout-C2z6q0qB.js.map

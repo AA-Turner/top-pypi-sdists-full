@@ -166,14 +166,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/create_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use create_internal_occm_demand_signal_delivery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/create_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use create_internal_occm_demand_signal_delivery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/internal/occmDemandSignalDeliveries"
         method = "POST"
         operation_name = "create_internal_occm_demand_signal_delivery"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalDelivery/CreateInternalOccmDemandSignalDelivery"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalDelivery/CreateInternalOccmDemandSignalDelivery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -272,14 +272,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/delete_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use delete_internal_occm_demand_signal_delivery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/delete_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use delete_internal_occm_demand_signal_delivery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalDeliveryId']
         resource_path = "/internal/occmDemandSignalDeliveries/{occmDemandSignalDeliveryId}"
         method = "DELETE"
         operation_name = "delete_internal_occm_demand_signal_delivery"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalDelivery/DeleteInternalOccmDemandSignalDelivery"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalDelivery/DeleteInternalOccmDemandSignalDelivery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -378,14 +378,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/get_internal_occm_demand_signal.py.html>`__ to see an example of how to use get_internal_occm_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/get_internal_occm_demand_signal.py.html>`__ to see an example of how to use get_internal_occm_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalId']
         resource_path = "/internal/occmDemandSignals/{occmDemandSignalId}"
         method = "GET"
         operation_name = "get_internal_occm_demand_signal"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignal/GetInternalOccmDemandSignal"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignal/GetInternalOccmDemandSignal"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -484,14 +484,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/get_internal_occm_demand_signal_catalog.py.html>`__ to see an example of how to use get_internal_occm_demand_signal_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/get_internal_occm_demand_signal_catalog.py.html>`__ to see an example of how to use get_internal_occm_demand_signal_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalCatalogId']
         resource_path = "/internal/occmDemandSignalCatalog/{occmDemandSignalCatalogId}"
         method = "GET"
         operation_name = "get_internal_occm_demand_signal_catalog"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/OccmDemandSignalCatalogResource/GetInternalOccmDemandSignalCatalog"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/OccmDemandSignalCatalogResource/GetInternalOccmDemandSignalCatalog"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -590,14 +590,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/get_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use get_internal_occm_demand_signal_delivery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/get_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use get_internal_occm_demand_signal_delivery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalDeliveryId']
         resource_path = "/internal/occmDemandSignalDeliveries/{occmDemandSignalDeliveryId}"
         method = "GET"
         operation_name = "get_internal_occm_demand_signal_delivery"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalDelivery/GetInternalOccmDemandSignalDelivery"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalDelivery/GetInternalOccmDemandSignalDelivery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -726,14 +726,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/list_internal_occm_demand_signal_catalog_resources.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_catalog_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/list_internal_occm_demand_signal_catalog_resources.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_catalog_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId', 'occmDemandSignalCatalogId']
         resource_path = "/internal/occmDemandSignalCatalogResources"
         method = "GET"
         operation_name = "list_internal_occm_demand_signal_catalog_resources"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalCatalogResource/ListInternalOccmDemandSignalCatalogResources"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalCatalogResource/ListInternalOccmDemandSignalCatalogResources"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -884,14 +884,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/list_internal_occm_demand_signal_catalogs.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_catalogs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/list_internal_occm_demand_signal_catalogs.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_catalogs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
         resource_path = "/internal/occmDemandSignalCatalog"
         method = "GET"
         operation_name = "list_internal_occm_demand_signal_catalogs"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/OccmDemandSignalCatalog/ListInternalOccmDemandSignalCatalogs"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/OccmDemandSignalCatalog/ListInternalOccmDemandSignalCatalogs"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1035,14 +1035,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/list_internal_occm_demand_signal_deliveries.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_deliveries API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/list_internal_occm_demand_signal_deliveries.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_deliveries API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
         resource_path = "/internal/occmDemandSignalDeliveries"
         method = "GET"
         operation_name = "list_internal_occm_demand_signal_deliveries"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalDelivery/ListInternalOccmDemandSignalDeliveries"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalDelivery/ListInternalOccmDemandSignalDeliveries"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1193,14 +1193,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/list_internal_occm_demand_signal_items.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_items API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/list_internal_occm_demand_signal_items.py.html>`__ to see an example of how to use list_internal_occm_demand_signal_items API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
         resource_path = "/internal/occmDemandSignalItems"
         method = "GET"
         operation_name = "list_internal_occm_demand_signal_items"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalItemCollection/ListInternalOccmDemandSignalItems"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalItemCollection/ListInternalOccmDemandSignalItems"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1358,14 +1358,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/list_internal_occm_demand_signals.py.html>`__ to see an example of how to use list_internal_occm_demand_signals API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/list_internal_occm_demand_signals.py.html>`__ to see an example of how to use list_internal_occm_demand_signals API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
         resource_path = "/internal/occmDemandSignals"
         method = "GET"
         operation_name = "list_internal_occm_demand_signals"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignal/ListInternalOccmDemandSignals"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignal/ListInternalOccmDemandSignals"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1498,14 +1498,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/update_internal_occm_demand_signal.py.html>`__ to see an example of how to use update_internal_occm_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/update_internal_occm_demand_signal.py.html>`__ to see an example of how to use update_internal_occm_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalId']
         resource_path = "/internal/occmDemandSignals/{occmDemandSignalId}"
         method = "PUT"
         operation_name = "update_internal_occm_demand_signal"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignal/UpdateInternalOccmDemandSignal"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignal/UpdateInternalOccmDemandSignal"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1618,14 +1618,14 @@ class InternalDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/capacitymanagement/update_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use update_internal_occm_demand_signal_delivery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/capacitymanagement/update_internal_occm_demand_signal_delivery.py.html>`__ to see an example of how to use update_internal_occm_demand_signal_delivery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occmDemandSignalDeliveryId']
         resource_path = "/internal/occmDemandSignalDeliveries/{occmDemandSignalDeliveryId}"
         method = "PUT"
         operation_name = "update_internal_occm_demand_signal_delivery"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occcm/20231107/InternalOccmDemandSignalDelivery/UpdateInternalOccmDemandSignalDelivery"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/occm/20231107/InternalOccmDemandSignalDelivery/UpdateInternalOccmDemandSignalDelivery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

@@ -9,7 +9,7 @@ from ansible.playbook.conditional import Conditional
 from ansible.plugins.action import ActionBase
 
 try:
-    from ansible.utils.datatag import trust_value as _trust_value
+    from ansible.utils.datatag import trust_value as _trust_value  # type: ignore[import-not-found]
 except ImportError:
 
     def _trust_value(input):
@@ -31,7 +31,7 @@ class ActionModule(ActionBase):
         if task_vars is None:
             task_vars = dict()
 
-        result = super(ActionModule, self).run(tmp, task_vars)
+        result = super().run(tmp, task_vars)
         del tmp  # tmp no longer has any effect
 
         if "that" not in self._task.args:

@@ -1,7 +1,7 @@
 ---
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
-exclude: ^plugins/module_utils/vendor/hcloud/.*$
+exclude: ^plugins/module_utils/_vendor/hcloud/.*$
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -39,12 +39,12 @@ repos:
       - id: isort
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.12.0
+    rev: 26.1.0
     hooks:
       - id: black
 
   - repo: https://github.com/ansible-community/antsibull-changelog
-    rev: 0.34.0
+    rev: 0.35.0
     hooks:
       - id: antsibull-changelog-lint
       - id: antsibull-changelog-lint-changelog-yaml
@@ -56,7 +56,7 @@ repos:
         name: shfmt
         description: Format shell scripts with shfmt
         language: golang
-        additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.7.0]
+        additional_dependencies: [mvdan.cc/sh/v3/cmd/shfmt@v3.12.0]
         entry: shfmt -i 2 -ci -sr -kp -w
         types: [shell]
 

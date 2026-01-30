@@ -12,28 +12,28 @@ from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
 from adam.utils import debug, log_timing, tabulize, log2, ing, log_exc
 from adam.utils_athena import Athena
+from adam.utils_context import Context
 from adam.utils_sqlite import SQLite
 
 LIKE = 'e%_%'
 
 class ExportDatabases:
-    def run_query(query: str, database: str, show_query=False, output: Callable[[str], str] = None) -> int:
+    def run_query(query: str, database: str, ctx: Context = Context.NULL) -> int:
         cnt: int = 0
 
-        if show_query:
-            log2(query)
+        ctx.log2(query)
 
-        log_file = None
+        # log_file = None
         if database.startswith('s'):
-            cnt0, log_file = SQLite.run_query(query, database=database, output=output)
+            cnt0 = SQLite.run_query(query, database=database, ctx=ctx)
             cnt += cnt0
         else:
-            cnt0, log_file = Athena.run_query(query, database=database, output=output)
+            cnt0 = Athena.run_query(query, database=database, ctx=ctx)
             cnt += cnt0
 
-        if Config().get('repl.history.push-cat-log-file', True):
-            if log_file and ReplSession().prompt_session:
-                ReplSession().prompt_session.history.append_string(f':cat {log_file}')
+        # if Config().get('repl.history.push-cat-log-file', True):
+        #     if log_file and ReplSession().prompt_session:
+        #         ReplSession().prompt_session.history.append_string(f':cat {log_file}')
 
         return cnt
 
@@ -194,26 +194,28 @@ class ExportDatabaseService:
     def __init__(self, handler: 'ExportDatabaseHandler'):
         self.handler = handler
 
-    def sql(self, query: str, database: str = None, backgrounded = False, export_log: str = None):
+    def sql(self, query: str, database: str = None, ctx: Context = Context.NULL):
         if not database:
             database = self.handler.state.export_session
 
-        def output(export_log: str, out: str):
-            # serving for 1. export log or 2. job log for the sampling select 10 rows afterward
-            flag = 'at'
-            if not export_log:
-                export_log = f'{export_log_dir()}/{datetime.now().strftime("%d%H%M%S")}-export.log'
-                flag = 'w'
+        # def output(export_log: str, out: str):
+        #     # serving for 1. export log or 2. job log for the sampling select 10 rows afterward
+        #     flag = 'at'
+        #     if not export_log:
+        #         export_log = f'{export_log_dir()}/{datetime.now().strftime("%d%H%M%S")}-export.log'
+        #         flag = 'w'
 
-            with open(export_log, flag) as f:
-                if flag == 'at':
-                    f.write(query)
-                    f.write('\n')
-                f.write(out)
+        #     with open(export_log, flag) as f:
+        #         if flag == 'at':
+        #             f.write(query)
+        #             f.write('\n')
+        #         f.write(out)
 
-            return export_log
+        #     return export_log
 
-        ExportDatabases.run_query(query, database, output = partial(output, export_log) if backgrounded else None, show_query = not backgrounded)
+        # log_file = f'{export_log_dir()}/{datetime.now().strftime("%d%H%M%S")}-export.log'
+
+        ExportDatabases.run_query(query, database, ctx=ctx)
 
     def drop(self, database: str):
         state = self.handler.state

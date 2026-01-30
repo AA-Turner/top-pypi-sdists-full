@@ -1,6 +1,10 @@
-// SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2018-2025), Aviram Hassan (2020)
+// SPDX-License-Identifier: MPL-2.0
+// Copyright ijl (2018-2026)
 
+use crate::ffi::{
+    PyBoolRef, PyDictRef, PyFloatRef, PyFragmentRef, PyIntRef, PyListRef, PyStrRef,
+    PyStrSubclassRef, PyUuidRef,
+};
 use crate::opt::{NON_STR_KEYS, NOT_PASSTHROUGH, SORT_KEYS, SORT_OR_NON_STR_KEYS};
 use crate::serialize::buffer::SmallFixedBuffer;
 use crate::serialize::error::SerializeError;
@@ -14,9 +18,7 @@ use crate::serialize::per_type::{
 };
 use crate::serialize::serializer::PyObjectSerializer;
 use crate::serialize::state::SerializerState;
-use crate::str::{PyStr, PyStrSubclass};
 use crate::typeref::{STR_TYPE, TRUE, VALUE_STR};
-use crate::util::isize_to_usize;
 use core::ptr::NonNull;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use smallvec::SmallVec;
@@ -40,7 +42,7 @@ impl Serialize for ZeroDictSerializer {
 }
 
 pub(crate) struct DictGenericSerializer {
-    ptr: *mut crate::ffi::PyObject,
+    dict: PyDictRef,
     state: SerializerState,
     #[allow(dead_code)]
     default: Option<NonNull<crate::ffi::PyObject>>,
@@ -48,12 +50,12 @@ pub(crate) struct DictGenericSerializer {
 
 impl DictGenericSerializer {
     pub fn new(
-        ptr: *mut crate::ffi::PyObject,
+        dict: PyDictRef,
         state: SerializerState,
         default: Option<NonNull<crate::ffi::PyObject>>,
     ) -> Self {
         DictGenericSerializer {
-            ptr: ptr,
+            dict: dict,
             state: state.copy_for_recursive_call(),
             default: default,
         }
@@ -71,7 +73,7 @@ impl Serialize for DictGenericSerializer {
             err!(SerializeError::RecursionLimit)
         }
 
-        if ffi!(Py_SIZE(self.ptr)) == 0 {
+        if self.dict.len() == 0 {
             cold_path!();
             ZeroDictSerializer::new().serialize(serializer)
         } else if opt_disabled!(self.state.opts(), SORT_OR_NON_STR_KEYS) {
@@ -98,15 +100,22 @@ macro_rules! impl_serialize_entry {
         match pyobject_to_obtype($value, $self.state.opts()) {
             ObType::Str => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&StrSerializer::new($value))?;
+                $map.serialize_value(&StrSerializer::new(unsafe {
+                    PyStrRef::from_ptr_unchecked($value)
+                }))?;
             }
             ObType::StrSubclass => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&StrSubclassSerializer::new($value))?;
+                $map.serialize_value(&StrSubclassSerializer::new(unsafe {
+                    PyStrSubclassRef::from_ptr_unchecked($value)
+                }))?;
             }
             ObType::Int => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&IntSerializer::new($value, $self.state.opts()))?;
+                $map.serialize_value(&IntSerializer::new(
+                    unsafe { PyIntRef::from_ptr_unchecked($value) },
+                    $self.state.opts(),
+                ))?;
             }
             ObType::None => {
                 $map.serialize_key($key).unwrap();
@@ -114,11 +123,16 @@ macro_rules! impl_serialize_entry {
             }
             ObType::Float => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&FloatSerializer::new($value))?;
+                $map.serialize_value(&FloatSerializer::new(unsafe {
+                    PyFloatRef::from_ptr_unchecked($value)
+                }))?;
             }
             ObType::Bool => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&BoolSerializer::new($value)).unwrap();
+                $map.serialize_value(&BoolSerializer::new(unsafe {
+                    PyBoolRef::from_ptr_unchecked($value)
+                }))
+                .unwrap();
             }
             ObType::Datetime => {
                 $map.serialize_key($key).unwrap();
@@ -134,10 +148,15 @@ macro_rules! impl_serialize_entry {
             }
             ObType::Uuid => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&UUID::new($value)).unwrap();
+                $map.serialize_value(&UUID::new(unsafe { PyUuidRef::from_ptr_unchecked($value) }))
+                    .unwrap();
             }
             ObType::Dict => {
-                let pyvalue = DictGenericSerializer::new($value, $self.state, $self.default);
+                let pyvalue = DictGenericSerializer::new(
+                    unsafe { PyDictRef::from_ptr_unchecked($value) },
+                    $self.state,
+                    $self.default,
+                );
                 $map.serialize_key($key).unwrap();
                 $map.serialize_value(&pyvalue)?;
             }
@@ -146,8 +165,11 @@ macro_rules! impl_serialize_entry {
                     $map.serialize_key($key).unwrap();
                     $map.serialize_value(&ZeroListSerializer::new()).unwrap();
                 } else {
-                    let pyvalue =
-                        ListTupleSerializer::from_list($value, $self.state, $self.default);
+                    let pyvalue = ListTupleSerializer::from_list(
+                        unsafe { PyListRef::from_ptr_unchecked($value) },
+                        $self.state,
+                        $self.default,
+                    );
                     $map.serialize_key($key).unwrap();
                     $map.serialize_value(&pyvalue)?;
                 }
@@ -193,7 +215,9 @@ macro_rules! impl_serialize_entry {
             }
             ObType::Fragment => {
                 $map.serialize_key($key).unwrap();
-                $map.serialize_value(&FragmentSerializer::new($value))?;
+                $map.serialize_value(&FragmentSerializer::new(unsafe {
+                    PyFragmentRef::from_ptr_unchecked($value)
+                }))?;
             }
             ObType::Unknown => {
                 $map.serialize_key($key).unwrap();
@@ -208,7 +232,7 @@ macro_rules! impl_serialize_entry {
 }
 
 pub(crate) struct Dict {
-    ptr: *mut crate::ffi::PyObject,
+    dict: PyDictRef,
     state: SerializerState,
     default: Option<NonNull<crate::ffi::PyObject>>,
 }
@@ -223,33 +247,40 @@ impl Serialize for Dict {
         let mut next_key: *mut crate::ffi::PyObject = core::ptr::null_mut();
         let mut next_value: *mut crate::ffi::PyObject = core::ptr::null_mut();
 
-        pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+        pydict_next!(
+            self.dict.as_ptr(),
+            &raw mut pos,
+            &raw mut next_key,
+            &raw mut next_value
+        );
 
         let mut map = serializer.serialize_map(None).unwrap();
 
-        let len = isize_to_usize(ffi!(Py_SIZE(self.ptr)));
+        let len = self.dict.len();
         assume!(len > 0);
 
         for _ in 0..len {
             let key = next_key;
             let value = next_value;
 
-            pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+            pydict_next!(
+                self.dict.as_ptr(),
+                &raw mut pos,
+                &raw mut next_key,
+                &raw mut next_value
+            );
 
             // key
-            let key_ob_type = ob_type!(key);
-            if !is_class_by_type!(key_ob_type, STR_TYPE) {
-                err!(SerializeError::KeyMustBeStr)
-            }
-            let pystr = unsafe { PyStr::from_ptr_unchecked(key) };
-            let uni = pystr.to_str();
+            let uni = PyStrRef::from_ptr(key)
+                .map_err(|_| serde::ser::Error::custom(SerializeError::KeyMustBeStr))?
+                .as_str();
             if uni.is_none() {
-                err!(SerializeError::InvalidStr)
+                cold_path!();
+                err!(SerializeError::InvalidStr);
             }
-            let key_as_str = uni.unwrap();
 
             // value
-            impl_serialize_entry!(map, self, key_as_str, value);
+            impl_serialize_entry!(map, self, uni.unwrap(), value);
         }
 
         map.end()
@@ -257,7 +288,7 @@ impl Serialize for Dict {
 }
 
 pub(crate) struct DictSortedKey {
-    ptr: *mut crate::ffi::PyObject,
+    dict: PyDictRef,
     state: SerializerState,
     default: Option<NonNull<crate::ffi::PyObject>>,
 }
@@ -272,25 +303,35 @@ impl Serialize for DictSortedKey {
         let mut next_key: *mut crate::ffi::PyObject = core::ptr::null_mut();
         let mut next_value: *mut crate::ffi::PyObject = core::ptr::null_mut();
 
-        pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+        pydict_next!(
+            self.dict.as_ptr(),
+            &raw mut pos,
+            &raw mut next_key,
+            &raw mut next_value
+        );
 
-        let len = isize_to_usize(ffi!(Py_SIZE(self.ptr)));
+        let len = self.dict.len();
         assume!(len > 0);
 
         let mut items: SmallVec<[(&str, *mut crate::ffi::PyObject); 8]> =
             SmallVec::with_capacity(len);
 
-        for _ in 0..len as usize {
+        for _ in 0..len {
             let key = next_key;
             let value = next_value;
 
-            pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+            pydict_next!(
+                self.dict.as_ptr(),
+                &raw mut pos,
+                &raw mut next_key,
+                &raw mut next_value
+            );
 
             if unsafe { !core::ptr::eq(ob_type!(key), STR_TYPE) } {
                 err!(SerializeError::KeyMustBeStr)
             }
-            let pystr = unsafe { PyStr::from_ptr_unchecked(key) };
-            let uni = pystr.to_str();
+            let pystr = unsafe { PyStrRef::from_ptr_unchecked(key) };
+            let uni = pystr.as_str();
             if uni.is_none() {
                 err!(SerializeError::InvalidStr)
             }
@@ -310,26 +351,28 @@ impl Serialize for DictSortedKey {
         map.end()
     }
 }
-
+#[cold]
 #[inline(never)]
-fn non_str_str(key: *mut crate::ffi::PyObject) -> Result<String, SerializeError> {
+fn non_str_str(key: PyStrRef) -> Result<String, SerializeError> {
     // because of ObType::Enum
-    let uni = unsafe { PyStr::from_ptr_unchecked(key).to_str() };
-    if uni.is_none() {
-        Err(SerializeError::InvalidStr)
-    } else {
-        Ok(String::from(uni.unwrap()))
+    match key.as_str() {
+        Some(uni) => Ok(String::from(uni)),
+        None => {
+            cold_path!();
+            Err(SerializeError::InvalidStr)
+        }
     }
 }
 
 #[cold]
 #[inline(never)]
-fn non_str_str_subclass(key: *mut crate::ffi::PyObject) -> Result<String, SerializeError> {
-    let uni = unsafe { PyStrSubclass::from_ptr_unchecked(key).to_str() };
-    if uni.is_none() {
-        Err(SerializeError::InvalidStr)
-    } else {
-        Ok(String::from(uni.unwrap()))
+fn non_str_str_subclass(key: PyStrSubclassRef) -> Result<String, SerializeError> {
+    match key.as_str() {
+        Some(uni) => Ok(String::from(uni)),
+        None => {
+            cold_path!();
+            Err(SerializeError::InvalidStr)
+        }
     }
 }
 
@@ -373,7 +416,7 @@ fn non_str_time(
 
 #[allow(clippy::unnecessary_wraps)]
 #[inline(never)]
-fn non_str_uuid(key: *mut crate::ffi::PyObject) -> Result<String, SerializeError> {
+fn non_str_uuid(key: PyUuidRef) -> Result<String, SerializeError> {
     let mut buf = SmallFixedBuffer::new();
     UUID::new(key).write_buf(&mut buf);
     let key_as_str = str_from_slice!(buf.as_ptr(), buf.len());
@@ -415,7 +458,7 @@ fn sort_dict_items(items: &mut SmallVec<[(&str, *mut crate::ffi::PyObject); 8]>)
 }
 
 pub(crate) struct DictNonStrKey {
-    ptr: *mut crate::ffi::PyObject,
+    dict: PyDictRef,
     state: SerializerState,
     default: Option<NonNull<crate::ffi::PyObject>>,
 }
@@ -425,38 +468,42 @@ impl DictNonStrKey {
         key: *mut crate::ffi::PyObject,
         opts: crate::opt::Opt,
     ) -> Result<String, SerializeError> {
-        match pyobject_to_obtype(key, opts) {
-            ObType::None => Ok(String::from("null")),
-            ObType::Bool => {
-                if unsafe { core::ptr::eq(key, TRUE) } {
-                    Ok(String::from("true"))
-                } else {
-                    Ok(String::from("false"))
+        unsafe {
+            match pyobject_to_obtype(key, opts) {
+                ObType::None => Ok(String::from("null")),
+                ObType::Bool => {
+                    if unsafe { core::ptr::eq(key, TRUE) } {
+                        Ok(String::from("true"))
+                    } else {
+                        Ok(String::from("false"))
+                    }
                 }
+                ObType::Int => non_str_int(key),
+                ObType::Float => non_str_float(key),
+                ObType::Datetime => non_str_datetime(key, opts),
+                ObType::Date => non_str_date(key),
+                ObType::Time => non_str_time(key, opts),
+                ObType::Uuid => non_str_uuid(PyUuidRef::from_ptr_unchecked(key)),
+                ObType::Enum => {
+                    let value = ffi!(PyObject_GetAttr(key, VALUE_STR));
+                    debug_assert!(ffi!(Py_REFCNT(value)) >= 2);
+                    let ret = Self::pyobject_to_string(value, opts);
+                    ffi!(Py_DECREF(value));
+                    ret
+                }
+                ObType::Str => non_str_str(PyStrRef::from_ptr_unchecked(key)),
+                ObType::StrSubclass => {
+                    non_str_str_subclass(PyStrSubclassRef::from_ptr_unchecked(key))
+                }
+                ObType::Tuple
+                | ObType::NumpyScalar
+                | ObType::NumpyArray
+                | ObType::Dict
+                | ObType::List
+                | ObType::Dataclass
+                | ObType::Fragment
+                | ObType::Unknown => Err(SerializeError::DictKeyInvalidType),
             }
-            ObType::Int => non_str_int(key),
-            ObType::Float => non_str_float(key),
-            ObType::Datetime => non_str_datetime(key, opts),
-            ObType::Date => non_str_date(key),
-            ObType::Time => non_str_time(key, opts),
-            ObType::Uuid => non_str_uuid(key),
-            ObType::Enum => {
-                let value = ffi!(PyObject_GetAttr(key, VALUE_STR));
-                debug_assert!(ffi!(Py_REFCNT(value)) >= 2);
-                let ret = Self::pyobject_to_string(value, opts);
-                ffi!(Py_DECREF(value));
-                ret
-            }
-            ObType::Str => non_str_str(key),
-            ObType::StrSubclass => non_str_str_subclass(key),
-            ObType::Tuple
-            | ObType::NumpyScalar
-            | ObType::NumpyArray
-            | ObType::Dict
-            | ObType::List
-            | ObType::Dataclass
-            | ObType::Fragment
-            | ObType::Unknown => Err(SerializeError::DictKeyInvalidType),
         }
     }
 }
@@ -471,11 +518,16 @@ impl Serialize for DictNonStrKey {
         let mut next_key: *mut crate::ffi::PyObject = core::ptr::null_mut();
         let mut next_value: *mut crate::ffi::PyObject = core::ptr::null_mut();
 
-        pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+        pydict_next!(
+            self.dict.as_ptr(),
+            &raw mut pos,
+            &raw mut next_key,
+            &raw mut next_value
+        );
 
         let opts = self.state.opts() & NOT_PASSTHROUGH;
 
-        let len = isize_to_usize(ffi!(Py_SIZE(self.ptr)));
+        let len = self.dict.len();
         assume!(len > 0);
 
         let mut items: SmallVec<[(String, *mut crate::ffi::PyObject); 8]> =
@@ -485,20 +537,24 @@ impl Serialize for DictNonStrKey {
             let key = next_key;
             let value = next_value;
 
-            pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+            pydict_next!(
+                self.dict.as_ptr(),
+                &raw mut pos,
+                &raw mut next_key,
+                &raw mut next_value
+            );
 
-            if is_type!(ob_type!(key), STR_TYPE) {
-                match unsafe { PyStr::from_ptr_unchecked(key).to_str() } {
+            match PyStrRef::from_ptr(key) {
+                Ok(pystr) => match pystr.as_str() {
                     Some(uni) => {
                         items.push((String::from(uni), value));
                     }
                     None => err!(SerializeError::InvalidStr),
-                }
-            } else {
-                match Self::pyobject_to_string(key, opts) {
+                },
+                Err(_) => match Self::pyobject_to_string(key, opts) {
                     Ok(key_as_str) => items.push((key_as_str, value)),
                     Err(err) => err!(err),
-                }
+                },
             }
         }
 

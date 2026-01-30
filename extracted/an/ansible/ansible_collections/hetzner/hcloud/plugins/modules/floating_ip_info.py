@@ -50,7 +50,7 @@ RETURN = """
 hcloud_floating_ip_info:
     description: The Floating ip infos as list
     returned: always
-    type: complex
+    type: list
     contains:
         id:
             description: Numeric identifier of the Floating IP
@@ -101,9 +101,9 @@ hcloud_floating_ip_info:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.floating_ips import BoundFloatingIP
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.floating_ips import BoundFloatingIP
 
 
 class AnsibleHCloudFloatingIPInfo(AnsibleHCloud):

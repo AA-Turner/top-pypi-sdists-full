@@ -8,9 +8,11 @@ from django.contrib.admin.helpers import (
     AdminForm,
     AdminReadonlyField,
     Fieldset,
+    InlineAdminFormSet,
 )
 from django.contrib.admin.views.main import PAGE_VAR, ChangeList
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.contrib.auth.models import AbstractUser
 from django.core.paginator import Paginator
 from django.db.models import Model
 from django.db.models.options import Options
@@ -37,6 +39,32 @@ from unfold.widgets import (
 register = Library()
 
 
+def _count_errors_in_general(
+    admin_form: AdminForm, inlines: list[InlineAdminFormSet]
+) -> int:
+    count = 0
+    count += len(admin_form.errors)
+    count += len(admin_form.non_field_errors())
+
+    for inline in inlines:
+        if not getattr(inline.opts, "tab", False) and inline.formset.errors:
+            for error in inline.formset.errors:
+                if isinstance(error, dict) and len(error) > 0:
+                    count += 1
+
+    return count
+
+
+def _count_errors_in_inline(inline: InlineAdminFormSet) -> int:
+    count = 0
+
+    for error in inline.formset.errors:
+        if isinstance(error, dict) and len(error) > 0:
+            count += 1
+
+    return count
+
+
 def _get_tabs_list(
     context: RequestContext, page: str, opts: Options | None = None
 ) -> list:
@@ -46,7 +74,7 @@ def _get_tabs_list(
     if page not in ["changeform", "changelist"]:
         page_id = page
 
-    for tab in context.get("tab_list", []):
+    for tab in context.get("tab_list") or []:
         if page_id:
             if tab.get("page") == page_id:
                 tabs_list = tab["items"]
@@ -100,17 +128,26 @@ def tab_list(context: RequestContext, page: str, opts: Options | None = None) ->
         "tabs_list": _get_tabs_list(context, page, opts),
     }
 
+    if context.get("adminform") and context.get("inline_admin_formsets"):
+        data["error_count"] = _count_errors_in_general(
+            context["adminform"],
+            context["inline_admin_formsets"],
+        )
+
+        for inline in context.get("inline_admin_formsets") or []:
+            inline.error_count = _count_errors_in_inline(inline)
+
     # If the changeform is rendered and there are no custom tab navigation
     # specified, check for inlines to put into tabs
-    if page == "changeform" and len(data["tabs_list"]) == 0:
-        for inline in context.get("inline_admin_formsets", []):
+    if page == "changeform" and len(data.get("tabs_list") or []) == 0:
+        for inline in context.get("inline_admin_formsets") or []:
             if opts and getattr(inline.opts, "tab", False):
                 inlines_list.append(inline)
 
         if len(inlines_list) > 0:
             data["inlines_list"] = inlines_list
 
-        for dataset in context.get("datasets", []):
+        for dataset in context.get("datasets") or []:
             if dataset and getattr(dataset, "tab", False):
                 datasets_list.append(dataset)
 
@@ -175,7 +212,7 @@ def tabs(adminform: AdminForm) -> list[Fieldset]:
     result = []
 
     for fieldset in adminform:
-        if "tab" in fieldset.classes and fieldset.name:
+        if "tab" in fieldset.classes and hasattr(fieldset, "name") and fieldset.name:
             result.append(fieldset)
 
     return result
@@ -197,19 +234,19 @@ class RenderComponentNode(template.Node):
         self.include_context = include_context
         super().__init__(*args, **kwargs)
 
-    def render(self, context: RequestContext) -> str:
+    def render(self, context: Context) -> str:
         values = {
             name: var.resolve(context) for name, var in self.extra_context.items()
         }
+        request = context.request if isinstance(context, RequestContext) else None
 
         if "component_class" in values:
             values = ComponentRegistry.create_instance(
-                values["component_class"],
-                request=context.request if hasattr(context, "request") else None,
+                values["component_class"], request=request
             ).get_context_data(**values)
 
         context_copy = context.new()
-        context_copy.update(context.flatten())
+        context_copy.update(context.flatten())  # ty:ignore[invalid-argument-type]
         context_copy.update(values)
         children = self.nodelist.render(context_copy)
 
@@ -223,18 +260,14 @@ class RenderComponentNode(template.Node):
         if self.include_context:
             values.update(context.flatten())
 
-        return render_to_string(
-            self.template_name,
-            request=context.request if hasattr(context, "request") else None,
-            context=values,
-        )
+        return render_to_string(self.template_name, request=request, context=values)
 
 
 @register.tag("component")
 def do_component(parser: Parser, token: Token) -> RenderComponentNode:
     bits = token.split_contents()
 
-    if len(bits) < 2:
+    if len(bits) < 2:  # noqa: PLR2004
         raise TemplateSyntaxError(
             f"{bits[0]} tag takes at least one argument: the name of the template to be included."
         )
@@ -314,7 +347,9 @@ def preserve_changelist_filters(context: RequestContext) -> dict[str, dict[str, 
 
 @register.simple_tag(takes_context=True)
 def element_classes(context: RequestContext, key: str) -> str:
-    if key in context.get("element_classes", {}):
+    element_classes = context.get("element_classes") or {}
+
+    if key in element_classes:
         if isinstance(context["element_classes"][key], list | tuple):
             return " ".join(context["element_classes"][key])
 
@@ -353,7 +388,7 @@ def fieldset_row_classes(context: RequestContext) -> str:
     ]
 
     formset = context.get("inline_admin_formset", None)
-    line = context.get("line")
+    line = context.get("line") or []
 
     # Hide the field in case of ordering field for sorting
     for field in line:
@@ -726,7 +761,10 @@ def header_title(context: RequestContext) -> str:
         username = user.get_username()
 
         if hasattr(user, "get_short_name") and callable(user.get_short_name):
-            username = user.get_short_name() or user.get_username()
+            username = user.get_username()
+
+            if isinstance(user, AbstractUser):
+                username = user.get_short_name() or user.get_username()
 
         parts.append({"title": f"{_('Welcome')} {username}"})
 
@@ -777,16 +815,16 @@ def do_capture(parser: Parser, token: Token) -> RenderCaptureNode:
     variable_name = ""
     silent = False
 
-    if len(parts) > 4:
+    if len(parts) > 4:  # noqa: PLR2004
         raise TemplateSyntaxError("Too many arguments for 'capture' tag.")
 
-    if len(parts) >= 3:
+    if len(parts) >= 3:  # noqa: PLR2004
         if parts[1] != "as":
             raise TemplateSyntaxError("'as' is required for 'capture' tag.")
 
         variable_name = parts[2]
 
-    if len(parts) == 4:
+    if len(parts) == 4:  # noqa: PLR2004
         if parts[3] != "silent":
             raise TemplateSyntaxError("'silent' is required for 'capture' tag.")
 
@@ -801,14 +839,18 @@ def do_capture(parser: Parser, token: Token) -> RenderCaptureNode:
 def tabs_active(fieldsets: list[Fieldset]) -> str:
     active = ""
 
-    if len(fieldsets) > 0:
-        active = slugify(fieldsets[0].name)
+    if len(fieldsets) > 0 and hasattr(fieldsets[0], "name"):
+        active = slugify(str(fieldsets[0].name))
 
     for fieldset in fieldsets:
         for field_line in fieldset:
             for field in field_line:
-                if not field.is_readonly and field.errors():
-                    active = slugify(fieldset.name)
+                if (
+                    not field.is_readonly
+                    and field.errors()
+                    and hasattr(fieldset, "name")
+                ):
+                    active = slugify(str(fieldset.name))
 
     return active
 
@@ -823,3 +865,16 @@ def tabs_errors_count(fieldset: Fieldset) -> int:
                 count += 1
 
     return count
+
+
+@register.simple_tag
+def tabs_primary_active(inlines: list[InlineAdminFormSet]) -> str:
+    active = "general"
+
+    for inline in inlines:
+        if getattr(inline.opts, "tab", False) and inline.formset.errors:
+            for error in inline.formset.errors:
+                if isinstance(error, dict) and len(error) > 0:
+                    active = slugify(str(inline.formset.prefix))
+
+    return active

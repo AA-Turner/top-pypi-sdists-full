@@ -3,7 +3,7 @@ Markdown Output Style Module - Implements Markdown Format Output
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from ._utils import format_file_tree
 from ...file.file_types import ProcessedFile
@@ -142,6 +142,54 @@ class MarkdownStyle(OutputStyle):
     def generate_file_tree_section(self, file_tree: Dict) -> str:
         """Generates the file tree section in Markdown style."""
         return "\n# Repository Structure\n\n```\n" + format_file_tree(file_tree) + "```\n\n"
+
+    def generate_git_diff_section(self, work_tree_diff: str, staged_diff: str) -> str:
+        """Generate git diff section in Markdown format
+
+        Args:
+            work_tree_diff: Unstaged changes diff
+            staged_diff: Staged changes diff
+
+        Returns:
+            Markdown formatted git diff section
+        """
+        output = "\n# Git Diffs\n\n"
+
+        output += "## Git Diffs Working Tree\n\n"
+        output += "```diff\n"
+        output += work_tree_diff if work_tree_diff else "(no changes)"
+        output += "\n```\n\n"
+
+        output += "## Git Diffs Staged\n\n"
+        output += "```diff\n"
+        output += staged_diff if staged_diff else "(no changes)"
+        output += "\n```\n\n"
+
+        return output
+
+    def generate_git_log_section(self, commits: List[Any]) -> str:
+        """Generate git log section in Markdown format
+
+        Args:
+            commits: List of GitLogCommit objects
+
+        Returns:
+            Markdown formatted git log section
+        """
+        if not commits:
+            return ""
+
+        output = "\n# Git Logs\n\n"
+
+        for commit in commits:
+            output += f"## Commit: {commit.date}\n"
+            output += f"**Message:** {commit.message}\n\n"
+            output += "**Files:**\n"
+            for file in commit.files:
+                output += f"- {file}\n"
+            output += "\n"
+
+        return output
 
     def _get_language_by_extension(self, ext: str) -> str:
         """Get language identifier by file extension

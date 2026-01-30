@@ -1,15 +1,16 @@
 # Copyright © Michal Čihař <michal@weblate.org>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+"""High level API tests."""
 
-import os.path
+import pathlib
 from io import StringIO
 
 from .api import cli, discover
 from .finder import PurePath
 from .test_discovery import DiscoveryTestCase
 
-TEST_DATA = os.path.join(os.path.dirname(__file__), "test_data")
+TEST_DATA = pathlib.Path(__file__).parent / "test_data"
 
 
 class APITest(DiscoveryTestCase):
@@ -87,6 +88,22 @@ class APITest(DiscoveryTestCase):
                     "file_format": "json",
                     "filemask": "json/flat-*.json",
                     "template": "json/flat-en.json",
+                },
+                # New JSON format variants
+                {
+                    "file_format": "go-i18n-json-v2",
+                    "filemask": "json/go-i18n-v2-*.json",
+                    "template": "json/go-i18n-v2-en.json",
+                },
+                {
+                    "file_format": "nextcloud-json",
+                    "filemask": "json/nextcloud-*.json",
+                    "template": "json/nextcloud-en.json",
+                },
+                {
+                    "file_format": "resjson",
+                    "filemask": "json/resjson-*.json",
+                    "template": "json/resjson-en.json",
                 },
                 {
                     "filemask": "locales/*.po",
@@ -168,17 +185,52 @@ class APITest(DiscoveryTestCase):
                     "filemask": "xliff/*.xlf",
                     "template": "xliff/en.xlf",
                 },
+                # New XLIFF2 formats
+                {
+                    "file_format": "xliff2",
+                    "filemask": "xliff2/*.xliff",
+                },
+                {
+                    "file_format": "xliff2-placeables",
+                    "filemask": "xliff2/*-placeables.xliff",
+                },
                 {
                     "file_format": "gotext-json",
                     "filemask": "json/gotext-*.json",
                     "template": "json/gotext-en.json",
+                },
+                # New format discoveries (DTD, Catkeys, Mi18n, TOML)
+                {
+                    "file_format": "dtd",
+                    "filemask": "dtd/*.dtd",
+                    "template": "dtd/en.dtd",
+                },
+                {
+                    "file_format": "catkeys",
+                    "filemask": "catkeys/*.catkeys",
+                    "template": "catkeys/en.catkeys",
+                },
+                {
+                    "file_format": "mi18n-lang",
+                    "filemask": "lang/*.lang",
+                    "template": "lang/en.lang",
+                },
+                {
+                    "file_format": "go-i18n-toml",
+                    "filemask": "toml/go-i18n-*.toml",
+                    "template": "toml/go-i18n-en.toml",
+                },
+                {
+                    "file_format": "toml",
+                    "filemask": "toml/regular-*.toml",
+                    "template": "toml/regular-en.toml",
                 },
             ],
         )
 
     def test_cli(self) -> None:
         output = StringIO()
-        cli(args=[TEST_DATA], stdout=output)
+        cli(args=[TEST_DATA.as_posix()], stdout=output)
         self.assertIn("Match 2", output.getvalue())
 
     def test_no_match(self) -> None:

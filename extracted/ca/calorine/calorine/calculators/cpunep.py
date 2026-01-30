@@ -45,11 +45,12 @@ class CPUNEP(Calculator):
     >>> atoms.get_potential_energy()
     """
 
-    implemented_properties = [
+    base_implemented_properties = [
         'energy',
         'energies',
         'forces',
         'stress',
+        'stresses',
     ]
     debug = False
     nepy = None
@@ -73,7 +74,14 @@ class CPUNEP(Calculator):
         self.supported_species = set(header['types'])
         self.nep_version = header['version']
 
-        if self.model_type == 'dipole':
+        # Set implemented properties -- not use class-level property
+        # to avoid leaking state between calculator instances.
+        self.implemented_properties = list(self.base_implemented_properties)
+        if 'charge' in self.model_type:
+            # Only available for charge models
+            self.implemented_properties.extend(
+                ['charges', 'born_effective_charges'])
+        elif self.model_type == 'dipole':
             # Only available for dipole models
             self.implemented_properties = ['dipole']
         elif self.model_type == 'polarizability':
@@ -228,17 +236,31 @@ class CPUNEP(Calculator):
             descriptors_per_atom = descriptors.reshape(-1, self.natoms).T
             self.results['descriptors'] = descriptors_per_atom
         else:
-            energies, forces, virials = self.nepy.get_potential_forces_and_virials()
+            if 'charge' in self.model_type:
+                energies, forces, virials, charges, becs = \
+                    self.nepy.get_potential_forces_virials_and_charges()
+            else:
+                energies, forces, virials = self.nepy.get_potential_forces_and_virials()
+
             energies_per_atom = np.array(energies)
             energy = energies_per_atom.sum()
             forces_per_atom = np.array(forces).reshape(-1, self.natoms).T
             virials_per_atom = np.array(virials).reshape(-1, self.natoms).T
+            stresses_per_atom = virials_per_atom / self.atoms.get_volume()
             stress = -(np.sum(virials_per_atom, axis=0) / self.atoms.get_volume()).reshape((3, 3))
             stress = full_3x3_to_voigt_6_stress(stress)
 
             self.results['energy'] = energy
             self.results['forces'] = forces_per_atom
             self.results['stress'] = stress
+            self.results['stresses'] = stresses_per_atom
+
+            if 'charge' in self.model_type:
+                charges_per_atom = np.array(charges)
+                becs_per_atom = np.array(becs).reshape(-1, self.natoms).T
+
+                self.results['charges'] = charges_per_atom
+                self.results['born_effective_charges'] = becs_per_atom
 
     def get_dipole_gradient(
         self,
@@ -394,3 +416,27 @@ class CPUNEP(Calculator):
         """
         self.calculate(atoms, ['descriptors'], system_changes)
         return self.results['descriptors']
+
+    def get_born_effective_charges(
+        self,
+        atoms: Atoms = None,
+        properties: List[str] = None,
+        system_changes: List[str] = all_changes,
+    ) -> np.ndarray:
+        """Calculates (if needed) and returns the Born effective charges.
+        Note that this requires a qNEP model.
+
+        Parameters
+        ----------
+        atoms
+            System for which to calculate properties, by default `None`.
+        properties
+            Properties to calculate, by default `None`.
+        system_changes
+            Changes to the system since last call, by default all_changes.
+        """
+        if 'born_effective_charges' not in self.implemented_properties:
+            raise ValueError(
+                'This model does not support the calculation of Born effective charges.')
+        self.calculate(atoms, properties, system_changes)
+        return self.results['born_effective_charges']

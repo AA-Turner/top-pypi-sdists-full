@@ -5860,6 +5860,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_SAGE_MAKER_HYPER_POD_INFERENCE_ACCESS = "AMAZON_SAGE_MAKER_HYPER_POD_INFERENCE_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

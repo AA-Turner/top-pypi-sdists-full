@@ -527,7 +527,7 @@ export class DataTabulatorView extends HTMLBoxView {
         }
         this.redraw(true, true);
         this.restore_scroll();
-        this.recompute_page_size();
+        requestAnimationFrame(() => this.recompute_page_size());
     }
     stylesheets() {
         return [...super.stylesheets(), tabulator_css];
@@ -667,7 +667,7 @@ export class DataTabulatorView extends HTMLBoxView {
         }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
     }
     recompute_page_size() {
-        if (!this.model.pagination || this.model.page_size !== null || this._automatic_page_size) {
+        if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size)) {
             return;
         }
         this._automatic_page_size = true;
@@ -696,7 +696,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 const remaining = table_height - height;
                 page_size += Math.floor(remaining / Math.min(...heights));
                 if (responsive) {
-                    page_size -= 2;
+                    page_size -= 1;
                 }
             }
             this._updating_page_size = true;

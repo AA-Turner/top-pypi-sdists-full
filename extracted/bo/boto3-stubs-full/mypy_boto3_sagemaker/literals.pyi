@@ -153,6 +153,7 @@ __all__ = (
     "HyperParameterTuningJobStrategyTypeType",
     "HyperParameterTuningJobWarmStartTypeType",
     "IPAddressTypeType",
+    "IdleResourceSharingType",
     "ImageCreatedWaiterName",
     "ImageDeletedWaiterName",
     "ImageSortByType",
@@ -386,6 +387,7 @@ __all__ = (
     "SageMakerServiceName",
     "SagemakerServicecatalogStatusType",
     "ScheduleStatusType",
+    "SchedulerConfigComponentType",
     "SchedulerResourceStatusType",
     "SearchPaginatorName",
     "SearchSortOrderType",
@@ -1096,6 +1098,7 @@ HyperParameterTuningJobStatusType = Literal[
 HyperParameterTuningJobStrategyTypeType = Literal["Bayesian", "Grid", "Hyperband", "Random"]
 HyperParameterTuningJobWarmStartTypeType = Literal["IdenticalDataAndAlgorithm", "TransferLearning"]
 IPAddressTypeType = Literal["dualstack", "ipv4"]
+IdleResourceSharingType = Literal["Disabled", "Enabled"]
 ImageCreatedWaiterName = Literal["image_created"]
 ImageDeletedWaiterName = Literal["image_deleted"]
 ImageSortByType = Literal["CREATION_TIME", "IMAGE_NAME", "LAST_MODIFIED_TIME"]
@@ -2101,6 +2104,7 @@ SageMakerImageNameType = Literal["sagemaker_distribution"]
 SageMakerResourceNameType = Literal["endpoint", "hyperpod-cluster", "training-job"]
 SagemakerServicecatalogStatusType = Literal["Disabled", "Enabled"]
 ScheduleStatusType = Literal["Failed", "Pending", "Scheduled", "Stopped"]
+SchedulerConfigComponentType = Literal["FairShare", "IdleResourceSharing", "PriorityClasses"]
 SchedulerResourceStatusType = Literal[
     "CreateFailed",
     "CreateRollbackFailed",

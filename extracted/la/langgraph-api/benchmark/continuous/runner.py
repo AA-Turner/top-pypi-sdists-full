@@ -148,9 +148,16 @@ def _analyze_correctness(metrics: RunMetrics) -> None:
     # Check if received messages match expected prefix
     if metrics.message_numbers != expected_sequence[: len(metrics.message_numbers)]:
         metrics.out_of_order = True
+        logger.error("Metrics received out of order: %s", metrics.message_numbers)
 
     # Count missing messages
     metrics.dropped_chunks = len(set(expected_sequence) - set(metrics.message_numbers))
+    if metrics.dropped_chunks > 0:
+        logger.error(
+            "Metrics dropped %s chunks: %s",
+            metrics.dropped_chunks,
+            metrics.message_numbers,
+        )
 
 
 async def stream_run(
@@ -186,7 +193,7 @@ async def stream_run(
         # Consume run (SDK handles reconnection internally)
         async for chunk in run_stream:
             receive_time = datetime.now(UTC)
-            log.info("received_chunk")
+            log.debug("received_chunk")
 
             # Capture run_id from first chunk if available
             if (
@@ -281,7 +288,7 @@ async def stream_run_raw(
                 elif line == "" and data_buffer:
                     # End of event, process it
                     receive_time = datetime.now(UTC)
-                    log.info("received_chunk")
+                    log.debug("received_chunk")
 
                     try:
                         data_str = "\n".join(data_buffer)
@@ -380,8 +387,8 @@ class ContinuousRunner:
             maintenance_task = asyncio.create_task(self._maintenance_loop())
             metrics_task = asyncio.create_task(self._metrics_loop())
 
-            while not self._stop:
-                await asyncio.sleep(1)
+            await asyncio.sleep(int(os.getenv("DURATION", "30")) * 60)
+            self._stop = True
 
             logger.info("runner_stopping")
 

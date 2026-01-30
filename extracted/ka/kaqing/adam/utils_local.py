@@ -42,6 +42,9 @@ class LocalExecResult(ExecResult):
     def __audit_extra__(self):
         return self.log_file if self.log_file else None
 
+    def from_completed_process(command: str, p: subprocess.CompletedProcess):
+        return LocalExecResult(stdout=p.stdout, stderr=p.stderr, command=command, exit_code=p.returncode)
+
 def local_exec(cmd: list[str], shell=False, show_out=False):
     stdout = ''
     stderr = ''

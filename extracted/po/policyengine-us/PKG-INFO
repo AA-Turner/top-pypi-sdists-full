@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.514.0
+Version: 1.532.4
 Summary: Add your description here.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: <3.14,>=3.10
 Requires-Dist: microdf-python>=1.0.0
-Requires-Dist: pandas<3.0,>=2.0
-Requires-Dist: policyengine-core>=3.23.0
+Requires-Dist: pandas>=2.0
+Requires-Dist: policyengine-core>=3.23.5
 Requires-Dist: tqdm>=4.67.1
 Provides-Extra: dev
 Requires-Dist: build>=1.2.2.post1; extra == 'dev'

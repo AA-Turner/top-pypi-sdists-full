@@ -34,7 +34,6 @@ import zigpy.quirks
 import zigpy.state
 import zigpy.topology
 import zigpy.types as t
-import zigpy.typing
 import zigpy.util
 import zigpy.zcl
 import zigpy.zdo
@@ -83,7 +82,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self.topology: zigpy.topology.Topology = zigpy.topology.Topology(self)
 
         self._req_listeners: collections.defaultdict[
-            zigpy.device.Device | zigpy.listeners.Singleton,
+            zigpy.device.Device | zigpy.listeners.AnyDeviceType,
             collections.deque[zigpy.listeners.BaseRequestListener],
         ] = collections.defaultdict(lambda: collections.deque([]))
 
@@ -99,7 +98,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
     def wrap_callback(
         self,
-        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        src: zigpy.device.Device | zigpy.listeners.AnyDeviceType,
         callback: typing.Callable[_P, Any],
     ) -> typing.Callable[_P, None]:
         """Wrap a callback to log exceptions and run as task if needed."""
@@ -452,6 +451,10 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
         LOGGER.info("Successfully migrated to channel %d", new_channel)
 
+        # Immediately create a backup to persist the new channel, otherwise we will
+        # get a `NetworkSettingsInconsistent` error on the next restart
+        await self.backups.create_backup()
+
     async def form_network(self, *, fast: bool = False) -> None:
         """Writes random network settings to the coordinator."""
         config = self.config[conf.CONF_NWK]
@@ -596,6 +599,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     def device_initialized(self, device: zigpy.device.Device) -> None:
         """Used by a device to signal that it is initialized"""
         LOGGER.debug("Device is initialized %s", device)
+        device.original_signature = device.get_signature()
 
         self.listener_event("raw_device_initialized", device)
         device = zigpy.quirks.get_device(device)
@@ -1275,17 +1279,12 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         src_ep: int,
         dst_ep: int,
         message: bytes,
-        *,
-        dst_addressing: zigpy.typing.AddressingMode | None = None,
     ):
         """Deprecated compatibility function. Use `packet_received` instead."""
 
         warnings.warn(
             "`handle_message` is deprecated, use `packet_received`", DeprecationWarning
         )
-
-        if dst_addressing is None:
-            dst_addressing = t.AddrMode.NWK
 
         self.packet_received(
             t.ZigbeePacket(
@@ -1295,11 +1294,8 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                 dst_ep=dst_ep,
                 data=t.SerializableBytes(message),
                 src=t.AddrModeAddress(
-                    addr_mode=dst_addressing,
-                    address={
-                        t.AddrMode.NWK: sender.nwk,
-                        t.AddrMode.IEEE: sender.ieee,
-                    }[dst_addressing],
+                    addr_mode=t.AddrMode.NWK,
+                    address=sender.nwk,
                 ),
                 dst=t.AddrModeAddress(
                     addr_mode=t.AddrMode.NWK,
@@ -1370,7 +1366,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
     def register_callback_listener(
         self,
-        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        src: zigpy.device.Device | zigpy.listeners.AnyDeviceType,
         filters: list[zigpy.listeners.MatcherType],
         callback: typing.Callable[
             [
@@ -1397,7 +1393,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     @contextlib.contextmanager
     def callback_for_response(
         self,
-        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        src: zigpy.device.Device | zigpy.listeners.AnyDeviceType,
         filters: list[zigpy.listeners.MatcherType],
         callback: typing.Callable[
             [
@@ -1420,7 +1416,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     @contextlib.contextmanager
     def wait_for_response(
         self,
-        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        src: zigpy.device.Device | zigpy.listeners.AnyDeviceType,
         filters: list[zigpy.listeners.MatcherType],
     ) -> typing.Any:
         """Context manager to wait for a Zigbee response."""
@@ -1583,7 +1579,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         )
         await self.permit_ncp(time_s)
 
-    def get_sequence(self) -> t.uint8_t:
+    def get_sequence(self) -> int:
         self._send_sequence = (self._send_sequence + 1) % 256
         return self._send_sequence
 

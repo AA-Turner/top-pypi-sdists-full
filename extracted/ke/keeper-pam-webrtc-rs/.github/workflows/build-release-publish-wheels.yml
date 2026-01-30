@@ -29,6 +29,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config)
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -51,11 +64,23 @@ jobs:
         run: |
           echo "Building for Linux x86_64 with manylinux_2_28"
 
+          # Get token for git authentication
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+
           # Pull the manylinux_2_28 image for x86_64
           docker pull quay.io/pypa/manylinux_2_28_x86_64
 
           # Build the wheel inside the container (same approach as ARM64)
-          docker run --rm -v "$(pwd)":/io quay.io/pypa/manylinux_2_28_x86_64 bash -c "
+          docker run --rm -e CARGO_NET_GIT_FETCH_WITH_CLI=true -e GIT_TOKEN="${TOKEN}" -v "$(pwd)":/io quay.io/pypa/manylinux_2_28_x86_64 bash -c "
+            # Install OpenSSL development packages
+            yum install -y openssl-devel
+
+            # Configure git for private dependencies
+            git config --global url.\"https://x-access-token:\${GIT_TOKEN}@github.com/\".insteadOf \"https://github.com/\"
+
             # Install Rust
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source \$HOME/.cargo/env
@@ -66,14 +91,35 @@ jobs:
             # Build the wheel
             cd /io
             /opt/python/cp311-cp311/bin/maturin build --release --manylinux 2_28
+            
+            # Check if build succeeded
+            if [ \$? -ne 0 ]; then
+              echo \"ERROR: maturin build failed\"
+              exit 1
+            fi
           
             # Ensure wheels are in target/wheels
             mkdir -p /io/target/wheels
+            
+            # List all wheels found
+            echo \"Wheels found in /io/target:\"
+            find /io/target -name \"*.whl\" -type f
+            
+            # Copy wheels to target/wheels if they're elsewhere
             for wheel in \$(find /io/target -name \"*.whl\" -type f); do
               if [[ \"\$wheel\" != \"/io/target/wheels/\"* ]]; then
+                echo \"Copying \$wheel to /io/target/wheels/\"
                 cp \"\$wheel\" /io/target/wheels/
               fi
             done
+            
+            # Verify at least one wheel exists
+            WHEEL_COUNT=\$(find /io/target/wheels -name \"*.whl\" -type f | wc -l)
+            if [ \$WHEEL_COUNT -eq 0 ]; then
+              echo \"ERROR: No wheels found in /io/target/wheels after build\"
+              exit 1
+            fi
+            echo \"Successfully built \$WHEEL_COUNT wheel(s)\"
           "
           
           # Debug - list the wheels that were built
@@ -93,7 +139,20 @@ jobs:
         run: |
           . venv/bin/activate
           pip install pytest pytest-asyncio
-          pip install $(find target/wheels -name "*.whl" | head -1)
+          
+          # Find and verify wheel exists
+          WHEEL=$(find target/wheels -name "*.whl" -type f | head -1)
+          if [ -z "$WHEEL" ]; then
+            echo "ERROR: No wheel found in target/wheels/"
+            echo "Contents of target/wheels/:"
+            ls -la target/wheels/ || echo "target/wheels/ does not exist"
+            echo "Searching for wheels in target/:"
+            find target -name "*.whl" -type f || echo "No .whl files found in target/"
+            exit 1
+          fi
+          
+          echo "Installing wheel: $WHEEL"
+          pip install "$WHEEL"
           python -c "import keeper_pam_webrtc_rs; print('Import successful')"
           cd tests && python -m pytest -v
         shell: bash
@@ -109,6 +168,19 @@ jobs:
     runs-on: UbuntuArm64
     steps:
       - uses: actions/checkout@v4
+
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config)
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
 
       # Check system info before proceeding
       - name: Check host system info
@@ -141,6 +213,12 @@ jobs:
         run: |
           echo "Building for Linux ARM64 with manylinux_2_28"
 
+          # Get token for git authentication
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+
           # Pull the manylinux_2_28 image for ARM64
           docker pull quay.io/pypa/manylinux_2_28_aarch64
 
@@ -155,7 +233,13 @@ jobs:
           "
 
           # Build the wheel inside the container
-          docker run --rm -v "$(pwd)":/io quay.io/pypa/manylinux_2_28_aarch64 bash -c "
+          docker run --rm -e CARGO_NET_GIT_FETCH_WITH_CLI=true -e GIT_TOKEN="${TOKEN}" -v "$(pwd)":/io quay.io/pypa/manylinux_2_28_aarch64 bash -c "
+            # Install OpenSSL development packages
+            yum install -y openssl-devel
+            
+            # Configure git for private dependencies
+            git config --global url.\"https://x-access-token:\${GIT_TOKEN}@github.com/\".insteadOf \"https://github.com/\"
+
             # Install Rust
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source \$HOME/.cargo/env
@@ -166,7 +250,13 @@ jobs:
             # Build the wheel
             cd /io
             /opt/python/cp311-cp311/bin/maturin build --release --manylinux 2_28
-          
+            
+            # Check if build succeeded
+            if [ \$? -ne 0 ]; then
+              echo \"ERROR: maturin build failed\"
+              exit 1
+            fi
+
             # Print information about built wheels
             echo 'Information about built wheels:'
             for wheel in \$(find /io/target -name \"*.whl\" -type f); do
@@ -175,14 +265,25 @@ jobs:
               /opt/python/cp311-cp311/bin/pip install auditwheel
               /opt/python/cp311-cp311/bin/auditwheel show \$wheel
             done
-          
+
             # Ensure wheels are in target/wheels
             mkdir -p /io/target/wheels
+            
+            # Copy wheels to target/wheels if they're elsewhere
             for wheel in \$(find /io/target -name \"*.whl\" -type f); do
               if [[ \"\$wheel\" != \"/io/target/wheels/\"* ]]; then
+                echo \"Copying \$wheel to /io/target/wheels/\"
                 cp \"\$wheel\" /io/target/wheels/
               fi
             done
+            
+            # Verify at least one wheel exists
+            WHEEL_COUNT=\$(find /io/target/wheels -name \"*.whl\" -type f | wc -l)
+            if [ \$WHEEL_COUNT -eq 0 ]; then
+              echo \"ERROR: No wheels found in /io/target/wheels after build\"
+              exit 1
+            fi
+            echo \"Successfully built \$WHEEL_COUNT wheel(s)\"
           "
           
           # Debug - list the wheels that were built
@@ -202,13 +303,18 @@ jobs:
           pip install pytest pytest-asyncio
           
           # Find and install the wheel
-          WHEEL=$(find target/wheels -name "*.whl" | head -1)
+          WHEEL=$(find target/wheels -name "*.whl" -type f | head -1)
           if [ -z "$WHEEL" ]; then
-            echo "No wheel found!"
+            echo "ERROR: No wheel found in target/wheels/"
+            echo "Contents of target/wheels/:"
+            ls -la target/wheels/ || echo "target/wheels/ does not exist"
+            echo "Searching for wheels in target/:"
+            find target -name "*.whl" -type f || echo "No .whl files found in target/"
             exit 1
           fi
           
-          pip install $WHEEL
+          echo "Installing wheel: $WHEEL"
+          pip install "$WHEEL"
           python -c "import keeper_pam_webrtc_rs; print('Import successful')"
           cd tests && python -m pytest -v
         shell: bash
@@ -244,6 +350,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config)
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -269,19 +388,21 @@ jobs:
       - name: Build wheels (x86_64 and arm64)
         run: |
           export OPENSSL_DIR=$(brew --prefix openssl@3)
-          
+
           # Build x86_64 wheel
           echo "Building for macOS x86_64"
           maturin build --release --target x86_64-apple-darwin
-          
+
           # Build arm64 wheel
           echo "Building for macOS ARM64"
           maturin build --release --target aarch64-apple-darwin
-          
+
           # Debug - list the wheels that were built
           echo "Wheels built for macOS:"
           find target/wheels -name "*.whl" -type f | sort
         shell: bash
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -294,6 +415,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config) instead of libgit2
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -319,11 +454,13 @@ jobs:
           python -m pip show maturin
           Get-ChildItem target -ErrorAction SilentlyContinue
           maturin build --release --target x86_64-pc-windows-msvc
-          
+
           # Debug - list the wheels that were built
           echo "Wheels built for Windows x86_64:"
           Get-ChildItem target/wheels -Filter "*.whl" -ErrorAction SilentlyContinue | Sort-Object Name
         shell: pwsh
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       - name: Setup test environment
         run: |
@@ -337,7 +474,20 @@ jobs:
         run: |
           . venv/Scripts/activate
           pip install pytest pytest-asyncio
-          pip install (Get-ChildItem -Path "target/wheels/*.whl" | Select-Object -First 1).FullName
+          
+          # Find and verify wheel exists
+          $wheel = Get-ChildItem -Path "target/wheels/*.whl" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $wheel) {
+            Write-Host "ERROR: No wheel found in target/wheels/"
+            Write-Host "Contents of target/wheels/:"
+            Get-ChildItem -Path "target/wheels/" -ErrorAction SilentlyContinue | Format-Table
+            Write-Host "Searching for wheels in target/:"
+            Get-ChildItem -Path "target/" -Filter "*.whl" -Recurse -ErrorAction SilentlyContinue | Format-Table
+            exit 1
+          }
+          
+          Write-Host "Installing wheel: $($wheel.FullName)"
+          pip install $wheel.FullName
           python -c "import keeper_pam_webrtc_rs; print('Import successful')"
           cd tests && python -m pytest -v
         shell: pwsh
@@ -354,6 +504,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config)
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -369,37 +532,46 @@ jobs:
       - name: Build Alpine Linux wheel
         run: |
           echo "Building wheel for Alpine Linux"
-          
+
           # Create target directories
           mkdir -p target/wheels
-          
+
+          # Get the token for Docker
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+
           # Use a pure Alpine container for building the musllinux wheel
           # Use root user inside the container but fix permissions after
-          docker run --rm -v "$(pwd)":/io alpine:3.16 sh -c "
-            # Install build dependencies including patchelf
-            apk add --no-cache python3 python3-dev py3-pip gcc g++ musl-dev curl patchelf
-          
+          docker run --rm -e CARGO_NET_GIT_FETCH_WITH_CLI=true -e GIT_TOKEN="${TOKEN}" -v "$(pwd)":/io alpine:3.16 sh -c "
+            # Install build dependencies including patchelf, git, and OpenSSL
+            apk add --no-cache python3 python3-dev py3-pip gcc g++ musl-dev curl patchelf git openssl-dev openssl-libs-static
+
+            # Configure git for private dependencies
+            git config --global url.\"https://x-access-token:\${GIT_TOKEN}@github.com/\".insteadOf \"https://github.com/\"
+
             # Install Rust
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source \$HOME/.cargo/env
-          
+
             # Install maturin with patchelf support
             pip3 install 'maturin[patchelf]>=1.8'
-          
+
             # Build the wheel directly in a temporary directory within the container
             TEMP_DIR=\$(mktemp -d)
             cd /io
-          
+
             # Use maturin to build the wheel with explicit output location
             mkdir -p /io/target/wheels
-          
+
             # First try with strip option (faster)
             echo 'Building wheel with strip option...'
             maturin build --release --strip --out /io/target/wheels || {
               echo 'Strip build failed, trying without strip option...'
               maturin build --release --out /io/target/wheels
             }
-          
+
             # Fix permissions on all generated files so host can access them
             echo 'Fixing permissions on generated files...'
             find /io/target -type d -exec chmod 777 {} \\;
@@ -489,6 +661,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Configure git to use ACCESS_TOKEN for private org dependencies (pam-guacr)
+      - name: Configure git for private dependencies
+        run: |
+          TOKEN="${{ secrets.ACCESS_TOKEN }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+          # Configure Cargo to use git CLI (respects git config)
+          mkdir -p ~/.cargo
+          echo '[net]' >> ~/.cargo/config.toml
+          echo 'git-fetch-with-cli = true' >> ~/.cargo/config.toml
 
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -1,8 +1,9 @@
 from enum import Enum
+from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import ClassVar
-from typing import Literal
 
+from pydantic import Base64Bytes
 from pydantic import EmailStr
 from pydantic import Field
 
@@ -12,11 +13,14 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
-from ..reference import ExternalReference
+from ..path import URN
+from ..reference import External
 from ..reference import Reference
-from ..utils import Base64Bytes
 from .resource import AnyExtension
 from .resource import Resource
+
+if TYPE_CHECKING:
+    from .group import Group
 
 
 class Name(ComplexAttribute):
@@ -126,7 +130,7 @@ class Photo(ComplexAttribute):
         photo = "photo"
         thumbnail = "thumbnail"
 
-    value: Annotated[Reference[ExternalReference] | None, CaseExact.true] = None
+    value: Annotated[Reference[External] | None, CaseExact.true] = None
     """URL of a photo of the User."""
 
     display: str | None = None
@@ -175,7 +179,7 @@ class Address(ComplexAttribute):
 
     primary: bool | None = None
     """A Boolean value indicating the 'primary' or preferred attribute value
-    for this attribute, e.g., the preferred photo or thumbnail."""
+    for this attribute, e.g., the preferred address."""
 
 
 class Entitlement(ComplexAttribute):
@@ -198,7 +202,7 @@ class GroupMembership(ComplexAttribute):
     """The identifier of the User's group."""
 
     ref: Annotated[
-        Reference[Literal["User"] | Literal["Group"]] | None,
+        Reference["Group"] | None,
         Mutability.read_only,
     ] = Field(None, serialization_alias="$ref")
     """The reference URI of a target resource, if the attribute is a
@@ -245,9 +249,7 @@ class X509Certificate(ComplexAttribute):
 
 
 class User(Resource[AnyExtension]):
-    schemas: Annotated[list[str], Required.true] = [
-        "urn:ietf:params:scim:schemas:core:2.0:User"
-    ]
+    __schema__ = URN("urn:ietf:params:scim:schemas:core:2.0:User")
 
     user_name: Annotated[str | None, Uniqueness.server, Required.true] = None
     """Unique identifier for the User, typically used by the user to directly
@@ -265,7 +267,7 @@ class User(Resource[AnyExtension]):
     """The casual way to address the user in real life, e.g., 'Bob' or 'Bobby'
     instead of 'Robert'."""
 
-    profile_url: Reference[ExternalReference] | None = None
+    profile_url: Reference[External] | None = None
     """A fully qualified URL pointing to a page representing the User's online
     profile."""
 

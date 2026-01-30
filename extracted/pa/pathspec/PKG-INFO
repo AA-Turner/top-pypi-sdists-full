@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pathspec
-Version: 1.0.3
+Version: 1.0.4
 Summary: Utility library for gitignore style pattern matching of file paths.
 Author-email: "Caleb P. Burns" <cpburnz@gmail.com>
 Requires-Python: >=3.9
@@ -262,6 +262,14 @@ a `Ruby gem`_.
 
 Change History
 ==============
+
+
+1.0.4 (2026-01-26)
+------------------
+
+- `Issue #103`_: Using re2 fails if pyre2 is also installed.
+
+.. _`Issue #103`: https://github.com/cpburnz/python-pathspec/issues/103
 
 
 1.0.3 (2026-01-09)

@@ -1022,6 +1022,26 @@ class BillingClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DescribeRenewInstances(
+            self,
+            request: models.DescribeRenewInstancesRequest,
+            opts: Dict = None,
+    ) -> models.DescribeRenewInstancesResponse:
+        """
+        注意事项：
+        1、本接口支持查询已接入续费管理页的包年包月实例，包括运行中、已隔离（部分产品不支持）
+        2、子用户使用该接口时，应具备QcloudFinanceRenewManageFullAccess权限策略。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeRenewInstances"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeRenewInstancesResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DescribeSavingPlanResourceInfo(
             self,
             request: models.DescribeSavingPlanResourceInfoRequest,
@@ -1215,6 +1235,27 @@ class BillingClient(AbstractClient):
         kwargs["action"] = "RenewInstance"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.RenewInstanceResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def SetRenewal(
+            self,
+            request: models.SetRenewalRequest,
+            opts: Dict = None,
+    ) -> models.SetRenewalResponse:
+        """
+        注意事项：
+        1、本接口支持对包年包月实例设置自动续费模式及周期
+        2、可通过实例查询接口获取到产品编码、地域编码
+        3、子用户使用该接口时，应具备QcloudFinanceRenewManageFullAccess权限策略。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "SetRenewal"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.SetRenewalResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2020-2025)
+// SPDX-License-Identifier: MPL-2.0
+// Copyright ijl (2020-2026)
 
 use core::ffi::c_char;
 
-use core::ptr::null_mut;
-use pyo3_ffi::{
-    Py_DECREF, Py_INCREF, Py_SIZE, Py_TPFLAGS_DEFAULT, PyErr_SetObject, PyExc_TypeError, PyObject,
-    PyType_Ready, PyType_Type, PyTypeObject, PyUnicode_FromStringAndSize, PyVarObject,
+use crate::ffi::{
+    Py_DECREF, Py_INCREF, Py_TPFLAGS_DEFAULT, PyErr_SetObject, PyExc_TypeError, PyObject,
+    PyTupleRef, PyType_Ready, PyType_Type, PyTypeObject, PyUnicode_FromStringAndSize, PyVarObject,
 };
+use core::ptr::null_mut;
 
 #[cfg(Py_GIL_DISABLED)]
 use super::atomiculong::AtomicCULong;
@@ -52,7 +52,7 @@ fn raise_args_exception() {
     unsafe {
         let msg = "orjson.Fragment() takes exactly 1 positional argument";
         let err_msg =
-            PyUnicode_FromStringAndSize(msg.as_ptr().cast::<c_char>(), msg.len() as isize);
+            PyUnicode_FromStringAndSize(msg.as_ptr().cast::<c_char>(), msg.len().cast_signed());
         PyErr_SetObject(PyExc_TypeError, err_msg);
         Py_DECREF(err_msg);
     };
@@ -67,11 +67,12 @@ pub(crate) unsafe extern "C" fn orjson_fragment_tp_new(
     kwds: *mut PyObject,
 ) -> *mut PyObject {
     unsafe {
-        if Py_SIZE(args) != 1 || !kwds.is_null() {
+        let argsob = PyTupleRef::from_ptr_unchecked(args);
+        if argsob.len() != 1 || !kwds.is_null() {
             raise_args_exception();
             null_mut()
         } else {
-            let contents = crate::ffi::PyTuple_GET_ITEM(args, 0);
+            let contents = argsob.get(0);
             Py_INCREF(contents);
             let obj = Box::new(Fragment {
                 #[cfg(Py_GIL_DISABLED)]
@@ -118,10 +119,8 @@ pub(crate) unsafe extern "C" fn orjson_fragmenttype_new() -> *mut PyTypeObject {
         #[cfg(Py_GIL_DISABLED)]
         let tp_flags: AtomicCULong =
             AtomicCULong::new(Py_TPFLAGS_DEFAULT | pyo3_ffi::Py_TPFLAGS_IMMUTABLETYPE);
-        #[cfg(all(Py_3_10, not(Py_GIL_DISABLED)))]
+        #[cfg(not(Py_GIL_DISABLED))]
         let tp_flags: core::ffi::c_ulong = Py_TPFLAGS_DEFAULT | pyo3_ffi::Py_TPFLAGS_IMMUTABLETYPE;
-        #[cfg(not(Py_3_10))]
-        let tp_flags: core::ffi::c_ulong = Py_TPFLAGS_DEFAULT;
         let ob = Box::new(PyTypeObject {
             ob_base: PyVarObject {
                 ob_base: PyObject {
@@ -153,7 +152,7 @@ pub(crate) unsafe extern "C" fn orjson_fragmenttype_new() -> *mut PyTypeObject {
                 _ob_size_graalpy: 0,
             },
             tp_name: c"orjson.Fragment".as_ptr(),
-            tp_basicsize: core::mem::size_of::<Fragment>() as isize,
+            tp_basicsize: core::mem::size_of::<Fragment>().cast_signed(),
             tp_itemsize: 0,
             tp_dealloc: Some(orjson_fragment_dealloc),
             tp_init: None,

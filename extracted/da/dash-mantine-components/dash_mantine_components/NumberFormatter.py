@@ -71,7 +71,7 @@ Keyword arguments:
 - tabIndex (number; optional):
     tab-index.
 
-- thousandSeparator (string; optional):
+- thousandSeparator (string | boolean; optional):
     A character used to separate thousands, `','` by default.
 
 - thousandsGroupStyle (a value equal to: 'none', 'thousand', 'lakh', 'wan'; optional):
@@ -103,7 +103,7 @@ Keyword arguments:
         prefix: typing.Optional[str] = None,
         suffix: typing.Optional[str] = None,
         thousandsGroupStyle: typing.Optional[Literal["none", "thousand", "lakh", "wan"]] = None,
-        thousandSeparator: typing.Optional[typing.Union[str]] = None,
+        thousandSeparator: typing.Optional[typing.Union[str, bool]] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,

@@ -3,7 +3,7 @@ Main interface for mediaconnect service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -32,6 +32,7 @@ Usage::
         OutputDeletedWaiter,
         OutputRoutedWaiter,
         OutputStandbyWaiter,
+        OutputUnroutedWaiter,
     )
 
     session = Session()
@@ -47,6 +48,7 @@ Usage::
     output_deleted_waiter: OutputDeletedWaiter = client.get_waiter("output_deleted")
     output_routed_waiter: OutputRoutedWaiter = client.get_waiter("output_routed")
     output_standby_waiter: OutputStandbyWaiter = client.get_waiter("output_standby")
+    output_unrouted_waiter: OutputUnroutedWaiter = client.get_waiter("output_unrouted")
 
     list_bridges_paginator: ListBridgesPaginator = client.get_paginator("list_bridges")
     list_entitlements_paginator: ListEntitlementsPaginator = client.get_paginator("list_entitlements")
@@ -85,6 +87,7 @@ from .waiter import (
     OutputDeletedWaiter,
     OutputRoutedWaiter,
     OutputStandbyWaiter,
+    OutputUnroutedWaiter,
 )
 
 Client = MediaConnectClient
@@ -113,4 +116,5 @@ __all__ = (
     "OutputDeletedWaiter",
     "OutputRoutedWaiter",
     "OutputStandbyWaiter",
+    "OutputUnroutedWaiter",
 )

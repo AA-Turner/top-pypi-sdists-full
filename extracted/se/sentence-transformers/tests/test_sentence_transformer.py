@@ -21,9 +21,11 @@ import numpy as np
 import pytest
 import torch
 from huggingface_hub import CommitInfo, HfApi, RepoUrl
+from packaging.version import Version, parse
 from tokenizers.processors import TemplateProcessing
 from torch import nn
 from transformers import BertModel
+from transformers import __version__ as transformers_version
 from transformers.utils import is_peft_available
 
 from sentence_transformers import SentenceTransformer, util
@@ -118,20 +120,18 @@ def test_push_to_hub(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureF
     def mock_upload_folder(self, **kwargs):
         nonlocal mock_upload_folder_kwargs
         mock_upload_folder_kwargs = kwargs
-        if kwargs.get("revision") is None:
-            return CommitInfo(
-                commit_url=f"https://huggingface.co/{kwargs.get('repo_id')}/commit/123456",
-                commit_message="commit_message",
-                commit_description="commit_description",
-                oid="oid",
-            )
-        else:
-            return CommitInfo(
-                commit_url=f"https://huggingface.co/{kwargs.get('repo_id')}/commit/678901",
-                commit_message="commit_message",
-                commit_description="commit_description",
-                oid="oid",
-            )
+        commit_hash = "123456" if kwargs.get("revision") is None else "678901"
+        commit_info_kwargs = {
+            "commit_url": f"https://huggingface.co/{kwargs.get('repo_id')}/commit/{commit_hash}",
+            "commit_message": "commit_message",
+            "commit_description": "commit_description",
+            "oid": "oid",
+        }
+        try:
+            return CommitInfo(**commit_info_kwargs)
+        except TypeError:
+            # Required as of https://github.com/huggingface/huggingface_hub/pull/3679
+            return CommitInfo(**commit_info_kwargs, _endpoint=None)
 
     def mock_create_branch(self, repo_id, branch, revision=None, **kwargs):
         return None
@@ -274,9 +274,11 @@ def test_safe_serialization(stsb_bert_tiny_model: SentenceTransformer, safe_seri
             model_files = list(Path(cache_folder).glob("**/model.safetensors"))
             assert 1 == len(model_files)
         else:
-            model.save(cache_folder, safe_serialization=safe_serialization)
-            model_files = list(Path(cache_folder).glob("**/pytorch_model.bin"))
-            assert 1 == len(model_files)
+            # For transformers v5.0, safe_serialization is quietly ignored
+            if parse(transformers_version) < Version("5.0.0dev0"):
+                model.save(cache_folder, safe_serialization=safe_serialization)
+                model_files = list(Path(cache_folder).glob("**/pytorch_model.bin"))
+                assert 1 == len(model_files)
 
 
 def test_load_with_revision() -> None:

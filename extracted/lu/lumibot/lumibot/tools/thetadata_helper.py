@@ -2,6 +2,7 @@
 import functools
 import hashlib
 import json
+import logging
 import os
 import random
 import re
@@ -2202,19 +2203,23 @@ def get_price_data(
     """
     import pytz  # Import at function level to avoid scope issues in nested calls
 
-    # DEBUG-LOG: Entry point for ThetaData request
-    logger.debug(
-        "[THETA][DEBUG][REQUEST][ENTRY] asset=%s quote=%s start=%s end=%s dt=%s timespan=%s datastyle=%s include_after_hours=%s return_polars=%s",
-        asset,
-        quote_asset,
-        start.isoformat() if hasattr(start, 'isoformat') else start,
-        end.isoformat() if hasattr(end, 'isoformat') else end,
-        dt.isoformat() if dt and hasattr(dt, 'isoformat') else dt,
-        timespan,
-        datastyle,
-        include_after_hours,
-        return_polars
-    )
+    # DEBUG-LOG: Entry point for ThetaData request.
+    #
+    # PERF: `get_price_data()` can be called tens of thousands of times in option-heavy backtests.
+    # Avoid eager `.isoformat()` / string building unless debug logging is actually enabled.
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "[THETA][DEBUG][REQUEST][ENTRY] asset=%s quote=%s start=%s end=%s dt=%s timespan=%s datastyle=%s include_after_hours=%s return_polars=%s",
+            asset,
+            quote_asset,
+            start,
+            end,
+            dt,
+            timespan,
+            datastyle,
+            include_after_hours,
+            return_polars,
+        )
 
     if return_polars:
         raise ValueError("ThetaData polars output is not available; pass return_polars=False.")
@@ -3456,9 +3461,19 @@ _CALENDAR_CACHE: Dict[object, object] = {}
 
 def _get_cached_calendar(name: str):
     """Get or create a cached market calendar object."""
-    if name not in _CALENDAR_CACHE:
-        _CALENDAR_CACHE[name] = mcal.get_calendar(name)
-    return _CALENDAR_CACHE[name]
+    # IMPORTANT (test isolation / monkeypatch safety):
+    # Some unit tests monkeypatch `pandas_market_calendars.get_calendar` with a dummy implementation.
+    # If we cache calendar objects under a stable key, that dummy calendar can leak into subsequent
+    # tests and produce incorrect trading dates (e.g., treating US holidays as business days).
+    #
+    # Key by the identity of the calendar factory so restoring the original implementation yields a
+    # different cache key without requiring explicit cache clears.
+    cache_key = ("calendar", name, id(mcal.get_calendar))
+    cached = _CALENDAR_CACHE.get(cache_key)
+    if cached is None:
+        cached = mcal.get_calendar(name)
+        _CALENDAR_CACHE[cache_key] = cached
+    return cached
 
 
 # PERFORMANCE (2026-01-03): Cache full-year schedules and slice for sub-ranges.
@@ -3475,7 +3490,9 @@ def _get_cached_calendar(name: str):
 # NOTE: We store these schedules in `_CALENDAR_CACHE` so clearing that dict also clears
 # schedule caching (important for legacy tests that monkeypatch the calendar impl).
 def _cached_year_schedule(calendar_name: str, year: int) -> pd.DataFrame:
-    key = (calendar_name, year)
+    # Include the calendar factory identity to avoid reusing schedules generated under a monkeypatched
+    # calendar in later tests.
+    key = (calendar_name, year, id(mcal.get_calendar))
     schedule = _CALENDAR_CACHE.get(key)
     if schedule is not None:
         return schedule  # type: ignore[return-value]
@@ -3489,11 +3506,13 @@ def _cached_year_schedule(calendar_name: str, year: int) -> pd.DataFrame:
 
 
 @functools.lru_cache(maxsize=2048)  # Increased from 512 for longer backtests
-def _cached_trading_dates(asset_type: str, start_date: date, end_date: date) -> List[date]:
+def _cached_trading_dates(asset_type: str, start_date: date, end_date: date, calendar_version: int) -> List[date]:
     """Memoized trading-day resolver to avoid rebuilding calendars every call.
 
     PERFORMANCE FIX (2025-12-07): Increased cache size and use cached calendars.
     """
+    # calendar_version is intentionally unused in the logic below; it exists solely to ensure the
+    # LRU cache is invalidated when the calendar factory is monkeypatched (tests).
     if asset_type == "crypto":
         return [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
     if asset_type == "stock" or asset_type == "option" or asset_type == "index":
@@ -3550,7 +3569,7 @@ def get_trading_dates(asset: Asset, start: datetime, end: datetime):
     except Exception:
         # If dates are not comparable, fall through and let the calendar path raise.
         pass
-    return list(_cached_trading_dates(asset.asset_type, start_date, end_date))
+    return list(_cached_trading_dates(asset.asset_type, start_date, end_date, id(mcal.get_calendar)))
 
 
 def build_cache_filename(asset: Asset, timespan: str, datastyle: str = "ohlc"):
@@ -4115,21 +4134,26 @@ def load_cache(cache_file, *, start=None, end=None, preserve_full_history: bool 
     When `start`/`end` are provided and `preserve_full_history=False`, we use PyArrow's dataset
     filtering to load only the requested datetime slice.
     """
-    # DEBUG-LOG: Start loading cache
-    logger.debug(
-        "[THETA][DEBUG][CACHE][LOAD_START] cache_file=%s | "
-        "exists=%s size_bytes=%d",
-        cache_file.name,
-        cache_file.exists(),
-        cache_file.stat().st_size if cache_file.exists() else 0
-    )
+    debug_enabled = logger.isEnabledFor(logging.DEBUG)
 
     if not cache_file.exists():
-        logger.debug(
-            "[THETA][DEBUG][CACHE][LOAD_MISSING] cache_file=%s | returning=None",
-            cache_file.name,
-        )
+        if debug_enabled:
+            logger.debug(
+                "[THETA][DEBUG][CACHE][LOAD_MISSING] cache_file=%s | returning=None",
+                cache_file.name,
+            )
         return None
+
+    if debug_enabled:
+        try:
+            size_bytes = cache_file.stat().st_size
+        except Exception:
+            size_bytes = 0
+        logger.debug(
+            "[THETA][DEBUG][CACHE][LOAD_START] cache_file=%s | size_bytes=%d",
+            cache_file.name,
+            size_bytes,
+        )
 
     df = None
     use_arrow_filter = False
@@ -4836,10 +4860,14 @@ def start_theta_data_client(username: str, password: str):
         lumibot_jar = next((path for path in candidate_paths if path.exists()), None)
 
         if lumibot_jar is None:
+            # ThetaData is optional. Provide an actionable message rather than assuming bundling.
             raise FileNotFoundError(
-                "ThetaTerminal.jar not bundled with lumibot installation. "
-                f"Searched: {', '.join(str(path) for path in candidate_paths)}. "
-                f"Please reinstall lumibot or manually place the jar at {jar_file}"
+                "ThetaTerminal.jar not available. ThetaData support is optional and not installed by default. "
+                f"Searched for a bundled JAR at: {', '.join(str(path) for path in candidate_paths)}. "
+                "To enable ThetaData functionality, either:\n"
+                " - Install the optional extra: pip install \"lumibot[thetadata]\" (requires Java 11+), or\n"
+                f" - Manually download ThetaTerminal.jar from ThetaData and place it at: {jar_file}.\n"
+                "After installing, re-run your command."
             )
 
         logger.info(f"Copying ThetaTerminal.jar from {lumibot_jar} to {jar_file}")
@@ -4847,7 +4875,10 @@ def start_theta_data_client(username: str, password: str):
         logger.info(f"Successfully copied ThetaTerminal.jar to {jar_file}")
 
     if not jar_file.exists():
-        raise FileNotFoundError(f"ThetaTerminal.jar not found at {jar_file}")
+        raise FileNotFoundError(
+            "ThetaTerminal.jar not found. ThetaData support is optional and disabled. "
+            f"Expected at: {jar_file}. Install with: pip install 'lumibot[thetadata]' or place the JAR manually."
+        )
 
     try:
         jar_stats = jar_file.stat()
@@ -5090,11 +5121,13 @@ def get_request(
                 break
 
             if isinstance(result, dict):
-                # Standard queue response already in v2-style format.
-                if "header" in result and "response" in result:
-                    processed_result = result
-                else:
-                    processed_result = _convert_columnar_to_row_format(result)
+                # Normalize queue payloads into a consistent v2-style envelope:
+                # {"header":{"format":[...]}, "response":[[...], ...]}
+                #
+                # This must handle both:
+                # - v2/v3 columnar payloads (dict-of-lists)
+                # - v3 row payloads ({"response": [ {timestamp:..., ...}, ... ]})
+                processed_result = _coerce_json_payload(result)
             else:
                 processed_result = result
 
@@ -5515,6 +5548,8 @@ def get_historical_eod_data(
     # Convert to date objects for chunking
     start_day = datetime.strptime(start_date, "%Y%m%d").date()
     end_day = datetime.strptime(end_date, "%Y%m%d").date()
+    # Provider constraint: Theta's EOD history endpoints enforce a hard 365-day limit per request.
+    # Keep windows <= 365 days (inclusive) and use recursive splitting only for transient failures.
     max_span = timedelta(days=364)
 
     def _chunk_windows():
@@ -5536,60 +5571,68 @@ def get_historical_eod_data(
             querystring["end_date"],
         )
 
-        return get_request(
-            url=url,
-            headers=headers,
-            querystring=querystring,
-        )
+        try:
+            return get_request(
+                url=url,
+                headers=headers,
+                querystring=querystring,
+            )
+        except ThetaRequestError:
+            raise
+        except Exception as exc:
+            # The downloader queue client historically raises a generic Exception on permanent
+            # failures (instead of a typed HTTP error). Translate "window too large" errors into
+            # ThetaRequestError so our recursive splitter can reduce the range and retry.
+            msg = str(exc)
+            if "Too many days between start and end date" in msg or "max 365 days" in msg:
+                raise ThetaRequestError(msg, status_code=500, body=msg) from exc
+            raise
 
-    def _collect_chunk_payloads(chunk_start: date, chunk_end: date, *, allow_split: bool = True) -> List[Optional[Dict[str, Any]]]:
+    def _collect_chunk_payloads(
+        chunk_start: date,
+        chunk_end: date,
+        *,
+        depth: int = 0,
+        max_depth: int = 16,
+    ) -> List[Optional[Dict[str, Any]]]:
         try:
             response = _execute_chunk_request(chunk_start, chunk_end)
             return [response]
         except ThetaRequestError as exc:
             span_days = (chunk_end - chunk_start).days + 1
-            if not allow_split or span_days <= 1:
+            if span_days <= 1 or depth >= max_depth:
                 raise
-            midpoint = chunk_start + timedelta(days=(span_days // 2) - 1)
-            right_start = midpoint + timedelta(days=1)
             logger.warning(
-                "[THETA][WARN][EOD][CHUNK] asset=%s start=%s end=%s status=%s retrying with split windows",
+                "[THETA][WARN][EOD][CHUNK] asset=%s start=%s end=%s status=%s retrying with split windows (depth=%d)",
                 asset,
                 chunk_start,
                 chunk_end,
                 exc.status_code,
+                depth,
             )
+            midpoint = chunk_start + timedelta(days=(span_days // 2) - 1)
+            left_end = min(midpoint, chunk_end)
+            right_start = min(midpoint + timedelta(days=1), chunk_end)
+
             split_payloads: List[Optional[Dict[str, Any]]] = []
-            splits = (
-                (chunk_start, min(midpoint, chunk_end)),
-                (min(right_start, chunk_end), chunk_end),
-            )
-            for split_idx, (split_start, split_end) in enumerate(splits, start=1):
-                if split_start > split_end:
-                    continue
-                logger.debug(
-                    "[THETA][DEBUG][EOD][REQUEST][CHUNK][SPLIT] asset=%s parent=%s-%s split=%d start=%s end=%s",
-                    asset,
-                    chunk_start,
-                    chunk_end,
-                    split_idx,
-                    split_start,
-                    split_end,
-                )
-                try:
-                    split_payloads.extend(
-                        _collect_chunk_payloads(split_start, split_end, allow_split=False)
-                    )
-                except ThetaRequestError as sub_exc:
-                    logger.error(
-                        "[THETA][ERROR][EOD][CHUNK][SPLIT] asset=%s parent=%s-%s split=%d failed status=%s",
-                        asset,
+            if chunk_start <= left_end:
+                split_payloads.extend(
+                    _collect_chunk_payloads(
                         chunk_start,
-                        chunk_end,
-                        split_idx,
-                        sub_exc.status_code,
+                        left_end,
+                        depth=depth + 1,
+                        max_depth=max_depth,
                     )
-                    raise
+                )
+            if right_start <= chunk_end:
+                split_payloads.extend(
+                    _collect_chunk_payloads(
+                        right_start,
+                        chunk_end,
+                        depth=depth + 1,
+                        max_depth=max_depth,
+                    )
+                )
             return split_payloads
 
     aggregated_rows: List[List[Any]] = []
@@ -5833,6 +5876,60 @@ def get_historical_data(
         (HH:MM:SS strings). Useful for requesting specific minute windows such as the 09:30 open.
     """
 
+    def _build_history_frame(json_resp: Any) -> Optional[pd.DataFrame]:
+        """Normalize ThetaData history payloads into a DataFrame.
+
+        Theta's v3 REST surface is not fully stable across terminal versions:
+        - some responses are v2-style: {"header": {"format": [...]}, "response": [[...], ...]}
+        - others are row-style: {"response": [{"timestamp": "...", ...}, ...]} (no "header")
+        - some option history endpoints return a nested payload:
+            {"response": [{"contract": {...}, "data": [{...}, {...}, ...]}]}
+
+        LumiBot's downstream merge path expects a DataFrame that can be indexed by a "datetime"
+        series during `_finalize_history_dataframe()`, so we must accept both shapes here.
+        """
+        if not json_resp:
+            return None
+
+        if isinstance(json_resp, dict):
+            raw = json_resp.get("response")
+            header = json_resp.get("header") if isinstance(json_resp.get("header"), dict) else None
+            fmt = header.get("format") if header else None
+        else:
+            raw = json_resp
+            fmt = None
+
+        if raw is None:
+            return None
+
+        df: pd.DataFrame
+
+        # v3 row-style: list[dict]
+        if isinstance(raw, list) and raw and isinstance(raw[0], dict):
+            df = pd.DataFrame(raw)
+        # v2 columnar: list[list] with header.format
+        elif isinstance(raw, list) and raw and isinstance(raw[0], (list, tuple)) and isinstance(fmt, list):
+            df = pd.DataFrame(raw, columns=fmt)
+        else:
+            # Fallback: let pandas infer.
+            df = pd.DataFrame(raw)
+
+        if df is None or df.empty:
+            return df
+
+        # Some option endpoints return a nested response:
+        #   response: [{"contract": {...}, "data": [{timestamp:..., bid:..., ask:...}, ...]}]
+        # Our downstream expects one row per timestamp.
+        if "timestamp" not in df.columns and "data" in df.columns:
+            try:
+                nested = df["data"].tolist()
+                if len(nested) == 1 and isinstance(nested[0], list) and nested[0] and isinstance(nested[0][0], dict):
+                    return pd.DataFrame(nested[0])
+            except Exception:
+                pass
+
+        return df
+
     asset_type = str(getattr(asset, "asset_type", "stock")).lower()
     endpoint = HISTORY_ENDPOINTS.get((asset_type, datastyle))
     if endpoint is None:
@@ -5927,7 +6024,9 @@ def get_historical_data(
         _advance_download_progress()
         if not json_resp:
             return None
-        df = pd.DataFrame(json_resp["response"], columns=json_resp["header"]["format"])
+        df = _build_history_frame(json_resp)
+        if df is None or df.empty:
+            return None
         return _finalize_history_dataframe(df, datastyle, asset)
 
     frames: List[pd.DataFrame] = []
@@ -5977,7 +6076,9 @@ def get_historical_data(
         if not json_resp:
             continue
 
-        df = pd.DataFrame(json_resp["response"], columns=json_resp["header"]["format"])
+        df = _build_history_frame(json_resp)
+        if df is None or df.empty:
+            continue
         df = _finalize_history_dataframe(df, datastyle, asset)
         if df is not None and not df.empty:
             frames.append(df)
@@ -6152,8 +6253,11 @@ def _normalize_strike_value(raw_value: object) -> Optional[float]:
     if strike <= 0:
         return None
 
-    # ThetaData encodes strikes in thousandths of a dollar for integer payloads
-    if strike > 10000:
+    # ThetaData has historically returned strikes in thousandths-of-a-dollar for some payloads
+    # (e.g. 4500000 representing 4500.0). However, legitimate index strikes (e.g. NDX ~ 18000)
+    # can exceed 10,000 in *dollars*. Only apply the thousandths normalization when the value is
+    # clearly too large to be a real strike in dollars.
+    if strike >= 100000:
         strike /= 1000.0
 
     return round(strike, 4)
@@ -6391,9 +6495,13 @@ def build_historical_chain(
         if result is None:
             return None
         if isinstance(result, dict):
-            if "header" in result and "response" in result:
-                return result
-            return _convert_columnar_to_row_format(result)
+            # Normalize queue payloads into a consistent v2-style envelope:
+            # {"header":{"format":[...]}, "response":[[...], ...]}
+            #
+            # Queue responses can be:
+            # - v2/v3 columnar payloads (dict-of-lists)
+            # - v3 row payloads ({"response": [ {timestamp:..., ...}, ... ]})
+            return _coerce_json_payload(result)
         return {"header": {"format": []}, "response": result}
 
     expiration_candidates: List[Tuple[str, str]] = []

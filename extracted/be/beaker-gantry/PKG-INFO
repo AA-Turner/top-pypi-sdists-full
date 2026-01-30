@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-gantry
-Version: 3.4.3
+Version: 3.4.5
 Summary: Gantry streamlines running Python experiments in Beaker by managing containers and boilerplate for you
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: homepage, https://github.com/allenai/beaker-gantry
@@ -477,7 +477,7 @@ jobs:
 
       - name: launch job
         run: |
-          gantry run \
+          exec gantry run \
             --show-logs \
             --yes \
             --workspace ${{ env.BEAKER_WORKSPACE }} \
@@ -491,6 +491,8 @@ jobs:
             --gpu-type a100 \
             -- pytest -v tests/cuda_tests/  # TODO: change to your own command
 ```
+
+Note that we use `exec gantry run ...` instead of just `gantry run`. This ensures that if GitHub Actions cancels the job, the SIGINT and SIGTERM signals will propagate to `gantry`, allowing it to clean up gracefully and cancel the running job on Beaker.
 </details>
 
 ### Why "Gantry"?

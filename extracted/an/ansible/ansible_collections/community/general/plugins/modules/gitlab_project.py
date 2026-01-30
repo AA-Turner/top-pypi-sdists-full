@@ -412,10 +412,9 @@ from ansible_collections.community.general.plugins.module_utils.gitlab import (
     auth_argument_spec,
     find_group,
     find_project,
-    gitlab_authentication,
     gitlab,
+    gitlab_authentication,
 )
-
 from ansible_collections.community.general.plugins.module_utils.version import LooseVersion
 
 
@@ -500,7 +499,7 @@ class GitLabProject:
             if options["avatar_path"]:
                 try:
                     project.avatar = open(options["avatar_path"], "rb")
-                except IOError as e:
+                except OSError as e:
                     self._module.fail_json(msg=f"Cannot open {options['avatar_path']}: {e}")
 
             changed = True

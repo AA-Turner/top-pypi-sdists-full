@@ -172,6 +172,7 @@ _LIST_ARG_DOCSTRINGS = {
     "project": "Filter by project name.",
     "cloud": "Filter by cloud name.",
     "creator_id": "Filter by creator ID.",
+    "include_all_users": "Include schedules from all users.",
     "page_size": "Number of items per page.",
     "max_items": "Maximum total items to return.",
 }
@@ -183,13 +184,14 @@ _LIST_ARG_DOCSTRINGS = {
     doc_py_example=_LIST_EXAMPLE,
     arg_docstrings=_LIST_ARG_DOCSTRINGS,
 )
-def list(  # noqa: A001
+def list(  # noqa: A001, PLR0913
     *,
     name: Optional[str] = None,
     schedule_id: Optional[str] = None,
     project: Optional[str] = None,
     cloud: Optional[str] = None,
     creator_id: Optional[str] = None,
+    include_all_users: bool = False,
     page_size: Optional[int] = None,
     max_items: Optional[int] = None,
     _private_sdk: Optional[PrivateScheduleSDK] = None,
@@ -204,6 +206,45 @@ def list(  # noqa: A001
         project=project,
         cloud=cloud,
         creator_id=creator_id,
+        include_all_users=include_all_users,
         page_size=page_size,
         max_items=max_items,
     )
+
+
+_URL_EXAMPLE = """
+import anyscale
+
+# Get URL by ID
+url = anyscale.schedule.url(id="cronjob_xxx")
+print(url)
+
+# Get URL by name
+url = anyscale.schedule.url(name="my-schedule", cloud="my-cloud", project="my-project")
+print(url)
+"""
+
+_URL_ARG_DOCSTRINGS = {
+    "id": "The schedule ID.",
+    "name": "The schedule name (requires cloud and project).",
+    "cloud": "Cloud name (required with name).",
+    "project": "Project name (required with name).",
+}
+
+
+@sdk_command(
+    _SCHEDULE_SDK_SINGLETON_KEY,
+    PrivateScheduleSDK,
+    doc_py_example=_URL_EXAMPLE,
+    arg_docstrings=_URL_ARG_DOCSTRINGS,
+)
+def url(
+    *,
+    id: Optional[str] = None,  # noqa: A002
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateScheduleSDK] = None,
+) -> str:
+    """Get the web UI URL for a schedule."""
+    return _private_sdk.url(id=id, name=name, cloud=cloud, project=project)  # type: ignore

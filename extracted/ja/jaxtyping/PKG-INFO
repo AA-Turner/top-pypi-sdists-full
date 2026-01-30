@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jaxtyping
-Version: 0.3.5
+Version: 0.3.6
 Summary: Type annotations and runtime checking for shape and dtype of JAX/NumPy/PyTorch/etc. arrays.
 Project-URL: repository, https://github.com/patrick-kidger/jaxtyping
 Author-email: Patrick Kidger <contact@kidger.site>

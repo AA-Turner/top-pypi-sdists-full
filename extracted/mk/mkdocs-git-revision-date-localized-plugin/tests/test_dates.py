@@ -1,7 +1,9 @@
-import pytest
 from datetime import datetime, timezone
-from babel.dates import get_timezone
+
+import pytest
 from babel.core import UnknownLocaleError
+from babel.dates import get_timezone
+
 from mkdocs_git_revision_date_localized_plugin.dates import get_date_formats
 
 

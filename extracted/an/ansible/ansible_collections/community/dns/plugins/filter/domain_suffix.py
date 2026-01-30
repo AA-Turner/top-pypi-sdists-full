@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from ansible.errors import AnsibleFilterError
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.dns.plugins.plugin_utils.public_suffix import (
     PUBLIC_SUFFIX_LIST,
 )
@@ -93,7 +94,7 @@ def remove_registrable_domain(
     """Given DNS name, returns the part before the registrable_domain."""
     if not isinstance(dns_name, (str, bytes)):
         raise AnsibleFilterError(
-            "Input for community.dns.get_registrable_domain must be a string"
+            "Input for community.dns.remove_registrable_domain must be a string"
         )
     for parameter, value in [
         ("keep_trailing_period", keep_trailing_period),
@@ -123,7 +124,7 @@ def remove_public_suffix(
     """Given DNS name, returns the part before the public suffix."""
     if not isinstance(dns_name, (str, bytes)):
         raise AnsibleFilterError(
-            "Input for community.dns.get_registrable_domain must be a string"
+            "Input for community.dns.remove_public_suffix must be a string"
         )
     for parameter, value in [
         ("keep_trailing_period", keep_trailing_period),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy-znp
-Version: 0.14.2
+Version: 0.14.3
 Summary: A library for zigpy which communicates with TI ZNP radios
 Author-email: Alexei Chetroi <alexei.chetroi@outlook.com>
 License: GPL-3.0
@@ -9,7 +9,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: zigpy>=0.78.0
+Requires-Dist: zigpy>=0.91.2
 Requires-Dist: async-timeout; python_version < "3.11"
 Requires-Dist: voluptuous
 Requires-Dist: coloredlogs

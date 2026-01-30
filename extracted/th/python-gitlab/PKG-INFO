@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-gitlab
-Version: 7.1.0
+Version: 8.0.0
 Summary: The python wrapper for the GitLab REST and GraphQL APIs.
 Author-email: Gauvain Pocentek <gauvain@pocentek.net>
 Maintainer-email: John Villalovos <john@sodarock.com>, Max Wittig <max.wittig@siemens.com>, Nejc Habjan <nejc.habjan@siemens.com>, Roger Meier <r.meier@siemens.com>
@@ -35,7 +35,7 @@ Requires-Dist: argcomplete<3,>=1.10.0; extra == "autocompletion"
 Provides-Extra: yaml
 Requires-Dist: PyYaml>=6.0.1; extra == "yaml"
 Provides-Extra: graphql
-Requires-Dist: gql[httpx]<4,>=3.5.0; extra == "graphql"
+Requires-Dist: gql[httpx]<5,>=3.5.0; extra == "graphql"
 Dynamic: license-file
 
 python-gitlab

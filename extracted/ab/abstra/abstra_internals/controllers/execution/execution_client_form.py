@@ -165,6 +165,9 @@ class FormClient(ExecutionClient):
         close_dto = contract.CloseDTO(exit_status="SUCCESS")
         self._send(contract.ExecutionEndedMessage(close_dto, self._production_mode))
 
+    def handle_abandoned(self) -> None:
+        self.conn.close()
+
     ## Testing
 
     @property

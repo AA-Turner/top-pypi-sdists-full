@@ -67,8 +67,6 @@ DNS_NAMES_RESOLVING_TO_LOCALSTACK = os.environ.get("DNS_NAMES_RESOLVING_TO_LOCAL
 ENFORCE_IAM = localstack_config.is_env_true("ENFORCE_IAM")
 IAM_SOFT_MODE = localstack_config.is_env_true("IAM_SOFT_MODE")
 
-DOCKER_GLOBAL_IMAGE_PREFIX = os.environ.get("DOCKER_GLOBAL_IMAGE_PREFIX", "").strip()
-
 # endpoint URL for kube cluster (defaults to https://<docker_bridge_ip>:6443)
 KUBE_ENDPOINT = os.environ.get("KUBE_ENDPOINT", "")
 
@@ -194,6 +192,9 @@ EC2_LIBVIRT_NETWORK = os.environ.get("EC2_LIBVIRT_NETWORK", "default").strip()
 
 # Name of the Libvirt storage pool to use for base images
 EC2_LIBVIRT_POOL = os.environ.get("EC2_LIBVIRT_POOL", "default").strip()
+
+# Name of a shut-off Libvirt domain whose configuration LocalStack will clone for all instances
+EC2_REFERENCE_DOMAIN = os.environ.get("EC2_REFERENCE_DOMAIN", "").strip()
 
 # Flag to enable loading of DMS provider
 ENABLE_DMS = localstack_config.is_env_true("ENABLE_DMS")
@@ -326,7 +327,7 @@ BEDROCK_PULL_MODELS = {
 
 # Glue job executor to use
 GLUE_JOB_EXECUTOR = os.environ.get("GLUE_JOB_EXECUTOR") or localstack_config.CONTAINER_RUNTIME
-GLUE_JOB_EXECUTOR_PROVIDER = os.environ.get("GLUE_JOB_EXECUTOR_PROVIDER", "v1").strip()
+GLUE_JOB_EXECUTOR_PROVIDER = os.environ.get("GLUE_JOB_EXECUTOR_PROVIDER", "v2").strip()
 
 
 def is_auth_token_set_in_cache() -> bool:
@@ -496,6 +497,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "EC2_HYPERVISOR_URI",
     "EC2_LIBVIRT_NETWORK",
     "EC2_LIBVIRT_POOL",
+    "EC2_REFERENCE_DOMAIN",
     "EC2_REMOVE_CONTAINERS",
     "EC2_VM_MANAGER",
     "EKS_K3S_IMAGE_REPOSITORY",

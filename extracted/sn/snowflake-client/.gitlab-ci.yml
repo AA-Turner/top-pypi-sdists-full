@@ -6,7 +6,8 @@ stages:
 .with_nix: &with_nix
   image: nixos/nix:2.26.2
   before_script:
-    - cp ./nix.conf /etc/nix/nix.conf
+    - cp ./build/nix.conf /etc/nix/nix.conf
+    - nix run ".#flakes-setup"
 
 .in_dev_branch: &in_dev_branch
   rules:
@@ -42,40 +43,39 @@ check-lint-nix:
   <<: *in_dev_branch
   stage: test
   script:
-    - 'nix run ".#cache-build" -- ".#check-lint-nix" $(pwd)'
+    - 'nix run ".#check-lint-nix" -- $(pwd)'
 
 dev-env-for-python311:
   <<: *with_nix
   <<: *in_dev_branch
   stage: test
   script:
-    - 'nix run ".#cache-build" -- ".#python311.env.dev"'
+    - 'nix build ".#python311.env.dev"'
 
 build-for-python311:
   <<: *with_nix
   <<: *in_dev_branch
   stage: build
   script:
-    - 'nix run ".#cache-build" -- ".#python311.pkg"'
+    - 'nix build ".#python311.pkg"'
 
 build-for-python312:
   <<: *with_nix
   <<: *in_dev_branch
   stage: build
   script:
-    - 'nix run ".#cache-build" -- ".#python312.pkg"'
+    - 'nix build ".#python312.pkg"'
 
 build-for-python313:
   <<: *with_nix
   <<: *in_dev_branch
   stage: build
   script:
-    - 'nix run ".#cache-build" -- ".#python313.pkg"'
+    - 'nix build ".#python313.pkg"'
 
 deploy-to-pypi:
   <<: *with_nix
   <<: *new_version
   stage: deploy
   script:
-    - 'nix run ".#cache-build" -- ".#publish"'
     - 'nix run ".#publish" -- $(pwd)'

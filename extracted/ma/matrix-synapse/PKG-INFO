@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrix-synapse
-Version: 1.145.0
+Version: 1.146.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Communications :: Chat
 Requires-Dist: jsonschema>=3.0.0
@@ -106,7 +106,7 @@ Project-URL: Issue Tracker, https://github.com/element-hq/synapse/issues
 Project-URL: documentation, https://element-hq.github.io/synapse/latest
 Project-URL: repository, https://github.com/element-hq/synapse
 
-.. image:: ./docs/element_logo_white_bg.svg
+.. image:: https://github.com/element-hq/synapse/raw/develop/docs/element_logo_white_bg.svg
    :height: 60px
 
 **Element Synapse - Matrix homeserver implementation**

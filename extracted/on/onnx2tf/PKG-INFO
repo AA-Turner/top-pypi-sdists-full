@@ -1,22 +1,28 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 1.29.4
-Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC).
-Home-page: https://github.com/PINTO0309/onnx2tf
+Version: 1.29.19
+Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in onnx-tensorflow (onnx-tf).
+Keywords: onnx,tensorflow,tflite,keras,deep-learning,machine-learning
 Author: Katsuya Hyodo
-Author-email: rmsdh122@yahoo.co.jp
-Platform: linux
-Platform: unix
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: LICENSE_onnx-tensorflow
+Author-email: Katsuya Hyodo <rmsdh122@yahoo.co.jp>
+License-Expression: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: requests==2.32.5
 Requires-Dist: numpy==1.26.4
 Requires-Dist: onnx==1.19.0
 Requires-Dist: onnxruntime==1.23.0
 Requires-Dist: opencv-python==4.11.0.86
-Requires-Dist: onnxsim==0.4.30
+Requires-Dist: onnxsim==0.4.36
+Requires-Dist: onnxoptimizer==0.4.2
 Requires-Dist: ai-edge-litert==2.1.0
 Requires-Dist: tensorflow==2.19.0
 Requires-Dist: tf-keras==2.19.0
@@ -25,14 +31,14 @@ Requires-Dist: simple-onnx-processing-tools==1.1.32
 Requires-Dist: psutil==5.9.5
 Requires-Dist: protobuf==4.25.5
 Requires-Dist: h5py==3.11.0
-Requires-Dist: ml_dtypes==0.5.1
+Requires-Dist: ml-dtypes==0.5.1
 Requires-Dist: flatbuffers==25.12.19
-Dynamic: author
-Dynamic: author-email
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: platform
-Dynamic: requires-python
+Requires-Python: >=3.10.12
+Project-URL: Homepage, https://github.com/PINTO0309/onnx2tf
+Project-URL: Repository, https://github.com/PINTO0309/onnx2tf
+Project-URL: Documentation, https://github.com/PINTO0309/onnx2tf#readme
+Project-URL: Issues, https://github.com/PINTO0309/onnx2tf/issues
+Description-Content-Type: text/markdown
 
 # onnx2tf
 Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in [onnx-tensorflow](https://github.com/onnx/onnx-tensorflow) ([onnx-tf](https://pypi.org/project/onnx-tf/)). I don't need a Star, but give me a pull request. Since I am adding challenging model optimizations and fixing bugs almost daily, I frequently embed potential bugs that would otherwise break through CI's regression testing. Therefore, if you encounter new problems, I recommend that you try a package that is a few versions older, or try the latest package that will be released in a few days.
@@ -95,6 +101,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Acosh|:heavy_check_mark:|
   |Acos|:heavy_check_mark:|
   |Add|:heavy_check_mark:|
+  |AffineGrid|:heavy_check_mark:|
   |And|:heavy_check_mark:|
   |ArgMax|:heavy_check_mark:|
   |ArgMin|:heavy_check_mark:|
@@ -102,6 +109,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Asin|:heavy_check_mark:|
   |Atanh|:heavy_check_mark:|
   |Atan|:heavy_check_mark:|
+  |Attention|:heavy_check_mark:|
   |AveragePool|:heavy_check_mark:|
   |BatchNormalization|:heavy_check_mark:|
   |Bernoulli|:heavy_check_mark:|
@@ -110,6 +118,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |BitwiseNot|:heavy_check_mark:|
   |BitwiseOr|:heavy_check_mark:|
   |BitwiseXor|:heavy_check_mark:|
+  |BlackmanWindow|:heavy_check_mark:|
   |Cast|:heavy_check_mark:|
   |Ceil|:heavy_check_mark:|
   |Celu|:heavy_check_mark:|
@@ -126,12 +135,13 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |ConvTranspose|:heavy_check_mark:|
   |Cosh|:heavy_check_mark:|
   |Cos|:heavy_check_mark:|
+  |CumProd|:heavy_check_mark:|
   |CumSum|:heavy_check_mark:|
-  |DeformConv|**Help wanted**|
+  |DeformConv|:white_check_mark:|
   |DepthToSpace|:heavy_check_mark:|
   |Det|:heavy_check_mark:|
   |DequantizeLinear|:heavy_check_mark:|
-  |DFT|**Help wanted**|
+  |DFT|:white_check_mark:|
   |Div|:heavy_check_mark:|
   |Dropout|:heavy_check_mark:|
   |DynamicQuantizeLinear|:heavy_check_mark:|
@@ -165,6 +175,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |HardSwish|:heavy_check_mark:|
   |Identity|:heavy_check_mark:|
   |If|:heavy_check_mark:|
+  |ImageDecoder|:white_check_mark:|
   |Input|:heavy_check_mark:|
   |InstanceNormalization|:heavy_check_mark:|
   |Inverse|:heavy_check_mark:|
@@ -176,15 +187,16 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Less|:heavy_check_mark:|
   |Log|:heavy_check_mark:|
   |LogSoftmax|:heavy_check_mark:|
-  |Loop|**Help wanted**|
+  |Loop|:heavy_check_mark:|
   |LpNormalization|:heavy_check_mark:|
+  |LpPool|:heavy_check_mark:|
   |LRN|:heavy_check_mark:|
   |LSTM|:heavy_check_mark:|
   |MatMul|:heavy_check_mark:|
   |MatMulInteger|:heavy_check_mark:|
   |MaxPool|:heavy_check_mark:|
   |Max|:heavy_check_mark:|
-  |MaxRoiPool|**Help wanted**|
+  |MaxRoiPool|:heavy_check_mark:|
   |MaxUnpool|:heavy_check_mark:|
   |Mean|:heavy_check_mark:|
   |MeanVarianceNormalization|:heavy_check_mark:|
@@ -195,6 +207,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Mul|:heavy_check_mark:|
   |Multinomial|:heavy_check_mark:|
   |Neg|:heavy_check_mark:|
+  |NegativeLogLikelihoodLoss|:heavy_check_mark:|
   |NonMaxSuppression|:heavy_check_mark:|
   |NonZero|:heavy_check_mark:|
   |Optional|**Help wanted**|
@@ -231,18 +244,20 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |ReduceProd|:heavy_check_mark:|
   |ReduceSum|:heavy_check_mark:|
   |ReduceSumSquare|:heavy_check_mark:|
+  |RegexFullMatch|:heavy_check_mark:|
   |Relu|:heavy_check_mark:|
   |Reshape|:heavy_check_mark:|
   |Resize|:heavy_check_mark:|
   |ReverseSequence|:heavy_check_mark:|
   |RNN|:heavy_check_mark:|
   |RoiAlign|:heavy_check_mark:|
+  |RotaryEmbedding|:heavy_check_mark:|
   |Round|:heavy_check_mark:|
   |ScaleAndTranslate|:heavy_check_mark:|
   |Scatter|:heavy_check_mark:|
   |ScatterElements|:heavy_check_mark:|
   |ScatterND|:heavy_check_mark:|
-  |Scan|**Help wanted**|
+  |Scan|:heavy_check_mark:|
   |Selu|:heavy_check_mark:|
   |SequenceAt|:heavy_check_mark:|
   |SequenceConstruct|:heavy_check_mark:|
@@ -259,6 +274,7 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Size|:heavy_check_mark:|
   |Slice|:heavy_check_mark:|
   |Softmax|:heavy_check_mark:|
+  |SoftmaxCrossEntropyLoss|:heavy_check_mark:|
   |Softplus|:heavy_check_mark:|
   |Softsign|:heavy_check_mark:|
   |SpaceToDepth|:heavy_check_mark:|
@@ -267,11 +283,14 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |Sqrt|:heavy_check_mark:|
   |Squeeze|:heavy_check_mark:|
   |STFT|:white_check_mark:|
-  |StringNormalizer|:white_check_mark:|
+  |StringConcat|:heavy_check_mark:|
+  |StringNormalizer|:heavy_check_mark:|
+  |StringSplit|:heavy_check_mark:|
   |Sub|:heavy_check_mark:|
   |Sum|:heavy_check_mark:|
-  |Tanh|:heavy_check_mark:|
   |Tan|:heavy_check_mark:|
+  |Tanh|:heavy_check_mark:|
+  |TensorScatter|:heavy_check_mark:|
   |TfIdfVectorizer|**Help wanted**|
   |ThresholdedRelu|:heavy_check_mark:|
   |Tile|:heavy_check_mark:|
@@ -292,12 +311,13 @@ Video speed is adjusted approximately 50 times slower than actual speed.
 
 ## Environment
 - Linux / Windows
-- onnx==1.17.0
-- onnxruntime==1.18.1
-- onnx-simplifier==0.4.33 or 0.4.30 `(onnx.onnx_cpp2py_export.shape_inference.InferenceError: [ShapeInferenceError] (op_type:Slice, node name: /xxxx/Slice): [ShapeInferenceError] Inferred shape and existing shape differ in rank: (x) vs (y))`
-- onnx_graphsurgeon
-- simple_onnx_processing_tools
-- tensorflow==2.19.0, Special bugs: [#436](https://github.com/PINTO0309/onnx2tf/issues/436)
+- onnx==1.19.0
+- onnxruntime==1.23.0
+- onnxsim==0.4.36
+- onnxoptimizer==0.4.2
+- onnx_graphsurgeon==0.5.8
+- simple_onnx_processing_tools==1.1.32
+- tensorflow==2.19.0
 - tf-keras==2.19.0
 - ai-edge-litert==1.2.0
 - psutil==5.9.5
@@ -345,7 +365,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:1.29.4
+  ghcr.io/pinto0309/onnx2tf:1.29.19
 
   or
 
@@ -353,15 +373,16 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:1.29.4
+  docker.io/pinto0309/onnx2tf:1.29.19
 
   or
 
-  pip install -U onnx==1.17.0 \
-  && pip install -U onnx-graphsurgeon \
-  && pip install -U onnxruntime==1.18.1 \
-  && pip install -U onnxsim==0.4.33 \
-  && pip install -U simple_onnx_processing_tools \
+  pip install -U onnx==1.19.0 \
+  && pip install -U onnx-graphsurgeon==0.5.8 \
+  && pip install -U onnxruntime==1.23.0 \
+  && pip install -U onnxsim==0.4.36 \
+  && pip install -U onnxoptimizer==0.4.2 \
+  && pip install -U simple_onnx_processing_tools==1.1.32 \
   && pip install -U sne4onnx>=1.0.13 \
   && pip install -U sng4onnx>=1.0.4 \
   && pip install -U ai_edge_litert==1.2.0 \
@@ -397,7 +418,7 @@ or
   !pip install -U pip \
     && pip install tensorflow==2.19.0 \
     && pip install ai_edge_litert==1.2.0 \
-    && pip install -U onnx==1.17.0 \
+    && pip install -U onnx==1.19.0 \
     && python -m pip install onnx_graphsurgeon \
           --index-url https://pypi.ngc.nvidia.com \
     && pip install -U onnxruntime==1.18.1 \

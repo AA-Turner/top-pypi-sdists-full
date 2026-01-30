@@ -17,7 +17,7 @@ CDK construct to synchronize single docker image between docker registries.
 
 ## Features
 
-* Copy image from ECR/external registry to (another) ECR/external registry
+* Copy image or multi-architecture image index from ECR/external registry to (another) ECR/external registry
 * Copy an archive tarball image from s3 to ECR/external registry
 
 ## Examples
@@ -57,6 +57,17 @@ ecrdeploy.ECRDeployment(self, "DeployDockerImage3",
     ],
     resources=["*"]
 ))
+
+# Copy multi-architecture image index (manifest) with all architectures.
+ecrdeploy.ECRDeployment(self, "DeployDockerImage4",
+    src=ecrdeploy.DockerImageName("public.ecr.aws/nginx/nginx:latest"),
+    dest=ecrdeploy.DockerImageName(f"{cdk.Aws.ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/my-nginx4:manifest"),
+    copy_image_index=True,
+    arch_image_tags={
+        "amd64": "my-nginx-amd64",
+        "arm64": "my-nginx-arm64"
+    }
+)
 ```
 
 ## Sample: [test/example.ecr-deployment.ts](./test/example.ecr-deployment.ts)
@@ -158,6 +169,8 @@ class ECRDeployment(
         *,
         dest: "IImageName",
         src: "IImageName",
+        arch_image_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        copy_image_index: typing.Optional[builtins.bool] = None,
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
@@ -170,6 +183,8 @@ class ECRDeployment(
         :param id: -
         :param dest: The destination of the docker image.
         :param src: The source of the docker image.
+        :param arch_image_tags: Tags to apply to individual architecture-specific images when copyImageIndex is true. Can only be specified when copyImageIndex is true. Maps architecture names to their respective tags. This makes individual architectures discoverable by human-readable tags in addition to the image index tag. For example, { 'arm64': 'image-arm64', 'amd64': 'image-amd64' }.
+        :param copy_image_index: Whether to copy a source docker image index (multi-arch manifest) to the destination. When true, copies the image index and all underlying architecture-specific images in a single operation. Default: False
         :param image_arch: The image architecture to be copied. The 'amd64' architecture will be copied by default. Specify the architecture or architectures to copy here. It is currently not possible to copy more than one architecture at a time: the array you specify must contain exactly one string. Default: ['amd64']
         :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: - 512
         :param role: Execution role associated with this function. Default: - A role is automatically created
@@ -184,6 +199,8 @@ class ECRDeployment(
         props = ECRDeploymentProps(
             dest=dest,
             src=src,
+            arch_image_tags=arch_image_tags,
+            copy_image_index=copy_image_index,
             image_arch=image_arch,
             memory_limit=memory_limit,
             role=role,
@@ -214,6 +231,8 @@ class ECRDeployment(
     name_mapping={
         "dest": "dest",
         "src": "src",
+        "arch_image_tags": "archImageTags",
+        "copy_image_index": "copyImageIndex",
         "image_arch": "imageArch",
         "memory_limit": "memoryLimit",
         "role": "role",
@@ -228,6 +247,8 @@ class ECRDeploymentProps:
         *,
         dest: "IImageName",
         src: "IImageName",
+        arch_image_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        copy_image_index: typing.Optional[builtins.bool] = None,
         image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
@@ -238,6 +259,8 @@ class ECRDeploymentProps:
         '''
         :param dest: The destination of the docker image.
         :param src: The source of the docker image.
+        :param arch_image_tags: Tags to apply to individual architecture-specific images when copyImageIndex is true. Can only be specified when copyImageIndex is true. Maps architecture names to their respective tags. This makes individual architectures discoverable by human-readable tags in addition to the image index tag. For example, { 'arm64': 'image-arm64', 'amd64': 'image-amd64' }.
+        :param copy_image_index: Whether to copy a source docker image index (multi-arch manifest) to the destination. When true, copies the image index and all underlying architecture-specific images in a single operation. Default: False
         :param image_arch: The image architecture to be copied. The 'amd64' architecture will be copied by default. Specify the architecture or architectures to copy here. It is currently not possible to copy more than one architecture at a time: the array you specify must contain exactly one string. Default: ['amd64']
         :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: - 512
         :param role: Execution role associated with this function. Default: - A role is automatically created
@@ -251,6 +274,8 @@ class ECRDeploymentProps:
             type_hints = typing.get_type_hints(_typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491a77f224)
             check_type(argname="argument dest", value=dest, expected_type=type_hints["dest"])
             check_type(argname="argument src", value=src, expected_type=type_hints["src"])
+            check_type(argname="argument arch_image_tags", value=arch_image_tags, expected_type=type_hints["arch_image_tags"])
+            check_type(argname="argument copy_image_index", value=copy_image_index, expected_type=type_hints["copy_image_index"])
             check_type(argname="argument image_arch", value=image_arch, expected_type=type_hints["image_arch"])
             check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -261,6 +286,10 @@ class ECRDeploymentProps:
             "dest": dest,
             "src": src,
         }
+        if arch_image_tags is not None:
+            self._values["arch_image_tags"] = arch_image_tags
+        if copy_image_index is not None:
+            self._values["copy_image_index"] = copy_image_index
         if image_arch is not None:
             self._values["image_arch"] = image_arch
         if memory_limit is not None:
@@ -287,6 +316,33 @@ class ECRDeploymentProps:
         result = self._values.get("src")
         assert result is not None, "Required property 'src' is missing"
         return typing.cast("IImageName", result)
+
+    @builtins.property
+    def arch_image_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags to apply to individual architecture-specific images when copyImageIndex is true.
+
+        Can only be specified when copyImageIndex is true. Maps architecture names to
+        their respective tags. This makes individual architectures discoverable
+        by human-readable tags in addition to the image index tag.
+
+        For example, { 'arm64': 'image-arm64', 'amd64': 'image-amd64' }.
+        '''
+        result = self._values.get("arch_image_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def copy_image_index(self) -> typing.Optional[builtins.bool]:
+        '''Whether to copy a source docker image index (multi-arch manifest) to the destination.
+
+        When true, copies the image index and all underlying architecture-specific
+        images in a single operation.
+
+        :default: False
+        '''
+        result = self._values.get("copy_image_index")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def image_arch(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -559,6 +615,8 @@ def _typecheckingstub__d24bf38ee05e035f6d77ace8eb6a8a39c5a3ef61dbe1a8d4758949a37
     *,
     dest: IImageName,
     src: IImageName,
+    arch_image_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    copy_image_index: typing.Optional[builtins.bool] = None,
     image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -579,6 +637,8 @@ def _typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491
     *,
     dest: IImageName,
     src: IImageName,
+    arch_image_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    copy_image_index: typing.Optional[builtins.bool] = None,
     image_arch: typing.Optional[typing.Sequence[builtins.str]] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,

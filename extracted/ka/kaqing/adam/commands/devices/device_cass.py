@@ -6,6 +6,7 @@ from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import tabulize, log, log2, wait_log
+from adam.utils_context import Context
 from adam.utils_k8s.cassandra_clusters import CassandraClusters
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.kube_context import KubeContext
@@ -154,20 +155,20 @@ class DeviceCass(Command, Device):
     def show_tables(self, state: ReplState):
         tabulize(cassandra_table_names(state), separator=',')
 
-    def show_table_preview(self, state: ReplState, table: str, rows: int):
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
         with cassandra(state) as pods:
-            pods.cql(f'select * from {table} limit {rows}', show_out=True, use_single_quotes=True, on_any=True)
+            pods.cql(f'select * from {table} limit {rows}', use_single_quotes=True, on_any=True, ctx=ctx.copy(show_out=True))
 
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.sts != s1.sts or s0.pod != s1.pod
 
-    def exec_no_dir(self, command: str, state: ReplState, text_color: str = None):
+    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         with cassandra(state) as pods:
-            return pods.exec(command, action='bash', show_out=True, shell='bash', text_color=text_color)
+            return pods.exec(command, action='bash', shell='bash', ctx=ctx.copy(show_out=True, show_verbose=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, text_color: str = None):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         with cassandra(state) as pods:
-            return pods.exec(command, action='bash', show_out=not session_just_created, shell='bash', text_color=text_color)
+            return pods.exec(command, action='bash', shell='bash', ctx=ctx.copy(show_out=not session_just_created, show_verbose=not session_just_created))
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         completions = {cmd: BashCompleter(lambda: [])}

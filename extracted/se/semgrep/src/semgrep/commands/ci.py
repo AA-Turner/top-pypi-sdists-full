@@ -36,7 +36,7 @@ import semgrep.rpc_call
 import semgrep.run_scan
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
 from semgrep import simple_profiling as simple_profiling_module
-from semgrep import tracing
+from semgrep import telemetry
 from semgrep.app.project_config import ProjectConfig
 from semgrep.app.scans import ScanHandler
 from semgrep.commands.install import run_install_semgrep_pro
@@ -216,8 +216,15 @@ def fix_head_if_github_action(metadata: GitMeta) -> None:
     type=click.Path(allow_dash=True, path_type=Path),
     hidden=True,
 )
+@click.option(
+    "--x-enable-mal-deps",
+    "enable_mal_deps",
+    is_flag=True,
+    help="Enable malicious dependency rules for this scan.",
+)
 @handle_command_errors
 def ci(
+    # coupling: we use the names/values of some of these args in telemetry.py for tagging traces
     ctx: click.Context,
     *,
     audit_on: Sequence[str],
@@ -296,15 +303,18 @@ def ci(
     partial_output: Optional[Path],
     x_group_taint_rules: bool,
     x_dump_symbol_analysis: bool,
+    enable_mal_deps: bool,
 ) -> None:
     if x_simple_profiling:
         simple_profiling_module.enabled_simple_profiling = True
 
     state = get_state()
 
-    state.traces.configure(trace, trace_endpoint)
-    with tracing.TRACER.start_as_current_span(
-        "semgrep.commands.ci", kind=tracing.TOP_LEVEL_SPAN_KIND
+    state.telemetry.configure(
+        trace, trace_endpoint, attributes=telemetry.cli_args_to_attrs(locals())
+    )
+    with telemetry.TRACER.start_as_current_span(
+        "semgrep.commands.ci", kind=telemetry.TOP_LEVEL_SPAN_KIND
     ) as semgrep_commands_ci_span:
         state.terminal.configure(
             verbose=verbose,
@@ -315,7 +325,7 @@ def ci(
         )
 
         if trace:
-            logger.verbose(f"Trace ID: {state.traces.get_trace_id():x}")
+            logger.verbose(f"Trace ID: {state.telemetry.get_trace_id():x}")
 
         state.metrics.configure(metrics)
         state.error_handler.configure(suppress_errors)
@@ -411,6 +421,7 @@ def ci(
                 dry_run=dry_run,
                 partial_output=partial_output,
                 dump_scan_id_path=dump_scan_id_path,
+                enable_mal_deps=enable_mal_deps,
             )
         else:  # impossible state… until we break the code above
             raise RuntimeError("The token and/or config are misconfigured")
@@ -429,12 +440,15 @@ def ci(
                 engine_flag=requested_engine,
                 ci_scan_handler=scan_handler,
             )
+            state.telemetry.add_resource_attrs(
+                {telemetry.ENGINE_KIND_ATTR: str(engine_type)}
+            )
 
             # A lot of project metadata depends on git commands that fail in
             # empty repos; we gather whatever metadata we can and move forwards
-            project_metadata = generate_meta_from_environment(
-                None, subdir
-            ).to_project_metadata()
+            metadata = generate_meta_from_environment(None, subdir)
+            project_metadata = metadata.to_project_metadata()
+            state.telemetry.add_resource_attrs(metadata.to_otel_attrs())
             project_config = ProjectConfig.load_all()
             contributions = semgrep.rpc_call.contributions()
             if scan_handler:
@@ -570,12 +584,12 @@ def ci(
                 else:
                     rules_string = scan_handler.rules
 
+        except SemgrepError:
+            raise
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-            logger.info(f"Could not start scan {e}")
-            sys.exit(FATAL_EXIT_CODE)
+            raise SemgrepError(
+                f"Could not start scan: {e}", code=FATAL_EXIT_CODE
+            ) from e
 
         # Handled error outside engine type for more actionable advice.
         if run_secrets_flag and requested_engine is EngineType.OSS:
@@ -603,6 +617,9 @@ def ci(
             ci_scan_handler=scan_handler,
             git_meta=metadata,
             supply_chain_only=supply_chain_only,
+        )
+        state.telemetry.add_resource_attrs(
+            {telemetry.ENGINE_KIND_ATTR: str(engine_type)}
         )
 
         # set default settings for selected engine type
@@ -690,14 +707,13 @@ def ci(
                 )
             final_baseline_commit = metadata.merge_base_ref
 
+        # If we record this metadata any earlier then we may trigger merge base
+        # reef code before we normally do
+        state.telemetry.add_resource_attrs(metadata.to_otel_attrs())
         autofix_behavior = (
             AutofixBehavior.REPORT
             if scan_handler and scan_handler.autofix
             else AutofixBehavior.IGNORE
-        )
-
-        semgrep_commands_ci_span.set_attribute(
-            "scan.scan_type", "diff" if baseline_commit is not None else "full"
         )
         # Base arguments for actually running the scan. This is done here so we can
         # re-use this in the event we need to perform a second scan. Currently the
@@ -758,9 +774,9 @@ def ci(
             "resolve_all_deps_in_diff_scan": (
                 scan_handler.resolve_all_deps_in_diff_scan if scan_handler else False
             ),
-            "run_symbol_analysis": scan_handler.symbol_analysis
-            if scan_handler
-            else False,
+            "run_symbol_analysis": (
+                scan_handler.symbol_analysis if scan_handler else False
+            ),
             "fips_mode": scan_handler.fips_mode if scan_handler else False,
             "semgrepignore_filename": x_semgrepignore_filename,
             "x_group_taint_rules": x_group_taint_rules,

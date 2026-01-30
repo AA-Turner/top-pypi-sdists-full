@@ -273,6 +273,7 @@ def face_set_change_visibility(
     /,
     *,
     mode: typing.Literal["TOGGLE", "SHOW_ACTIVE", "HIDE_ACTIVE"] | None = "TOGGLE",
+    active_face_set: int | None = 0,
 ) -> None:
     """Change the visibility of the face sets of the sculpt
 
@@ -286,6 +287,7 @@ def face_set_change_visibility(
 
     HIDE_ACTIVE
     Hide Active Face Set -- Hide the active face set.
+        :param active_face_set: Active Face Set
     """
 
 def face_set_edit(

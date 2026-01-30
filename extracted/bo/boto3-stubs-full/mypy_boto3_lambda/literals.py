@@ -31,6 +31,7 @@ __all__ = (
     "CodeSigningPolicyType",
     "EndPointTypeType",
     "EventSourceMappingMetricType",
+    "EventSourceMappingSystemLogLevelType",
     "EventSourcePositionType",
     "EventTypeType",
     "ExecutionStatusType",
@@ -103,7 +104,8 @@ CapacityProviderScalingModeType = Literal["Auto", "Manual"]
 CapacityProviderStateType = Literal["Active", "Deleting", "Failed", "Pending"]
 CodeSigningPolicyType = Literal["Enforce", "Warn"]
 EndPointTypeType = Literal["KAFKA_BOOTSTRAP_SERVERS"]
-EventSourceMappingMetricType = Literal["EventCount"]
+EventSourceMappingMetricType = Literal["ErrorCount", "EventCount", "KafkaMetrics"]
+EventSourceMappingSystemLogLevelType = Literal["DEBUG", "INFO", "WARN"]
 EventSourcePositionType = Literal["AT_TIMESTAMP", "LATEST", "TRIM_HORIZON"]
 EventTypeType = Literal[
     "CallbackFailed",

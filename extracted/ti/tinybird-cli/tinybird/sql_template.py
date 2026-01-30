@@ -6,9 +6,8 @@ import re
 from collections import deque
 from datetime import datetime
 from functools import lru_cache
-from io import StringIO
 from json import loads
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from tornado import escape
 from tornado.util import ObjectDict, exec_in, unicode_type
@@ -25,6 +24,11 @@ TB_SECRET_IN_TEST_MODE = "tb_secret_dont_raise"
 TB_SECRET_PREFIX = "tb_secret_"
 CH_PARAM_PREFIX = "param_"
 REQUIRED_PARAM_NOT_DEFINED = "Required parameter is not defined"
+
+# Pre-compiled regex patterns for performance
+_STRING_LINE_NUMBER_RE = re.compile(r"\<string\>:(\d*)")
+_ARRAY_TYPE_RE = re.compile(r"Array\((\w+)\)")
+_EMBEDDED_TEMPLATE_EXPRESSION_RE = re.compile(r"\{\{(.*?)\}\}")
 
 
 def secret_template_key(secret_name: str) -> str:
@@ -372,9 +376,7 @@ def boolean(x, default=None):
 
 
 def defined(x=None):
-    if isinstance(x, Placeholder) or x is None:
-        return False
-    return True
+    return not (isinstance(x, Placeholder) or x is None)
 
 
 def array_type(types):
@@ -1512,8 +1514,8 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
             text = getattr(e, "text", message)
             line = None
             try:
-                line = re.findall(r"\<string\>:(\d*)", text)
-                message = re.sub(r"\<string\>:(\d*)", "", message)
+                line = _STRING_LINE_NUMBER_RE.findall(text)
+                message = _STRING_LINE_NUMBER_RE.sub("", message)
             except TypeError:
                 pass
 
@@ -1568,28 +1570,404 @@ class CodeWriter:
         print("    " * indent + line + line_comment, file=self.file)
 
 
-def get_var_names(t):
-    try:
+def get_var_names(t: Template):
+    """
+    Extract variable names from a template.
 
+    === BASIC EXPRESSIONS ===
+
+    Simple variable reference:
+    >>> get_var_names(Template("SELECT * FROM test WHERE id = {{my_var}}"))
+    [{'line': 1, 'name': 'my_var'}]
+
+    Multiple variables:
+    >>> get_var_names(Template("SELECT {{a}}, {{b}} FROM test"))
+    [{'line': 1, 'name': 'a'}, {'line': 1, 'name': 'b'}]
+
+    No variables (static SQL):
+    >>> get_var_names(Template("SELECT * FROM test"))
+    []
+
+    === TYPE CASTING FUNCTIONS ===
+
+    Integer types:
+    >>> [v['name'] for v in get_var_names(Template("{{Int8(a, 0)}} {{Int16(b, 0)}} {{Int32(c, 0)}} {{Int64(d, 0)}}"))]
+    ['Int8', 'a', 'Int16', 'b', 'Int32', 'c', 'Int64', 'd']
+
+    Unsigned integer types:
+    >>> [v['name'] for v in get_var_names(Template("{{UInt8(a, 0)}} {{UInt32(b, 0)}} {{UInt64(c, 0)}}"))]
+    ['UInt8', 'a', 'UInt32', 'b', 'UInt64', 'c']
+
+    Float types:
+    >>> [v['name'] for v in get_var_names(Template("{{Float32(price, 0.0)}} {{Float64(amount, 0.0)}}"))]
+    ['Float32', 'price', 'Float64', 'amount']
+
+    String type:
+    >>> [v['name'] for v in get_var_names(Template("{{String(name, 'default')}}"))]
+    ['String', 'name']
+
+    Boolean type (False is in reserved_vars):
+    >>> [v['name'] for v in get_var_names(Template("{{Boolean(flag, False)}}"))]
+    ['Boolean', 'flag']
+
+    Date/DateTime types:
+    >>> [v['name'] for v in get_var_names(Template("{{Date(d)}} {{DateTime(dt)}} {{DateTime64(dt64)}}"))]
+    ['Date', 'd', 'DateTime', 'dt', 'DateTime64', 'dt64']
+
+    Array type:
+    >>> [v['name'] for v in get_var_names(Template("{{Array(ids, 'Int32')}}"))]
+    ['Array', 'ids']
+
+    JSON type:
+    >>> [v['name'] for v in get_var_names(Template("{{JSON(data, '{}')}}"))]
+    ['JSON', 'data']
+
+    === SQL SAFETY FUNCTIONS ===
+
+    Column function (column is in _namespace, filtered out):
+    >>> [v['name'] for v in get_var_names(Template("SELECT {{column(col_name, 'id')}} FROM t"))]
+    ['col_name']
+
+    Columns function:
+    >>> [v['name'] for v in get_var_names(Template("SELECT {{columns(col_list, 'a,b')}} FROM t"))]
+    ['columns', 'col_list']
+
+    Symbol function (symbol is in _namespace, filtered out):
+    >>> [v['name'] for v in get_var_names(Template("SELECT * FROM {{symbol(table_name)}}"))]
+    ['table_name']
+
+    Table function:
+    >>> [v['name'] for v in get_var_names(Template("SELECT * FROM {{table(tbl)}}"))]
+    ['table', 'tbl']
+
+    === CONTROL FLOW - IF/ELIF/ELSE ===
+
+    Simple if:
+    >>> get_var_names(Template("{% if condition %}{{value}}{% end %}"))
+    [{'line': 1, 'name': 'condition'}, {'line': 1, 'name': 'value'}]
+
+    If with defined():
+    >>> [v['name'] for v in get_var_names(Template("{% if defined(flag) %}WHERE x = 1{% end %}"))]
+    ['defined', 'flag']
+
+    If/else:
+    >>> [v['name'] for v in get_var_names(Template("{% if cond %}{{a}}{% else %}{{b}}{% end %}"))]
+    ['cond', 'a', 'b']
+
+    If/elif/else chain:
+    >>> [v['name'] for v in get_var_names(Template("{% if a %}1{% elif b %}2{% elif c %}3{% else %}4{% end %}"))]
+    ['a', 'b', 'c']
+
+    Nested if:
+    >>> [v['name'] for v in get_var_names(Template("{% if outer %}{% if inner %}{{val}}{% end %}{% end %}"))]
+    ['outer', 'inner', 'val']
+
+    If with complex condition (co_names deduplicates names):
+    >>> [v['name'] for v in get_var_names(Template("{% if defined(a) and defined(b) %}{{c}}{% end %}"))]
+    ['defined', 'a', 'b', 'c']
+
+    If with or condition:
+    >>> [v['name'] for v in get_var_names(Template("{% if x or y %}{{z}}{% end %}"))]
+    ['x', 'y', 'z']
+
+    If with comparison:
+    >>> [v['name'] for v in get_var_names(Template("{% if count > 0 %}{{result}}{% end %}"))]
+    ['count', 'result']
+
+    === CONTROL FLOW - FOR LOOPS ===
+
+    Simple for loop:
+    >>> [v['name'] for v in get_var_names(Template("{% for item in items %}{{item}}{% end %}"))]
+    ['items', 'item', 'item']
+
+    For with index (enumerate is in reserved_vars):
+    >>> [v['name'] for v in get_var_names(Template("{% for i, item in enumerate(items) %}{{i}}:{{item}}{% end %}"))]
+    ['items', 'i', 'item', 'i', 'item']
+
+    Nested for loops:
+    >>> [v['name'] for v in get_var_names(Template("{% for row in rows %}{% for col in cols %}{{row}}.{{col}}{% end %}{% end %}"))]
+    ['rows', 'row', 'cols', 'col', 'row', 'col']
+
+    For with split_to_array:
+    >>> [v['name'] for v in get_var_names(Template("{% for x in split_to_array(csv_data) %}{{x}}{% end %}"))]
+    ['split_to_array', 'csv_data', 'x', 'x']
+
+    For with enumerate_with_last:
+    >>> [v['name'] for v in get_var_names(Template("{% for is_last, item in enumerate_with_last(items) %}{{item}}{% end %}"))]
+    ['enumerate_with_last', 'items', 'is_last', 'item', 'item']
+
+    === CONTROL FLOW - WHILE ===
+
+    Simple while:
+    >>> [v['name'] for v in get_var_names(Template("{% while running %}{{counter}}{% end %}"))]
+    ['running', 'counter']
+
+    While with condition:
+    >>> [v['name'] for v in get_var_names(Template("{% while count < max_count %}{{count}}{% end %}"))]
+    ['count', 'max_count', 'count']
+
+    === CONTROL FLOW - BREAK/CONTINUE ===
+
+    Break inside for loop:
+    >>> [v['name'] for v in get_var_names(Template("{% for x in items %}{% if x > limit %}{% break %}{% end %}{{x}}{% end %}"))]
+    ['items', 'x', 'x', 'limit', 'x']
+
+    Continue inside for loop:
+    >>> [v['name'] for v in get_var_names(Template("{% for x in items %}{% if x < 0 %}{% continue %}{% end %}{{x}}{% end %}"))]
+    ['items', 'x', 'x', 'x']
+
+    Break inside while loop:
+    >>> [v['name'] for v in get_var_names(Template("{% while running %}{% if done %}{% break %}{% end %}{{counter}}{% end %}"))]
+    ['running', 'done', 'counter']
+
+    === CONTROL FLOW - TRY/EXCEPT/FINALLY ===
+
+    Simple try/except:
+    >>> [v['name'] for v in get_var_names(Template("{% try %}{{risky}}{% except %}{{fallback}}{% end %}"))]
+    ['risky', 'fallback']
+
+    Try/except/finally:
+    >>> [v['name'] for v in get_var_names(Template("{% try %}{{a}}{% except %}{{b}}{% finally %}{{c}}{% end %}"))]
+    ['a', 'b', 'c']
+
+    Except with type:
+    >>> [v['name'] for v in get_var_names(Template("{% try %}{{a}}{% except MyError as e %}{{e}}{% end %}"))]
+    ['a', 'MyError', 'e', 'e']
+
+    === SET STATEMENTS ===
+
+    Simple set:
+    >>> [v['name'] for v in get_var_names(Template("{% set x = myvar + 1 %}{{x}}"))]
+    ['myvar', 'x', 'x']
+
+    Set with expression:
+    >>> [v['name'] for v in get_var_names(Template("{% set total = a + b * c %}{{total}}"))]
+    ['a', 'b', 'c', 'total', 'total']
+
+    Set with function call:
+    >>> [v['name'] for v in get_var_names(Template("{% set items = list_data %}{{items}}"))]
+    ['list_data', 'items', 'items']
+
+    Set with template expression (skipped - contains {{}}):
+    >>> [v['name'] for v in get_var_names(Template("{% set x = {{String(y)}} %}{{x}}"))]
+    ['x']
+
+    === UTILITY FUNCTIONS ===
+
+    Defined function:
+    >>> [v['name'] for v in get_var_names(Template("{% if defined(param) %}yes{% end %}"))]
+    ['defined', 'param']
+
+    Error function (error is in _namespace, filtered out):
+    >>> [v['name'] for v in get_var_names(Template("{% if not valid %}{{error('Invalid input')}}{% end %}"))]
+    ['valid']
+
+    Custom error (custom_error is in _namespace, filtered out):
+    >>> get_var_names(Template("{{custom_error('Not found', 404)}}"))
+    []
+
+    === DATE FUNCTIONS ===
+
+    Day diff:
+    >>> [v['name'] for v in get_var_names(Template("{{day_diff(start_date, end_date)}}"))]
+    ['day_diff', 'start_date', 'end_date']
+
+    Date diff in days:
+    >>> [v['name'] for v in get_var_names(Template("{{date_diff_in_days(d1, d2)}}"))]
+    ['date_diff_in_days', 'd1', 'd2']
+
+    Date diff in hours:
+    >>> [v['name'] for v in get_var_names(Template("{{date_diff_in_hours(t1, t2)}}"))]
+    ['date_diff_in_hours', 't1', 't2']
+
+    === RUNTIME CONFIGURATION ===
+
+    Max threads:
+    >>> [v['name'] for v in get_var_names(Template("{{max_threads(num_threads)}}"))]
+    ['max_threads', 'num_threads']
+
+    TB secret:
+    >>> [v['name'] for v in get_var_names(Template("{{tb_secret(secret_name)}}"))]
+    ['tb_secret', 'secret_name']
+
+    Cache TTL:
+    >>> [v['name'] for v in get_var_names(Template("{{cache_ttl(ttl_value)}}"))]
+    ['cache_ttl', 'ttl_value']
+
+    === COMPLEX NESTED COMBINATIONS ===
+
+    If inside for:
+    >>> [v['name'] for v in get_var_names(Template("{% for item in items %}{% if defined(item) %}{{item}}{% end %}{% end %}"))]
+    ['items', 'item', 'defined', 'item', 'item']
+
+    For inside if:
+    >>> [v['name'] for v in get_var_names(Template("{% if show_list %}{% for x in data %}{{x}}{% end %}{% end %}"))]
+    ['show_list', 'data', 'x', 'x']
+
+    Set + if + for (max, range are in reserved_vars):
+    >>> [v['name'] for v in get_var_names(Template("{% set limit = max_val %}{% if limit > 0 %}{% for i in my_range(limit) %}{{i}}{% end %}{% end %}"))]
+    ['max_val', 'limit', 'limit', 'my_range', 'limit', 'i', 'i']
+
+    Multiple control blocks:
+    >>> t = Template("{% set limit = max_rows %}{% if flag %}{% for c in cols %}{{c}}{% end %}{% elif other %}{{x}}{% else %}{{y}}{% end %}{% while more %}{{b}}{% end %}{% try %}{{q}}{% except E as e %}{{e}}{% finally %}{{done}}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['max_rows', 'limit', 'flag', 'cols', 'c', 'c', 'other', 'x', 'y', 'more', 'b', 'q', 'E', 'e', 'e', 'done']
+
+    Type casting inside control block:
+    >>> [v['name'] for v in get_var_names(Template("{% if defined(id) %}WHERE id = {{Int32(id, 0)}}{% end %}"))]
+    ['defined', 'id', 'Int32', 'id']
+
+    Column + Array combination (column is in _namespace):
+    >>> [v['name'] for v in get_var_names(Template("SELECT {{column(col)}} FROM t WHERE id IN {{Array(ids, 'Int32')}}"))]
+    ['col', 'Array', 'ids']
+
+    Deeply nested structure:
+    >>> t = Template("{% if a %}{% for x in items %}{% if defined(x) %}{% try %}{{Int32(x, 0)}}{% except %}{{default}}{% end %}{% end %}{% end %}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['a', 'items', 'x', 'defined', 'x', 'Int32', 'x', 'default']
+
+    === FUNCTIONS WITH CONTROL FLOW ===
+
+    Date function inside if:
+    >>> [v['name'] for v in get_var_names(Template("{% if defined(start) %}{{date_diff_in_days(start, end)}}{% end %}"))]
+    ['defined', 'start', 'date_diff_in_days', 'start', 'end']
+
+    Date function inside for:
+    >>> [v['name'] for v in get_var_names(Template("{% for d in dates %}{{day_diff(d, today)}}{% end %}"))]
+    ['dates', 'd', 'day_diff', 'd', 'today']
+
+    Date function with elif:
+    >>> t = Template("{% if mode == 'days' %}{{date_diff_in_days(t1, t2)}}{% elif mode == 'hours' %}{{date_diff_in_hours(t1, t2)}}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['mode', 'date_diff_in_days', 't1', 't2', 'mode', 'date_diff_in_hours', 't1', 't2']
+
+    Set with date function:
+    >>> [v['name'] for v in get_var_names(Template("{% set diff = day_diff(start_date, end_date) %}{{diff}}"))]
+    ['day_diff', 'start_date', 'end_date', 'diff', 'diff']
+
+    Max threads inside if:
+    >>> [v['name'] for v in get_var_names(Template("{% if parallel %}{{max_threads(thread_count)}}{% end %}"))]
+    ['parallel', 'max_threads', 'thread_count']
+
+    Cache TTL with condition:
+    >>> [v['name'] for v in get_var_names(Template("{% if use_cache %}{{cache_ttl(ttl)}}{% else %}{{cache_ttl(0)}}{% end %}"))]
+    ['use_cache', 'cache_ttl', 'ttl', 'cache_ttl']
+
+    TB secret inside for:
+    >>> [v['name'] for v in get_var_names(Template("{% for name in secret_names %}{{tb_secret(name)}}{% end %}"))]
+    ['secret_names', 'name', 'tb_secret', 'name']
+
+    Type casting with date function in elif chain (type is in reserved_vars):
+    >>> t = Template("{% if kind == 'int' %}{{Int32(val, 0)}}{% elif kind == 'date' %}{{DateTime(val)}}{% elif kind == 'diff' %}{{date_diff_in_days(val, now)}}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['kind', 'Int32', 'val', 'kind', 'DateTime', 'val', 'kind', 'date_diff_in_days', 'val', 'now']
+
+    While with date function:
+    >>> [v['name'] for v in get_var_names(Template("{% while day_diff(current, target) > 0 %}{{current}}{% end %}"))]
+    ['day_diff', 'current', 'target', 'current']
+
+    Try/except with date function:
+    >>> [v['name'] for v in get_var_names(Template("{% try %}{{date_diff_in_hours(t1, t2)}}{% except %}{{default_hours}}{% end %}"))]
+    ['date_diff_in_hours', 't1', 't2', 'default_hours']
+
+    Complex: set + for + if + multiple functions:
+    >>> t = Template("{% set threshold = Int32(max_days, 30) %}{% for d in dates %}{% if day_diff(d, now) < threshold %}{{String(d)}}{% end %}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['Int32', 'max_days', 'threshold', 'dates', 'd', 'day_diff', 'd', 'now', 'threshold', 'String', 'd']
+
+    Nested control blocks with config functions:
+    >>> t = Template("{% if enabled %}{% set threads = max_threads(n) %}{% for i in tasks %}{{cache_ttl(ttl)}}{% end %}{% end %}")
+    >>> [v['name'] for v in get_var_names(t)]
+    ['enabled', 'max_threads', 'n', 'threads', 'tasks', 'i', 'cache_ttl', 'ttl']
+
+    === MULTILINE TEMPLATES ===
+
+    Multiline with mixed constructs (column is in _namespace, filter is in reserved_vars):
+    >>> t = Template('''
+    ... SELECT
+    ...     {{column(col1)}},
+    ...     {{column(col2)}}
+    ... FROM {{table(tbl)}}
+    ... {% if defined(flag) %}
+    ... WHERE {{column(filter_col)}} = {{String(value)}}
+    ... {% end %}
+    ... ''')
+    >>> sorted(set(v['name'] for v in get_var_names(t)))
+    ['String', 'col1', 'col2', 'defined', 'filter_col', 'flag', 'table', 'tbl', 'value']
+    """
+    try:
+        # Recursive helper that traverses the template's parsed chunks and collects variable names.
+        # The template is parsed into a tree of chunks: _ChunkList (container), _Expression ({{...}}),
+        # and _ControlBlock ({% if %}, {% for %}, etc.).
+        #
+        # We use compile() to extract variable names because Python's compiler automatically
+        # collects all referenced names into the code object's co_names attribute. This avoids
+        # manually parsing Python expressions with the ast module. For example:
+        #   compile("Int32(num_val, 0)", ...).co_names → ('Int32', 'num_val')
         def _n(chunks, v):
             for x in chunks:
                 line_number = x.line
+
                 if type(x).__name__ == "_ChunkList":
+                    # Container node: recurse into its children
                     _n(x.chunks, v)
+
                 elif type(x).__name__ == "_Expression":
+                    # Simple template expression like {{my_var}} or {{Int32(num_val, 0)}}
+                    # Compile the expression to bytecode and extract all referenced names
+                    # from co_names (the tuple of names used by the bytecode)
                     c = compile(x.expression, "<string>", "exec", dont_inherit=True)
+                    # Filter out internal namespace functions and reserved variable names
                     variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
                     v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+
                 elif type(x).__name__ == "_ControlBlock":
-                    buffer = StringIO()
-                    writer = CodeWriter(buffer, t)
-                    x.generate(writer)
-                    c = compile(buffer.getvalue(), "<string>", "exec", dont_inherit=True)
-                    variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
-                    v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+                    # Control structure like {% if cond %}, {% for item in items %}, {% try %}, etc.
+                    # Compile only the statement (condition/iterator), not the full generated code.
+                    # This avoids compiling large SQL literals in the body, which is expensive
+                    # and unnecessary since we only need variable names from the condition.
+                    # Note: "try" has no condition/expression, so skip compilation for it.
+                    if x.statement != "try":
+                        statement_code = x.statement + ": pass"
+                        c = compile(statement_code, "<string>", "exec", dont_inherit=True)
+                        variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
+                        v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+
+                    # Recurse into the body of the control block to find nested expressions
                     _n(x.body.chunks, v)
 
-        var = []
+                elif type(x).__name__ == "_IntermediateControlBlock":
+                    # Intermediate control structure like {% elif cond %}, {% else %}, {% except %}, etc.
+                    # These appear inside _ControlBlock bodies.
+                    # For "else"/"finally", there's no condition to extract.
+                    # For "elif cond", we need to extract variables from the condition.
+                    # For "except Type as e", we need to extract the exception type and alias.
+                    # Note: "elif"/"except" aren't valid Python on their own, so we wrap them.
+                    if x.statement.startswith("elif "):
+                        statement_code = "if False: pass\n" + x.statement + ": pass"
+                        c = compile(statement_code, "<string>", "exec", dont_inherit=True)
+                        variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
+                        v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+
+                    elif x.statement.startswith("except "):
+                        # "except Exception" or "except Exception as e"
+                        statement_code = "try: pass\n" + x.statement + ": pass"
+                        c = compile(statement_code, "<string>", "exec", dont_inherit=True)
+                        variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
+                        v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+
+                elif (
+                    type(x).__name__ == "_Statement"
+                    and x.statement not in ("break", "continue")  # No variables; fail compile() outside loop
+                    and "{{" not in x.statement  # Skip template expressions which aren't valid Python
+                ):
+                    # Statement like {% set x = expr %}
+                    c = compile(x.statement, "<string>", "exec", dont_inherit=True)
+                    variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
+                    v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
+
+        var: list[dict[str, Any]] = []
+        # Start traversal from the root of the parsed template
         _n(t.file.body.chunks, var)
         return var
     except SecurityException as e:
@@ -1659,6 +2037,11 @@ def get_var_data(content, node_id=None):
                 return str(value)
         return value
 
+    # TODO: Remove this retry logic. It was added in commit 1314a3b120 as a workaround for
+    # a Python 3.11 bug (https://github.com/python/cpython/issues/106905) where AST recursion
+    # depth tracking was broken. However, retrying doesn't actually help since the corrupted
+    # state persists. The bug was fixed in Python 3.11.5+ and 3.12+, so this can be simplified
+    # to just `ast.parse(content)` once we confirm all environments use patched Python versions.
     def parse_content(content, retries=0):
         try:
             parsed = ast.parse(content)
@@ -1776,12 +2159,32 @@ def get_var_names_and_types(t, node_id=None):
     [{'name': 'with_value', 'type': 'Float32', 'default': 0.1}]
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE description = {{String(d, 'test_1')}} AND value = {{Int8(v, 3)}}"))
     [{'name': 'd', 'type': 'String', 'default': 'test_1'}, {'name': 'v', 'type': 'Int8', 'default': 3}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(number_variable) %} where number_variable = {{UInt64(number_variable)}} {% end %}"))
+    [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
     >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(number_variable)}}) %} where 1 {% end %}"))
     [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
     >>> get_var_names_and_types(Template("select * from test {% if defined(testing) and defined(testing2) %} where 1 {%end %}"))
     [{'name': 'testing', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'testing2', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
     >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(number_variable)}}) %} where 1 {% end %}"))
     [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(x)}}) and defined(y) %} where 1 {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(y) and x > 0 %} where x = {{UInt64(x)}} {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(y) and defined(z) and x > 0 %} {{UInt64(x)}} {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'z', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("{% if '{{' in marker %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'marker', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% if a %}1{% elif defined(y) %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'a', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% for x in items %}{{Int32(x, 0)}}{% end %}"))
+    [{'name': 'x', 'type': 'Int32', 'default': 0}, {'name': 'items', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% while more %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'more', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% set a = Int32(x, 0) %}"))
+    [{'name': 'a', 'type': 'String', 'default': None}, {'name': 'x', 'type': 'Int32', 'default': 0}]
+    >>> get_var_names_and_types(Template("{% try %}{{UInt64(x)}}{% except E as e %}{{e}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'E', 'type': 'String', 'default': None}, {'name': 'e', 'type': 'String', 'default': None}]
     >>> get_var_names_and_types(Template("select {{Array(cod_stock_source_type,'Int16', defined=False)}}"))
     [{'name': 'cod_stock_source_type', 'type': 'Array(Int16)', 'defined': False, 'default': None}]
     >>> get_var_names_and_types(Template("select {{Array(cod_stock_source_type, defined=False)}}"))
@@ -1811,7 +2214,7 @@ def get_var_names_and_types(t, node_id=None):
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE description = {{Float32(with_value, -0.1)}} AND description = {{Float32(zero, 0)}} AND value = {{Float32(no_default)}}"))
     [{'name': 'with_value', 'type': 'Float32', 'default': -0.1}, {'name': 'zero', 'type': 'Float32', 'default': 0}, {'name': 'no_default', 'type': 'Float32', 'default': None}]
     >>> get_var_names_and_types(Template('''SELECT * FROM abcd WHERE hotel_id <> 0 {% if defined(date_from) %} AND script_created_at > {{DateTime(date_from, '2020-09-09 10:10:10', description="This is a description", required=True)(date_from, '2020-09-09', description="Filter script alert creation date", required=False)}} {% end %}'''))
-    [{'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}, {'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}]
+    [{'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}]
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE symbol = {{Int128(symbol_id, 11111, description='Symbol Id', required=True)}} AND user = {{Int256(user_id, 3555, description='User Id')}}"))
     [{'name': 'symbol_id', 'type': 'Int128', 'description': 'Symbol Id', 'required': True, 'default': 11111}, {'name': 'user_id', 'type': 'Int256', 'description': 'User Id', 'default': 3555}]
     >>> get_var_names_and_types(Template("SELECT now() > {{DateTime64(timestamp, '2020-09-09 10:10:10.000')}}"))
@@ -1822,27 +2225,113 @@ def get_var_names_and_types(t, node_id=None):
     [{'name': 'symbol_id', 'type': 'Int64', 'default': '9223372036854775807'}]
     """
     try:
+        # Recursive helper that traverses the template's parsed chunks and collects
+        # variable data including types and defaults.
+        #
+        # Optimization: Instead of calling x.generate(writer) which generates full
+        # Python code (expensive for large templates), we parse just the statement
+        # and recurse into the body separately.
+        #
+        # Backward compatibility: The original implementation called get_var_data on
+        # full generated code, where type functions (Array, Int32, etc.) would overwrite
+        # variables from defined(). To maintain this behavior, we process body expressions
+        # FIRST to get types, then only add variables from control statements if they
+        # weren't already found in body expressions.
 
-        def _n(chunks, v):
+        # Track variable names seen from EXPRESSIONS (not control statements)
+        # Used to prevent control statements from adding variables with wrong types
+        typed_names: set[str] = set()
+
+        statement_wraps: dict[str, Callable[[str], str]] = {
+            "control": lambda statement: f"{statement}: pass",
+            "elif": lambda statement: "if False: pass\n" + statement + ": pass",
+            "except": lambda statement: "try: pass\n" + statement + ": pass",
+        }
+
+        def parse_statement_code_if_new_vars(statement_code: str, *, skip_names: set[str]) -> list[dict[str, Any]]:
+            """Parse statement code and return variables not already typed by expressions."""
+            try:
+                # `{{...}}` inside `{% ... %}` is not template syntax in Tornado templates.
+                # It becomes Python braces (e.g. set literals), which can hide unrelated vars
+                # in the statement. Strip them so we still parse the rest of the statement.
+                if "{{" in statement_code and "}}" in statement_code:
+                    statement_code = _EMBEDDED_TEMPLATE_EXPRESSION_RE.sub("None", statement_code)
+                var_data = get_var_data(statement_code, node_id=node_id)
+            except Exception:
+                return []
+
+            if not var_data:
+                return []
+
+            return [vd for vd in var_data if vd["name"] not in skip_names]
+
+        def parse_statement(statement: str, *, wrap: Callable[[str], str] | None) -> list[dict[str, Any]]:
+            """Parse a statement and return variables not already typed by expressions."""
+            statement_expr_names: set[str] = set()
+            vars_out: list[dict[str, Any]] = []
+
+            if "{{" in statement and "}}" in statement:
+                for match in _EMBEDDED_TEMPLATE_EXPRESSION_RE.finditer(statement):
+                    expr = match.group(1).strip()
+                    if not expr:
+                        continue
+                    try:
+                        var_data = get_var_data(expr, node_id=node_id)
+                    except Exception:
+                        continue
+
+                    if not var_data:
+                        continue
+
+                    for vd in var_data:
+                        # Body expressions win for types; do not add statement-derived typed vars.
+                        if vd["name"] in typed_names:
+                            continue
+                        statement_expr_names.add(vd["name"])
+                        vars_out.append(vd)
+
+            statement_code = wrap(statement) if wrap else statement
+            vars_out.extend(
+                parse_statement_code_if_new_vars(statement_code, skip_names=typed_names | statement_expr_names)
+            )
+            return vars_out
+
+        def _n(chunks: list, vars_out: list[dict[str, Any]]) -> None:
             for x in chunks:
-                if type(x).__name__ == "_ChunkList":
-                    _n(x.chunks, v)
-                elif type(x).__name__ == "_Expression":
-                    var_data = get_var_data(x.expression, node_id=node_id)
-                    if var_data:
-                        v += var_data
-                elif type(x).__name__ == "_ControlBlock":
-                    buffer = StringIO()
-                    writer = CodeWriter(buffer, t)
-                    x.generate(writer)
-                    var_data = get_var_data(buffer.getvalue(), node_id=node_id)
-                    if var_data:
-                        v += var_data
-                    _n(x.body.chunks, v)
+                kind = type(x).__name__
+                match kind:
+                    case "_ChunkList":
+                        _n(x.chunks, vars_out)
 
-        var = []
-        _n(t.file.body.chunks, var)
-        return var
+                    case "_Expression":
+                        # Template expression like {{Int32(num_val, 0)}} - extract type info
+                        var_data = get_var_data(x.expression, node_id=node_id)
+                        if var_data:
+                            typed_names.update(vd["name"] for vd in var_data)
+                            vars_out.extend(var_data)
+
+                    case "_ControlBlock":
+                        # Process body FIRST to get type functions
+                        _n(x.body.chunks, vars_out)
+                        # Then parse statement, but only add vars NOT already typed by expressions
+                        if x.statement != "try":
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["control"]))
+
+                    case "_IntermediateControlBlock":
+                        # elif/else/except/finally - only add vars not typed by expressions
+                        if x.statement.startswith("elif "):
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["elif"]))
+                        elif x.statement.startswith("except "):
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["except"]))
+
+                    case "_Statement":
+                        # {% set x = ... %}, {% break %}, etc.
+                        if x.statement not in ("break", "continue") and "{{" not in x.statement:
+                            vars_out.extend(parse_statement(x.statement, wrap=None))
+
+        vars_out: list[dict[str, Any]] = []
+        _n(t.file.body.chunks, vars_out)
+        return vars_out
     except SecurityException as e:
         raise SQLTemplateException(e)
 
@@ -1983,7 +2472,7 @@ def preprocess_variables(variables: dict, template_variables_with_types: List[di
                 continue
 
             # For now, we only preprocess Array types
-            match = re.match(r"Array\((\w+)\)", var_type)
+            match = _ARRAY_TYPE_RE.match(var_type)
             if match is None:
                 continue
 
@@ -2317,6 +2806,8 @@ def render_sql_template(
     t, template_variables, variable_warnings = get_template_and_variables(
         sql, name, escape_arrays=escape_split_to_array
     )
+
+    ## TODO: Could we skip running this unless we need it for some variable preprocessing?
     template_variables_with_types = get_var_names_and_types_cached(t)
 
     if variables is not None:

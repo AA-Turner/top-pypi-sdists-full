@@ -35,7 +35,7 @@ pub fn handle_graphic(
     tag: &tl::HTMLTag,
     parser: &tl::Parser,
     output: &mut String,
-    _options: &ConversionOptions,
+    options: &ConversionOptions,
     ctx: &Context,
     depth: usize,
     dom_ctx: &DomContext,
@@ -158,8 +158,10 @@ pub fn handle_graphic(
         should_use_alt_text,
     ));
 
-    if let Some(graphic_text) = graphic_output {
-        output.push_str(&graphic_text);
+    if !options.skip_images {
+        if let Some(graphic_text) = graphic_output {
+            output.push_str(&graphic_text);
+        }
     }
 
     // Add graphic to metadata collector

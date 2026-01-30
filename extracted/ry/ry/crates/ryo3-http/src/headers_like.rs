@@ -1,4 +1,4 @@
-use crate::{HttpHeaderMap, PyHeaders};
+use crate::{PyHeaders, PyHttpHeaderMap};
 use http::HeaderMap;
 use pyo3::prelude::*;
 use ryo3_core::{py_type_err, py_value_error};
@@ -9,14 +9,14 @@ pub(crate) enum StringOrStrings {
     Strings(Vec<pyo3::pybacked::PyBackedStr>),
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+#[derive(Debug, Clone)]
 pub enum PyHeadersLike {
     Headers(PyHeaders),
-    Map(HttpHeaderMap),
+    Map(PyHttpHeaderMap),
 }
 
 // TODO: move this to conversions module
-impl<'py> FromPyObject<'_, 'py> for HttpHeaderMap {
+impl<'py> FromPyObject<'_, 'py> for PyHttpHeaderMap {
     type Error = PyErr;
     fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(d) = ob.cast_exact::<pyo3::types::PyDict>() {
@@ -50,7 +50,6 @@ impl<'py> FromPyObject<'_, 'py> for HttpHeaderMap {
 }
 
 impl From<PyHeadersLike> for HeaderMap {
-    // type Error = PyErr;
     fn from(h: PyHeadersLike) -> Self {
         match h {
             PyHeadersLike::Headers(h) => h.read().clone(),
@@ -64,6 +63,20 @@ impl From<PyHeadersLike> for PyHeaders {
         match h {
             PyHeadersLike::Headers(h) => h,
             PyHeadersLike::Map(d) => Self::from(d),
+        }
+    }
+}
+
+impl<'py> FromPyObject<'_, 'py> for PyHeadersLike {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(h) = obj.cast_exact::<PyHeaders>() {
+            Ok(Self::Headers(h.get().clone()))
+        } else if let Ok(d) = obj.extract::<PyHttpHeaderMap>() {
+            Ok(Self::Map(d))
+        } else {
+            py_type_err!("Expected Headers or dict[str, str | list[str]]")
         }
     }
 }

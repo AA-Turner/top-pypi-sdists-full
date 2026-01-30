@@ -42,6 +42,11 @@ class PublicAssetOut(UniversalBaseModel):
     Unique identifier of the user who created this asset
     """
 
+    id: str = pydantic.Field()
+    """
+    Unique identifier of the asset (e.g., 'asset_abc123-def456-ghi789')
+    """
+
     is_archived: bool = pydantic.Field()
     """
     Whether the asset has been archived (hidden from normal views)

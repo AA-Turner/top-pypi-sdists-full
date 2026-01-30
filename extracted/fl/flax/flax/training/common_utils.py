@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Common utilty functions used in data-parallel Flax examples.
+"""Common utility functions used in data-parallel Flax examples.
 
 This module is a historical grab-bag of utility functions primarily concerned
 with helping write pmap-based data-parallel training loops.
@@ -80,7 +80,13 @@ def get_metrics(device_metrics):
   """
   # We select the first element of x in order to get a single copy of a
   # device-replicated metric.
-  device_metrics = jax.tree_util.tree_map(lambda x: x[0], device_metrics)
+  # Avoid degraded performance under the new jax.pmap. See
+  # https://docs.jax.dev/en/latest/migrate_pmap.html#int-indexing-into-sharded-arrays.
+  if jax.config.jax_pmap_shmap_merge:
+    device_metrics = jax.tree_util.tree_map(
+        lambda x: x.addressable_shards[0].data.squeeze(0), device_metrics)
+  else:
+    device_metrics = jax.tree_util.tree_map(lambda x: x[0], device_metrics)
   metrics_np = jax.device_get(device_metrics)
   return stack_forest(metrics_np)
 

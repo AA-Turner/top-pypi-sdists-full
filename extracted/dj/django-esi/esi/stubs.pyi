@@ -2256,31 +2256,31 @@ class GetCharactersCharacterIdAttributesOperation(EsiOperation):
 
 class GetCharactersCharacterIdSkillqueueOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CharactersCharacterIdSkillqueueGet:
-        """List the configured skill queue for the given character"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersSkillqueueSkill]:
+        """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersCharacterIdSkillqueueGetItem]:
-        """List the configured skill queue for the given character"""
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersSkillqueueSkill]:
+        """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
         ...
 
-    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersCharacterIdSkillqueueGetItem]]:
-        """List the configured skill queue for the given character"""
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersSkillqueueSkill]]:
+        """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
         ...
 
 
 class GetCharactersCharacterIdSkillsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CharactersCharacterIdSkillsGet:
-        """List all trained skills for the given character"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CharactersSkills:
+        """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersCharacterIdSkillsGet]:
-        """List all trained skills for the given character"""
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersSkills]:
+        """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
         ...
 
-    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersCharacterIdSkillsGet]]:
-        """List all trained skills for the given character"""
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersSkills]]:
+        """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
         ...
 
 
@@ -5611,29 +5611,26 @@ class CharactersCharacterIdAttributesGet(BaseModel):
     willpower: int
 
 
-class CharactersCharacterIdSkillqueueGetItem(BaseModel):
+class CharactersSkillqueueSkill(BaseModel):
     finish_date: datetime | None
     finished_level: int
     level_end_sp: int | None
     level_start_sp: int | None
     queue_position: int
-    skill_id: int
+    skill_id: TypeID
     start_date: datetime | None
     training_start_sp: int | None
 
 
-CharactersCharacterIdSkillqueueGet = list[CharactersCharacterIdSkillqueueGetItem]
-
-
-class CharactersCharacterIdSkillsGet_SkillsItem(BaseModel):
+class CharactersSkillsSkill(BaseModel):
     active_skill_level: int
     skill_id: int
     skillpoints_in_skill: int
     trained_skill_level: int
 
 
-class CharactersCharacterIdSkillsGet(BaseModel):
-    skills: list[CharactersCharacterIdSkillsGet_SkillsItem]
+class CharactersSkills(BaseModel):
+    skills: list[CharactersSkillsSkill]
     total_sp: int
     unallocated_sp: int | None
 
@@ -6854,11 +6851,11 @@ class ESIClientStub:
             ...
 
         def GetCharactersCharacterIdSkillqueue(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2025-12-16'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillqueueOperation:
-            """List the configured skill queue for the given character"""
+            """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
             ...
 
         def GetCharactersCharacterIdSkills(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2025-12-16'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillsOperation:
-            """List all trained skills for the given character"""
+            """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
             ...
 
 

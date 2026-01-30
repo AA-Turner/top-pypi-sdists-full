@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 from adam.commands.command import Command
 from adam.config import Config
+from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import BashSession, ReplState
 from adam.utils import log2
@@ -80,15 +81,15 @@ class Device:
         pass
 
     @abstractmethod
-    def show_table_preview(self, state: ReplState, table: str, rows: int):
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
         pass
 
-    def bash(self, s0: ReplState, s1: ReplState, args: list[str], text_color: str = None):
+    def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx: Context = Context.NULL):
         if s1.in_repl:
             if self.bash_target_changed(s0, s1):
-                r = self._exec_with_dir(s1, args, text_color=text_color)
+                r = self._exec_with_dir(s1, args, ctx=ctx)
             else:
-                r = self._exec_with_dir(s0, args, text_color=text_color)
+                r = self._exec_with_dir(s0, args, ctx=ctx)
 
             if not r:
                 s1.exit_bash()
@@ -101,7 +102,7 @@ class Device:
 
             return s1
 
-    def _exec_with_dir(self, state: ReplState, args: list[str], text_color: str = None) -> list[PodExecResult]:
+    def _exec_with_dir(self, state: ReplState, args: list[str], ctx: Context = Context.NULL) -> list[PodExecResult]:
         session_just_created = False
         if not args:
             session_just_created = True
@@ -118,25 +119,25 @@ class Device:
                 if pwd := state.bash_session.pwd(state):
                     args = ['cd', pwd, '&&'] + args
 
-        return self.exec_with_dir(' '.join(args), session_just_created, state, text_color=text_color)
+        return self.exec_with_dir(' '.join(args), session_just_created, state, ctx=ctx)
 
     @abstractmethod
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         pass
 
     @abstractmethod
-    def exec_no_dir(self, command: str, state: ReplState, text_color: str = None):
+    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         pass
 
     @abstractmethod
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, text_color: str = None):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         pass
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return default
 
     def files(self, state: ReplState):
-        r: PodExecResult = Pods.exec(self.default_pod(state), self.default_container(state), state.namespace, f'find -maxdepth 1 -type f', show_out=Config().is_debug(), shell='bash')
+        r: PodExecResult = Pods.exec(self.default_pod(state), self.default_container(state), state.namespace, f'find -maxdepth 1 -type f', shell='bash', ctx=Context.NULL)
 
         log_files = []
         for line in r.stdout.split('\n'):

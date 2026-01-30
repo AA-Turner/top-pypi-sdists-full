@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: sensu_subscription
 short_description: Manage Sensu subscriptions
@@ -80,7 +79,7 @@ def sensu_subscription(module, path, name, state="present", backup=False):
 
     try:
         config = json.load(open(path))
-    except IOError as e:
+    except OSError as e:
         if e.errno == 2:  # File not found, non-fatal
             if state == "absent":
                 reasons.append("file did not exist and state is 'absent'")
@@ -126,7 +125,7 @@ def sensu_subscription(module, path, name, state="present", backup=False):
             module.backup_local(path)
         try:
             open(path, "w").write(json.dumps(config, indent=2) + "\n")
-        except IOError as e:
+        except OSError as e:
             module.fail_json(msg=f"Failed to write to file {path}: {e}", exception=traceback.format_exc())
 
     return changed, reasons

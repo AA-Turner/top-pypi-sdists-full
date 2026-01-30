@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.6.13
+Version: 3.6.15
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -30,7 +30,7 @@ Requires-Dist: asyncpg<1.0.0,>=0.23
 Requires-Dist: cachetools<7.0,>=5.3
 Requires-Dist: click<9,>=8.0
 Requires-Dist: cloudpickle<4.0,>=2.0
-Requires-Dist: coolname<3.0.0,>=1.0.4
+Requires-Dist: coolname<4.0.0,>=1.0.4
 Requires-Dist: cryptography>=36.0.1
 Requires-Dist: dateparser<2.0.0,>=1.1.1
 Requires-Dist: docker<8.0,>=4.0
@@ -57,7 +57,7 @@ Requires-Dist: pydantic!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,<3.0.0,>=2.1
 Requires-Dist: pydantic-core<3.0.0,>=2.12.0
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.8.2
 Requires-Dist: pydantic-settings!=2.9.0,<3.0.0,>2.2.1
-Requires-Dist: pydocket>=0.16.2
+Requires-Dist: pydocket>=0.17.2
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
 Requires-Dist: python-slugify<9.0,>=5.0
 Requires-Dist: pytz<2026,>=2021.1
@@ -272,7 +272,7 @@ Join a thriving community of over 25,000 practitioners who solve data challenges
 
 ### Stay Informed
 📥 **[Subscribe to our Newsletter](https://prefect.io/newsletter)** - Get the latest Prefect news and updates  
-📣 **[Twitter/X](https://x.com/PrefectIO)** - Latest updates and announcements  
+📣 **[X](https://x.com/PrefectIO)** and **[Bluesky](https://bsky.app/profile/prefect.io)** - Latest updates and announcements  
 📺 **[YouTube](https://www.youtube.com/@PrefectIO)** - Video tutorials and webinars  
 📱 **[LinkedIn](https://www.linkedin.com/company/prefect)** - Professional networking and company news  
 

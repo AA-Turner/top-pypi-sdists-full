@@ -1,12 +1,12 @@
-"""
-Grouped source parser tests shared across markup languages.
-"""
+"""Grouped source parser tests shared across markup languages."""
 
 import subprocess
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from beartype import beartype
 from sybil import Example, Sybil
 
 from sybil_extras.evaluators.block_accumulator import BlockAccumulatorEvaluator
@@ -15,13 +15,17 @@ from sybil_extras.evaluators.shell_evaluator import ShellCommandEvaluator
 from sybil_extras.languages import DirectiveBuilder, MarkupLanguage
 
 
+@beartype
+def make_temp_file_path(*, example: Example) -> Path:
+    """Create a temporary file path for an example code block."""
+    return Path(example.path).parent / f"temp_{uuid.uuid4().hex[:8]}.py"
+
+
 def test_group(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    The group parser groups examples.
-    """
+    """The group parser groups examples."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -76,9 +80,7 @@ def test_nothing_after_group(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    Groups are handled even at the end of a document.
-    """
+    """Groups are handled even at the end of a document."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -126,9 +128,7 @@ def test_empty_group(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    Empty groups are handled gracefully.
-    """
+    """Empty groups are handled gracefully."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -171,9 +171,7 @@ def test_group_with_skip(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    Skip directives are respected within a group.
-    """
+    """Skip directives are respected within a group."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -221,9 +219,7 @@ def test_group_with_skip_range(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    Skip start/end ranges are respected within a group.
-    """
+    """Skip start/end ranges are respected within a group."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -275,9 +271,7 @@ def test_no_argument(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when a group directive has no arguments.
-    """
+    """An error is raised when a group directive has no arguments."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -309,9 +303,7 @@ def test_malformed_argument(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when the group directive argument is invalid.
-    """
+    """An error is raised when the group directive argument is invalid."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -346,9 +338,7 @@ def test_end_only(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when an end directive has no matching start.
-    """
+    """An error is raised when an end directive has no matching start."""
     language, directive_builder = language_directive_builder
     content = directive_builder(directive="group", argument="end")
     test_document = tmp_path / "test"
@@ -376,9 +366,7 @@ def test_start_after_start(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when start directives are nested improperly.
-    """
+    """An error is raised when start directives are nested improperly."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -410,9 +398,7 @@ def test_start_only(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when a group starts but doesn't end.
-    """
+    """An error is raised when a group starts but doesn't end."""
     language, directive_builder = language_directive_builder
     content = directive_builder(directive="group", argument="start")
     test_document = tmp_path / "test"
@@ -439,9 +425,7 @@ def test_start_start_end(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    An error is raised when start directives are nested with an end.
-    """
+    """An error is raised when start directives are nested with an end."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -476,7 +460,8 @@ def test_directive_name_not_regex_escaped(
     tmp_path: Path,
 ) -> None:
     """
-    Directive names containing regex characters are matched literally.
+    Directive names containing regex characters are matched
+    literally.
     """
     language, directive_builder = language_directive_builder
     directive = "custom-group[has_square_brackets]"
@@ -533,9 +518,7 @@ def test_with_shell_command_evaluator(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    The group parser cooperates with the shell command evaluator.
-    """
+    """The group parser cooperates with the shell command evaluator."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -554,6 +537,7 @@ def test_with_shell_command_evaluator(
     output_document = tmp_path / "output.txt"
     shell_evaluator = ShellCommandEvaluator(
         args=["sh", "-c", f"cat $0 > {output_document.as_posix()}"],
+        temp_file_path_maker=make_temp_file_path,
         pad_file=True,
         write_to_file=False,
         use_pty=False,
@@ -597,7 +581,8 @@ def test_state_cleanup_on_evaluator_failure(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """When an evaluator raises an exception, the grouper state is cleaned up.
+    """When an evaluator raises an exception, the grouper state is cleaned
+    up.
 
     This ensures that subsequent groups in the same document can be
     evaluated without getting misleading errors about mismatched
@@ -622,6 +607,7 @@ def test_state_cleanup_on_evaluator_failure(
 
     shell_evaluator = ShellCommandEvaluator(
         args=["sh"],
+        temp_file_path_maker=make_temp_file_path,
         pad_file=False,
         write_to_file=False,
         use_pty=False,
@@ -661,7 +647,8 @@ def test_thread_safety(
     tmp_path: Path,
 ) -> None:
     """
-    The group parser is thread-safe when examples are evaluated concurrently.
+    The group parser is thread-safe when examples are evaluated
+    concurrently.
     """
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
@@ -695,9 +682,7 @@ def test_thread_safety(
     examples: list[Example] = list(document.examples())
 
     def evaluate(ex: Example) -> None:
-        """
-        Evaluate the example.
-        """
+        """Evaluate the example."""
         ex.evaluate()
 
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -765,9 +750,7 @@ def test_multiple_groups_concurrent_evaluation(
     start2.evaluate()
 
     def evaluate(ex: Example) -> None:
-        """
-        Evaluate an example.
-        """
+        """Evaluate an example."""
         ex.evaluate()
 
     code_blocks = [code1a, code1b, code2a, code2b]
@@ -794,7 +777,8 @@ def test_evaluation_order_independence(
     tmp_path: Path,
 ) -> None:
     """
-    Examples can be evaluated out of order and still produce correct results.
+    Examples can be evaluated out of order and still produce correct
+    results.
     """
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
@@ -895,9 +879,7 @@ def test_no_pad_groups(
     language_directive_builder: tuple[MarkupLanguage, DirectiveBuilder],
     tmp_path: Path,
 ) -> None:
-    """
-    It is possible to avoid padding grouped code blocks.
-    """
+    """It is possible to avoid padding grouped code blocks."""
     language, directive_builder = language_directive_builder
     content = language.markup_separator.join(
         [
@@ -916,6 +898,7 @@ def test_no_pad_groups(
     output_document = tmp_path / "output.txt"
     shell_evaluator = ShellCommandEvaluator(
         args=["sh", "-c", f"cat $0 > {output_document.as_posix()}"],
+        temp_file_path_maker=make_temp_file_path,
         pad_file=True,
         write_to_file=False,
         use_pty=False,
@@ -1000,9 +983,7 @@ def test_end_marker_waits_for_code_blocks(
     # are collected, resulting in an empty or partial group.
     # With the fix, the end marker waits for all code blocks.
     def evaluate(ex: Example) -> None:
-        """
-        Evaluate the example.
-        """
+        """Evaluate the example."""
         ex.evaluate()
 
     # Run all three concurrently - end marker should wait for code blocks

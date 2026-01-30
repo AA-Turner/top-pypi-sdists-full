@@ -18,8 +18,9 @@ class UiPathResumeTriggerType(str, Enum):
     API = "Api"
     DEEP_RAG = "DeepRag"
     BATCH_RAG = "BatchRag"
-    EPHEMERAL_INDEX = "EphemeralIndex"
+    INDEX_INGESTION = "IndexIngestion"
     IXP_EXTRACTION = "IxpExtraction"
+    IXP_VS_ESCALATION = "IxpVsEscalation"
 
 
 class UiPathResumeTriggerName(str, Enum):
@@ -35,8 +36,9 @@ class UiPathResumeTriggerName(str, Enum):
     API = "Api"
     DEEP_RAG = "DeepRag"
     BATCH_RAG = "BatchRag"
-    EPHEMERAL_INDEX = "EphemeralIndex"
+    INDEX_INGESTION = "IndexIngestion"
     EXTRACTION = "Extraction"
+    IXP_VS_ESCALATION = "IxpVsEscalation"
 
 
 class UiPathApiTrigger(BaseModel):

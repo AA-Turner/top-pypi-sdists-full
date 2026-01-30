@@ -13,25 +13,26 @@ You can reproduce locally with:
 # standard lib
 import logging
 import os
-import sys
 import re
 import shutil
+import sys
 from contextlib import contextmanager
 from pathlib import Path
-
-# MkDocs
-from mkdocs.__main__ import build_command
-from mkdocs.config import load_config
 
 # other 3rd party
 import git
 import pytest
 from click.testing import CliRunner
 
-# package module
-from mkdocs_git_revision_date_localized_plugin.util import Util
+# MkDocs
+from mkdocs.__main__ import build_command
+from mkdocs.config import load_config
+
 from mkdocs_git_revision_date_localized_plugin.ci import commit_count
 from mkdocs_git_revision_date_localized_plugin.dates import get_date_formats
+
+# package module
+from mkdocs_git_revision_date_localized_plugin.util import Util
 
 # ##################################
 # ######## Globals #################
@@ -81,7 +82,7 @@ def get_plugin_config_from_mkdocs(mkdocs_path) -> dict:
     if plugin_loaded.config.get("enabled"):
         assert plugin_loaded.config.get("locale") is not None, "Locale should never be None after plugin is loaded"
 
-        logging.info("Locale '%s' determined from %s" % (plugin_loaded.config.get("locale"), mkdocs_path))
+        logging.info("Locale '{}' determined from {}".format(plugin_loaded.config.get("locale"), mkdocs_path))
     return plugin_loaded.config
 
 
@@ -121,7 +122,6 @@ def setup_clean_mkdocs_folder(mkdocs_yml_path, output_path):
 
     shutil.copyfile("tests/fixtures/basic_project/gen_files.py", str(testproject_path / "gen_files.py"))
     shutil.copyfile(mkdocs_yml_path, str(testproject_path / "mkdocs.yml"))
-
 
     if "gen-files" in mkdocs_yml_path:
         shutil.copyfile(str(Path(mkdocs_yml_path).parent / "gen_pages.py"), str(testproject_path / "gen_pages.py"))
@@ -261,7 +261,7 @@ def validate_build(testproject_path, plugin_config: dict = {}):
 
     # Make sure index file exists
     index_file = testproject_path / "site/index.html"
-    assert index_file.exists(), "%s does not exist" % index_file
+    assert index_file.exists(), f"{index_file} does not exist"
 
     # Make sure with markdown tag has valid
     # git revision date tag
@@ -320,7 +320,9 @@ def validate_mkdocs_file(temp_path: str, mkdocs_yml_file: str):
     testproject_path = setup_clean_mkdocs_folder(mkdocs_yml_path=mkdocs_yml_file, output_path=temp_path)
     setup_commit_history(testproject_path)
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f {mkdocs_yml_file}'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f {mkdocs_yml_file}'"
+    )
 
     # validate build with locale retrieved from mkdocs config file
     validate_build(testproject_path, plugin_config=get_plugin_config_from_mkdocs(mkdocs_yml_file))
@@ -377,7 +379,9 @@ def test_tags_are_replaced(tmp_path, mkdocs_file):
     testproject_path = setup_clean_mkdocs_folder(mkdocs_yml_path=f"tests/fixtures/{mkdocs_file}", output_path=tmp_path)
     setup_commit_history(testproject_path)
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/{mkdocs_file}'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/{mkdocs_file}'"
+    )
 
     plugin_config = get_plugin_config_from_mkdocs(str(testproject_path / "mkdocs.yml"))
     tags_file = testproject_path / "site/page_with_tag/index.html"
@@ -386,7 +390,7 @@ def test_tags_are_replaced(tmp_path, mkdocs_file):
     # validate the build
     validate_build(testproject_path, plugin_config=plugin_config)
 
-    if plugin_config.get("enabled") == False:
+    if not plugin_config.get("enabled"):
         return True
 
     if plugin_config.get("type") == "timeago":
@@ -643,11 +647,13 @@ def test_mkdocs_genfiles_plugin(tmp_path):
     Make sure the mkdocs-gen-files plugin works correctly.
     """
     testproject_path = setup_clean_mkdocs_folder(
-        mkdocs_yml_path=f"tests/fixtures/mkdocs-gen-files/mkdocs.yml", output_path=tmp_path
+        mkdocs_yml_path="tests/fixtures/mkdocs-gen-files/mkdocs.yml", output_path=tmp_path
     )
     setup_commit_history(testproject_path)
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/mkdocs-gen-files/mkdocs.yml'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/mkdocs-gen-files/mkdocs.yml'"
+    )
 
     # validate the build
     plugin_config = get_plugin_config_from_mkdocs(str(testproject_path / "mkdocs.yml"))
@@ -660,7 +666,7 @@ def test_ignored_commits(tmp_path):
 
     # First test that the middle commit doesn't show up by default
     # January 23, 2022 is the date of the most recent commit
-    with open(str(testproject_path / "ignored-commits.txt"), "wt", encoding="utf-8") as fp:
+    with open(str(testproject_path / "ignored-commits.txt"), "w", encoding="utf-8") as fp:
         fp.write("")
 
     result = build_docs_setup(testproject_path)
@@ -674,7 +680,7 @@ def test_ignored_commits(tmp_path):
     # May 4, 2018 is the date of the second most recent commit
     commit_hash = repo.git.log("docs/page_with_tag.md", format="%H", n=1)
 
-    with open(str(testproject_path / "ignored-commits.txt"), "wt", encoding="utf-8") as fp:
+    with open(str(testproject_path / "ignored-commits.txt"), "w", encoding="utf-8") as fp:
         fp.write(commit_hash)
 
     # should not raise warning
@@ -686,19 +692,28 @@ def test_ignored_commits(tmp_path):
     assert "May 4, 2018" in contents
 
 
-@pytest.mark.skipif(sys.platform.startswith("win"), reason="monorepo plugin did not work for me on windows (even without this plugin)")
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="monorepo plugin did not work for me on windows (even without this plugin)"
+)
 def test_monorepo_compat(tmp_path):
     testproject_path = setup_clean_mkdocs_folder("tests/fixtures/monorepo/mkdocs.yml", tmp_path)
     setup_commit_history(testproject_path)
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/monorepo/mkdocs.yml'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/monorepo/mkdocs.yml'"
+    )
 
-@pytest.mark.skipif(sys.platform.startswith("win"), reason="monorepo plugin did not work for me on windows (even without this plugin)")
+
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="monorepo plugin did not work for me on windows (even without this plugin)"
+)
 def test_monorepo_compat_reverse_order(tmp_path):
     testproject_path = setup_clean_mkdocs_folder("tests/fixtures/monorepo/mkdocs_reverse_order.yml", tmp_path)
     setup_commit_history(testproject_path)
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/monorepo/mkdocs_reverse_order.yml'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/monorepo/mkdocs_reverse_order.yml'"
+    )
 
 
 def test_genfiles_plugin(tmp_path):
@@ -706,7 +721,9 @@ def test_genfiles_plugin(tmp_path):
     setup_commit_history(testproject_path)
 
     result = build_docs_setup(testproject_path)
-    assert result.exit_code == 0, f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/basic_project/mkdocs_plugin_genfiles.yml'"
+    assert result.exit_code == 0, (
+        f"'mkdocs build' command failed with:\n{result.stdout}\nReplicate with 'uv run mkdocs serve -f tests/fixtures/basic_project/mkdocs_plugin_genfiles.yml'"
+    )
 
     page_with_tag = testproject_path / "site/foo/index.html"
     contents = page_with_tag.read_text(encoding="utf8")

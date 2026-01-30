@@ -18,6 +18,7 @@ description:
     - Create, update and delete blob containers and blob objects.
     - Use to upload a file and store it as a blob object, or download a blob object to a file(upload and download mode)
     - Use to upload a batch of files under a given directory(batch upload mode)
+    - Use to upload a blob directly from a web URL (source_url), enabling server-side copy from HTTP/HTTPS sources.
     - In the batch upload mode, the existing blob object will be overwritten if a blob object with the same name is to be created.
     - the module can work exclusively in three modes, when C(batch_upload_src) is set, it is working in batch upload mode;
       when C(src) is set, it is working in upload mode and when C(dst) is set, it is working in dowload mode.
@@ -129,6 +130,13 @@ options:
             - Cool
             - Cold
             - Hot
+    source_url:
+        description:
+            - HTTP/HTTPS URL of the source file to copy directly into the blob.
+            - The source must be publicly accessible, or authenticated via a shared access signature (SAS) appended
+              to the URL, or via bearer token on supported Azure sources.
+            - Only supported for block blobs.
+        type: str
     state:
         description:
             - State of a container or blob.
@@ -191,6 +199,32 @@ EXAMPLES = '''
     container: foo
     blob: graylog.png
     dest: ~/tmp/images/graylog.png
+
+- name: Upload a blob directly from a web URL asynchronously (public HTTP/HTTPS)
+  azure_rm_storageblob:
+    resource_group: myResourceGroup
+    storage_account_name: clh0002
+    container: images
+    blob: graylog.png
+    source_url: https://example.com/path/to/graylog.png
+    content_type: image/png
+    cache_control: 'public, max-age=3600'
+    standard_blob_tier: Hot
+    state: present
+  async: 1800
+  poll: 0
+
+- name: Upload a blob directly from a web URL (public HTTP/HTTPS)
+  azure_rm_storageblob:
+    resource_group: myResourceGroup
+    storage_account_name: clh0002
+    container: images
+    blob: graylog.png
+    source_url: https://example.com/path/to/graylog.png
+    content_type: image/png
+    cache_control: 'public, max-age=3600'
+    standard_blob_tier: Hot
+    state: present
 '''
 
 RETURN = '''
@@ -229,10 +263,12 @@ container:
 
 import os
 import mimetypes
+import time
 
 try:
     from azure.storage.blob._models import BlobType, ContentSettings, StandardBlobTier
     from azure.core.exceptions import ResourceNotFoundError
+    from azure.mgmt.storage.models import BlobContainer
 except ImportError:
     # This is handled in azure_rm_common
     pass
@@ -261,6 +297,7 @@ class AzureRMStorageBlob(AzureRMModuleBase):
             force=dict(type='bool', default=False),
             resource_group=dict(required=True, type='str', aliases=['resource_group_name']),
             src=dict(type='str', aliases=['source']),
+            source_url=dict(type='str'),
             batch_upload_src=dict(type='path'),
             batch_upload_dst=dict(type='path'),
             state=dict(type='str', default='present', choices=['absent', 'present']),
@@ -273,7 +310,8 @@ class AzureRMStorageBlob(AzureRMModuleBase):
             content_md5=dict(type='str'),
         )
 
-        mutually_exclusive = [('src', 'dest'), ('src', 'batch_upload_src'), ('dest', 'batch_upload_src')]
+        mutually_exclusive = [('src', 'dest'), ('src', 'batch_upload_src'), ('dest', 'batch_upload_src'),
+                              ('source_url', 'src'), ('source_url', 'dest'), ('source_url', 'batch_upload_src')]
 
         self.blob_service_client = None
         self.blob_details = None
@@ -288,6 +326,7 @@ class AzureRMStorageBlob(AzureRMModuleBase):
         self.force = None
         self.resource_group = None
         self.src = None
+        self.source_url = None
         self.batch_upload_src = None
         self.batch_upload_dst = None
         self.state = None
@@ -314,9 +353,12 @@ class AzureRMStorageBlob(AzureRMModuleBase):
 
         # add file path validation
 
-        self.blob_service_client = self.get_blob_service_client(self.resource_group, self.storage_account_name, self.auth_mode)
+        if self.requires_data_plane_access():
+            # Data plane client
+            self.blob_service_client = self.get_blob_service_client(self.resource_group, self.storage_account_name, self.auth_mode)
+
         self.container_obj = self.get_container()
-        if self.blob:
+        if self.blob and self.requires_data_plane_access():
             self.blob_obj = self.get_blob()
 
         if self.state == 'present':
@@ -342,29 +384,49 @@ class AzureRMStorageBlob(AzureRMModuleBase):
                         self.upload_blob()
                 elif self.dest and self.dest_is_valid():
                     self.download_blob()
+                elif self.source_url:
+                    self.upload_blob_from_url()
 
                 update_tags, self.blob_obj['tags'] = self.update_tags(self.blob_obj.get('tags'))
                 if update_tags:
                     self.update_blob_tags(self.blob_obj['tags'])
 
-                if self.blob_content_settings_differ():
-                    self.update_blob_content_settings()
+                if self.results.get('copy_status') == 'pending':
+                    pass
+                else:
+                    if self.blob_content_settings_differ():
+                        self.update_blob_content_settings()
 
                 if self.standard_blob_tier is not None and self.blob_obj.get('standard_blob_tier') is not None and \
                    self.blob_obj['standard_blob_tier'] != self.standard_blob_tier:
                     self.update_blob_tier()
 
         elif self.state == 'absent':
-            if self.container_obj and not self.blob:
-                # Delete container
-                if self.container_has_blobs():
-                    if self.force:
-                        self.delete_container()
+            if not self.blob:
+                # Delete Container
+                # Initialize a data-plane client if caller force=false
+                if not self.blob_service_client and not self.force:
+                    try:
+                        self.blob_service_client = self.get_blob_service_client(
+                            self.resource_group, self.storage_account_name, self.auth_mode
+                        )
+                    except Exception:
+                        # No data-plane permissions or connectivity. Fall back to a straight management-plane delete.
+                        self.blob_service_client = None
+
+                if self.blob_service_client:
+                    # Data plane
+                    if self.container_has_blobs():
+                        if self.force:
+                            self.delete_container()
+                        else:
+                            self.log("Cannot delete container {0}. It contains blobs. Use the force option.".format(self.container))
                     else:
-                        self.log("Cannot delete container {0}. It contains blobs. Use the force option.".format(
-                            self.container))
+                        self.delete_container()
                 else:
+                    # Management plane
                     self.delete_container()
+
             elif self.container_obj and self.blob_obj:
                 # Delete blob
                 self.delete_blob()
@@ -463,20 +525,26 @@ class AzureRMStorageBlob(AzureRMModuleBase):
             return BlobType.AppendBlob
 
     def get_container(self):
-        result = {}
-        container = None
-        if self.container:
+        if self.requires_data_plane_access():
             try:
                 container = self.blob_service_client.get_container_client(container=self.container).get_container_properties()
+                return dict(
+                    name=container["name"],
+                    tags=container["metadata"],
+                    last_modified=container["last_modified"].strftime('%d-%b-%Y %H:%M:%S %z'),
+                )
             except ResourceNotFoundError:
-                pass
-        if container:
-            result = dict(
-                name=container["name"],
-                tags=container["metadata"],
-                last_modified=container["last_modified"].strftime('%d-%b-%Y %H:%M:%S %z'),
-            )
-        return result
+                return {}
+        else:
+            try:
+                container = self.storage_client.blob_containers.get(self.resource_group, self.storage_account_name, self.container)
+                return dict(
+                    name=container.name,
+                    tags=container.metadata or {},
+                    last_modified=container.last_modified_time.strftime('%d-%b-%Y %H:%M:%S %z') if container.last_modified_time else None,
+                )
+            except Exception:
+                return {}
 
     def get_blob(self):
         result = dict()
@@ -515,8 +583,20 @@ class AzureRMStorageBlob(AzureRMModuleBase):
 
         if not self.check_mode:
             try:
-                client = self.blob_service_client.get_container_client(container=self.container)
-                client.create_container(metadata=tags, public_access=self.public_access)
+                if self.requires_data_plane_access():
+                    client = self.blob_service_client.get_container_client(container=self.container)
+                    client.create_container(metadata=tags, public_access=self.public_access)
+                else:
+                    blob_container = BlobContainer(
+                        public_access=self.public_access,
+                        metadata=tags
+                    )
+                    self.storage_client.blob_containers.create(
+                        self.resource_group,
+                        self.storage_account_name,
+                        self.container,
+                        blob_container
+                    )
             except Exception as exc:
                 self.fail("Error creating container {0} - {1}".format(self.container, str(exc)))
         self.container_obj = self.get_container()
@@ -561,6 +641,65 @@ class AzureRMStorageBlob(AzureRMModuleBase):
         self.results['actions'].append('created blob {0} from {1}'.format(self.blob, self.src))
         self.results['container'] = self.container_obj
         self.results['blob'] = self.blob_obj
+
+    def upload_blob_from_url(self):
+        # Only support block blobs for source_url
+        if self.blob_type != 'block':
+            self.fail("source_url is only supported for block blobs. Set blob_type=block.")
+
+        content_settings = None
+        if self.content_type or self.content_encoding or self.content_language or self.content_disposition or \
+                self.cache_control or self.content_md5:
+            content_settings = ContentSettings(
+                content_type=self.content_type,
+                content_encoding=self.content_encoding,
+                content_language=self.content_language,
+                content_disposition=self.content_disposition,
+                cache_control=self.cache_control,
+                content_md5=self.content_md5
+            )
+        try:
+            client = self.blob_service_client.get_blob_client(container=self.container, blob=self.blob)
+            # If the blob exists and force is false, skip copy
+            if self.blob_obj and not self.force:
+                self.log(f"Destination blob {self.blob} already exists. Skipping copy. Use force=true to overwrite.")
+                self.results['changed'] = False
+                return
+            if not self.check_mode:
+                kwargs = {
+                    "source_url": self.source_url,
+                    "metadata": self.tags,
+                    "standard_blob_tier": self.get_blob_tier(self.standard_blob_tier),
+                }
+
+                # Start async copy
+                client.start_copy_from_url(**kwargs)
+
+                while True:
+                    props = client.get_blob_properties()
+                    # SDK: BlobProperties has `copy` attribute; handle dict-like fallback defensively
+                    copy_props = getattr(props, 'copy', None)
+                    status = getattr(copy_props, 'status', None) if copy_props else None
+
+                    if status in ('success', 'completed'):
+                        break
+                    if status in ('failed', 'aborted'):
+                        desc = getattr(copy_props, 'status_description', '') if copy_props else ''
+                        self.fail(f"Server-side copy failed/aborted (status={status}). {desc}")
+
+                    time.sleep(5)
+
+                    # Copy is complete; apply headers if requested
+                if content_settings:
+                    client.set_http_headers(content_settings=content_settings)
+
+            self.blob_obj = self.get_blob()
+            self.results['changed'] = True
+            self.results['actions'].append(f'started copy of blob {self.blob} from {self.source_url}')
+            self.results['container'] = self.container_obj
+            self.results['blob'] = self.blob_obj
+        except Exception as exc:
+            self.fail(f"Error copying blob from url {self.source_url} - {str(exc)}")
 
     def download_blob(self):
         if not self.check_mode:
@@ -625,7 +764,14 @@ class AzureRMStorageBlob(AzureRMModuleBase):
     def delete_container(self):
         if not self.check_mode:
             try:
-                self.blob_service_client.get_container_client(container=self.container).delete_container()
+                if self.requires_data_plane_access():
+                    self.blob_service_client.get_container_client(container=self.container).delete_container()
+                else:
+                    self.storage_client.blob_containers.delete(
+                        self.resource_group,
+                        self.storage_account_name,
+                        self.container
+                    )
             except Exception as exc:
                 self.fail("Error deleting container {0} - {1}".format(self.container, str(exc)))
 
@@ -655,7 +801,16 @@ class AzureRMStorageBlob(AzureRMModuleBase):
     def update_container_tags(self, tags):
         if not self.check_mode:
             try:
-                self.blob_service_client.get_container_client(container=self.container).set_container_metadata(metadata=tags)
+                if self.requires_data_plane_access():
+                    self.blob_service_client.get_container_client(container=self.container).set_container_metadata(metadata=tags)
+                else:
+                    blob_container = BlobContainer(metadata=tags)
+                    self.storage_client.blob_containers.update(
+                        self.resource_group,
+                        self.storage_account_name,
+                        self.container,
+                        blob_container
+                    )
             except Exception as exc:
                 self.fail("Error updating container tags {0} - {1}".format(self.container, str(exc)))
         self.container_obj = self.get_container()
@@ -716,6 +871,16 @@ class AzureRMStorageBlob(AzureRMModuleBase):
         self.results['actions'].append("updated blob {0}:{1} content settings.".format(self.container, self.blob))
         self.results['container'] = self.container_obj
         self.results['blob'] = self.blob_obj
+
+    def requires_data_plane_access(self):
+        """Determine if operation requires data plane access."""
+        return any([
+            self.blob,
+            self.src,
+            self.dest,
+            self.batch_upload_src,
+            self.source_url,
+        ])
 
 
 def main():

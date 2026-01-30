@@ -18,9 +18,11 @@ jobs:
     strategy:
       matrix:
         ansible:
-          - stable-2.16
-          - stable-2.17
+          # - stable-2.16 # End Of Life July 2025 https://docs.ansible.com/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix
+          # - stable-2.17 # End Of Life Nov 2025
           - stable-2.18
+          - stable-2.19
+          - stable-2.20
           - devel
     runs-on: ubuntu-latest
     steps:
@@ -33,15 +35,21 @@ jobs:
 
   # ansible-lint checks
   lint-checks:
-    name: Link Checks
+    name: Lint Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ansible-lint
-      - run: ansible-lint .
+      - run: pip install ansible-lint pylint
+      - run: ansible-lint --exclude "tests/integration/targets/inventory_azure/playbooks/vars.yml" --force-color
+      - run: |
+          echo "Running pylint on EDA event_source..."
+          pylint extensions/eda/plugins/event_source/*.py \
+            --output-format=parseable \
+            --score=no \
+            --disable=R0801,E0401,C0103,R0913,R0902,R0903,W0621
 
   # requirements.txt validation
   requirements-validation:
@@ -59,7 +67,7 @@ jobs:
           fi
 
   # ruff-check
-  ruff-check:
+  ruff-checks:
     name: Ruff Check for EDA plugins
     runs-on: ubuntu-latest
     continue-on-error: true

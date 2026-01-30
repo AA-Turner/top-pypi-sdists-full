@@ -4,6 +4,7 @@
 import unittest
 
 import libpcap
+from libpcap.__config__ import config
 from utlx.platform import is_windows
 
 
@@ -29,6 +30,8 @@ class MainTestCase(unittest.TestCase):
         result = main()
         self.assertEqual(result, 0)
 
+    @unittest.skipIf(is_windows and config.get("LIBPCAP") in ["wpcap", "tcpdump"],
+                     "Skip for old wpcap library or tcpdump library on Windows...")
     def test_opentest(self):
         from .opentest import main
         result = main()

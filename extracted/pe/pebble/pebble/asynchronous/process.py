@@ -1,5 +1,5 @@
 # This file is part of Pebble.
-# Copyright (c) 2013-2025, Matteo Cafasso
+# Copyright (c) 2013-2026, Matteo Cafasso
 
 # Pebble is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License
@@ -97,13 +97,11 @@ def _process_wrapper(
         else:
             future = loop.create_future()
             reader, writer = mp_context.Pipe(duplex=False)
-
             worker = common.launch_process(
                 name, common.function_handler, daemon, mp_context,
-                target, args, kwargs, (reader, writer))
+                target, args, kwargs, writer)
 
             writer.close()
-
             loop.create_task(_worker_handler(future, worker, reader, timeout))
 
         return future

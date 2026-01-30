@@ -24,10 +24,10 @@ from wbcore.contrib.documents.viewsets.display import DocumentModelDisplay
 from wbcore.contrib.documents.viewsets.endpoints import DocumentEndpointConfig
 from wbcore.contrib.documents.viewsets.previews import DocumentPreviewConfig
 from wbcore.contrib.documents.viewsets.titles import DocumentModelTitleConfig
-from wbcore.contrib.guardian.viewsets.mixins import GuardianFilterMixin
+from wbcore.contrib.permission.viewsets.mixins import ObjectPermissionFilterMixin
 
 
-class DocumentModelViewSet(GuardianFilterMixin, viewsets.ModelViewSet):
+class DocumentModelViewSet(ObjectPermissionFilterMixin, viewsets.ModelViewSet):
     LIST_DOCUMENTATION = "documents/markdown/documentation/documents.md"
     search_fields = ("name",)
     ordering = ["-updated", "name"]
@@ -101,7 +101,7 @@ class DocumentModelViewSet(GuardianFilterMixin, viewsets.ModelViewSet):
         return HttpResponse("Document could not be found", status=status.HTTP_404_NOT_FOUND)
 
 
-class DocumentRepresentationViewSet(GuardianFilterMixin, viewsets.RepresentationViewSet):
+class DocumentRepresentationViewSet(ObjectPermissionFilterMixin, viewsets.RepresentationViewSet):
     IDENTIFIER = "wbcore:documents:documentrepresentation"
     serializer_class = DocumentRepresentationSerializer
     queryset = Document.objects.all()

@@ -16,7 +16,6 @@ dependencies = [
     "click>=8.2.0",
     "cachetools>=5.0",
     "cryptography",
-    "dill==0.3.6",
     "dnslib>=0.9.10",
     "dnspython>=1.16.0",
     "plux>=1.10",
@@ -52,12 +51,13 @@ Issues = "https://github.com/localstack/localstack/issues"
 # minimal required to actually run localstack on the host for services natively implemented in python
 base-runtime = [
     # pinned / updated by ASF update action
-    "boto3==1.42.4",
+    "boto3==1.42.34",
     # pinned / updated by ASF update action
-    "botocore==1.42.4",
+    "botocore==1.42.34",
     # transitive dependency of botocore, added to avoid specific version
     "awscrt>=0.13.14,!=0.27.1",
     "cbor2>=5.5.0",
+    "dill==0.3.6",
     "dnspython>=1.16.0",
     "docker>=6.1.1",
     "jsonpatch>=1.24",
@@ -66,6 +66,7 @@ base-runtime = [
     "hypercorn>=0.14.4",
     "localstack-twisted>=23.0",
     "openapi-core>=0.19.2",
+    "pydantic>=2.11.9",
     "pyopenssl>=23.0.0",
     "python-dateutil>=2.9.0",
     "readerwriterlock>=1.0.7",
@@ -82,7 +83,7 @@ base-runtime = [
 runtime = [
     "localstack-core[base-runtime]",
     # pinned / updated by ASF update action
-    "awscli==1.43.10",
+    "awscli==1.44.24",
     "airspeed-ext>=0.6.3",
     # antlr4-python3-runtime: exact pin because antlr4 runtime is tightly coupled to the generated parser code
     "antlr4-python3-runtime==4.13.2",
@@ -98,9 +99,8 @@ runtime = [
     "jsonpath-rw>=1.4.0",
     # version that has a built wheel
     "kclpy-ext>=3.0.0",
-    "moto-ext[all]>=5.1.12.post22",
+    "moto-ext[all]>=5.1.12.post22,!=5.1.19.post44,!=5.1.19.post57,!=5.1.19.post61",
     "opensearch-py>=2.4.1",
-    "pydantic>=2.11.9",
     "pymongo>=4.2.0",
     "pyopenssl>=23.0.0",
     "responses>=0.25.8",
@@ -146,7 +146,7 @@ typehint = [
     # typehint is an optional extension of the dev dependencies
     "localstack-core[dev]",
     # pinned / updated by ASF update action
-    "boto3-stubs[acm,acm-pca,amplify,apigateway,apigatewayv2,appconfig,appconfigdata,application-autoscaling,appsync,athena,autoscaling,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codebuild,codecommit,codeconnections,codedeploy,codepipeline,codestar-connections,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,identitystore,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalyticsv2,kms,lakeformation,lambda,logs,managedblockchain,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,pipes,pinpoint,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,verifiedpermissions,wafv2,xray]",
+    "boto3-stubs[acm,acm-pca,amplify,apigateway,apigatewayv2,appconfig,appconfigdata,application-autoscaling,appsync,athena,autoscaling,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codebuild,codecommit,codeconnections,codedeploy,codepipeline,codestar-connections,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,identitystore,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalyticsv2,kms,lakeformation,lambda,logs,managedblockchain,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,pipes,pinpoint,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,verifiedpermissions,wafv2,xray]",
 ]
 
 [tool.setuptools]
@@ -176,7 +176,7 @@ exclude = ["tests*"]
 "localstack" = [
     "aws/**/*.json",
     "services/**/*.html",
-    "services/**/resource_providers/*.schema.json",
+    "services/**/resource_providers/**/*.schema.json",
     "utils/kinesis/java/cloud/localstack/*.*",
     "openapi.yaml",
     "http/resources/swagger/templates/index.html"

@@ -7,6 +7,17 @@ from tinybird.datafile.common import Datafile
 from tinybird.datafile.parse_datasource import parse_datasource
 from tinybird.datafile.parse_pipe import parse_pipe
 
+# Pre-compiled regex patterns for pipe type detection (performance optimization)
+_PATTERN_TYPE_ENDPOINT = re.compile(r"TYPE endpoint", re.IGNORECASE)
+_PATTERN_TYPE_MATERIALIZED = re.compile(r"TYPE materialized", re.IGNORECASE)
+_PATTERN_TYPE_COPY = re.compile(r"TYPE copy", re.IGNORECASE)
+_PATTERN_TYPE_SINK = re.compile(r"TYPE sink", re.IGNORECASE)
+_PATTERN_TYPE_KAFKA = re.compile(r"TYPE kafka", re.IGNORECASE)
+_PATTERN_TYPE_S3 = re.compile(r"TYPE s3", re.IGNORECASE)
+_PATTERN_TYPE_GCS = re.compile(r"TYPE gcs", re.IGNORECASE)
+_PATTERN_KAFKA_CONNECTION = re.compile(r"KAFKA_CONNECTION_NAME", re.IGNORECASE)
+_PATTERN_IMPORT_CONNECTION = re.compile(r"IMPORT_CONNECTION_NAME", re.IGNORECASE)
+
 
 class Project:
     extensions = ("datasource", "pipe", "connection")
@@ -190,13 +201,13 @@ class Project:
     def get_pipe_type(path: str) -> str:
         try:
             content = Path(path).read_text()
-            if re.search(r"TYPE endpoint", content, re.IGNORECASE):
+            if _PATTERN_TYPE_ENDPOINT.search(content):
                 return "endpoint"
-            elif re.search(r"TYPE materialized", content, re.IGNORECASE):
+            elif _PATTERN_TYPE_MATERIALIZED.search(content):
                 return "materialization"
-            elif re.search(r"TYPE copy", content, re.IGNORECASE):
+            elif _PATTERN_TYPE_COPY.search(content):
                 return "copy"
-            elif re.search(r"TYPE sink", content, re.IGNORECASE):
+            elif _PATTERN_TYPE_SINK.search(content):
                 return "sink"
             return "pipe"
         except Exception:
@@ -204,24 +215,24 @@ class Project:
 
     @staticmethod
     def is_kafka_connection(content: str) -> bool:
-        return re.search(r"TYPE kafka", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_KAFKA.search(content) is not None
 
     @staticmethod
     def is_s3_connection(content: str) -> bool:
-        return re.search(r"TYPE s3", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_S3.search(content) is not None
 
     @staticmethod
     def is_gcs_connection(content: str) -> bool:
-        return re.search(r"TYPE gcs", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_GCS.search(content) is not None
 
     @staticmethod
     def is_kafka_datasource(content: str) -> bool:
-        return re.search(r"KAFKA_CONNECTION_NAME", content, re.IGNORECASE) is not None
+        return _PATTERN_KAFKA_CONNECTION.search(content) is not None
 
     @staticmethod
     def is_s3_datasource(content: str) -> bool:
-        return re.search(r"IMPORT_CONNECTION_NAME", content, re.IGNORECASE) is not None
+        return _PATTERN_IMPORT_CONNECTION.search(content) is not None
 
     @staticmethod
     def is_gcs_datasource(content: str) -> bool:
-        return re.search(r"IMPORT_CONNECTION_NAME", content, re.IGNORECASE) is not None
+        return _PATTERN_IMPORT_CONNECTION.search(content) is not None

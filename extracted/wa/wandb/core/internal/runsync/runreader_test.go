@@ -1,6 +1,7 @@
 package runsync_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/wandb/wandb/core/internal/observabilitytest"
 	"github.com/wandb/wandb/core/internal/runsync"
 	"github.com/wandb/wandb/core/internal/runwork"
@@ -16,8 +20,6 @@ import (
 	"github.com/wandb/wandb/core/internal/streamtest"
 	"github.com/wandb/wandb/core/internal/transactionlog"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
-	"go.uber.org/mock/gomock"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type testFixtures struct {
@@ -149,7 +151,7 @@ func Test_Extract_FindsRunRecord(t *testing.T) {
 			},
 		}})
 
-	runInfo, err := x.RunReader.ExtractRunInfo()
+	runInfo, err := x.RunReader.ExtractRunInfo(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t, &runsync.RunInfo{
@@ -164,7 +166,7 @@ func Test_Extract_ErrorIfNoRunRecord(t *testing.T) {
 	x := setup(t)
 	wandbFileWithRecords(t, x.TransactionLog)
 
-	runInfo, err := x.RunReader.ExtractRunInfo()
+	runInfo, err := x.RunReader.ExtractRunInfo(context.Background())
 
 	assert.Nil(t, runInfo)
 	assert.ErrorContains(t, err, "didn't find run info")
@@ -173,7 +175,7 @@ func Test_Extract_ErrorIfNoRunRecord(t *testing.T) {
 func Test_Extract_ErrorIfNoFile(t *testing.T) {
 	x := setup(t)
 
-	runInfo, err := x.RunReader.ExtractRunInfo()
+	runInfo, err := x.RunReader.ExtractRunInfo(context.Background())
 
 	assert.Nil(t, runInfo)
 	assert.ErrorContains(t, err, "failed to open reader")
@@ -196,7 +198,7 @@ func Test_TurnsAllRecordsIntoWork(t *testing.T) {
 		x.MockRecordParser.EXPECT().Parse(isExitRecord(0)).Return(exitWork),
 	)
 
-	err := x.RunReader.ProcessTransactionLog()
+	err := x.RunReader.ProcessTransactionLog(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t,
@@ -214,7 +216,7 @@ func Test_CreatesExitRecordIfNotSeen(t *testing.T) {
 		x.MockRecordParser.EXPECT().Parse(isExitRecord(1)).Return(exitWork),
 	)
 
-	err := x.RunReader.ProcessTransactionLog()
+	err := x.RunReader.ProcessTransactionLog(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t,
@@ -240,7 +242,7 @@ func Test_CreatesRunStartRequest(t *testing.T) {
 		x.MockRecordParser.EXPECT().Parse(isExitRecord(1)).Return(exitWork),
 	)
 
-	err := x.RunReader.ProcessTransactionLog()
+	err := x.RunReader.ProcessTransactionLog(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t,
@@ -252,7 +254,7 @@ func Test_FileNotFoundError(t *testing.T) {
 	x := setup(t)
 	x.MockRecordParser.EXPECT().Parse(isExitRecord(1)).Return(&testWork{})
 
-	err := x.RunReader.ProcessTransactionLog()
+	err := x.RunReader.ProcessTransactionLog(context.Background())
 
 	var syncErr *runsync.SyncError
 	require.ErrorAs(t, err, &syncErr)
@@ -270,7 +272,7 @@ func Test_FilePermissionError(t *testing.T) {
 	require.NoError(t, err)
 	x.MockRecordParser.EXPECT().Parse(isExitRecord(1)).Return(&testWork{})
 
-	err = x.RunReader.ProcessTransactionLog()
+	err = x.RunReader.ProcessTransactionLog(context.Background())
 
 	var syncErr *runsync.SyncError
 	require.ErrorAs(t, err, &syncErr)
@@ -291,11 +293,11 @@ func Test_CorruptFileError(t *testing.T) {
 	// Add data to the file that doesn't follow the LevelDB format.
 	wandbFile, err := os.OpenFile(x.TransactionLog, os.O_APPEND|os.O_WRONLY, 0)
 	require.NoError(t, err)
-	_, err = wandbFile.Write([]byte("incorrect"))
+	_, err = wandbFile.WriteString("incorrect")
 	require.NoError(t, err)
 	require.NoError(t, wandbFile.Close())
 
-	err = x.RunReader.ProcessTransactionLog()
+	err = x.RunReader.ProcessTransactionLog(context.Background())
 
 	assert.ErrorContains(t, err, "error getting next record")
 }

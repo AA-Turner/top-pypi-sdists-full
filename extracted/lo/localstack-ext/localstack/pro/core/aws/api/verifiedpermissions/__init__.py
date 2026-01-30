@@ -17,6 +17,8 @@ DatetimeAttribute = str
 Decimal = str
 DiscoveryUrl = str
 Duration = str
+EncryptionContextKey = str
+EncryptionContextValue = str
 EntityId = str
 EntityIdPrefix = str
 EntityType = str
@@ -25,6 +27,7 @@ IdempotencyToken = str
 IdentitySourceId = str
 IpAddr = str
 Issuer = str
+KmsKey = str
 ListIdentitySourcesMaxResults = int
 MaxResults = int
 Namespace = str
@@ -1103,6 +1106,42 @@ class CreatePolicyOutput(TypedDict, total=False):
 TagMap = dict[TagKey, TagValue]
 
 
+class Unit(TypedDict, total=False):
+    pass
+
+
+EncryptionContext = dict[EncryptionContextKey, EncryptionContextValue]
+
+
+class KmsEncryptionSettings(TypedDict, total=False):
+    """A structure that contains the KMS encryption configuration for the
+    policy store. The encryption settings determine what customer-managed
+    KMS key will be used to encrypt all resources within the policy store,
+    and any user-defined context key-value pairs to append during encryption
+    processes.
+
+    This data type is used as a field that is part of the
+    `EncryptionSettings <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_EncryptionSettings.html>`__
+    type.
+    """
+
+    key: KmsKey
+    encryptionContext: EncryptionContext | None
+
+
+class EncryptionSettings(TypedDict, total=False):
+    """A structure that contains the encryption configuration for the policy
+    store and child resources.
+
+    This data type is used as a request parameter in the
+    `CreatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_CreatePolicyStore.html>`__
+    operation.
+    """
+
+    kmsEncryptionSettings: KmsEncryptionSettings | None
+    default: Unit | None
+
+
 class ValidationSettings(TypedDict, total=False):
     """A structure that contains Cedar policy validation settings for the
     policy store. The validation mode determines which validation failures
@@ -1124,6 +1163,7 @@ class CreatePolicyStoreInput(ServiceRequest):
     validationSettings: ValidationSettings
     description: PolicyStoreDescription | None
     deletionProtection: DeletionProtection | None
+    encryptionSettings: EncryptionSettings | None
     tags: TagMap | None
 
 
@@ -1181,6 +1221,34 @@ class DeletePolicyTemplateInput(ServiceRequest):
 
 class DeletePolicyTemplateOutput(TypedDict, total=False):
     pass
+
+
+class KmsEncryptionState(TypedDict, total=False):
+    """A structure that contains the KMS encryption configuration for the
+    policy store. The encryption state shows what customer-managed KMS key
+    is being used to encrypt all resources within the policy store, and any
+    user-defined context key-value pairs added during encryption processes.
+
+    This data type is used as a field that is part of the
+    `EncryptionState <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_EncryptionState.html>`__
+    type.
+    """
+
+    key: KmsKey
+    encryptionContext: EncryptionContext
+
+
+class EncryptionState(TypedDict, total=False):
+    """A structure that contains the encryption configuration for the policy
+    store and child resources.
+
+    This data type is used as a response parameter field for the
+    `GetPolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_GetPolicyStore.html>`__
+    operation.
+    """
+
+    kmsEncryptionState: KmsEncryptionState | None
+    default: Unit | None
 
 
 class EntityReference(TypedDict, total=False):
@@ -1259,6 +1327,7 @@ class GetPolicyStoreOutput(TypedDict, total=False):
     lastUpdatedDate: TimestampFormat
     description: PolicyStoreDescription | None
     deletionProtection: DeletionProtection | None
+    encryptionState: EncryptionState | None
     cedarVersion: CedarVersion | None
     tags: TagMap | None
 
@@ -1729,7 +1798,7 @@ class UpdatePolicyDefinition(TypedDict, total=False):
 class UpdatePolicyInput(ServiceRequest):
     policyStoreId: PolicyStoreId
     policyId: PolicyId
-    definition: UpdatePolicyDefinition
+    definition: UpdatePolicyDefinition | None
 
 
 class UpdatePolicyOutput(TypedDict, total=False):
@@ -2022,6 +2091,7 @@ class VerifiedpermissionsApi:
         client_token: IdempotencyToken | None = None,
         description: PolicyStoreDescription | None = None,
         deletion_protection: DeletionProtection | None = None,
+        encryption_settings: EncryptionSettings | None = None,
         tags: TagMap | None = None,
         **kwargs,
     ) -> CreatePolicyStoreOutput:
@@ -2045,6 +2115,8 @@ class VerifiedpermissionsApi:
         :param description: Descriptive text that you can provide to help with identification of the
         current policy store.
         :param deletion_protection: Specifies whether the policy store can be deleted.
+        :param encryption_settings: Specifies the encryption settings used to encrypt the policy store and
+        their child resources.
         :param tags: The list of key-value pairs to associate with the policy store.
         :returns: CreatePolicyStoreOutput
         :raises ValidationException:
@@ -2628,7 +2700,7 @@ class VerifiedpermissionsApi:
         context: RequestContext,
         policy_store_id: PolicyStoreId,
         policy_id: PolicyId,
-        definition: UpdatePolicyDefinition,
+        definition: UpdatePolicyDefinition | None = None,
         **kwargs,
     ) -> UpdatePolicyOutput:
         """Modifies a Cedar static policy in the specified policy store. You can

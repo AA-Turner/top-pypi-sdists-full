@@ -1,5 +1,5 @@
 # This file is part of Pebble.
-# Copyright (c) 2013-2025, Matteo Cafasso
+# Copyright (c) 2013-2026, Matteo Cafasso
 
 # Pebble is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License
@@ -31,7 +31,8 @@ from pebble.common.types import Result, ResultStatus, RemoteException, CONSTS
 def launch_process(
         name: str,
         function: Callable,
-        daemon: bool, mp_context: multiprocessing.context,
+        daemon: bool,
+        mp_context: multiprocessing.context,
         *args,
         **kwargs
 ) -> multiprocessing.Process:
@@ -79,18 +80,21 @@ def function_handler(
         function: Callable,
         args: list,
         kwargs: dict,
-        pipe: multiprocessing.Pipe
+        writer: multiprocessing.Pipe
 ):
     """Runs the actual function in separate process and returns its result."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
-
-    reader, writer = pipe
-    reader.close()
+    signal.signal(signal.SIGTERM, process_exit)
 
     result = process_execute(function, *args, **kwargs)
 
     send_result(writer, result)
+
+
+def process_exit(exitcode, *_):
+    """Ensure mltiprocessing cleanup is performed to avoid resources leak."""
+    multiprocessing.util._exit_function()
+    os._exit(exitcode)
 
 
 ################################################################################

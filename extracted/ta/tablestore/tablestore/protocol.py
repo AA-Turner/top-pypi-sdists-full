@@ -7,6 +7,7 @@ import logging
 import sys
 import platform
 import datetime
+import json
 
 import google.protobuf.text_format as text_format
 
@@ -66,14 +67,24 @@ class OTSProtocol(object):
         'GetTimeseriesData',
         'UpdateTimeseriesMeta',
         'DeleteTimeseriesMeta',
+        'CreateKnowledgeBase',
+        'ListKnowledgeBase',
+        'DescribeKnowledgeBase',
+        'DeleteKnowledgeBase',
+        'AddDocuments',
+        'GetDocument',
+        'ListDocuments',
+        'DeleteDocuments',
+        'Retrieve',
     ]
 
-    def __init__(self, instance_name, encoding, logger):
+    def __init__(self, instance_name, encoding, logger, extra_headers=None):
         self.instance_name = instance_name
         self.encoding = encoding
         self.encoder = OTSProtoBufferEncoder(encoding)
         self.decoder = OTSProtoBufferDecoder(encoding)
         self.logger = logger
+        self.extra_headers = extra_headers if extra_headers is not None else {}
 
     def _make_request_headers(self, body, query, signer: SignBase, request_context: RequestContext):
         # Compose request headers and process request body if needed.
@@ -92,6 +103,9 @@ class OTSProtocol(object):
         sts_token = credentials.get_security_token()
         if sts_token is not None:
             headers['x-ots-ststoken'] = sts_token
+        if self.extra_headers:
+            for key, value in self.extra_headers.items():
+                headers[key] = value
 
         signer.make_request_signature_and_add_headers(query, headers, request_context)
         headers['User-Agent'] = self.user_agent
@@ -185,6 +199,24 @@ class OTSProtocol(object):
                 text_format.MessageToString(proto, as_utf8=True, as_one_line=True)
             ))
         return query, headers, body
+
+    def make_json_request(self, api_name, signer: SignBase, request, request_context: RequestContext):
+        if api_name not in self.api_list:
+            raise OTSClientError('API %s is not supported.' % api_name)
+
+        query = '/' + api_name
+        if isinstance(request, dict):
+            body_bytes = json.dumps(request, separators=(',', ':')).encode('utf-8')
+        elif isinstance(request, str):
+            body_bytes = request.encode('utf-8')
+        elif isinstance(request, bytes):
+            body_bytes = request
+        else:
+            raise OTSClientError(f'Invalid request type: {type(request)}')
+
+        headers = self._make_request_headers(body_bytes, query, signer, request_context)
+        headers['Content-Type'] = 'application/json'
+        return query, headers, body_bytes
 
     @staticmethod
     def _get_request_id_string(headers):

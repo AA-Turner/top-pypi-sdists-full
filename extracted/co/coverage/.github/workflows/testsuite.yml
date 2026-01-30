@@ -61,7 +61,7 @@ jobs:
   tests:
     name: "${{ matrix.python-version }} on ${{ matrix.os }}"
     runs-on: "${{ matrix.os }}-${{ matrix.os-version }}"
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     # Don't run tests if the branch name includes "-notests".
     # Only run tests if files that affect tests have changed.

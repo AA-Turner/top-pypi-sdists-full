@@ -7,8 +7,8 @@ __all__ = ["ShardTuple", "create_shard_tuple"]
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola import objects_are_equal
-from coola.utils import (
+from coola.equality import objects_are_equal
+from coola.utils.format import (
     repr_indent,
     repr_mapping,
     repr_sequence,

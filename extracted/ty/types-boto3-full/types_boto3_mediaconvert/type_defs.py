@@ -147,6 +147,7 @@ from .literals import (
     DeinterlacerControlType,
     DeinterlacerModeType,
     DescribeEndpointsModeType,
+    DolbyVisionCompatibilityType,
     DolbyVisionLevel6ModeType,
     DolbyVisionMappingType,
     DolbyVisionProfileType,
@@ -370,6 +371,7 @@ from .literals import (
     MsSmoothManifestEncodingType,
     MxfAfdSignalingType,
     MxfProfileType,
+    MxfUncompressedAudioWrappingType,
     MxfXavcDurationModeType,
     NielsenActiveWatermarkProcessTypeType,
     NielsenSourceWatermarkStatusTypeType,
@@ -2404,6 +2406,7 @@ class DescribeEndpointsResponseTypeDef(TypedDict):
 DolbyVisionTypeDef = TypedDict(
     "DolbyVisionTypeDef",
     {
+        "Compatibility": NotRequired[DolbyVisionCompatibilityType],
         "L6Metadata": NotRequired[DolbyVisionLevel6MetadataTypeDef],
         "L6Mode": NotRequired[DolbyVisionLevel6ModeType],
         "Mapping": NotRequired[DolbyVisionMappingType],
@@ -2818,6 +2821,7 @@ class MotionImageInserterTypeDef(TypedDict):
 class MxfSettingsTypeDef(TypedDict):
     AfdSignaling: NotRequired[MxfAfdSignalingType]
     Profile: NotRequired[MxfProfileType]
+    UncompressedAudioWrapping: NotRequired[MxfUncompressedAudioWrappingType]
     XavcProfileSettings: NotRequired[MxfXavcProfileSettingsTypeDef]
 
 

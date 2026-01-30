@@ -2,12 +2,18 @@
 
 import re
 import shlex
+import sys
 from collections.abc import Iterable
 from dataclasses import (
     dataclass,
     field,
 )
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from . import (
     constants,
@@ -144,7 +150,7 @@ class Statement(str):  # noqa: SLOT000
     # Used in JSON dictionaries
     _args_field = 'args'
 
-    def __new__(cls, value: object, *_pos_args: Any, **_kw_args: Any) -> 'Statement':
+    def __new__(cls, value: object, *_pos_args: Any, **_kw_args: Any) -> Self:
         """Create a new instance of Statement.
 
         We must override __new__ because we are subclassing `str` which is

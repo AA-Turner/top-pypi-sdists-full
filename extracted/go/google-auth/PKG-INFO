@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-auth
-Version: 2.47.0
+Version: 2.48.0
 Summary: Google Authentication Library
 Home-page: https://github.com/googleapis/google-auth-library-python
 Author: Google Cloud Platform
@@ -26,6 +26,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: pyasn1-modules>=0.2.1
+Requires-Dist: cryptography>=38.0.3
 Requires-Dist: rsa<5,>=3.1.4
 Provides-Extra: cryptography
 Requires-Dist: cryptography>=38.0.3; extra == "cryptography"
@@ -33,14 +34,11 @@ Provides-Extra: aiohttp
 Requires-Dist: aiohttp<4.0.0,>=3.6.2; extra == "aiohttp"
 Requires-Dist: requests<3.0.0,>=2.20.0; extra == "aiohttp"
 Provides-Extra: enterprise-cert
-Requires-Dist: cryptography; extra == "enterprise-cert"
 Requires-Dist: pyopenssl; extra == "enterprise-cert"
 Provides-Extra: pyopenssl
 Requires-Dist: pyopenssl>=20.0.0; extra == "pyopenssl"
-Requires-Dist: cryptography>=38.0.3; extra == "pyopenssl"
 Provides-Extra: pyjwt
 Requires-Dist: pyjwt>=2.0; extra == "pyjwt"
-Requires-Dist: cryptography>=38.0.3; extra == "pyjwt"
 Provides-Extra: reauth
 Requires-Dist: pyu2f>=0.1.5; extra == "reauth"
 Provides-Extra: requests
@@ -51,12 +49,10 @@ Requires-Dist: flask; extra == "testing"
 Requires-Dist: freezegun; extra == "testing"
 Requires-Dist: oauth2client; extra == "testing"
 Requires-Dist: pyjwt>=2.0; extra == "testing"
-Requires-Dist: cryptography>=38.0.3; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"
 Requires-Dist: pytest-localserver; extra == "testing"
 Requires-Dist: pyopenssl>=20.0.0; extra == "testing"
-Requires-Dist: cryptography>=38.0.3; extra == "testing"
 Requires-Dist: pyu2f>=0.1.5; extra == "testing"
 Requires-Dist: responses; extra == "testing"
 Requires-Dist: urllib3; extra == "testing"

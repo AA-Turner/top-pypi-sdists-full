@@ -19,6 +19,8 @@ class WorkspaceComparisonSummary:
         apps_changed (int): Number of apps with differences
         resources_changed (int): Number of resources with differences
         variables_changed (int): Number of variables with differences
+        resource_types_changed (int): Number of resource types with differences
+        folders_changed (int): Number of folders with differences
         conflicts (int): Number of items that are both ahead and behind (conflicts)
     """
 
@@ -30,6 +32,8 @@ class WorkspaceComparisonSummary:
     apps_changed: int
     resources_changed: int
     variables_changed: int
+    resource_types_changed: int
+    folders_changed: int
     conflicts: int
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -42,6 +46,8 @@ class WorkspaceComparisonSummary:
         apps_changed = self.apps_changed
         resources_changed = self.resources_changed
         variables_changed = self.variables_changed
+        resource_types_changed = self.resource_types_changed
+        folders_changed = self.folders_changed
         conflicts = self.conflicts
 
         field_dict: Dict[str, Any] = {}
@@ -56,6 +62,8 @@ class WorkspaceComparisonSummary:
                 "apps_changed": apps_changed,
                 "resources_changed": resources_changed,
                 "variables_changed": variables_changed,
+                "resource_types_changed": resource_types_changed,
+                "folders_changed": folders_changed,
                 "conflicts": conflicts,
             }
         )
@@ -81,6 +89,10 @@ class WorkspaceComparisonSummary:
 
         variables_changed = d.pop("variables_changed")
 
+        resource_types_changed = d.pop("resource_types_changed")
+
+        folders_changed = d.pop("folders_changed")
+
         conflicts = d.pop("conflicts")
 
         workspace_comparison_summary = cls(
@@ -92,6 +104,8 @@ class WorkspaceComparisonSummary:
             apps_changed=apps_changed,
             resources_changed=resources_changed,
             variables_changed=variables_changed,
+            resource_types_changed=resource_types_changed,
+            folders_changed=folders_changed,
             conflicts=conflicts,
         )
 

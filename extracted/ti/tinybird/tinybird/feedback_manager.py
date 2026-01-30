@@ -305,12 +305,6 @@ class FeedbackManager:
     error_unknown_kafka_connection = error_message(
         "Unknown Kafka connection in Data Source '{datasource}'. Hint: you can create it with the 'tb connection create kafka' command.\n** See https://www.tinybird.co/docs/ingest/kafka.html?highlight=kafka#using-include-to-store-connection-settings to learn more."
     )
-    error_unknown_bq_connection = error_message(
-        "Unknown BigQuery connection in Data Source '{datasource}'. Hint: you can create it with the 'tb connection create bigquery' command."
-    )
-    error_unknown_snowflake_connection = error_message(
-        "Unknown Snowflake connection in Data Source '{datasource}'. Hint: you can create it with the 'tb connection create snowflake' command."
-    )
     error_unknown_connection_service = error_message("Unknown connection service '{service}'")
     error_missing_connection_name = error_message("Missing IMPORT_CONNECTION_NAME in '{datasource}'.")
     error_missing_external_datasource = error_message(
@@ -417,9 +411,6 @@ class FeedbackManager:
     error_updating_tag = error_message("Error updating tag: {error}")
     error_tag_generic = error_message("There was an issue updating tags. {error}")
     error_tag_not_found = error_message("Tag {tag_name} not found.")
-    error_snowflake_connector_not_enabled = error_message(
-        "🚨🚨🚨 [DEPRECATED] Snowflake connector is deprecated. Can't create the connector. **"
-    )
 
     info_incl_relative_path = info_message("** Relative path {path} does not exist, skipping.")
     info_ignoring_incl_file = info_message(
@@ -468,13 +459,6 @@ class FeedbackManager:
     prompt_ws_name = prompt_message("❓ Workspace name:")
     prompt_ws_template = prompt_message("❓ Starter template:")
 
-    prompt_bigquery_account = prompt_message(
-        """** Log into your Google Cloud Platform Console as a project editor and go to https://console.cloud.google.com/iam-admin/iam
-** Grant access to this principal: {service_account}
-** Assign it the role "BigQuery Data Viewer"
-Ready? """
-    )
-
     prompt_s3_iamrole_connection_login_aws = prompt_message("""[1] Log into your AWS Console\n\n""")
     prompt_s3_iamrole_connection_policy = prompt_message(
         """\n[2] Go to IAM > Policies. Create a new policy with the following permissions. Please, replace {replacements}:\n\n{access_policy}\n\n(The policy has been copied to your clipboard)\n\n"""
@@ -508,12 +492,6 @@ Ready? """
 
     error_bump_release = error_message(
         "Error: Bump the --semver flag, example 'tb --semver 0.0.2 {command}'. If you are in CI, bump the VERSION envvar in .tinyenv\n"
-    )
-    error_bigquery_improper_permissions = error_message(
-        "Error: no access detected. It might take a minute to detect the new permissions.\n"
-    )
-    error_snowflake_improper_permissions = error_message(
-        "Snowflake connection is not valid. Please check your credentials and try again.\n"
     )
     error_connection_improper_permissions = error_message(
         "Connection is not valid. Please check your credentials and try again.\n"
@@ -645,9 +623,6 @@ Ready? """
     )
     warning_tag_remove = prompt_message(
         "Tag {tag_name} is used by {resources_len} resources. Do you want to remove it?"
-    )
-    warning_bigquery_connector_deprecated = warning_message(
-        "🚨🚨🚨 [DEPRECATED] BigQuery connector is deprecated. Use ingestion from GCS instead. https://www.tinybird.co/docs/get-data-in/guides/ingest-from-bigquery-using-google-cloud-storage **"
     )
     warning_s3_access_key_secret_deprecated = warning_message(
         "🚨🚨🚨 [DEPRECATED] S3 (Access Key + Secret) connector is deprecated. Use S3 IAM role instead. https://www.tinybird.co/docs/get-data-in/connectors/s3 **"

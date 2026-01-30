@@ -22,6 +22,7 @@ from .create_cluster_details import CreateClusterDetails
 from .create_datastore_cluster_details import CreateDatastoreClusterDetails
 from .create_datastore_details import CreateDatastoreDetails
 from .create_esxi_host_details import CreateEsxiHostDetails
+from .create_management_appliance_details import CreateManagementApplianceDetails
 from .create_sddc_details import CreateSddcDetails
 from .datastore import Datastore
 from .datastore_attachment import DatastoreAttachment
@@ -40,6 +41,12 @@ from .esxi_host_summary import EsxiHostSummary
 from .hcx_license_summary import HcxLicenseSummary
 from .initial_cluster_configuration import InitialClusterConfiguration
 from .initial_configuration import InitialConfiguration
+from .management_appliance import ManagementAppliance
+from .management_appliance_collection import ManagementApplianceCollection
+from .management_appliance_configuration import ManagementApplianceConfiguration
+from .management_appliance_connection import ManagementApplianceConnection
+from .management_appliance_connection_status import ManagementApplianceConnectionStatus
+from .management_appliance_summary import ManagementApplianceSummary
 from .network_configuration import NetworkConfiguration
 from .remove_datastore_from_datastore_cluster_details import RemoveDatastoreFromDatastoreClusterDetails
 from .replace_host_details import ReplaceHostDetails
@@ -58,6 +65,7 @@ from .update_cluster_details import UpdateClusterDetails
 from .update_datastore_cluster_details import UpdateDatastoreClusterDetails
 from .update_datastore_details import UpdateDatastoreDetails
 from .update_esxi_host_details import UpdateEsxiHostDetails
+from .update_management_appliance_details import UpdateManagementApplianceDetails
 from .update_sddc_details import UpdateSddcDetails
 from .vsphere_license import VsphereLicense
 from .vsphere_upgrade_object import VsphereUpgradeObject
@@ -87,6 +95,7 @@ ocvp_type_mapping = {
     "CreateDatastoreClusterDetails": CreateDatastoreClusterDetails,
     "CreateDatastoreDetails": CreateDatastoreDetails,
     "CreateEsxiHostDetails": CreateEsxiHostDetails,
+    "CreateManagementApplianceDetails": CreateManagementApplianceDetails,
     "CreateSddcDetails": CreateSddcDetails,
     "Datastore": Datastore,
     "DatastoreAttachment": DatastoreAttachment,
@@ -105,6 +114,12 @@ ocvp_type_mapping = {
     "HcxLicenseSummary": HcxLicenseSummary,
     "InitialClusterConfiguration": InitialClusterConfiguration,
     "InitialConfiguration": InitialConfiguration,
+    "ManagementAppliance": ManagementAppliance,
+    "ManagementApplianceCollection": ManagementApplianceCollection,
+    "ManagementApplianceConfiguration": ManagementApplianceConfiguration,
+    "ManagementApplianceConnection": ManagementApplianceConnection,
+    "ManagementApplianceConnectionStatus": ManagementApplianceConnectionStatus,
+    "ManagementApplianceSummary": ManagementApplianceSummary,
     "NetworkConfiguration": NetworkConfiguration,
     "RemoveDatastoreFromDatastoreClusterDetails": RemoveDatastoreFromDatastoreClusterDetails,
     "ReplaceHostDetails": ReplaceHostDetails,
@@ -123,6 +138,7 @@ ocvp_type_mapping = {
     "UpdateDatastoreClusterDetails": UpdateDatastoreClusterDetails,
     "UpdateDatastoreDetails": UpdateDatastoreDetails,
     "UpdateEsxiHostDetails": UpdateEsxiHostDetails,
+    "UpdateManagementApplianceDetails": UpdateManagementApplianceDetails,
     "UpdateSddcDetails": UpdateSddcDetails,
     "VsphereLicense": VsphereLicense,
     "VsphereUpgradeObject": VsphereUpgradeObject,

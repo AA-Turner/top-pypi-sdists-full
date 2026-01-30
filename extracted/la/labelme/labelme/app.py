@@ -6,9 +6,13 @@ import html
 import math
 import os
 import os.path as osp
+import platform
 import re
+import subprocess
 import types
 import webbrowser
+from pathlib import Path
+from typing import Literal
 
 import imgviz
 import natsort
@@ -25,12 +29,14 @@ from PyQt5.QtWidgets import QMessageBox
 from labelme import __appname__
 from labelme import __version__
 from labelme._automation import bbox_from_text
+from labelme._automation._osam_session import OsamSession
 from labelme._label_file import LabelFile
 from labelme._label_file import LabelFileError
 from labelme._label_file import ShapeDict
-from labelme.config import get_config
+from labelme.config import load_config
 from labelme.shape import Shape
-from labelme.widgets import AiPromptWidget
+from labelme.widgets import AiAssistedAnnotationWidget
+from labelme.widgets import AiTextToAnnotationWidget
 from labelme.widgets import BrightnessContrastDialog
 from labelme.widgets import Canvas
 from labelme.widgets import FileDialogPreview
@@ -68,9 +74,22 @@ class _ZoomMode(enum.Enum):
     MANUAL_ZOOM = enum.auto()
 
 
+_AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE: dict[
+    str, Literal["mask", "polygon", "rectangle"]
+] = {
+    "ai_mask": "mask",
+    "ai_polygon": "polygon",
+    "polygon": "polygon",
+    "rectangle": "rectangle",
+}
+
+
 class MainWindow(QtWidgets.QMainWindow):
-    filename: str | None
+    _config_file: Path | None
     _config: dict
+
+    filename: str | None
+    _text_osam_session: OsamSession | None = None
     _is_changed: bool = False
     _copied_shapes: list[Shape]
     _zoom_mode: _ZoomMode
@@ -86,7 +105,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(
         self,
-        config: dict | None = None,
+        config_file: Path | None = None,
+        config_overrides: dict | None = None,
         filename: str | None = None,
         output: str | None = None,
         output_file: str | None = None,
@@ -98,10 +118,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 output_file = output
         del output
 
-        # see labelme/config/default_config.yaml for valid configuration
-        if config is None:
-            config = get_config()
-        self._config = config
+        super().__init__()
+        self.setWindowTitle(__appname__)
+
+        self._config_file, self._config = self._load_config(
+            config_file=config_file, config_overrides=config_overrides
+        )
 
         # set default shape colors
         Shape.line_color = QtGui.QColor(*self._config["shape"]["line_color"])
@@ -121,9 +143,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Set point size from config file
         Shape.point_size = self._config["shape"]["point_size"]
-
-        super().__init__()
-        self.setWindowTitle(__appname__)
 
         self._copied_shapes = []
 
@@ -145,8 +164,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flag_dock = QtWidgets.QDockWidget(self.tr("Flags"), self)
         self.flag_dock.setObjectName("Flags")
         self.flag_widget = QtWidgets.QListWidget()
-        if config["flags"]:
-            self._load_flags(flags={k: False for k in config["flags"]})
+        if self._config["flags"]:
+            self._load_flags(flags={k: False for k in self._config["flags"]})
         self.flag_dock.setWidget(self.flag_widget)
         self.flag_widget.itemChanged.connect(self.setDirty)
 
@@ -243,6 +262,14 @@ class MainWindow(QtWidgets.QMainWindow):
             icon=None,
             tip=self.tr("Quit application"),
         )
+        open_config = action(
+            text=self.tr("Preferences…"),
+            slot=self._open_config_file,
+            shortcut="Ctrl+," if platform.system() == "Darwin" else "Ctrl+Shift+,",
+            icon=None,
+            tip=self.tr("Open config file in text editor"),
+        )
+        open_config.setMenuRole(QtWidgets.QAction.PreferencesRole)
         open_ = action(
             self.tr("&Open\n"),
             self._open_file_with_dialog,
@@ -781,6 +808,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 close,
                 deleteFile,
                 None,
+                open_config,
+                None,
                 quit,
             ),
         )
@@ -824,49 +853,23 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
 
+        self._ai_assisted_annotation_widget: AiAssistedAnnotationWidget = (
+            AiAssistedAnnotationWidget(
+                default_model=self._config["ai"]["default"],
+                on_model_changed=self.canvas.set_ai_model_name,
+                parent=self,
+            )
+        )
+        self._ai_assisted_annotation_widget.setEnabled(False)
         selectAiModel = QtWidgets.QWidgetAction(self)
-        selectAiModel.setDefaultWidget(QtWidgets.QWidget())
-        selectAiModel.defaultWidget().setLayout(QtWidgets.QVBoxLayout())
-        #
-        selectAiModelLabel = QtWidgets.QLabel(self.tr("AI Mask Model"))
-        selectAiModelLabel.setAlignment(QtCore.Qt.AlignCenter)
-        selectAiModel.defaultWidget().layout().addWidget(selectAiModelLabel)
-        #
-        self._selectAiModelComboBox = QtWidgets.QComboBox()
-        selectAiModel.defaultWidget().layout().addWidget(self._selectAiModelComboBox)
-        MODEL_NAMES: list[tuple[str, str]] = [
-            ("efficientsam:10m", "EfficientSam (speed)"),
-            ("efficientsam:latest", "EfficientSam (accuracy)"),
-            ("sam:100m", "Sam (speed)"),
-            ("sam:300m", "Sam (balanced)"),
-            ("sam:latest", "Sam (accuracy)"),
-            ("sam2:small", "Sam2 (speed)"),
-            ("sam2:latest", "Sam2 (balanced)"),
-            ("sam2:large", "Sam2 (accuracy)"),
-        ]
-        for model_name, model_ui_name in MODEL_NAMES:
-            self._selectAiModelComboBox.addItem(model_ui_name, userData=model_name)
-        model_ui_names: list[str] = [model_ui_name for _, model_ui_name in MODEL_NAMES]
-        if self._config["ai"]["default"] in model_ui_names:
-            model_index = model_ui_names.index(self._config["ai"]["default"])
-        else:
-            logger.warning(
-                "Default AI model is not found: %r",
-                self._config["ai"]["default"],
-            )
-            model_index = 0
-        self._selectAiModelComboBox.currentIndexChanged.connect(
-            lambda index: self.canvas.set_ai_model_name(
-                model_name=self._selectAiModelComboBox.itemData(index)
-            )
-        )
-        self._selectAiModelComboBox.setCurrentIndex(model_index)
+        selectAiModel.setDefaultWidget(self._ai_assisted_annotation_widget)
 
-        self._ai_prompt_widget: AiPromptWidget = AiPromptWidget(
-            on_submit=self._submit_ai_prompt, parent=self
+        self._ai_text_to_annotation_widget: AiTextToAnnotationWidget = (
+            AiTextToAnnotationWidget(on_submit=self._submit_ai_prompt, parent=self)
         )
+        self._ai_text_to_annotation_widget.setEnabled(False)
         ai_prompt_action = QtWidgets.QWidgetAction(self)
-        ai_prompt_action.setDefaultWidget(self._ai_prompt_widget)
+        ai_prompt_action.setDefaultWidget(self._ai_text_to_annotation_widget)
 
         self.addToolBar(
             Qt.TopToolBarArea,
@@ -938,9 +941,8 @@ class MainWindow(QtWidgets.QMainWindow):
             Qt.Vertical: {},
         }  # key=filename, value=scroll_value
 
-        if config["file_search"]:
-            self.fileSearch.setText(config["file_search"])
-            self.fileSearchChanged()
+        if self._config["file_search"]:
+            self.fileSearch.setText(self._config["file_search"])
 
         # XXX: Could be completely declarative.
         # Restore application settings.
@@ -957,7 +959,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if filename:
             if osp.isdir(filename):
-                self._import_images_from_dir(root_dir=filename)
+                self._import_images_from_dir(
+                    root_dir=filename, pattern=self.fileSearch.text()
+                )
                 self._open_next_image()
             else:
                 self._load_file(filename=filename)
@@ -971,6 +975,36 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoomWidget.valueChanged.connect(self._paint_canvas)
 
         self.populateModeActions()
+
+    def _load_config(
+        self, config_file: Path | None, config_overrides: dict | None
+    ) -> tuple[Path | None, dict]:
+        try:
+            config = load_config(
+                config_file=config_file, config_overrides=config_overrides or {}
+            )
+        except ValueError as e:
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle(self.tr("Configuration Errors"))
+            msg_box.setText(
+                self.tr(
+                    "Errors were found while loading the configuration. "
+                    "Please review the errors below and reload your configuration or "
+                    "ignore the erroneous lines."
+                )
+            )
+            msg_box.setInformativeText(str(e))
+            msg_box.setStandardButtons(QMessageBox.Ignore)
+            msg_box.setModal(False)
+            msg_box.show()
+
+            config_file = None
+            config_overrides = {}
+            config = load_config(
+                config_file=config_file, config_overrides=config_overrides
+            )
+        return config_file, config
 
     def menu(self, title, actions=None):
         menu = self.menuBar().addMenu(title)
@@ -1050,67 +1084,77 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(message, delay)
 
     def _submit_ai_prompt(self, _) -> None:
-        texts = self._ai_prompt_widget.get_text_prompt().split(",")
+        if (
+            self.canvas.createMode
+            not in _AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE
+        ):
+            logger.warning("Unsupported createMode=%r", self.canvas.createMode)
+            return
+        shape_type: Literal["rectangle", "polygon", "mask"] = (
+            _AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE[self.canvas.createMode]
+        )
 
-        model_name: str = "yoloworld"
+        texts = self._ai_text_to_annotation_widget.get_text_prompt().split(",")
+
+        model_name: str = self._ai_text_to_annotation_widget.get_model_name()
         model_type = osam.apis.get_model_type_by_name(model_name)
         if not (_is_already_downloaded := model_type.get_size() is not None):
             if not download_ai_model(model_name=model_name, parent=self):
                 return
+        if (
+            self._text_osam_session is None
+            or self._text_osam_session.model_name != model_name
+        ):
+            self._text_osam_session = OsamSession(model_name=model_name)
 
-        boxes, scores, labels = bbox_from_text.get_bboxes_from_texts(
-            model=model_name,
+        boxes, scores, labels, masks = bbox_from_text.get_bboxes_from_texts(
+            session=self._text_osam_session,
             image=utils.img_qt_to_arr(self.image)[:, :, :3],
+            image_id=str(hash(self.imagePath)),
             texts=texts,
         )
 
+        SCORE_FOR_EXISTING_SHAPE: float = 1.01
         for shape in self.canvas.shapes:
-            if shape.shape_type != "rectangle" or shape.label not in texts:
+            if shape.shape_type != shape_type or shape.label not in texts:
                 continue
-            box = np.array(
-                [
-                    shape.points[0].x(),
-                    shape.points[0].y(),
-                    shape.points[1].x(),
-                    shape.points[1].y(),
-                ],
-                dtype=np.float32,
+            points: NDArray[np.float64] = np.array(
+                [[p.x(), p.y()] for p in shape.points]
             )
+            xmin, ymin = points.min(axis=0)
+            xmax, ymax = points.max(axis=0)
+            box = np.array([xmin, ymin, xmax, ymax], dtype=np.float32)
             boxes = np.r_[boxes, [box]]
-            scores = np.r_[scores, [1.01]]
+            scores = np.r_[scores, [SCORE_FOR_EXISTING_SHAPE]]
             labels = np.r_[labels, [texts.index(shape.label)]]
 
-        boxes, scores, labels = bbox_from_text.nms_bboxes(
+        boxes, scores, labels, indices = bbox_from_text.nms_bboxes(
             boxes=boxes,
             scores=scores,
             labels=labels,
-            iou_threshold=self._ai_prompt_widget.get_iou_threshold(),
-            score_threshold=self._ai_prompt_widget.get_score_threshold(),
+            iou_threshold=self._ai_text_to_annotation_widget.get_iou_threshold(),
+            score_threshold=self._ai_text_to_annotation_widget.get_score_threshold(),
             max_num_detections=100,
         )
 
-        keep = scores != 1.01
-        boxes = boxes[keep]
-        scores = scores[keep]
-        labels = labels[keep]
+        is_new = scores != SCORE_FOR_EXISTING_SHAPE
+        boxes = boxes[is_new]
+        scores = scores[is_new]
+        labels = labels[is_new]
+        indices = indices[is_new]
 
-        shape_dicts: list[dict] = bbox_from_text.get_shapes_from_bboxes(
+        if masks is not None:
+            masks = masks[indices]
+        del indices
+
+        shapes: list[Shape] = bbox_from_text.get_shapes_from_bboxes(
             boxes=boxes,
             scores=scores,
             labels=labels,
             texts=texts,
+            masks=masks,
+            shape_type=shape_type,
         )
-
-        shapes: list[Shape] = []
-        for shape_dict in shape_dicts:
-            shape = Shape(
-                label=shape_dict["label"],
-                shape_type=shape_dict["shape_type"],
-                description=shape_dict["description"],
-            )
-            for point in shape_dict["points"]:
-                shape.addPoint(QtCore.QPointF(*point))
-            shapes.append(shape)
 
         self.canvas.storeShapes()
         self._load_shapes(shapes, replace=False)
@@ -1173,6 +1217,12 @@ class MainWindow(QtWidgets.QMainWindow):
             for draw_mode, draw_action in self.draw_actions:
                 draw_action.setEnabled(createMode != draw_mode)
         self.actions.editMode.setEnabled(not edit)
+        self._ai_text_to_annotation_widget.setEnabled(
+            not edit and createMode in _AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE
+        )
+        self._ai_assisted_annotation_widget.setEnabled(
+            not edit and createMode in ("ai_polygon", "ai_mask")
+        )
 
     def updateFileMenu(self):
         current = self.filename
@@ -1207,9 +1257,6 @@ class MainWindow(QtWidgets.QMainWindow):
         return False
 
     def _edit_label(self, value=None):
-        if not self.canvas.editing():
-            return
-
         items = self.labelList.selectedItems()
         if not items:
             logger.warning("No label is selected, so cannot edit label.")
@@ -1435,6 +1482,9 @@ class MainWindow(QtWidgets.QMainWindow):
             default_flags = {}
             if self._config["label_flags"]:
                 for pattern, keys in self._config["label_flags"].items():
+                    if not isinstance(shape.label, str):
+                        logger.warning("shape.label is not str: {}", shape.label)
+                        continue
                     if re.match(pattern, shape.label):
                         for key in keys:
                             default_flags[key] = False
@@ -1527,10 +1577,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.paste.setEnabled(len(self._copied_shapes) > 0)
 
     def _label_selection_changed(self) -> None:
-        if not self.canvas.editing():
-            logger.warning("canvas is not editing mode, cannot change label selection")
-            return
-
         selected_shapes: list[Shape] = []
         for item in self.labelList.selectedItems():
             selected_shapes.append(item.shape())
@@ -1824,14 +1870,14 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("loaded file: {!r}", filename)
         return True
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
         if (
             self.canvas
             and not self.image.isNull()
             and self._zoom_mode != _ZoomMode.MANUAL_ZOOM
         ):
             self._adjust_scale()
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
 
     def _paint_canvas(self) -> None:
         if self.image.isNull():
@@ -1865,9 +1911,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._config["store_data"] = enabled
         self.actions.saveWithImageData.setChecked(enabled)
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         if not self._can_continue():
-            event.ignore()
+            a0.ignore()
         self.settings.setValue("filename", self.filename if self.filename else "")
         self.settings.setValue("window/size", self.size())
         self.settings.setValue("window/position", self.pos())
@@ -1876,23 +1922,23 @@ class MainWindow(QtWidgets.QMainWindow):
         # ask the use for where to save the labels
         # self.settings.setValue('window/geometry', self.saveGeometry())
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, a0: QtGui.QDragEnterEvent) -> None:
         extensions = [
             f".{fmt.data().decode().lower()}"
             for fmt in QtGui.QImageReader.supportedImageFormats()
         ]
-        if event.mimeData().hasUrls():
-            items = [i.toLocalFile() for i in event.mimeData().urls()]
+        if a0.mimeData().hasUrls():
+            items = [i.toLocalFile() for i in a0.mimeData().urls()]
             if any([i.lower().endswith(tuple(extensions)) for i in items]):
-                event.accept()
+                a0.accept()
         else:
-            event.ignore()
+            a0.ignore()
 
-    def dropEvent(self, event):
+    def dropEvent(self, a0: QtGui.QDropEvent) -> None:
         if not self._can_continue():
-            event.ignore()
+            a0.ignore()
             return
-        items = [i.toLocalFile() for i in event.mimeData().urls()]
+        items = [i.toLocalFile() for i in a0.mimeData().urls()]
         self.importDroppedImageFiles(items)
 
     # User Dialogs #
@@ -2069,6 +2115,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 item.setCheckState(Qt.Unchecked)
 
             self.resetState()
+
+    def _open_config_file(self) -> None:
+        if self._config_file is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Config File"),
+                self.tr(
+                    "Configuration was provided as a YAML expression via "
+                    "command line.\n\n"
+                    "To use the preferences editor, start Labelme with a config file:\n"
+                    "  labelme --config ~/.labelmerc"
+                ),
+            )
+            return
+        config_file: Path = self._config_file
+
+        system: str = platform.system()
+        if system == "Darwin":
+            subprocess.Popen(["open", "-t", config_file])
+        elif system == "Windows":
+            os.startfile(config_file)  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", config_file])
 
     # Message Dialogs. #
     def hasLabels(self):

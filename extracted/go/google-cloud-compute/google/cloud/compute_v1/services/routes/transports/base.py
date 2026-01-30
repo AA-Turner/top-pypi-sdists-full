@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import abc
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
 from google.api_core import exceptions as core_exceptions
@@ -87,8 +87,6 @@ class RoutesTransport(abc.ABC):
         """
         self._extended_operations_services: Dict[str, Any] = {}
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -103,11 +101,16 @@ class RoutesTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -158,6 +161,11 @@ class RoutesTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
+                default_timeout=None,
+                client_info=client_info,
+            ),
         }
 
     def close(self):
@@ -201,6 +209,17 @@ class RoutesTransport(abc.ABC):
     ) -> Callable[
         [compute.ListRoutesRequest],
         Union[compute.RouteList, Awaitable[compute.RouteList]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [compute.TestIamPermissionsRouteRequest],
+        Union[
+            compute.TestPermissionsResponse, Awaitable[compute.TestPermissionsResponse]
+        ],
     ]:
         raise NotImplementedError()
 

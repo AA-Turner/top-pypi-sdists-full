@@ -2,6 +2,62 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
 <context>
+    <name>AiAssistedAnnotationWidget</name>
+    <message>
+        <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
+        <source>AI-Assisted Annotation</source>
+        <translation>AI辅助标注</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
+        <source>AI suggests annotation in &apos;AI-Polygon&apos; and &apos;AI-Mask&apos; modes</source>
+        <translation>AI在'AI-Polygon'和'AI-Mask'模式下提供标注建议</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
+        <source>Select &apos;AI-Polygon&apos; or &apos;AI-Mask&apos; mode to enable AI-Assisted Annotation</source>
+        <translation>选择「AI-Polygon」或「AI-Mask」模式以启用AI辅助标注</translation>
+    </message>
+</context>
+<context>
+    <name>AiTextToAnnotationWidget</name>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>AI Text-to-Annotation</source>
+        <translation>AI提示</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>e.g., dog,cat,bird</source>
+        <translation>例如：狗,猫,鸟</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>Run</source>
+        <translation>运行</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>Score</source>
+        <translation>分数</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>IoU</source>
+        <translation>IoU</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>AI creates annotations from the text prompt</source>
+        <translation>AI根据文本提示创建标注</translation>
+    </message>
+    <message>
+        <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
+        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, &apos;AI-Polygon&apos;, or &apos;AI-Mask&apos; mode to enable</source>
+        <translation>选择 'Polygon'、'Rectangle'、'AI-Polygon' 或 'AI-Mask' 模式以启用</translation>
+    </message>
+</context>
+<context>
     <name>Canvas</name>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -80,11 +136,6 @@
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
-        <source>Click opposite corner for rectangle</source>
-        <translation>点击矩形对角</translation>
-    </message>
-    <message>
-        <location filename="../widgets/canvas.py" line="0"/>
         <source>Click to add point</source>
         <translation>点击以添加点</translation>
     </message>
@@ -102,6 +153,11 @@
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Right-click &amp; drag to copy shape</source>
         <translation>右键点击并拖拽以复制形状</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click opposite corner for rectangle (Shift for square)</source>
+        <translation>点击矩形对角（Shift绘制正方形）</translation>
     </message>
 </context>
 <context>
@@ -730,46 +786,48 @@ Polygons</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Toggle &quot;keep previous annotation&quot; mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>AI Mask Model</source>
-        <translation type="unfinished"></translation>
+        <translation>切换「保留上一个标注」模式</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Keep Previous Brightness/Contrast</source>
         <translation>保留之前的亮度/对比度</translation>
     </message>
-</context>
-<context>
-    <name>_IouThresholdWidget</name>
     <message>
-        <location filename="../widgets/ai_prompt_widget.py" line="0"/>
-        <source>IoU Threshold</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>_ScoreThresholdWidget</name>
-    <message>
-        <location filename="../widgets/ai_prompt_widget.py" line="0"/>
-        <source>Score Threshold</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
-    <name>_TextPromptWidget</name>
-    <message>
-        <location filename="../widgets/ai_prompt_widget.py" line="0"/>
-        <source>AI Prompt</source>
-        <translation type="unfinished"></translation>
+        <location filename="../app.py" line="0"/>
+        <source>Preferences…</source>
+        <translation>偏好设置…</translation>
     </message>
     <message>
-        <location filename="../widgets/ai_prompt_widget.py" line="0"/>
-        <source>e.g., dog,cat,bird</source>
-        <translation type="unfinished"></translation>
+        <location filename="../app.py" line="0"/>
+        <source>Open config file in text editor</source>
+        <translation>在文本编辑器中打开配置文件</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>No Config File</source>
+        <translation>没有配置文件</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Configuration was provided as a YAML expression via command line.
+
+To use the preferences editor, start Labelme with a config file:
+  labelme --config ~/.labelmerc</source>
+        <translation>配置已通过命令行以YAML表达式的形式提供。
+
+要使用偏好设置编辑器，请使用配置文件启动Labelme：
+  labelme --config ~/.labelmerc</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Configuration Errors</source>
+        <translation>配置错误</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Errors were found while loading the configuration. Please review the errors below and reload your configuration or ignore the erroneous lines.</source>
+        <translation>加载配置时发现错误。请检查以下错误并重新加载配置，或忽略错误的行。</translation>
     </message>
 </context>
 </TS>

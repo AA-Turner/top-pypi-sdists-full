@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-langgraph
-Version: 0.10.10
+Version: 0.11.0
 Summary: Use Composio to get array of tools with LangGraph Agent Workflows.
 Home-page: https://github.com/ComposioHQ/composio
 Author: composio

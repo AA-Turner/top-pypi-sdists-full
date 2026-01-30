@@ -1,2 +1,0 @@
-from .management_client import VectorManagementClient
-from .serving_client import VectorServingClient

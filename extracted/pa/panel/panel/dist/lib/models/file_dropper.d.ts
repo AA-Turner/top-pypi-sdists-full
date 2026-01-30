@@ -18,6 +18,7 @@ export declare class FileDropperView extends InputWidgetView {
     input_el: HTMLInputElement;
     _file_pond: any | null;
     _transfer_in_process: string | null;
+    private extensionsToMimeTypes;
     initialize(): void;
     connect_signals(): void;
     remove(): void;

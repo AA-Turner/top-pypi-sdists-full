@@ -287,7 +287,7 @@ class RAGPattern:
         self.prompt_template_text = None
         self.context_template_text = None
 
-        self.default_sw_spec = "runtime-24.1-py3.11"
+        self.default_sw_spec = "genai-A25-py3.12"
 
         self._validate_kwargs()
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parfive
-Version: 2.2.0
+Version: 2.3.1
 Summary: A HTTP and FTP parallel file downloader.
 Author-email: Stuart Mumford <stuart@cadair.com>
 License: Copyright (c) 2017-2020 Stuart Mumford
@@ -31,7 +31,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: tqdm>=4.27.0

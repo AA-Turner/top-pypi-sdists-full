@@ -4,12 +4,11 @@ from enum import Enum
 from typing import Annotated
 from typing import Any
 from typing import List  # noqa : UP005,UP035
-from typing import Literal
 from typing import Optional
 from typing import TypeVar
 from typing import Union
-from typing import get_origin
 
+from pydantic import Base64Bytes
 from pydantic import Field
 from pydantic import create_model
 from pydantic import field_validator
@@ -26,10 +25,10 @@ from ..attributes import ComplexAttribute
 from ..attributes import is_complex_attribute
 from ..base import BaseModel
 from ..constants import RESERVED_WORDS
-from ..reference import ExternalReference
+from ..path import URN
+from ..reference import URI
+from ..reference import External
 from ..reference import Reference
-from ..reference import URIReference
-from ..utils import Base64Bytes
 from ..utils import _normalize_attribute_name
 from .resource import Resource
 
@@ -65,10 +64,6 @@ def _make_python_model(
             for attr in (obj.attributes or [])
             if attr.name
         }
-        pydantic_attributes["schemas"] = (
-            Annotated[list[str], Required.true],
-            Field(default=[obj.id]),
-        )
 
     if not obj.name:
         raise ValueError("Schema or Attribute 'name' must be defined")
@@ -76,8 +71,9 @@ def _make_python_model(
     model_name = to_pascal(to_snake(obj.name))
     model: type[T] = create_model(model_name, __base__=base, **pydantic_attributes)  # type: ignore[call-overload]
 
-    # Set the ComplexType class as a member of the model
-    # e.g. make Member an attribute of Group
+    if isinstance(obj, Schema) and obj.id:
+        model.__schema__ = URN(obj.id)  # type: ignore[attr-defined]
+
     for attr_name in model.model_fields:
         attr_type = model.get_field_root_type(attr_name)
         if attr_type and is_complex_attribute(attr_type):
@@ -103,13 +99,14 @@ class Attribute(ComplexAttribute):
         ) -> type:
             if self.value == self.reference and reference_types is not None:
                 if reference_types == ["external"]:
-                    return Reference[ExternalReference]
+                    return Reference[External]
 
                 if reference_types == ["uri"]:
-                    return Reference[URIReference]
+                    return Reference[URI]
 
-                types = tuple(Literal[t] for t in reference_types)
-                return Reference[Union[types]]  # type: ignore  # noqa: UP007
+                if len(reference_types) == 1:
+                    return Reference[reference_types[0]]  # type: ignore[valid-type]
+                return Reference[Union[tuple(reference_types)]]  # type: ignore[misc,return-value] # noqa: UP007
 
             attr_types = {
                 self.string: str,
@@ -124,7 +121,7 @@ class Attribute(ComplexAttribute):
 
         @classmethod
         def from_python(cls, pytype: type) -> "Attribute.Type":
-            if get_origin(pytype) == Reference:
+            if isinstance(pytype, type) and issubclass(pytype, Reference):
                 return cls.reference
 
             if pytype and is_complex_attribute(pytype):
@@ -254,9 +251,7 @@ class Attribute(ComplexAttribute):
 
 
 class Schema(Resource[Any]):
-    schemas: Annotated[list[str], Required.true] = [
-        "urn:ietf:params:scim:schemas:core:2.0:Schema"
-    ]
+    __schema__ = URN("urn:ietf:params:scim:schemas:core:2.0:Schema")
 
     id: Annotated[str | None, Mutability.read_only, Required.true] = None
     """The unique URI of the schema."""
@@ -288,7 +283,7 @@ class Schema(Resource[Any]):
                 return attribute
         return None
 
-    def __getitem__(self, name: str) -> "Attribute":  # type: ignore[override]
+    def __getitem__(self, name: str) -> "Attribute":
         """Find an attribute by its name."""
         if attribute := self.get_attribute(name):
             return attribute

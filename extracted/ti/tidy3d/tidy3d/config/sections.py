@@ -16,6 +16,7 @@ from pydantic import (
     Field,
     NonNegativeFloat,
     NonNegativeInt,
+    NonPositiveFloat,
     PositiveInt,
     SecretStr,
     field_serializer,
@@ -23,7 +24,14 @@ from pydantic import (
 )
 
 from tidy3d._runtime import WASM_BUILD
-from tidy3d.log import DEFAULT_LEVEL, LogLevel, log, set_log_suppression, set_logging_level
+from tidy3d.log import (
+    DEFAULT_LEVEL,
+    LogLevel,
+    log,
+    set_log_suppression,
+    set_logging_level,
+    set_warn_once,
+)
 
 from .registry import get_manager as _get_attached_manager
 from .registry import register_handler, register_section
@@ -69,6 +77,12 @@ class LoggingConfig(ConfigSection):
         description="Suppress repeated log messages when True.",
     )
 
+    warn_once: bool = Field(
+        False,
+        title="Warn once",
+        description="When True, each unique warning message is only shown once per process.",
+    )
+
 
 @register_handler("logging")
 def apply_logging(config: LoggingConfig) -> None:
@@ -76,6 +90,7 @@ def apply_logging(config: LoggingConfig) -> None:
 
     set_logging_level(config.level)
     set_log_suppression(config.suppression)
+    set_warn_once(config.warn_once)
 
 
 @register_section("simulation")
@@ -143,6 +158,25 @@ class AdjointConfig(ConfigSection):
             "stencils for autograd evaluations."
         ),
         ge=0.0,
+    )
+
+    boundary_snapping_fraction: float = Field(
+        0.65,
+        title="Boundary snapping fraction",
+        description=(
+            "Fraction of minimum local grid size to use for snapping coordinates outside of "
+            "a boundary when computing shape gradients. Should be at least 0.5."
+        ),
+        ge=0.5,
+    )
+
+    pec_detection_threshold: NonPositiveFloat = Field(
+        -100.0,
+        title="PEC detection threshold",
+        description=(
+            "Value the real permittivity should be below to consider it a PEC material in "
+            "the shape gradient boundary integration."
+        ),
     )
 
     local_gradient: bool = Field(
@@ -266,7 +300,7 @@ def apply_adjoint(config: AdjointConfig) -> None:
     defaults = AdjointConfig()
     overridden = [
         name
-        for name in config.model_fields
+        for name in type(config).model_fields
         if name != "local_gradient" and getattr(config, name) != getattr(defaults, name)
     ]
     if not overridden:

@@ -10,7 +10,7 @@ struct Atom {
 
 class NEPY {
 private:
-  NEP3 nep;
+  NEP nep;
   struct Atom atom;
   std::string model_filename;
 
@@ -27,6 +27,8 @@ public:
   std::vector<double> getLatentSpace();
   std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
   getPotentialForcesAndVirials();
+  std::tuple<std::vector<double>, std::vector<double>, std::vector<double>, std::vector<double>, std::vector<double>>
+  getPotentialForcesVirialsAndCharges();
   std::vector<std::string> _getAtomSymbols(std::string model_filename);
   void _convertAtomTypeNEPIndex(int N, std::vector<std::string> atom_symbols,
                                 std::vector<std::string> model_atom_symbols,

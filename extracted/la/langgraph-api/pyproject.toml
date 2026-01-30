@@ -71,6 +71,7 @@ dev = [
     "syrupy==5.0.0",
     "py-spy>=0.4.1",
     "syrupy>=5.0.0",
+    "langgraph-grpc-common",
 ]
 
 
@@ -79,8 +80,12 @@ default-groups = ["dev"]
 
 [tool.uv.sources]
 langgraph-runtime-inmem = { path = "../runtime_inmem", editable = true }
+langgraph-grpc-common = { path = "../grpc_common_py" }
 [tool.hatch.build]
 exclude = ["tests/"]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -115,6 +120,7 @@ packages = ["langgraph_api", "langgraph_runtime", "langgraph_license"]
 "openapi.json" = "openapi.json"
 "logging.json" = "logging.json"
 "LICENSE" = "LICENSE"
+"hatch_build.py" = "hatch_build.py"
 
 [tool.hatch.version]
 path = "langgraph_api/__init__.py"

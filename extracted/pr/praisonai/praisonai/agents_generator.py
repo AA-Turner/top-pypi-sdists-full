@@ -81,6 +81,47 @@ if CREWAI_AVAILABLE or AUTOGEN_AVAILABLE or PRAISONAI_AVAILABLE:
 
 os.environ["OTEL_SDK_DISABLED"] = "true"
 
+
+def safe_format(template: str, **kwargs) -> str:
+    """
+    Safely format a string template, preserving JSON-like curly braces.
+    
+    This handles cases where templates contain Gutenberg block syntax like
+    {"level":2} which would cause KeyError with standard .format().
+    
+    Uses a two-pass approach:
+    1. Escape all {{ and }} (already escaped braces)
+    2. Only substitute known variable placeholders
+    
+    Args:
+        template: String template with {variable} placeholders
+        **kwargs: Variable substitutions to apply
+        
+    Returns:
+        Formatted string with variables substituted and JSON preserved
+        
+    Example:
+        >>> safe_format('Use <!-- wp:heading {"level":2} --> for {topic}', topic='AI')
+        'Use <!-- wp:heading {"level":2} --> for AI'
+    """
+    import re
+    
+    # Pattern to match {word} but not {"key": or {number} patterns
+    # This matches simple variable names like {topic}, {style}, etc.
+    def replace_var(match):
+        var_name = match.group(1)
+        if var_name in kwargs:
+            return str(kwargs[var_name])
+        # If not in kwargs, leave it as-is (don't raise KeyError)
+        return match.group(0)
+    
+    # Match {variable_name} where variable_name is a valid Python identifier
+    # but NOT {" (JSON start) or {number (like {2})
+    pattern = r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}'
+    
+    return re.sub(pattern, replace_var, template)
+
+
 def noop(*args, **kwargs):
     pass
 
@@ -520,14 +561,14 @@ class AgentsGenerator:
         
         # Create agents and tasks from config
         for role, details in config['roles'].items():
-            agent_name = details['role'].format(topic=topic).replace("{topic}", topic)
-            agent_goal = details['goal'].format(topic=topic)
+            agent_name = safe_format(details['role'], topic=topic).replace("{topic}", topic)
+            agent_goal = safe_format(details['goal'], topic=topic)
             
             # Create AutoGen assistant agent
             agents[role] = autogen.AssistantAgent(
                 name=agent_name,
                 llm_config=llm_config,
-                system_message=details['backstory'].format(topic=topic) + 
+                system_message=safe_format(details['backstory'], topic=topic) + 
                              ". Must Reply \"TERMINATE\" in the end when everything is done.",
             )
             
@@ -544,8 +585,8 @@ class AgentsGenerator:
 
             # Prepare tasks
             for task_name, task_details in details.get('tasks', {}).items():
-                description_filled = task_details['description'].format(topic=topic)
-                expected_output_filled = task_details['expected_output'].format(topic=topic)
+                description_filled = safe_format(task_details['description'], topic=topic)
+                expected_output_filled = safe_format(task_details['expected_output'], topic=topic)
                 
                 chat_task = {
                     "recipient": agents[role],
@@ -592,9 +633,9 @@ class AgentsGenerator:
             # Create agents from config
             for role, details in config['roles'].items():
                 # For AutoGen v0.4, ensure agent name is a valid Python identifier
-                agent_name = details['role'].format(topic=topic).replace("{topic}", topic)
+                agent_name = safe_format(details['role'], topic=topic).replace("{topic}", topic)
                 agent_name = sanitize_agent_name_for_autogen_v4(agent_name)
-                backstory = details['backstory'].format(topic=topic)
+                backstory = safe_format(details['backstory'], topic=topic)
                 
                 # Convert tools for v0.4 - simplified tool passing
                 agent_tools = []
@@ -618,7 +659,7 @@ class AgentsGenerator:
                 
                 # Collect all task descriptions for sequential execution
                 for task_name, task_details in details.get('tasks', {}).items():
-                    description_filled = task_details['description'].format(topic=topic)
+                    description_filled = safe_format(task_details['description'], topic=topic)
                     combined_tasks.append(description_filled)
             
             if not agents:
@@ -688,9 +729,9 @@ class AgentsGenerator:
 
         # Create agents from config
         for role, details in config['roles'].items():
-            role_filled = details['role'].format(topic=topic)
-            goal_filled = details['goal'].format(topic=topic)
-            backstory_filled = details['backstory'].format(topic=topic)
+            role_filled = safe_format(details['role'], topic=topic)
+            goal_filled = safe_format(details['goal'], topic=topic)
+            backstory_filled = safe_format(details['backstory'], topic=topic)
             
             # Get agent tools
             agent_tools = [tools_dict[tool] for tool in details.get('tools', []) 
@@ -751,8 +792,8 @@ class AgentsGenerator:
 
             # Create tasks for the agent
             for task_name, task_details in details.get('tasks', {}).items():
-                description_filled = task_details['description'].format(topic=topic)
-                expected_output_filled = task_details['expected_output'].format(topic=topic)
+                description_filled = safe_format(task_details['description'], topic=topic)
+                expected_output_filled = safe_format(task_details['expected_output'], topic=topic)
 
                 task = Task(
                     description=description_filled,
@@ -807,22 +848,56 @@ class AgentsGenerator:
     def _run_praisonai(self, config, topic, tools_dict):
         """
         Run agents using the PraisonAI framework.
+        
+        Tool resolution order:
+        1. Local tools.py (backward compat, custom tools)
+        2. YAML tools: field resolved via ToolResolver
+        3. Built-in tools from praisonaiagents.tools
         """
         agents = {}
         tasks = []
         tasks_dict = {}
 
-        # Load tools once at the beginning
+        # Import tool resolver (lazy import to avoid circular deps)
+        from praisonai.tool_resolver import ToolResolver
+        tool_resolver = ToolResolver()
+        
+        # Load tools from local tools.py (backward compat)
         tools_list = self.load_tools_from_tools_py()
-        self.logger.debug(f"Loaded tools: {tools_list}")
+        self.logger.debug(f"Loaded tools from tools.py: {tools_list}")
 
         # Create agents from config
         for role, details in config['roles'].items():
-            role_filled = details['role'].format(topic=topic)
-            goal_filled = details['goal'].format(topic=topic)
-            backstory_filled = details['backstory'].format(topic=topic)
+            role_filled = safe_format(details['role'], topic=topic)
+            goal_filled = safe_format(details['goal'], topic=topic)
+            backstory_filled = safe_format(details['backstory'], topic=topic)
             
-            # Pass all loaded tools to the agent
+            # Resolve tools for this agent from YAML tools: field
+            yaml_tool_names = details.get('tools', [])
+            agent_tools = list(tools_list)  # Start with local tools.py tools
+            
+            if yaml_tool_names:
+                # Resolve each tool name from YAML
+                for tool_name in yaml_tool_names:
+                    if not tool_name or not isinstance(tool_name, str):
+                        continue
+                    tool_name = tool_name.strip()
+                    
+                    # Check if already in tools_list (from tools.py)
+                    already_loaded = any(
+                        getattr(t, '__name__', None) == tool_name or 
+                        getattr(t, 'name', None) == tool_name
+                        for t in agent_tools
+                    )
+                    
+                    if not already_loaded:
+                        resolved_tool = tool_resolver.resolve(tool_name)
+                        if resolved_tool is not None:
+                            agent_tools.append(resolved_tool)
+                            self.logger.debug(f"Resolved tool '{tool_name}' for agent {role}")
+                        else:
+                            self.logger.warning(f"Tool '{tool_name}' not found for agent {role}")
+            
             # Get LLM from config or environment
             llm_config = details.get('llm', {})
             llm_model = llm_config.get("model") if isinstance(llm_config, dict) else llm_config
@@ -834,7 +909,7 @@ class AgentsGenerator:
                 goal=goal_filled,
                 backstory=backstory_filled,
                 instructions=details.get('instructions'),
-                tools=tools_list,  # Pass the entire tools list to the agent
+                tools=agent_tools,  # Pass resolved tools to the agent
                 allow_delegation=details.get('allow_delegation', False),
                 llm=llm_model,
                 reflection=details.get('reflection', False),
@@ -863,14 +938,14 @@ class AgentsGenerator:
                 self.logger.debug(f"Auto-generated task for agent {role_filled}")
             else:
                 for task_name, task_details in agent_tasks.items():
-                    description_filled = task_details['description'].format(topic=topic)
-                    expected_output_filled = task_details['expected_output'].format(topic=topic)
+                    description_filled = safe_format(task_details['description'], topic=topic)
+                    expected_output_filled = safe_format(task_details['expected_output'], topic=topic)
 
                     task = PraisonTask(
                         description=description_filled,
                         expected_output=expected_output_filled,
                         agent=agent,
-                        tools=tools_list,  # Pass the same tools list to the task
+                        tools=agent_tools,  # Pass resolved tools to the task
                         async_execution=task_details.get('async_execution', False),
                         context=[],
                         config=task_details.get('config', {}),

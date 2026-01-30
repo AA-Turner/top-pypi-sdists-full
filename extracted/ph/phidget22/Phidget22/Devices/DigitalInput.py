@@ -2,6 +2,7 @@ import sys
 import ctypes
 from Phidget22.PhidgetSupport import PhidgetSupport
 from Phidget22.Async import *
+from Phidget22.DataAdapterVoltage import DataAdapterVoltage
 from Phidget22.InputMode import InputMode
 from Phidget22.PowerSupply import PowerSupply
 from Phidget22.PhidgetException import PhidgetException
@@ -49,6 +50,29 @@ class DigitalInput(Phidget):
 				raise PhidgetException(res)
 
 			self._onStateChange = fptr
+
+	def getDataAdapterVoltage(self):
+		_DataAdapterVoltage = ctypes.c_int()
+
+		__func = PhidgetSupport.getDll().PhidgetDigitalInput_getDataAdapterVoltage
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, ctypes.byref(_DataAdapterVoltage))
+
+		if result > 0:
+			raise PhidgetException(result)
+
+		return _DataAdapterVoltage.value
+
+	def setDataAdapterVoltage(self, DataAdapterVoltage):
+		_DataAdapterVoltage = ctypes.c_int(DataAdapterVoltage)
+
+		__func = PhidgetSupport.getDll().PhidgetDigitalInput_setDataAdapterVoltage
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, _DataAdapterVoltage)
+
+		if result > 0:
+			raise PhidgetException(result)
+
 
 	def getInputMode(self):
 		_InputMode = ctypes.c_int()

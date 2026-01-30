@@ -29,7 +29,7 @@ class GPUMDShellProfile(OldShellProfile):
         See https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars.
         Set to None in order to use all available GPUs. Note that GPUMD exit with an error
         when running with more than one GPU if your system is not large enough.
-        Default: 1
+        Default: None
     """
     def __init__(self, command : str, gpu_identifier_index: Union[int, None]):
         if gpu_identifier_index is not None:
@@ -72,7 +72,7 @@ class GPUNEP(FileIOCalculator):
         See https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars.
         Set to None in order to use all available GPUs. Note that GPUMD exit with an error
         when running with more than one GPU if your system is not large enough.
-        Default: 1
+        Default: 0
 
 
     Example

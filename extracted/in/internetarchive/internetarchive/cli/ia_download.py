@@ -86,7 +86,6 @@ def setup(subparsers):
                         metavar="KEY:VALUE",
                         help="Parameters to send with your --search query")
     parser.add_argument("-g", "--glob",
-                        action="append",
                         help=("Only download files whose filename matches "
                              "the given glob pattern. You can provide multiple "
                              "patterns separated by a pipe symbol `|`"))
@@ -227,7 +226,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
                 continue
 
         # Otherwise, download the entire item.
-        ignore_history_dir = bool(args.download_history)
+        ignore_history_dir = not args.download_history
         _errors = item.download(
             files=files,
             formats=args.format,

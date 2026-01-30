@@ -13,10 +13,9 @@
 
 from __future__ import annotations
 
-import os
 import hmac
+import os
 import re
-
 from urllib.parse import urlparse
 
 try:
@@ -97,7 +96,7 @@ def not_in_host_file(self, host):
         try:
             with open(hf) as host_fh:
                 data = host_fh.read()
-        except IOError:
+        except OSError:
             hfiles_not_found += 1
             continue
 

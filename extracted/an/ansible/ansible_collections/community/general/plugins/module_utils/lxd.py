@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import http.client as http_client
 import json
 import os
@@ -115,7 +114,7 @@ class LXDClient:
                     return resp_json
                 self._raise_err_from_json(resp_json)
             return resp_json
-        except socket.error as e:
+        except OSError as e:
             raise LXDClientException("cannot connect to the LXD server", err=e) from e
 
     def _raise_err_from_json(self, resp_json):

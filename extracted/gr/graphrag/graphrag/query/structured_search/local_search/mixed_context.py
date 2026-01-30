@@ -4,16 +4,17 @@
 
 import logging
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from graphrag_llm.tokenizer import Tokenizer
+from graphrag_vectors import VectorStore
 
 from graphrag.data_model.community_report import CommunityReport
 from graphrag.data_model.covariate import Covariate
 from graphrag.data_model.entity import Entity
 from graphrag.data_model.relationship import Relationship
 from graphrag.data_model.text_unit import TextUnit
-from graphrag.language_model.protocol.base import EmbeddingModel
 from graphrag.query.context_builder.builders import ContextBuilderResult
 from graphrag.query.context_builder.community_context import (
     build_community_context,
@@ -41,8 +42,9 @@ from graphrag.query.input.retrieval.community_reports import (
 from graphrag.query.input.retrieval.text_units import get_candidate_text_units
 from graphrag.query.structured_search.base import LocalContextBuilder
 from graphrag.tokenizer.get_tokenizer import get_tokenizer
-from graphrag.tokenizer.tokenizer import Tokenizer
-from graphrag.vector_stores.base import BaseVectorStore
+
+if TYPE_CHECKING:
+    from graphrag_llm.embedding import LLMEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +55,8 @@ class LocalSearchMixedContext(LocalContextBuilder):
     def __init__(
         self,
         entities: list[Entity],
-        entity_text_embeddings: BaseVectorStore,
-        text_embedder: EmbeddingModel,
+        entity_text_embeddings: VectorStore,
+        text_embedder: "LLMEmbedding",
         text_units: list[TextUnit] | None = None,
         community_reports: list[CommunityReport] | None = None,
         relationships: list[Relationship] | None = None,
@@ -83,10 +85,6 @@ class LocalSearchMixedContext(LocalContextBuilder):
         self.text_embedder = text_embedder
         self.tokenizer = tokenizer or get_tokenizer()
         self.embedding_vectorstore_key = embedding_vectorstore_key
-
-    def filter_by_entity_keys(self, entity_keys: list[int] | list[str]):
-        """Filter entity text embeddings by entity keys."""
-        self.entity_text_embeddings.filter_by_id(entity_keys)
 
     def build_context(
         self,

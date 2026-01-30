@@ -33,6 +33,7 @@ from ..tools.polars_utils import PolarsResampleError, resample_polars_ohlc
 from ..traders import Trader
 from ..credentials import IS_BACKTESTING
 from ._strategy import _Strategy
+from ..constants import LUMIBOT_DEFAULT_TIMEZONE, LUMIBOT_DEFAULT_PYTZ
 
 matplotlib.use("Agg")
 
@@ -3024,7 +3025,30 @@ class Strategy(_Strategy):
         >>> timezone = self.timezone
         >>> self.log_message(f"Timezone: {timezone}")
         """
-        return self.broker.data_source.DEFAULT_TIMEZONE
+        # Be defensive: pytz timezones have `.zone`, zoneinfo has `.key`, and
+        # datetime.timezone may only provide `tzname(None)`
+        tz = getattr(self.broker.data_source, "tzinfo", None)
+
+        # Hard default when tzinfo is missing
+        if tz is None:
+            return LUMIBOT_DEFAULT_TIMEZONE
+
+        # Prefer canonical zone identifiers when available
+        if hasattr(tz, "zone") and getattr(tz, "zone", None):
+            return tz.zone
+        if hasattr(tz, "key") and getattr(tz, "key", None):
+            return tz.key
+
+        # Fallbacks: tzname or default
+        try:
+            name = tz.tzname(None)
+            if name:
+                return name
+        except Exception:
+            pass
+
+        # Final fallback to configured default to ensure a str is returned
+        return LUMIBOT_DEFAULT_TIMEZONE
 
     @property
     def pytz(self):
@@ -3041,7 +3065,8 @@ class Strategy(_Strategy):
         >>> pytz = self.pytz
         >>> self.log_message(f"pytz: {pytz}")
         """
-        return self.broker.data_source.tzinfo
+        tz = getattr(self.broker.data_source, "tzinfo", None)
+        return tz or LUMIBOT_DEFAULT_PYTZ
 
     def get_datetime(self, adjust_for_delay: bool = False):
         """Returns the current datetime according to the data source. In a backtest this will be the current bar's datetime. In live trading this will be the current datetime on the exchange.

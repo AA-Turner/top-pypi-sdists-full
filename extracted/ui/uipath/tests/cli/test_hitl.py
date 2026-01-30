@@ -27,6 +27,12 @@ from uipath.platform.common import (
     WaitSystemAgent,
     WaitTask,
 )
+from uipath.platform.common.interrupt_models import (
+    CreateEphemeralIndex,
+    DocumentExtractionValidation,
+    WaitDocumentExtractionValidation,
+    WaitEphemeralIndex,
+)
 from uipath.platform.context_grounding import (
     BatchTransformCreationResponse,
     BatchTransformOutputColumn,
@@ -34,6 +40,21 @@ from uipath.platform.context_grounding import (
     CitationMode,
     DeepRagCreationResponse,
     DeepRagStatus,
+    EphemeralIndexUsage,
+    IndexStatus,
+)
+from uipath.platform.context_grounding.context_grounding_index import (
+    ContextGroundingIndex,
+)
+from uipath.platform.documents import (
+    ExtractionResponseIXP,
+    ExtractionResult,
+    FieldGroupValueProjection,
+    FieldType,
+    FieldValueProjection,
+    ProjectType,
+    StartExtractionValidationResponse,
+    ValidateExtractionAction,
 )
 from uipath.platform.orchestrator import (
     Job,
@@ -561,6 +582,220 @@ class TestHitlReader:
                 reader = UiPathResumeTriggerReader()
                 await reader.read_trigger(resume_trigger)
 
+    @pytest.mark.anyio
+    async def test_read_ephemeral_index_trigger_successful(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading a successful ephemeral index trigger."""
+        index_id = "test-ephemeral-index-id"
+        index_data = {
+            "id": index_id,
+            "name": "test-index",
+            "lastIngestionStatus": IndexStatus.SUCCESSFUL.value,
+        }
+
+        mock_retrieve_by_id = AsyncMock(return_value=index_data)
+
+        with patch(
+            "uipath.platform.context_grounding._context_grounding_service.ContextGroundingService.retrieve_by_id_async",
+            new=mock_retrieve_by_id,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.INDEX_INGESTION,
+                item_key=index_id,
+            )
+            reader = UiPathResumeTriggerReader()
+            result = await reader.read_trigger(resume_trigger)
+
+            assert isinstance(result, dict)
+            assert result["id"] == index_id
+            mock_retrieve_by_id.assert_called_once_with(index_id)
+
+    @pytest.mark.anyio
+    async def test_read_ephemeral_index_trigger_pending(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading a pending ephemeral index trigger raises pending error."""
+        from uipath.core.errors import UiPathPendingTriggerError
+
+        index_id = "test-ephemeral-index-id"
+        index_data = {
+            "id": index_id,
+            "name": "test-index",
+            "lastIngestionStatus": IndexStatus.IN_PROGRESS.value,
+        }
+
+        mock_retrieve_by_id = AsyncMock(return_value=index_data)
+
+        with patch(
+            "uipath.platform.context_grounding._context_grounding_service.ContextGroundingService.retrieve_by_id_async",
+            new=mock_retrieve_by_id,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.INDEX_INGESTION,
+                item_key=index_id,
+            )
+
+            with pytest.raises(UiPathPendingTriggerError):
+                reader = UiPathResumeTriggerReader()
+                await reader.read_trigger(resume_trigger)
+
+    @pytest.mark.anyio
+    async def test_read_ephemeral_index_trigger_failed(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading a failed ephemeral index trigger raises faulted error."""
+        index_id = "test-ephemeral-index-id"
+        index_data = {
+            "id": index_id,
+            "name": "test-index",
+            "lastIngestionStatus": IndexStatus.FAILED.value,
+        }
+
+        mock_retrieve_by_id = AsyncMock(return_value=index_data)
+
+        with patch(
+            "uipath.platform.context_grounding._context_grounding_service.ContextGroundingService.retrieve_by_id_async",
+            new=mock_retrieve_by_id,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.INDEX_INGESTION,
+                item_key=index_id,
+            )
+
+            with pytest.raises(UiPathFaultedTriggerError) as exc_info:
+                reader = UiPathResumeTriggerReader()
+                await reader.read_trigger(resume_trigger)
+            assert exc_info.value.args[0] == ErrorCategory.USER
+
+    @pytest.mark.anyio
+    async def test_read_ixp_vs_escalation_trigger_successful(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading a successful IXP VS escalation trigger."""
+        operation_id = "test-escalation-id"
+        project_id = "test-project-id"
+        tag = "test-tag"
+        action_data = {
+            "status": TaskStatus.COMPLETED.name.lower(),
+            "data": {"field": "value"},
+        }
+
+        mock_escalation = ValidateExtractionAction(
+            action_data=action_data,
+            action_status=TaskStatus.COMPLETED.name,
+            project_id=project_id,
+            project_type=ProjectType.IXP,
+            tag=tag,
+            operation_id=operation_id,
+            document_type_id="test-doc-type",
+        )
+        mock_retrieve_async = AsyncMock(return_value=mock_escalation)
+
+        with patch(
+            "uipath.platform.documents._documents_service.DocumentsService.retrieve_ixp_extraction_validation_result_async",
+            new=mock_retrieve_async,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.IXP_VS_ESCALATION,
+                item_key=operation_id,
+                payload={"project_id": project_id, "tag": tag},
+            )
+            reader = UiPathResumeTriggerReader()
+            result = await reader.read_trigger(resume_trigger)
+            assert result == mock_escalation.model_dump()
+            mock_retrieve_async.assert_called_once_with(
+                project_id,
+                tag,
+                operation_id,
+            )
+
+    @pytest.mark.anyio
+    async def test_read_ixp_vs_escalation_trigger_pending(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading a pending IXP VS escalation trigger raises pending error."""
+        from uipath.core.errors import UiPathPendingTriggerError
+
+        operation_id = "test-escalation-id"
+        project_id = "test-project-id"
+        tag = "test-tag"
+        action_data = {
+            "status": TaskStatus.PENDING.name.lower(),
+            "data": {"field": "value"},
+        }
+
+        mock_escalation = ValidateExtractionAction(
+            action_data=action_data,
+            action_status=TaskStatus.PENDING.name,
+            project_id=project_id,
+            project_type=ProjectType.IXP,
+            tag=tag,
+            operation_id=operation_id,
+            document_type_id="test-doc-type",
+        )
+        mock_retrieve_async = AsyncMock(return_value=mock_escalation)
+
+        with patch(
+            "uipath.platform.documents._documents_service.DocumentsService.retrieve_ixp_extraction_validation_result_async",
+            new=mock_retrieve_async,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.IXP_VS_ESCALATION,
+                item_key=operation_id,
+                payload={"project_id": project_id, "tag": tag},
+            )
+
+            with pytest.raises(UiPathPendingTriggerError):
+                reader = UiPathResumeTriggerReader()
+                await reader.read_trigger(resume_trigger)
+
+    @pytest.mark.anyio
+    async def test_read_ixp_vs_escalation_trigger_unassigned(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test reading an unassigned IXP VS escalation trigger raises pending error."""
+        from uipath.core.errors import UiPathPendingTriggerError
+
+        operation_id = "test-escalation-id"
+        project_id = "test-project-id"
+        tag = "test-tag"
+        action_data = {
+            "status": TaskStatus.UNASSIGNED.name.lower(),
+            "data": {"field": "value"},
+        }
+
+        mock_escalation = ValidateExtractionAction(
+            action_data=action_data,
+            action_status=TaskStatus.UNASSIGNED.name,
+            project_id=project_id,
+            project_type=ProjectType.IXP,
+            tag=tag,
+            operation_id=operation_id,
+            document_type_id="test-doc-type",
+        )
+        mock_retrieve_async = AsyncMock(return_value=mock_escalation)
+
+        with patch(
+            "uipath.platform.documents._documents_service.DocumentsService.retrieve_ixp_extraction_validation_result_async",
+            new=mock_retrieve_async,
+        ):
+            resume_trigger = UiPathResumeTrigger(
+                trigger_type=UiPathResumeTriggerType.IXP_VS_ESCALATION,
+                item_key=operation_id,
+                payload={"project_id": project_id, "tag": tag},
+            )
+
+            with pytest.raises(UiPathPendingTriggerError):
+                reader = UiPathResumeTriggerReader()
+                await reader.read_trigger(resume_trigger)
+
 
 class TestHitlProcessor:
     """Tests for the HitlProcessor class."""
@@ -602,6 +837,10 @@ class TestHitlProcessor:
                 assignee="",
                 recipient="",
                 data=create_action.data,
+                priority=None,
+                labels=None,
+                is_actionable_message_enabled=None,
+                actionable_message_metadata=None,
             )
 
     @pytest.mark.anyio
@@ -652,6 +891,7 @@ class TestHitlProcessor:
             mock_process_invoke_async.assert_called_once_with(
                 name=invoke_process.name,
                 input_arguments=invoke_process.input_arguments,
+                attachments=None,
                 folder_path=invoke_process.process_folder_path,
                 folder_key=None,
             )
@@ -881,6 +1121,171 @@ class TestHitlProcessor:
         assert resume_trigger is not None
         assert resume_trigger.trigger_type == UiPathResumeTriggerType.BATCH_RAG
         assert resume_trigger.item_key == batch_transform_id
+
+    @pytest.mark.anyio
+    async def test_create_resume_trigger_create_ephemeral_index(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test creating a resume trigger for CreateEphemeralIndex."""
+        index_id = "test-ephemeral-index-id"
+        attachments = ["attachment-uuid-1", "attachment-uuid-2"]
+        create_ephemeral_index = CreateEphemeralIndex(
+            usage=EphemeralIndexUsage.DEEP_RAG,
+            attachments=attachments,
+        )
+
+        mock_index = ContextGroundingIndex(
+            id=index_id,
+            name="ephemeral-index",
+            last_ingestion_status=IndexStatus.QUEUED.value,
+        )
+        mock_create_ephemeral_index = AsyncMock(return_value=mock_index)
+
+        with patch(
+            "uipath.platform.context_grounding._context_grounding_service.ContextGroundingService.create_ephemeral_index_async",
+            new=mock_create_ephemeral_index,
+        ):
+            processor = UiPathResumeTriggerCreator()
+            resume_trigger = await processor.create_trigger(create_ephemeral_index)
+
+            assert resume_trigger is not None
+            assert (
+                resume_trigger.trigger_type == UiPathResumeTriggerType.INDEX_INGESTION
+            )
+            assert resume_trigger.item_key == index_id
+            mock_create_ephemeral_index.assert_called_once_with(
+                usage=create_ephemeral_index.usage,
+                attachments=create_ephemeral_index.attachments,
+            )
+
+    @pytest.mark.anyio
+    async def test_create_resume_trigger_wait_ephemeral_index(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test creating a resume trigger for WaitEphemeralIndex."""
+        index_id = "test-ephemeral-index-id"
+        ephemeral_index = ContextGroundingIndex(
+            id=index_id,
+            name="ephemeral-index",
+            last_ingestion_status=IndexStatus.IN_PROGRESS.value,
+        )
+        wait_ephemeral_index = WaitEphemeralIndex(index=ephemeral_index)
+
+        processor = UiPathResumeTriggerCreator()
+        resume_trigger = await processor.create_trigger(wait_ephemeral_index)
+
+        assert resume_trigger is not None
+        assert resume_trigger.trigger_type == UiPathResumeTriggerType.INDEX_INGESTION
+        assert resume_trigger.item_key == index_id
+
+    @pytest.mark.anyio
+    async def test_create_resume_trigger_document_extraction_validation(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test creating a resume trigger for DocumentExtractionValidation."""
+        operation_id = "test-validation-operation-id"
+        project_id = "test-project-id"
+        tag = "test-tag"
+
+        # Create a mock extraction response
+        extraction_result = ExtractionResult(
+            document_id="doc-123",
+            results_version=1,
+            results_document={},
+        )
+        mock_extraction_response = ExtractionResponseIXP(
+            extraction_result=extraction_result,
+            project_id=project_id,
+            project_type=ProjectType.IXP,
+            tag=tag,
+            document_type_id="doc-type-123",
+            data_projection=[
+                FieldGroupValueProjection(
+                    field_group_name="test_group",
+                    field_values=[
+                        FieldValueProjection(
+                            id="field-1",
+                            name="test_field",
+                            value="test_value",
+                            unformatted_value="test_value",
+                            confidence=0.95,
+                            ocr_confidence=0.98,
+                            type=FieldType.TEXT,
+                        )
+                    ],
+                )
+            ],
+        )
+
+        document_extraction_validation = DocumentExtractionValidation(
+            extraction_response=mock_extraction_response,
+            action_title="Test Validation",
+        )
+
+        mock_validation_response = StartExtractionValidationResponse(
+            operation_id=operation_id,
+            document_id="doc-123",
+            project_id=project_id,
+            tag=tag,
+        )
+        mock_start_validation = AsyncMock(return_value=mock_validation_response)
+
+        with patch(
+            "uipath.platform.documents._documents_service.DocumentsService.start_ixp_extraction_validation_async",
+            new=mock_start_validation,
+        ):
+            processor = UiPathResumeTriggerCreator()
+            resume_trigger = await processor.create_trigger(
+                document_extraction_validation
+            )
+
+            assert resume_trigger is not None
+            assert (
+                resume_trigger.trigger_type == UiPathResumeTriggerType.IXP_VS_ESCALATION
+            )
+            assert resume_trigger.item_key == operation_id
+            # Verify the payload contains project_id and tag
+            assert isinstance(resume_trigger.payload, dict)
+            assert resume_trigger.payload.get("project_id") == project_id
+            assert resume_trigger.payload.get("tag") == tag
+            mock_start_validation.assert_called_once_with(
+                extraction_response=document_extraction_validation.extraction_response,
+                action_title=document_extraction_validation.action_title,
+                action_priority=document_extraction_validation.action_priority,
+                action_folder=document_extraction_validation.action_folder,
+                storage_bucket_name=document_extraction_validation.storage_bucket_name,
+                storage_bucket_directory_path=document_extraction_validation.storage_bucket_directory_path,
+            )
+
+    @pytest.mark.anyio
+    async def test_create_resume_trigger_wait_document_extraction_validation(
+        self,
+        setup_test_env: None,
+    ) -> None:
+        """Test creating a resume trigger for WaitDocumentExtractionValidation."""
+        operation_id = "test-validation-operation-id"
+        project_id = "test-project-id"
+        tag = "test-tag"
+
+        validation_response = StartExtractionValidationResponse(
+            operation_id=operation_id,
+            document_id="doc-123",
+            project_id=project_id,
+            tag=tag,
+        )
+        wait_validation = WaitDocumentExtractionValidation(
+            extraction_validation=validation_response
+        )
+
+        processor = UiPathResumeTriggerCreator()
+        resume_trigger = await processor.create_trigger(wait_validation)
+
+        assert resume_trigger is not None
+        assert resume_trigger.trigger_type == UiPathResumeTriggerType.IXP_VS_ESCALATION
+        assert resume_trigger.item_key == operation_id
 
 
 class TestDocumentExtractionModels:

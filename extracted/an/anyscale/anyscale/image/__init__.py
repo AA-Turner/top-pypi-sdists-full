@@ -61,7 +61,7 @@ class ImageSDK:
     @sdk_docs(
         doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
-    def list(  # noqa: A001, F811
+    def list(  # noqa: A001, F811, PLR0913
         self,
         *,
         image_id: Optional[str] = None,

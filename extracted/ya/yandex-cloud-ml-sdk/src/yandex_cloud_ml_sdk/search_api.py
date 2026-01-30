@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from yandex_cloud_ml_sdk._search_api.enums import (
+from yandex_ai_studio_sdk.search_api import (
     FamilyMode, FixTypoMode, GroupMode, ImageColor, ImageFormat, ImageOrientation, ImageSize, Localization, SearchType,
     SortMode, SortOrder
 )

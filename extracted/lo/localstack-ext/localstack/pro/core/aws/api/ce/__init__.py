@@ -6,6 +6,7 @@ from localstack.aws.api import RequestContext, ServiceException, ServiceRequest,
 AccountId = str
 AmortizedRecurringFee = str
 AmortizedUpfrontFee = str
+AnalysesPageSize = int
 AnalysisId = str
 Arn = str
 AttributeType = str
@@ -22,6 +23,7 @@ CoverageNormalizedUnitsPercentage = str
 Entity = str
 ErrorMessage = str
 Estimated = bool
+GenericArn = str
 GenericBoolean = bool
 GenericDouble = float
 GenericString = str
@@ -47,12 +49,14 @@ RICostForUnusedHours = str
 RealizedSavings = str
 RecommendationDetailId = str
 RecommendationId = str
+RecommendationsPageSize = int
 ReservationGroupKey = str
 ReservationGroupValue = str
 ReservedHours = str
 ReservedNormalizedUnits = str
 ResourceTagKey = str
 ResourceTagValue = str
+ResourceType = str
 SavingsPlanArn = str
 SavingsPlansCommitment = float
 SavingsPlansId = str
@@ -977,7 +981,7 @@ CostCategorySplitChargeRuleTargetsList = list[GenericString]
 
 
 class CostCategorySplitChargeRule(TypedDict, total=False):
-    """Use the split charge rule to split the cost of one Cost Category value
+    """Use the split charge rule to split the cost of one cost category value
     across several other target values.
     """
 
@@ -1007,8 +1011,8 @@ class CostCategoryInheritedValueDimension(TypedDict, total=False):
 
 class CostCategoryRule(TypedDict, total=False):
     """Rules are processed in order. If there are multiple rules that match the
-    line item, then the first rule to match is used to determine that Cost
-    Category value.
+    line item, then the first rule to match is used to determine that cost
+    category value.
     """
 
     Value: CostCategoryValue | None
@@ -1037,14 +1041,15 @@ class CostCategory(TypedDict, total=False):
 
 
 CostCategoryNamesList = list[CostCategoryName]
+ResourceTypes = list[ResourceType]
 CostCategoryValuesList = list[CostCategoryValue]
 
 
 class CostCategoryReference(TypedDict, total=False):
-    """A reference to a Cost Category containing only enough information to
+    """A reference to a cost category containing only enough information to
     identify the Cost Category.
 
-    You can use this information to retrieve the full Cost Category
+    You can use this information to retrieve the full cost category
     information using ``DescribeCostCategory``.
     """
 
@@ -1056,9 +1061,23 @@ class CostCategoryReference(TypedDict, total=False):
     ProcessingStatus: CostCategoryProcessingStatusList | None
     Values: CostCategoryValuesList | None
     DefaultValue: CostCategoryValue | None
+    SupportedResourceTypes: ResourceTypes | None
 
 
 CostCategoryReferencesList = list[CostCategoryReference]
+
+
+class CostCategoryResourceAssociation(TypedDict, total=False):
+    """A reference to a cost category association that contains information on
+    an associated resource.
+    """
+
+    ResourceArn: GenericArn | None
+    CostCategoryName: CostCategoryName | None
+    CostCategoryArn: Arn | None
+
+
+CostCategoryResourceAssociations = list[CostCategoryResourceAssociation]
 
 
 class CostDriver(TypedDict, total=False):
@@ -1718,7 +1737,7 @@ class GetReservationPurchaseRecommendationRequest(ServiceRequest):
     TermInYears: TermInYears | None
     PaymentOption: PaymentOption | None
     ServiceSpecification: ServiceSpecification | None
-    PageSize: NonNegativeInteger | None
+    PageSize: RecommendationsPageSize | None
     NextPageToken: NextPageToken | None
 
 
@@ -1779,6 +1798,7 @@ class RDSInstanceDetails(TypedDict, total=False):
     LicenseModel: GenericString | None
     CurrentGeneration: GenericBoolean | None
     SizeFlexEligible: GenericBoolean | None
+    DeploymentModel: GenericString | None
 
 
 class InstanceDetails(TypedDict, total=False):
@@ -1936,7 +1956,7 @@ class GetRightsizingRecommendationRequest(ServiceRequest):
     Filter: Expression | None
     Configuration: RightsizingRecommendationConfiguration | None
     Service: GenericString
-    PageSize: NonNegativeInteger | None
+    PageSize: RecommendationsPageSize | None
     NextPageToken: NextPageToken | None
 
 
@@ -2101,7 +2121,7 @@ class GetSavingsPlansPurchaseRecommendationRequest(ServiceRequest):
     PaymentOption: PaymentOption
     AccountScope: AccountScope | None
     NextPageToken: NextPageToken | None
-    PageSize: NonNegativeInteger | None
+    PageSize: RecommendationsPageSize | None
     LookbackPeriodInDays: LookbackPeriodInDays
     Filter: Expression | None
 
@@ -2317,7 +2337,7 @@ class GetUsageForecastResponse(TypedDict, total=False):
 class ListCommitmentPurchaseAnalysesRequest(ServiceRequest):
     AnalysisStatus: AnalysisStatus | None
     NextPageToken: NextPageToken | None
-    PageSize: NonNegativeInteger | None
+    PageSize: AnalysesPageSize | None
     AnalysisIds: AnalysisIds | None
 
 
@@ -2349,14 +2369,29 @@ class ListCostAllocationTagsResponse(TypedDict, total=False):
     NextToken: NextPageToken | None
 
 
+ResourceTypesFilterInput = list[ResourceType]
+
+
 class ListCostCategoryDefinitionsRequest(ServiceRequest):
     EffectiveOn: ZonedDateTime | None
     NextToken: NextPageToken | None
     MaxResults: CostCategoryMaxResults | None
+    SupportedResourceTypes: ResourceTypesFilterInput | None
 
 
 class ListCostCategoryDefinitionsResponse(TypedDict, total=False):
     CostCategoryReferences: CostCategoryReferencesList | None
+    NextToken: NextPageToken | None
+
+
+class ListCostCategoryResourceAssociationsRequest(ServiceRequest):
+    CostCategoryArn: Arn | None
+    NextToken: NextPageToken | None
+    MaxResults: CostCategoryMaxResults | None
+
+
+class ListCostCategoryResourceAssociationsResponse(TypedDict, total=False):
+    CostCategoryResourceAssociations: CostCategoryResourceAssociations | None
     NextToken: NextPageToken | None
 
 
@@ -2366,7 +2401,7 @@ RecommendationIdList = list[RecommendationId]
 class ListSavingsPlansPurchaseRecommendationGenerationRequest(ServiceRequest):
     GenerationStatus: GenerationStatus | None
     RecommendationIds: RecommendationIdList | None
-    PageSize: NonNegativeInteger | None
+    PageSize: RecommendationsPageSize | None
     NextPageToken: NextPageToken | None
 
 
@@ -2557,15 +2592,15 @@ class CeApi:
         resource_tags: ResourceTagList | None = None,
         **kwargs,
     ) -> CreateCostCategoryDefinitionResponse:
-        """Creates a new Cost Category with the requested name and rules.
+        """Creates a new cost category with the requested name and rules.
 
-        :param name: The unique name of the Cost Category.
-        :param rule_version: The rule schema version in this particular Cost Category.
-        :param rules: The Cost Category rules used to categorize costs.
-        :param effective_start: The Cost Category's effective start date.
+        :param name: The unique name of the cost category.
+        :param rule_version: The rule schema version in this particular cost category.
+        :param rules: The cost category rules used to categorize costs.
+        :param effective_start: The cost category's effective start date.
         :param default_value: The default value for the cost category.
-        :param split_charge_rules: The split charge rules used to allocate your charges between your Cost
-        Category values.
+        :param split_charge_rules: The split charge rules used to allocate your charges between your cost
+        category values.
         :param resource_tags: An optional list of tags to associate with the specified
         ```CostCategory`` <https://docs.
         :returns: CreateCostCategoryDefinitionResponse
@@ -2606,10 +2641,10 @@ class CeApi:
     def delete_cost_category_definition(
         self, context: RequestContext, cost_category_arn: Arn, **kwargs
     ) -> DeleteCostCategoryDefinitionResponse:
-        """Deletes a Cost Category. Expenses from this month going forward will no
-        longer be categorized with this Cost Category.
+        """Deletes a cost category. Expenses from this month going forward will no
+        longer be categorized with this cost category.
 
-        :param cost_category_arn: The unique identifier for your Cost Category.
+        :param cost_category_arn: The unique identifier for your cost category.
         :returns: DeleteCostCategoryDefinitionResponse
         :raises ResourceNotFoundException:
         :raises LimitExceededException:
@@ -2625,16 +2660,16 @@ class CeApi:
         **kwargs,
     ) -> DescribeCostCategoryDefinitionResponse:
         """Returns the name, Amazon Resource Name (ARN), rules, definition, and
-        effective dates of a Cost Category that's defined in the account.
+        effective dates of a cost category that's defined in the account.
 
-        You have the option to use ``EffectiveOn`` to return a Cost Category
+        You have the option to use ``EffectiveOn`` to return a cost category
         that's active on a specific date. If there's no ``EffectiveOn``
         specified, you see a Cost Category that's effective on the current date.
-        If Cost Category is still effective, ``EffectiveEnd`` is omitted in the
+        If cost category is still effective, ``EffectiveEnd`` is omitted in the
         response.
 
-        :param cost_category_arn: The unique identifier for your Cost Category.
-        :param effective_on: The date when the Cost Category was effective.
+        :param cost_category_arn: The unique identifier for your cost category.
+        :param effective_on: The date when the cost category was effective.
         :returns: DescribeCostCategoryDefinitionResponse
         :raises ResourceNotFoundException:
         :raises LimitExceededException:
@@ -2909,14 +2944,14 @@ class CeApi:
         next_page_token: NextPageToken | None = None,
         **kwargs,
     ) -> GetCostCategoriesResponse:
-        """Retrieves an array of Cost Category names and values incurred cost.
+        """Retrieves an array of cost category names and values incurred cost.
 
-        If some Cost Category names and values are not associated with any cost,
+        If some cost category names and values are not associated with any cost,
         they will not be returned by this API.
 
         :param time_period: The time period of the request.
         :param search_string: The value that you want to search the filter values for.
-        :param cost_category_name: The unique name of the Cost Category.
+        :param cost_category_name: The unique name of the cost category.
         :param filter: Use ``Expression`` to filter in various Cost Explorer APIs.
         :param sort_by: The value that you sort the data by.
         :param billing_view_arn: The Amazon Resource Name (ARN) that uniquely identifies a specific
@@ -3054,7 +3089,7 @@ class CeApi:
         ElastiCache, Amazon Relational Database Service, or Amazon Redshift
         usage is covered by a reservation. An organization's management account
         can see the coverage of the associated member accounts. This supports
-        dimensions, Cost Categories, and nested expressions. For any time
+        dimensions, cost categories, and nested expressions. For any time
         period, you can filter data about reservation usage by the following
         dimensions:
 
@@ -3136,7 +3171,7 @@ class CeApi:
         term_in_years: TermInYears | None = None,
         payment_option: PaymentOption | None = None,
         service_specification: ServiceSpecification | None = None,
-        page_size: NonNegativeInteger | None = None,
+        page_size: RecommendationsPageSize | None = None,
         next_page_token: NextPageToken | None = None,
         **kwargs,
     ) -> GetReservationPurchaseRecommendationResponse:
@@ -3226,7 +3261,7 @@ class CeApi:
         service: GenericString,
         filter: Expression | None = None,
         configuration: RightsizingRecommendationConfiguration | None = None,
-        page_size: NonNegativeInteger | None = None,
+        page_size: RecommendationsPageSize | None = None,
         next_page_token: NextPageToken | None = None,
         **kwargs,
     ) -> GetRightsizingRecommendationResponse:
@@ -3286,7 +3321,7 @@ class CeApi:
         """Retrieves the Savings Plans covered for your account. This enables you
         to see how much of your cost is covered by a Savings Plan. An
         organization’s management account can see the coverage of the associated
-        member accounts. This supports dimensions, Cost Categories, and nested
+        member accounts. This supports dimensions, cost categories, and nested
         expressions. For any time period, you can filter data for Savings Plans
         usage with the following dimensions:
 
@@ -3328,7 +3363,7 @@ class CeApi:
         lookback_period_in_days: LookbackPeriodInDays,
         account_scope: AccountScope | None = None,
         next_page_token: NextPageToken | None = None,
-        page_size: NonNegativeInteger | None = None,
+        page_size: RecommendationsPageSize | None = None,
         filter: Expression | None = None,
         **kwargs,
     ) -> GetSavingsPlansPurchaseRecommendationResponse:
@@ -3500,7 +3535,7 @@ class CeApi:
         context: RequestContext,
         analysis_status: AnalysisStatus | None = None,
         next_page_token: NextPageToken | None = None,
-        page_size: NonNegativeInteger | None = None,
+        page_size: AnalysesPageSize | None = None,
         analysis_ids: AnalysisIds | None = None,
         **kwargs,
     ) -> ListCommitmentPurchaseAnalysesResponse:
@@ -3564,22 +3599,50 @@ class CeApi:
         effective_on: ZonedDateTime | None = None,
         next_token: NextPageToken | None = None,
         max_results: CostCategoryMaxResults | None = None,
+        supported_resource_types: ResourceTypesFilterInput | None = None,
         **kwargs,
     ) -> ListCostCategoryDefinitionsResponse:
         """Returns the name, Amazon Resource Name (ARN), ``NumberOfRules`` and
-        effective dates of all Cost Categories defined in the account. You have
-        the option to use ``EffectiveOn`` to return a list of Cost Categories
-        that were active on a specific date. If there is no ``EffectiveOn``
-        specified, you’ll see Cost Categories that are effective on the current
-        date. If Cost Category is still effective, ``EffectiveEnd`` is omitted
-        in the response. ``ListCostCategoryDefinitions`` supports pagination.
-        The request can have a ``MaxResults`` range up to 100.
+        effective dates of all cost categories defined in the account. You have
+        the option to use ``EffectiveOn`` and ``SupportedResourceTypes`` to
+        return a list of cost categories that were active on a specific date. If
+        there is no ``EffectiveOn`` specified, you’ll see cost categories that
+        are effective on the current date. If cost category is still effective,
+        ``EffectiveEnd`` is omitted in the response.
+        ``ListCostCategoryDefinitions`` supports pagination. The request can
+        have a ``MaxResults`` range up to 100.
 
-        :param effective_on: The date when the Cost Category was effective.
+        :param effective_on: The date when the cost category was effective.
         :param next_token: The token to retrieve the next set of results.
         :param max_results: The number of entries a paginated response contains.
+        :param supported_resource_types: Filter cost category definitions that are supported by given resource
+        types based on the latest version.
         :returns: ListCostCategoryDefinitionsResponse
         :raises LimitExceededException:
+        """
+        raise NotImplementedError
+
+    @handler("ListCostCategoryResourceAssociations")
+    def list_cost_category_resource_associations(
+        self,
+        context: RequestContext,
+        cost_category_arn: Arn | None = None,
+        next_token: NextPageToken | None = None,
+        max_results: CostCategoryMaxResults | None = None,
+        **kwargs,
+    ) -> ListCostCategoryResourceAssociationsResponse:
+        """Returns resource associations of all cost categories defined in the
+        account. You have the option to use ``CostCategoryArn`` to get the
+        association for a specific cost category.
+        ``ListCostCategoryResourceAssociations`` supports pagination. The
+        request can have a ``MaxResults`` range up to 100.
+
+        :param cost_category_arn: The unique identifier for your cost category.
+        :param next_token: The token to retrieve the next set of results.
+        :param max_results: The number of entries a paginated response contains.
+        :returns: ListCostCategoryResourceAssociationsResponse
+        :raises LimitExceededException:
+        :raises ResourceNotFoundException:
         """
         raise NotImplementedError
 
@@ -3589,7 +3652,7 @@ class CeApi:
         context: RequestContext,
         generation_status: GenerationStatus | None = None,
         recommendation_ids: RecommendationIdList | None = None,
-        page_size: NonNegativeInteger | None = None,
+        page_size: RecommendationsPageSize | None = None,
         next_page_token: NextPageToken | None = None,
         **kwargs,
     ) -> ListSavingsPlansPurchaseRecommendationGenerationResponse:
@@ -3832,17 +3895,17 @@ class CeApi:
         split_charge_rules: CostCategorySplitChargeRulesList | None = None,
         **kwargs,
     ) -> UpdateCostCategoryDefinitionResponse:
-        """Updates an existing Cost Category. Changes made to the Cost Category
+        """Updates an existing cost category. Changes made to the cost category
         rules will be used to categorize the current month’s expenses and future
         expenses. This won’t change categorization for the previous months.
 
-        :param cost_category_arn: The unique identifier for your Cost Category.
-        :param rule_version: The rule schema version in this particular Cost Category.
+        :param cost_category_arn: The unique identifier for your cost category.
+        :param rule_version: The rule schema version in this particular cost category.
         :param rules: The ``Expression`` object used to categorize costs.
-        :param effective_start: The Cost Category's effective start date.
+        :param effective_start: The cost category's effective start date.
         :param default_value: The default value for the cost category.
-        :param split_charge_rules: The split charge rules used to allocate your charges between your Cost
-        Category values.
+        :param split_charge_rules: The split charge rules used to allocate your charges between your cost
+        category values.
         :returns: UpdateCostCategoryDefinitionResponse
         :raises ResourceNotFoundException:
         :raises ServiceQuotaExceededException:

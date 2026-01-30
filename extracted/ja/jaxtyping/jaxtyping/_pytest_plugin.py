@@ -34,12 +34,22 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
-    value = config.getoption("jaxtyping_packages")
+def pytest_load_initial_conftests(early_config, parser, args):
+    # We run this function before conftest.py files are loaded,
+    # so we can instrument imports before any code is run.
+    del early_config
+    options = parser.parse_known_args(args)
+    value = options.jaxtyping_packages
     if not value:
         return
 
-    packages = [pkg.strip() for pkg in value.split(",")]
+    maxsplit = -1
+    # We avoid splitting on commas inside of the typechecker constructor
+    # (e.g. `beartype.beartype(option_a=..., option_b=...)`)
+    if index := value.find("(") != -1:
+        maxsplit = value[:index].count(",") + 1
+
+    packages = [pkg.strip() for pkg in value.split(",", maxsplit=maxsplit)]
     *packages, typechecker = packages
 
     already_imported_packages = sorted(

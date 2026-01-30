@@ -84,7 +84,11 @@ set(TEST_NAMES
 )
 
 foreach (NAME ${TEST_NAMES})
-  nanobind_add_module(test_${NAME}_ext test_${NAME}.cpp ${NB_EXTRA_ARGS})
+  if (NAME STREQUAL classes)
+    nanobind_add_module(test_${NAME}_ext test_${NAME}.cpp test_${NAME}_extra.cpp ${NB_EXTRA_ARGS})
+  else()
+    nanobind_add_module(test_${NAME}_ext test_${NAME}.cpp ${NB_EXTRA_ARGS})
+  endif()
 
   if (NB_TEST_CUDA)
     set_property(SOURCE test_${NAME}.cpp PROPERTY LANGUAGE CUDA)
@@ -173,6 +177,7 @@ set(TEST_FILES
   test_stubs.py
   test_typing.py
   test_thread.py
+  test_specialization.py
 
   # Stub reference files
   test_classes_ext.pyi.ref

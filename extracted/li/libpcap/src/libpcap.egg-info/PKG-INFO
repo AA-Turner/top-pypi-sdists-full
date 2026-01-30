@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libpcap
-Version: 1.11.0b27
+Version: 1.11.0b28
 Summary: Python binding for the libpcap C library.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>

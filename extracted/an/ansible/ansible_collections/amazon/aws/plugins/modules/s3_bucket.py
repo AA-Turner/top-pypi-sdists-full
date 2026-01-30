@@ -861,9 +861,11 @@ def _handle_bucket_key_encryption(
     current_encryption_algorithm = current_encryption.get("SSEAlgorithm") if current_encryption else None
 
     if current_encryption_algorithm != "aws:kms":
-        raise AnsibleS3Error(
-            f'Unable to set bucket key: current encryption algorith ("{current_encryption_algorithm}") is not "aws:kms"'
-        )
+        if bucket_key_enabled:
+            raise AnsibleS3Error(
+                f'Unable to set bucket key: current encryption algorithm ("{current_encryption_algorithm}") is not "aws:kms"'
+            )
+        return False, current_encryption
 
     if get_bucket_key_enabled(s3_client, name) == bucket_key_enabled:
         return False, current_encryption
@@ -1173,7 +1175,7 @@ def create_or_update_bucket(s3_client: ClientType, module: AnsibleAWSModule) -> 
     if not bucket_is_present:
         changed = create_bucket(s3_client, name, location, object_lock_enabled)
         waiter = get_s3_waiter(s3_client, "bucket_exists")
-        S3ErrorHandler.common_error_handler(f"wait for bucket f{name} to be created")(waiter.wait)(Bucket=name)
+        S3ErrorHandler.common_error_handler(f"wait for bucket {name} to be created")(waiter.wait)(Bucket=name)
 
     # Versioning
     versioning_changed, versioning_result = handle_bucket_versioning(s3_client, module, name)

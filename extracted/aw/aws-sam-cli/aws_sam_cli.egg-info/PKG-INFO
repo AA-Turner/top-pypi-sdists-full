@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-cli
-Version: 1.152.0
+Version: 1.153.1
 Summary: AWS SAM CLI is a CLI tool for local development and testing of Serverless applications
 Home-page: https://github.com/aws/aws-sam-cli
 Author: Amazon Web Services
@@ -35,8 +35,8 @@ Requires-Dist: aws-sam-translator==1.106.0
 Requires-Dist: docker~=7.1.0
 Requires-Dist: dateparser~=1.2
 Requires-Dist: requests~=2.32.5
-Requires-Dist: aws_lambda_builders==1.61.0
-Requires-Dist: tomlkit==0.13.3
+Requires-Dist: aws_lambda_builders==1.62.0
+Requires-Dist: tomlkit==0.14.0
 Requires-Dist: watchdog==4.0.2
 Requires-Dist: rich~=14.2.0
 Requires-Dist: pyopenssl~=25.3.0
@@ -59,7 +59,7 @@ Requires-Dist: types-pywin32==311.0.0.20251008; python_version >= "3.9" and extr
 Requires-Dist: types-pywin32==308.0.0.20241221; python_version < "3.9" and extra == "dev"
 Requires-Dist: types-PyYAML==6.0.12.20250915; extra == "dev"
 Requires-Dist: types-chevron==0.14.2.20250103; extra == "dev"
-Requires-Dist: types-psutil==7.2.1.20251231; extra == "dev"
+Requires-Dist: types-psutil==7.2.1.20260116; extra == "dev"
 Requires-Dist: types-setuptools==80.9.0.20251223; extra == "dev"
 Requires-Dist: types-Pygments==2.19.0.20251121; extra == "dev"
 Requires-Dist: types-colorama==0.4.15.20250801; extra == "dev"
@@ -83,7 +83,7 @@ Requires-Dist: filelock==3.20.3; python_version >= "3.10" and extra == "dev"
 Requires-Dist: filelock==3.19.1; python_version < "3.10" and extra == "dev"
 Requires-Dist: black==25.9.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: black==24.8.0; python_version < "3.9" and extra == "dev"
-Requires-Dist: psutil==7.2.0; extra == "dev"
+Requires-Dist: psutil==7.2.1; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Optional,
-    Union,
-)
+from typing import TYPE_CHECKING
 
 from .repos import DeviceRepos
 from .globals import _KERNEL_MAPPING
@@ -21,11 +16,11 @@ if TYPE_CHECKING:
 
 
 def use_kernel_mapping(
-    mapping: Dict[
+    mapping: dict[
         str,
-        Dict[
-            Union[Device, str],
-            Union[RepositoryProtocol, Dict[Mode, RepositoryProtocol]],
+        dict[
+            Device | str,
+            RepositoryProtocol | dict[Mode, RepositoryProtocol],
         ],
     ],
     *,
@@ -38,7 +33,7 @@ def use_kernel_mapping(
     kernel configurations for different parts of your code.
 
     Args:
-        mapping (`Dict[str, Dict[Union[Device, str], Union[LayerRepositoryProtocol, Dict[Mode, LayerRepositoryProtocol]]]]`):
+        mapping (`dict[str, dict[Union[Device, str], Union[LayerRepositoryProtocol, dict[Mode, LayerRepositoryProtocol]]]]`):
             The kernel mapping to apply. Maps layer names to device-specific kernel configurations.
         inherit_mapping (`bool`, *optional*, defaults to `True`):
             When `True`, the current mapping will be extended by `mapping` inside the context. When `False`,
@@ -63,6 +58,7 @@ def use_kernel_mapping(
                 "cuda": LayerRepository(
                     repo_id="kernels-community/activation",
                     layer_name="SiluAndMul",
+                    version=1
                 )
             }
         }
@@ -100,11 +96,11 @@ def use_kernel_mapping(
 
 
 def register_kernel_mapping(
-    mapping: Dict[
+    mapping: dict[
         str,
-        Dict[
-            Union[Device, str],
-            Union[RepositoryProtocol, Dict[Mode, RepositoryProtocol]],
+        dict[
+            Device | str,
+            RepositoryProtocol | dict[Mode, RepositoryProtocol],
         ],
     ],
     inherit_mapping: bool = True,
@@ -116,7 +112,7 @@ def register_kernel_mapping(
     depending on the device and mode. This should be used in conjunction with [`kernelize`].
 
     Args:
-        mapping (`Dict[str, Dict[Union[Device, str], Union[RepositoryProtocol, Dict[Mode, RepositoryProtocol]]]]`):
+        mapping (`dict[str, dict[Union[Device, str], Union[RepositoryProtocol, dict[Mode, RepositoryProtocol]]]]`):
             The kernel mapping to register globally. Maps layer names to device-specific kernels.
             The mapping can specify different kernels for different modes (training, inference, etc.).
         inherit_mapping (`bool`, *optional*, defaults to `True`):
@@ -131,9 +127,9 @@ def register_kernel_mapping(
         kernel_layer_mapping = {
             "LlamaRMSNorm": {
                 "cuda": LayerRepository(
-                    repo_id="kernels-community/activation",
-                    layer_name="RmsNorm",
-                    revision="layers",
+                    repo_id="kernels-community/layer_norm",
+                    layer_name="LlamaRMSNorm",
+                    version=1,
                 ),
             },
         }
@@ -145,11 +141,13 @@ def register_kernel_mapping(
                 "cuda": {
                     Mode.TRAINING: LayerRepository(
                         repo_id="username/training-kernels",
-                        layer_name="TrainingAttention"
+                        layer_name="TrainingAttention",
+                        version=1,
                     ),
                     Mode.INFERENCE: LayerRepository(
                         repo_id="username/inference-kernels",
-                        layer_name="FastAttention"
+                        layer_name="FastAttention",
+                        version=1,
                     ),
                 }
             }
@@ -183,7 +181,7 @@ def kernelize(
     model: "nn.Module",
     *,
     mode: Mode,
-    device: Optional[Union[str, "torch.device"]] = None,
+    device: str | "torch.device" | None = None,
     use_fallback: bool = True,
 ):
     """

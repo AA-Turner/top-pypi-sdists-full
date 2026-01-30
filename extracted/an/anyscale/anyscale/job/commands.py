@@ -399,6 +399,8 @@ _LIST_ARG_DOCSTRINGS = {
     "tags_filter": "Filter by tags (dict of key to list of values).",
     "page_size": "Number of items per page.",
     "max_items": "Maximum total items to return.",
+    "sort_field": "Field to sort by (CREATED_AT, NAME, STATUS, etc.).",
+    "sort_order": "Sort order (ASC or DESC).",
 }
 
 
@@ -420,6 +422,8 @@ def list(  # noqa: A001, PLR0913
     tags_filter: Optional[Dict[str, List[str]]] = None,
     page_size: Optional[int] = None,
     max_items: Optional[int] = None,
+    sort_field: Optional[str] = None,
+    sort_order: Optional[str] = None,
     _private_sdk: Optional[PrivateJobSDK] = None,
 ) -> ResultIterator[JobStatus]:
     """List jobs with filtering and pagination.
@@ -437,4 +441,6 @@ def list(  # noqa: A001, PLR0913
         tags_filter=tags_filter,
         page_size=page_size,
         max_items=max_items,
+        sort_field=sort_field,
+        sort_order=sort_order,
     )

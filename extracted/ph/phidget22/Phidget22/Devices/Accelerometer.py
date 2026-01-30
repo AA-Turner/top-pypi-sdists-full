@@ -50,7 +50,7 @@ class Accelerometer(Phidget):
 			self._onAccelerationChange = fptr
 
 	def getAcceleration(self):
-		_Acceleration = (ctypes.c_double * 3)()
+		_Acceleration = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetAccelerometer_getAcceleration
 		__func.restype = ctypes.c_int32
@@ -62,7 +62,7 @@ class Accelerometer(Phidget):
 		return list(_Acceleration)
 
 	def getMinAcceleration(self):
-		_MinAcceleration = (ctypes.c_double * 3)()
+		_MinAcceleration = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetAccelerometer_getMinAcceleration
 		__func.restype = ctypes.c_int32
@@ -74,7 +74,7 @@ class Accelerometer(Phidget):
 		return list(_MinAcceleration)
 
 	def getMaxAcceleration(self):
-		_MaxAcceleration = (ctypes.c_double * 3)()
+		_MaxAcceleration = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetAccelerometer_getMaxAcceleration
 		__func.restype = ctypes.c_int32

@@ -9,9 +9,10 @@ import unittest
 from unittest.mock import patch
 
 from ansible.errors import AnsibleError
-from ansible.plugins.loader import lookup_loader
-from ansible_collections.community.general.plugins.lookup.bitwarden import Bitwarden, BitwardenException
 from ansible.parsing.ajson import AnsibleJSONEncoder
+from ansible.plugins.loader import lookup_loader
+
+from ansible_collections.community.general.plugins.lookup.bitwarden import Bitwarden, BitwardenException
 
 MOCK_COLLECTION_ID = "3b12a9da-7c49-40b8-ad33-aede017a7ead"
 MOCK_ORGANIZATION_ID = "292ba0c6-f289-11ee-9301-ef7b639ccd2a"
@@ -205,7 +206,7 @@ class TestLookupModule(unittest.TestCase):
     def test_bitwarden_plugin_duplicates(self):
         # There are two records with name dupe_name; we need to be order-insensitive with
         # checking what was retrieved.
-        self.assertEqual(set(["b", "d"]), set(self.lookup.run(["dupe_name"], field="password")[0]))
+        self.assertEqual({"b", "d"}, set(self.lookup.run(["dupe_name"], field="password")[0]))
 
     @patch("ansible_collections.community.general.plugins.lookup.bitwarden._bitwarden", new=MockBitwarden())
     def test_bitwarden_plugin_full_item(self):

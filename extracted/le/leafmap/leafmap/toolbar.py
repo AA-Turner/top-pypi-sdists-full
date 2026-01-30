@@ -1978,14 +1978,15 @@ def time_slider(
         m.default_style = {"cursor": "wait"}
         index = slider.value - 1
         label.value = labels[index]
-        if isinstance(layers[label.value], str) and layers[label.value].startswith(
-            "http"
-        ):
-            layer.url = layers[label.value]
+        # Use keys[index] instead of label.value to avoid potential mismatch
+        # between label widget value and dictionary keys
+        layer_key = keys[index]
+        if isinstance(layers[layer_key], str) and layers[layer_key].startswith("http"):
+            layer.url = layers[layer_key]
             layer.name = labels[index]
         else:
-            layer.url = layers[label.value].url
-            layer.name = layers[label.value].name
+            layer.url = layers[layer_key].url
+            layer.name = layers[layer_key].name
         m.default_style = {"cursor": "default"}
 
     slider.observe(slider_changed, "value")
@@ -2846,7 +2847,6 @@ def inspector_gui(
                         bounds = m.cog_layer_dict[m.inspector_dropdown.value]["bounds"]
                         m.zoom_to_bounds(bounds)
             elif layer_dict["type"] == "COG":
-
                 if m.inspector_bands_chk.value:
                     indexes = layer_dict["indexes"]
                 else:
@@ -6011,7 +6011,6 @@ def stac_custom_gui(
     if backend != "ipyleaflet":
         return toolbar_footer
     else:
-
         toolbar_button.value = True
         if m is not None:
             toolbar_control = ipyleaflet.WidgetControl(
@@ -6812,7 +6811,6 @@ def nasa_opera_gui(
     cmap_options.sort()
 
     if not hasattr(m, "_NASA_DATA"):
-
         data = {
             "ShortName": [
                 "OPERA_L2_CSLC-S1-STATIC_V1",

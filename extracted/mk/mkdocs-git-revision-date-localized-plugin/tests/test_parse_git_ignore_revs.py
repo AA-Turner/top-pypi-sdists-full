@@ -1,7 +1,9 @@
-from mkdocs_git_revision_date_localized_plugin.util import Util
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
+
+from mkdocs_git_revision_date_localized_plugin.util import Util
 
 TEST_PARAMS = [
     ("abc123\n", ["abc123"]),

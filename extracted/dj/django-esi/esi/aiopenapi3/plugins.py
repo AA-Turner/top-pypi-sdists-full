@@ -59,7 +59,7 @@ class MinifySpec(Document):
     def parsed(self, ctx: Document.Context) -> Document.Context:
 
         if len(self.keep_tags) == 0 and self.keep_ops == []:
-            logger.error("No tag/path filtering supplied to ESI Client. Using all tags. This throw an error with `DEBUG=False`!", stack_info=True)
+            logger.error("No tag/path filtering supplied to ESI Client. Using all tags. This will throw an error with `DEBUG=False`!", stack_info=True)
             if not getattr(settings, "DEBUG", False):
                 # we are in production mode throw error to protect RAM.
                 raise AttributeError("No tag/path filtering supplied to ESI Client.")

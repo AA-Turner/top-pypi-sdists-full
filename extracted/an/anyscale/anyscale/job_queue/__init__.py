@@ -7,6 +7,8 @@ from anyscale._private.sdk.base_sdk import Timer
 from anyscale.cli_logger import BlockLogger
 from anyscale.job_queue._private.job_queue_sdk import PrivateJobQueueSDK
 from anyscale.job_queue.commands import (
+    _ARCHIVE_ARG_DOCSTRINGS,
+    _ARCHIVE_EXAMPLE,
     _JOB_QUEUE_SDK_SINGLETON_KEY as _JOB_QUEUE_SDK_SINGLETON_KEY,
     _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE,
@@ -18,13 +20,17 @@ from anyscale.job_queue.commands import (
     _TAGS_LIST_EXAMPLE,
     _TAGS_REMOVE_ARG_DOCSTRINGS,
     _TAGS_REMOVE_EXAMPLE,
+    _TERMINATE_ARG_DOCSTRINGS,
+    _TERMINATE_EXAMPLE,
     _UPDATE_ARG_DOCSTRINGS,
     _UPDATE_EXAMPLE,
     add_tags as add_tags,
+    archive as archive,
     list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
     list_tags as list_tags,
     remove_tags as remove_tags,
     status as status,
+    terminate as terminate,
     update as update,
 )
 from anyscale.job_queue.models import (
@@ -51,7 +57,7 @@ class JobQueueSDK:
         )
 
     @sdk_docs(doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS)
-    def list(  # noqa: F811
+    def list(  # noqa: F811, PLR0913
         self,
         *,
         job_queue_id: Optional[str] = None,
@@ -80,9 +86,11 @@ class JobQueueSDK:
         )
 
     @sdk_docs(doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS)
-    def status(self, job_queue_id: str) -> JobQueueStatus:  # noqa: F811
+    def status(  # noqa: F811
+        self, job_queue_id: Optional[str] = None, *, name: Optional[str] = None,
+    ) -> JobQueueStatus:
         """Get the status and details for a specific job queue."""
-        return self._private_sdk.status(job_queue_id=job_queue_id)
+        return self._private_sdk.status(job_queue_id=job_queue_id, name=name)
 
     @sdk_docs(doc_py_example=_UPDATE_EXAMPLE, arg_docstrings=_UPDATE_ARG_DOCSTRINGS)
     def update(  # noqa: F811
@@ -137,3 +145,33 @@ class JobQueueSDK:
     ) -> Dict[str, str]:
         """List tags for a job queue."""
         return self._private_sdk.list_tags(job_queue_id=job_queue_id, name=name)
+
+    @sdk_docs(doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS)
+    def archive(  # noqa: F811
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> str:
+        """Archive (seal) a job queue. No new jobs can be submitted."""
+        return self._private_sdk.archive(
+            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud
+        )
+
+    @sdk_docs(
+        doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS
+    )
+    def terminate(  # noqa: F811
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> str:
+        """Terminate a job queue and all its pending/running jobs."""
+        return self._private_sdk.terminate(
+            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud
+        )

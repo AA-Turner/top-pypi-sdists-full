@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import enum
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from zigpy.const import APS_REPLY_TIMEOUT
 import zigpy.exceptions
 import zigpy.profiles
 import zigpy.types as t
-from zigpy.typing import DeviceType
 import zigpy.util
 import zigpy.zcl
 from zigpy.zcl.foundation import GENERAL_COMMANDS, GeneralCommand, Status as ZCLStatus
 from zigpy.zdo.types import Status as ZDOStatus
+
+if TYPE_CHECKING:
+    from zigpy.device import Device
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,8 +33,8 @@ class Status(enum.IntEnum):
 class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
     """An endpoint on a device on the network"""
 
-    def __init__(self, device: DeviceType, endpoint_id: int) -> None:
-        self._device: DeviceType = device
+    def __init__(self, device: Device, endpoint_id: int) -> None:
+        self._device: Device = device
         self._endpoint_id: int = endpoint_id
         self._listeners: dict = {}
 
@@ -108,10 +110,7 @@ class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             self._cluster_attr[cluster.ep_attribute] = cluster
 
         if self._device.application._dblistener is not None:
-            listener = zigpy.zcl.ClusterPersistingListener(
-                self._device.application._dblistener, cluster
-            )
-            cluster.add_listener(listener)
+            self._device.application._dblistener.register_cluster_events(cluster)
 
         return cluster
 
@@ -131,10 +130,7 @@ class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         self.out_clusters[cluster_id] = cluster
 
         if self._device.application._dblistener is not None:
-            listener = zigpy.zcl.ClusterPersistingListener(
-                self._device.application._dblistener, cluster
-            )
-            cluster.add_listener(listener)
+            self._device.application._dblistener.register_cluster_events(cluster)
 
         return cluster
 
@@ -284,7 +280,7 @@ class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         LOGGER.log(lvl, msg, *args, **kwargs)
 
     @property
-    def device(self) -> DeviceType:
+    def device(self) -> Device:
         return self._device
 
     @property
@@ -292,7 +288,7 @@ class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         return self._endpoint_id
 
     @property
-    def manufacturer(self) -> str:
+    def manufacturer(self) -> str | None:
         if self._manufacturer is not None:
             return self._manufacturer
         return self.device.manufacturer
@@ -315,7 +311,7 @@ class Endpoint(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         return self._member_of
 
     @property
-    def model(self) -> str:
+    def model(self) -> str | None:
         if self._model is not None:
             return self._model
         return self.device.model

@@ -3,6 +3,8 @@ from adam.commands.command import Command
 from adam.commands.export.completions_x import completions_x
 from adam.commands.export.export_databases import export_db
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 
 class ExportXSelect(Command):
     COMMAND = 'xelect'
@@ -30,7 +32,7 @@ class ExportXSelect(Command):
             with extract_trailing_options(args, '&') as (args, backgrounded):
                 with validate_args(args, state, name='SQL statement') as query:
                     with export_db(state) as dbs:
-                        dbs.sql(f'select {query}', backgrounded=backgrounded)
+                        dbs.sql(f'select {query}', ctx=Context.new(cmd, backgrounded))
 
                     return state
 

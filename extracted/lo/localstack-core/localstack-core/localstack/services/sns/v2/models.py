@@ -29,6 +29,7 @@ class Topic(TypedDict, total=True):
     arn: str
     name: str
     attributes: TopicAttributesMap
+    data_protection_policy: str
     subscriptions: list[str]
 
 
@@ -165,6 +166,7 @@ class PlatformApplicationDetails:
 
 
 class SnsStore(BaseStore):
+    # maps topic ARN to Topic
     topics: dict[str, Topic] = LocalAttribute(default=dict)
 
     # maps subscription ARN to SnsSubscription
@@ -193,7 +195,7 @@ class SnsStore(BaseStore):
 
     TAGS: TaggingService = CrossRegionAttribute(default=TaggingService)
 
-    PHONE_NUMBERS_OPTED_OUT: list[PhoneNumber] = CrossRegionAttribute(default=list)
+    PHONE_NUMBERS_OPTED_OUT: set[PhoneNumber] = CrossRegionAttribute(default=set)
 
 
 sns_stores = AccountRegionBundle("sns", SnsStore)

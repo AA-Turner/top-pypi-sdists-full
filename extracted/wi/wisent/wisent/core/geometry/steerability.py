@@ -10,18 +10,17 @@ import numpy as np
 from typing import Dict, Any
 
 
-def _empty_steerability_metrics() -> Dict[str, float]:
-    """Return empty steerability metrics."""
+def _empty_steerability_metrics() -> Dict[str, Any]:
+    """Return empty steerability metrics when computation fails."""
     return {
-        "diff_mean_alignment": 0.0,
-        "caa_probe_alignment": 0.0,
-        "pct_positive_alignment": 0.5,
-        "steering_vector_norm_ratio": 0.0,
-        "cluster_direction_angle": 90.0,
-        "per_cluster_alignment_k2": 0.0,
-        "spherical_silhouette_k2": 0.0,
-        "effective_steering_dims": 1,
-        "steerability_score": 0.0,
+        "diff_mean_alignment": None,
+        "caa_probe_alignment": None,
+        "pct_positive_alignment": None,
+        "steering_vector_norm_ratio": None,
+        "cluster_direction_angle": None,
+        "per_cluster_alignment_k2": None,
+        "spherical_silhouette_k2": None,
+        "effective_steering_dims": None,
     }
 
 
@@ -150,14 +149,6 @@ def compute_steerability_metrics(
         except:
             caa_probe_alignment = diff_mean_alignment
         
-        steerability_score = (
-            0.5 * max(0, caa_probe_alignment) +
-            0.2 * pct_positive_alignment +
-            0.15 * min(1.0, steering_vector_norm_ratio) +
-            0.15 * (1 - cluster_direction_angle / 180)
-        )
-        steerability_score = float(np.clip(steerability_score, 0, 1))
-        
         return {
             "diff_mean_alignment": diff_mean_alignment,
             "caa_probe_alignment": caa_probe_alignment,
@@ -167,7 +158,6 @@ def compute_steerability_metrics(
             "per_cluster_alignment_k2": per_cluster_alignment,
             "spherical_silhouette_k2": spherical_sil,
             "effective_steering_dims": effective_dims,
-            "steerability_score": steerability_score,
         }
     except Exception:
         return _empty_steerability_metrics()
@@ -182,88 +172,75 @@ def compute_linearity_score(
     ambient_dim: int = 4096,
 ) -> Dict[str, Any]:
     """
-    Compute overall linearity score combining multiple signals.
-    
-    A representation is "linear" if:
-    1. Linear probe accuracy is close to nonlinear accuracy
-    2. Direction is stable across subsets
-    3. Intrinsic dimension of diffs is low
-    4. Pairwise diff consistency is high
+    Return raw metrics relevant to linearity assessment.
+
+    Does NOT compute a combined score or make recommendations.
     """
     try:
         linearity_gap = best_nonlinear_accuracy - linear_probe_accuracy
-        linearity_from_gap = max(0, 1 - linearity_gap * 5)
-        
-        relative_dim = diff_intrinsic_dim / ambient_dim
-        linearity_from_dim = max(0, 1 - relative_dim * 10)
-        
-        linearity_score = (
-            0.3 * linearity_from_gap +
-            0.25 * direction_stability +
-            0.25 * linearity_from_dim +
-            0.2 * pairwise_consistency
-        )
-        linearity_score = float(np.clip(linearity_score, 0, 1))
-        
-        is_linear = linearity_score > 0.6
-        
-        if is_linear:
-            recommendation = "CAA"
-        elif linearity_score > 0.4:
-            recommendation = "PRISM"
-        else:
-            recommendation = "TITAN"
-        
+        relative_dim = diff_intrinsic_dim / ambient_dim if ambient_dim > 0 else None
+
         return {
-            "linearity_score": linearity_score,
-            "is_linear": is_linear,
-            "recommendation": recommendation,
-            "linearity_from_gap": linearity_from_gap,
-            "linearity_from_dim": linearity_from_dim,
+            "linear_probe_accuracy": linear_probe_accuracy,
+            "best_nonlinear_accuracy": best_nonlinear_accuracy,
+            "linearity_gap": linearity_gap,
+            "direction_stability": direction_stability,
+            "diff_intrinsic_dim": diff_intrinsic_dim,
+            "relative_dim": relative_dim,
+            "pairwise_consistency": pairwise_consistency,
         }
-    except Exception:
-        return {
-            "linearity_score": 0.5,
-            "is_linear": False,
-            "recommendation": "PRISM",
-            "linearity_from_gap": 0.5,
-            "linearity_from_dim": 0.5,
-        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def compute_recommendation(
     metrics: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Generate steering method recommendation from metrics.
+    Return raw metrics relevant for steering method selection.
+
+    Does NOT make recommendations - just extracts and returns the metrics
+    that would be relevant for choosing between steering methods.
+
+    The 6 steering methods are:
+    - CAA: Simple mean difference
+    - Hyperplane: SVM-based
+    - MLP: Neural probe
+    - PRISM: Multi-directional
+    - PULSE: Conditional gating
+    - TITAN: Full adaptive
     """
     try:
-        linear_probe = metrics.get("linear_probe_accuracy", 0.5)
-        signal_strength = metrics.get("signal_strength", 0.5)
-        steerability = metrics.get("steerability_score", 0.5)
-        icd = metrics.get("icd", 10)
-        
-        if linear_probe > 0.7 and steerability > 0.5 and icd < 5:
-            method = "CAA"
-            confidence = min(linear_probe, steerability)
-        elif signal_strength > 0.7 and icd < 10:
-            method = "PRISM"
-            confidence = signal_strength * 0.8
-        else:
-            method = "TITAN"
-            confidence = 0.5
-        
+        # Extract metrics
+        linear_probe = metrics.get("linear_probe_accuracy", None)
+        mlp_probe = metrics.get("mlp_probe_accuracy", None)
+        signal_strength = metrics.get("signal_strength", None)
+        steerability = metrics.get("steer_caa_probe_alignment", metrics.get("caa_probe_alignment", None))
+        icd = metrics.get("icd_icd", metrics.get("icd", None))
+        direction_stability = metrics.get("direction_stability_score", metrics.get("direction_stability", None))
+        n_concepts = metrics.get("n_concepts", None)
+        concept_coherence = metrics.get("concept_coherence", None)
+        consistency_mean = metrics.get("consistency_consistency_score", metrics.get("consistency_mean", None))
+
+        # Compute derived values (not thresholds, just computations)
+        nonlinearity_gap = None
+        if mlp_probe is not None and linear_probe is not None:
+            nonlinearity_gap = mlp_probe - linear_probe
+
         return {
-            "recommended_method": method,
-            "confidence": float(confidence),
-            "reasoning": f"linear={linear_probe:.2f}, signal={signal_strength:.2f}, icd={icd:.1f}",
+            "linear_probe": linear_probe,
+            "mlp_probe": mlp_probe,
+            "nonlinearity_gap": nonlinearity_gap,
+            "signal_strength": signal_strength,
+            "steerability": steerability,
+            "icd": icd,
+            "direction_stability": direction_stability,
+            "n_concepts": n_concepts,
+            "concept_coherence": concept_coherence,
+            "consistency": consistency_mean,
         }
-    except Exception:
-        return {
-            "recommended_method": "CAA",
-            "confidence": 0.5,
-            "reasoning": "default",
-        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def compute_adaptive_recommendation(
@@ -271,14 +248,10 @@ def compute_adaptive_recommendation(
     n_pairs: int,
 ) -> Dict[str, Any]:
     """
-    Generate adaptive recommendation based on sample size.
+    Return raw metrics with sample size info.
     """
     base_rec = compute_recommendation(metrics)
-    
-    if n_pairs < 20:
-        base_rec["warning"] = "Low sample size may affect reliability"
-        base_rec["confidence"] *= 0.7
-    
+    base_rec["n_pairs"] = n_pairs
     return base_rec
 
 
@@ -287,14 +260,34 @@ def compute_robust_recommendation(
     bootstrap_metrics: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
-    Generate robust recommendation using bootstrap confidence intervals.
+    Return raw metrics with bootstrap info if available.
     """
     base_rec = compute_recommendation(metrics)
-    
     if bootstrap_metrics:
-        std = bootstrap_metrics.get("signal_std", 0.1)
-        if std > 0.15:
-            base_rec["warning"] = "High variance in metrics"
-            base_rec["confidence"] *= 0.8
-    
+        base_rec["bootstrap_std"] = bootstrap_metrics.get("signal_std", None)
     return base_rec
+
+
+def compute_final_steering_prescription(
+    per_layer_metrics: Dict[int, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Extract raw metrics per layer for steering decisions.
+
+    Does NOT make recommendations or pick a "best" layer.
+    Just returns the raw metrics for each layer so the user can decide.
+
+    Args:
+        per_layer_metrics: Dict mapping layer index to RepScan metrics for that layer
+
+    Returns:
+        Dict with per-layer raw metrics
+    """
+    if not per_layer_metrics:
+        return {"per_layer": {}}
+
+    per_layer = {}
+    for layer, metrics in per_layer_metrics.items():
+        per_layer[layer] = compute_recommendation(metrics)
+
+    return {"per_layer": per_layer}

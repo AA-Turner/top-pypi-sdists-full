@@ -5,19 +5,17 @@ import io
 import os
 import typing
 import warnings
+from typing import List, Tuple, Union, cast
 
 import httpx
-from typing import cast, List, Tuple, Union, Optional
-from typing_extensions import TypeVar, ParamSpec
-from langserve import RemoteRunnable
-
 from . import core
-from .base_client import BaseAthena, AsyncBaseAthena
+from .base_client import AsyncBaseAthena, BaseAthena
 from .environment import AthenaEnvironment
-from .tools.client import AsyncToolsClient, ToolsClient
 from .query.client import AsyncQueryClient, QueryClient
+from .tools.client import AsyncToolsClient, ToolsClient
 from .types.data_frame_request_out import DataFrameRequestOut
 from .types.save_asset_request_out import SaveAssetRequestOut
+from typing_extensions import ParamSpec, TypeVar
 
 if typing.TYPE_CHECKING:
     import pandas as pd
@@ -341,81 +339,27 @@ class WrappedAsyncQueryClient(AsyncQueryClient):
         return _read_json_frame(model)
 
 
-class AthenaModel(RemoteRunnable):
-    """Use Athena's models directly with a Langchain-compatible client.
+class _DeprecatedLLMProperty:
+    """Placeholder that raises a helpful error when accessed.
 
-    The Langchain Runnable interface is supported:
-    - `invoke`: Invoke the model with a string or a Langchain message.
-    - `batch`: Batch invoke the model on multiple inputs.
-    - `astream_events`: Streaming for real-time applications.
-
-    See Langchain documentation for more details.
-
-    Examples
-    --------
-    from src.athena.client import Athena
-    import asyncio
-    from langchain_core.messages import HumanMessage
-
-    client = Athena()
-    llm = client.llm
-
-    # sync invoke -- use strings or langchain messages
-    result = llm.invoke("Hello")
-    print(result.content)
-
-    result = llm.invoke("Hello")
-    print(result.content)
-
-    # choose the model explicitly
-    claude = llm.with_config(configurable={"model": "claude_3_7_sonnet"})
-    print(claude.invoke("Who are you?").content)
-
-    # batch (for multiple parallel requests)
-    results = llm.batch(["Hello", "World"] * 5)
-    print([r.content for r in results])
-
-    # handle stream events
-    async def stream_response():
-        separator = "---------------------------------------"
-        print(separator)
-        print("Starting stream")
-        print(separator)
-        async for event in llm.astream_events("Hello.  Please respond in 5 sentences."):
-            data = event["data"]
-            if "chunk" in data:
-                print(data["chunk"].content)
-            elif "output" in data:
-                print(separator)
-                print("Final response")
-                print(separator)
-                print(data["output"].content)
-            else:
-                print("(other event) ", event.keys())
-
-
-    asyncio.run(stream_response())
-    from athena.client import Athena
-    client = Athena()
-    llm = client.llm
-
-    # sync invoke -- use strings or langchain messages
-    result = llm.invoke("Hello")
-    print(result.content)
-
-    # batch
-    results = llm.batch(["Hello", "World"])
-    print(r.content for r in results)
+    The old client.llm property used a LangServe endpoint that was removed
+    during the LangGraph migration. Users should use client.agents.general.invoke() instead.
     """
 
-    def __init__(self, base_url: str, api_key: str, timeout: Optional[float] = None):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.timeout = timeout
-        super().__init__(
-            base_url + "/api/v0/agents/general",
-            headers={"X-API-KEY": api_key},
-            timeout=timeout,
+    def __getattr__(self, name: str) -> typing.Any:
+        raise AttributeError(
+            "\n\nclient.llm is deprecated and no longer works.\n\n"
+            "The underlying API endpoint was removed. Please use client.agents.general.invoke() instead.\n\n"
+            "Example:\n"
+            "    from athena import GeneralAgentRequest, GeneralAgentConfig, InputMessage\n\n"
+            "    response = client.agents.general.invoke(\n"
+            "        request=GeneralAgentRequest(\n"
+            "            config=GeneralAgentConfig(enabled_tools=[]),\n"
+            "            messages=[InputMessage(content='Your question here', role='user')]\n"
+            "        )\n"
+            "    )\n"
+            "    print(response.messages[-1].content)\n\n"
+            "See https://docs.athenaintel.com/python-guides/build-with-agents for more examples."
         )
 
 
@@ -481,9 +425,7 @@ class Athena(BaseAthena):
             httpx_client=httpx_client,
         )
         self._tools: typing.Optional[WrappedToolsClient] = None
-        self.llm = AthenaModel(
-            base_url=base_url or environment.value, api_key=api_key, timeout=timeout
-        )
+        self.llm = _DeprecatedLLMProperty()
 
     @property
     def tools(self) -> WrappedToolsClient:

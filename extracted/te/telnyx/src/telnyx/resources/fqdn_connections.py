@@ -27,7 +27,7 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..pagination import SyncDefaultPagination, AsyncDefaultPagination
+from ..pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.dtmf_type import DtmfType
 from ..types.encrypted_media import EncryptedMedia
@@ -81,6 +81,7 @@ class FqdnConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundFqdnParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: fqdn_connection_create_params.JitterBuffer | Omit = omit,
         microsoft_teams_sbc: bool | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
@@ -130,6 +131,12 @@ class FqdnConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           microsoft_teams_sbc: When enabled, the connection will be created for Microsoft Teams Direct Routing.
               A \\**.mstsbc.telnyx.tech FQDN will be created for the connection automatically.
@@ -186,6 +193,7 @@ class FqdnConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "microsoft_teams_sbc": microsoft_teams_sbc,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
@@ -255,6 +263,7 @@ class FqdnConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundFqdnParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: fqdn_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -303,6 +312,12 @@ class FqdnConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -358,6 +373,7 @@ class FqdnConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -382,7 +398,8 @@ class FqdnConnectionsResource(SyncAPIResource):
         self,
         *,
         filter: fqdn_connection_list_params.Filter | Omit = omit,
-        page: fqdn_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -390,7 +407,7 @@ class FqdnConnectionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncDefaultPagination[FqdnConnection]:
+    ) -> SyncDefaultFlatPagination[FqdnConnection]:
         """
         Returns a list of your FQDN connections.
 
@@ -399,9 +416,6 @@ class FqdnConnectionsResource(SyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -428,7 +442,7 @@ class FqdnConnectionsResource(SyncAPIResource):
         """
         return self._get_api_list(
             "/fqdn_connections",
-            page=SyncDefaultPagination[FqdnConnection],
+            page=SyncDefaultFlatPagination[FqdnConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -437,7 +451,8 @@ class FqdnConnectionsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     fqdn_connection_list_params.FqdnConnectionListParams,
@@ -514,6 +529,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundFqdnParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: fqdn_connection_create_params.JitterBuffer | Omit = omit,
         microsoft_teams_sbc: bool | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
@@ -563,6 +579,12 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           microsoft_teams_sbc: When enabled, the connection will be created for Microsoft Teams Direct Routing.
               A \\**.mstsbc.telnyx.tech FQDN will be created for the connection automatically.
@@ -619,6 +641,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "microsoft_teams_sbc": microsoft_teams_sbc,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
@@ -688,6 +711,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundFqdnParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: fqdn_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -736,6 +760,12 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -791,6 +821,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -815,7 +846,8 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
         self,
         *,
         filter: fqdn_connection_list_params.Filter | Omit = omit,
-        page: fqdn_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -823,7 +855,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[FqdnConnection, AsyncDefaultPagination[FqdnConnection]]:
+    ) -> AsyncPaginator[FqdnConnection, AsyncDefaultFlatPagination[FqdnConnection]]:
         """
         Returns a list of your FQDN connections.
 
@@ -832,9 +864,6 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -861,7 +890,7 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
         """
         return self._get_api_list(
             "/fqdn_connections",
-            page=AsyncDefaultPagination[FqdnConnection],
+            page=AsyncDefaultFlatPagination[FqdnConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -870,7 +899,8 @@ class AsyncFqdnConnectionsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     fqdn_connection_list_params.FqdnConnectionListParams,

@@ -22,8 +22,8 @@ from textwrap import dedent
 logger = logging.getLogger("vendor")
 
 HCLOUD_SOURCE_URL = "https://github.com/hetznercloud/hcloud-python"
-HCLOUD_VERSION = "v2.12.0"
-HCLOUD_VENDOR_PATH = "plugins/module_utils/vendor/hcloud"
+HCLOUD_VERSION = "v2.16.0"
+HCLOUD_VENDOR_PATH = "plugins/module_utils/_vendor/hcloud"
 
 
 def apply_code_modifications(source_path: Path):
@@ -34,28 +34,24 @@ def apply_code_modifications(source_path: Path):
         # Wrap requests imports
         content = re.sub(
             r"import requests",
-            dedent(
-                r"""
+            dedent(r"""
                 try:
                     import requests
                 except ImportError:
                     requests = None
-                """
-            ).strip(),
+                """).strip(),
             content,
         )
 
         # Wrap dateutil imports
         content = re.sub(
             r"from dateutil.parser import isoparse",
-            dedent(
-                r"""
+            dedent(r"""
                 try:
                     from dateutil.parser import isoparse
                 except ImportError:
                     isoparse = None
-                """
-            ).strip(),
+                """).strip(),
             content,
         )
 

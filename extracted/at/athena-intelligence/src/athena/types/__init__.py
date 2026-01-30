@@ -59,11 +59,6 @@ if typing.TYPE_CHECKING:
     from .id import Id
     from .image_url_content import ImageUrlContent
     from .input_message import InputMessage
-    from .input_message_content_item import (
-        InputMessageContentItem,
-        InputMessageContentItem_ImageUrl,
-        InputMessageContentItem_Text,
-    )
     from .number_format_model import NumberFormatModel
     from .number_format_type import NumberFormatType
     from .paginated_assets_out import PaginatedAssetsOut
@@ -82,7 +77,11 @@ if typing.TYPE_CHECKING:
     from .text_format_model import TextFormatModel
     from .textrotation import Textrotation
     from .theme_color import ThemeColor
+    from .thread_batch_stop_request import ThreadBatchStopRequest
+    from .thread_batch_stop_response_out import ThreadBatchStopResponseOut
+    from .thread_batch_stop_result_item import ThreadBatchStopResultItem
     from .thread_status_response_out import ThreadStatusResponseOut
+    from .thread_stop_response_out import ThreadStopResponseOut
     from .type import Type
     from .wrap_strategy import WrapStrategy
 _dynamic_imports: typing.Dict[str, str] = {
@@ -141,9 +140,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Id": ".id",
     "ImageUrlContent": ".image_url_content",
     "InputMessage": ".input_message",
-    "InputMessageContentItem": ".input_message_content_item",
-    "InputMessageContentItem_ImageUrl": ".input_message_content_item",
-    "InputMessageContentItem_Text": ".input_message_content_item",
     "NumberFormatModel": ".number_format_model",
     "NumberFormatType": ".number_format_type",
     "PaginatedAssetsOut": ".paginated_assets_out",
@@ -162,7 +158,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TextFormatModel": ".text_format_model",
     "Textrotation": ".textrotation",
     "ThemeColor": ".theme_color",
+    "ThreadBatchStopRequest": ".thread_batch_stop_request",
+    "ThreadBatchStopResponseOut": ".thread_batch_stop_response_out",
+    "ThreadBatchStopResultItem": ".thread_batch_stop_result_item",
     "ThreadStatusResponseOut": ".thread_status_response_out",
+    "ThreadStopResponseOut": ".thread_stop_response_out",
     "Type": ".type",
     "WrapStrategy": ".wrap_strategy",
 }
@@ -245,9 +245,6 @@ __all__ = [
     "Id",
     "ImageUrlContent",
     "InputMessage",
-    "InputMessageContentItem",
-    "InputMessageContentItem_ImageUrl",
-    "InputMessageContentItem_Text",
     "NumberFormatModel",
     "NumberFormatType",
     "PaginatedAssetsOut",
@@ -266,7 +263,11 @@ __all__ = [
     "TextFormatModel",
     "Textrotation",
     "ThemeColor",
+    "ThreadBatchStopRequest",
+    "ThreadBatchStopResponseOut",
+    "ThreadBatchStopResultItem",
     "ThreadStatusResponseOut",
+    "ThreadStopResponseOut",
     "Type",
     "WrapStrategy",
 ]

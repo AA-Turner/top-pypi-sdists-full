@@ -4,10 +4,11 @@ from adam.config import Config
 from adam.utils import log2, log_exc
 from adam.utils_athena import Athena
 from adam.utils_audits import Audits
+from adam.utils_context import Context
 from adam.utils_repl.automata_completer import AutomataCompleter
 from adam.utils_repl.state_machine import StateMachine
 
-def run_configured_query(config_key: str, args: list[str]):
+def run_configured_query(config_key: str, args: list[str], ctx: Context = Context.NULL):
     limit, date_condition = extract_limit_and_duration(args)
     if query := Config().get(config_key, None):
         query = '\n    '.join(query.split('\n'))
@@ -16,7 +17,7 @@ def run_configured_query(config_key: str, args: list[str]):
 
         log2(query)
         log2()
-        Athena.run_query(query)
+        Athena.run_query(query, ctx=ctx)
 
 def extract_limit_and_duration(args: list[str]) -> tuple[int, datetime]:
     limit = 10

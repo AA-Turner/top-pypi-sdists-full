@@ -1,11 +1,19 @@
 import enum
 import os
-from typing import Union
+from collections.abc import Awaitable, Callable
 
 
-__all__ = ("Default", "SMTPStatus", "SocketPathType", "_default")
+__all__ = (
+    "Default",
+    "SMTPStatus",
+    "SMTPTokenGenerator",
+    "SocketPathType",
+    "_default",
+)
 
-SocketPathType = Union[str, bytes, os.PathLike[str]]
+SMTPTokenGenerator = Callable[[], Awaitable[str]]
+
+SocketPathType = str | bytes | os.PathLike[str]
 
 
 class Default(enum.Enum):

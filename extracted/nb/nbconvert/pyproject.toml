@@ -6,13 +6,7 @@ build-backend = "hatchling.build"
 name = "nbconvert"
 authors = [{name = "Jupyter Development Team", email = "jupyter@googlegroups.com"}]
 license = {file = "LICENSE"}
-description = """Converting Jupyter Notebooks (.ipynb files) to other formats.
-
-Output formats include asciidoc, html, latex, markdown, pdf, py, rst, script.
-
-nbconvert can be used both as a Python library (`import nbconvert`)
-or as a command line tool (invoked as `jupyter nbconvert ...`).
-"""
+description = "Convert Jupyter Notebooks (.ipynb files) to other formats."
 readme = "README.md"
 keywords = ["Interactive", "Interpreter", "Shell", "Web"]
 classifiers = [
@@ -24,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 urls = {Homepage = "https://jupyter.org"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "beautifulsoup4",
     "bleach[css]!=5.0.0",
@@ -73,12 +67,13 @@ test = [
 serve = ["tornado>=6.1"]
 docs = [
     "myst_parser",
-    "sphinx==5.0.2",
+    "sphinx>=5.0.2",
     "pydata_sphinx_theme",
     "nbsphinx>=0.2.12",
     "ipython",
     "ipykernel",
     "sphinxcontrib_spelling",
+    "intersphinx_registry",
 ]
 all = ["nbconvert[qtpdf,webpdf,test,serve,docs]"]
 
@@ -121,7 +116,7 @@ detached = true
 dependencies = ["pre-commit"]
 [tool.hatch.envs.lint.scripts]
 build = [
-  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-check",
   "pre-commit run --all-files ruff-format",
 ]
 
@@ -147,6 +142,7 @@ testpaths = [
 ]
 filterwarnings = [
     "error",
+    "always:5.x.*:DeprecationWarning",
     "ignore:nbconvert.utils.lexers is deprecated as of 5.0:UserWarning",
     # https://github.com/pyppeteer/pyppeteer/issues/342
     "ignore:remove loop argument:DeprecationWarning:websockets",
@@ -182,7 +178,7 @@ source = ["nbconvert"]
 
 [tool.mypy]
 files = "nbconvert"
-python_version = "3.8"
+python_version = "3.9"
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 disable_error_code = ["no-untyped-def", "no-untyped-call"]

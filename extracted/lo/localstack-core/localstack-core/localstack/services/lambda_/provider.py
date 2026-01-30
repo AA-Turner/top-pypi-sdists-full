@@ -307,20 +307,26 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             for region_name, state in account_bundle.items():
                 for fn in state.functions.values():
                     for fn_version in fn.versions.values():
-                        # restore the "Pending" state for every function version and start it
                         try:
-                            new_state = VersionState(
-                                state=State.Pending,
-                                code=StateReasonCode.Creating,
-                                reason="The function is being created.",
+                            # $LATEST is not invokable for Lambda functions with a capacity provider
+                            # and has a different State (i.e., ActiveNonInvokable)
+                            is_capacity_provider_latest = (
+                                fn_version.config.CapacityProviderConfig
+                                and fn_version.id.qualifier == "$LATEST"
                             )
-                            new_config = dataclasses.replace(fn_version.config, state=new_state)
-                            new_version = dataclasses.replace(fn_version, config=new_config)
-                            fn.versions[fn_version.id.qualifier] = new_version
-                            # TODO: consider skipping this for $LATEST versions of functions with a capacity provider
-                            self.lambda_service.create_function_version(fn_version).result(
-                                timeout=5
-                            )
+                            if not is_capacity_provider_latest:
+                                # Restore the "Pending" state for the function version and start it
+                                new_state = VersionState(
+                                    state=State.Pending,
+                                    code=StateReasonCode.Creating,
+                                    reason="The function is being created.",
+                                )
+                                new_config = dataclasses.replace(fn_version.config, state=new_state)
+                                new_version = dataclasses.replace(fn_version, config=new_config)
+                                fn.versions[fn_version.id.qualifier] = new_version
+                                self.lambda_service.create_function_version(fn_version).result(
+                                    timeout=5
+                                )
                         except Exception:
                             LOG.warning(
                                 "Failed to restore function version %s",
@@ -453,6 +459,13 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         if error_messages := api_utils.validate_qualifier(qualifier):
             raise ValidationException(
                 message=api_utils.construct_validation_exception_message(error_messages)
+            )
+
+    @staticmethod
+    def _validate_publish_to(publish_to: str):
+        if publish_to != FunctionVersionLatestPublished.LATEST_PUBLISHED:
+            raise ValidationException(
+                message=f"1 validation error detected: Value '{publish_to}' at 'publishTo' failed to satisfy constraint: Member must satisfy enum value set: [LATEST_PUBLISHED]"
             )
 
     @staticmethod
@@ -995,6 +1008,8 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             )
         if snap_start := request.get("SnapStart"):
             self._validate_snapstart(snap_start, runtime)
+        if publish_to := request.get("PublishTo"):
+            self._validate_publish_to(publish_to)
         state = lambda_stores[context_account_id][context_region]
 
         with self.create_fn_lock:
@@ -1398,6 +1413,9 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 replace_kwargs["tracing_config_mode"] = new_mode
 
         if "CapacityProviderConfig" in request:
+            capacity_provider_config = request["CapacityProviderConfig"]
+            self._validate_capacity_provider_config(capacity_provider_config, context)
+
             if latest_version.config.CapacityProviderConfig and not request[
                 "CapacityProviderConfig"
             ].get("LambdaManagedInstancesCapacityProviderConfig"):
@@ -1473,6 +1491,9 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 Type="User",
             )
 
+        if publish_to := request.get("PublishTo"):
+            self._validate_publish_to(publish_to)
+
         if zip_file := request.get("ZipFile"):
             code = store_lambda_archive(
                 archive_file=zip_file,
@@ -1536,8 +1557,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 function_name=function_name,
                 region=region,
                 account_id=account_id,
-                # TODO: validations for PublishTo without Publish=True
-                publish_to=request.get("PublishTo"),
+                publish_to=publish_to,
                 is_active=True,
             )
         return api_utils.map_config_out(
@@ -1829,6 +1849,8 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
     ) -> FunctionConfiguration:
         account_id, region = api_utils.get_account_and_region(function_name, context)
         function_name = api_utils.get_function_name(function_name, context)
+        if publish_to:
+            self._validate_publish_to(publish_to)
         new_version = self._publish_version_from_existing_version(
             function_name=function_name,
             description=description,
@@ -2480,7 +2502,9 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
 
     @staticmethod
     def _validate_qualifier(qualifier: str) -> None:
-        if qualifier == "$LATEST" or (qualifier and api_utils.qualifier_is_version(qualifier)):
+        if qualifier in ["$LATEST", "$LATEST.PUBLISHED"] or (
+            qualifier and api_utils.qualifier_is_version(qualifier)
+        ):
             raise ValidationException(
                 f"1 validation error detected: Value '{qualifier}' at 'qualifier' failed to satisfy constraint: Member must satisfy regular expression pattern: ((?!^\\d+$)^[0-9a-zA-Z-_]+$)"
             )

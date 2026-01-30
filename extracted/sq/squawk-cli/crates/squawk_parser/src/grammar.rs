@@ -35,7 +35,7 @@ fn literal(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     let m = p.start();
-    if p.eat(BYTE_STRING) {
+    if p.eat(UNICODE_ESC_STRING) {
         if p.eat(UESCAPE_KW) {
             p.eat(STRING);
         }
@@ -2515,33 +2515,26 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         }
         let m = lhs.precede(p);
         p.bump(op);
+        if matches!(op, COLON_COLON) {
+            type_name(p);
+            let cast_expr = m.complete(p, CAST_EXPR);
+            lhs = postfix_expr(p, cast_expr, true);
+            continue;
+        }
+
         let op_bp = match associativity {
             Associativity::Left => op_bp + 1,
             Associativity::Right => op_bp,
         };
-        let rhs = expr_bp(p, op_bp, r);
-        lhs = if matches!(op, COLON_COLON) {
-            if let Some(rhs) = rhs {
-                match rhs.kind() {
-                    NAME_REF => {
-                        // wrap our previous expression in a type
-                        // TODO: can we unify types & exprs?
-                        let path_segment = rhs.precede(p).complete(p, PATH_SEGMENT);
-                        let path = path_segment.precede(p).complete(p, PATH);
-                        path.precede(p).complete(p, PATH_TYPE);
-                    }
-                    FIELD_EXPR | CALL_EXPR | INDEX_EXPR => {
-                        rhs.precede(p).complete(p, EXPR_TYPE);
-                    }
-                    _ => {}
-                }
-            };
-            m.complete(p, CAST_EXPR)
-        } else if matches!(op, FAT_ARROW | COLON_EQ) {
+        let _rhs = expr_bp(p, op_bp, r);
+        lhs = if matches!(op, FAT_ARROW | COLON_EQ) {
             m.complete(p, NAMED_ARG)
         } else {
             m.complete(p, BIN_EXPR)
         };
+    }
+    if r.order_by_allowed && p.at(ORDER_KW) {
+        opt_order_by_clause(p);
     }
     Some(lhs)
 }
@@ -2566,6 +2559,9 @@ const COMPOUND_SELECT_FIRST: TokenSet = TokenSet::new(&[UNION_KW, INTERSECT_KW, 
 //     [ SEARCH { BREADTH | DEPTH } FIRST BY column_name [, ...] SET search_seq_col_name ]
 //     [ CYCLE column_name [, ...] SET cycle_mark_col_name [ TO cycle_mark_value DEFAULT cycle_mark_default ] USING cycle_path_col_name ]
 fn with_query(p: &mut Parser<'_>) -> CompletedMarker {
+    if p.at(WITH_KW) {
+        p.err_and_bump("unexpected WITH");
+    }
     let m = p.start();
     name(p);
     opt_column_list_with(p, ColumnDefKind::Name);
@@ -4809,6 +4805,7 @@ const NUMERIC_FIRST: TokenSet = TokenSet::new(&[INT_NUMBER, FLOAT_NUMBER]);
 const STRING_FIRST: TokenSet = TokenSet::new(&[
     STRING,
     BYTE_STRING,
+    UNICODE_ESC_STRING,
     BIT_STRING,
     DOLLAR_QUOTED_STRING,
     ESC_STRING,
@@ -6237,23 +6234,23 @@ fn alter_policy(p: &mut Parser<'_>) -> CompletedMarker {
         if p.eat(TO_KW) {
             role_list(p);
         }
-        if p.eat(USING_KW) {
-            p.expect(L_PAREN);
-            if expr(p).is_none() {
-                p.error("expected expression");
-            }
-            p.expect(R_PAREN);
-        }
-        if p.eat(WITH_KW) {
-            p.expect(CHECK_KW);
-            p.expect(L_PAREN);
-            if expr(p).is_none() {
-                p.error("expected expression");
-            }
-            p.expect(R_PAREN);
-        }
+        opt_using_expr_clause(p);
+        opt_with_check_expr_clause(p);
     }
     m.complete(p, ALTER_POLICY)
+}
+
+fn opt_using_expr_clause(p: &mut Parser<'_>) {
+    if p.at(USING_KW) {
+        let m = p.start();
+        p.bump(USING_KW);
+        p.expect(L_PAREN);
+        if expr(p).is_none() {
+            p.error("expected expression");
+        }
+        p.expect(R_PAREN);
+        m.complete(p, USING_EXPR_CLAUSE);
+    }
 }
 
 fn role_list(p: &mut Parser<'_>) {
@@ -9045,9 +9042,7 @@ fn create_policy(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(POLICY_KW);
     name(p);
     on_table(p);
-    if p.eat(AS_KW) {
-        ident(p);
-    }
+    opt_as_policy_type(p);
     if p.eat(FOR_KW) {
         let _ = p.eat(ALL_KW)
             || p.eat(SELECT_KW)
@@ -9058,22 +9053,33 @@ fn create_policy(p: &mut Parser<'_>) -> CompletedMarker {
     if p.eat(TO_KW) {
         role_list(p);
     }
-    if p.eat(USING_KW) {
-        p.expect(L_PAREN);
-        if expr(p).is_none() {
-            p.error("expected expression");
-        }
-        p.expect(R_PAREN);
+    opt_using_expr_clause(p);
+    opt_with_check_expr_clause(p);
+    m.complete(p, CREATE_POLICY)
+}
+
+fn opt_as_policy_type(p: &mut Parser<'_>) {
+    let m = p.start();
+    if p.eat(AS_KW) {
+        ident(p);
+        m.complete(p, AS_POLICY_TYPE);
+    } else {
+        m.abandon(p);
     }
-    if p.eat(WITH_KW) {
+}
+
+fn opt_with_check_expr_clause(p: &mut Parser<'_>) {
+    if p.at(WITH_KW) {
+        let m = p.start();
+        p.bump(WITH_KW);
         p.expect(CHECK_KW);
         p.expect(L_PAREN);
         if expr(p).is_none() {
             p.error("expected expression");
         }
         p.expect(R_PAREN);
+        m.complete(p, WITH_CHECK_EXPR_CLAUSE);
     }
-    m.complete(p, CREATE_POLICY)
 }
 
 // CREATE [ OR REPLACE ] PROCEDURE

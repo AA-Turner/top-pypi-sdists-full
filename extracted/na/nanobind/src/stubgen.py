@@ -57,6 +57,7 @@ import argparse
 import builtins
 import enum
 from inspect import Signature, Parameter, signature, ismodule
+import io
 import textwrap
 import importlib
 import importlib.machinery
@@ -93,7 +94,8 @@ SKIP_LIST = [
     # Auto-generated enum attributes. Type checkers synthesize these, so they
     # shouldn't appear in the stubs.
     "_new_member_", "_use_args_", "_member_names_", "_member_map_",
-    "_value2member_map_", "_unhashable_values_", "_value_repr_",
+    "_value2member_map_", "_hashable_values_", "_unhashable_values_",
+    "_unhashable_values_map_", "_value_repr_",
 ]
 
 # Interpreter-internal types.
@@ -247,8 +249,8 @@ class StubGen:
         # Current depth / indentation level
         self.depth = 0
 
-        # Output will be appended to this string
-        self.output = ""
+        # Output buffer
+        self._output = io.StringIO()
 
         # A stack to avoid infinite recursion
         self.stack: List[object] = []
@@ -295,22 +297,29 @@ class StubGen:
             'MutableSequence|MutableSet|Sequence|ValuesView)'
         )
 
+    @property
+    def output(self) -> str:
+        """Get the current output as a string."""
+        return self._output.getvalue()
+
     def write(self, s: str) -> None:
         """Append raw characters to the output"""
-        self.output += s
+        self._output.write(s)
 
     def write_ln(self, line: str) -> None:
         """Append an indented line"""
         if len(line) != 0 and not line.isspace():
-            self.output += "    " * self.depth + line
-        self.output += "\n"
+            self._output.write("    " * self.depth + line)
+        self._output.write("\n")
 
-    def write_par(self, line: str) -> None:
-        """Append an indented paragraph"""
-        self.output += textwrap.indent(line, "    " * self.depth)
+    def _replace_tail(self, num_chars: int, replacement: str) -> None:
+        """Remove the last num_chars from output and append replacement."""
+        self._output.seek(self._output.tell() - num_chars)
+        self._output.truncate()
+        self._output.write(replacement)
 
-    def put_docstr(self, docstr: str) -> None:
-        """Append an indented single or multi-line docstring"""
+    def format_docstr(self, docstr: str, depth: int) -> str:
+        """Format a single or multi-line docstring with given indentation"""
         docstr = textwrap.dedent(docstr).strip()
         raw_str = ""
         if "''" in docstr or "\\" in docstr:
@@ -320,7 +329,11 @@ class StubGen:
         if len(docstr) > 70 or "\n" in docstr:
             docstr = "\n" + docstr + "\n"
         docstr = f'{raw_str}"""{docstr}"""\n'
-        self.write_par(docstr)
+        return textwrap.indent(docstr, "    " * depth)
+
+    def put_docstr(self, docstr: str) -> None:
+        """Append an indented single or multi-line docstring"""
+        self.write(self.format_docstr(docstr, self.depth))
 
     def put_nb_overload(self, fn: NbFunction, sig: NbFunctionSignature, name: Optional[str] = None) -> None:
         """
@@ -382,12 +395,12 @@ class StubGen:
         if not docstr or not self.include_docstrings:
             for s in sig_str.split("\n"):
                 self.write_ln(s)
-            self.output = self.output[:-1] + ": ...\n"
+            self._replace_tail(1, ": ...\n")
         else:
             docstr = textwrap.dedent(docstr)
             for s in sig_str.split("\n"):
                 self.write_ln(s)
-            self.output = self.output[:-1] + ":\n"
+            self._replace_tail(1, ":\n")
             self.depth += 1
             self.put_docstr(docstr)
             self.depth -= 1
@@ -541,7 +554,7 @@ class StubGen:
                 # Types with a custom signature override
                 for s in tp.__nb_signature__.split("\n"):
                     self.write_ln(self.simplify_types(s))
-                self.output = self.output[:-1] + ":\n"
+                self._replace_tail(1, ":\n")
             else:
                 self.write_ln(f"class {tp_name}:")
                 if tp_bases is None:
@@ -551,7 +564,7 @@ class StubGen:
                     tp_bases = [self.type_str(base) for base in tp_bases]
 
                 if tp_bases != ["object"]:
-                    self.output = self.output[:-2] + "("
+                    self._replace_tail(2, "(")
                     for i, base in enumerate(tp_bases):
                         if i:
                             self.write(", ")
@@ -559,7 +572,7 @@ class StubGen:
                     self.write("):\n")
 
             self.depth += 1
-            output_len = len(self.output)
+            output_pos = self._output.tell()
             if docstr and self.include_docstrings:
                 self.put_docstr(docstr)
                 if len(tp_dict):
@@ -568,7 +581,7 @@ class StubGen:
             for k, v in tp_dict.items():
                 self.put(v, k, tp)
             self.apply_pattern(self.prefix + ".__suffix__", None)
-            if output_len == len(self.output):
+            if output_pos == self._output.tell():
                 self.write_ln("pass\n")
             self.depth -= 1
 
@@ -610,7 +623,7 @@ class StubGen:
 
         if isinstance(parent, type) and issubclass(tp, parent):
             # This is an entry of an enumeration
-            self.write_ln(f"{name} = {typing.cast(enum.Enum, value).value}")
+            self.write_ln(f"{name} = {typing.cast(enum.Enum, value)._value_}")
             if value.__doc__ and self.include_docstrings:
                 self.put_docstr(value.__doc__)
             self.write("\n")
@@ -1028,7 +1041,7 @@ class StubGen:
         elif issubclass(tp, typing.ForwardRef):
             return f'"{e.__forward_arg__}"'
         elif issubclass(tp, enum.Enum):
-            return self.type_str(tp) + '.' + e.name
+            return self.type_str(tp) + '.' + e._name_
         elif (sys.version_info >= (3, 10) and issubclass(tp, typing.ParamSpec)) \
             or (typing_extensions is not None and issubclass(tp, typing_extensions.ParamSpec)):
             tv = self.import_object(tp.__module__, "ParamSpec")
@@ -1210,6 +1223,12 @@ class StubGen:
     def get(self) -> str:
         """Generate the final stub output"""
         s = ""
+
+        # Potentially add a module docstring
+        doc = getattr(self.module, '__doc__', None)
+        if self.include_docstrings and doc:
+            s += self.format_docstr(doc, 0) + "\n"
+
         last_party = None
 
         for module in sorted(self.imports, key=lambda i: str(self.check_party(i)) + i):

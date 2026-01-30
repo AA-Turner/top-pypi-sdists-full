@@ -28,10 +28,15 @@ class PermissionType(object):
     """
     allowed enum values
     """
+    ARCHIVE = "archive"
     CREATE = "create"
+    DELETE = "delete"
+    GET = "get"
+    DEPLOY = "deploy"
+    LIST = "list"
     IMAGE_CREATE = "image_create"
 
-    allowable_values = [CREATE, IMAGE_CREATE]  # noqa: E501
+    allowable_values = [ARCHIVE, CREATE, DELETE, GET, DEPLOY, LIST, IMAGE_CREATE]  # noqa: E501
 
     """
     Attributes:

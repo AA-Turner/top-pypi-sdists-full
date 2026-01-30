@@ -1,14 +1,15 @@
 import datetime
 import importlib.util
 import struct
+import time
 from copy import deepcopy
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import orjson
 
-from pymilvus.exceptions import MilvusException, ParamError
-from pymilvus.grpc_gen.common_pb2 import Status
+from pymilvus.exceptions import MilvusException, ParamError, SchemaMismatchRetryableException
+from pymilvus.grpc_gen import common_pb2
 from pymilvus.settings import Config
 
 from .constants import LOGICAL_BITS, LOGICAL_BITS_MASK
@@ -61,13 +62,20 @@ valid_binary_metric_types = [
 ]
 
 
-def check_status(status: Status):
+def check_status(status: common_pb2.Status):
     if status.code != 0 or status.error_code != 0:
+        if status.error_code == common_pb2.SchemaMismatch:
+            raise SchemaMismatchRetryableException(status.reason)
         raise MilvusException(status.code, status.reason, status.error_code)
 
 
-def is_successful(status: Status):
+def is_successful(status: common_pb2.Status):
     return status.code == 0 and status.error_code == 0
+
+
+def current_time_ms() -> str:
+    """Get current time in milliseconds as string."""
+    return str(time.time_ns() // 1_000_000)
 
 
 def hybridts_to_unixtime(ts: int):

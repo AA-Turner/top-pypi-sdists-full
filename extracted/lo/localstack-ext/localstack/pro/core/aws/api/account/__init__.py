@@ -35,6 +35,13 @@ class AlternateContactType(StrEnum):
     SECURITY = "SECURITY"
 
 
+class AwsAccountState(StrEnum):
+    PENDING_ACTIVATION = "PENDING_ACTIVATION"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    CLOSED = "CLOSED"
+
+
 class PrimaryEmailUpdateStatus(StrEnum):
     PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
@@ -97,6 +104,17 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = True
     status_code: int = 404
+    errorType: String | None
+
+
+class ResourceUnavailableException(ServiceException):
+    """The operation failed because it specified a resource that is not
+    currently available.
+    """
+
+    code: str = "ResourceUnavailableException"
+    sender_fault: bool = True
+    status_code: int = 424
     errorType: String | None
 
 
@@ -219,6 +237,15 @@ class GetContactInformationResponse(TypedDict, total=False):
     ContactInformation: ContactInformation | None
 
 
+class GetGovCloudAccountInformationRequest(ServiceRequest):
+    StandardAccountId: AccountId | None
+
+
+class GetGovCloudAccountInformationResponse(TypedDict, total=False):
+    AccountState: AwsAccountState
+    GovCloudAccountId: AccountId
+
+
 class GetPrimaryEmailRequest(ServiceRequest):
     AccountId: AccountId
 
@@ -336,13 +363,13 @@ class AccountApi:
         account.
 
         For complete details about how to use the alternate contact operations,
-        see `Access or updating the alternate
-        contacts <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact.html>`__.
+        see `Update the alternate contacts for your Amazon Web Services
+        account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html>`__.
 
         Before you can update the alternate contact information for an Amazon
         Web Services account that is managed by Organizations, you must first
         enable integration between Amazon Web Services Account Management and
-        Organizations. For more information, see `Enabling trusted access for
+        Organizations. For more information, see `Enable trusted access for
         Amazon Web Services Account
         Management <https://docs.aws.amazon.com/accounts/latest/reference/using-orgs-trusted-access.html>`__.
 
@@ -435,13 +462,13 @@ class AccountApi:
         Services account.
 
         For complete details about how to use the alternate contact operations,
-        see `Access or updating the alternate
-        contacts <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact.html>`__.
+        see `Update the alternate contacts for your Amazon Web Services
+        account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html>`__.
 
         Before you can update the alternate contact information for an Amazon
         Web Services account that is managed by Organizations, you must first
         enable integration between Amazon Web Services Account Management and
-        Organizations. For more information, see `Enabling trusted access for
+        Organizations. For more information, see `Enable trusted access for
         Amazon Web Services Account
         Management <https://docs.aws.amazon.com/accounts/latest/reference/using-orgs-trusted-access.html>`__.
 
@@ -465,13 +492,34 @@ class AccountApi:
         account.
 
         For complete details about how to use the primary contact operations,
-        see `Update the primary and alternate contact
-        information <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact.html>`__.
+        see `Update the primary contact for your Amazon Web Services
+        account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-primary.html>`__.
 
         :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
         account that you want to access or modify with this operation.
         :returns: GetContactInformationResponse
         :raises ResourceNotFoundException:
+        :raises ValidationException:
+        :raises AccessDeniedException:
+        :raises TooManyRequestsException:
+        :raises InternalServerException:
+        """
+        raise NotImplementedError
+
+    @handler("GetGovCloudAccountInformation")
+    def get_gov_cloud_account_information(
+        self, context: RequestContext, standard_account_id: AccountId | None = None, **kwargs
+    ) -> GetGovCloudAccountInformationResponse:
+        """Retrieves information about the GovCloud account linked to the specified
+        standard account (if it exists) including the GovCloud account ID and
+        state. To use this API, an IAM user or role must have the
+        ``account:GetGovCloudAccountInformation`` IAM permission.
+
+        :param standard_account_id: Specifies the 12 digit account ID number of the Amazon Web Services
+        account that you want to access or modify with this operation.
+        :returns: GetGovCloudAccountInformationResponse
+        :raises ResourceNotFoundException:
+        :raises ResourceUnavailableException:
         :raises ValidationException:
         :raises AccessDeniedException:
         :raises TooManyRequestsException:
@@ -584,13 +632,13 @@ class AccountApi:
         Services account.
 
         For complete details about how to use the alternate contact operations,
-        see `Access or updating the alternate
-        contacts <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact.html>`__.
+        see `Update the alternate contacts for your Amazon Web Services
+        account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html>`__.
 
         Before you can update the alternate contact information for an Amazon
         Web Services account that is managed by Organizations, you must first
         enable integration between Amazon Web Services Account Management and
-        Organizations. For more information, see `Enabling trusted access for
+        Organizations. For more information, see `Enable trusted access for
         Amazon Web Services Account
         Management <https://docs.aws.amazon.com/accounts/latest/reference/using-orgs-trusted-access.html>`__.
 
@@ -620,8 +668,8 @@ class AccountApi:
         account.
 
         For complete details about how to use the primary contact operations,
-        see `Update the primary and alternate contact
-        information <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact.html>`__.
+        see `Update the primary contact for your Amazon Web Services
+        account <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-primary.html>`__.
 
         :param contact_information: Contains the details of the primary contact information associated with
         an Amazon Web Services account.

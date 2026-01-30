@@ -107,6 +107,11 @@ class CPUArchitecture(StrEnum):
     ARM64 = "ARM64"
 
 
+class CapacityOptionType(StrEnum):
+    ON_DEMAND = "ON_DEMAND"
+    SPOT = "SPOT"
+
+
 class CapacityProviderField(StrEnum):
     TAGS = "TAGS"
 
@@ -498,6 +503,7 @@ class SettingName(StrEnum):
     fargateTaskRetirementWaitPeriod = "fargateTaskRetirementWaitPeriod"
     guardDutyActivate = "guardDutyActivate"
     defaultLogDriverMode = "defaultLogDriverMode"
+    fargateEventWindows = "fargateEventWindows"
 
 
 class SettingType(StrEnum):
@@ -1265,7 +1271,9 @@ class InstanceLaunchTemplate(TypedDict, total=False):
     networkConfiguration: ManagedInstancesNetworkConfiguration
     storageConfiguration: ManagedInstancesStorageConfiguration | None
     monitoring: ManagedInstancesMonitoringOptions | None
+    capacityOptionType: CapacityOptionType | None
     instanceRequirements: InstanceRequirementsRequest | None
+    fipsEnabled: BoxedBoolean | None
 
 
 class ManagedInstancesProvider(TypedDict, total=False):

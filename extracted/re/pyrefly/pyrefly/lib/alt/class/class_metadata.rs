@@ -48,13 +48,13 @@ use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::alt::types::decorated_function::Decorator;
 use crate::alt::types::pydantic::PydanticConfig;
-use crate::alt::types::pydantic::PydanticModelKind;
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassExpr;
 use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecorator;
+use crate::binding::django::DjangoFieldInfo;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
@@ -119,7 +119,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[Idx<KeyDecorator>],
         is_new_type: bool,
         pydantic_config_dict: &PydanticConfigDict,
-        django_primary_key_field: Option<&Name>,
+        django_field_info: &DjangoFieldInfo,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         // Get class decorators.
@@ -201,16 +201,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
-        let django_model_metadata =
-            if directly_inherits_model || inherited_django_metadata.is_some() {
-                Some(DjangoModelMetadata {
-                    custom_primary_key_field: django_primary_key_field.cloned().or_else(|| {
-                        inherited_django_metadata.and_then(|dm| dm.custom_primary_key_field.clone())
-                    }),
-                })
-            } else {
-                None
-            };
+        let django_model_metadata = if directly_inherits_model
+            || inherited_django_metadata.is_some()
+        {
+            Some(DjangoModelMetadata {
+                custom_primary_key_field: django_field_info.primary_key_field.clone().or_else(
+                    || inherited_django_metadata.and_then(|dm| dm.custom_primary_key_field.clone()),
+                ),
+                foreign_key_fields: django_field_info.foreign_key_fields.clone(),
+                fields_with_choices: django_field_info.fields_with_choices.clone(),
+            })
+        } else {
+            None
+        };
 
         // Check if this class inherits from marshmallow.Schema
         let is_marshmallow_schema =
@@ -711,6 +714,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
         // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
         // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+
+        // Pydantic models and dataclasses default to strict=false (lax mode).
+        // Regular dataclasses default to strict=true.
+        let strict_default = pydantic_config.is_none();
+
         let mut dataclass_from_dataclass_transform = None;
         if let Some(defaults) = dataclass_defaults_from_base_class {
             // This class inherits from a dataclass_transform-ed base class, so its keywords are
@@ -719,7 +727,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .map(|(name, annot)| (name.clone(), annot.get_type().clone()))
                 .collect::<OrderedMap<_, _>>();
-            let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
+            let mut kws =
+                DataclassKeywords::from_type_map(&TypeMap(map), &defaults, strict_default);
 
             // Inject pydantic model configuration from ConfigDict.
             // This path is for pydantic models (BaseModel, etc.), not pydantic dataclasses.
@@ -740,28 +749,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (decorator, _) in decorators {
             // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
             if let Some(defaults) = decorator.ty.dataclass_transform_metadata() {
-                let mut kws = DataclassKeywords::from_type_map(&TypeMap::new(), defaults);
-                // For pydantic dataclasses, default strict to false (no explicit keywords here)
-                if matches!(
-                    pydantic_config.map(|c| &c.pydantic_model_kind),
-                    Some(PydanticModelKind::DataClass)
-                ) {
-                    kws.strict = false;
-                }
+                let kws =
+                    DataclassKeywords::from_type_map(&TypeMap::new(), defaults, strict_default);
                 dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers.clone()));
             }
             // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
             else if let Type::KwCall(call) = &decorator.ty
                 && let Some(defaults) = &call.func_metadata.flags.dataclass_transform_metadata
             {
-                let mut kws = DataclassKeywords::from_type_map(&call.keywords, defaults);
-                // For pydantic dataclasses, default strict to false unless explicitly set
-                if matches!(
-                    pydantic_config.map(|c| &c.pydantic_model_kind),
-                    Some(PydanticModelKind::DataClass)
-                ) {
-                    kws.strict = false;
-                }
+                let kws =
+                    DataclassKeywords::from_type_map(&call.keywords, defaults, strict_default);
                 dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers.clone()));
             }
         }
@@ -824,6 +821,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         kws: DataclassKeywords::from_type_map(
                             &call.keywords,
                             &DataclassTransformMetadata::new(),
+                            true, // Regular dataclasses are always strict
                         ),
                         field_specifiers: vec![
                             CalleeKind::Function(FunctionKind::DataclassField),

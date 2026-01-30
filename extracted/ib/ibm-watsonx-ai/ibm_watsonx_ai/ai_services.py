@@ -106,7 +106,10 @@ class AIServices(WMLResource):
                 }
 
             if need_init:
-                schema = self._extract_parameters_schema(source or "")
+                schema = self._extract_parameters_schema(
+                    source or "",
+                    fn_obj=ai_service if callable(ai_service) else None,
+                )
                 ai_service_metadata["init"] = schema
 
         # at least one is set since _check_if_either_is_set() passed
@@ -1529,11 +1532,16 @@ class AIServices(WMLResource):
             break
         return []
 
-    def _extract_parameters_schema(self, source: str) -> dict:
+    def _extract_parameters_schema(
+        self,
+        source: str,
+        fn_obj: Callable | None = None,
+    ) -> dict:
         fn = self._first_functiondef(source)
         if not fn:
             return {"type": "object", "properties": {}}
 
+        sig = inspect.signature(fn_obj) if fn_obj else None
         props: dict[str, Any] = {}
         required: ListType[str] = []
         for p in self._iter_params(fn):
@@ -1543,8 +1551,18 @@ class AIServices(WMLResource):
             entry: dict[str, Any] = {}
             if p.get("type"):
                 entry["type"] = p["type"]
-            if "default" in p:
-                entry["default"] = p["default"]
+
+            default = None
+            if sig and name in sig.parameters:
+                param = sig.parameters[name]
+                if param.default is not inspect.Parameter.empty:
+                    default = param.default
+
+            elif "default" in p:
+                default = p["default"]
+
+            if default is not None:
+                entry["default"] = default
             else:
                 required.append(name)
             props[name] = entry

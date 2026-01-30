@@ -97,9 +97,12 @@ packages = [
     "posthoganalytics.ai",
     "posthoganalytics.ai.langchain",
     "posthoganalytics.ai.openai",
+    "posthoganalytics.ai.openai_agents",
     "posthoganalytics.ai.anthropic",
     "posthoganalytics.ai.gemini",
     "posthoganalytics.test",
+    "posthoganalytics.test.ai",
+    "posthoganalytics.test.ai.openai_agents",
     "posthoganalytics.integrations",
 ]
 

@@ -9,13 +9,11 @@ if TYPE_CHECKING:
     from upsonic.agent.agent import Agent
     from upsonic.tasks.tasks import Task
     from upsonic.agent.context_managers.memory_manager import MemoryManager
-    from upsonic.agent.context_managers.culture_manager_context import CultureContextManager
 else:
     # Use string annotations to avoid importing heavy modules
     Agent = "Agent"
     Task = "Task"
     MemoryManager = "MemoryManager"
-    CultureContextManager = "CultureContextManager"
 
 
 class SystemPromptManager:
@@ -30,7 +28,6 @@ class SystemPromptManager:
     def _build_system_prompt(
         self, 
         memory_handler: Optional["MemoryManager"] = None,
-        culture_handler: Optional["CultureContextManager"] = None,
     ) -> str:
         """Builds the complete system prompt string by assembling its components."""
         from upsonic.tools import Thought, AnalysisResult
@@ -212,15 +209,20 @@ class SystemPromptManager:
         base_prompt = ""
 
         if memory_handler:
+            # Inject user profile from memory
             system_injection = memory_handler.get_system_prompt_injection()
             if system_injection:
                 prompt_parts.append(system_injection)
-
-        # Inject cultural knowledge context if available
-        if culture_handler:
-            culture_context = culture_handler.get_culture_context()
-            if culture_context:
-                prompt_parts.append(culture_context)
+        
+        # Check if culture is present and will be added
+        has_culture = False
+        culture_formatted = None
+        if self.agent._culture_manager and self.agent._culture_manager.enabled:
+            culture = self.agent._culture_manager.culture
+            if culture and culture.add_system_prompt and self.agent._culture_manager.prepared:
+                culture_formatted = self.agent._culture_manager.format_for_system_prompt()
+                if culture_formatted:
+                    has_culture = True
 
         if self.agent.system_prompt is not None:
             base_prompt = self.agent.system_prompt
@@ -259,9 +261,18 @@ class SystemPromptManager:
         
         
         if self.agent.system_prompt is None and not has_any_info and not is_thinking_enabled:
-            base_prompt = default_prompt().prompt
+            # If culture is present, use a more restrictive default prompt
+            if has_culture:
+                base_prompt = "You are an agent with specific cultural guidelines that define your identity, behavior, and scope. You MUST strictly follow the cultural guidelines provided to you. These guidelines override any general instructions."
+            else:
+                base_prompt = default_prompt().prompt
         
         prompt_parts.append(base_prompt.strip())
+        
+        # Inject culture AFTER base prompt so it has final authority
+        # Note: Culture must be prepared before this method is called (done in aprepare())
+        if has_culture and culture_formatted:
+            prompt_parts.append(culture_formatted)
 
         agent_context_str = "<YourCharacter>"
         found_agent_context = False
@@ -329,7 +340,7 @@ class SystemPromptManager:
         if system_prompt:
             # Check if system prompt contains dynamic content markers
             has_user_profile = "<UserProfile>" in system_prompt
-            has_culture_context = "<CulturalKnowledge>" in system_prompt or "<CultureContext>" in system_prompt
+            has_culture_context = "<CulturalKnowledge>" in system_prompt
             
             # Always include if it has dynamic content that may have changed
             if has_user_profile or has_culture_context:
@@ -342,16 +353,20 @@ class SystemPromptManager:
     async def aprepare(
         self, 
         memory_handler: Optional["MemoryManager"] = None,
-        culture_handler: Optional["CultureContextManager"] = None,
     ) -> None:
         """
         Prepare the system prompt before the LLM call.
         
         Args:
-            memory_handler: Optional MemoryManager for memory injection
-            culture_handler: Optional CultureContextManager for culture injection
+            memory_handler: Optional MemoryManager for memory and culture injection
         """
-        self.system_prompt = self._build_system_prompt(memory_handler, culture_handler)
+        # Prepare culture if needed (async) - must be done before _build_system_prompt
+        if self.agent._culture_manager and self.agent._culture_manager.enabled:
+            if not self.agent._culture_manager.prepared:
+                await self.agent._culture_manager.aprepare()
+        
+        # Build system prompt (culture will be injected in _build_system_prompt if prepared)
+        self.system_prompt = self._build_system_prompt(memory_handler)
     
     async def afinalize(self) -> None:
         """Finalize system prompt after the LLM call."""
@@ -360,11 +375,10 @@ class SystemPromptManager:
     def prepare(
         self, 
         memory_handler: Optional["MemoryManager"] = None,
-        culture_handler: Optional["CultureContextManager"] = None,
     ) -> None:
         """Synchronous version of aprepare."""
         import asyncio
-        asyncio.get_event_loop().run_until_complete(self.aprepare(memory_handler, culture_handler))
+        asyncio.get_event_loop().run_until_complete(self.aprepare(memory_handler))
     
     def finalize(self) -> None:
         """Synchronous version of afinalize."""
@@ -375,7 +389,6 @@ class SystemPromptManager:
     async def manage_system_prompt(
         self, 
         memory_handler: Optional["MemoryManager"] = None,
-        culture_handler: Optional["CultureContextManager"] = None,
     ):
         """
         The asynchronous context manager for building the system prompt.
@@ -384,10 +397,9 @@ class SystemPromptManager:
         For step-based architecture, use aprepare() and afinalize() directly.
         
         Args:
-            memory_handler: Optional MemoryManager for memory injection
-            culture_handler: Optional CultureContextManager for culture injection
+            memory_handler: Optional MemoryManager for memory and culture injection
         """
-        await self.aprepare(memory_handler, culture_handler)
+        await self.aprepare(memory_handler)
             
         try:
             yield self

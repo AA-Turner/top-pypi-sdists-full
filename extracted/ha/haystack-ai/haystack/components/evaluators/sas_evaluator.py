@@ -9,7 +9,7 @@ from numpy import mean as np_mean
 from haystack import component, default_from_dict, default_to_dict
 from haystack.lazy_imports import LazyImport
 from haystack.utils import ComponentDevice, expit
-from haystack.utils.auth import Secret, deserialize_secrets_inplace
+from haystack.utils.auth import Secret
 
 with LazyImport(message="Run 'pip install \"sentence-transformers>=5.0.0\"'") as sas_import:
     from sentence_transformers import CrossEncoder, SentenceTransformer, util
@@ -59,7 +59,7 @@ class SASEvaluator:
         batch_size: int = 32,
         device: ComponentDevice | None = None,
         token: Secret = Secret.from_env_var(["HF_API_TOKEN", "HF_TOKEN"], strict=False),
-    ):
+    ) -> None:
         """
         Creates a new instance of SASEvaluator.
 
@@ -90,11 +90,7 @@ class SASEvaluator:
             The serialized component as a dictionary.
         """
         return default_to_dict(
-            self,
-            model=self._model,
-            batch_size=self._batch_size,
-            device=self._device.to_dict() if self._device else None,
-            token=self._token.to_dict() if self._token else None,
+            self, model=self._model, batch_size=self._batch_size, device=self._device, token=self._token
         )
 
     @classmethod
@@ -107,12 +103,9 @@ class SASEvaluator:
         :returns:
             The deserialized component instance.
         """
-        deserialize_secrets_inplace(data["init_parameters"], keys=["token"])
-        if device := data.get("init_parameters", {}).get("device"):
-            data["init_parameters"]["device"] = ComponentDevice.from_dict(device)
         return default_from_dict(cls, data)
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Initializes the component.
         """
@@ -128,17 +121,12 @@ class SASEvaluator:
         # Based on the Model string we can load either Bi-Encoders or Cross Encoders.
         # Similarity computation changes for both approaches
         if cross_encoder_used:
-            self._similarity_model = CrossEncoder(
-                self._model,
-                device=device,
-                tokenizer_args={"use_auth_token": token},
-                automodel_args={"use_auth_token": token},
-            )
+            self._similarity_model = CrossEncoder(self._model, device=device, token=token)
         else:
-            self._similarity_model = SentenceTransformer(self._model, device=device, use_auth_token=token)
+            self._similarity_model = SentenceTransformer(self._model, device=device, token=token)
 
     @component.output_types(score=float, individual_scores=list[float])
-    def run(self, ground_truth_answers: list[str], predicted_answers: list[str]) -> dict[str, Any]:
+    def run(self, ground_truth_answers: list[str], predicted_answers: list[str]) -> dict[str, float | list[float]]:
         """
         SASEvaluator component run method.
 
@@ -192,7 +180,8 @@ class SASEvaluator:
 
             # Compute cosine-similarities
             similarity_scores = [
-                float(util.cos_sim(p, l).cpu().numpy()) for p, l in zip(predictions_embeddings, label_embeddings)
+                float(util.cos_sim(p, l).cpu().squeeze().numpy())
+                for p, l in zip(predictions_embeddings, label_embeddings)
             ]
 
         sas_score = np_mean(similarity_scores)

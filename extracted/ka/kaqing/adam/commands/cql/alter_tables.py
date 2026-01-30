@@ -4,6 +4,7 @@ from adam.commands.cql.utils_cql import cassandra, cassandra_tables as get_table
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2, log_exc
+from adam.utils_context import Context
 
 class AlterTables(Command):
     COMMAND = 'alter tables with'
@@ -42,7 +43,7 @@ class AlterTables(Command):
                                 cql = ';\n'.join([f'alter table {k}.{t} with {arg_str}' for t in v])
                                 with log_exc(True):
                                     with cassandra(state) as pods:
-                                        pods.cql(cql, show_out=Config().is_debug(), show_query=not Config().is_debug(), on_any=True)
+                                        pods.cql(cql, on_any=True, ctx=Context.new(cmd, show_out=True))
                                     continue
                             else:
                                 for t in v:
@@ -50,7 +51,7 @@ class AlterTables(Command):
                                         # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
                                         cql = f'alter table {k}.{t} with {arg_str}'
                                         with cassandra(state) as pods:
-                                            pods.cql(show_out=Config().is_debug(), show_query=not Config().is_debug(), on_any=True)
+                                            pods.cql(cql, on_any=True, ctx=Context.new(cmd, show_out=True))
                                         continue
 
                             log2(f'{len(v)} tables altered in {k}.')

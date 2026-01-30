@@ -38,6 +38,8 @@ class Permission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PERMISSION_CHALK_ADMIN: _ClassVar[Permission]
     PERMISSION_BILLING_READ: _ClassVar[Permission]
     PERMISSION_AUTH_SERVICE_MANAGER: _ClassVar[Permission]
+    PERMISSION_INFRASTRUCTURE_READ: _ClassVar[Permission]
+    PERMISSION_INFRASTRUCTURE_WRITE: _ClassVar[Permission]
 
 PERMISSION_UNSPECIFIED: Permission
 PERMISSION_INSECURE_UNAUTHENTICATED: Permission
@@ -69,6 +71,8 @@ PERMISSION_PROJECT_CREATE: Permission
 PERMISSION_CHALK_ADMIN: Permission
 PERMISSION_BILLING_READ: Permission
 PERMISSION_AUTH_SERVICE_MANAGER: Permission
+PERMISSION_INFRASTRUCTURE_READ: Permission
+PERMISSION_INFRASTRUCTURE_WRITE: Permission
 DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
 description: _descriptor.FieldDescriptor
 SLUG_FIELD_NUMBER: _ClassVar[int]

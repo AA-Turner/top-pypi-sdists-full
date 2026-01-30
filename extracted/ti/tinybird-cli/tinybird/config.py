@@ -19,7 +19,6 @@ DEFAULT_LOCALHOST = "http://localhost:8001"
 CURRENT_VERSION = f"{__cli__.__version__}"
 VERSION = f"{__cli__.__version__} (rev {__revision__})"
 DEFAULT_UI_HOST = "https://app.tinybird.co"
-SUPPORTED_CONNECTORS = ["bigquery", "snowflake"]
 PROJECT_PATHS = ["datasources", "datasources/fixtures", "endpoints", "pipes", "tests", "scripts", "deploy"]
 DEPRECATED_PROJECT_PATHS = ["endpoints"]
 MIN_WORKSPACE_ID_LENGTH = 36
@@ -138,7 +137,3 @@ class FeatureFlags:
     @classmethod
     def is_localhost(cls) -> bool:
         return "SET_LOCALHOST" in environ
-
-    @classmethod
-    def enable_snowflake_connector_command(cls) -> bool:
-        return "ENABLE_SNOWFLAKE_CONNECTOR_COMMAND" in environ

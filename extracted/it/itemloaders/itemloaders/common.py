@@ -1,9 +1,14 @@
 """Common functions used in Item Loaders code"""
 
+from __future__ import annotations
+
 from functools import partial
-from typing import Any, Callable, MutableMapping
+from typing import TYPE_CHECKING, Any
 
 from itemloaders.utils import get_func_args
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, MutableMapping
 
 
 def wrap_loader_context(
@@ -14,5 +19,4 @@ def wrap_loader_context(
     """
     if "loader_context" in get_func_args(function):
         return partial(function, loader_context=context)
-    else:
-        return function
+    return function

@@ -668,7 +668,7 @@ class V2ClusterUpdateParams(object):
     def network_type(self):
         """Gets the network_type of this V2ClusterUpdateParams.  # noqa: E501
 
-        The desired network type used.  # noqa: E501
+        The desired network type used. - OVNKubernetes: Default CNI for OpenShift (recommended) - OpenShiftSDN: Legacy SDN (deprecated in newer versions) - CiscoACI: Cisco ACI CNI (requires custom manifests) - Cilium: Isovalent Cilium CNI (requires custom manifests) - Calico: Tigera Calico CNI (requires custom manifests) - None: No CNI - user must provide custom CNI manifests Note: Third-party CNIs (CiscoACI, Cilium, Calico, None) require uploading CNI manifests via the custom manifests API before installation.   # noqa: E501
 
         :return: The network_type of this V2ClusterUpdateParams.  # noqa: E501
         :rtype: str
@@ -679,12 +679,12 @@ class V2ClusterUpdateParams(object):
     def network_type(self, network_type):
         """Sets the network_type of this V2ClusterUpdateParams.
 
-        The desired network type used.  # noqa: E501
+        The desired network type used. - OVNKubernetes: Default CNI for OpenShift (recommended) - OpenShiftSDN: Legacy SDN (deprecated in newer versions) - CiscoACI: Cisco ACI CNI (requires custom manifests) - Cilium: Isovalent Cilium CNI (requires custom manifests) - Calico: Tigera Calico CNI (requires custom manifests) - None: No CNI - user must provide custom CNI manifests Note: Third-party CNIs (CiscoACI, Cilium, Calico, None) require uploading CNI manifests via the custom manifests API before installation.   # noqa: E501
 
         :param network_type: The network_type of this V2ClusterUpdateParams.  # noqa: E501
         :type: str
         """
-        allowed_values = ["OpenShiftSDN", "OVNKubernetes"]  # noqa: E501
+        allowed_values = ["OpenShiftSDN", "OVNKubernetes", "CiscoACI", "Cilium", "Calico", "None"]  # noqa: E501
         if network_type not in allowed_values:
             raise ValueError(
                 "Invalid value for `network_type` ({0}), must be one of {1}"  # noqa: E501

@@ -47,6 +47,8 @@ async fn setup(hash_algorithm: HashAlgorithm) -> Value {
             response_format: None,
             remove_id_type: Some(false),
             remove_default_value_gates: Some(false),
+            previous_response_hash: None,
+            remove_experiments_in_layers: Some(false),
         },
     );
     let json = serde_json::to_string(&response).unwrap();

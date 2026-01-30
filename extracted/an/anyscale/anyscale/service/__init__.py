@@ -182,7 +182,7 @@ class ServiceSDK:
     @sdk_docs(
         doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
-    def list(  # noqa: F811, A001
+    def list(  # noqa: A001, F811, PLR0913
         self,
         *,
         # Single-item lookup

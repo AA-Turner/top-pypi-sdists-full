@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import functools
+
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
+
+import imgviz
+
+
+def mask2rgb() -> None:
+    data = imgviz.data.voc()
+
+    rgb: NDArray[np.uint8] = data["rgb"]
+    masks: NDArray[np.bool_] = data["masks"]
+    labels: NDArray[np.int32] = data["labels"]
+    class_names: list[str] = data["class_names"]
+
+    keep: NDArray[np.bool_] = labels == class_names.index("diningtable")
+    mask: NDArray[np.bool_] = functools.reduce(np.logical_or, masks[keep])
+
+    # -------------------------------------------------------------------------
+
+    plt.figure(dpi=200)
+
+    plt.subplot(131)
+    plt.title("mask only")
+    plt.imshow(imgviz.mask2rgb(mask))
+    plt.axis("off")
+
+    plt.subplot(132)
+    plt.title("mask striped")
+    plt.imshow(imgviz.mask2rgb(mask, fill=imgviz.fill.Stripe(color=(0, 255, 0))))
+    plt.axis("off")
+
+    plt.subplot(133)
+    plt.title("mask + image")
+    plt.imshow(
+        imgviz.mask2rgb(mask, image=rgb, fill=imgviz.fill.Stripe(color=(0, 255, 0)))
+    )
+    plt.axis("off")
+
+
+if __name__ == "__main__":
+    from _base import run_example
+
+    run_example(mask2rgb)

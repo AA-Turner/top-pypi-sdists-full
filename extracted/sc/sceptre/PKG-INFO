@@ -1,23 +1,25 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sceptre
-Version: 4.5.3
+Version: 4.6.0
 Summary: An AWS Cloud Provisioning Tool
 License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Keywords: aws,cloud,devops,infrastructure,tools,cli
 Author: Sceptre
 Author-email: sceptreorg@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: docs
 Provides-Extra: troposphere
 Requires-Dist: boto3 (>=1.20.27,<2.0.0)

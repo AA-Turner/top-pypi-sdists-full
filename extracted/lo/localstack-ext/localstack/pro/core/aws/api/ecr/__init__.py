@@ -196,6 +196,7 @@ class LifecyclePolicyTargetStorageClass(StrEnum):
 class RCTAppliedFor(StrEnum):
     REPLICATION = "REPLICATION"
     PULL_THROUGH_CACHE = "PULL_THROUGH_CACHE"
+    CREATE_ON_PUSH = "CREATE_ON_PUSH"
 
 
 class ReplicationStatus(StrEnum):

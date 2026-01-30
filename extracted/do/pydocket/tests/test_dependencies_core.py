@@ -42,21 +42,6 @@ async def test_dependencies_may_be_duplicated(docket: Docket, worker: Worker):
     assert called
 
 
-async def test_retries_must_be_unique(docket: Docket, worker: Worker):
-    async def the_task(
-        a: str,
-        retryA: Retry = Retry(attempts=3),
-        retryB: Retry = Retry(attempts=5),
-    ):
-        pass  # pragma: no cover
-
-    with pytest.raises(
-        ValueError,
-        match="Only one Retry dependency is allowed per task",
-    ):
-        await docket.add(the_task)("a")
-
-
 async def test_users_can_provide_dependencies_directly(docket: Docket, worker: Worker):
     called = False
 
@@ -104,7 +89,7 @@ async def test_user_provide_retries_are_used(docket: Docket, worker: Worker):
 
 
 @pytest.mark.parametrize("retry_cls", [Retry, ExponentialRetry])
-async def test_user_can_request_a_retry_in_timedelta_time(
+async def test_user_can_request_a_retry_after_a_delay(
     retry_cls: Retry, docket: Docket, worker: Worker
 ):
     calls = 0
@@ -125,7 +110,7 @@ async def test_user_can_request_a_retry_in_timedelta_time(
         nonlocal first_call_time
         if not first_call_time:
             first_call_time = datetime.now(timezone.utc)
-            retry.in_(timedelta(seconds=0.5))
+            retry.after(timedelta(seconds=0.5))
         else:
             nonlocal second_call_time
             second_call_time = datetime.now(timezone.utc)
@@ -141,6 +126,24 @@ async def test_user_can_request_a_retry_in_timedelta_time(
 
     delay = second_call_time - first_call_time
     assert delay.total_seconds() > 0 < 1
+
+
+async def test_retry_in_is_backwards_compatible_alias_for_after(
+    docket: Docket, worker: Worker
+):
+    """retry.in_() still works as an alias for retry.after()"""
+    calls = 0
+
+    async def the_task(retry: Retry = Retry(attempts=2)):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            retry.in_(timedelta(seconds=0.1))
+
+    await docket.add(the_task)()
+    await worker.run_until_finished()
+
+    assert calls == 2
 
 
 @pytest.mark.parametrize("retry_cls", [Retry, ExponentialRetry])

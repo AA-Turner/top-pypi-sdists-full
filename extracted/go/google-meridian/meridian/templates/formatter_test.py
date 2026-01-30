@@ -92,6 +92,36 @@ class FormatterTest(parameterized.TestCase):
     formatted_number = formatter.compact_number(num, precision, currency)
     self.assertEqual(formatted_number, expected)
 
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='basic_snake_case',
+          input_headers=['finding_cause'],
+          expected=['Finding Cause'],
+      ),
+      dict(
+          testcase_name='multiple_columns',
+          input_headers=['geo', 'time_index', 'channel_name'],
+          expected=['Geo', 'Time Index', 'Channel Name'],
+      ),
+      dict(
+          testcase_name='preserves_acronyms',
+          input_headers=['VIF_score', 'national_KPI'],
+          expected=['VIF Score', 'National KPI'],
+      ),
+      dict(
+          testcase_name='handles_tuples_input',
+          input_headers=('row_id', 'value'),
+          expected=['Row Id', 'Value'],
+      ),
+      dict(
+          testcase_name='empty_input',
+          input_headers=[],
+          expected=[],
+      ),
+  )
+  def test_format_col_names(self, input_headers, expected):
+    self.assertEqual(formatter.format_col_names(input_headers), expected)
+
   def test_create_summary_html(self):
     template_env = formatter.create_template_env()
     title = 'Integration Test Report'
@@ -210,6 +240,103 @@ class FormatterTest(parameterized.TestCase):
     self.assertEqual(stats_html[0][1].text, 'test_stat')
     self.assertEqual(stats_html[0][2].tag, 'delta')
     self.assertContainsSubset('+0.3', stats_html[0][2].text)
+
+  def test_create_card_html_no_insights(self):
+    template_env = formatter.create_template_env()
+    card_spec = formatter.CardSpec(id='test_id', title='test_title')
+    stats_spec = formatter.StatsSpec(title='stats_title', stat='test_stat')
+
+    card_html = ET.fromstring(
+        formatter.create_card_html(
+            template_env, card_spec, insights=None, stats_specs=[stats_spec]
+        )
+    )
+
+    self.assertEqual(card_html.tag, 'card')
+    self.assertIsNone(card_html.find('card-insights'))
+    self.assertIsNotNone(card_html.find('stats-section'))
+
+  def test_create_card_html_chart_findings(self):
+    """Tests that errors, warnings, and infos render inside a chart."""
+    template_env = formatter.create_template_env()
+    card_spec = formatter.CardSpec(id='test_id', title='test_title')
+    chart_spec = formatter.ChartSpec(
+        id='id',
+        chart_json='{}',
+        errors=['Chart Error'],
+        warnings=['Chart Warning'],
+        infos=['Chart Info'],
+    )
+    card_html = ET.fromstring(
+        formatter.create_card_html(
+            template_env, card_spec, insights=None, chart_specs=[chart_spec]
+        )
+    )
+
+    charts_elem = card_html.find('charts')
+    self.assertIsNotNone(charts_elem)
+    chart_elem = charts_elem.find('chart')
+    self.assertIsNotNone(chart_elem)
+
+    error_elem = chart_elem.find('errors')
+    self.assertIsNotNone(error_elem)
+    error_p = error_elem.find('p')
+    self.assertIsNotNone(error_p)
+    self.assertIn('Chart Error', error_p.text)
+
+    warning_elem = chart_elem.find('warnings')
+    self.assertIsNotNone(warning_elem)
+    warning_p = warning_elem.find('p')
+    self.assertIsNotNone(warning_p)
+    self.assertIn('Chart Warning', warning_p.text)
+
+    info_elem = chart_elem.find('infos')
+    self.assertIsNotNone(info_elem)
+    info_p = info_elem.find('p')
+    self.assertIsNotNone(info_p)
+    self.assertIn('Chart Info', info_p.text)
+
+  def test_create_card_html_table_findings(self):
+    """Tests that errors, warnings, and infos render inside a table."""
+    template_env = formatter.create_template_env()
+    card_spec = formatter.CardSpec(id='test_id', title='test_title')
+    table_spec = formatter.TableSpec(
+        id='table_id',
+        title='Table Title',
+        column_headers=['Col1'],
+        row_values=[['Val1']],
+        errors=['Table Error'],
+        warnings=['Table Warning'],
+        infos=['Table Info'],
+    )
+    card_html = ET.fromstring(
+        formatter.create_card_html(
+            template_env, card_spec, insights=None, chart_specs=[table_spec]
+        )
+    )
+
+    charts_elem = card_html.find('charts')
+    self.assertIsNotNone(charts_elem)
+    table_elem = charts_elem.find('chart-table')
+    self.assertIsNotNone(table_elem)
+
+    error_elem = table_elem.find('errors')
+    self.assertIsNotNone(error_elem)
+    error_p = error_elem.find('p')
+    self.assertIsNotNone(error_p)
+    self.assertIn('Table Error', error_p.text)
+
+    warning_elem = table_elem.find('warnings')
+    self.assertIsNotNone(warning_elem)
+    warning_p = warning_elem.find('p')
+    self.assertIsNotNone(warning_p)
+    self.assertIn('Table Warning', warning_p.text)
+
+    info_elem = table_elem.find('infos')
+    self.assertIsNotNone(info_elem)
+    info_p = info_elem.find('p')
+    self.assertIsNotNone(info_p)
+    self.assertIn('Table Info', info_p.text)
 
 
 if __name__ == '__main__':

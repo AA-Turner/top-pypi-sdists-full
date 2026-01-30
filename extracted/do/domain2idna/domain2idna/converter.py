@@ -19,8 +19,8 @@ Project documentation:
 License:
     MIT License
 
-    Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Nissar Chababy
-    Copyright (c) 2019, 2020, 2021, 2022, 2023, 2024, 2025 PyFunceble Contributors
+    Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
+    Copyright (c) 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 PyFunceble Contributors
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -56,7 +56,7 @@ class Converter:
     """
 
     to_ignore = [
-        "0.0.0.0",
+        "0.0.0.0",  # nosec: B104 # This has nothing to do with interfaces binding.
         "localhost",
         "127.0.0.1",
         "localdomain",

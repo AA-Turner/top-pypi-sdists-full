@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "IncludeCPP"
-version = "4.8.4"
+version = "4.9.7"
 description = "Professional C++ Python bindings with type-generic templates, pystubs and native threading"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -42,7 +42,7 @@ Repository = "https://github.com/liliassg/IncludeCPP"
 includecpp = "includecpp.cli.commands:cli"
 
 [tool.setuptools]
-packages = ["includecpp", "includecpp.cli", "includecpp.core", "includecpp.core.cssl", "includecpp.generator", "includecpp.vscode", "includecpp.vscode.cssl"]
+packages = ["includecpp", "includecpp.cli", "includecpp.core", "includecpp.core.cssl", "includecpp.generator", "includecpp.vscode", "includecpp.vscode.cssl", "includecpp.vscode.cssl.server", "includecpp.vscode.cssl.server.analysis", "includecpp.vscode.cssl.server.providers", "includecpp.vscode.cssl.server.utils"]
 package-dir = {"" = "."}
 include-package-data = true
 
@@ -77,5 +77,9 @@ includecpp = [
     "vscode/cssl/*.js",
     "vscode/cssl/syntaxes/*.json",
     "vscode/cssl/snippets/*.json",
-    "vscode/cssl/images/*.png"
+    "vscode/cssl/images/*.png",
+    "vscode/cssl/server/*.py",
+    "vscode/cssl/server/analysis/*.py",
+    "vscode/cssl/server/providers/*.py",
+    "vscode/cssl/server/utils/*.py"
 ]

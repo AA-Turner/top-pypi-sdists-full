@@ -267,6 +267,11 @@ class ExecutorPool:
                     continue
 
             if response is None:
+                AbstraLogger.warning(
+                    f"[ExecutorPool] Execution timed out, killing stuck executor "
+                    f"(execution_id={execution_id}, executor_id={executor.executor_id}, pid={executor.pid})"
+                )
+                self._kill_and_replace_executor(executor, reason="timeout")
                 raise TimeoutError(f"Execution timed out after {timeout}s")
 
             if response.execution_id != execution_id:
@@ -312,18 +317,7 @@ class ExecutorPool:
                 self.execution_to_executor.pop(execution_id, None)
                 return False
 
-            self.execution_to_executor.pop(execution_id, None)
-            self.executors.pop(executor_id, None)
-
-        executor.kill()
-
-        is_form_reserved = executor.is_form_reserved
-        replacement = self._spawn_executor(is_form_reserved=is_form_reserved)
-
-        with self.lock:
-            self.executors[replacement.executor_id] = replacement
-
-        self._start_warmup(replacement)
+        self._kill_and_replace_executor(executor, reason="killed")
 
         return True
 
@@ -474,11 +468,39 @@ class ExecutorPool:
 
             return executor
 
+    def _kill_and_replace_executor(
+        self, executor: ExecutorHandle, reason: str = "stuck"
+    ) -> None:
+        with self.lock:
+            self.executors.pop(executor.executor_id, None)
+            for exec_id, exec_executor_id in list(self.execution_to_executor.items()):
+                if exec_executor_id == executor.executor_id:
+                    self.execution_to_executor.pop(exec_id, None)
+
+        executor.mark_dead()
+        executor.kill()
+        self.metrics.record_executor_died(executor.executor_id)
+
+        replacement = self._spawn_executor(is_form_reserved=executor.is_form_reserved)
+
+        with self.lock:
+            self.executors[replacement.executor_id] = replacement
+
+        self._start_warmup(replacement)
+
+        AbstraLogger.warning(
+            f"[ExecutorPool] Replaced {reason} executor {executor.executor_id} "
+            f"with new executor {replacement.executor_id}"
+        )
+
     def _release_executor(self, executor: ExecutorHandle, execution_id: str) -> None:
         should_recycle = False
 
         with self.lock:
             self.execution_to_executor.pop(execution_id, None)
+
+            if executor.status == ExecutorStatus.DEAD:
+                return
 
             if not executor.is_alive():
                 AbstraLogger.warning(
@@ -499,16 +521,7 @@ class ExecutorPool:
                 executor.mark_idle()
 
         if should_recycle:
-            executor.kill()
-            self.metrics.record_executor_died(executor.executor_id)
-
-            is_form_reserved = executor.is_form_reserved
-            replacement = self._spawn_executor(is_form_reserved=is_form_reserved)
-
-            with self.lock:
-                self.executors[replacement.executor_id] = replacement
-
-            self._start_warmup(replacement)
+            self._kill_and_replace_executor(executor, reason="recycled")
 
     def _monitor_loop(self) -> None:
         while not self.shutdown_requested:

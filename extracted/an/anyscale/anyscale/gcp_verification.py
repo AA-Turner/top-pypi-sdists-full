@@ -54,6 +54,7 @@ def verify_gcp_networking(  # noqa: PLR0911, PLR0913
     logger: GCPLogger,
     strict: bool = False,
     is_private_service_cloud: bool = False,
+    ignore_capacity_errors: bool = False,
 ) -> bool:
     """Verify the existence and connectedness of the VPC & Subnet."""
     # TODO Verify Internet Gateway
@@ -107,14 +108,18 @@ def verify_gcp_networking(  # noqa: PLR0911, PLR0913
         if strict:
             return False
 
-    return _gcp_subnet_has_enough_capacity(subnet, logger.internal)
+    return _gcp_subnet_has_enough_capacity(
+        subnet, logger.internal, ignore_capacity_errors
+    )
 
 
 def _gcp_subnet_has_enough_capacity(
-    subnet: compute_v1.types.compute.Subnetwork, logger: CloudSetupLogger
+    subnet: compute_v1.types.compute.Subnetwork,
+    logger: CloudSetupLogger,
+    ignore_capacity_errors: bool = False,
 ) -> bool:
     """Verify if the subnet provided has a large enough IP address block."""
-    return bool(
+    return ignore_capacity_errors or bool(
         GCP_SUBNET_CAPACITY.verify_network_capacity(
             cidr_block_str=subnet.ip_cidr_range,
             resource_name=subnet.name,

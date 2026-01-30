@@ -67,7 +67,7 @@ class BaseRAGPatternService(ABC):
     :type _allow_store: bool, optional
     """
 
-    DEFAULT_SW_SPEC = "runtime-24.1-py3.11"
+    DEFAULT_SW_SPEC = "genai-A25-py3.12"
 
     def __init__(
         self,

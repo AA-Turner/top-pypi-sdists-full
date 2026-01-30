@@ -158,6 +158,30 @@ JOB_QUEUE_TAGS_LIST_EXAMPLE = """\
 $ anyscale job-queue tags list --name my-queue --json
 """
 
+JOB_QUEUE_ARCHIVE_EXAMPLE = """\
+$ anyscale job-queue archive --id jq_abc123
+Archiving job queue 'jq_abc123'...
+Job queue 'jq_abc123' has been archived.
+Query the status with `anyscale job-queue status --id jq_abc123`.
+
+$ anyscale job-queue archive --name my-queue --project my-project --cloud my-cloud
+Archiving job queue 'my-queue'...
+Job queue 'my-queue' has been archived.
+Query the status with `anyscale job-queue status --id jq_abc123`.
+"""
+
+JOB_QUEUE_TERMINATE_EXAMPLE = """\
+$ anyscale job-queue terminate --id jq_abc123
+Terminating job queue 'jq_abc123'...
+Job queue 'jq_abc123' has been marked for termination.
+Query the status with `anyscale job-queue status --id jq_abc123`.
+
+$ anyscale job-queue terminate --name my-queue --project my-project --cloud my-cloud
+Terminating job queue 'my-queue'...
+Job queue 'my-queue' has been marked for termination.
+Query the status with `anyscale job-queue status --id jq_abc123`.
+"""
+
 SCHEDULE_APPLY_EXAMPLE = """\
 $ anyscale schedule apply -n my-schedule -f my-schedule.yaml
 (anyscale +0.5s) Applying schedule with config ScheduleConfig(job_config=JobConfig(name='my-schedule', image_uri=None, compute_config=None, env_vars=None, py_modules=None, cloud=None, project=None, ray_version=None, job_queue_config=None), cron_expression='0 0 * * * *', timezone='UTC').
@@ -488,6 +512,33 @@ config:
 COMPUTE_CONFIG_ARCHIVE_EXAMPLE = """
 $ anyscale compute-config archive -n my-compute-config
 (anyscale +2.3s) Compute config is successfully archived.
+"""
+
+COMPUTE_CONFIG_LIST_EXAMPLE = """\
+$ anyscale compute-config list --max-items 5
+Compute configs:
+ID                              NAME                CLOUD        LAST MODIFIED AT
+cpt_abc123                      my-compute-config   my-cloud     01/15/2025, 10:30:00
+cpt_def456                      prod-config         prod-cloud   01/14/2025, 14:22:00
+
+$ anyscale compute-config list --cloud-name my-cloud --include-shared --json
+{
+  "results": [
+    {
+      "id": "cpt_abc123",
+      "name": "my-compute-config",
+      "cloud_id": "cld_xyz",
+      "version": 1,
+      "created_at": "2025-01-15T10:30:00",
+      "last_modified_at": "2025-01-15T10:30:00",
+      "url": "https://console.anyscale.com/configurations/cluster-computes/cpt_abc123"
+    }
+  ],
+  "metadata": {
+    "count": 1,
+    "next_token": null
+  }
+}
 """
 
 IMAGE_BUILD_EXAMPLE = """
@@ -937,7 +988,50 @@ collaborator  ug_ghi789              pending
 
 # SCIM Examples
 SCIM_ENFORCE_GROUP_PERMISSIONS_EXAMPLE = """\
+# Preview permission changes before applying (dry-run mode)
+$ anyscale scim enforce-groups --dry-run
+(anyscale +0.5s) Running in dry-run mode. Analyzing permission changes...
+
+=== Permission Changes Preview ===
+
+user1@example.com:
+  - clouds:
+      - prod-cloud: collaborator -> readonly
+      - staging-cloud: owner -> (removed)
+  - projects:
+      - proj-1: collaborator -> readonly
+  - organization: owner -> collaborator
+
+user2@example.com:
+  - clouds:
+      - dev-cloud: collaborator -> (removed)
+
+--- Users to be removed (not in any active user group) ---
+  - orphan-user@example.com
+
+(No changes were applied. Remove --dry-run to apply changes.)
+
+# Apply the changes (live mode)
 $ anyscale scim enforce-groups
+(anyscale +0.5s) Analyzing permission changes...
+
+=== Permission Changes Preview ===
+
+user1@example.com:
+  - clouds:
+      - prod-cloud: collaborator -> readonly
+      - staging-cloud: owner -> (removed)
+  - projects:
+      - proj-1: collaborator -> readonly
+  - organization: owner -> collaborator
+
+user2@example.com:
+  - clouds:
+      - dev-cloud: collaborator -> (removed)
+
+--- Users to be removed (not in any active user group) ---
+  - orphan-user@example.com
+
 ╭─────────────────── ⚠️  Confirmation Required ───────────────────╮
 │ WARNING: This is a destructive operation that cannot be undone. │
 │                                                                  │
@@ -946,6 +1040,24 @@ $ anyscale scim enforce-groups
 ╰──────────────────────────────────────────────────────────────────╯
 Do you want to proceed? [y/N]: y
 (anyscale +1.5s) Starting SCIM permission migration...
+
+=== Applied Permission Changes ===
+
+user1@example.com:
+  - clouds:
+      - prod-cloud: collaborator -> readonly
+      - staging-cloud: owner -> (removed)
+  - projects:
+      - proj-1: collaborator -> readonly
+  - organization: owner -> collaborator
+
+user2@example.com:
+  - clouds:
+      - dev-cloud: collaborator -> (removed)
+
+--- Users to be removed (not in any active user group) ---
+  - orphan-user@example.com
+
 (anyscale +2.0s) SCIM permission migration completed successfully.
 """
 

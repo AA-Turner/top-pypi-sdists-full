@@ -7,6 +7,18 @@ from .attributes import ComplexAttribute
 from .attributes import MultiValuedComplexAttribute
 from .base import BaseModel
 from .context import Context
+from .exceptions import InvalidFilterException
+from .exceptions import InvalidPathException
+from .exceptions import InvalidSyntaxException
+from .exceptions import InvalidValueException
+from .exceptions import InvalidVersionException
+from .exceptions import MutabilityException
+from .exceptions import NoTargetException
+from .exceptions import PathNotFoundException
+from .exceptions import SCIMException
+from .exceptions import SensitiveException
+from .exceptions import TooManyException
+from .exceptions import UniquenessException
 from .messages.bulk import BulkOperation
 from .messages.bulk import BulkRequest
 from .messages.bulk import BulkResponse
@@ -16,6 +28,10 @@ from .messages.message import Message
 from .messages.patch_op import PatchOp
 from .messages.patch_op import PatchOperation
 from .messages.search_request import SearchRequest
+from .path import URN
+from .path import Path
+from .reference import URI
+from .reference import External
 from .reference import ExternalReference
 from .reference import Reference
 from .reference import URIReference
@@ -72,6 +88,7 @@ __all__ = [
     "EnterpriseUser",
     "Entitlement",
     "Error",
+    "External",
     "ExternalReference",
     "Extension",
     "Filter",
@@ -79,13 +96,22 @@ __all__ = [
     "GroupMember",
     "GroupMembership",
     "Im",
+    "InvalidFilterException",
+    "InvalidPathException",
+    "InvalidSyntaxException",
+    "InvalidValueException",
+    "InvalidVersionException",
     "ListResponse",
     "Manager",
     "Message",
     "Meta",
     "Mutability",
+    "MutabilityException",
     "MultiValuedComplexAttribute",
     "Name",
+    "NoTargetException",
+    "Path",
+    "PathNotFoundException",
     "Patch",
     "PatchOp",
     "PatchOperation",
@@ -97,13 +123,19 @@ __all__ = [
     "ResourceType",
     "Returned",
     "Role",
+    "SCIMException",
     "Schema",
     "SchemaExtension",
     "SearchRequest",
+    "SensitiveException",
     "ServiceProviderConfig",
     "Sort",
+    "TooManyException",
     "Uniqueness",
+    "UniquenessException",
+    "URI",
     "URIReference",
+    "URN",
     "User",
     "X509Certificate",
 ]

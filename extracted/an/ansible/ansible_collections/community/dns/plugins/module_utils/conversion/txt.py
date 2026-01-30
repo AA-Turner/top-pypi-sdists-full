@@ -6,7 +6,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -14,10 +13,10 @@ import sys
 import warnings
 
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.dns.plugins.module_utils.conversion.base import (
     DNSConversionError,
 )
-
 
 _DECIMAL_DIGITS = b'0123456789'
 
@@ -84,6 +83,7 @@ def decode_txt_value(value, character_encoding=_SENTINEL):
             'The default value of the decode_txt_value parameter character_encoding is deprecated.'
             ' Set explicitly to "octal" for the old behavior, or set to "decimal" for the new and correct behavior.',
             DeprecationWarning,
+            stacklevel=2,
         )
         character_encoding = 'octal'
     if character_encoding not in ('octal', 'decimal'):
@@ -150,6 +150,7 @@ def encode_txt_value(value, always_quote=False, use_character_encoding=_SENTINEL
         warnings.warn(
             'The encode_txt_value parameter use_octal is deprecated. Use use_character_encoding instead.',
             DeprecationWarning,
+            stacklevel=2,
         )
         if use_character_encoding is not _SENTINEL:
             raise ValueError('Cannot use both use_character_encoding and use_octal. Use only use_character_encoding!')
@@ -161,6 +162,7 @@ def encode_txt_value(value, always_quote=False, use_character_encoding=_SENTINEL
             'The default value of the encode_txt_value parameter character_encoding is deprecated.'
             ' Set explicitly to "octal" for the old behavior, or set to "decimal" for the new and correct behavior.',
             DeprecationWarning,
+            stacklevel=2,
         )
         character_encoding = 'octal'
     if character_encoding not in ('octal', 'decimal'):

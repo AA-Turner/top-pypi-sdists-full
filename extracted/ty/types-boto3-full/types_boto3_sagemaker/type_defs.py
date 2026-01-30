@@ -140,6 +140,7 @@ from .literals import (
     HyperParameterTuningJobStatusType,
     HyperParameterTuningJobStrategyTypeType,
     HyperParameterTuningJobWarmStartTypeType,
+    IdleResourceSharingType,
     ImageSortByType,
     ImageSortOrderType,
     ImageStatusType,
@@ -269,6 +270,7 @@ from .literals import (
     S3ModelDataTypeType,
     SageMakerResourceNameType,
     SagemakerServicecatalogStatusType,
+    SchedulerConfigComponentType,
     SchedulerResourceStatusType,
     ScheduleStatusType,
     SearchSortOrderType,
@@ -1768,6 +1770,7 @@ __all__ = (
     "ResourceConfigTypeDef",
     "ResourceConfigUnionTypeDef",
     "ResourceLimitsTypeDef",
+    "ResourceSharingConfigOutputTypeDef",
     "ResourceSharingConfigTypeDef",
     "ResourceSpecTypeDef",
     "ResponseMetadataTypeDef",
@@ -2862,11 +2865,6 @@ class CompilationJobSummaryTypeDef(TypedDict):
     CompilationTargetPlatformArch: NotRequired[TargetPlatformArchType]
     CompilationTargetPlatformAccelerator: NotRequired[TargetPlatformAcceleratorType]
     LastModifiedTime: NotRequired[datetime]
-
-
-class ResourceSharingConfigTypeDef(TypedDict):
-    Strategy: ResourceSharingStrategyType
-    BorrowLimit: NotRequired[int]
 
 
 class ComputeQuotaTargetTypeDef(TypedDict):
@@ -10604,11 +10602,13 @@ class PendingProductionVariantSummaryTypeDef(TypedDict):
 class SchedulerConfigOutputTypeDef(TypedDict):
     PriorityClasses: NotRequired[list[PriorityClassTypeDef]]
     FairShare: NotRequired[FairShareType]
+    IdleResourceSharing: NotRequired[IdleResourceSharingType]
 
 
 class SchedulerConfigTypeDef(TypedDict):
     PriorityClasses: NotRequired[Sequence[PriorityClassTypeDef]]
     FairShare: NotRequired[FairShareType]
+    IdleResourceSharing: NotRequired[IdleResourceSharingType]
 
 
 class ProcessingResourcesTypeDef(TypedDict):
@@ -10800,16 +10800,16 @@ class WorkforceTypeDef(TypedDict):
     IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 
-class ComputeQuotaConfigOutputTypeDef(TypedDict):
-    ComputeQuotaResources: NotRequired[list[ComputeQuotaResourceConfigTypeDef]]
-    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
-    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
+class ResourceSharingConfigOutputTypeDef(TypedDict):
+    Strategy: ResourceSharingStrategyType
+    BorrowLimit: NotRequired[int]
+    AbsoluteBorrowLimits: NotRequired[list[ComputeQuotaResourceConfigTypeDef]]
 
 
-class ComputeQuotaConfigTypeDef(TypedDict):
-    ComputeQuotaResources: NotRequired[Sequence[ComputeQuotaResourceConfigTypeDef]]
-    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
-    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
+class ResourceSharingConfigTypeDef(TypedDict):
+    Strategy: ResourceSharingStrategyType
+    BorrowLimit: NotRequired[int]
+    AbsoluteBorrowLimits: NotRequired[Sequence[ComputeQuotaResourceConfigTypeDef]]
 
 
 class ListActionsResponseTypeDef(TypedDict):
@@ -12047,6 +12047,7 @@ class DescribeClusterSchedulerConfigResponseTypeDef(TypedDict):
     ClusterSchedulerConfigVersion: int
     Status: SchedulerResourceStatusType
     FailureReason: str
+    StatusDetails: dict[SchedulerConfigComponentType, SchedulerResourceStatusType]
     ClusterArn: str
     SchedulerConfig: SchedulerConfigOutputTypeDef
     Description: str
@@ -12271,40 +12272,18 @@ class UpdateWorkforceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ComputeQuotaSummaryTypeDef(TypedDict):
-    ComputeQuotaArn: str
-    ComputeQuotaId: str
-    Name: str
-    Status: SchedulerResourceStatusType
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    CreationTime: datetime
-    ComputeQuotaVersion: NotRequired[int]
-    ClusterArn: NotRequired[str]
-    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigOutputTypeDef]
-    ActivationState: NotRequired[ActivationStateType]
-    LastModifiedTime: NotRequired[datetime]
+class ComputeQuotaConfigOutputTypeDef(TypedDict):
+    ComputeQuotaResources: NotRequired[list[ComputeQuotaResourceConfigTypeDef]]
+    ResourceSharingConfig: NotRequired[ResourceSharingConfigOutputTypeDef]
+    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
 
 
-class DescribeComputeQuotaResponseTypeDef(TypedDict):
-    ComputeQuotaArn: str
-    ComputeQuotaId: str
-    Name: str
-    Description: str
-    ComputeQuotaVersion: int
-    Status: SchedulerResourceStatusType
-    FailureReason: str
-    ClusterArn: str
-    ComputeQuotaConfig: ComputeQuotaConfigOutputTypeDef
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    ActivationState: ActivationStateType
-    CreationTime: datetime
-    CreatedBy: UserContextTypeDef
-    LastModifiedTime: datetime
-    LastModifiedBy: UserContextTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ComputeQuotaConfigTypeDef(TypedDict):
+    ComputeQuotaResources: NotRequired[Sequence[ComputeQuotaResourceConfigTypeDef]]
+    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
+    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
 
 
-ComputeQuotaConfigUnionTypeDef = Union[ComputeQuotaConfigTypeDef, ComputeQuotaConfigOutputTypeDef]
 DomainSettingsUnionTypeDef = Union[DomainSettingsTypeDef, DomainSettingsOutputTypeDef]
 
 
@@ -13365,29 +13344,40 @@ class TransformJobTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class ListComputeQuotasResponseTypeDef(TypedDict):
-    ComputeQuotaSummaries: list[ComputeQuotaSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class CreateComputeQuotaRequestTypeDef(TypedDict):
-    Name: str
-    ClusterArn: str
-    ComputeQuotaConfig: ComputeQuotaConfigUnionTypeDef
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    Description: NotRequired[str]
-    ActivationState: NotRequired[ActivationStateType]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class UpdateComputeQuotaRequestTypeDef(TypedDict):
+class ComputeQuotaSummaryTypeDef(TypedDict):
+    ComputeQuotaArn: str
     ComputeQuotaId: str
-    TargetVersion: int
-    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigUnionTypeDef]
-    ComputeQuotaTarget: NotRequired[ComputeQuotaTargetTypeDef]
+    Name: str
+    Status: SchedulerResourceStatusType
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    CreationTime: datetime
+    ComputeQuotaVersion: NotRequired[int]
+    ClusterArn: NotRequired[str]
+    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigOutputTypeDef]
     ActivationState: NotRequired[ActivationStateType]
-    Description: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+
+
+class DescribeComputeQuotaResponseTypeDef(TypedDict):
+    ComputeQuotaArn: str
+    ComputeQuotaId: str
+    Name: str
+    Description: str
+    ComputeQuotaVersion: int
+    Status: SchedulerResourceStatusType
+    FailureReason: str
+    ClusterArn: str
+    ComputeQuotaConfig: ComputeQuotaConfigOutputTypeDef
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    ActivationState: ActivationStateType
+    CreationTime: datetime
+    CreatedBy: UserContextTypeDef
+    LastModifiedTime: datetime
+    LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ComputeQuotaConfigUnionTypeDef = Union[ComputeQuotaConfigTypeDef, ComputeQuotaConfigOutputTypeDef]
 
 
 class DescribeDomainResponseTypeDef(TypedDict):
@@ -14076,6 +14066,31 @@ class ModelPackageValidationProfileOutputTypeDef(TypedDict):
 class ModelPackageValidationProfileTypeDef(TypedDict):
     ProfileName: str
     TransformJobDefinition: TransformJobDefinitionTypeDef
+
+
+class ListComputeQuotasResponseTypeDef(TypedDict):
+    ComputeQuotaSummaries: list[ComputeQuotaSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateComputeQuotaRequestTypeDef(TypedDict):
+    Name: str
+    ClusterArn: str
+    ComputeQuotaConfig: ComputeQuotaConfigUnionTypeDef
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    Description: NotRequired[str]
+    ActivationState: NotRequired[ActivationStateType]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateComputeQuotaRequestTypeDef(TypedDict):
+    ComputeQuotaId: str
+    TargetVersion: int
+    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigUnionTypeDef]
+    ComputeQuotaTarget: NotRequired[ComputeQuotaTargetTypeDef]
+    ActivationState: NotRequired[ActivationStateType]
+    Description: NotRequired[str]
 
 
 class CreateDomainRequestTypeDef(TypedDict):

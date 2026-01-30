@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import warnings
 from typing import Tuple
 
 import numpy as np
@@ -26,6 +25,7 @@ from cvxpy.atoms.atom import Atom
 from cvxpy.expressions.expression import Expression
 from cvxpy.interface.matrix_utilities import is_sparse
 from cvxpy.utilities.linalg import sparse_cholesky
+from cvxpy.utilities.warn import warn
 
 
 class CvxPyDomainError(Exception):
@@ -34,6 +34,7 @@ class CvxPyDomainError(Exception):
 
 class QuadForm(Atom):
     _allow_complex = True
+    block_indices = None  # For compatibility with SymbolicQuadForm
 
     def __init__(self, x, P) -> None:
         """Atom representing :math:`x^T P x`."""
@@ -110,9 +111,15 @@ class QuadForm(Atom):
         return False
 
     def name(self) -> str:
-        return "%s(%s, %s)" % (self.__class__.__name__,
-                               self.args[0],
-                               self.args[1])
+        return f"{type(self).__name__}({self.args[0]}, {self.args[1]})"
+
+    def format_labeled(self) -> str:
+        if self._label is not None:
+            return self._label
+        return (
+            f"{type(self).__name__}({self.args[0].format_labeled()}, "
+            f"{self.args[1].format_labeled()})"
+        )
 
     def _grad(self, values):
         x = np.array(values[0])
@@ -127,14 +134,29 @@ class QuadForm(Atom):
 class SymbolicQuadForm(Atom):
     """
     Symbolic form of QuadForm when quadratic matrix is not known (yet).
+
+    Parameters
+    ----------
+    x : Variable or Expression
+        The input expression.
+    P : ndarray or sparse matrix
+        The quadratic matrix.
+    expr : Expression
+        The original expression that this represents.
+    block_indices : list of np.ndarray, optional
+        For non-scalar outputs, maps each output element j to input indices.
+        block_indices[j] is an array of indices that output[j] depends on.
+        Supports both contiguous and non-contiguous blocks.
+        If None, uses existing scalar/diagonal behavior.
     """
-    def __init__(self, x, P, expr) -> None:
+    def __init__(self, x, P, expr, block_indices=None) -> None:
         self.original_expression = expr
+        self.block_indices = block_indices
         super(SymbolicQuadForm, self).__init__(x, P)
         self.P = self.args[1]
 
     def get_data(self):
-        return [self.original_expression]
+        return [self.original_expression, self.block_indices]
 
     def _grad(self, values):
         raise NotImplementedError()
@@ -223,7 +245,7 @@ def decomp_quad(P, cond=None, rcond=None, lower=True, check_finite: bool = True)
     maskn = w_scaled < -cond
     # TODO: allow indefinite quad_form
     if np.any(maskp) and np.any(maskn):
-        warnings.warn("Forming a nonconvex expression quad_form(x, indefinite).")
+        warn("Forming a nonconvex expression quad_form(x, indefinite).")
     M1 = V[:, maskp] * np.sqrt(w_scaled[maskp])
     M2 = V[:, maskn] * np.sqrt(-w_scaled[maskn])
     return scale, M1, M2

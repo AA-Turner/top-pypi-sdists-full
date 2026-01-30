@@ -111,7 +111,7 @@ class OpenPlantBookApi:
             _LOGGER.error("No plantbook token")
             raise
 
-        url = f"{self._PLANTBOOK_BASEURL}/plant/detail/{pid}"
+        url = f"{self._PLANTBOOK_BASEURL}/plant/detail/{pid}/"
         headers = {
             "Authorization": f"Bearer {self.token.get('access_token')}"
         }

@@ -7,16 +7,15 @@ import time
 import structlog
 from grpc import aio  # type: ignore[import]
 from grpc_health.v1 import health_pb2, health_pb2_grpc  # type: ignore[import]
-
-from langgraph_api import config
-
-from .generated.checkpointer_pb2_grpc import CheckpointerStub
-from .generated.core_api_pb2_grpc import (
+from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
+from langgraph_grpc_common.proto.core_api_pb2_grpc import (
     AdminStub,
     AssistantsStub,
     RunsStub,
     ThreadsStub,
 )
+
+from langgraph_api import config
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -27,7 +26,7 @@ _thread_local = threading.local()
 
 
 GRPC_HEALTHCHECK_TIMEOUT = 5.0
-GRPC_INIT_TIMEOUT = 10.0
+GRPC_INIT_TIMEOUT = 60.0
 GRPC_INIT_PROBE_INTERVAL = 0.5
 
 

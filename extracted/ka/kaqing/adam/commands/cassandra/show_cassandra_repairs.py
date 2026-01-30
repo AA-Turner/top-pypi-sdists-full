@@ -2,6 +2,7 @@ from adam.commands import extract_trailing_options
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import Context
 
 class ShowCassandraRepairs(Command):
     COMMAND = 'show cassandra repairs'
@@ -28,7 +29,7 @@ class ShowCassandraRepairs(Command):
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, backgrounded):
                 with cassandra(state) as pods:
-                    return pods.nodetool('repair_admin list', backgrounded=backgrounded)
+                    return pods.nodetool('repair_admin list', Context.new(cmd, backgrounded=backgrounded))
 
     def completion(self, state: ReplState):
         return super().completion(state, {'&': None})

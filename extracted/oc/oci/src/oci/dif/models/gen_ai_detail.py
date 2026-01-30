@@ -78,7 +78,7 @@ class GenAiDetail(object):
     def instance_id(self):
         """
         **[Required]** Gets the instance_id of this GenAiDetail.
-        Id for the GGCS instance to be provisioned.
+        Id for the GenAi instance to be provisioned.
 
 
         :return: The instance_id of this GenAiDetail.
@@ -90,7 +90,7 @@ class GenAiDetail(object):
     def instance_id(self, instance_id):
         """
         Sets the instance_id of this GenAiDetail.
-        Id for the GGCS instance to be provisioned.
+        Id for the GenAi instance to be provisioned.
 
 
         :param instance_id: The instance_id of this GenAiDetail.

@@ -426,7 +426,7 @@ class NotasFaturamentoSAP:
             if estado == "false":
                 toggle.click()
 
-            await worker_sleep(10)
+            await worker_sleep(12)
 
             console.print("[DW] Localizando botão de exportar...")
             try:
@@ -442,7 +442,7 @@ class NotasFaturamentoSAP:
                     status=RpaHistoricoStatusEnum.Sucesso,
                 )
 
-            await worker_sleep(2)
+            await worker_sleep(5)
             opcao_exportar = WebDriverWait(self.driver, 60).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Exportar']"))
             )
@@ -637,6 +637,7 @@ async def notas_faturamento_sap(task: RpaProcessoSapDTO) -> RpaRetornoProcessoDT
         return resultado
 
     except Exception as ex:
+        notas_sap.driver.quit()
         console.print("[MAIN][ERRO] Exceção em notas_faturamento_sap.")
         console.print(f"[MAIN][ERRO] Tipo: {type(ex).__name__}")
         console.print(f"[MAIN][ERRO] str(ex): {str(ex)}")

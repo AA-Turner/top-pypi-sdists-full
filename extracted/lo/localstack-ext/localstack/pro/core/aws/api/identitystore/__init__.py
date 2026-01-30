@@ -5,7 +5,9 @@ from typing import TypedDict
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 AttributePath = str
+BooleanType = bool
 ExceptionMessage = str
+ExtensionName = str
 ExternalIdIdentifier = str
 ExternalIdIssuer = str
 GroupDisplayName = str
@@ -15,7 +17,6 @@ NextToken = str
 RequestId = str
 ResourceId = str
 RetryAfterSeconds = int
-SensitiveBooleanType = bool
 SensitiveStringType = str
 StringType = str
 UserName = str
@@ -39,6 +40,7 @@ class ResourceType(StrEnum):
     USER = "USER"
     IDENTITY_STORE = "IDENTITY_STORE"
     GROUP_MEMBERSHIP = "GROUP_MEMBERSHIP"
+    RESOURCE_POLICY = "RESOURCE_POLICY"
 
 
 class ThrottlingExceptionReason(StrEnum):
@@ -153,7 +155,7 @@ class Address(TypedDict, total=False):
     Country: SensitiveStringType | None
     Formatted: SensitiveStringType | None
     Type: SensitiveStringType | None
-    Primary: SensitiveBooleanType | None
+    Primary: BooleanType | None
 
 
 Addresses = list[Address]
@@ -232,6 +234,20 @@ class CreateGroupResponse(TypedDict, total=False):
     IdentityStoreId: IdentityStoreId
 
 
+Extensions = dict[ExtensionName, AttributeValue]
+
+
+class Role(TypedDict, total=False):
+    """The role associated with the user."""
+
+    Value: SensitiveStringType | None
+    Type: SensitiveStringType | None
+    Primary: BooleanType | None
+
+
+Roles = list[Role]
+
+
 class Photo(TypedDict, total=False):
     """Contains information about a user's photo. Users can have up to 3
     photos, with one designated as primary. Supports common image formats,
@@ -241,7 +257,7 @@ class Photo(TypedDict, total=False):
     Value: SensitiveStringType
     Type: SensitiveStringType | None
     Display: SensitiveStringType | None
-    Primary: SensitiveBooleanType | None
+    Primary: BooleanType | None
 
 
 Photos = list[Photo]
@@ -252,7 +268,7 @@ class PhoneNumber(TypedDict, total=False):
 
     Value: SensitiveStringType | None
     Type: SensitiveStringType | None
-    Primary: SensitiveBooleanType | None
+    Primary: BooleanType | None
 
 
 PhoneNumbers = list[PhoneNumber]
@@ -263,7 +279,7 @@ class Email(TypedDict, total=False):
 
     Value: SensitiveStringType | None
     Type: SensitiveStringType | None
-    Primary: SensitiveBooleanType | None
+    Primary: BooleanType | None
 
 
 Emails = list[Email]
@@ -298,6 +314,8 @@ class CreateUserRequest(ServiceRequest):
     Photos: Photos | None
     Website: SensitiveStringType | None
     Birthdate: SensitiveStringType | None
+    Roles: Roles | None
+    Extensions: Extensions | None
 
 
 class CreateUserResponse(TypedDict, total=False):
@@ -371,9 +389,13 @@ class DescribeGroupResponse(TypedDict, total=False):
     IdentityStoreId: IdentityStoreId
 
 
+ExtensionNames = list[ExtensionName]
+
+
 class DescribeUserRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
     UserId: ResourceId
+    Extensions: ExtensionNames | None
 
 
 class DescribeUserResponse(TypedDict, total=False):
@@ -397,10 +419,12 @@ class DescribeUserResponse(TypedDict, total=False):
     Photos: Photos | None
     Website: SensitiveStringType | None
     Birthdate: SensitiveStringType | None
+    Roles: Roles | None
     CreatedAt: DateType | None
     CreatedBy: StringType | None
     UpdatedAt: DateType | None
     UpdatedBy: StringType | None
+    Extensions: Extensions | None
 
 
 class Filter(TypedDict, total=False):
@@ -488,7 +512,7 @@ class GroupMembershipExistenceResult(TypedDict, total=False):
 
     GroupId: ResourceId | None
     MemberId: MemberId | None
-    MembershipExists: SensitiveBooleanType | None
+    MembershipExists: BooleanType | None
 
 
 GroupMembershipExistenceResults = list[GroupMembershipExistenceResult]
@@ -544,6 +568,7 @@ class ListGroupsResponse(TypedDict, total=False):
 
 class ListUsersRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
+    Extensions: ExtensionNames | None
     MaxResults: MaxResults | None
     NextToken: NextToken | None
     Filters: Filters | None
@@ -574,10 +599,12 @@ class User(TypedDict, total=False):
     Photos: Photos | None
     Website: SensitiveStringType | None
     Birthdate: SensitiveStringType | None
+    Roles: Roles | None
     CreatedAt: DateType | None
     CreatedBy: StringType | None
     UpdatedAt: DateType | None
     UpdatedBy: StringType | None
+    Extensions: Extensions | None
 
 
 Users = list[User]
@@ -685,6 +712,8 @@ class IdentitystoreApi:
         photos: Photos | None = None,
         website: SensitiveStringType | None = None,
         birthdate: SensitiveStringType | None = None,
+        roles: Roles | None = None,
+        extensions: Extensions | None = None,
         **kwargs,
     ) -> CreateUserResponse:
         """Creates a user within the specified identity store.
@@ -709,6 +738,8 @@ class IdentitystoreApi:
         :param photos: A list of photos associated with the user.
         :param website: The user's personal website or blog URL.
         :param birthdate: The user's birthdate in YYYY-MM-DD format.
+        :param roles: A list of ``Role`` objects containing roles associated with the user.
+        :param extensions: A map with additional attribute extensions for the user.
         :returns: CreateUserResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -849,6 +880,7 @@ class IdentitystoreApi:
         context: RequestContext,
         identity_store_id: IdentityStoreId,
         user_id: ResourceId,
+        extensions: ExtensionNames | None = None,
         **kwargs,
     ) -> DescribeUserResponse:
         """Retrieves the user metadata and attributes from the ``UserId`` in an
@@ -863,6 +895,8 @@ class IdentitystoreApi:
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
         :param user_id: The identifier for a user in the identity store.
+        :param extensions: A collection of extension names indicating what extensions the service
+        should retrieve alongside other user attributes.
         :returns: DescribeUserResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -1097,6 +1131,7 @@ class IdentitystoreApi:
         self,
         context: RequestContext,
         identity_store_id: IdentityStoreId,
+        extensions: ExtensionNames | None = None,
         max_results: MaxResults | None = None,
         next_token: NextToken | None = None,
         filters: Filters | None = None,
@@ -1114,6 +1149,8 @@ class IdentitystoreApi:
 
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
+        :param extensions: A collection of extension names indicating what extensions the service
+        should retrieve alongside other user attributes.
         :param max_results: The maximum number of results to be returned per request.
         :param next_token: The pagination token used for the ``ListUsers`` and ``ListGroups`` API
         operations.

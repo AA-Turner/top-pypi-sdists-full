@@ -13,8 +13,6 @@ from uipath.eval.mocks import mockable
 from uipath.platform import UiPath
 from uipath.platform.orchestrator.mcp import McpServer
 
-from uipath_langchain.agent.react.jsonschema_pydantic_converter import create_model
-
 from .utils import sanitize_tool_name
 
 
@@ -110,18 +108,6 @@ async def create_mcp_tools_from_metadata(
     if config.is_enabled is False:
         return []
 
-    sdk = UiPath()
-    mcpServer: McpServer = await sdk.mcp.retrieve_async(
-        slug=config.slug, folder_path=config.folder_path
-    )
-
-    default_client_kwargs = get_httpx_client_kwargs()
-    client_kwargs = {
-        **default_client_kwargs,
-        "headers": {"Authorization": f"Bearer {sdk._config.secret}"},
-        "timeout": httpx.Timeout(600),
-    }
-
     # Lazy import to improve cold start time
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
@@ -130,24 +116,35 @@ async def create_mcp_tools_from_metadata(
 
     for mcp_tool in config.available_tools:
         tool_name = sanitize_tool_name(mcp_tool.name)
-        input_model: Any = create_model(mcp_tool.input_schema)
 
-        def get_tool_coroutine(mcp_tool: AgentMcpTool, input_model: Any) -> Any:
+        def build_mcp_tool(mcp_tool: AgentMcpTool) -> Any:
             output_schema: Any
             if mcp_tool.output_schema:
-                output_schema = create_model(mcp_tool.output_schema)
+                output_schema = mcp_tool.output_schema
             else:
-                output_schema = create_model({"type": "object", "properties": {}})
+                output_schema = {"type": "object", "properties": {}}
 
             @mockable(
                 name=mcp_tool.name,
                 description=mcp_tool.description,
-                input_schema=input_model.model_json_schema(),
-                output_schema=output_schema.model_json_schema(),
+                input_schema=mcp_tool.input_schema,
+                output_schema=output_schema,
             )
             async def tool_fn(**kwargs: Any) -> Any:
                 """Execute MCP tool call with ephemeral session."""
                 async with AsyncExitStack() as stack:
+                    sdk = UiPath()
+                    mcpServer: McpServer = await sdk.mcp.retrieve_async(
+                        slug=config.slug, folder_path=config.folder_path
+                    )
+
+                    default_client_kwargs = get_httpx_client_kwargs()
+                    client_kwargs = {
+                        **default_client_kwargs,
+                        "headers": {"Authorization": f"Bearer {sdk._config.secret}"},
+                        "timeout": httpx.Timeout(600),
+                    }
+
                     # Create HTTP client
                     http_client = await stack.enter_async_context(
                         httpx.AsyncClient(**client_kwargs)
@@ -175,8 +172,8 @@ async def create_mcp_tools_from_metadata(
         tool = StructuredTool(
             name=tool_name,
             description=mcp_tool.description,
-            args_schema=input_model,
-            coroutine=get_tool_coroutine(mcp_tool, input_model),
+            args_schema=mcp_tool.input_schema,
+            coroutine=build_mcp_tool(mcp_tool),
             metadata={
                 "tool_type": "mcp",
                 "display_name": mcp_tool.name,

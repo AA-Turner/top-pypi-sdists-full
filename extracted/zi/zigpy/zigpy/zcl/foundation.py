@@ -6,9 +6,10 @@ import functools
 import keyword
 import logging
 import typing
-from typing import Self
+from typing import Final, Self
 
 import zigpy.types as t
+from zigpy.typing import UNDEFINED, UndefinedType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -613,7 +614,7 @@ class DataType(DataTypeInfo, enum.Enum):
 
     @classmethod
     @functools.cache
-    def _python_type_index(cls: type[Self]) -> dict[type, Self]:  # noqa: N805
+    def _python_type_index(cls: type[Self]) -> dict[type, Self]:
         return {d.python_type: d for d in cls}
 
     @classmethod
@@ -630,7 +631,7 @@ class DataType(DataTypeInfo, enum.Enum):
 
     @classmethod
     @functools.cache
-    def _data_type_index(cls: type[Self]) -> dict[type, Self]:  # noqa: N805
+    def _data_type_index(cls: type[Self]) -> dict[DataTypeId, Self]:
         return {d.type_id: d for d in cls}
 
     @classmethod
@@ -1027,7 +1028,8 @@ class FrameControl(t.IntStruct, t.uint8_t):
 
 
 class ZCLHeader(t.Struct):
-    NO_MANUFACTURER_ID = -1  # type: typing.Literal
+    # Kept for backwards compatibility
+    NO_MANUFACTURER_ID: Final = None
 
     frame_control: FrameControl
     manufacturer: t.uint16_t = t.StructField(
@@ -1043,17 +1045,13 @@ class ZCLHeader(t.Struct):
         tsn: int | t.uint8_t | None = None,
         command_id: int | GeneralCommand | None = None,
     ) -> Self:
-        # Allow "auto manufacturer ID" to be disabled in higher layers
-        if manufacturer is cls.NO_MANUFACTURER_ID:
-            manufacturer = None
-
         if frame_control is not None and manufacturer is not None:
             frame_control = frame_control.replace(is_manufacturer_specific=True)
 
         return super().__new__(cls, frame_control, manufacturer, tsn, command_id)
 
     @property
-    def direction(self) -> bool:
+    def direction(self) -> Direction:
         """Return direction of Frame Control."""
         return self.frame_control.direction
 
@@ -1062,9 +1060,6 @@ class ZCLHeader(t.Struct):
         name: str,
         value: t.uint16_t | FrameControl | t.uint8_t | GeneralCommand | None,
     ) -> None:
-        if name == "manufacturer" and value is self.NO_MANUFACTURER_ID:
-            value = None
-
         super().__setattr__(name, value)
 
         if name == "manufacturer" and self.frame_control is not None:
@@ -1112,12 +1107,13 @@ class ZCLHeader(t.Struct):
 @dataclasses.dataclass(frozen=True)
 class ZCLCommandDef(t.BaseDataclassMixin):
     id: t.uint8_t = None
-    schema: CommandSchema = None
+    schema: type[CommandSchema] = None
     direction: Direction = None
-    is_manufacturer_specific: bool = None
+    is_manufacturer_specific: bool | None = None
 
     # set later
     name: str = None
+    manufacturer_code: t.uint16_t | UndefinedType | None = UNDEFINED
 
     def __post_init__(self) -> None:
         # Backwards compatibility with positional syntax where the name was first
@@ -1130,6 +1126,11 @@ class ZCLCommandDef(t.BaseDataclassMixin):
         if isinstance(self.direction, bool):
             object.__setattr__(
                 self, "direction", Direction._from_is_reply(self.direction)
+            )
+
+        if self.manufacturer_code is not UNDEFINED:
+            object.__setattr__(
+                self, "is_manufacturer_specific", self.manufacturer_code is not None
             )
 
     def with_compiled_schema(self) -> ZCLCommandDef:
@@ -1181,12 +1182,13 @@ class ZCLCommandDef(t.BaseDataclassMixin):
             f"name={self.name!r}, "
             f"direction={self.direction}, "
             f"schema={self.schema}, "
-            f"is_manufacturer_specific={self.is_manufacturer_specific}"
+            f"is_manufacturer_specific={self.is_manufacturer_specific}, "
+            f"manufacturer_code={self.manufacturer_code}"
             f")"
         )
 
 
-class CommandSchema(t.Struct, tuple):  # noqa: SLOT001
+class CommandSchema(t.Struct, tuple):  # noqa: SLOT001, PLW1641
     """Struct subclass that behaves more like a tuple."""
 
     command: ZCLCommandDef = None
@@ -1221,7 +1223,7 @@ class ZCLAttributeAccess(enum.Flag):
 
     @classmethod
     @functools.lru_cache(None)
-    def from_str(cls: ZCLAttributeAccess, value: str) -> ZCLAttributeAccess:
+    def from_str(cls, value: str) -> Self:
         orig_value = value
         access = cls.NONE
 
@@ -1249,16 +1251,17 @@ ZCLAttributeAccess._names = {
 @dataclasses.dataclass(frozen=True)
 class ZCLAttributeDef(t.BaseDataclassMixin):
     id: t.uint16_t = None
-    type: type = None
+    type: typing.Any = None
     zcl_type: DataTypeId = None
     access: ZCLAttributeAccess = (
         ZCLAttributeAccess.Read | ZCLAttributeAccess.Write | ZCLAttributeAccess.Report
     )
     mandatory: bool = False
-    is_manufacturer_specific: bool = False
+    is_manufacturer_specific: bool | None = None
 
-    # The name will be specified later
+    # These are (optionally) computed later in the ZCL cluster subclass hook
     name: str = None
+    manufacturer_code: t.uint16_t | UndefinedType | None = UNDEFINED
 
     def __post_init__(self) -> None:
         # Backwards compatibility with positional syntax where the name was first
@@ -1279,6 +1282,11 @@ class ZCLAttributeDef(t.BaseDataclassMixin):
 
         ensure_valid_name(self.name)
 
+        if self.manufacturer_code is not UNDEFINED:
+            object.__setattr__(
+                self, "is_manufacturer_specific", self.manufacturer_code is not None
+            )
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -1288,7 +1296,8 @@ class ZCLAttributeDef(t.BaseDataclassMixin):
             f"zcl_type={self.zcl_type}, "
             f"access={self.access!r}, "
             f"mandatory={self.mandatory!r}, "
-            f"is_manufacturer_specific={self.is_manufacturer_specific}"
+            f"is_manufacturer_specific={self.is_manufacturer_specific}, "
+            f"manufacturer_code={self.manufacturer_code}"
             f")"
         )
 
@@ -1296,8 +1305,14 @@ class ZCLAttributeDef(t.BaseDataclassMixin):
 class IterableMemberMeta(type):
     def __iter__(cls) -> typing.Iterator[typing.Any]:
         for name in dir(cls):
-            if not name.startswith("_"):
-                yield getattr(cls, name)
+            if name.startswith("_"):
+                continue
+
+            value = getattr(cls, name)
+            if value is None:
+                continue
+
+            yield value
 
 
 class BaseCommandDefs(metaclass=IterableMemberMeta):

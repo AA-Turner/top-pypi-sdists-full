@@ -1122,7 +1122,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         ).result
 
     @handle_api_exceptions
-    def list_services(
+    def list_services(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -1330,7 +1330,21 @@ class AnyscaleClient(AnyscaleClientInterface):
         ).result
 
     @handle_api_exceptions
-    def list_job_queues(
+    def archive_job_queue(self, job_queue_id: str) -> None:
+        """Archive (seal) a job queue. No new jobs can be submitted."""
+        self._internal_api_client.archive_job_queue_api_v2_job_queues_job_queue_id_archive_post(
+            job_queue_id=job_queue_id
+        )
+
+    @handle_api_exceptions
+    def terminate_job_queue(self, job_queue_id: str):
+        """Terminate a job queue and all its jobs."""
+        return self._internal_api_client.terminate_job_queue_api_v2_job_queues_job_queue_id_terminate_post(
+            job_queue_id=job_queue_id
+        )
+
+    @handle_api_exceptions
+    def list_job_queues(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -1364,7 +1378,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def list_jobs(
+    def list_jobs(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -1375,6 +1389,8 @@ class AnyscaleClient(AnyscaleClientInterface):
         tags_filter: Optional[List[str]] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> DecoratedproductionjobListResponse:
         # Build kwargs dynamically to avoid passing None for count,
         # which causes TypeError in OpenAPI client validation
@@ -1387,6 +1403,8 @@ class AnyscaleClient(AnyscaleClientInterface):
             "state_filter": state_filter,
             "tag_filter": tags_filter,
             "paging_token": paging_token,
+            "sort_field": sort_field,
+            "sort_order": sort_order,
         }
         if count is not None:
             kwargs["count"] = count
@@ -2476,6 +2494,19 @@ class AnyscaleClient(AnyscaleClientInterface):
             "/api/v2/scim/list-user-permissions",
             "GET",
             query_params=query_params,
+            response_type="object",
+            auth_settings=["HTTPBearer"],
+            _return_http_data_only=True,
+        )
+        return response
+
+    @handle_api_exceptions
+    def scim_migration_preview(self) -> Dict:
+        """Preview permission changes from users' perspective before SCIM enforcement."""
+        api = self._internal_api_client
+        response = api.api_client.call_api(
+            "/api/v2/scim/scim-migration-preview",
+            "GET",
             response_type="object",
             auth_settings=["HTTPBearer"],
             _return_http_data_only=True,

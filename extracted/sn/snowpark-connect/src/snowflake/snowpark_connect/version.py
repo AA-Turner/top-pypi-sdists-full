@@ -2,4 +2,4 @@
 #
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
-VERSION = (1,10,1)
+VERSION = (1,11,0)

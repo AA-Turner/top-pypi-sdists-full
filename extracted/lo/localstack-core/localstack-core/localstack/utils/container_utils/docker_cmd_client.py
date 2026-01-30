@@ -30,6 +30,7 @@ from localstack.utils.container_utils.container_client import (
     Ulimit,
     Util,
     VolumeMappingSpecification,
+    get_registry_from_image_name,
 )
 from localstack.utils.run import run
 from localstack.utils.strings import first_char_to_upper, to_str
@@ -366,7 +367,9 @@ class CmdDockerClient(ContainerClient):
         docker_image: str,
         platform: DockerPlatform | None = None,
         log_handler: Callable[[str], None] | None = None,
+        auth_config: dict[str, str] | None = None,
     ) -> None:
+        self._login_if_needed(auth_config, docker_image)
         cmd = self._docker_cmd()
         docker_image = self.registry_resolver_strategy.resolve(docker_image)
         cmd += ["pull", docker_image]
@@ -390,7 +393,8 @@ class CmdDockerClient(ContainerClient):
                 f"Docker process returned with errorcode {e.returncode}", e.stdout, e.stderr
             ) from e
 
-    def push_image(self, docker_image: str) -> None:
+    def push_image(self, docker_image: str, auth_config: dict[str, str] | None = None) -> None:
+        self._login_if_needed(auth_config, docker_image)
         cmd = self._docker_cmd()
         cmd += ["push", docker_image]
         LOG.debug("Pushing image with cmd: %s", cmd)
@@ -403,9 +407,15 @@ class CmdDockerClient(ContainerClient):
                 raise AccessDenied(docker_image)
             if "access token has insufficient scopes" in to_str(e.stdout):
                 raise AccessDenied(docker_image)
+            if "authorization failed: no basic auth credentials" in to_str(e.stdout):
+                raise AccessDenied(docker_image)
+            if "failed to authorize: failed to fetch oauth token" in to_str(e.stdout):
+                raise AccessDenied(docker_image)
             if "does not exist" in to_str(e.stdout):
                 raise NoSuchImage(docker_image)
             if "connection refused" in to_str(e.stdout):
+                raise RegistryConnectionError(e.stdout)
+            if "failed to do request:" in to_str(e.stdout):
                 raise RegistryConnectionError(e.stdout)
             # note: error message 'image not known' raised by Podman client
             if "image not known" in to_str(e.stdout):
@@ -674,6 +684,9 @@ class CmdDockerClient(ContainerClient):
             return False
 
     def create_container(self, image_name: str, **kwargs) -> str:
+        # Extract auth_config if provided
+        auth_config = kwargs.pop("auth_config", None)
+        self._login_if_needed(auth_config, image_name)
         image_name = self.registry_resolver_strategy.resolve(image_name)
         cmd, env_file = self._build_run_create_cmd("create", image_name, **kwargs)
         LOG.debug("Create container with cmd: %s", cmd)
@@ -693,6 +706,8 @@ class CmdDockerClient(ContainerClient):
             Util.rm_env_vars_file(env_file)
 
     def run_container(self, image_name: str, stdin=None, **kwargs) -> tuple[bytes, bytes]:
+        auth_config = kwargs.pop("auth_config", None)
+        self._login_if_needed(auth_config, image_name)
         image_name = self.registry_resolver_strategy.resolve(image_name)
         cmd, env_file = self._build_run_create_cmd("run", image_name, **kwargs)
         LOG.debug("Run container with cmd: %s", cmd)
@@ -827,6 +842,8 @@ class CmdDockerClient(ContainerClient):
         ulimits: list[Ulimit] | None = None,
         init: bool | None = None,
         log_config: LogConfig | None = None,
+        cpu_shares: int | None = None,
+        mem_limit: int | str | None = None,
     ) -> tuple[list[str], str]:
         env_file = None
         cmd = self._docker_cmd() + [action]
@@ -890,6 +907,10 @@ class CmdDockerClient(ContainerClient):
             cmd += ["--log-driver", log_config.type]
             for key, value in log_config.config.items():
                 cmd += ["--log-opt", f"{key}={value}"]
+        if cpu_shares:
+            cmd += ["--cpu-shares", str(cpu_shares)]
+        if mem_limit:
+            cmd += ["--memory", str(mem_limit)]
 
         if additional_flags:
             cmd += shlex.split(additional_flags)
@@ -950,3 +971,17 @@ class CmdDockerClient(ContainerClient):
         labels = labels.split(",")
         labels = [label.partition("=") for label in labels]
         return {label[0]: label[2] for label in labels}
+
+    def _login_if_needed(self, auth_config: dict[str, str] | None, image_name) -> None:
+        if auth_config:
+            LOG.warning(
+                "Using global docker login for authentication in docker_cmd_client. "
+                "This may lead to unexpected behaviors with concurrent requests to different registries. "
+                "Consider stop using LEGACY_DOCKER_CLIENT for thread-safe authentication."
+            )
+            registry = get_registry_from_image_name(image_name)
+            self.login(
+                username=auth_config.get("username", ""),
+                password=auth_config.get("password", ""),
+                registry=registry,
+            )

@@ -3,7 +3,7 @@ Type annotations for s3control service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3control/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -167,6 +167,7 @@ OperationNameType = Literal[
     "S3PutObjectRetention",
     "S3PutObjectTagging",
     "S3ReplicateObject",
+    "S3UpdateObjectEncryption",
 ]
 OutputSchemaVersionType = Literal["V_1"]
 OwnerOverrideType = Literal["Destination"]
@@ -372,7 +373,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -637,6 +637,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

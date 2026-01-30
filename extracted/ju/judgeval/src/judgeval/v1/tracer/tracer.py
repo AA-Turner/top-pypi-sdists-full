@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -19,22 +19,27 @@ class Tracer(BaseTracer):
     def __init__(
         self,
         project_name: str,
+        project_id: str,
         enable_evaluation: bool,
         enable_monitoring: bool,
         api_client: JudgmentSyncClient,
         serializer: Callable[[Any], str],
         filter_tracer: Optional[FilterTracerCallback] = None,
         isolated: bool = False,
+        resource_attributes: Optional[Dict[str, Any]] = None,
+        initialize: bool = True,
     ):
         self._filter_tracer = filter_tracer
 
-        resource = Resource.create(
-            {
-                "service.name": project_name,
-                "telemetry.sdk.name": self.TRACER_NAME,
-                "telemetry.sdk.version": get_version(),
-            }
-        )
+        resource_attrs = {
+            "service.name": project_name,
+            "telemetry.sdk.name": self.TRACER_NAME,
+            "telemetry.sdk.version": get_version(),
+        }
+        if resource_attributes:
+            resource_attrs.update(resource_attributes)
+
+        resource = Resource.create(resource_attrs)
 
         tracer_provider = JudgmentTracerProvider(
             resource=resource,
@@ -44,6 +49,7 @@ class Tracer(BaseTracer):
 
         super().__init__(
             project_name=project_name,
+            project_id=project_id,
             enable_evaluation=enable_evaluation,
             enable_monitoring=enable_monitoring,
             api_client=api_client,
@@ -55,7 +61,7 @@ class Tracer(BaseTracer):
             judgeval_logger.info("Adding JudgmentSpanProcessor for monitoring.")
             tracer_provider.add_span_processor(self.get_span_processor())
 
-        if enable_monitoring and not isolated:
+        if initialize and enable_monitoring and not isolated:
             judgeval_logger.info("Setting global tracer provider for monitoring.")
             trace.set_tracer_provider(tracer_provider)
 

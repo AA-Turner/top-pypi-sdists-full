@@ -11,8 +11,8 @@
 
 from __future__ import annotations
 
-import os
 import json
+import os
 import traceback
 import typing as t
 
@@ -23,15 +23,15 @@ if t.TYPE_CHECKING:
 
 try:
     import footmark
-    import footmark.ecs
-    import footmark.slb
-    import footmark.vpc
-    import footmark.rds
-    import footmark.ess
-    import footmark.sts
     import footmark.dns
-    import footmark.ram
+    import footmark.ecs
+    import footmark.ess
     import footmark.market
+    import footmark.ram
+    import footmark.rds
+    import footmark.slb
+    import footmark.sts
+    import footmark.vpc
 
     FOOTMARK_IMP_ERR = None
     HAS_FOOTMARK = True
@@ -163,7 +163,7 @@ def get_profile(params):
             else f"{os.getenv('HOME')}/.aliyun/config.json"
         )
         auth = {}
-        with open(path, "r") as f:
+        with open(path) as f:
             for pro in json.load(f)["profiles"]:
                 if params["profile"] == pro["name"]:
                     auth = pro

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.0.0
+Version: 3.0.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -57,14 +57,15 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 Changelog
 ----------
 
+3.0.1
+*******
+
+- `Experimental` Added hidden `--with-connections` flag to `tb build` and `tb dev` commands for enabling connection datasources (S3, Kafka, GCS) in branches. This is an experimental feature and is not yet publicly documented.
+
 3.0.0
 *******
 
 - `Removed` Python 3.9 support. The minimum supported Python version is now 3.10.
-
-2.0.0
-*******
-
 - `Removed` BigQuery and Snowflake connector support from Forward CLI build and deployment commands
 
 1.1.14

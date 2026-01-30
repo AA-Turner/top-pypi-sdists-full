@@ -3,18 +3,30 @@ Module for handling storage and proxy-streaming and caching of release files
 for all indexes.
 
 """
-import hashlib
-import mimetypes
+from __future__ import annotations
+
+from .keyfs_types import FilePathInfo
 from .readonly import get_mutable_deepcopy
-from wsgiref.handlers import format_date_time
-import re
 from devpi_common.metadata import splitbasename
 from devpi_common.types import parse_hash_spec
 from devpi_server.log import threadlog
 from devpi_server.markers import absent
 from inspect import currentframe
+from typing import TYPE_CHECKING
+from typing import overload
 from urllib.parse import unquote
+from wsgiref.handlers import format_date_time
+import hashlib
+import mimetypes
+import re
 import warnings
+
+
+if TYPE_CHECKING:
+    from .interfaces import ContentOrFile
+    from .keyfs_types import RelPath
+    from .markers import Absent
+    from typing import Any
 
 
 def _get_default_hash_types():  # this is a function for testing
@@ -23,7 +35,7 @@ def _get_default_hash_types():  # this is a function for testing
 
 _nodefault = object()
 # do not import the following, as they are changed for testing
-DEFAULT_HASH_TYPE = "sha256"
+DEFAULT_HASH_TYPE: str = "sha256"
 DEFAULT_HASH_TYPES = _get_default_hash_types()
 
 
@@ -98,8 +110,8 @@ class RunningHashes:
                 rh.update(data)
 
 
-class Digests(dict):
-    def add_spec(self, hash_spec):
+class Digests(dict[str, str]):
+    def add_spec(self, hash_spec: str) -> None:
         (hash_algo, hash_value) = parse_hash_spec(hash_spec)
         hash_type = hash_algo().name
         if hash_type in self:
@@ -108,18 +120,22 @@ class Digests(dict):
             self[hash_type] = hash_value
 
     @property
-    def best_available_spec(self):
-        return self.get_spec(self.best_available_type, None)
+    def best_available_spec(self) -> str | None:
+        if (best_available_type := self.best_available_type) is None:
+            return None
+        return self.get_spec(best_available_type, None)
 
     @property
-    def best_available_type(self):
+    def best_available_type(self) -> str | None:
         return best_available_hash_type(self)
 
     @property
-    def best_available_value(self):
-        return self.get(self.best_available_type, None)
+    def best_available_value(self) -> str | None:
+        if (best_available_type := self.best_available_type) is None:
+            return None
+        return self.get(best_available_type, None)
 
-    def errors_for(self, content_or_hashes):
+    def errors_for(self, content_or_hashes: ContentOrFile | Digests) -> dict[str, dict]:
         errors = {}
         if isinstance(content_or_hashes, Digests):
             hashes = content_or_hashes
@@ -139,46 +155,71 @@ class Digests(dict):
                         f"got {hash_value}, expected {expected_hash_value}")
         return errors
 
-    def exception_for(self, content_or_hashes, relpath):
+    def exception_for(
+        self, content_or_hashes: ContentOrFile | Digests, relpath: str
+    ) -> ChecksumError | None:
         errors = self.errors_for(content_or_hashes)
         if errors:
-            error_msg = errors.get(
-                self.best_available_type, next(iter(errors.values())))['msg']
+            if (best_available_type := self.best_available_type) is None:
+                return None
+            error_msg = errors.get(best_available_type, next(iter(errors.values())))[
+                "msg"
+            ]
             return ChecksumError(f"{relpath}: {error_msg}")
         return None
 
     @classmethod
-    def from_spec(cls, hash_spec):
+    def from_spec(cls, hash_spec: str) -> Digests:
         result = cls()
         if hash_spec:
             result.add_spec(hash_spec)
         return result
 
-    def get_default_spec(self):
+    def get_default_spec(self) -> str:
         return self.get_spec(DEFAULT_HASH_TYPE)
 
-    def get_default_type(self):
+    def get_default_type(self) -> str:
         return DEFAULT_HASH_TYPE
 
-    def get_default_value(self, default=_nodefault):
+    @overload
+    def get_default_value(self, default: Absent = absent) -> str: ...
+
+    @overload
+    def get_default_value(self, default: str) -> str: ...
+
+    @overload
+    def get_default_value(self, default: Any) -> Any: ...
+
+    def get_default_value(self, default: str | Any | Absent = absent) -> str | Any:
         result = self.get(DEFAULT_HASH_TYPE, default)
-        if result is _nodefault:
+        if result is absent:
             raise KeyError(DEFAULT_HASH_TYPE)
         return result
 
-    def get_missing_hash_types(self):
+    def get_missing_hash_types(self) -> set[str]:
         return set(DEFAULT_HASH_TYPES).difference(self)
 
-    def get_spec(self, hash_type, default=_nodefault):
+    @overload
+    def get_spec(self, hash_type: str, default: Absent = absent) -> str: ...
+
+    @overload
+    def get_spec(self, hash_type: str, default: str) -> str: ...
+
+    @overload
+    def get_spec(self, hash_type: str, default: Any) -> Any: ...
+
+    def get_spec(
+        self, hash_type: str, default: str | Any | Absent = absent
+    ) -> str | Any:
         result = self.get(hash_type, default)
-        if result is _nodefault:
+        if result is absent:
             raise KeyError(hash_type)
         if result is default:
             return result
         return f"{hash_type}={result}"
 
 
-def best_available_hash_type(hashes):
+def best_available_hash_type(hashes: Digests) -> str | None:
     if not hashes:
         return None
     if DEFAULT_HASH_TYPE in hashes:
@@ -336,7 +377,9 @@ class FileStore:
         key = key_from_link(self.keyfs, link, user, index)
         entry = MutableFileEntry(key)
         entry.url = link.geturl_nofragment().url
-        entry.hash_spec = unicode_if_bytes(link.hash_spec)
+        entry._hash_spec = unicode_if_bytes(link.hash_spec)
+        if digest := link.hash_value:
+            entry._hashes = Digests({link.hash_type: digest})
         entry.project = project
         version = None
         try:
@@ -358,7 +401,7 @@ class FileStore:
             return None
         return key
 
-    def get_file_entry(self, relpath):
+    def get_file_entry(self, relpath: RelPath) -> FileEntry | None:
         key = self.get_key_from_relpath(relpath)
         if key is None:
             return None
@@ -371,6 +414,11 @@ class FileStore:
         # dir_hash_spec is set for toxresult files
         if dir_hash_spec is None:
             if hashes is None:
+                warnings.warn(
+                    "Storing data without supplying hashes is deprecated.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 hashes = get_hashes(content_or_file)
             dir_hash_spec = hashes.get_default_spec()
         hashdir_a, hashdir_b = make_splitdir(dir_hash_spec)
@@ -403,10 +451,11 @@ class BadGateway(Exception):
 
 
 class BaseFileEntry:
-    __slots__ = ("_meta", "_storepath", "basename", "key", "relpath")
+    __slots__ = ("_meta", "key")
 
     BadGateway = BadGateway
     _hash_spec = metaprop("hash_spec")  # e.g. "md5=120938012"
+    _hashes = metaprop("hashes")  # e.g. dict(md5="120938012")
     last_modified = metaprop("last_modified")
     url = metaprop("url")
     project = metaprop("project")
@@ -414,16 +463,30 @@ class BaseFileEntry:
 
     def __init__(self, key, meta=_nodefault):
         self.key = key
-        self.relpath = key.relpath
-        self.basename = self.relpath.split("/")[-1]
-        self._storepath = "/".join(("+files", str(self.relpath)))
         self._meta = _nodefault
         if meta is not _nodefault:
             self._meta = meta or {}
 
     @property
+    def basename(self):
+        params = self.key.params
+        if "filename" in params:
+            return params["filename"]
+        if "basename" in params:
+            return params["basename"]
+        return self.relpath.split("/")[-1]
+
+    @property
+    def file_path_info(self) -> FilePathInfo:
+        return FilePathInfo(self.relpath, self.hashes.get_default_value(None))
+
+    @property
     def index(self):
         return self.key.params['index']
+
+    @property
+    def relpath(self) -> RelPath:
+        return self.key.relpath
 
     @property
     def user(self):
@@ -448,7 +511,16 @@ class BaseFileEntry:
 
     @property
     def hashes(self):
-        return Digests.from_spec(self._hash_spec)
+        digests = Digests() if self._hashes is None else Digests(self._hashes)
+        if hash_spec := self._hash_spec:
+            (hash_algo, hash_value) = parse_hash_spec(hash_spec)
+            hash_type = hash_algo().name
+            if digests.get(hash_type, _nodefault) != hash_value:
+                # the stored hash_spec takes precedence,
+                # because there may have been a downgrade with content change
+                # we also need to get rid of other hash types in that case
+                return Digests.from_spec(self._hash_spec)
+        return digests
 
     @property
     def hash_algo(self):
@@ -456,10 +528,9 @@ class BaseFileEntry:
             "The hash_algo property is deprecated.",
             DeprecationWarning,
             stacklevel=2)
-        if self._hash_spec:
-            return parse_hash_spec(self.hash_spec)[0]
-        else:
-            return get_default_hash_algo()
+        if hash_spec := self.hashes.best_available_spec:
+            return parse_hash_spec(hash_spec)[0]
+        return get_default_hash_algo()
 
     @property
     def hash_spec(self):
@@ -468,11 +539,7 @@ class BaseFileEntry:
             "use best_available_hash_spec instead",
             DeprecationWarning,
             stacklevel=2)
-        return self._hash_spec
-
-    @hash_spec.setter
-    def hash_spec(self, hash_spec):
-        self._hash_spec = hash_spec
+        return self.hashes.best_available_spec
 
     @property
     def hash_value(self):
@@ -481,10 +548,7 @@ class BaseFileEntry:
             "use best_available_hash_value instead",
             DeprecationWarning,
             stacklevel=2)
-        if self._hash_spec:
-            return self._hash_spec.split("=", 1)[1]
-        else:
-            return self._hash_spec
+        return self.hashes.best_available_value
 
     @property
     def hash_type(self):
@@ -493,7 +557,7 @@ class BaseFileEntry:
             "use best_available_hash_type instead",
             DeprecationWarning,
             stacklevel=2)
-        return self._hash_spec.split("=")[0]
+        return self.hashes.best_available_type
 
     def file_get_checksum(self, hash_type):
         warnings.warn(
@@ -521,28 +585,31 @@ class BaseFileEntry:
         raise NotImplementedError
 
     def file_exists(self):
-        return self.tx.conn.io_file_exists(self._storepath)
+        return self.tx.io_file.exists(self.file_path_info)
 
     def file_delete(self):
-        return self.tx.conn.io_file_delete(self._storepath)
+        return self.tx.io_file.delete(self.file_path_info)
 
     def file_size(self):
-        return self.tx.conn.io_file_size(self._storepath)
+        return self.tx.io_file.size(self.file_path_info)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.key!r}>"
 
     def file_new_open(self):
-        return self.tx.conn.io_file_new_open(self._storepath)
+        return self.tx.io_file.new_open(self.file_path_info)
 
     def file_open_read(self):
-        return self.tx.conn.io_file_open(self._storepath)
+        return self.tx.io_file.open_read(self.file_path_info)
 
     def file_get_content(self):
-        return self.tx.conn.io_file_get(self._storepath)
+        return self.tx.io_file.get_content(self.file_path_info)
 
-    def file_os_path(self):
-        return self.tx.conn.io_file_os_path(self._storepath)
+    def file_os_path(self, *, _raises=True):
+        if _raises and self.tx.io_file.is_path_dirty(self.file_path_info):
+            msg = f"Can't access file {self.file_path_info.relpath} directly during transaction"
+            raise RuntimeError(msg)
+        return self.tx.io_file.os_path(self.file_path_info)
 
     def file_set_content(self, content_or_file, *, last_modified=None, hash_spec=None, hashes=None):
         if last_modified != -1:
@@ -554,19 +621,34 @@ class BaseFileEntry:
             hashes.add_spec(hash_spec)
         missing_hash_types = hashes.get_missing_hash_types()
         if missing_hash_types:
+            warnings.warn(
+                "Setting file content without supplying hashes is deprecated.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             hashes.update(get_hashes(content_or_file, hash_types=missing_hash_types))
         if not hash_spec:
             hash_spec = hashes.get_default_spec()
-        self.hash_spec = hash_spec
-        self.tx.conn.io_file_set(self._storepath, content_or_file)
+        self._hash_spec = hash_spec
+        self._hashes = self.hashes | hashes
+        self.tx.io_file.set_content(self.file_path_info, content_or_file)
         # we make sure we always refresh the meta information
         # when we set the file content. Otherwise we might
         # end up only committing file content without any keys
         # changed which will not replay correctly at a replica.
         self.key.set(self.meta)
 
-    def file_set_content_no_meta(self, content_or_file, *, hashes=None):  # noqa: ARG002
-        self.tx.conn.io_file_set(self._storepath, content_or_file)
+    def file_set_content_no_meta(self, content_or_file, *, hashes=None):
+        missing_hash_types = hashes.get_missing_hash_types()
+        if missing_hash_types:
+            warnings.warn(
+                "Setting file content without supplying hashes is deprecated.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        file_path_info = self.file_path_info
+        file_path_info.hash_digest = hashes[DEFAULT_HASH_TYPE]
+        self.tx.io_file.set_content(file_path_info, content_or_file)
 
     def gethttpheaders(self):
         assert self.file_exists()
@@ -590,9 +672,12 @@ class BaseFileEntry:
     def __hash__(self):
         return hash(self.relpath)
 
-    def delete(self, **kw):
+    def delete(self):
+        self.delete_file_only()
         self.key.delete()
         self._meta = {}
+
+    def delete_file_only(self):
         self.file_delete()
 
     def has_existing_metadata(self):

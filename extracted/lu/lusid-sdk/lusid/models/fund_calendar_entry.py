@@ -43,10 +43,13 @@ class FundCalendarEntry(BaseModel):
     entry_type:  StrictStr = Field(...,alias="entryType", description="The type of the Fund Calendar Entry. Only 'ValuationPoint' currently supported. The available values are: ValuationPointFundCalendarEntry, BookmarkFundCalendarEntry") 
     status:  Optional[StrictStr] = Field(None,alias="status", description="The status of the Fund Calendar Entry. Can be 'Estimate', 'Candidate' or 'Final'.") 
     apply_clear_down: StrictBool = Field(description="Set to true if that closed period shoould have the clear down applied.", alias="applyClearDown")
+    holdings_as_at_override: Optional[datetime] = Field(default=None, description="The optional AsAt Override to use for building holdings in the Valuation Point. Defaults to Latest.", alias="holdingsAsAtOverride")
+    valuations_as_at_override: Optional[datetime] = Field(default=None, description="The optional AsAt Override to use for performing valuations in the Valuation Point. Defaults to Latest.", alias="valuationsAsAtOverride")
     properties: Optional[Dict[str, ModelProperty]] = Field(default=None, description="The properties for the Calendar Entry. These will be from the 'ClosedPeriod' domain.")
     version: Version
     href:  Optional[StrictStr] = Field(None,alias="href", description="The specific Uniform Resource Identifier (URI) for this resource at the requested asAt datetime.") 
-    __properties = ["code", "variant", "displayName", "description", "navTypeCode", "timelineId", "previousEntry", "effectiveAt", "asAt", "entryType", "status", "applyClearDown", "properties", "version", "href"]
+    leader_nav_type_code:  Optional[StrictStr] = Field(None,alias="leaderNavTypeCode", description="The code of the Nav Type that this Nav Type will follow when set.") 
+    __properties = ["code", "variant", "displayName", "description", "navTypeCode", "timelineId", "previousEntry", "effectiveAt", "asAt", "entryType", "status", "applyClearDown", "holdingsAsAtOverride", "valuationsAsAtOverride", "properties", "version", "href", "leaderNavTypeCode"]
 
     @validator('entry_type')
     def entry_type_validate_enum(cls, value):
@@ -103,7 +106,9 @@ class FundCalendarEntry(BaseModel):
                                     'RelativeMonthRegularity',
                                     'SpecificMonthRegularity',
                                     'WeekRegularity',
-                                    'YearRegularity']:
+                                    'YearRegularity',
+                                    'LusidEntityDataQualityCheck',
+                                    'LusidEntityDataQualityCheckResponse']:
            return value
         
         # Only validate the 'type' property of the class
@@ -177,6 +182,16 @@ class FundCalendarEntry(BaseModel):
         if self.status is None and "status" in self.__fields_set__:
             _dict['status'] = None
 
+        # set to None if holdings_as_at_override (nullable) is None
+        # and __fields_set__ contains the field
+        if self.holdings_as_at_override is None and "holdings_as_at_override" in self.__fields_set__:
+            _dict['holdingsAsAtOverride'] = None
+
+        # set to None if valuations_as_at_override (nullable) is None
+        # and __fields_set__ contains the field
+        if self.valuations_as_at_override is None and "valuations_as_at_override" in self.__fields_set__:
+            _dict['valuationsAsAtOverride'] = None
+
         # set to None if properties (nullable) is None
         # and __fields_set__ contains the field
         if self.properties is None and "properties" in self.__fields_set__:
@@ -186,6 +201,11 @@ class FundCalendarEntry(BaseModel):
         # and __fields_set__ contains the field
         if self.href is None and "href" in self.__fields_set__:
             _dict['href'] = None
+
+        # set to None if leader_nav_type_code (nullable) is None
+        # and __fields_set__ contains the field
+        if self.leader_nav_type_code is None and "leader_nav_type_code" in self.__fields_set__:
+            _dict['leaderNavTypeCode'] = None
 
         return _dict
 
@@ -211,6 +231,8 @@ class FundCalendarEntry(BaseModel):
             "entry_type": obj.get("entryType"),
             "status": obj.get("status"),
             "apply_clear_down": obj.get("applyClearDown"),
+            "holdings_as_at_override": obj.get("holdingsAsAtOverride"),
+            "valuations_as_at_override": obj.get("valuationsAsAtOverride"),
             "properties": dict(
                 (_k, ModelProperty.from_dict(_v))
                 for _k, _v in obj.get("properties").items()
@@ -218,7 +240,8 @@ class FundCalendarEntry(BaseModel):
             if obj.get("properties") is not None
             else None,
             "version": Version.from_dict(obj.get("version")) if obj.get("version") is not None else None,
-            "href": obj.get("href")
+            "href": obj.get("href"),
+            "leader_nav_type_code": obj.get("leaderNavTypeCode")
         })
         return _obj
 

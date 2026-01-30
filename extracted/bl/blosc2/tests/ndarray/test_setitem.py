@@ -2,13 +2,11 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 import numpy as np
 import pytest
-import torch
 
 import blosc2
 
@@ -45,14 +43,6 @@ def test_setitem(shape, chunks, blocks, slices, dtype):
     nparray[slices] = val
     np.testing.assert_almost_equal(a[...], nparray)
 
-    # Object called via SimpleProxy
-    slice_shape = a[slices].shape
-    dtype_ = {np.float32: torch.float32, np.int32: torch.int32, np.float64: torch.float64}[dtype]
-    val = torch.ones(slice_shape, dtype=dtype_)
-    a[slices] = val
-    nparray[slices] = val
-    np.testing.assert_almost_equal(a[...], nparray)
-
     # blosc2.NDArray
     if np.prod(slice_shape) == 1 or len(slice_shape) != len(blocks):
         chunks = None
@@ -61,6 +51,22 @@ def test_setitem(shape, chunks, blocks, slices, dtype):
     b = blosc2.full(slice_shape, fill_value=1234567, chunks=chunks, blocks=blocks, dtype=dtype)
     a[slices] = b
     nparray[slices] = b[...]
+    np.testing.assert_almost_equal(a[...], nparray)
+
+
+@pytest.mark.parametrize(argnames, argvalues)
+def test_setitem_torch_proxy(shape, chunks, blocks, slices, dtype):
+    torch = pytest.importorskip("torch")
+    size = int(np.prod(shape))
+    nparray = np.arange(size, dtype=dtype).reshape(shape)
+    a = blosc2.frombuffer(bytes(nparray), nparray.shape, dtype=dtype, chunks=chunks, blocks=blocks)
+
+    # Object called via SimpleProxy (torch tensor)
+    slice_shape = a[slices].shape
+    dtype_ = {np.float32: torch.float32, np.int32: torch.int32, np.float64: torch.float64}[dtype]
+    val = torch.ones(slice_shape, dtype=dtype_)
+    a[slices] = val
+    nparray[slices] = val
     np.testing.assert_almost_equal(a[...], nparray)
 
 
@@ -110,3 +116,15 @@ def test_ndfield():
     fb[:] = blosc2.full(shape, fill_value=1, dtype=np.float64)
     assert np.allclose(sa["a"][:], nsa["a"])
     assert np.allclose(sa["b"][:], nsa["b"])
+
+
+def test_setitem_fancy_index():
+    out = blosc2.zeros(10)
+    idx = np.array([1, 6, 7])
+    value = np.arange(0, 3)
+    out[idx] = value
+
+    out_numpy = np.zeros(10)
+    out_numpy[idx] = value
+
+    np.testing.assert_array_equal(out[:], out_numpy)

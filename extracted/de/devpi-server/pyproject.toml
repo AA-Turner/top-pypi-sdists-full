@@ -22,6 +22,7 @@ dependencies = [
     "py>=1.4.23",
     "pyramid>=2",
     "repoze.lru>=0.6",
+    "strenum;python_version<'3.11'",
     "strictyaml",
     "waitress>=1.0.1",
     'ruamel.yaml',
@@ -89,10 +90,6 @@ devpi-server-replica-status = "devpi_server.replica"
 devpi-server-status = "devpi_server.views"
 
 
-[project.entry-points.pytest11]
-pytest_devpi_server = "pytest_devpi_server"
-
-
 [tool.ruff]
 extend = "../pyproject.toml"
 target-version = "py39"
@@ -106,7 +103,6 @@ exclude = [
     "devpi_server/config.py",
     "devpi_server/exceptions.py",
     "devpi_server/filestore.py",
-    "devpi_server/filestore_fs.py",
     "devpi_server/fileutil.py",
     "devpi_server/fsck.py",
     "devpi_server/genconfig.py",
@@ -128,33 +124,26 @@ exclude = [
     "devpi_server/passwd.py",
     "devpi_server/readonly.py",
     "devpi_server/replica.py",
-    "devpi_server/sizeof.py",
-    "devpi_server/vendor/_pip.py",
     "devpi_server/view_auth.py",
     "devpi_server/views.py",
-    "pytest_devpi_server/__init__.py",
     "test_devpi_server/conftest.py",
-    "test_devpi_server/example.py",
     "test_devpi_server/functional.py",
     "test_devpi_server/plugin.py",
     "test_devpi_server/simpypi.py",
     "test_devpi_server/test_auth.py",
     "test_devpi_server/test_authcheck.py",
     "test_devpi_server/test_config.py",
-    "test_devpi_server/test_conftest.py",
     "test_devpi_server/test_filestore.py",
     "test_devpi_server/test_fileutil.py",
     "test_devpi_server/test_fsck.py",
     "test_devpi_server/test_genconfig.py",
     "test_devpi_server/test_importexport.py",
     "test_devpi_server/test_keyfs.py",
-    "test_devpi_server/test_keyfs_sqlite_fs.py",
     "test_devpi_server/test_log.py",
     "test_devpi_server/test_main.py",
     "test_devpi_server/test_mirror.py",
     "test_devpi_server/test_mirror_no_project_list.py",
     "test_devpi_server/test_model.py",
-    "test_devpi_server/test_mythread.py",
     "test_devpi_server/test_nginx.py",
     "test_devpi_server/test_nginx_replica.py",
     "test_devpi_server/test_permissions.py",
@@ -181,20 +170,16 @@ extend-ignore = [
     "ARG002", # maybe cleanup later - unused method argument
     "ARG005", # maybe cleanup later - unused lambda argument
     "B007", # maybe cleanup later
-    "B008", # cleanup later
     "B904", # maybe cleanup later
     "BLE001", # cleanup soon - blind exception
-    "C400", # maybe cleanup later - rewrite as list comprehension
     "C401", # maybe cleanup later - rewrite as set comprehension
     "C402", # maybe cleanup later - rewrite as dict comprehension
     "C405", # cleanup soon - set literal instead of set call
     "DTZ001", # cleanup soon
     "ERA001", # cleanup soon
     "FBT002", # cleanup soon - boolean positional argument
-    "FIX001", # cleanup later - fixme
     "FIX003", # cleanup later - xxx
     "FLY002", # maybe cleanup later - f-string instead of join
-    "G002", # cleanup soon - logging statement uses %
     "PERF401", # maybe cleanup later - list comprehension
     "PLR0911", # cleanup later
     "PLR0912", # maybe cleanup later
@@ -202,7 +187,6 @@ extend-ignore = [
     "PT006", # maybe cleanup later - wrong type for pytest.mark.parametrize
     "PT007", # maybe cleanup later - wrong type for pytest.mark.parametrize
     "PT011", # cleanup soon - pytest.raises match
-    "PT012", # cleanup soon - pytest.raises
     "PT018", # maybe cleanup later - composite assert
     "RET501", # maybe cleanup later - no explicit return None
     "RET502", # maybe cleanup later - implicit return None
@@ -213,7 +197,8 @@ extend-ignore = [
     "RET507", # maybe cleanup later - unnecessary elif after continue
     "RUF005", # cleanup later
     "RUF012", # cleanup later
-    "RUF100", # after soon to cleanup
+    "RUF043", # cleanup later - pytest.raises match regexp
+    "RUF059", # cleanup later - unpacked variable unused
     "RSE102", # maybe cleanup later
     "SIM102", # maybe cleanup later
     "SIM105", # cleanup soon
@@ -228,128 +213,10 @@ extend-ignore = [
 ]
 
 
-[tool.ruff.lint.extend-per-file-ignores]
-"devpi_server/__main__.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/config.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/filestore.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/fileutil.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/genconfig.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/hookspecs.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/importexport.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/interfaces.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/keyfs.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/keyfs_sqlite.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/keyfs_sqlite_fs.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/main.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/mirror.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/model.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/readonly.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/sizeof.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/vendor/_pip.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/view_auth.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"devpi_server/views.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/plugin.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_config.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_filestore.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_fileutil.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_genconfig.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_importexport.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_keyfs.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_log.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_main.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_mirror.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_model.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_nginx_replica.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_permissions.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_replica.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_replica_functional.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_streaming_nginx.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_streaming_replica.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_streaming_replica_nginx.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-"test_devpi_server/test_views.py" = [
-    "I001", # maybe cleanup later - import block unsorted
-]
-
-
 [tool.setuptools]
 packages = [
     'devpi_server',
     'devpi_server.cfg',
-    'devpi_server.vendor',
     'pytest_devpi_server',
     'test_devpi_server',
 ]

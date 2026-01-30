@@ -129,7 +129,7 @@ class Dictionary(Phidget):
 	def get(self, key):
 		_key = ctypes.create_string_buffer(key.encode('utf-8'))
 		_value = (ctypes.c_char * 65536)()
-		_valueLen = ctypes.c_int32(65536)
+		_valueLen = ctypes.c_size_t(65536)
 
 		__func = PhidgetSupport.getDll().PhidgetDictionary_get
 		__func.restype = ctypes.c_int32
@@ -154,7 +154,7 @@ class Dictionary(Phidget):
 	def scan(self, start):
 		_start = ctypes.create_string_buffer(start.encode('utf-8'))
 		_keyList = (ctypes.c_char * 65536)()
-		_keyListLen = ctypes.c_int32(65536)
+		_keyListLen = ctypes.c_size_t(65536)
 
 		__func = PhidgetSupport.getDll().PhidgetDictionary_scan
 		__func.restype = ctypes.c_int32

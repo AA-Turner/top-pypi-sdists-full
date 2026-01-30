@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lumibot
-Version: 4.4.36
+Version: 4.4.43
 Summary: Backtesting and Trading Library, Made by Lumiwealth
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -53,6 +53,8 @@ Requires-Dist: Flask>=2.3
 Requires-Dist: free-proxy
 Requires-Dist: requests-oauthlib
 Requires-Dist: boto3>=1.40.64
+Provides-Extra: thetadata
+Requires-Dist: thetadata; extra == "thetadata"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -61,6 +63,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

@@ -9,10 +9,16 @@ from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...errors.bad_gateway_error import BadGatewayError
 from ...errors.bad_request_error import BadRequestError
+from ...errors.content_too_large_error import ContentTooLargeError
 from ...errors.forbidden_error import ForbiddenError
+from ...errors.gone_error import GoneError
 from ...errors.not_found_error import NotFoundError
+from ...errors.service_unavailable_error import ServiceUnavailableError
 from ...errors.too_many_requests_error import TooManyRequestsError
+from ...errors.unauthorized_error import UnauthorizedError
+from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.components_schemas_composio_execute_tool_response import ComponentsSchemasComposioExecuteToolResponse
 from ...types.components_schemas_composio_tool_definition import ComponentsSchemasComposioToolDefinition
 from ...types.integration_read import IntegrationRead
@@ -100,6 +106,7 @@ class RawIntegrationsClient:
         tool_name: str,
         *,
         arguments: typing.Dict[str, typing.Optional[typing.Any]],
+        expand: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         toolkit_version: typing.Optional[str] = OMIT,
         integration: typing.Optional[str] = OMIT,
         tool: typing.Optional[str] = OMIT,
@@ -119,6 +126,9 @@ class RawIntegrationsClient:
 
         arguments : typing.Dict[str, typing.Optional[typing.Any]]
 
+        expand : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            The response fields to expand for more information. Supported values: 'logs' - includes execution logs from Composio
+
         toolkit_version : typing.Optional[str]
 
         integration : typing.Optional[str]
@@ -137,6 +147,9 @@ class RawIntegrationsClient:
             f"integrations/v1/providers/{jsonable_encoder(integration_provider)}/integrations/{jsonable_encoder(integration_name)}/tools/{jsonable_encoder(tool_name)}/execute",
             base_url=self._client_wrapper.get_environment().default,
             method="POST",
+            params={
+                "expand": expand,
+            },
             json={
                 "arguments": arguments,
                 "toolkit_version": toolkit_version,
@@ -171,6 +184,17 @@ class RawIntegrationsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -193,6 +217,39 @@ class RawIntegrationsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 410:
+                raise GoneError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 413:
+                raise ContentTooLargeError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 429:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
@@ -200,6 +257,28 @@ class RawIntegrationsClient:
                         typing.Optional[typing.Any],
                         parse_obj_as(
                             type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -398,6 +477,7 @@ class AsyncRawIntegrationsClient:
         tool_name: str,
         *,
         arguments: typing.Dict[str, typing.Optional[typing.Any]],
+        expand: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         toolkit_version: typing.Optional[str] = OMIT,
         integration: typing.Optional[str] = OMIT,
         tool: typing.Optional[str] = OMIT,
@@ -417,6 +497,9 @@ class AsyncRawIntegrationsClient:
 
         arguments : typing.Dict[str, typing.Optional[typing.Any]]
 
+        expand : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            The response fields to expand for more information. Supported values: 'logs' - includes execution logs from Composio
+
         toolkit_version : typing.Optional[str]
 
         integration : typing.Optional[str]
@@ -435,6 +518,9 @@ class AsyncRawIntegrationsClient:
             f"integrations/v1/providers/{jsonable_encoder(integration_provider)}/integrations/{jsonable_encoder(integration_name)}/tools/{jsonable_encoder(tool_name)}/execute",
             base_url=self._client_wrapper.get_environment().default,
             method="POST",
+            params={
+                "expand": expand,
+            },
             json={
                 "arguments": arguments,
                 "toolkit_version": toolkit_version,
@@ -469,6 +555,17 @@ class AsyncRawIntegrationsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -491,6 +588,39 @@ class AsyncRawIntegrationsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 410:
+                raise GoneError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 413:
+                raise ContentTooLargeError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 429:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
@@ -498,6 +628,28 @@ class AsyncRawIntegrationsClient:
                         typing.Optional[typing.Any],
                         parse_obj_as(
                             type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Dict[str, typing.Optional[typing.Any]],
+                        parse_obj_as(
+                            type_=typing.Dict[str, typing.Optional[typing.Any]],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

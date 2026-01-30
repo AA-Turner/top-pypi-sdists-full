@@ -103,7 +103,7 @@ class RFID(Phidget):
 
 	def getLastTag(self):
 		_tagString = (ctypes.c_char * 25)()
-		_tagStringLen = ctypes.c_int32(25)
+		_tagStringLen = ctypes.c_size_t(25)
 		_protocol = ctypes.c_int()
 
 		__func = PhidgetSupport.getDll().PhidgetRFID_getLastTag

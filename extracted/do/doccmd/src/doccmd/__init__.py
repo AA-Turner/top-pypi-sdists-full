@@ -1,6 +1,4 @@
-"""
-CLI to run commands on the given files.
-"""
+"""CLI to run commands on the given files."""
 
 import difflib
 import os
@@ -16,6 +14,7 @@ from enum import Enum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TypeVar
+from uuid import uuid4
 
 import charset_normalizer
 import click
@@ -28,6 +27,9 @@ from click_compose import (
     multi_callback,
     sequence_validator,
 )
+from dulwich.errors import NotGitRepository
+from dulwich.ignore import IgnoreFilterManager
+from dulwich.repo import Repo
 from pygments.lexers import get_all_lexers
 from sybil import Sybil
 from sybil.document import Document
@@ -60,10 +62,58 @@ T = TypeVar("T")
 
 
 @beartype
+class _TempFilePathMaker:
+    """Create temporary file paths for examples."""
+
+    def __init__(
+        self,
+        *,
+        prefix: str,
+        suffix: str,
+        template: str,
+    ) -> None:
+        """Initialize with the prefix, suffix, and template.
+
+        Args:
+            prefix: The prefix for the temporary file name.
+            suffix: The suffix (extension) for the temporary file.
+            template: The template for the temporary file name.
+        """
+        self._prefix = prefix
+        self._suffix = suffix
+        self._template = template
+
+    def __call__(
+        self,
+        *,
+        example: Example,
+    ) -> Path:
+        """Create a temporary file path for an example.
+
+        Args:
+            example: The example to create a temporary file for.
+
+        Returns:
+            A path to the temporary file.
+        """
+        source_path = Path(example.path)
+        # Sanitize the source filename (replace dots and dashes with _)
+        # Use .name (not .stem) to include the extension in the sanitized name
+        sanitized_source = source_path.name.replace(".", "_").replace("-", "_")
+        unique_id = uuid4().hex[:4]
+        filename = self._template.format(
+            prefix=self._prefix,
+            source=sanitized_source,
+            line=example.line,
+            unique=unique_id,
+            suffix=self._suffix,
+        )
+        return source_path.parent / filename
+
+
+@beartype
 class _LogCommandEvaluator:
-    """
-    Log a command before running it.
-    """
+    """Log a command before running it."""
 
     def __init__(
         self,
@@ -78,9 +128,7 @@ class _LogCommandEvaluator:
         self._args = args
 
     def __call__(self, example: Example) -> None:
-        """
-        Log the command before running it.
-        """
+        """Log the command before running it."""
         command_str = shlex.join(
             split_command=[str(object=item) for item in self._args],
         )
@@ -97,9 +145,7 @@ def _validate_file_extension(
     param: click.Parameter | None,
     value: str,
 ) -> str:
-    """
-    Validate that the input string starts with a dot.
-    """
+    """Validate that the input string starts with a dot."""
     if not value.startswith("."):
         message = f"'{value}' does not start with a '.'."
         raise click.BadParameter(message=message, ctx=ctx, param=param)
@@ -112,12 +158,61 @@ def _validate_file_extension_or_none(
     param: click.Parameter | None,
     value: str | None,
 ) -> str | None:
-    """
-    Validate that the input string starts with a dot.
-    """
+    """Validate that the input string starts with a dot."""
     if value is None:
         return value
     return _validate_file_extension(ctx=ctx, param=param, value=value)
+
+
+@beartype
+def _validate_template(
+    ctx: click.Context | None,
+    param: click.Parameter | None,
+    value: str,
+) -> str:
+    """Validate that the template is valid and contains required
+    placeholders.
+    """
+    # Use a unique marker for suffix that won't appear in user templates
+    suffix_marker = f".{uuid4().hex}"
+    placeholder_values = {
+        "prefix": "test",
+        "source": "test",
+        "line": 1,
+        "unique": "test",
+        "suffix": suffix_marker,
+    }
+    # Try to format the template to catch invalid placeholders
+    try:
+        formatted = value.format(**placeholder_values)
+    except KeyError as exc:
+        valid_names = ", ".join(sorted(placeholder_values.keys()))
+        message = (
+            f"Invalid placeholder in template: {exc}. "
+            f"Valid placeholders are: {{{valid_names}}}."
+        )
+        raise click.BadParameter(
+            message=message,
+            ctx=ctx,
+            param=param,
+        ) from exc
+    except (ValueError, IndexError, TypeError, AttributeError) as exc:
+        message = f"Malformed template: {exc}"
+        raise click.BadParameter(
+            message=message,
+            ctx=ctx,
+            param=param,
+        ) from exc
+
+    # Verify suffix placeholder is actually used (not escaped as {{suffix}})
+    if suffix_marker not in formatted:
+        message = (
+            "Template must contain '{suffix}' placeholder "
+            "for the file extension."
+        )
+        raise click.BadParameter(message=message, ctx=ctx, param=param)
+
+    return value
 
 
 @beartype
@@ -126,9 +221,7 @@ def _validate_given_files_have_known_suffixes(
     given_files: Iterable[Path],
     known_suffixes: Iterable[str],
 ) -> None:
-    """
-    Validate that the given files have known suffixes.
-    """
+    """Validate that the given files have known suffixes."""
     given_files_unknown_suffix = [
         document_path
         for document_path in given_files
@@ -146,9 +239,7 @@ def _validate_no_empty_string(
     param: click.Parameter | None,
     value: str,
 ) -> str:
-    """
-    Validate that the input strings are not empty.
-    """
+    """Validate that the input strings are not empty."""
     if not value:
         msg = "This value cannot be empty."
         raise click.BadParameter(message=msg, ctx=ctx, param=param)
@@ -173,27 +264,72 @@ def _get_file_paths(
     file_suffixes: Iterable[str],
     max_depth: int,
     exclude_patterns: Iterable[str],
+    respect_gitignore: bool,
 ) -> Sequence[Path]:
     """
-    Get the file paths from the given document paths (files and directories).
+    Get the file paths from the given document paths (files and
+    directories).
     """
     file_paths: dict[Path, bool] = {}
+
+    # Cache ignore managers keyed by repo path to avoid recomputing
+    # for multiple subdirectories in the same repository
+    ignore_managers: dict[Path, IgnoreFilterManager] = {}
+
     for path in document_paths:
         if path.is_file():
             file_paths[path] = True
-        else:
-            for file_suffix in file_suffixes:
-                new_file_paths = (
-                    path_part
-                    for path_part in path.rglob(pattern=f"*{file_suffix}")
-                    if len(path_part.relative_to(path).parts) <= max_depth
-                )
-                for new_file_path in new_file_paths:
-                    if new_file_path.is_file() and not any(
-                        new_file_path.match(path_pattern=pattern)
-                        for pattern in exclude_patterns
-                    ):
+            continue
+
+        # Get ignore manager for this directory if respecting gitignore
+        ignore_manager: IgnoreFilterManager | None = None
+        repo_path: Path | None = None
+        if respect_gitignore:
+            # Check cache first to avoid creating new IgnoreFilterManager
+            # objects for directories in the same repository
+            try:
+                repo = Repo.discover(start=str(object=path.resolve()))
+                repo_path = Path(repo.path).resolve()
+                if repo_path in ignore_managers:
+                    ignore_manager = ignore_managers[repo_path]
+                else:
+                    ignore_manager = IgnoreFilterManager.from_repo(repo=repo)
+                    ignore_managers[repo_path] = ignore_manager
+            except NotGitRepository:
+                pass
+
+        for file_suffix in file_suffixes:
+            new_file_paths = (
+                path_part
+                for path_part in path.rglob(pattern=f"*{file_suffix}")
+                if len(path_part.relative_to(path).parts) <= max_depth
+            )
+            for new_file_path in new_file_paths:
+                if not new_file_path.is_file():
+                    continue
+
+                # Check exclude patterns
+                if any(
+                    new_file_path.match(path_pattern=pattern)
+                    for pattern in exclude_patterns
+                ):
+                    continue
+
+                # Check gitignore if enabled
+                if ignore_manager is not None and repo_path is not None:
+                    resolved_file = new_file_path.resolve()
+                    # Skip gitignore check for symlinks pointing outside the
+                    # git repository
+                    if not resolved_file.is_relative_to(repo_path):
                         file_paths[new_file_path] = True
+                        continue
+                    relative_path = resolved_file.relative_to(repo_path)
+                    relative_path_str = str(object=relative_path)
+                    if ignore_manager.is_ignored(path=relative_path_str):
+                        continue
+
+                file_paths[new_file_path] = True
+
     return tuple(file_paths.keys())
 
 
@@ -202,9 +338,7 @@ def _validate_file_suffix_overlaps(
     *,
     suffix_groups: Mapping[MarkupLanguage, Iterable[str]],
 ) -> None:
-    """
-    Validate that the given file suffixes do not overlap.
-    """
+    """Validate that the given file suffixes do not overlap."""
     for markup_language, suffixes in suffix_groups.items():
         for other_markup_language, other_suffixes in suffix_groups.items():
             if markup_language is other_markup_language:
@@ -225,9 +359,7 @@ def _validate_file_suffix_overlaps(
 
 @unique
 class _UsePty(Enum):
-    """
-    Choices for the use of a pseudo-terminal.
-    """
+    """Choices for the use of a pseudo-terminal."""
 
     YES = auto()
     NO = auto()
@@ -250,9 +382,7 @@ class _UsePty(Enum):
         return self.name.lower()
 
     def use_pty(self) -> bool:
-        """
-        Whether to use a pseudo-terminal.
-        """
+        """Whether to use a pseudo-terminal."""
         if self is _UsePty.DETECT:
             return sys.stdout.isatty() and platform.system() != "Windows"
         return {
@@ -263,36 +393,28 @@ class _UsePty(Enum):
 
 @beartype
 def _log_info(message: str) -> None:
-    """
-    Log an info message.
-    """
+    """Log an info message."""
     styled_message = click.style(text=message, fg="green")
     click.echo(message=styled_message, err=True)
 
 
 @beartype
 def _log_warning(message: str) -> None:
-    """
-    Log an error message.
-    """
+    """Log an error message."""
     styled_message = click.style(text=message, fg="yellow")
     click.echo(message=styled_message, err=True)
 
 
 @beartype
 def _log_error(message: str) -> None:
-    """
-    Log an error message.
-    """
+    """Log an error message."""
     styled_message = click.style(text=message, fg="red")
     click.echo(message=styled_message, err=True)
 
 
 @beartype
 def _detect_newline(content_bytes: bytes) -> bytes | None:
-    """
-    Detect the newline character used in the content.
-    """
+    """Detect the newline character used in the content."""
     for newline in (b"\r\n", b"\n", b"\r"):
         if newline in content_bytes:
             return newline
@@ -301,9 +423,7 @@ def _detect_newline(content_bytes: bytes) -> bytes | None:
 
 @beartype
 def _map_languages_to_suffix() -> dict[str, str]:
-    """
-    Map programming languages to their corresponding file extension.
-    """
+    """Map programming languages to their corresponding file extension."""
     language_extension_map: dict[str, str] = {}
 
     for lexer in get_all_lexers():
@@ -322,9 +442,7 @@ def _map_languages_to_suffix() -> dict[str, str]:
 
 @beartype
 def _get_group_directives(markers: Iterable[str]) -> Sequence[str]:
-    """
-    Group directives based on the provided markers.
-    """
+    """Group directives based on the provided markers."""
     directives: Sequence[str] = []
 
     for marker in markers:
@@ -335,9 +453,7 @@ def _get_group_directives(markers: Iterable[str]) -> Sequence[str]:
 
 @beartype
 def _get_skip_directives(markers: Iterable[str]) -> Iterable[str]:
-    """
-    Skip directives based on the provided markers.
-    """
+    """Skip directives based on the provided markers."""
     directives: Sequence[str] = []
 
     for marker in markers:
@@ -351,9 +467,7 @@ def _get_temporary_file_extension(
     language: str,
     given_file_extension: str | None,
 ) -> str:
-    """
-    Get the file suffix, either from input or based on the language.
-    """
+    """Get the file suffix, either from input or based on the language."""
     if given_file_extension is None:
         language_to_suffix = _map_languages_to_suffix()
         given_file_extension = language_to_suffix.get(language.lower(), ".txt")
@@ -363,9 +477,7 @@ def _get_temporary_file_extension(
 
 @beartype
 def _resolve_workers(*, requested_workers: int) -> int:
-    """
-    Resolve the input worker count, auto-detecting CPUs when zero.
-    """
+    """Resolve the input worker count, auto-detecting CPUs when zero."""
     if requested_workers != 0:
         return requested_workers
 
@@ -381,9 +493,7 @@ def _evaluate_document(
     document: Document,
     example_workers: int,
 ) -> None:
-    """
-    Evaluate the document.
-    """
+    """Evaluate the document."""
     examples = tuple(document.examples())
     if example_workers == 1 or len(examples) in {0, 1}:
         for example in examples:
@@ -400,7 +510,8 @@ def _evaluate_document(
 @beartype
 class _GroupModifiedError(Exception):
     """
-    Error raised when there was an attempt to modify a code block in a group.
+    Error raised when there was an attempt to modify a code block in a
+    group.
     """
 
     def __init__(
@@ -409,16 +520,12 @@ class _GroupModifiedError(Exception):
         example: Example,
         modified_example_content: str,
     ) -> None:
-        """
-        Initialize the error.
-        """
+        """Initialize the error."""
         self._example = example
         self._modified_example_content = modified_example_content
 
     def __str__(self) -> str:
-        """
-        Get the string representation of the error.
-        """
+        """Get the string representation of the error."""
         unified_diff = difflib.unified_diff(
             a=str(object=self._example.parsed).lstrip().splitlines(),
             b=self._modified_example_content.lstrip().splitlines(),
@@ -442,9 +549,7 @@ class _GroupModifiedError(Exception):
 
 @dataclass
 class _CollectedError:
-    """
-    Error collected during continue-on-error mode.
-    """
+    """Error collected during continue-on-error mode."""
 
     message: str
     exit_code: int
@@ -452,13 +557,12 @@ class _CollectedError:
 
 class _FatalProcessingError(Exception):
     """
-    Error raised when processing a document requires exiting immediately.
+    Error raised when processing a document requires exiting
+    immediately.
     """
 
     def __init__(self, exit_code: int) -> None:
-        """
-        Capture the exit code doccmd should terminate with.
-        """
+        """Capture the exit code doccmd should terminate with."""
         self.exit_code = exit_code
         super().__init__()
 
@@ -471,9 +575,7 @@ def _handle_error(
     continue_on_error: bool,
     exc: Exception | None = None,
 ) -> _CollectedError:
-    """
-    Handle an error by either returning it or raising a fatal error.
-    """
+    """Handle an error by either returning it or raising a fatal error."""
     if continue_on_error:
         return _CollectedError(message=message, exit_code=exit_code)
     raise _FatalProcessingError(exit_code=exit_code) from exc
@@ -490,6 +592,7 @@ def _process_file_path(
     write_to_file: bool,
     pad_groups: bool,
     temporary_file_name_prefix: str,
+    temporary_file_name_template: str,
     given_temporary_file_extension: str | None,
     skip_directives: Iterable[str],
     group_markers: Iterable[str],
@@ -503,9 +606,7 @@ def _process_file_path(
     continue_on_error: bool,
     example_workers: int,
 ) -> list[_CollectedError]:
-    """
-    Process a single documentation file.
-    """
+    """Process a single documentation file."""
     local_errors: list[_CollectedError] = []
     markup_language = suffix_map[file_path.suffix]
     encoding = _get_encoding(document_path=file_path)
@@ -543,6 +644,7 @@ def _process_file_path(
             pad_groups=pad_groups,
             temporary_file_extension=temporary_file_extension,
             temporary_file_name_prefix=temporary_file_name_prefix,
+            temporary_file_name_template=temporary_file_name_template,
             skip_directives=skip_directives,
             group_markers=group_markers,
             group_file=group_file,
@@ -566,6 +668,7 @@ def _process_file_path(
             pad_groups=pad_groups,
             temporary_file_extension=temporary_file_extension,
             temporary_file_name_prefix=temporary_file_name_prefix,
+            temporary_file_name_template=temporary_file_name_template,
             skip_directives=skip_directives,
             group_markers=group_markers,
             group_file=group_file,
@@ -658,7 +761,8 @@ def _raise_group_modified(
     modified_example_content: str,
 ) -> None:
     """
-    Raise an error when there was an attempt to modify a code block in a group.
+    Raise an error when there was an attempt to modify a code block in a
+    group.
     """
     raise _GroupModifiedError(
         example=example,
@@ -668,9 +772,7 @@ def _raise_group_modified(
 
 @beartype
 def _get_encoding(*, document_path: Path) -> str | None:
-    """
-    Get the encoding of the file.
-    """
+    """Get the encoding of the file."""
     content_bytes = document_path.read_bytes()
     charset_matches = charset_normalizer.from_bytes(sequences=content_bytes)
     best_match = charset_matches.best()
@@ -687,6 +789,7 @@ def _get_sybil(
     code_block_languages: Sequence[str],
     temporary_file_extension: str,
     temporary_file_name_prefix: str,
+    temporary_file_name_template: str,
     pad_temporary_file: bool,
     write_to_file: bool,
     pad_groups: bool,
@@ -700,9 +803,7 @@ def _get_sybil(
     newline: str | None,
     parse_sphinx_jinja2: bool,
 ) -> Sybil:
-    """
-    Get a Sybil for running commands on the given file.
-    """
+    """Get a Sybil for running commands on the given file."""
     # Add default "all" marker if:
     # - Not using group_file
     # - AND (not using group_mdx_by_attribute OR this is not an MDX file)
@@ -717,14 +818,17 @@ def _get_sybil(
     all_group_markers = {*group_markers, *default_group_markers}
     group_directives = _get_group_directives(markers=all_group_markers)
 
-    tempfile_suffixes = (temporary_file_extension,)
+    temp_file_path_maker = _TempFilePathMaker(
+        prefix=temporary_file_name_prefix,
+        suffix=temporary_file_extension,
+        template=temporary_file_name_template,
+    )
 
     shell_command_evaluator = ShellCommandEvaluator(
         args=args,
-        tempfile_suffixes=tempfile_suffixes,
+        temp_file_path_maker=temp_file_path_maker,
         pad_file=pad_temporary_file,
         write_to_file=write_to_file,
-        tempfile_name_prefix=temporary_file_name_prefix,
         newline=newline,
         use_pty=use_pty,
         encoding=encoding,
@@ -732,11 +836,10 @@ def _get_sybil(
 
     shell_command_group_evaluator = ShellCommandEvaluator(
         args=args,
-        tempfile_suffixes=tempfile_suffixes,
+        temp_file_path_maker=temp_file_path_maker,
         pad_file=pad_temporary_file,
         # We do not write to file for grouped code blocks.
         write_to_file=False,
-        tempfile_name_prefix=temporary_file_name_prefix,
         newline=newline,
         use_pty=use_pty,
         encoding=encoding,
@@ -1041,6 +1144,25 @@ def _get_sybil(
         ),
     ),
     cloup.option(
+        "temporary_file_name_template",
+        "--temporary-file-name-template",
+        type=str,
+        default="{prefix}_{source}_l{line}__{unique}_{suffix}",
+        show_default=True,
+        required=True,
+        callback=_validate_template,
+        help=(
+            "The template for the temporary file name. "
+            "Available placeholders: "
+            "{prefix} (from --temporary-file-name-prefix), "
+            "{source} (sanitized source filename), "
+            "{line} (line number), "
+            "{unique} (unique identifier), "
+            "{suffix} (file extension, required). "
+            "Example: '{prefix}_{unique}{suffix}' produces 'doccmd_a1b2.py'."
+        ),
+    ),
+    cloup.option(
         "--pad-file/--no-pad-file",
         is_flag=True,
         default=True,
@@ -1172,6 +1294,18 @@ def _get_sybil(
             "Use forward slashes on all platforms."
         ),
     ),
+    cloup.option(
+        "--respect-gitignore/--no-respect-gitignore",
+        "respect_gitignore",
+        is_flag=True,
+        default=True,
+        show_default=True,
+        help=(
+            "Respect .gitignore files when recursively discovering files "
+            "in directories. "
+            "Files passed directly are not affected by this option."
+        ),
+    ),
 )
 @cloup.option_group(
     "Execution options",
@@ -1282,6 +1416,7 @@ def main(
     document_paths: Sequence[Path],
     temporary_file_extension: str | None,
     temporary_file_name_prefix: str,
+    temporary_file_name_template: str,
     pad_file: bool,
     write_to_file: bool,
     pad_groups: bool,
@@ -1299,6 +1434,7 @@ def main(
     norg_suffixes: Sequence[str],
     max_depth: int,
     exclude_patterns: Sequence[str],
+    respect_gitignore: bool,
     fail_on_parse_error: bool,
     fail_on_group_write: bool,
     sphinx_jinja2: bool,
@@ -1345,6 +1481,7 @@ def main(
         file_suffixes=suffix_map.keys(),
         max_depth=max_depth,
         exclude_patterns=exclude_patterns,
+        respect_gitignore=respect_gitignore,
     )
 
     log_command_evaluators = []
@@ -1390,6 +1527,7 @@ def main(
                         write_to_file=write_to_file,
                         pad_groups=pad_groups,
                         temporary_file_name_prefix=temporary_file_name_prefix,
+                        temporary_file_name_template=temporary_file_name_template,
                         given_temporary_file_extension=given_temporary_file_extension,
                         skip_directives=skip_directives,
                         group_markers=group_markers,
@@ -1420,6 +1558,7 @@ def main(
                     write_to_file=write_to_file,
                     pad_groups=pad_groups,
                     temporary_file_name_prefix=temporary_file_name_prefix,
+                    temporary_file_name_template=temporary_file_name_template,
                     given_temporary_file_extension=given_temporary_file_extension,
                     skip_directives=skip_directives,
                     group_markers=group_markers,

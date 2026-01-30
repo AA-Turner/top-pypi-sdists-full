@@ -148,6 +148,43 @@ class TestGitStorage:
             assert body["base_repo"]["provider"] == "github"
 
     @pytest.mark.asyncio
+    async def test_create_repo_with_fork_base_repo(self, git_storage_options: dict) -> None:
+        """Test creating a forked repository."""
+        storage = GitStorage(git_storage_options)
+
+        mock_post_response = MagicMock()
+        mock_post_response.status_code = 200
+        mock_post_response.is_success = True
+        mock_post_response.json.return_value = {"repo_id": "test-repo"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=mock_post_response)
+
+            repo = await storage.create_repo(
+                id="test-repo",
+                base_repo={
+                    "id": "template-repo",
+                    "ref": "develop",
+                },
+            )
+            assert repo.default_branch == "main"
+
+            call_kwargs = client_instance.post.call_args[1]
+            body = call_kwargs["json"]
+            assert "default_branch" not in body
+            assert body["base_repo"]["provider"] == "code"
+            assert body["base_repo"]["owner"] == "test-customer"
+            assert body["base_repo"]["name"] == "template-repo"
+            assert body["base_repo"]["operation"] == "fork"
+            assert body["base_repo"]["ref"] == "develop"
+
+            token = body["base_repo"]["auth"]["token"]
+            payload = jwt.decode(token, options={"verify_signature": False})
+            assert payload["repo"] == "template-repo"
+            assert payload["scopes"] == ["git:read"]
+
+    @pytest.mark.asyncio
     async def test_create_repo_conflict(self, git_storage_options: dict) -> None:
         """Test creating a repository that already exists."""
         storage = GitStorage(git_storage_options)

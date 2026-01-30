@@ -760,3 +760,219 @@ class ProjectTests(TestCase):
         duplicate_stages = [s for s in loaded_project.scripts if s.id == "duplicate-id"]
         self.assertEqual(len(duplicate_stages), 1)
         self.assertEqual(duplicate_stages[0].title, "Script 1")  # First one is kept
+
+    def test_load_removes_orphan_transitions(self):
+        """Test that orphan transitions (pointing to non-existent stages) are removed on load"""
+        import json
+
+        # Create a corrupted JSON file with orphan transitions
+        corrupted_data = {
+            "version": "17.0",
+            "workspace": {
+                "name": "Test",
+                "language": "en",
+                "theme": None,
+                "logo_url": None,
+                "favicon_url": None,
+                "brand_name": None,
+                "main_color": None,
+                "font_family": None,
+                "font_color": None,
+            },
+            "home": {"access_control": {"is_public": False, "required_roles": []}},
+            "scripts": [
+                {
+                    "id": "script1",
+                    "file": "script1.py",
+                    "title": "Script 1",
+                    "workflow_position": [0, 0],
+                    "is_initial": True,
+                    "transitions": [
+                        {
+                            "id": "valid-transition",
+                            "target_id": "script2",
+                            "target_type": "script",
+                            "type": "task",
+                            "task_type": None,
+                        },
+                        {
+                            "id": "orphan-transition",
+                            "target_id": "deleted-stage-id",  # ORPHAN - stage doesn't exist
+                            "target_type": "script",
+                            "type": "task",
+                            "task_type": None,
+                        },
+                    ],
+                    "input": False,
+                    "output": False,
+                },
+                {
+                    "id": "script2",
+                    "file": "script2.py",
+                    "title": "Script 2",
+                    "workflow_position": [100, 100],
+                    "is_initial": False,
+                    "transitions": [],
+                    "input": False,
+                    "output": False,
+                },
+            ],
+            "forms": [],
+            "hooks": [],
+            "jobs": [],
+            "components": [],
+        }
+
+        # Write corrupted data to file
+        json_path = self.project_repository.get_file_path()
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(corrupted_data, f, indent=2)
+
+        # Load should remove orphan transitions without crashing
+        loaded_project = self.project_repository.load()
+
+        # Verify project loaded successfully
+        self.assertIsNotNone(loaded_project)
+
+        # Get script1 and verify only valid transition remains
+        script1 = loaded_project.get_script("script1")
+        self.assertIsNotNone(script1)
+        assert script1 is not None
+
+        self.assertEqual(len(script1.workflow_transitions), 1)
+        self.assertEqual(script1.workflow_transitions[0].id, "valid-transition")
+        self.assertEqual(script1.workflow_transitions[0].target_id, "script2")
+
+    def test_load_handles_all_orphan_transitions(self):
+        """Test that a stage with only orphan transitions loads correctly with empty transitions"""
+        import json
+
+        # Create a JSON file where ALL transitions are orphans
+        data = {
+            "version": "17.0",
+            "workspace": {
+                "name": "Test",
+                "language": "en",
+                "theme": None,
+                "logo_url": None,
+                "favicon_url": None,
+                "brand_name": None,
+                "main_color": None,
+                "font_family": None,
+                "font_color": None,
+            },
+            "home": {"access_control": {"is_public": False, "required_roles": []}},
+            "scripts": [
+                {
+                    "id": "script1",
+                    "file": "script1.py",
+                    "title": "Script 1",
+                    "workflow_position": [0, 0],
+                    "is_initial": True,
+                    "transitions": [
+                        {
+                            "id": "orphan1",
+                            "target_id": "non-existent-1",
+                            "target_type": "script",
+                            "type": "task",
+                            "task_type": None,
+                        },
+                        {
+                            "id": "orphan2",
+                            "target_id": "non-existent-2",
+                            "target_type": "form",
+                            "type": "task",
+                            "task_type": None,
+                        },
+                    ],
+                    "input": False,
+                    "output": False,
+                },
+            ],
+            "forms": [],
+            "hooks": [],
+            "jobs": [],
+            "components": [],
+        }
+
+        # Write data to file
+        json_path = self.project_repository.get_file_path()
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        # Load should succeed without crashing
+        loaded_project = self.project_repository.load()
+
+        # Verify project loaded successfully with no transitions
+        script1 = loaded_project.get_script("script1")
+        self.assertIsNotNone(script1)
+        assert script1 is not None
+
+        self.assertEqual(len(script1.workflow_transitions), 0)
+
+    def test_save_removes_orphan_transitions(self):
+        """Test that orphan transitions are removed when saving a project"""
+        project = self.project_repository.load()
+
+        script1 = ScriptStage(
+            file="script1.py",
+            id="script1",
+            is_initial=True,
+            title="Script 1",
+            workflow_position=(0, 0),
+            workflow_transitions=[],
+        )
+
+        script2 = ScriptStage(
+            file="script2.py",
+            id="script2",
+            is_initial=False,
+            title="Script 2",
+            workflow_position=(100, 100),
+            workflow_transitions=[],
+        )
+
+        # Create one valid and one orphan transition
+        valid_transition = WorkflowTransition(
+            id="valid",
+            target_id=script2.id,
+            target_type=script2.type_name,
+            type="task",
+        )
+
+        orphan_transition = WorkflowTransition(
+            id="orphan",
+            target_id="non-existent-stage",  # This stage doesn't exist
+            target_type="script",
+            type="task",
+        )
+
+        script1.workflow_transitions.append(valid_transition)
+        script1.workflow_transitions.append(orphan_transition)
+
+        project.add_stage(script1)
+        project.add_stage(script2)
+
+        # Save should remove orphan transitions
+        self.project_repository.save(project)
+
+        # Verify orphan was removed from saved file
+        import json
+
+        json_path = self.project_repository.get_file_path()
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        script1_data = next(s for s in data["scripts"] if s["id"] == "script1")
+        self.assertEqual(len(script1_data["transitions"]), 1)
+        self.assertEqual(script1_data["transitions"][0]["id"], "valid")
+
+        # Load and verify
+        loaded_project = self.project_repository.load()
+        loaded_script1 = loaded_project.get_script("script1")
+
+        self.assertIsNotNone(loaded_script1)
+        assert loaded_script1 is not None
+
+        self.assertEqual(len(loaded_script1.workflow_transitions), 1)
+        self.assertEqual(loaded_script1.workflow_transitions[0].id, "valid")

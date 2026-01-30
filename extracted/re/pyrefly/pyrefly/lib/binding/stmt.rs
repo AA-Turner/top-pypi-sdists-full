@@ -129,7 +129,7 @@ impl<'a> BindingsBuilder<'a> {
             let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
             self.ensure_expr(&mut msg_expr, msg.usage());
             let idx = self.insert_binding(
-                KeyExpect(msg_expr.range()),
+                KeyExpect::TypeCheckExpr(msg_expr.range()),
                 BindingExpect::TypeCheckExpr(msg_expr),
             );
             self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
@@ -562,7 +562,7 @@ impl<'a> BindingsBuilder<'a> {
                     // check that in that case the annotations match.
                     if let Some(ann) = canonical_ann_idx {
                         self.insert_binding(
-                            KeyExpect(name.range),
+                            KeyExpect::Redefinition(name.range),
                             BindingExpect::Redefinition {
                                 new: ann_idx,
                                 existing: ann,
@@ -595,15 +595,14 @@ impl<'a> BindingsBuilder<'a> {
                         .record_self_attr_assign(&attr, value.clone(), Some(ann_key))
                     {
                         self.error(
-                             x.range,
-                             ErrorInfo::Kind(ErrorKind::BadAssignment),
-                             format!(
-                                "Type cannot be declared in assignment to non-self attribute `{}.{}`",
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::BadAssignment),
+                            format!(
+                                "Cannot annotate non-self attribute `{}.{}`",
                                 self.module_info.display(&attr.value),
                                 attr_name,
                             ),
-
-                         );
+                        );
                     }
                 }
                 mut target => {
@@ -760,7 +759,10 @@ impl<'a> BindingsBuilder<'a> {
                     NarrowUseLocation::Span(x.range),
                     &Usage::Narrowing(None),
                 );
-                self.insert_binding(KeyExpect(x.test.range()), BindingExpect::Bool(*x.test));
+                self.insert_binding(
+                    KeyExpect::Bool(x.test.range()),
+                    BindingExpect::Bool(*x.test),
+                );
                 self.stmts(x.body, parent);
                 // For while True: loops, the loop body definitely runs at least once
                 self.teardown_loop(
@@ -818,7 +820,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(test_expr) = test {
                         // Typecheck the test condition during solving.
                         self.insert_binding(
-                            KeyExpect(test_expr.range()),
+                            KeyExpect::Bool(test_expr.range()),
                             BindingExpect::Bool(test_expr),
                         );
                     }
@@ -891,7 +893,7 @@ impl<'a> BindingsBuilder<'a> {
                         RaisedException::WithoutCause(*exc)
                     };
                     let idx = self.insert_binding(
-                        KeyExpect(x.range),
+                        KeyExpect::CheckRaisedException(x.range),
                         BindingExpect::CheckRaisedException(raised),
                     );
                     self.insert_binding_current(
@@ -1095,10 +1097,6 @@ impl<'a> BindingsBuilder<'a> {
                     .insert_binding_current(current, Binding::StmtExpr(*x.value, special_export));
                 // Track this StmtExpr as the trailing statement for type-based termination
                 self.scopes.set_last_stmt_expr(Some(key));
-                // TODO(stroxler): PytestNoReturn may now be redundant given type-based termination
-                if special_export == Some(SpecialExport::PytestNoReturn) {
-                    self.scopes.mark_flow_termination(false);
-                }
             }
             Stmt::Pass(_) => { /* no-op */ }
             Stmt::Break(x) => {

@@ -54,7 +54,6 @@ import functools
 import json
 import multiprocessing
 import os
-import pathlib
 import platform
 import queue
 import random
@@ -94,6 +93,8 @@ HGPORT_COUNT = 4
 
 RUNTEST_DIR = os.path.abspath(os.path.dirname(__file__.encode('utf-8')))
 RUNTEST_DIR_FORWARD_SLASH = RUNTEST_DIR.replace(os.sep.encode('utf-8'), b'/')
+
+INITIAL_CWD = os.getcwdb()
 
 
 processlock = threading.Lock()
@@ -163,7 +164,7 @@ if pygmentspresent:
         }
 
     class TestRunnerLexer(lexer.RegexLexer):
-        testpattern = r'[\w-]+\.(t|py)(#[a-zA-Z0-9_\-\.]+)?'
+        testpattern = r'[\w/-]+\.(t|py)(#[a-zA-Z0-9_\-\.]+)?'
         tokens = {
             'root': [
                 (r'^Skipped', _T_SKIPPED, 'skipped'),
@@ -626,6 +627,12 @@ def getparser():
         "and --with-chg=<testdir>/../contrib/chg/chg if --chg is set",
     )
     hgconf.add_argument(
+        "--py-installer",
+        choices=["auto", "uv", "pip"],
+        default="auto",
+        help="Python installer: auto|uv|pip (default: auto)",
+    )
+    hgconf.add_argument(
         "--ipv6",
         action="store_true",
         help="prefer IPv6 to IPv4 for network related tests",
@@ -668,6 +675,11 @@ def getparser():
         metavar="HG",
         help="test using specified hg script rather than a "
         "temporary installation",
+    )
+    hgconf.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disable network access (requires UV)",
     )
 
     reporting = parser.add_argument_group('Results Reporting')
@@ -764,12 +776,9 @@ def parseargs(args, parser):
             parser.error('--pyoxidized does not work with --local (yet)')
         testdir = os.path.dirname(_sys2bytes(canonpath(sys.argv[0])))
         reporootdir = os.path.dirname(testdir)
-        venv_local = b'.venv_%s%d.%d' % (
-            sys.implementation.name.encode(),
-            sys.version_info.major,
-            sys.version_info.minor,
+        path_local_hg = os.path.join(
+            reporootdir, b'.local-venv', BINDIRNAME, b"hg"
         )
-        path_local_hg = os.path.join(reporootdir, venv_local, BINDIRNAME, b"hg")
         if not os.path.exists(path_local_hg):
             if "HGTEST_REAL_HG" in os.environ:
                 # this file is run from a test (typically test-run-tests.t)
@@ -777,17 +786,9 @@ def parseargs(args, parser):
                 path_local_hg = os.path.join(reporootdir, b"hg")
             else:
                 message = (
-                    f"run-tests.py called with --local but {_bytes2sys(venv_local)} does not exist.\n"
+                    f"run-tests.py called with --local but .local-venv does not exist.\n"
                     f'To create it, run \nmake local PYTHON="{sys.executable}"'
                 )
-                paths_venv = sorted(
-                    pathlib.Path(_bytes2sys(reporootdir)).glob(".venv_*")
-                )
-                if paths_venv:
-                    message += (
-                        "\nAlternatively, call run-tests.py with a Python "
-                        f"corresponding to {[p.name for p in paths_venv]}."
-                    )
                 print(message, file=sys.stderr)
                 sys.exit(1)
 
@@ -1153,13 +1154,15 @@ class Test(unittest.TestCase):
         self.path = path
         self.relpath = os.path.relpath(path)
         self.bname = os.path.basename(path)
-        self.name = _bytes2sys(self.bname)
+        base_relpath = _bytes2sys(os.path.relpath(path, INITIAL_CWD))
+        self.name = base_relpath.replace(os.path.sep, '/')
         self._testdir = os.path.dirname(path)
         self._outputdir = outputdir
         self._tmpname = os.path.basename(path)
         self.errpath = os.path.join(self._outputdir, b'%s.err' % self.bname)
 
         self._threadtmp = tmpdir
+        self._hgrcpath = os.path.join(self._threadtmp, b'.hgrc')
         self._keeptmpdir = keeptmpdir
         self._debug = debug
         self._first = first
@@ -1439,6 +1442,10 @@ class Test(unittest.TestCase):
                 (br'([^0-9])%s' % re.escape(self._localip()), br'\1$LOCALIP'),
                 (br'\bHG_TXNID=TXN:[a-f0-9]{40}\b', br'HG_TXNID=TXN:$ID$'),
                 (self._escapepath(self._testtmp), b'$TESTTMP'),
+                (self._escapepath(self._hgrcpath), b'$HGRCPATH'),
+                (self._escapepath(self._testdir), b'$TESTDIR'),
+                # we don't add escape for RUNTEST_DIR because it might be the
+                # same as TESTDIR and the replacement won't work well.
             ]
         )
 
@@ -1447,6 +1454,10 @@ class Test(unittest.TestCase):
             # double-escape.
             replaced = self._testtmp.replace(b'\\', br'\\')
             r.append((self._escapepath(replaced), b'$STR_REPR_TESTTMP'))
+            replaced = self._hgrcpath.replace(b'\\', br'\\')
+            r.append((self._escapepath(replaced), b'$STR_REPR_HGRCPATH'))
+            replaced = self._testdir.replace(b'\\', br'\\')
+            r.append((self._escapepath(replaced), b'$STR_REPR_TESTDIR'))
 
         replacementfile = os.path.join(self._testdir, b'common-pattern.py')
 
@@ -1543,7 +1554,7 @@ class Test(unittest.TestCase):
 
         for port in range(HGPORT_COUNT):
             defineport(port)
-        env["HGRCPATH"] = _bytes2sys(os.path.join(self._threadtmp, b'.hgrc'))
+        env["HGRCPATH"] = _bytes2sys(self._hgrcpath)
         env["DAEMON_PIDS"] = _bytes2sys(
             os.path.join(self._threadtmp, b'daemon.pids')
         )
@@ -2805,9 +2816,9 @@ class TestSuite(unittest.TestSuite):
 def loadtimes(outputdir):
     times = []
     try:
-        with open(os.path.join(outputdir, b'.testtimes')) as fp:
+        with open(os.path.join(outputdir, b'.testtimes'), 'br') as fp:
             for line in fp:
-                m = re.match('(.*?) ([0-9. ]+)', line)
+                m = re.match(b'(.*?) ([0-9. ]+)', line)
                 times.append(
                     (m.group(1), [float(t) for t in m.group(2).split()])
                 )
@@ -2820,19 +2831,26 @@ def savetimes(outputdir, result):
     saved = dict(loadtimes(outputdir))
     maxruns = 5
     skipped = {str(t[0]) for t in result.skipped}
+    new_times = collections.defaultdict(list)
     for tdata in result.times:
-        test, real = tdata[0], tdata[3]
+        test_full, real = _sys2bytes(tdata[0]), tdata[3]
+        test = test_full.split(b'#', 1)[0]
         if test not in skipped:
-            ts = saved.setdefault(test, [])
-            ts.append(real)
-            ts[:] = ts[-maxruns:]
+            new_times[test].append(real)
+
+    for test, new in new_times.items():
+        # keep the slowest variant last
+        new.sort()
+        all_times = (saved.get(test, []) + new)[-maxruns:]
+        saved[test] = all_times
 
     fd, tmpname = tempfile.mkstemp(
         prefix=b'.testtimes', dir=outputdir, text=True
     )
-    with os.fdopen(fd, 'w') as fp:
+    with os.fdopen(fd, 'wb') as fp:
         for name, ts in sorted(saved.items()):
-            fp.write('%s %s\n' % (name, ' '.join(['%.3f' % (t,) for t in ts])))
+            times = b' '.join([b'%.3f' % (t,) for t in ts])
+            fp.write(b'%s %s\n' % (name, times))
     timepath = os.path.join(outputdir, b'.testtimes')
     try:
         os.unlink(timepath)
@@ -3093,26 +3111,27 @@ def sorttests(testdescs, previoustimes, shuffle=False):
             f = f['path']
             if f in previoustimes:
                 # Use most recent time as estimate
-                return -(previoustimes[f][-1])
+                return previoustimes[f][-1]
             else:
                 # Default to a rather arbitrary value of 1 second for new tests
-                return -1.0
+                return 1.0
 
     else:
         # keywords for slow tests
         slow = {
-            b'svn': 10,
-            b'cvs': 10,
-            b'hghave': 10,
-            b'largefiles-update': 10,
-            b'run-tests': 10,
-            b'corruption': 10,
-            b'race': 10,
-            b'i18n': 10,
             b'check': 100,
-            b'gendoc': 100,
             b'contrib-perf': 200,
+            b'corruption': 10,
+            b'cvs': 10,
+            b'gendoc': 100,
+            b'hghave': 10,
+            b'i18n': 10,
+            b'largefiles-update': 10,
             b'merge-combination': 100,
+            b'race': 10,
+            b'run-tests': 10,
+            b'sparse-revlog': 50,
+            b'svn': 10,
         }
         perf = {}
 
@@ -3123,10 +3142,10 @@ def sorttests(testdescs, previoustimes, shuffle=False):
                 return perf[f]
             except KeyError:
                 try:
-                    val = -os.stat(f).st_size
+                    val = os.stat(f).st_size
                 except FileNotFoundError:
-                    perf[f] = -1e9  # file does not exist, tell early
-                    return -1e9
+                    perf[f] = 1e9  # file does not exist, tell early
+                    return 1e9
                 for kw, mul in slow.items():
                     if kw in f:
                         val *= mul
@@ -3135,7 +3154,7 @@ def sorttests(testdescs, previoustimes, shuffle=False):
                 perf[f] = val / 1000.0
                 return perf[f]
 
-    testdescs.sort(key=sortkey)
+    testdescs.sort(key=sortkey, reverse=True)
 
 
 class TestRunner:
@@ -3284,18 +3303,6 @@ class TestRunner:
         self._custom_bin_dir = os.path.join(self._hgtmp, b'custom-bin')
         os.makedirs(self._custom_bin_dir)
 
-        # detect and enforce an alternative way to specify rust extension usage
-        if (
-            not (
-                self.options.wheel
-                or self.options.pure
-                or self.options.rust
-                or self.options.no_rust
-            )
-            and os.environ.get("HGWITHRUSTEXT") == "cpython"
-        ):
-            self.options.rust = True
-
         if self.options.with_hg:
             self._installdir = None
             whg = self.options.with_hg
@@ -3348,8 +3355,10 @@ class TestRunner:
             subprocess.run(command_create_venv, check=True)
 
             bindir = b"Scripts" if WINDOWS else b"bin"
+            python = b"python.exe" if WINDOWS else b"python"
+
             self._bindir = os.path.join(self._installdir, bindir)
-            self._python = _bytes2sys(os.path.join(self._bindir, b"python"))
+            self._python = _bytes2sys(os.path.join(self._bindir, python))
             self._pythondir = get_site_packages_dir(self._python)
 
         # Force the use of hg.exe instead of relying on MSYS to recognize hg is
@@ -3359,8 +3368,11 @@ class TestRunner:
         #
         # We do not do it when using wheels and they do not install a .exe.
         if WINDOWS and not self.options.wheel:
-            # Currently no hg.exe without compiler
-            if self.options.pure:
+            # Currently no hg.exe without compiler, unless `run-tests.py` was
+            # invoked without --pure, but then a *.t file invoked it again with
+            # `--pure` (looking at you, test-hghave.t).  In that case, don't
+            # try to run hg.exe.bat.
+            if self.options.pure and not self._hgcommand.endswith(b'.exe'):
                 self._hgcommand += b'.bat'
             elif not self._hgcommand.endswith(b'.exe'):
                 self._hgcommand += b'.exe'
@@ -3453,14 +3465,12 @@ class TestRunner:
         if self.options.pure:
             os.environ["HGTEST_RUN_TESTS_PURE"] = "--pure"
             os.environ["HGMODULEPOLICY"] = "py"
-            os.environ.pop("HGWITHRUSTEXT", None)
         if self.options.rust:
             os.environ["HGMODULEPOLICY"] = "rust+c"
         if self.options.no_rust:
             current_policy = os.environ.get("HGMODULEPOLICY", "")
             if current_policy.startswith("rust+"):
                 os.environ["HGMODULEPOLICY"] = current_policy[len("rust+") :]
-            os.environ.pop("HGWITHRUSTEXT", None)
 
         if self.options.allow_slow_tests:
             os.environ["HGTEST_SLOW"] = "slow"
@@ -3833,7 +3843,11 @@ class TestRunner:
                 # its own dll
                 path = os.environ['PATH'].split(os.pathsep)
                 main_exec_dir = os.path.dirname(self._python)
-                extra_paths = [_bytes2sys(self._custom_bin_dir), main_exec_dir]
+                extra_paths = [
+                    _bytes2sys(self._custom_bin_dir),
+                    main_exec_dir,
+                    sys.base_exec_prefix,  # for python3X.dll in main install
+                ]
 
                 # Binaries installed by pip into the user area like pylint.exe may
                 # not be in PATH by default.
@@ -3853,7 +3867,9 @@ class TestRunner:
         if self._hgcommand != b'hg':
             real_exec = shutil.which(self._hgcommand)
             if real_exec is None:
-                raise ValueError('could not find exec path for "%s"', real_exec)
+                raise ValueError(
+                    'could not find exec path for "%s"', self._hgcommand
+                )
             if real_exec == target_exec:
                 # do not overwrite something with itself
                 return
@@ -3905,11 +3921,33 @@ class TestRunner:
         hgroot = os.path.dirname(os.path.dirname(script))
         self._hgroot = hgroot
         os.chdir(hgroot)
-        cmd = [self._pythonb, b"-m", b"pip", b"install", b"."]
+
+        if self.options.py_installer == "auto":
+            if shutil.which("uv") is None:
+                installer = "pip"
+            else:
+                installer = "uv"
+        else:
+            installer = self.options.py_installer
+
+        if installer == "uv":
+            cmd = [b"uv", b"pip", b"install", b".", b"-p", self._pythonb]
+            if self.options.offline:
+                cmd.append(b"--offline")
+        else:
+            if self.options.offline:
+                sys.stderr.write("fatal: --offline requires UV\n")
+                sys.exit(1)
+            cmd = [self._pythonb, b"-m", b"pip", b"install", b"."]
+
         if setup_opts:
-            cmd.extend(
-                [b"--config-settings", b"--global-option=%s" % setup_opts]
-            )
+            if installer == "uv":
+                cmd.append(b"-C=--global-option=%s" % setup_opts)
+            else:
+                cmd.extend(
+                    [b"--config-settings", b"--global-option=%s" % setup_opts]
+                )
+
         return cmd
 
     def _installhg(self):
@@ -3926,10 +3964,9 @@ class TestRunner:
             install_env["PYTHONUSERBASE"] = _bytes2sys(self._installdir)
 
         installerrs = os.path.join(self._hgtmp, b"install.err")
-        if self.options.pure:
-            install_env.pop('HGWITHRUSTEXT', None)
-        elif self.options.no_rust:
-            install_env.pop('HGWITHRUSTEXT', None)
+
+        if self.options.offline:
+            install_env["CARGO_NET_OFFLINE"] = "1"
 
         vlog("# Running", cmd)
         with open(installerrs, "wb") as logfile:

@@ -19,12 +19,13 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/wandb/simplejsonext"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/runhandle"
 	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/sharedmode"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
@@ -184,7 +185,12 @@ func (sm *SystemMonitor) initializeResources(gpuResourceManager *GPUResourceMana
 		sm.resources = append(sm.resources, tpu)
 	}
 
-	if trainium := NewTrainium(sm.logger, pid, samplingInterval, neuronMonitorConfigPath); trainium != nil {
+	if trainium := NewTrainium(
+		sm.logger,
+		pid,
+		samplingInterval,
+		neuronMonitorConfigPath,
+	); trainium != nil {
 		sm.resources = append(sm.resources, trainium)
 	}
 

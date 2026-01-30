@@ -15,8 +15,6 @@ short_description: Gather infos about Hetzner Storage Box Subaccounts.
 description:
     - Gather infos about Hetzner Storage Box Subaccounts.
     - See the L(Storage Box Subaccounts API documentation,https://docs.hetzner.cloud/reference/hetzner#storage-box-subaccounts) for more details.
-    - B(Experimental:) Storage Box support is experimental, breaking changes may occur within minor releases.
-      See https://github.com/ansible-collections/hetzner.hcloud/issues/756 for more details.
 
 author:
     - Jonas Lammler (@jooola)
@@ -158,12 +156,10 @@ hcloud_storage_box_subaccount_info:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils import storage_box, storage_box_subaccount
-from ..module_utils.experimental import storage_box_experimental_warning
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.storage_box_subaccount import NAME_LABEL_KEY
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.storage_boxes import (
+from ..module_utils import _storage_box, _storage_box_subaccount
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.storage_boxes import (
     BoundStorageBox,
     BoundStorageBoxSubaccount,
 )
@@ -175,25 +171,17 @@ class AnsibleStorageBoxSubaccountInfo(AnsibleHCloud):
     storage_box: BoundStorageBox | None = None
     storage_box_subaccounts: list[BoundStorageBoxSubaccount] | None = None
 
-    def __init__(self, module: AnsibleModule):
-        storage_box_experimental_warning(module)
-        super().__init__(module)
-
     def _prepare_result(self):
         result = []
 
         for o in self.storage_box_subaccounts or []:
             if o is not None:
-                # Workaround the missing name property
-                # Get the name of the resource from the labels
-                name = o.labels.pop(NAME_LABEL_KEY)
-
-                result.append(storage_box_subaccount.prepare_result(o, name))
+                result.append(_storage_box_subaccount.prepare_result(o))
         return result
 
     def fetch(self):
         try:
-            self.storage_box = storage_box.get(
+            self.storage_box = _storage_box.get(
                 self.client.storage_boxes,
                 self.module.params.get("storage_box"),
             )
@@ -201,7 +189,11 @@ class AnsibleStorageBoxSubaccountInfo(AnsibleHCloud):
             if (value := self.module.params.get("id")) is not None:
                 self.storage_box_subaccounts = [self.storage_box.get_subaccount_by_id(value)]
             elif (value := self.module.params.get("name")) is not None:
-                self.storage_box_subaccounts = [storage_box_subaccount.get_by_name(self.storage_box, value)]
+                self.storage_box_subaccounts = [self.storage_box.get_subaccount_by_name(value)]
+
+                # Backward compatible upgrade from label based name
+                if not self.storage_box_subaccounts or self.storage_box_subaccounts[0] is None:
+                    self.storage_box_subaccounts = [_storage_box_subaccount.get_by_label_name(self.storage_box, value)]
             else:
                 params = {}
                 if (value := self.module.params.get("label_selector")) is not None:

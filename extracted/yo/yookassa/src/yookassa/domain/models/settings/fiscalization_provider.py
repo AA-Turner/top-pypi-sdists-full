@@ -3,7 +3,6 @@
 class FiscalizationProvider(object):
     """
     Решение ЮKassa, которое магазин использует для отправки чеков. Возможные значения:
-        * [Чеки для самозанятых](/developers/payment-acceptance/receipts/self-employed/basics) — `fns`
         * [54-ФЗ: Чеки от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/basics) — `avanpost`
         * [54-ФЗ: сторонняя онлайн-касса](/developers/payment-acceptance/receipts/54fz/other-services/basics) (наименование онлайн-кассы) — ~`a_qsi` (aQsi online), ~`atol` (АТОЛ Онлайн), ~`business_ru` (Бизнес.ру), ~`digital_kassa` (digitalkassa), ~`evotor` (Эвотор), ~`first_ofd` (Первый ОФД), ~`kit_invest` (Кит Инвест), ~`komtet` (КОМТЕТ Касса), ~`life_pay` (LIFE PAY), ~`mertrade` (Mertrade), ~`modul_kassa` (МодульКасса), ~`rocket` (RocketR), ~`shtrih_m` (Orange Data).
     """  # noqa: E501
@@ -25,8 +24,6 @@ class FiscalizationProvider(object):
     """Кит Инвест"""
     A_QSI = "a_qsi"
     """aQsi online"""
-    FNS = "fns"
-    """Чеки для самозанятых"""
     AVANPOST = "avanpost"
     """54-ФЗ: Чеки от ЮKassa"""
     MERTRADE = "mertrade"

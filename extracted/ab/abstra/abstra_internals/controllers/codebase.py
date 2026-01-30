@@ -8,20 +8,20 @@ import flask
 
 from abstra_internals.contracts_generated import (
     AbstraLibApiEditorFilesDeleteResponse,
+    AbstraLibApiEditorFilesEditRequest,
+    AbstraLibApiEditorFilesEditResponse,
     AbstraLibApiEditorFilesListResponse,
     AbstraLibApiEditorFilesListResponseItem,
     AbstraLibApiEditorFilesListResponseItemStagesItem,
     AbstraLibApiEditorFilesMkdirResponse,
     AbstraLibApiEditorFilesRenameResponse,
-    AbstraLibApiEditorFilesSafeEditRequest,
-    AbstraLibApiEditorFilesSafeEditResponse,
     AbstraLibApiEditorFilesSettingsResponse,
     CommonFileNode,
 )
 from abstra_internals.repositories.factory import Repositories
-from abstra_internals.services.file_watcher import crdt_managers
 from abstra_internals.services.fs import FileSystemService
-from abstra_internals.utils.crdt import CRDTManager
+from abstra_internals.settings import Settings
+from abstra_internals.utils.file import safe_write_file
 
 
 class CodebaseController:
@@ -151,23 +151,25 @@ class CodebaseController:
         return AbstraLibApiEditorFilesRenameResponse(ok=True)
 
     def edit_file(
-        self, path, ops: AbstraLibApiEditorFilesSafeEditRequest
-    ) -> AbstraLibApiEditorFilesSafeEditResponse:
+        self, path, content: AbstraLibApiEditorFilesEditRequest
+    ) -> AbstraLibApiEditorFilesEditResponse:
         if isinstance(path, str):
-            path = Path(path).absolute()
+            path = Path(path)
         elif not isinstance(path, Path):
             raise ValueError(f"Invalid path: {path}")
 
-        if str(path) not in crdt_managers or crdt_managers[str(path)] is None:
-            crdt_managers[str(path)] = CRDTManager(file_path=path)
+        if not path.is_absolute():
+            path = Settings.root_path / path
 
-        for op in ops:
-            crdt_managers[str(path)].apply_operation(op)
+        resolved_path = path.resolve()
+        if not resolved_path.is_relative_to(Settings.root_path.resolve()):
+            raise ValueError(f"Path is outside project root: {path}")
 
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(crdt_managers[str(path)].get_content())
+        write_ok = safe_write_file(resolved_path, content.content)
+        if not write_ok:
+            return AbstraLibApiEditorFilesEditResponse(ok=False)
 
-        return AbstraLibApiEditorFilesSafeEditResponse(ok=True)
+        return AbstraLibApiEditorFilesEditResponse(ok=True)
 
     def get_file(self, path):
         if isinstance(path, str):

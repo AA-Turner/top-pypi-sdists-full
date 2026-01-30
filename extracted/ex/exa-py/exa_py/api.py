@@ -244,6 +244,23 @@ def _parse_entities(entities_data: Optional[List[dict]]) -> Optional[List]:
     return entities if entities else None
 
 
+# Category options for search filtering
+Category = Literal[
+    "company",
+    "research paper",
+    "news",
+    "pdf",
+    "tweet",
+    "personal site",
+    "financial report",
+    "people",
+]
+"""Data category to focus on when searching. Each category returns results specialized for that content type."""
+
+# Search type options
+SearchType = Literal["auto", "fast", "deep"]
+"""Search type that determines the search algorithm. 'auto' (default) automatically selects the best approach, 'fast' prioritizes speed, 'deep' performs comprehensive multi-query search."""
+
 SEARCH_OPTIONS_TYPES = {
     "query": [str],  # The query string.
     "num_results": [int],  # Number of results (Default: 10, Max for basic: 10).
@@ -266,10 +283,8 @@ SEARCH_OPTIONS_TYPES = {
     "exclude_text": [
         list
     ],  # Must not be present in webpage text. (One string, up to 5 words)
-    "type": [
-        str
-    ],  # 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (Default: auto)
-    "category": [str],  # A data category to focus on (known categories: company, research paper, news, pdf, github, tweet, personal site, financial report, people)
+    "type": [SearchType],  # Search type: 'auto', 'fast', or 'deep' (Default: auto)
+    "category": [Category],  # A data category to focus on.
     "flags": [list],  # Experimental flags array for Exa usage.
     "moderation": [bool],  # If true, moderate search results for safety.
     "contents": [dict, bool],  # Options for retrieving page contents
@@ -288,7 +303,7 @@ FIND_SIMILAR_OPTIONS_TYPES = {
     "include_text": [list],
     "exclude_text": [list],
     "exclude_source_domain": [bool],
-    "category": [str],  # A data category to focus on
+    "category": [Category],  # A data category to focus on.
     "flags": [list],  # Experimental flags array for Exa usage.
     "contents": [dict, bool],  # Options for retrieving page contents
 }
@@ -305,6 +320,7 @@ CONTENTS_OPTIONS_TYPES = {
     "metadata": [dict, bool],
     "livecrawl_timeout": [int],
     "livecrawl": [LIVECRAWL_OPTIONS],
+    "max_age_hours": [int],
     "filter_empty_results": [bool],
     "flags": [list],  # We allow flags to be passed here too
 }
@@ -368,16 +384,39 @@ def parse_cost_dollars(raw: dict) -> Optional[CostDollars]:
     return CostDollars(total=total, search=search_part, contents=contents_part)
 
 
+VERBOSITY_OPTIONS = Literal["compact", "standard", "full"]
+"""Verbosity levels for content filtering.
+- compact: Most concise output, main content only (default)
+- standard: Balanced content with more detail
+- full: Complete content including all sections
+"""
+
+SECTION_TAG = Literal[
+    "unspecified", "header", "navigation", "banner", "body", "sidebar", "footer", "metadata"
+]
+"""Section tags for semantic content filtering."""
+
+
 class TextContentsOptions(TypedDict, total=False):
     """A class representing the options that you can specify when requesting text
 
     Attributes:
         max_characters (int): The maximum number of characters to return. Default: None (no limit).
         include_html_tags (bool): If true, include HTML tags in the returned text. Default false.
+        verbosity (VERBOSITY_OPTIONS): Controls verbosity level of returned content.
+            "compact" (default): main content only; "standard": balanced; "full": all sections.
+            Requires livecrawl="always" to take effect.
+        include_sections (List[SECTION_TAG]): Only include content from these semantic sections.
+            Requires livecrawl="always" to take effect.
+        exclude_sections (List[SECTION_TAG]): Exclude content from these semantic sections.
+            Requires livecrawl="always" to take effect.
     """
 
     max_characters: int
     include_html_tags: bool
+    verbosity: VERBOSITY_OPTIONS
+    include_sections: List[SECTION_TAG]
+    exclude_sections: List[SECTION_TAG]
 
 
 class JSONSchema(TypedDict, total=False):
@@ -449,6 +488,37 @@ class ExtrasOptions(TypedDict, total=False):
 
     links: int
     image_links: int
+
+
+class ContentsOptions(TypedDict, total=False):
+    """Options for retrieving page contents in search and find_similar methods.
+
+    All fields are optional. If no content options are specified, text with
+    max_characters=10000 is returned by default.
+
+    Attributes:
+        text: Options for text extraction, or True for defaults.
+        highlights: Options for highlight extraction, or True for defaults.
+        summary: Options for summary generation, or True for defaults.
+        context: Options for context aggregation, or True for defaults.
+        livecrawl: When to use live crawling: "always", "fallback", "never", "auto", or "preferred".
+        livecrawl_timeout: Timeout in milliseconds for live crawling.
+        max_age_hours: Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
+        subpages: Number of subpages to crawl.
+        subpage_target: Target subpage path(s) to crawl.
+        extras: Additional extraction options (links, images).
+    """
+
+    text: Union[TextContentsOptions, Literal[True]]
+    highlights: Union[HighlightsContentsOptions, Literal[True]]
+    summary: Union[SummaryContentsOptions, Literal[True]]
+    context: Union[ContextContentsOptions, Literal[True]]
+    livecrawl: LIVECRAWL_OPTIONS
+    livecrawl_timeout: int
+    max_age_hours: int
+    subpages: int
+    subpage_target: Union[str, List[str]]
+    extras: ExtrasOptions
 
 
 class CostDollarsSearch(TypedDict, total=False):
@@ -1279,7 +1349,7 @@ class Exa:
         self,
         query: str,
         *,
-        contents: Optional[Union[Dict, bool]] = None,
+        contents: Optional[Union[ContentsOptions, Literal[False]]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -1289,8 +1359,8 @@ class Exa:
         end_published_date: Optional[str] = None,
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
+        type: Optional[Union[SearchType, str]] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
         user_location: Optional[str] = None,
@@ -1302,8 +1372,9 @@ class Exa:
 
         Args:
             query (str): The query string.
-            contents (dict | bool, optional): Options for retrieving page contents.
+            contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                See ContentsOptions for available options (text, highlights, summary, context, etc.).
                 Note: For deep search (type='deep'), context is always returned by the API.
             num_results (int, optional): Number of search results to return (default 10). 
                 For deep search, recommend leaving blank - number of results will be determined dynamically for your query.
@@ -1315,8 +1386,8 @@ class Exa:
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (default 'auto').
-            category (str, optional): e.g. 'company'
+            type (SearchType, optional): Search type - 'auto' (default), 'fast', or 'deep'.
+            category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
             user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
@@ -1326,6 +1397,21 @@ class Exa:
 
         Returns:
             SearchResponse: The response containing search results, etc.
+
+        Examples:
+            # Basic search
+            result = exa.search(
+              "hottest AI startups",
+              num_results=2
+            )
+
+            # Deep search with query variations
+            deep_result = exa.search(
+              "blog post about AI",
+              type="deep",
+              additional_queries=["AI blogpost", "machine learning blogs"],
+              num_results=5
+            )
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 
@@ -1420,6 +1506,7 @@ class Exa:
                 "subpage_target",
                 "livecrawl",
                 "livecrawl_timeout",
+                "max_age_hours",
                 "extras",
             ],
             "contents",
@@ -1463,6 +1550,7 @@ class Exa:
         urls: Union[str, List[str], List[_Result]],
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1478,6 +1566,7 @@ class Exa:
         text: Union[TextContentsOptions, Literal[True]],
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1493,6 +1582,7 @@ class Exa:
         summary: Union[SummaryContentsOptions, Literal[True]],
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1509,6 +1599,7 @@ class Exa:
         summary: Union[SummaryContentsOptions, Literal[True]],
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1517,6 +1608,34 @@ class Exa:
     ) -> SearchResponse[ResultWithTextAndSummary]: ...
 
     def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
+        """Retrieve contents for a list of URLs.
+
+        Args:
+            urls (str | List[str] | List[Result]): A single URL, list of URLs, or list of Result objects.
+            text (TextContentsOptions | True, optional): Options for text extraction.
+            summary (SummaryContentsOptions | True, optional): Options for summary generation.
+            livecrawl (str, optional): Livecrawl option ('always', 'fallback', or 'never').
+            livecrawl_timeout (int, optional): Timeout for livecrawl in milliseconds.
+            max_age_hours (int, optional): Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
+            filter_empty_results (bool, optional): Whether to filter out empty results.
+            subpages (int, optional): Number of subpages to retrieve.
+            subpage_target (str | List[str], optional): Target subpages to retrieve.
+            extras (ExtrasOptions, optional): Options for extra content (links, image_links).
+            flags (List[str], optional): Experimental flags.
+
+        Returns:
+            SearchResponse[Result]: The response containing the contents of the URLs.
+
+        Examples:
+            # Get contents for a single URL
+            contents = exa.get_contents("https://example.com/article")
+
+            # Get contents for multiple URLs
+            contents = exa.get_contents([
+                "https://example.com/article1",
+                "https://example.com/article2"
+            ])
+        """
         # Normalize urls to always be a list
         if isinstance(urls, str):
             urls = [urls]
@@ -1594,7 +1713,7 @@ class Exa:
         self,
         url: str,
         *,
-        contents: Optional[Union[Dict, bool]] = None,
+        contents: Optional[Union[ContentsOptions, Literal[False]]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -1605,7 +1724,7 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
     ) -> SearchResponse[Result]:
         """Finds similar pages to a given URL, potentially with domain filters and date filters.
@@ -1614,8 +1733,9 @@ class Exa:
 
         Args:
             url (str): The URL to find similar pages for.
-            contents (dict | bool, optional): Options for retrieving page contents.
+            contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                See ContentsOptions for available options (text, highlights, summary, context, etc.).
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -1626,11 +1746,18 @@ class Exa:
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
             exclude_source_domain (bool, optional): Whether to exclude the source domain.
-            category (str, optional): A data category to focus on.
+            category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags.
 
         Returns:
             SearchResponse[Result]
+
+        Examples:
+            similar_results = exa.find_similar(
+                "miniclip.com",
+                num_results=2,
+                exclude_source_domain=True
+            )
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 
@@ -1693,10 +1820,11 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1719,10 +1847,11 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1745,10 +1874,11 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1771,10 +1901,11 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1798,10 +1929,11 @@ class Exa:
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
         filter_empty_results: Optional[bool] = None,
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
@@ -1850,6 +1982,7 @@ class Exa:
                 "subpage_target",
                 "livecrawl",
                 "livecrawl_timeout",
+                "max_age_hours",
                 "extras",
             ],
             "contents",
@@ -1919,8 +2052,8 @@ class Exa:
             end_published_date: Optional[str] = None,
             include_text: Optional[List[str]] = None,
             exclude_text: Optional[List[str]] = None,
-            type: Optional[str] = None,
-            category: Optional[str] = None,
+            type: Optional[Union[SearchType, str]] = None,
+            category: Optional[Category] = None,
             result_max_len: int = 2048,
             flags: Optional[List[str]] = None,
             # OpenAI args
@@ -2059,6 +2192,19 @@ class Exa:
 
         Raises:
             ValueError: If stream=True is provided. Use stream_answer() instead for streaming responses.
+
+        Examples:
+            response = exa.answer("What is the capital of France?")
+
+            print(response.answer)       # e.g. "Paris"
+            print(response.citations)    # list of citations used
+
+            # If you want the full text of the citations in the response:
+            response_with_text = exa.answer(
+                "What is the capital of France?",
+                text=True
+            )
+            print(response_with_text.citations[0].text)  # Full page text
         """
         if stream:
             raise ValueError(
@@ -2108,9 +2254,20 @@ class Exa:
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+
         Returns:
             StreamAnswerResponse: An object that can be iterated over to retrieve (partial text, partial citations).
                 Each iteration yields a tuple of (Optional[str], Optional[List[AnswerResult]]).
+
+        Examples:
+            stream = exa.stream_answer("What is the capital of France?", text=True)
+
+            for chunk in stream:
+                if chunk.content:
+                    print("Partial answer:", chunk.content)
+                if chunk.citations:
+                    for citation in chunk.citations:
+                        print("Citation found:", citation.url)
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 
@@ -2211,7 +2368,7 @@ class AsyncExa(Exa):
         self,
         query: str,
         *,
-        contents: Optional[Union[Dict, bool]] = None,
+        contents: Optional[Union[ContentsOptions, Literal[False]]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -2221,8 +2378,8 @@ class AsyncExa(Exa):
         end_published_date: Optional[str] = None,
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
+        type: Optional[Union[SearchType, str]] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
         user_location: Optional[str] = None,
@@ -2234,8 +2391,9 @@ class AsyncExa(Exa):
 
         Args:
             query (str): The query string.
-            contents (dict | bool, optional): Options for retrieving page contents.
+            contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                See ContentsOptions for available options (text, highlights, summary, context, etc.).
                 Note: For deep search (type='deep'), context is always returned by the API.
             num_results (int, optional): Number of search results to return (default 10). 
                 For deep search, recommend leaving blank - number of results will be determined dynamically for your query.
@@ -2247,8 +2405,8 @@ class AsyncExa(Exa):
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (default 'auto').
-            category (str, optional): e.g. 'company'
+            type (SearchType, optional): Search type - 'auto' (default), 'fast', or 'deep'.
+            category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
             user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
@@ -2258,6 +2416,19 @@ class AsyncExa(Exa):
 
         Returns:
             SearchResponse: The response containing search results, etc.
+
+        Examples:
+            Basic async search:
+            >>> async_exa = AsyncExa(api_key="your-api-key")
+            >>> results = await async_exa.search("latest AI research papers")
+            >>> print(results.results[0].title)
+
+            Async search with filters:
+            >>> results = await async_exa.search(
+            ...     "climate change research",
+            ...     include_domains=["nature.com", "science.org"],
+            ...     start_published_date="2024-01-01"
+            ... )
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 
@@ -2352,6 +2523,7 @@ class AsyncExa(Exa):
                 "subpage_target",
                 "livecrawl",
                 "livecrawl_timeout",
+                "max_age_hours",
                 "extras",
             ],
             "contents",
@@ -2390,6 +2562,34 @@ class AsyncExa(Exa):
         )
 
     async def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
+        """Retrieve contents for a list of URLs asynchronously.
+
+        Args:
+            urls (str | List[str] | List[Result]): A single URL, list of URLs, or list of Result objects.
+            text (TextContentsOptions | True, optional): Options for text extraction.
+            summary (SummaryContentsOptions | True, optional): Options for summary generation.
+            livecrawl (str, optional): Livecrawl option ('always', 'fallback', or 'never').
+            livecrawl_timeout (int, optional): Timeout for livecrawl in milliseconds.
+            max_age_hours (int, optional): Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
+            filter_empty_results (bool, optional): Whether to filter out empty results.
+            subpages (int, optional): Number of subpages to retrieve.
+            subpage_target (str | List[str], optional): Target subpages to retrieve.
+            extras (ExtrasOptions, optional): Options for extra content (links, image_links).
+            flags (List[str], optional): Experimental flags.
+
+        Returns:
+            SearchResponse[Result]: The response containing the contents of the URLs.
+
+        Examples:
+            Get contents for URLs asynchronously:
+            >>> async_exa = AsyncExa(api_key="your-api-key")
+            >>> results = await async_exa.get_contents("https://example.com/article")
+            >>> print(results.results[0].text)
+
+            Get contents from async search results:
+            >>> search_results = await async_exa.search("AI news", contents=False)
+            >>> contents = await async_exa.get_contents(search_results.results[:5])
+        """
         # Normalize urls to always be a list
         if isinstance(urls, str):
             urls = [urls]
@@ -2467,7 +2667,7 @@ class AsyncExa(Exa):
         self,
         url: str,
         *,
-        contents: Optional[Union[Dict, bool]] = None,
+        contents: Optional[Union[ContentsOptions, Literal[False]]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -2478,7 +2678,7 @@ class AsyncExa(Exa):
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
         exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
+        category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
     ) -> SearchResponse[Result]:
         """Finds similar pages to a given URL, potentially with domain filters and date filters.
@@ -2487,8 +2687,9 @@ class AsyncExa(Exa):
 
         Args:
             url (str): The URL to find similar pages for.
-            contents (dict | bool, optional): Options for retrieving page contents.
+            contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                See ContentsOptions for available options (text, highlights, summary, context, etc.).
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -2499,11 +2700,24 @@ class AsyncExa(Exa):
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
             exclude_source_domain (bool, optional): Whether to exclude the source domain.
-            category (str, optional): A data category to focus on.
+            category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags.
 
         Returns:
             SearchResponse[Result]
+
+        Examples:
+            Find similar pages asynchronously:
+            >>> async_exa = AsyncExa(api_key="your-api-key")
+            >>> results = await async_exa.find_similar("https://www.nature.com/articles/s41586-021-03819-2")
+            >>> print(results.results[0].title)
+
+            Find similar with domain filters:
+            >>> results = await async_exa.find_similar(
+            ...     "https://arxiv.org/abs/2301.00001",
+            ...     include_domains=["arxiv.org", "openreview.net"],
+            ...     exclude_source_domain=True
+            ... )
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 
@@ -2592,6 +2806,7 @@ class AsyncExa(Exa):
                 "subpage_target",
                 "livecrawl",
                 "livecrawl_timeout",
+                "max_age_hours",
                 "extras",
             ],
             "contents",
@@ -2654,6 +2869,17 @@ class AsyncExa(Exa):
 
         Raises:
             ValueError: If stream=True is provided. Use stream_answer() instead for streaming responses.
+
+        Examples:
+            Basic async question answering:
+            >>> async_exa = AsyncExa(api_key="your-api-key")
+            >>> response = await async_exa.answer("What are the latest developments in quantum computing?")
+            >>> print(response.answer)
+
+            Async answer with citations:
+            >>> response = await async_exa.answer("Explain renewable energy benefits", text=True)
+            >>> for citation in response.citations:
+            ...     print(f"{citation.title}: {citation.url}")
         """
         if stream:
             raise ValueError(
@@ -2702,9 +2928,24 @@ class AsyncExa(Exa):
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+
         Returns:
             AsyncStreamAnswerResponse: An object that can be iterated over to retrieve (partial text, partial citations).
                 Each iteration yields a tuple of (Optional[str], Optional[List[AnswerResult]]).
+
+        Examples:
+            Stream an answer asynchronously:
+            >>> async_exa = AsyncExa(api_key="your-api-key")
+            >>> async for chunk in async_exa.stream_answer("What is quantum computing?"):
+            ...     if chunk.text:
+            ...         print(chunk.text, end="", flush=True)
+
+            Async stream with citations:
+            >>> async for chunk in async_exa.stream_answer("Explain climate change", text=True):
+            ...     if chunk.text:
+            ...         print(chunk.text, end="")
+            ...     if chunk.citations:
+            ...         print(f"\\nCitations: {[c.url for c in chunk.citations]}")
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
 

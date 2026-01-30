@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.17.0
+Version: 6.18.0
 Summary: devpi-server: reliable, private, and pypi.org caching server
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -42,6 +42,7 @@ Requires-Dist: pluggy<2.0,>=0.6.0
 Requires-Dist: py>=1.4.23
 Requires-Dist: pyramid>=2
 Requires-Dist: repoze.lru>=0.6
+Requires-Dist: strenum; python_version < "3.11"
 Requires-Dist: strictyaml
 Requires-Dist: waitress>=1.0.1
 Requires-Dist: ruamel.yaml
@@ -120,6 +121,37 @@ Changelog
 
 
 .. towncrier release notes start
+
+6.18.0 (2026-01-27)
+===================
+
+Features
+--------
+
+- Store all available hashes of files.
+
+- Validate hashes of all files during devpi-import, not only releases.
+
+Bug Fixes
+---------
+
+- Apply argparse transformations on values read from config file or environment.
+
+- Restore Python and platform info in user agent string after switch to httpx.
+
+- Remove all database entries on project deletion instead of only emptying them.
+
+- Fix error at end of replica streaming caused by changed behavior from switch to httpx.
+
+- Fix #1102: The data stream was cut off after 64k when proxying from replica to primary after switching to httpx.
+
+- Fix #1107: retry file downloads if there has been an error during download.
+
+Other Changes
+-------------
+
+- The filenames of some exported doczip files change due to normalization of the project name caused by changing the internals during export to allow ``--hard-links`` to work.
+
 
 6.17.0 (2025-08-27)
 ===================
@@ -215,34 +247,4 @@ Bug Fixes
 ---------
 
 - No longer automatically "register" a project when pushing releases to PyPI. The reply changed from HTTP status 410 to 400 breaking the upload. With devpi-client 7.2.0 there is a ``--register-project`` option if it is still required for some other package registry.
-
-
-6.13.0 (2024-09-19)
-===================
-
-Deprecations and Removals
--------------------------
-
-- Remove/Deprecate "master" related terminology in favor of "primary".
-  Usage related changes are the switch to ``--primary-url`` instead of ``--master-url`` and ``--role=primary`` instead of ``--role=master``.
-  Using the old terms will now output warnings.
-  The ``+status`` API has additional fields and the ``role`` field content will change with 7.0.0.
-
-Features
---------
-
-- Enable logging command line options for all commands.
-
-- Added support uv pip as an installer.
-
-Bug Fixes
----------
-
-- Don't report on lagging event processing while replicating.
-
-- Report primary serial correctly with streaming replication.
-
-- Don't store file data in memory when fetching a release while pushing from a mirror.
-
-- Only warn about replica not being in sync instead of fatal status while still replicating.
 

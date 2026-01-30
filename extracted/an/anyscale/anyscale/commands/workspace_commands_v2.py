@@ -1085,7 +1085,7 @@ def list_tags(
     help="Use legacy SSH connection method, bypassing HTTPS SSH.",
 )
 @click.pass_context
-def ssh(
+def ssh(  # noqa: PLR0912
     ctx,
     id: Optional[str],  # noqa: A002
     name: Optional[str],
@@ -1315,6 +1315,12 @@ id should be used, specifying both will result in an error.
     is_flag=True,
     help="Delete files in the local directory that are not in the workspace. Excluded files are preserved.",
 )
+@click.option(
+    "--direct-ssh",
+    is_flag=True,
+    default=False,
+    help="Use direct SSH connection (port 22) instead of SSH-over-HTTPS tunnel.",
+)
 @click.pass_context
 def pull(  # noqa: PLR0913
     ctx,
@@ -1325,6 +1331,7 @@ def pull(  # noqa: PLR0913
     local_dir: Optional[str],
     pull_git_state: bool = False,
     delete: bool = False,
+    direct_ssh: bool = False,
 ) -> None:
     """Pull the working directory of a workspace. New files will be created, existing files will be overwritten.
 
@@ -1349,6 +1356,7 @@ id should be used, specifying both will result in an error.
         pull_git_state=pull_git_state,
         rsync_args=ctx.args,
         delete=delete,
+        direct_ssh=direct_ssh,
     )
 
 
@@ -1398,6 +1406,12 @@ id should be used, specifying both will result in an error.
     is_flag=True,
     help="Delete files in the workspace that are not in the local directory. Excluded files are preserved.",
 )
+@click.option(
+    "--direct-ssh",
+    is_flag=True,
+    default=False,
+    help="Use direct SSH connection (port 22) instead of SSH-over-HTTPS tunnel.",
+)
 @click.pass_context
 def push(  # noqa: PLR0913
     ctx,
@@ -1408,6 +1422,7 @@ def push(  # noqa: PLR0913
     local_dir: Optional[str],
     push_git_state: bool = False,
     delete: bool = False,
+    direct_ssh: bool = False,
 ) -> None:
     """Push a local directory to a workspace. New files will be created, existing files will be overwritten.
 
@@ -1432,6 +1447,7 @@ id should be used, specifying both will result in an error.
         push_git_state=push_git_state,
         rsync_args=ctx.args,
         delete=delete,
+        direct_ssh=direct_ssh,
     )
 
 

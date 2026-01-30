@@ -16,6 +16,12 @@ options:
     description: A string containing an INI document.
     type: string
     required: true
+seealso:
+  - plugin: community.general.to_ini
+    plugin_type: filter
+  - plugin: ansible.builtin.ini
+    plugin_type: lookup
+  - module: community.general.ini_file
 """
 
 EXAMPLES = r"""
@@ -43,8 +49,8 @@ _value:
 """
 
 
-from io import StringIO
 from configparser import ConfigParser
+from io import StringIO
 
 from ansible.errors import AnsibleFilterError
 

@@ -68,7 +68,7 @@ type X[T] = list
 testcase!(
     test_bad_type_alias,
     r#"
-type X = 1  # E: number literal cannot be used in annotations
+type X = 1  # E: Number literal cannot be used in annotations
     "#,
 );
 
@@ -286,7 +286,7 @@ testcase!(
     test_bad_annotated_alias,
     r#"
 from typing import TypeAlias
-X: TypeAlias = 1  # E: number literal cannot be used in annotations
+X: TypeAlias = 1  # E: Number literal cannot be used in annotations
     "#,
 );
 
@@ -446,6 +446,23 @@ bad2: C[int].X  # E: Generic attribute `X` of class `C` is not visible on the cl
     "#,
 );
 
+// Type alias scopes (PEP 695) should have access to enclosing class scopes,
+// similar to annotation scopes.
+testcase!(
+    test_type_alias_sees_class_scope,
+    r#"
+from typing import assert_type
+class Foo:
+    class Bar: ...
+
+    attr = Bar()
+    type Baz = Bar | None
+
+def f(x: Foo.Baz):
+    assert_type(x, Foo.Bar | None)
+    "#,
+);
+
 testcase!(
     test_union_alias,
     r#"
@@ -553,7 +570,7 @@ t9: TypeAlias = Protocol[int]  # E: `Protocol` is not allowed in this context
 t10: TypeAlias = Final  # E: Expected a type argument for `Final`
 t11: TypeAlias = Final[int]  # E: `Final` is not allowed in this context
 t12: TypeAlias = TypeAlias  # OK
-t13: TypeAlias = [int][0]  # E: invalid subscript expression cannot be used in annotations
+t13: TypeAlias = [int][0]  # E: Invalid subscript expression cannot be used in annotations
 "#,
 );
 
@@ -642,7 +659,7 @@ T = TypeVar('T', bound=int)
 X = type[T]
 def f(x: X[bool]) -> bool:
     return x()
-def g(x: type[T][int]):  # E: invalid subscript expression
+def g(x: type[T][int]):  # E: Invalid subscript expression
     pass
 def h(x: X[str]):  # E: `str` is not assignable to upper bound `int`
     pass

@@ -6,13 +6,15 @@ from __future__ import annotations
 
 import typing as t
 from unittest import mock
+
+import pytest
 from ansible.module_utils import basic
 from ansible_collections.community.internal_test_tools.tests.unit.plugins.modules.utils import (
     AnsibleExitJson,
     AnsibleFailJson,
-    set_module_args,
     exit_json,
     fail_json,
+    set_module_args,
 )
 
 from ansible_collections.community.general.plugins.modules import pacman
@@ -20,8 +22,6 @@ from ansible_collections.community.general.plugins.modules.pacman import (
     Package,
     VersionTuple,
 )
-
-import pytest
 
 
 def get_bin_path(self, arg, required=False):
@@ -44,7 +44,7 @@ valid_inventory = {
         "sed": "4.8-1",
         "sqlite": "3.36.0-1",
     },
-    "installed_groups": {"base-devel": set(["gawk", "grep", "file", "findutils", "pacman", "sed", "gzip", "gettext"])},
+    "installed_groups": {"base-devel": {"gawk", "grep", "file", "findutils", "pacman", "sed", "gzip", "gettext"}},
     "available_pkgs": {
         "acl": "2.3.1-1",
         "amd-ucode": "20211027.1d00989-1",
@@ -61,35 +61,33 @@ valid_inventory = {
         "sudo": "1.9.8.p2-3",
     },
     "available_groups": {
-        "base-devel": set(
-            [
-                "libtool",
-                "gawk",
-                "which",
-                "texinfo",
-                "fakeroot",
-                "grep",
-                "findutils",
-                "autoconf",
-                "gzip",
-                "pkgconf",
-                "flex",
-                "patch",
-                "groff",
-                "m4",
-                "bison",
-                "gcc",
-                "gettext",
-                "make",
-                "file",
-                "pacman",
-                "sed",
-                "automake",
-                "sudo",
-                "binutils",
-            ]
-        ),
-        "some-group": set(["libtool", "sudo", "binutils"]),
+        "base-devel": {
+            "libtool",
+            "gawk",
+            "which",
+            "texinfo",
+            "fakeroot",
+            "grep",
+            "findutils",
+            "autoconf",
+            "gzip",
+            "pkgconf",
+            "flex",
+            "patch",
+            "groff",
+            "m4",
+            "bison",
+            "gcc",
+            "gettext",
+            "make",
+            "file",
+            "pacman",
+            "sed",
+            "automake",
+            "sudo",
+            "binutils",
+        },
+        "some-group": {"libtool", "sudo", "binutils"},
     },
     "upgradable_pkgs": {
         "sqlite": VersionTuple(current="3.36.0-1", latest="3.37.0-1"),

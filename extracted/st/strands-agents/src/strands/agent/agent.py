@@ -31,7 +31,7 @@ from ..event_loop.event_loop import INITIAL_DELAY, MAX_ATTEMPTS, MAX_DELAY, even
 from ..tools._tool_helpers import generate_missing_tool_result_content
 
 if TYPE_CHECKING:
-    from ..experimental.tools import ToolProvider
+    from ..tools import ToolProvider
 from ..handlers.callback_handler import PrintingCallbackHandler, null_callback_handler
 from ..hooks import (
     AfterInvocationEvent,
@@ -474,7 +474,7 @@ class Agent:
             category=DeprecationWarning,
             stacklevel=2,
         )
-        await self.hooks.invoke_callbacks_async(BeforeInvocationEvent(agent=self))
+        await self.hooks.invoke_callbacks_async(BeforeInvocationEvent(agent=self, invocation_state={}))
         with self.tracer.tracer.start_as_current_span(
             "execute_structured_output", kind=trace_api.SpanKind.CLIENT
         ) as structured_output_span:
@@ -515,7 +515,7 @@ class Agent:
                 return event["output"]
 
             finally:
-                await self.hooks.invoke_callbacks_async(AfterInvocationEvent(agent=self))
+                await self.hooks.invoke_callbacks_async(AfterInvocationEvent(agent=self, invocation_state={}))
 
     def cleanup(self) -> None:
         """Clean up resources used by the agent.
@@ -657,7 +657,7 @@ class Agent:
             Events from the event loop cycle.
         """
         before_invocation_event, _interrupts = await self.hooks.invoke_callbacks_async(
-            BeforeInvocationEvent(agent=self, messages=messages)
+            BeforeInvocationEvent(agent=self, invocation_state=invocation_state, messages=messages)
         )
         messages = before_invocation_event.messages if before_invocation_event.messages is not None else messages
 
@@ -695,7 +695,9 @@ class Agent:
 
         finally:
             self.conversation_manager.apply_management(self)
-            await self.hooks.invoke_callbacks_async(AfterInvocationEvent(agent=self, result=agent_result))
+            await self.hooks.invoke_callbacks_async(
+                AfterInvocationEvent(agent=self, invocation_state=invocation_state, result=agent_result)
+            )
 
     async def _execute_event_loop_cycle(
         self, invocation_state: dict[str, Any], structured_output_context: StructuredOutputContext | None = None

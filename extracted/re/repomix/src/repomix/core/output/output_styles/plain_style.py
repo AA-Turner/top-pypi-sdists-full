@@ -2,7 +2,7 @@
 Plain Text Output Style Module - Implements Plain Text Format Output
 """
 
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from ._utils import format_file_tree
 from ..output_style_decorate import OutputStyle
@@ -122,6 +122,61 @@ class PlainStyle(OutputStyle):
     def generate_file_tree_section(self, file_tree: Dict) -> str:
         """Generates the file tree section in plain text style."""
         return f"{PLAIN_LONG_SEPARATOR}\nRepository Structure:\n{PLAIN_LONG_SEPARATOR}\n" + format_file_tree(file_tree) + "\n"
+
+    def generate_git_diff_section(self, work_tree_diff: str, staged_diff: str) -> str:
+        """Generate git diff section in plain text format
+
+        Args:
+            work_tree_diff: Unstaged changes diff
+            staged_diff: Staged changes diff
+
+        Returns:
+            Plain text formatted git diff section
+        """
+        output = f"\n{PLAIN_LONG_SEPARATOR}\n"
+        output += "Git Diffs\n"
+        output += f"{PLAIN_LONG_SEPARATOR}\n"
+
+        output += f"{PLAIN_SHORT_SEPARATOR}\n"
+        output += "Git Diffs Working Tree:\n"
+        output += f"{PLAIN_SHORT_SEPARATOR}\n"
+        output += work_tree_diff if work_tree_diff else "(no changes)"
+        output += "\n"
+
+        output += f"\n{PLAIN_SHORT_SEPARATOR}\n"
+        output += "Git Diffs Staged:\n"
+        output += f"{PLAIN_SHORT_SEPARATOR}\n"
+        output += staged_diff if staged_diff else "(no changes)"
+        output += "\n"
+
+        return output
+
+    def generate_git_log_section(self, commits: List[Any]) -> str:
+        """Generate git log section in plain text format
+
+        Args:
+            commits: List of GitLogCommit objects
+
+        Returns:
+            Plain text formatted git log section
+        """
+        if not commits:
+            return ""
+
+        output = f"\n{PLAIN_LONG_SEPARATOR}\n"
+        output += "Git Logs\n"
+        output += f"{PLAIN_LONG_SEPARATOR}\n"
+
+        for commit in commits:
+            output += f"{PLAIN_SHORT_SEPARATOR}\n"
+            output += f"Date: {commit.date}\n"
+            output += f"Message: {commit.message}\n"
+            output += "Files:\n"
+            for file in commit.files:
+                output += f"  - {file}\n"
+            output += f"{PLAIN_SHORT_SEPARATOR}\n\n"
+
+        return output
 
     def _get_current_time(self) -> str:
         """Get formatted current time string

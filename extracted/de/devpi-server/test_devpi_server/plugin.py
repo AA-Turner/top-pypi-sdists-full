@@ -1,37 +1,57 @@
-from _pytest import capture
-import re
-from webtest.forms import Upload
-import json
-import webtest
-import mimetypes
-import subprocess
+from __future__ import annotations
 
-import pytest
-import py
-import requests
-import shutil
-import socket
-import sys
-import time
 from .functional import MappMixin
+from _pytest import capture
 from bs4 import BeautifulSoup
 from contextlib import closing
+from devpi_common.terminal import TerminalWriter
+from devpi_common.url import URL
 from devpi_server import mirror
 from devpi_server.config import get_pluginmanager
-from devpi_server.main import XOM, parseoptions
-from devpi_common.validation import normalize_name
-from devpi_common.url import URL
-from devpi_server.log import threadlog, thread_clear_log
+from devpi_server.log import thread_clear_log
+from devpi_server.log import threadlog
+from devpi_server.main import XOM
+from devpi_server.main import parseoptions
+from devpi_server.normalized import normalize_name
 from io import BytesIO
 from pathlib import Path
 from pyramid.authentication import b64encode
 from pyramid.httpexceptions import status_map
 from queue import Queue as BaseQueue
+from typing import TYPE_CHECKING
 from webtest import TestApp as TApp
 from webtest import TestResponse
-import hashlib
+from webtest.forms import Upload
+import json
+import mimetypes
+import py
+import pytest
+import re
+import requests
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import warnings
+import webtest
 
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+class NotSet:
+    __slots__ = ()
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self) -> str:
+        return "<notset>"
+
+
+notset = NotSet()
 pytest_plugins = ["test_devpi_server.reqmock"]
 
 
@@ -65,8 +85,8 @@ def pytest_configure(config):
 
 @pytest.fixture(scope="session")
 def server_version():
-    from devpi_server import __version__
     from devpi_common.metadata import parse_version
+    from devpi_server import __version__
     return parse_version(__version__)
 
 
@@ -85,8 +105,12 @@ def make_file_url(basename, content, stagename=None, baseurl="http://localhost/"
 
 
 class _TimeoutQueue(BaseQueue):
-    def get(self, timeout=2):
-        return BaseQueue.get(self, timeout=timeout)
+    def get(
+        self,
+        block=True,  # noqa: FBT002 - API
+        timeout=2,
+    ):
+        return BaseQueue.get(self, block=block, timeout=timeout)
 
 
 log = threadlog
@@ -125,7 +149,7 @@ def TimeoutQueue():
     return _TimeoutQueue
 
 
-@pytest.fixture()
+@pytest.fixture
 def caplog(caplog):
     import logging
     """ enrich the pytest-catchlog funcarg. """
@@ -151,7 +175,8 @@ def caplog(caplog):
 def gen_path(request, tmp_path_factory):
     from _pytest.pathlib import LOCK_TIMEOUT
     from _pytest.pathlib import make_numbered_dir_with_cleanup
-    cache = []
+
+    cache: list[str] = []
 
     def gen_path(name=None):
         if not cache:
@@ -229,7 +254,7 @@ def speed_up_sqlite():
     from devpi_server.keyfs_sqlite import Storage
     old = _speed_up_sqlite(Storage)
     yield
-    Storage._execute_conn_pragmas = old
+    Storage._execute_conn_pragmas = old  # type: ignore[method-assign]
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -237,7 +262,7 @@ def speed_up_sqlite_fs():
     from devpi_server.keyfs_sqlite_fs import Storage
     old = _speed_up_sqlite(Storage)
     yield
-    Storage._execute_conn_pragmas = old
+    Storage._execute_conn_pragmas = old  # type: ignore[method-assign]
 
 
 @pytest.fixture(scope="session")
@@ -249,7 +274,8 @@ def mock():
 @pytest.fixture(scope="session")
 def storage_plugin(request):
     from pydoc import locate
-    backend = request.config.option.devpi_server_storage_backend
+
+    backend = getattr(request.config.option, "devpi_server_storage_backend", None)
     if backend is None:
         backend = 'devpi_server.keyfs_sqlite_fs'
     plugin = locate(backend)
@@ -259,8 +285,13 @@ def storage_plugin(request):
 
 
 @pytest.fixture(scope="session")
-def storage_info(storage_plugin):
-    return storage_plugin.devpiserver_storage_backend(settings=None)
+def storage_info(request, storage_plugin):
+    fsbackend = getattr(request.config.option, "devpi_server_storage_fs_backend", None)
+    if fsbackend is None:
+        fsbackend = "fs"
+    return storage_plugin.devpiserver_storage_backend(
+        settings=dict(fsbackend=fsbackend)
+    )
 
 
 @pytest.fixture(scope="session")
@@ -282,6 +313,13 @@ def storage_args(storage_info):
 @pytest.fixture(scope="session")
 def storage(storage_info):
     return storage_info['storage']
+
+
+@pytest.fixture(scope="session")
+def storage_io_file_factory(storage_info):
+    from devpi_server.config import get_io_file_factory
+
+    return get_io_file_factory(storage_info)
 
 
 @pytest.fixture
@@ -456,6 +494,11 @@ def http(pypiurls):
 
         def __call__(self, url, *, allow_redirects=False, extra_headers=None, **kw):
             class mockresponse:
+                headers: dict
+                reason: str
+                status_code: int
+                text: str
+
                 def __init__(xself, url):
                     fakeresponse = self.url2response.get(url)
                     from_list = False
@@ -488,7 +531,7 @@ def http(pypiurls):
                         def stream(self):
                             yield self.read()
 
-                        xself.raw.stream = stream.__get__(xself.raw)
+                        xself.raw.stream = stream.__get__(xself.raw)  # type: ignore[attr-defined]
                     xself.headers.setdefault(
                         "content-type", fakeresponse.get("content_type", "text/html")
                     )
@@ -606,6 +649,10 @@ def httpget(pypiurls):
 
         def __call__(self, url, *, allow_redirects=False, extra_headers=None, **kw):
             class mockresponse:
+                headers: dict
+                status_code: int
+                text: str
+
                 def __init__(xself, url):
                     fakeresponse = self.url2response.get(url)
                     from_list = False
@@ -716,8 +763,8 @@ def model(xom):
 def devpiserver_makepypistage():
     def makepypistage(xom):
         from devpi_server.main import _pypi_ixconfig_default
-        from devpi_server.mirror import MirrorStage
         from devpi_server.mirror import MirrorCustomizer
+        from devpi_server.mirror import MirrorStage
         # we copy _pypi_ixconfig_default, otherwise the defaults will
         # be modified during config updates later on
         return MirrorStage(
@@ -737,10 +784,10 @@ def add_pypistage_mocks(
     http,
     httpget,  # noqa: ARG001
 ):
-    _projects = set()
+    _projects: set = set()
 
     # add some mocking helpers
-    mirror.MirrorStage.url2response = http.url2response
+    mirror.MirrorStage.url2response = http.url2response  # type: ignore[attr-defined]
 
     def mock_simple(self, name, text=None, pypiserial=10000, **kw):
         cache_expire = kw.pop("cache_expire", True)
@@ -801,6 +848,9 @@ def mapp(makemapp, testapp):
 
 
 class Mapp(MappMixin):
+    auth: tuple[str, str] | None
+    xom: XOM
+
     def __init__(self, testapp):
         self.testapp = testapp
         self.current_stage = ""
@@ -1070,7 +1120,8 @@ class Mapp(MappMixin):
         r = self.testapp.post("/%s/" % indexname,
             {":action": "file_upload", "name": name, "version": version,
              "content": Upload(basename, content)}, expect_errors=True)
-        assert r.status_code == code
+        if code is not None:
+            assert r.status_code == code
         if waithooks:
             self._wait_for_serial_in_result(r)
 
@@ -1131,19 +1182,19 @@ class Mapp(MappMixin):
 
 
 @pytest.fixture
-def noiter(monkeypatch, request):
+def noiter(monkeypatch):
     l = []
 
-    @property
     def body(self):
         if self.headers["Content-Type"] != "application/octet-stream":
             return self.body_old
         if self.app_iter:
             l.append(self.app_iter)
+        return None
 
     monkeypatch.setattr(TestResponse, "body_old", TestResponse.body,
                         raising=False)
-    monkeypatch.setattr(TestResponse, "body", body)
+    monkeypatch.setattr(TestResponse, "body", property(body))
     yield
     for x in l:
         x.close()
@@ -1247,10 +1298,7 @@ class MyFunctionalTestApp(MyTestApp):
         self.headers = {}
         self.JSONEncoder = json.JSONEncoder
 
-    def _gen_request(self, method, url, params=None,
-                     headers=None, extra_environ=None, status=None,
-                     upload_files=None, expect_errors=False,
-                     content_type=None):
+    def _gen_request(self, method, url, params=None, headers=None, **kw):
         headers = {} if headers is None else headers.copy()
         if self.auth:
             headers["X-Devpi-Auth"] = b64encode("%s:%s" % self.auth)
@@ -1262,7 +1310,21 @@ class MyFunctionalTestApp(MyTestApp):
         kw = dict(headers=headers)
         if params and params is not webtest.utils.NoDefault:
             if method.lower() in ('post', 'put', 'patch'):
-                kw['data'] = params
+                if isinstance(params, dict):
+                    kw["data"] = data = {}
+                    kw["files"] = files = {}
+                    for k, v in params.items():
+                        if isinstance(v, Upload):
+                            f = BytesIO(v.content)
+                            files[k] = (
+                                (v.filename, f)
+                                if v.content_type is None
+                                else (v.filename, f, v.content_type)
+                            )
+                        else:
+                            data[k] = v
+                else:
+                    kw["data"] = params
             else:
                 kw['params'] = params
         meth = getattr(requests, method.lower())
@@ -1326,12 +1388,12 @@ def call_devpi_in_dir():
     devpiserver = shutil.which("devpi-server")
 
     def devpi(server_dir, args):
+        from _pytest.monkeypatch import MonkeyPatch
+        from _pytest.pytester import RunResult
         from devpi_server.genconfig import genconfig
         from devpi_server.importexport import import_
         from devpi_server.init import init
         from devpi_server.main import main
-        from _pytest.monkeypatch import MonkeyPatch
-        from _pytest.pytester import RunResult
         m = MonkeyPatch()
         m.setenv("DEVPISERVER_SERVERDIR", getattr(server_dir, 'strpath', server_dir))
         cap = capture.MultiCapture(
@@ -1340,6 +1402,7 @@ def call_devpi_in_dir():
             err=capture.FDCapture(2))
         cap.start_capturing()
         now = time.time()
+        entry_point: Callable
         if args[0] == 'devpi-gen-config':
             m.setattr("sys.argv", [devpigenconfig])
             entry_point = genconfig
@@ -1481,6 +1544,7 @@ http {
     default_type  application/octet-stream;
     sendfile        on;
     keepalive_timeout 0;
+    client_body_temp_path client_body_temp;
     include nginx-devpi.conf;
 }
 """
@@ -1569,16 +1633,20 @@ def nginx_replica_host_port(request, call_devpi_in_dir, server_path, adjust_ngin
 
 @pytest.fixture(scope="session")
 def simpypiserver():
-    from .simpypi import httpserver, SimPyPIRequestHandler
+    from .simpypi import SimPyPIRequestHandler
+    from .simpypi import SimPyPIServer
+    from devpi_common.types import ensure_unicode
     import threading
+
     host = 'localhost'
     port = get_open_port(host)
-    server = httpserver.HTTPServer((host, port), SimPyPIRequestHandler)
+    server = SimPyPIServer((host, port), SimPyPIRequestHandler)
     thread = threading.Thread(target=server.serve_forever)
     thread.daemon = True
     thread.start()
     wait_for_port(host, port, 5)
-    print("Started simpypi server %s:%s" % server.server_address)
+    (server_host, server_port) = server.server_address  # type: ignore[misc]
+    print(f"Started simpypi server {ensure_unicode(server_host)}:{server_port}")
     return server
 
 
@@ -1595,18 +1663,58 @@ def gen():
 
 
 class Gen:
-    def pypi_package_link(self, pkgname, *, md5=True):
-        link = "https://pypi.org/package/some/%s" % pkgname
-        if md5 is True:
-            md5 = hashlib.md5(link.encode()).hexdigest()  # noqa: S324
-        if md5:
-            link += "#md5=%s" % md5
-        return URL(link)
+    def __init__(self):
+        from devpi_server.filestore import DEFAULT_HASH_TYPE
+        from devpi_server.filestore import get_hashes
+
+        self.DEFAULT_HASH_TYPE = DEFAULT_HASH_TYPE
+        self.get_hashes = get_hashes
+
+    def pypi_package_link(
+        self,
+        pkgname: str,
+        *,
+        hash_spec: NotSet | bool | str = notset,
+        hash_type: NotSet | str = notset,
+        md5: NotSet | bool | str = notset,
+    ) -> URL:
+        link = f"https://pypi.org/package/some/{pkgname}"
+        if md5 is not notset:
+            warnings.warn(
+                "The 'md5' argument of 'pypi_package_link' is deprecated, "
+                "use 'hash_spec' or 'hash_type' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if isinstance(md5, bool):
+            assert hash_spec is notset
+            if md5:
+                assert hash_type is notset
+                hash_type = "md5"
+            else:
+                hash_spec = False
+            md5 = notset
+        elif isinstance(md5, str):
+            assert hash_spec is notset
+            hash_spec = f"md5={md5}"
+            md5 = notset
+        elif md5 is not notset:
+            raise TypeError
+        assert md5 is notset
+        if hash_spec is notset or hash_spec is True:
+            if hash_type is notset:
+                hash_type = self.DEFAULT_HASH_TYPE
+            hash_spec = self.get_hashes(
+                link.encode(),
+                hash_types=(hash_type,),
+            ).get_spec(hash_type)
+        return URL(f"{link}#{hash_spec}" if hash_spec else link)
 
 
 @pytest.fixture
 def pyramidconfig():
-    from pyramid.testing import setUp, tearDown
+    from pyramid.testing import setUp
+    from pyramid.testing import tearDown
     config = setUp()
     yield config
     tearDown()
@@ -1630,11 +1738,24 @@ def blank_request():
     return blank_request
 
 
+@pytest.fixture(scope="session")
+def file_digest():
+    from devpi_server import filestore
+
+    def file_digest(content):
+        rh = filestore.RunningHashes(filestore.DEFAULT_HASH_TYPE)
+        rh.update(content)
+        return rh.digests.get_default_value()
+
+    return file_digest
+
+
 @pytest.fixture(params=[None, "tox38"])
 def tox_result_data(request):
-    from test_devpi_server.example import tox_result_data
+    from test_devpi_server.example import tox_result_data as orig_tox_result_data
     import copy
-    tox_result_data = copy.deepcopy(tox_result_data)
+
+    tox_result_data: dict = copy.deepcopy(orig_tox_result_data)
     if request.param == "tox38":
         retcode = int(tox_result_data['testenvs']['py27']['test'][0]['retcode'])
         tox_result_data['testenvs']['py27']['test'][0]['retcode'] = retcode
@@ -1643,7 +1764,7 @@ def tox_result_data(request):
 
 @pytest.fixture
 def terminalwriter():
-    return py.io.TerminalWriter()
+    return TerminalWriter()
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -1657,9 +1778,9 @@ def _default_hash_type():
         warnings.warn(f"DEFAULT_HASH_TYPE set to {hash_type}", stacklevel=1)
         filestore.DEFAULT_HASH_TYPE = hash_type
     filestore.DEFAULT_HASH_TYPES = filestore._get_default_hash_types()
-    hash_types = os.environ.get("DEVPI_SERVER_TEST_ADDITIONAL_HASH_TYPES")
-    if hash_types:
-        hash_types = [ht.strip() for ht in hash_types.split(",")]
+    _hash_types = os.environ.get("DEVPI_SERVER_TEST_ADDITIONAL_HASH_TYPES")
+    if _hash_types:
+        hash_types = [ht.strip() for ht in _hash_types.split(",")]
         for ht in hash_types:
             assert ht not in filestore.DEFAULT_HASH_TYPES
             filestore.DEFAULT_HASH_TYPES += (ht,)

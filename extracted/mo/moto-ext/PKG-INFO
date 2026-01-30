@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto-ext
-Version: 5.1.20.post10
+Version: 5.1.20.post22
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/localstack/moto
 Author: Steve Pulec
@@ -33,7 +33,8 @@ Requires-Dist: responses!=0.25.5,>=0.15.0
 Requires-Dist: Jinja2>=2.10.1
 Provides-Extra: all
 Requires-Dist: antlr4-python3-runtime; extra == "all"
-Requires-Dist: aws-sam-translator<=1.103.0; extra == "all"
+Requires-Dist: aws-sam-translator<=1.103.0; python_version >= "3.14" and extra == "all"
+Requires-Dist: aws-sam-translator>=1.105.0; python_version < "3.14" and extra == "all"
 Requires-Dist: joserfc>=0.9.0; extra == "all"
 Requires-Dist: jsonpath_ng; extra == "all"
 Requires-Dist: docker>=3.0.0; extra == "all"
@@ -50,7 +51,8 @@ Requires-Dist: setuptools; extra == "all"
 Requires-Dist: multipart; extra == "all"
 Provides-Extra: proxy
 Requires-Dist: antlr4-python3-runtime; extra == "proxy"
-Requires-Dist: aws-sam-translator<=1.103.0; extra == "proxy"
+Requires-Dist: aws-sam-translator<=1.103.0; python_version >= "3.14" and extra == "proxy"
+Requires-Dist: aws-sam-translator>=1.105.0; python_version < "3.14" and extra == "proxy"
 Requires-Dist: joserfc>=0.9.0; extra == "proxy"
 Requires-Dist: jsonpath_ng; extra == "proxy"
 Requires-Dist: docker>=2.5.1; extra == "proxy"
@@ -66,7 +68,8 @@ Requires-Dist: setuptools; extra == "proxy"
 Requires-Dist: multipart; extra == "proxy"
 Provides-Extra: server
 Requires-Dist: antlr4-python3-runtime; extra == "server"
-Requires-Dist: aws-sam-translator<=1.103.0; extra == "server"
+Requires-Dist: aws-sam-translator<=1.103.0; python_version >= "3.14" and extra == "server"
+Requires-Dist: aws-sam-translator>=1.105.0; python_version < "3.14" and extra == "server"
 Requires-Dist: joserfc>=0.9.0; extra == "server"
 Requires-Dist: jsonpath_ng; extra == "server"
 Requires-Dist: docker>=3.0.0; extra == "server"

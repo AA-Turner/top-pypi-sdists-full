@@ -1,0 +1,128 @@
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+- name: Just run something
+  register: result
+  community.clickhouse.clickhouse_client:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+    execute: SHOW DATABASES
+    execute_kwargs:
+      types_check: false
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.result != []
+
+- name: Create dabase
+  community.clickhouse.clickhouse_client:
+    execute: CREATE DATABASE foo
+
+- name: Create user
+  community.clickhouse.clickhouse_client:
+    execute: "CREATE USER alice IDENTIFIED WITH sha256_password BY 'my_password'"
+
+- name: Query DB using non-default user & DB to connect to
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: SELECT version()
+    login_host: localhost
+    login_user: alice
+    login_db: foo
+    login_password: my_password
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result.statistics["processed_rows"] == 1
+
+- name: Create table
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: CREATE TABLE test_table_1 (x String) ENGINE = Memory
+
+- name: Insert into test table using named args
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: "INSERT INTO test_table_1 (x) VALUES (%(a)s), (%(b)s), (%(c)s)"
+    execute_kwargs:
+      params:
+        a: one
+        b: two
+        c: three
+
+- name: Check the result
+  ansible.builtin.assert:
+    that:
+      - result.substituted_query == "INSERT INTO test_table_1 (x) VALUES ('one'), ('two'), ('three')"
+      - result.statistics["processed_rows"] == 3
+
+- name: Check rows were inserted into test table 
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: "SELECT * FROM test_table_1"
+
+- name: Check the result
+  ansible.builtin.assert:
+    that:
+    - result.result == [["one"], ["two"], ["three"]]
+
+# https://github.com/ansible-collections/community.clickhouse/pull/63/
+- name: Load a schema with nested fields
+  community.clickhouse.clickhouse_client:
+    set_settings:
+      flatten_nested: 0
+    execute: "CREATE TABLE foo.nested (`coordinates` Nested(x int, y int )) ENGINE = Memory"
+
+- name: Load nested data
+  community.clickhouse.clickhouse_client:
+    execute: "INSERT INTO foo.nested (coordinates) VALUES (([(10,20), (11,21)]))"
+
+- name: Read nested data
+  register: nested_result
+  community.clickhouse.clickhouse_client:
+    execute: 'select * from foo.nested;'
+
+- name: Check nested data exists
+  ansible.builtin.assert:
+    that:
+    - nested_result.result[0][0][0][0] == 10
+    - nested_result.result[0][0][0][1] == 20
+    - nested_result.result[0][0][1][0] == 11
+    - nested_result.result[0][0][1][1] == 21
+
+
+- name: Check that the settings are applied
+  register: result
+  community.clickhouse.clickhouse_client:
+    set_settings:
+      flatten_nested: 0
+    execute: "SELECT value, changed FROM system.settings WHERE name='flatten_nested'"
+
+- name: Check result 
+  ansible.builtin.assert:
+    that:
+    - result.result[0][0] == "0"
+    - result.result[0][1] == 1
+
+# https://github.com/ansible-collections/community.clickhouse/issues/116
+- name: Create a user
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user1
+    password: querty
+
+- name: Grant all privs to the user
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: 'GRANT ALL ON *.* TO test_user1 WITH GRANT OPTION'
+
+- name: Check the tast succeeded
+  ansible.builtin.assert:
+    that:
+    - result is succeeded

@@ -26,8 +26,15 @@ from tinybird.tb.modules.watch import watch_files, watch_project
 
 @cli.command()
 @click.option("--watch", is_flag=True, default=False, help="Watch for changes and rebuild automatically")
+@click.option(
+    "--with-connections",
+    is_flag=True,
+    default=False,
+    hidden=True,
+    help="Create data linkers for connection datasources (S3, Kafka, GCS) during build",
+)
 @click.pass_context
-def build(ctx: click.Context, watch: bool) -> None:
+def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
     """
     Validate and build the project server side.
     """
@@ -51,7 +58,14 @@ def build(ctx: click.Context, watch: bool) -> None:
         )
 
     click.echo(FeedbackManager.highlight_building_project())
-    process(project=project, tb_client=tb_client, watch=False, config=config, is_branch=is_branch)
+    process(
+        project=project,
+        tb_client=tb_client,
+        watch=False,
+        config=config,
+        is_branch=is_branch,
+        with_connections=with_connections,
+    )
     if watch:
         run_watch(
             project=project,
@@ -64,6 +78,7 @@ def build(ctx: click.Context, watch: bool) -> None:
                 watch=True,
                 config=config,
                 is_branch=is_branch,
+                with_connections=with_connections,
             ),
         )
 
@@ -71,11 +86,21 @@ def build(ctx: click.Context, watch: bool) -> None:
 @cli.command("dev", help="Build the project server side and watch for changes.")
 @click.option("--data-origin", type=str, default="", help="Data origin: local or cloud")
 @click.option("--ui/--skip-ui", is_flag=True, default=True, help="Connect your local project to Tinybird UI")
+@click.option(
+    "--with-connections/--no-connections",
+    default=None,
+    hidden=True,
+    help="Create data linkers for connection datasources (S3, Kafka, GCS). Defaults to true for branches.",
+)
 @click.pass_context
-def dev(ctx: click.Context, data_origin: str, ui: bool) -> None:
+def dev(ctx: click.Context, data_origin: str, ui: bool, with_connections: Optional[bool]) -> None:
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     branch: Optional[str] = ctx.ensure_object(dict)["branch"]
     is_branch = bool(branch)
+
+    # Default with_connections to True for branches, False otherwise
+    if with_connections is None:
+        with_connections = is_branch
 
     if obj["env"] == "cloud" and not is_branch:
         raise click.ClickException(FeedbackManager.error_build_only_supported_in_local())
@@ -109,6 +134,7 @@ def dev(ctx: click.Context, data_origin: str, ui: bool) -> None:
         config=config,
         build_status=build_status,
         is_branch=is_branch,
+        with_connections=with_connections,
     )
     run_watch(
         project=project,
@@ -122,6 +148,7 @@ def dev(ctx: click.Context, data_origin: str, ui: bool) -> None:
             build_status=build_status,
             config=config,
             is_branch=is_branch,
+            with_connections=with_connections,
         ),
     )
 

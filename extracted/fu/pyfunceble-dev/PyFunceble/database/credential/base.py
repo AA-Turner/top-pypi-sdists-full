@@ -35,7 +35,7 @@ License:
 ::
 
 
-    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025 Nissar Chababy
+    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class CredentialBase:
         "port": "PYFUNCEBLE_DB_PORT",
         "name": "PYFUNCEBLE_DB_NAME",
         "username": "PYFUNCEBLE_DB_USERNAME",
-        "password": "PYFUNCEBLE_DB_PASSWORD",
+        "password": "PYFUNCEBLE_DB_PASSWORD",  # nosec: B105 # var name not password.
         "charset": "PYFUNCEBLE_DB_CHARSET",
     }
     """

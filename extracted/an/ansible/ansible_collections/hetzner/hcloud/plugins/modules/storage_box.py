@@ -15,8 +15,6 @@ short_description: Create and manage Storage Boxes in Hetzner.
 description:
     - Create, update and delete Storage Boxes in Hetzner.
     - See the L(Storage Boxes API documentation,https://docs.hetzner.cloud/reference/hetzner#storage-boxes) for more details.
-    - B(Experimental:) Storage Box support is experimental, breaking changes may occur within minor releases.
-      See https://github.com/ansible-collections/hetzner.hcloud/issues/756 for more details.
 
 author:
     - Jonas Lammler (@jooola)
@@ -343,14 +341,13 @@ hcloud_storage_box:
                     sample: 10485760
 """
 
-from ..module_utils import storage_box
-from ..module_utils.client import client_resource_not_found
-from ..module_utils.experimental import storage_box_experimental_warning
-from ..module_utils.hcloud import AnsibleHCloud, AnsibleModule
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.locations import Location
-from ..module_utils.vendor.hcloud.storage_box_types import StorageBoxType
-from ..module_utils.vendor.hcloud.storage_boxes import (
+from ..module_utils import _storage_box
+from ..module_utils._base import AnsibleHCloud, AnsibleModule
+from ..module_utils._client import client_resource_not_found
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.locations import Location
+from ..module_utils._vendor.hcloud.storage_box_types import StorageBoxType
+from ..module_utils._vendor.hcloud.storage_boxes import (
     BoundStorageBox,
     StorageBoxAccessSettings,
     StorageBoxSnapshot,
@@ -363,13 +360,9 @@ class AnsibleStorageBox(AnsibleHCloud):
 
     storage_box: BoundStorageBox | None = None
 
-    def __init__(self, module: AnsibleModule):
-        storage_box_experimental_warning(module)
-        super().__init__(module)
-
     def _prepare_result(self):
         if self.storage_box is not None:
-            return storage_box.prepare_result(self.storage_box)
+            return _storage_box.prepare_result(self.storage_box)
         return {}
 
     def _fetch(self):

@@ -3,7 +3,7 @@ Type annotations for mediaconvert service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -147,6 +147,7 @@ from .literals import (
     DeinterlacerControlType,
     DeinterlacerModeType,
     DescribeEndpointsModeType,
+    DolbyVisionCompatibilityType,
     DolbyVisionLevel6ModeType,
     DolbyVisionMappingType,
     DolbyVisionProfileType,
@@ -370,6 +371,7 @@ from .literals import (
     MsSmoothManifestEncodingType,
     MxfAfdSignalingType,
     MxfProfileType,
+    MxfUncompressedAudioWrappingType,
     MxfXavcDurationModeType,
     NielsenActiveWatermarkProcessTypeType,
     NielsenSourceWatermarkStatusTypeType,
@@ -2207,6 +2209,7 @@ class DescribeEndpointsResponseTypeDef(TypedDict):
 DolbyVisionTypeDef = TypedDict(
     "DolbyVisionTypeDef",
     {
+        "Compatibility": NotRequired[DolbyVisionCompatibilityType],
         "L6Metadata": NotRequired[DolbyVisionLevel6MetadataTypeDef],
         "L6Mode": NotRequired[DolbyVisionLevel6ModeType],
         "Mapping": NotRequired[DolbyVisionMappingType],
@@ -2597,6 +2600,7 @@ class MotionImageInserterTypeDef(TypedDict):
 class MxfSettingsTypeDef(TypedDict):
     AfdSignaling: NotRequired[MxfAfdSignalingType]
     Profile: NotRequired[MxfProfileType]
+    UncompressedAudioWrapping: NotRequired[MxfUncompressedAudioWrappingType]
     XavcProfileSettings: NotRequired[MxfXavcProfileSettingsTypeDef]
 
 class PartnerWatermarkingTypeDef(TypedDict):

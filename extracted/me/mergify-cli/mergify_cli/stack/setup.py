@@ -15,145 +15,396 @@
 
 from __future__ import annotations
 
-import importlib.metadata
+import enum
+import importlib.resources
+import importlib.resources.abc
 import json
 import pathlib
 import shutil
-import sys
+from typing import TYPE_CHECKING
+from typing import Any
 
-import aiofiles
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from mergify_cli import console
 from mergify_cli import utils
 
 
-async def _install_hook(hooks_dir: pathlib.Path, hook_name: str) -> None:
-    installed_hook_file = hooks_dir / hook_name
+class WrapperStatus(enum.Enum):
+    """Status of an installed hook wrapper."""
 
-    new_hook_file = str(
-        importlib.resources.files(__package__).joinpath(f"hooks/{hook_name}"),
+    MISSING = "missing"  # Not installed at all
+    LEGACY = "legacy"  # Old-style hook (pre-sourcing architecture)
+    INSTALLED = "installed"  # New-style wrapper that sources from mergify-hooks/
+
+
+def _get_git_hook_names() -> list[str]:
+    """Get list of git hook names from the scripts directory."""
+    scripts_dir = importlib.resources.files(__package__).joinpath("hooks/scripts")
+    return [
+        f.name.removesuffix(".sh")
+        for f in scripts_dir.iterdir()
+        if f.name.endswith(".sh")
+    ]
+
+
+async def _get_hooks_dir() -> pathlib.Path:
+    """Get the git hooks directory for the current repository."""
+    return pathlib.Path(await utils.git("rev-parse", "--git-path", "hooks"))
+
+
+def _get_script_resource(hook_name: str) -> importlib.resources.abc.Traversable:
+    """Get the Traversable resource for a hook script."""
+    return importlib.resources.files(__package__).joinpath(
+        f"hooks/scripts/{hook_name}.sh",
     )
 
-    if installed_hook_file.exists():
-        async with aiofiles.open(installed_hook_file) as f:
-            data_installed = await f.read()
-        async with aiofiles.open(new_hook_file) as f:
-            data_new = await f.read()
-        if data_installed == data_new:
-            console.log(f"Git {hook_name} hook is up to date")
+
+def _get_wrapper_resource(hook_name: str) -> importlib.resources.abc.Traversable:
+    """Get the Traversable resource for a hook wrapper."""
+    return importlib.resources.files(__package__).joinpath(
+        f"hooks/wrappers/{hook_name}",
+    )
+
+
+def _get_claude_hooks_dir() -> pathlib.Path:
+    """Get the global directory for Claude hook scripts."""
+    return pathlib.Path.home() / ".config" / "mergify-cli" / "claude-hooks"
+
+
+def _get_claude_hook_scripts() -> Iterator[importlib.resources.abc.Traversable]:
+    """Iterate over Claude hook script files in package resources."""
+    claude_hooks_src = importlib.resources.files(__package__).joinpath("claude_hooks")
+    for src_file in claude_hooks_src.iterdir():
+        if src_file.name.endswith(".sh"):
+            yield src_file
+
+
+def _claude_script_needs_update(
+    dest_file: pathlib.Path,
+    src_file: importlib.resources.abc.Traversable,
+) -> bool:
+    """Check if a Claude hook script needs to be updated by comparing content."""
+    if not dest_file.exists():
+        return True
+    installed_content = dest_file.read_text(encoding="utf-8")
+    new_content = src_file.read_text(encoding="utf-8")
+    return installed_content != new_content
+
+
+def _get_hook_command(hook: dict[str, object]) -> str:
+    """Safely extract command from Claude hook structure, handling empty lists."""
+    hooks_list = hook.get("hooks", [])
+    if not hooks_list or not isinstance(hooks_list, list):
+        return ""
+    first_hook = hooks_list[0]
+    if not isinstance(first_hook, dict):
+        return ""
+    command = first_hook.get("command", "")
+    return command if isinstance(command, str) else ""
+
+
+def _get_claude_settings_file() -> pathlib.Path:
+    """Get the global Claude settings file path."""
+    return pathlib.Path.home() / ".claude" / "settings.json"
+
+
+def _read_claude_settings() -> dict[str, Any]:
+    """Read and parse Claude settings.json, returning empty dict on failure."""
+    settings_file = _get_claude_settings_file()
+    if not settings_file.exists():
+        return {}
+    try:
+        result: dict[str, Any] = json.loads(settings_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    else:
+        return result
+
+
+def _get_wrapper_status(hook_path: pathlib.Path, hook_name: str) -> WrapperStatus:
+    """Check the status of a hook wrapper."""
+    if not hook_path.exists():
+        return WrapperStatus.MISSING
+
+    try:
+        content = hook_path.read_text(encoding="utf-8")
+    except OSError:
+        return WrapperStatus.MISSING
+
+    # Check if it's our new wrapper (sources from mergify-hooks/)
+    if "mergify-hooks" in content and f"{hook_name}.sh" in content:
+        return WrapperStatus.INSTALLED
+
+    # Check if it's a legacy mergify hook
+    if hook_name == "commit-msg" and "Change-Id: I${random}" in content:
+        return WrapperStatus.LEGACY
+    if hook_name == "prepare-commit-msg" and "is_amend_with_m_flag" in content:
+        return WrapperStatus.LEGACY
+
+    # User's own hook - treat as installed (don't touch it)
+    return WrapperStatus.INSTALLED
+
+
+def _script_needs_update(
+    script_path: pathlib.Path,
+    new_script: importlib.resources.abc.Traversable,
+) -> bool:
+    """Check if a managed script needs to be updated by comparing content."""
+    if not script_path.exists():
+        return True
+
+    try:
+        installed_content = script_path.read_text(encoding="utf-8")
+        new_content = new_script.read_text(encoding="utf-8")
+    except OSError:
+        return True
+    else:
+        return installed_content != new_content
+
+
+def _install_git_hook(
+    hooks_dir: pathlib.Path,
+    hook_name: str,
+    *,
+    force: bool = False,
+) -> None:
+    """Install or upgrade a git hook with the sourcing architecture.
+
+    Structure:
+    - .git/hooks/{hook_name} - Thin wrapper (installed once, user can modify)
+    - .git/hooks/mergify-hooks/{hook_name}.sh - Managed script (always upgradable)
+    """
+    wrapper_path = hooks_dir / hook_name
+    wrapper_status = _get_wrapper_status(wrapper_path, hook_name)
+
+    managed_dir = hooks_dir / "mergify-hooks"
+    script_path = managed_dir / f"{hook_name}.sh"
+    new_script_resource = _get_script_resource(hook_name)
+    new_wrapper_resource = _get_wrapper_resource(hook_name)
+
+    # Create mergify-hooks directory
+    managed_dir.mkdir(exist_ok=True)
+
+    # Always update managed script if content differs
+    if _script_needs_update(script_path, new_script_resource):
+        console.log(f"Updating managed hook script: mergify-hooks/{hook_name}.sh")
+        with importlib.resources.as_file(new_script_resource) as src_path:
+            shutil.copy(src_path, script_path)
+        script_path.chmod(0o755)
+    elif utils.is_debug():
+        console.log(f"Managed hook script is up to date: mergify-hooks/{hook_name}.sh")
+
+    # Handle wrapper based on status
+    if wrapper_status == WrapperStatus.MISSING:
+        console.log(f"Installing hook wrapper: {hook_name}")
+        with importlib.resources.as_file(new_wrapper_resource) as src_path:
+            shutil.copy(src_path, wrapper_path)
+        wrapper_path.chmod(0o755)
+
+    elif wrapper_status == WrapperStatus.LEGACY:
+        if force:
+            console.log(f"Migrating legacy hook to new format: {hook_name}")
+            with importlib.resources.as_file(new_wrapper_resource) as src_path:
+                shutil.copy(src_path, wrapper_path)
+            wrapper_path.chmod(0o755)
         else:
             console.print(
-                f"error: {installed_hook_file} differ from mergify_cli hook",
-                style="red",
+                f"Found legacy hook: {hook_name}\n"
+                f"Run 'mergify stack hooks --setup --force' to migrate to new format.",
+                style="yellow",
             )
-            sys.exit(1)
 
-    else:
-        console.log(f"Installation of git {hook_name} hook")
-        shutil.copy(new_hook_file, installed_hook_file)
-        installed_hook_file.chmod(0o755)
+    elif utils.is_debug():
+        console.log(f"Hook wrapper already installed: {hook_name}")
 
 
-async def _install_claude_hooks(project_dir: pathlib.Path) -> None:
+def _install_claude_hooks() -> None:
     """Install Claude Code hooks for session ID tracking.
 
-    Uses settings.local.json (gitignored) rather than settings.json
-    so each user must run setup, similar to git hooks.
+    Installs hooks globally:
+    - Scripts: ~/.config/mergify-cli/claude-hooks/
+    - Settings: ~/.claude/settings.json
     """
-    claude_dir = project_dir / ".claude"
-    claude_hooks_dir = claude_dir / "hooks"
-
-    # Create directories if they don't exist
+    claude_hooks_dir = _get_claude_hooks_dir()
     claude_hooks_dir.mkdir(parents=True, exist_ok=True)
 
-    # Ensure hooks directory is gitignored
-    gitignore_file = claude_dir / ".gitignore"
-    hooks_pattern = "hooks/"
-    if gitignore_file.exists():
-        async with aiofiles.open(gitignore_file) as f:
-            gitignore_content = await f.read()
-        if hooks_pattern not in gitignore_content.splitlines():
-            async with aiofiles.open(gitignore_file, "a") as f:
-                await f.write(f"{hooks_pattern}\n")
-            console.log("Added hooks/ to .claude/.gitignore")
-    else:
-        async with aiofiles.open(gitignore_file, "w") as f:
-            await f.write(f"{hooks_pattern}\n")
-        console.log("Created .claude/.gitignore with hooks/")
+    # Install hook scripts
+    for src_file in _get_claude_hook_scripts():
+        dest_file = claude_hooks_dir / src_file.name
 
-    # Load our hook configuration
-    new_settings_file = str(
-        importlib.resources.files(__package__).joinpath("claude_hooks/settings.json"),
-    )
-    async with aiofiles.open(new_settings_file) as f:
-        new_settings = json.loads(await f.read())
+        if _claude_script_needs_update(dest_file, src_file):
+            console.log(f"Updating Claude hook script: {src_file.name}")
+            # Use as_file() context manager for safe copying from package resources
+            with importlib.resources.as_file(src_file) as src_path:
+                shutil.copy(src_path, dest_file)
+            dest_file.chmod(0o755)
+        elif utils.is_debug():
+            console.log(f"Claude hook script is up to date: {src_file.name}")
 
-    # Merge into settings.local.json (user-local, gitignored)
-    settings_file = claude_dir / "settings.local.json"
-    if settings_file.exists():
-        async with aiofiles.open(settings_file) as f:
-            try:
-                existing_settings = json.loads(await f.read())
-            except json.JSONDecodeError:
-                existing_settings = {}
-    else:
-        existing_settings = {}
+    # Install/update Claude settings
+    settings_file = _get_claude_settings_file()
+    settings_file.parent.mkdir(parents=True, exist_ok=True)
+    existing_settings = _read_claude_settings()
 
-    # Merge hooks - add our SessionStart hook if not already present
     if "hooks" not in existing_settings:
         existing_settings["hooks"] = {}
 
-    our_hook = new_settings["hooks"]["SessionStart"]
+    # Build our hook configuration with absolute path
+    hook_script_path = str(claude_hooks_dir / "session-start.sh")
+    our_hook = [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": hook_script_path,
+                },
+            ],
+        },
+    ]
+
     existing_hooks = existing_settings["hooks"].get("SessionStart", [])
 
     # Check if our hook is already installed (by checking the command)
-    our_command = our_hook[0]["hooks"][0]["command"]
     already_installed = any(
-        hook.get("hooks", [{}])[0].get("command") == our_command
-        for hook in existing_hooks
-        if hook.get("hooks")
+        _get_hook_command(hook) == hook_script_path for hook in existing_hooks
     )
 
     if already_installed:
-        console.log("Claude settings.local.json hook is up to date")
+        if utils.is_debug():
+            console.log("Claude settings.json hook is up to date")
     else:
-        existing_settings["hooks"]["SessionStart"] = existing_hooks + our_hook
-        async with aiofiles.open(settings_file, "w") as f:
-            await f.write(json.dumps(existing_settings, indent=2) + "\n")
-        console.log("Installation of Claude settings.local.json hook")
+        # Remove any old mergify-cli hooks that might reference different paths
+        # Be specific: only remove hooks that contain "mergify-cli" in the path
+        filtered_hooks = [
+            hook
+            for hook in existing_hooks
+            if not (
+                "mergify-cli" in _get_hook_command(hook)
+                and _get_hook_command(hook).endswith("session-start.sh")
+            )
+        ]
+        existing_settings["hooks"]["SessionStart"] = filtered_hooks + our_hook
+        settings_file.write_text(
+            json.dumps(existing_settings, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        console.log("Installation of Claude settings.json hook")
 
-    # Install session-start.sh hook script
-    hook_file = claude_hooks_dir / "session-start.sh"
-    new_hook_file = str(
-        importlib.resources.files(__package__).joinpath(
-            "claude_hooks/session-start.sh",
-        ),
+
+def _get_claude_hooks_status() -> dict[str, Any]:
+    """Get detailed status of Claude hooks for display.
+
+    Returns:
+        Dictionary with 'scripts' and 'settings' status info.
+    """
+    claude_hooks_dir = _get_claude_hooks_dir()
+    settings_file = _get_claude_settings_file()
+
+    # Check script status
+    scripts_status = {}
+    for src_file in _get_claude_hook_scripts():
+        dest_file = claude_hooks_dir / src_file.name
+        installed = dest_file.exists()
+        needs_update = (
+            _claude_script_needs_update(dest_file, src_file) if installed else False
+        )
+
+        scripts_status[src_file.name] = {
+            "installed": installed,
+            "needs_update": needs_update,
+            "path": str(dest_file),
+        }
+
+    # Check settings.json status
+    hook_script_path = str(claude_hooks_dir / "session-start.sh")
+    existing_settings = _read_claude_settings()
+    existing_hooks = existing_settings.get("hooks", {}).get("SessionStart", [])
+    settings_installed = any(
+        _get_hook_command(hook) == hook_script_path for hook in existing_hooks
     )
 
-    if hook_file.exists():
-        async with aiofiles.open(hook_file) as f:
-            data_installed = await f.read()
-        async with aiofiles.open(new_hook_file) as f:
-            data_new = await f.read()
-        if data_installed == data_new:
-            console.log("Claude session-start.sh hook is up to date")
-        else:
-            console.print(
-                f"warning: {hook_file} differs from mergify_cli hook, skipping",
-                style="yellow",
-            )
-    else:
-        console.log("Installation of Claude session-start.sh hook")
-        shutil.copy(new_hook_file, hook_file)
-        hook_file.chmod(0o755)
+    return {
+        "scripts": scripts_status,
+        "settings_installed": settings_installed,
+        "settings_path": str(settings_file),
+    }
 
 
-async def stack_setup() -> None:
-    # Install git hooks
-    hooks_dir = pathlib.Path(await utils.git("rev-parse", "--git-path", "hooks"))
-    await _install_hook(hooks_dir, "commit-msg")
-    await _install_hook(hooks_dir, "prepare-commit-msg")
+async def get_hooks_status() -> dict[str, Any]:
+    """Get detailed status of all hooks for display.
 
-    # Install Claude hooks for session ID tracking
-    project_dir = pathlib.Path(await utils.git("rev-parse", "--show-toplevel"))
-    await _install_claude_hooks(project_dir)
+    Returns:
+        Dictionary with 'git_hooks' and 'claude_hooks' status info.
+    """
+    hooks_dir = await _get_hooks_dir()
+    managed_dir = hooks_dir / "mergify-hooks"
+
+    git_hooks = {}
+    for hook_name in _get_git_hook_names():
+        wrapper_path = hooks_dir / hook_name
+        script_path = managed_dir / f"{hook_name}.sh"
+
+        wrapper_status = _get_wrapper_status(wrapper_path, hook_name)
+        script_installed = script_path.exists()
+        script_needs_update = False
+
+        if script_installed:
+            new_script_resource = _get_script_resource(hook_name)
+            script_needs_update = _script_needs_update(script_path, new_script_resource)
+
+        git_hooks[hook_name] = {
+            "wrapper_status": wrapper_status,
+            "script_installed": script_installed,
+            "script_needs_update": script_needs_update,
+            "wrapper_path": str(wrapper_path),
+            "script_path": str(script_path),
+        }
+
+    return {
+        "git_hooks": git_hooks,
+        "claude_hooks": _get_claude_hooks_status(),
+    }
+
+
+async def stack_setup(*, force: bool = False) -> None:
+    """Set up git hooks for the stack workflow.
+
+    Args:
+        force: If True, overwrite wrappers even if user modified them
+    """
+    hooks_dir = await _get_hooks_dir()
+
+    for hook_name in _get_git_hook_names():
+        _install_git_hook(hooks_dir, hook_name, force=force)
+
+    # Install Claude hooks for session ID tracking (global)
+    _install_claude_hooks()
+
+
+async def ensure_hooks_updated() -> None:
+    """Ensure hooks are up to date, called automatically by stack commands.
+
+    This only updates the managed scripts, never touches user's wrapper files.
+    """
+    hooks_dir = await _get_hooks_dir()
+    managed_dir = hooks_dir / "mergify-hooks"
+
+    # Update git hook scripts
+    if managed_dir.exists():
+        for hook_name in _get_git_hook_names():
+            script_path = managed_dir / f"{hook_name}.sh"
+            new_script_resource = _get_script_resource(hook_name)
+
+            if _script_needs_update(script_path, new_script_resource):
+                console.log(
+                    f"Auto-updating managed hook script: mergify-hooks/{hook_name}.sh",
+                )
+                with importlib.resources.as_file(new_script_resource) as src_path:
+                    shutil.copy(src_path, script_path)
+                script_path.chmod(0o755)
+
+    # Install/update Claude hook scripts (always, creates directory if needed)
+    _install_claude_hooks()

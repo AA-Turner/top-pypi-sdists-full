@@ -1,4 +1,5 @@
 mod anthropic;
+mod interface;
 mod proto;
 mod proxy;
 #[cfg(feature = "python")]
@@ -13,7 +14,7 @@ pub mod ts_interface;
 use pyo3::prelude::PyModuleMethods;
 
 #[cfg(feature = "python")]
-use python_interface::{run, stop};
+use python_interface::{run, stop, stop_with_timeout};
 
 /// Python module definition
 #[cfg(feature = "python")]
@@ -23,6 +24,7 @@ fn lmnr_claude_code_proxy(
 ) -> pyo3::prelude::PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(run, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(stop, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(stop_with_timeout, m)?)?;
     Ok(())
 }
 

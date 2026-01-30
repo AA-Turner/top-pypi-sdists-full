@@ -10,7 +10,10 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
     TypeAdapter,
+    model_serializer,
     model_validator,
 )
 from typing_extensions import Annotated, Self
@@ -34,7 +37,7 @@ UtcDatetime = Annotated[
     AfterValidator(lambda d: d.astimezone(timezone.utc)),
 ]
 
-SearchDatetime = TypeAdapter(Optional[UtcDatetime])
+SearchDatetime: TypeAdapter = TypeAdapter(Optional[UtcDatetime])
 
 
 class MimeTypes(str, Enum):
@@ -112,14 +115,14 @@ class StacBaseModel(BaseModel):
             by_alias=by_alias, exclude_unset=exclude_unset, **kwargs
         )
 
-    def model_dump(
+    def model_dump(  # type: ignore[override]
         self, *, by_alias: bool = True, exclude_unset: bool = True, **kwargs: Any
     ) -> Dict[str, Any]:
         return super().model_dump(
             by_alias=by_alias, exclude_unset=exclude_unset, **kwargs
         )
 
-    def model_dump_json(
+    def model_dump_json(  # type: ignore[override]
         self, *, by_alias: bool = True, exclude_unset: bool = True, **kwargs: Any
     ) -> str:
         return super().model_dump_json(
@@ -184,6 +187,22 @@ class StacCommonMetadata(StacBaseModel):
                 "use of start_datetime or end_datetime requires the use of the other"
             )
         return self
+
+    @model_serializer(when_used="always", mode="wrap")
+    def include_datetime_null(
+        self,
+        serializer: SerializerFunctionWrapHandler,
+        info: SerializationInfo,
+    ):
+        """Custom Model serializer make sure to allways keep datetime."""
+        data = serializer(self)
+        start = data.get("start_datetime")
+        end = data.get("end_datetime")
+        if not data.get("datetime") and (start and end):
+            if info.exclude_none and "datetime" not in (info.exclude or {}):
+                data["datetime"] = None
+
+        return data
 
 
 class Asset(StacBaseModel):

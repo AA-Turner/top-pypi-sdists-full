@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.47.0
+Version: 1.50.0
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -33,7 +33,7 @@ Requires-Dist: genai-prices>=0.0.48
 Requires-Dist: griffe>=1.14.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.47.0
+Requires-Dist: pydantic-graph==1.50.0
 Requires-Dist: pydantic>=2.10
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
@@ -53,11 +53,11 @@ Requires-Dist: rich>=13; extra == 'cli'
 Provides-Extra: cohere
 Requires-Dist: cohere>=5.18.0; (platform_system != 'Emscripten') and extra == 'cohere'
 Provides-Extra: dbos
-Requires-Dist: dbos>=1.14.0; extra == 'dbos'
+Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.47.0; extra == 'evals'
+Requires-Dist: pydantic-evals==1.50.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: fastmcp
@@ -71,7 +71,7 @@ Requires-Dist: huggingface-hub[inference]<1.0.0,>=0.33.5; extra == 'huggingface'
 Provides-Extra: logfire
 Requires-Dist: logfire[httpx]>=4.16.0; extra == 'logfire'
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.25.0; extra == 'mcp'
+Requires-Dist: mcp<2.0,>=1.25.0; extra == 'mcp'
 Provides-Extra: mistral
 Requires-Dist: mistralai>=1.9.11; extra == 'mistral'
 Provides-Extra: openai

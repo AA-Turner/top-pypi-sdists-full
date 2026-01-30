@@ -1,4 +1,7 @@
+import { build_views } from "@bokehjs/core/build_views";
 import { ClassList, InlineStyleSheet, ImportedStyleSheet } from "@bokehjs/core/dom";
+import { difference } from "@bokehjs/core/util/array";
+import { assert } from "@bokehjs/core/util/assert";
 import { isString } from "@bokehjs/core/util/types";
 import { ReactiveESM, ReactiveESMView, model_getter, model_setter, } from "./reactive_esm";
 export class HostedStyleSheet extends InlineStyleSheet {
@@ -23,12 +26,46 @@ export class HostedStyleSheet extends InlineStyleSheet {
         super.append(css, styles);
     }
 }
+async function _build_view(view_cls, model, options) {
+    assert(view_cls != null, "model doesn't implement a view");
+    const view = new view_cls({ ...options, model });
+    view.initialize();
+    await view.lazy_initialize();
+    return view;
+}
+// Custom build_views implementation which does not eagerly destroy old views
+async function build_views_no_remove(view_storage, models, options = { parent: null }, cls = (model) => model.default_view) {
+    const to_remove = difference([...view_storage.keys()], models);
+    const removed_views = [];
+    for (const model of to_remove) {
+        const view = view_storage.get(model);
+        if (view != null) {
+            view_storage.delete(model);
+            removed_views.push(view);
+        }
+    }
+    const created_views = [];
+    const new_models = models.filter((model) => !view_storage.has(model));
+    for (const model of new_models) {
+        const view = await _build_view(cls(model), model, options);
+        view_storage.set(model, view);
+        created_views.push(view);
+    }
+    for (const view of created_views) {
+        view.connect_signals();
+    }
+    return {
+        created: created_views,
+        removed: removed_views,
+    };
+}
 export class ReactComponentView extends ReactiveESMView {
     static __name__ = "ReactComponentView";
     model_getter = model_getter;
     model_setter = model_setter;
     react_root = null;
     _force_update_callbacks = [];
+    _scheduled_removals = [];
     initialize() {
         super.initialize();
         if (!this.use_shadow_dom) {
@@ -75,6 +112,10 @@ export class ReactComponentView extends ReactiveESMView {
         if (this.react_root && this.use_shadow_dom) {
             super.remove();
             this.react_root.then((root) => root && root.unmount());
+            for (const view of this._scheduled_removals) {
+                view.remove();
+            }
+            this._scheduled_removals = [];
         }
         else {
             this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
@@ -139,9 +180,28 @@ export class ReactComponentView extends ReactiveESMView {
             cb();
         }
     }
+    async build_child_views() {
+        const build_fn = this.model.use_shadow_dom ? build_views_no_remove : build_views;
+        const { created, removed } = await build_fn(this._child_views, this.child_models, { parent: this });
+        for (const view of removed) {
+            this._resize_observer.unobserve(view.el);
+            if (this.model.use_shadow_dom) {
+                this._child_rendered.delete(view);
+                if (created.length) {
+                    this._scheduled_removals.push(view);
+                }
+                else {
+                    view.remove();
+                }
+            }
+        }
+        for (const view of created) {
+            this._resize_observer.observe(view.el, { box: "border-box" });
+        }
+        return created;
+    }
     async update_children() {
         const created_children = new Set(await this.build_child_views());
-        const all_views = this.child_views;
         const new_views = new Map();
         for (const child_view of this.child_views) {
             if (!created_children.has(child_view)) {
@@ -156,14 +216,6 @@ export class ReactComponentView extends ReactiveESMView {
             }
             else {
                 new_views.set(child, [child_view]);
-            }
-        }
-        if (this.use_shadow_dom) {
-            for (const view of this._child_rendered.keys()) {
-                if (!all_views.includes(view)) {
-                    this._child_rendered.delete(view);
-                    view.el.remove();
-                }
             }
         }
         for (const child of this.model.children) {
@@ -298,7 +350,14 @@ async function render(id) {
     componentDidMount() {
       const view = this.view
       if (view == null) { return }
-      else if (!this.use_shadow_dom) {
+      for (const view of this.props.parent._scheduled_removals) { view.remove() }
+      this.props.parent._scheduled_removals = []
+      if (this.use_shadow_dom) {
+        this.updateElement()
+        this.props.parent.rerender_(view)
+        this.props.parent._child_rendered.set(view, true)
+        this.props.parent.notify_mount(this.props.name, view.model.id)
+      } else {
         view.patch_container(this.containerRef.current)
         view.model.render_module.then(async (mod) => {
           this.setState(
@@ -310,10 +369,7 @@ async function render(id) {
             }
           )
         })
-        return
       }
-      this.updateElement()
-      this.props.parent.rerender_(view)
       this.render_callback = (new_views) => {
         const view = this.view
         if (!view) {
@@ -321,11 +377,29 @@ async function render(id) {
         }
         this.updateElement()
         if (new_views.includes(view)) {
-          this.props.parent.rerender_(view)
+          if (this.use_shadow_dom) {
+            for (const view of this.props.parent._scheduled_removals) { view.remove() }
+            this.props.parent._scheduled_removals = []
+            this.props.parent.rerender_(view)
+            this.props.parent._child_rendered.set(view, true)
+          } else {
+            view.patch_container(this.containerRef.current)
+            view.model.render_module.then(async (mod) => {
+              for (const view of this.props.parent._scheduled_removals) { view.remove() }
+              this.props.parent._scheduled_removals = []
+              this.setState(
+                {rendered: await mod.default.render(view.model.id)},
+                () => {
+                  this.props.parent.notify_mount(this.props.name, view.model.id)
+                  this.view.r_after_render()
+                  this.view.after_rendered()
+                }
+              )
+            })
+          }
         }
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
-      this.props.parent.notify_mount(this.props.name, view.model.id)
     }
 
     componentWillUnmount() {

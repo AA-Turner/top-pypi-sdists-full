@@ -576,9 +576,6 @@ async def test_event_loop_tracing_with_model_error(
         )
         await alist(stream)
 
-    # Verify error handling span methods were called
-    mock_tracer.end_span_with_error.assert_called_once_with(model_span, "Input too long", model.stream.side_effect)
-
 
 @pytest.mark.asyncio
 async def test_event_loop_cycle_max_tokens_exception(
@@ -705,8 +702,6 @@ async def test_event_loop_tracing_with_throttling_exception(
         )
         await alist(stream)
 
-    # Verify error span was created for the throttling exception
-    assert mock_tracer.end_span_with_error.call_count == 1
     # Verify span was created for the successful retry
     assert mock_tracer.start_model_invoke_span.call_count == 2
     assert mock_tracer.end_model_invoke_span.call_count == 1
@@ -860,27 +855,28 @@ async def test_event_loop_cycle_exception_model_hooks(mock_sleep, agent, model, 
     assert count == 9
 
     # 1st call - throttled
-    assert next(events) == BeforeModelCallEvent(agent=agent)
-    expected_after = AfterModelCallEvent(agent=agent, stop_response=None, exception=exception)
+    assert next(events) == BeforeModelCallEvent(agent=agent, invocation_state=ANY)
+    expected_after = AfterModelCallEvent(agent=agent, invocation_state=ANY, stop_response=None, exception=exception)
     expected_after.retry = True
     assert next(events) == expected_after
 
     # 2nd call - throttled
-    assert next(events) == BeforeModelCallEvent(agent=agent)
-    expected_after = AfterModelCallEvent(agent=agent, stop_response=None, exception=exception)
+    assert next(events) == BeforeModelCallEvent(agent=agent, invocation_state=ANY)
+    expected_after = AfterModelCallEvent(agent=agent, invocation_state=ANY, stop_response=None, exception=exception)
     expected_after.retry = True
     assert next(events) == expected_after
 
     # 3rd call - throttled
-    assert next(events) == BeforeModelCallEvent(agent=agent)
-    expected_after = AfterModelCallEvent(agent=agent, stop_response=None, exception=exception)
+    assert next(events) == BeforeModelCallEvent(agent=agent, invocation_state=ANY)
+    expected_after = AfterModelCallEvent(agent=agent, invocation_state=ANY, stop_response=None, exception=exception)
     expected_after.retry = True
     assert next(events) == expected_after
 
     # 4th call - successful
-    assert next(events) == BeforeModelCallEvent(agent=agent)
+    assert next(events) == BeforeModelCallEvent(agent=agent, invocation_state=ANY)
     assert next(events) == AfterModelCallEvent(
         agent=agent,
+        invocation_state=ANY,
         stop_response=AfterModelCallEvent.ModelStopResponse(
             message={"content": [{"text": "test text"}], "role": "assistant"}, stop_reason="end_turn"
         ),

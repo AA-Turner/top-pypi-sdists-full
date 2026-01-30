@@ -56,7 +56,7 @@ class KubeContext:
             log2('Use -v <key>=<value> format.')
             log2()
             lines = [f'{key}\t{Config().get(key, None)}' for key in Config().keys()]
-            tabulize(lines, separator='\t', to=2)
+            tabulize(lines, separator='\t', err=True)
 
         for p in param_ovrs:
             tokens = p.split('=')

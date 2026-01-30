@@ -60,6 +60,7 @@ pub fn get_new_build_system(
     current_build_system: Option<BuildSystem>,
     keep_current_build_backend: bool,
     new_build_system: Option<&BuildBackendObject>,
+    build_backend: Option<BuildBackend>,
 ) -> Option<BuildSystem> {
     if keep_current_build_backend {
         return None;
@@ -67,13 +68,17 @@ pub fn get_new_build_system(
 
     if current_build_system?.build_backend? == "poetry.core.masonry.api" {
         return match new_build_system {
-            None | Some(BuildBackendObject::Uv(_)) => Some(BuildSystem {
-                requires: vec![get_uv_build()],
-                build_backend: Some("uv_build".to_string()),
-            }),
             Some(BuildBackendObject::Hatch(_)) => Some(BuildSystem {
                 requires: vec!["hatchling".to_string()],
                 build_backend: Some("hatchling.build".to_string()),
+            }),
+            None if build_backend == Some(BuildBackend::Hatch) => Some(BuildSystem {
+                requires: vec!["hatchling".to_string()],
+                build_backend: Some("hatchling.build".to_string()),
+            }),
+            _ => Some(BuildSystem {
+                requires: vec![get_uv_build()],
+                build_backend: Some("uv_build".to_string()),
             }),
         };
     }
@@ -85,6 +90,7 @@ pub fn get_new_build_system(
 /// Hatch is selected. If `--build-backend` is set to `uv`, Uv is selected.
 pub fn get_build_backend(
     converter_options: &ConverterOptions,
+    build_system: Option<&BuildSystem>,
     poetry: &Poetry,
 ) -> Option<BuildBackendObject> {
     if converter_options.keep_current_build_backend {
@@ -99,6 +105,7 @@ pub fn get_build_backend(
                 poetry.packages.as_ref(),
                 poetry.include.as_ref(),
                 poetry.exclude.as_ref(),
+                build_system,
             );
 
             match uv {
@@ -142,6 +149,7 @@ pub fn get_build_backend(
                 poetry.packages.as_ref(),
                 poetry.include.as_ref(),
                 poetry.exclude.as_ref(),
+                build_system,
             );
 
             match uv {

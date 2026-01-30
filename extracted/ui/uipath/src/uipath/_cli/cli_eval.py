@@ -10,7 +10,6 @@ from uipath.runtime import UiPathRuntimeContext, UiPathRuntimeFactoryRegistry
 
 from uipath._cli._evals._console_progress_reporter import ConsoleProgressReporter
 from uipath._cli._evals._evaluate import evaluate
-from uipath._cli._evals._live_tracking_processor import LiveTrackingSpanProcessor
 from uipath._cli._evals._progress_reporter import StudioWebProgressReporter
 from uipath._cli._evals._runtime import (
     UiPathEvalContext,
@@ -25,7 +24,11 @@ from uipath.eval._helpers import auto_discover_entrypoint
 from uipath.platform.chat import set_llm_concurrency
 from uipath.platform.common import UiPathConfig
 from uipath.telemetry._track import flush_events
-from uipath.tracing import JsonLinesFileExporter, LlmOpsHttpExporter
+from uipath.tracing import (
+    JsonLinesFileExporter,
+    LiveTrackingSpanProcessor,
+    LlmOpsHttpExporter,
+)
 
 from ._utils._console import ConsoleLogger
 from ._utils._eval_set import EvalHelpers
@@ -206,22 +209,9 @@ def eval(
             async def execute_eval():
                 event_bus = EventBus()
 
-                is_low_code = eval_context.entrypoint == "agent.json"
-
                 # Only create studio web exporter when reporting to Studio Web
-                studio_web_tracking_exporter = None
                 if should_register_progress_reporter:
-                    studio_web_tracking_exporter = LlmOpsHttpExporter(
-                        is_low_code=is_low_code
-                    )
-                    if eval_context.eval_set_run_id:
-                        studio_web_tracking_exporter.trace_id = (
-                            eval_context.eval_set_run_id
-                        )
-
-                    progress_reporter = StudioWebProgressReporter(
-                        studio_web_tracking_exporter
-                    )
+                    progress_reporter = StudioWebProgressReporter()
                     await progress_reporter.subscribe_to_eval_runtime_events(event_bus)
 
                 console_reporter = ConsoleProgressReporter()
@@ -241,40 +231,43 @@ def eval(
                     # Set job_id in eval context for single runtime runs
                     eval_context.job_id = ctx.job_id
 
-                    # Create job exporter for live tracking
-                    job_exporter = None
+                    runtime_factory = UiPathRuntimeFactoryRegistry.get(context=ctx)
+                    factory_settings = await runtime_factory.get_settings()
+                    trace_settings = (
+                        factory_settings.trace_settings if factory_settings else None
+                    )
+
                     if ctx.job_id:
-                        job_exporter = LlmOpsHttpExporter(is_low_code=is_low_code)
-                        trace_manager.add_span_exporter(job_exporter)
-                        # Add live tracking processor for real-time span updates
-                        job_tracking_processor = LiveTrackingSpanProcessor(job_exporter)
-                        trace_manager.tracer_span_processors.append(
-                            job_tracking_processor
-                        )
-                        trace_manager.tracer_provider.add_span_processor(
-                            job_tracking_processor
+                        # Orchestrator live tracking
+                        trace_manager.add_span_processor(
+                            LiveTrackingSpanProcessor(
+                                LlmOpsHttpExporter(),
+                                settings=trace_settings,
+                            )
                         )
 
-                    # Add studio web tracking processor if reporting to Studio Web
-                    if studio_web_tracking_exporter:
-                        studio_web_tracking_processor = LiveTrackingSpanProcessor(
-                            studio_web_tracking_exporter
-                        )
-                        trace_manager.tracer_span_processors.append(
-                            studio_web_tracking_processor
-                        )
-                        trace_manager.tracer_provider.add_span_processor(
-                            studio_web_tracking_processor
+                    if should_register_progress_reporter:
+                        # Studio Web live tracking
+                        trace_manager.add_span_processor(
+                            LiveTrackingSpanProcessor(
+                                LlmOpsHttpExporter(
+                                    trace_id=eval_context.eval_set_run_id
+                                ),
+                                settings=trace_settings,
+                            )
                         )
 
                     if trace_file:
+                        trace_settings = (
+                            factory_settings.trace_settings
+                            if factory_settings
+                            else None
+                        )
                         trace_manager.add_span_exporter(
-                            JsonLinesFileExporter(trace_file)
+                            JsonLinesFileExporter(trace_file), settings=trace_settings
                         )
 
                     project_id = UiPathConfig.project_id
-
-                    runtime_factory = UiPathRuntimeFactoryRegistry.get(context=ctx)
 
                     try:
                         if project_id:

@@ -86,10 +86,5 @@ nested_data_strategies: S[S[D]] = st.recursive(
 )
 
 if __name__ == "__main__":
-    import warnings
-    from hypothesis.errors import NonInteractiveExampleWarning
-
-    warnings.filterwarnings("ignore", category=NonInteractiveExampleWarning)
-
     for _ in range(100):
         print(repr(nested_data_strategies.example().example()))

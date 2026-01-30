@@ -5,15 +5,19 @@ from typing import Any
 from typing import Generic
 from typing import TypeVar
 from typing import Union
-from typing import cast
 from typing import get_args
 from typing import get_origin
 
 from pydantic import Field
 from pydantic import SerializationInfo
 from pydantic import SerializerFunctionWrapHandler
+from pydantic import ValidationInfo
+from pydantic import ValidatorFunctionWrapHandler
 from pydantic import WrapSerializer
 from pydantic import field_serializer
+from pydantic import model_validator
+from pydantic_core import PydanticCustomError
+from typing_extensions import Self
 
 from ..annotations import CaseExact
 from ..annotations import Mutability
@@ -24,9 +28,9 @@ from ..attributes import ComplexAttribute
 from ..attributes import is_complex_attribute
 from ..base import BaseModel
 from ..context import Context
-from ..reference import Reference
+from ..exceptions import InvalidPathException
+from ..path import Path
 from ..scim_object import ScimObject
-from ..urn import _validate_attribute_urn
 from ..utils import UNION_TYPES
 from ..utils import _normalize_attribute_name
 
@@ -178,7 +182,7 @@ class Resource(ScimObject, Generic[AnyExtension]):
         class_attrs = {"__scim_extension_metadata__": valid_extensions}
 
         for extension in valid_extensions:
-            schema = extension.model_fields["schemas"].default[0]
+            schema = extension.__schema__
             class_attrs[extension.__name__] = Field(
                 default=None,  # type: ignore[arg-type]
                 serialization_alias=schema,
@@ -206,24 +210,79 @@ class Resource(ScimObject, Generic[AnyExtension]):
 
         return new_class
 
-    def __getitem__(self, item: Any) -> Extension | None:
-        if not isinstance(item, type) or not issubclass(item, Extension):
-            raise KeyError(f"{item} is not a valid extension type")
+    def __getitem__(self, item: Any) -> Any:
+        """Get a value by extension type or path.
 
-        return cast(Extension | None, getattr(self, item.__name__))
+        :param item: An Extension subclass or a path (string or Path).
+        :returns: The extension instance or the value at the path.
+        :raises KeyError: If the path references a non-existent field.
 
-    def __setitem__(self, item: Any, value: "Extension") -> None:
-        if not isinstance(item, type) or not issubclass(item, Extension):
-            raise KeyError(f"{item} is not a valid extension type")
+        Examples::
 
-        setattr(self, item.__name__, value)
+            user[EnterpriseUser]  # Get extension
+            user["userName"]  # Get attribute
+            user["name.familyName"]  # Get nested attribute
+        """
+        if isinstance(item, type) and issubclass(item, Extension):
+            item = item.__schema__
+
+        bound_path = Path.__class_getitem__(type(self))
+        path = item if isinstance(item, Path) else bound_path(str(item))
+        try:
+            return path.get(self)
+        except InvalidPathException as exc:
+            raise KeyError(str(item)) from exc
+
+    def __setitem__(self, item: Any, value: Any) -> None:
+        """Set a value by extension type or path.
+
+        :param item: An Extension subclass or a path (string or Path).
+        :param value: The value to set.
+        :raises KeyError: If the path references a non-existent field.
+
+        Examples::
+
+            user[EnterpriseUser] = EnterpriseUser(employee_number="123")
+            user["displayName"] = "John Doe"
+            user["name.familyName"] = "Doe"
+        """
+        if isinstance(item, type) and issubclass(item, Extension):
+            item = item.__schema__
+
+        bound_path = Path.__class_getitem__(type(self))
+        path = item if isinstance(item, Path) else bound_path(str(item))
+        try:
+            path.set(self, value)
+        except InvalidPathException as exc:
+            raise KeyError(str(item)) from exc
+
+    def __delitem__(self, item: Any) -> None:
+        """Delete a value by extension type or path.
+
+        :param item: An Extension subclass or a path (string or Path).
+        :raises KeyError: If the path references a non-existent field.
+
+        Examples::
+
+            del user[EnterpriseUser]  # Remove extension
+            del user["displayName"]  # Remove attribute
+        """
+        if isinstance(item, type) and issubclass(item, Extension):
+            item = item.__schema__
+
+        bound_path = Path.__class_getitem__(type(self))
+        path = item if isinstance(item, Path) else bound_path(str(item))
+        try:
+            path.delete(self)
+        except InvalidPathException as exc:
+            raise KeyError(str(item)) from exc
 
     @classmethod
     def get_extension_models(cls) -> dict[str, type[Extension]]:
         """Return extension a dict associating extension models with their schemas."""
         extension_models = getattr(cls, "__scim_extension_metadata__", [])
-        by_schema = {
-            ext.model_fields["schemas"].default[0]: ext for ext in extension_models
+        by_schema: dict[str, type[Extension]] = {
+            ext.__schema__: ext for ext in extension_models
         }
         return by_schema
 
@@ -245,7 +304,7 @@ class Resource(ScimObject, Generic[AnyExtension]):
     ) -> type["Resource[Any]"] | type["Extension"] | None:
         """Given a resource type list and a schema, find the matching resource type."""
         by_schema: dict[str, type[Resource[Any]] | type[Extension]] = {
-            resource_type.model_fields["schemas"].default[0].lower(): resource_type
+            getattr(resource_type, "__schema__", "").lower(): resource_type
             for resource_type in (resource_types or [])
         }
         if with_extensions:
@@ -283,6 +342,35 @@ class Resource(ScimObject, Generic[AnyExtension]):
         ]
         return schemas
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def _validate_extension_schemas(
+        cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
+    ) -> Self:
+        """Validate that extension schemas are known."""
+        obj: Self = handler(value)
+
+        scim_ctx = info.context.get("scim") if info.context else None
+        if scim_ctx is None or scim_ctx == Context.DEFAULT:
+            return obj
+
+        base_schema = getattr(cls, "__schema__", None)
+        if not base_schema:
+            return obj
+
+        allowed_extensions = set(cls.get_extension_models().keys())
+        provided_schemas = set(obj.schemas) - {base_schema}
+
+        unknown = provided_schemas - allowed_extensions
+        if unknown:
+            raise PydanticCustomError(
+                "unknown_extension_schema",
+                "Unknown extension schemas: {schemas}",
+                {"schemas": ", ".join(sorted(unknown))},
+            )
+
+        return obj
+
     @classmethod
     def to_schema(cls) -> "Schema":
         """Build a :class:`~scim2_models.Schema` from the current resource class."""
@@ -298,24 +386,23 @@ class Resource(ScimObject, Generic[AnyExtension]):
     def _prepare_model_dump(
         self,
         scim_ctx: Context | None = Context.DEFAULT,
-        attributes: list[str] | None = None,
-        excluded_attributes: list[str] | None = None,
+        attributes: list[str | Path[Any]] | None = None,
+        excluded_attributes: list[str | Path[Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         kwargs = super()._prepare_model_dump(scim_ctx, **kwargs)
 
         # RFC 7644: "SHOULD ignore any query parameters they do not recognize"
+        bound_path = Path.__class_getitem__(type(self))
         kwargs["context"]["scim_attributes"] = [
-            valid_attr
+            urn
             for attribute in (attributes or [])
-            if (valid_attr := _validate_attribute_urn(attribute, self.__class__))
-            is not None
+            if (urn := bound_path(attribute).urn) is not None
         ]
         kwargs["context"]["scim_excluded_attributes"] = [
-            valid_attr
+            urn
             for attribute in (excluded_attributes or [])
-            if (valid_attr := _validate_attribute_urn(attribute, self.__class__))
-            is not None
+            if (urn := bound_path(attribute).urn) is not None
         ]
         return kwargs
 
@@ -323,8 +410,8 @@ class Resource(ScimObject, Generic[AnyExtension]):
         self,
         *args: Any,
         scim_ctx: Context | None = Context.DEFAULT,
-        attributes: list[str] | None = None,
-        excluded_attributes: list[str] | None = None,
+        attributes: list[str | Path[Any]] | None = None,
+        excluded_attributes: list[str | Path[Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a model representation that can be included in SCIM messages by using Pydantic :code:`BaseModel.model_dump`.
@@ -349,8 +436,8 @@ class Resource(ScimObject, Generic[AnyExtension]):
         self,
         *args: Any,
         scim_ctx: Context | None = Context.DEFAULT,
-        attributes: list[str] | None = None,
-        excluded_attributes: list[str] | None = None,
+        attributes: list[str | Path[Any]] | None = None,
+        excluded_attributes: list[str | Path[Any]] | None = None,
         **kwargs: Any,
     ) -> str:
         """Create a JSON model representation that can be included in SCIM messages by using Pydantic :code:`BaseModel.model_dump_json`.
@@ -404,7 +491,7 @@ def _dedicated_attributes(
 def _model_to_schema(model: type[BaseModel]) -> "Schema":
     from scim2_models.resources.schema import Schema
 
-    schema_urn = model.model_fields["schemas"].default[0]
+    schema_urn = getattr(model, "__schema__", "") or ""
     field_infos = _dedicated_attributes(model, [Resource])
     attributes = [
         _model_attribute_to_scim_attribute(model, attribute_name)
@@ -445,19 +532,21 @@ def _model_attribute_to_scim_attribute(
         else None
     )
 
-    return Attribute(
-        name=field_info.serialization_alias or attribute_name,
-        type=Attribute.Type(attribute_type),
-        multi_valued=model.get_field_multiplicity(attribute_name),
-        description=field_info.description,
-        canonical_values=field_info.examples,
-        required=model.get_field_annotation(attribute_name, Required),
-        case_exact=model.get_field_annotation(attribute_name, CaseExact),
-        mutability=model.get_field_annotation(attribute_name, Mutability),
-        returned=model.get_field_annotation(attribute_name, Returned),
-        uniqueness=model.get_field_annotation(attribute_name, Uniqueness),
-        sub_attributes=sub_attributes,
-        reference_types=Reference.get_types(root_type)
-        if attribute_type == Attribute.Type.reference
-        else None,
-    )
+    kwargs: dict[str, Any] = {
+        "name": field_info.serialization_alias or attribute_name,
+        "type": Attribute.Type(attribute_type),
+        "multi_valued": model.get_field_multiplicity(attribute_name),
+        "description": field_info.description,
+        "canonical_values": field_info.examples,
+        "required": model.get_field_annotation(attribute_name, Required),
+        "case_exact": model.get_field_annotation(attribute_name, CaseExact),
+        "mutability": model.get_field_annotation(attribute_name, Mutability),
+        "returned": model.get_field_annotation(attribute_name, Returned),
+        "sub_attributes": sub_attributes,
+    }
+    if attribute_type != Attribute.Type.complex:
+        kwargs["uniqueness"] = model.get_field_annotation(attribute_name, Uniqueness)
+    if attribute_type == Attribute.Type.reference:
+        kwargs["reference_types"] = root_type.get_scim_reference_types()  # type: ignore[attr-defined]
+
+    return Attribute(**kwargs)

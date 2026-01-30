@@ -4,14 +4,13 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 import json
 
 from ansible.module_utils.urls import Request
-from ansible_collections.community.dns.plugins.module_utils.argspec import ArgumentSpec
 
+from ansible_collections.community.dns.plugins.module_utils.argspec import ArgumentSpec
 
 try:
     from urllib.error import HTTPError
@@ -70,7 +69,7 @@ class AdGuardHomeAPIHandler:
         but because we make the answer value optional, it's
         taken from previous `find_and_compare` function.
         """
-        if method == "add":
+        if method == "add":  # noqa: SIM108
             answer_value = answer
         else:
             answer_value = target["answer"] if answer is None else answer

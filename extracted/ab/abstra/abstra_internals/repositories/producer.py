@@ -228,11 +228,47 @@ class WebEditorProducerRepository(RabbitMQProducerRepository):
         super().__init__(connection_uri, queue_name)
 
 
-class WebEditorControlProducerRepository(RabbitMQProducerRepository):
-    """Producer repository for web editor control messages."""
+class WebEditorControlProducerRepository:
+    """Producer repository for web editor control messages.
+    Publishes to a fanout exchange so all workers receive broadcast messages."""
 
     def __init__(self, connection_uri: str):
-        super().__init__(connection_uri, "web_editor_control")
+        self.connection_uri = connection_uri
+        self.exchange_name = "web_editor_control"
+
+    @property
+    def conn_params(self):
+        params = pika.URLParameters(self.connection_uri)
+        params.connection_attempts = 1
+        params.socket_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
+        params.blocked_connection_timeout = RABBITMQ_CONNECTION_TIMEOUT_SECONDS
+        return params
+
+    @property
+    def props(self):
+        return pika.BasicProperties(
+            delivery_mode=pika.DeliveryMode.Persistent,
+            content_type="application/json",
+        )
+
+    def _connect_with_retry(self) -> pika.BlockingConnection:
+        delay = RABBITMQ_RETRY_INITIAL_DELAY_SECONDS
+        last_exception = None
+
+        for attempt in range(1, RABBITMQ_RETRY_MAX_ATTEMPTS + 1):
+            try:
+                return pika.BlockingConnection(self.conn_params)
+            except AMQPConnectionError as e:
+                last_exception = e
+                if attempt < RABBITMQ_RETRY_MAX_ATTEMPTS:
+                    AbstraLogger.warning(
+                        f"[WebEditorControlProducerRepository] Connection failed (attempt {attempt}): {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2, 30)
+
+        raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
 
     def stop_execution(self, execution_id: str):
         from abstra_internals.repositories.consumer import ControlMessage
@@ -241,10 +277,15 @@ class WebEditorControlProducerRepository(RabbitMQProducerRepository):
 
         with self._connect_with_retry() as connection:
             with connection.channel() as channel:
-                channel.queue_declare(queue=self.queue_name, durable=True)
+                channel: BlockingChannel
+                channel.exchange_declare(
+                    exchange=self.exchange_name,
+                    exchange_type="fanout",
+                    durable=True,
+                )
                 channel.basic_publish(
                     body=payload.dump_json(),
-                    routing_key=self.queue_name,
-                    exchange=RABBITMQ_DEFAUT_EXCHANGE,
+                    routing_key="",
+                    exchange=self.exchange_name,
                     properties=self.props,
                 )

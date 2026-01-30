@@ -765,6 +765,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeSRVConnectionDomain(self, request):
+        r"""本接口（DescribeSRVConnectionDomain）用于查询MongoDB数据库当前的域名信息。
+
+        :param request: Request instance for DescribeSRVConnectionDomain.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DescribeSRVConnectionDomainRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DescribeSRVConnectionDomainResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSRVConnectionDomain", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSRVConnectionDomainResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeSecurityGroup(self, request):
         r"""本接口（DescribeSecurityGroup）用于查询实例绑定的安全组。
 
@@ -880,6 +903,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DisableSRVConnectionUrl(self, request):
+        r"""本接口（DisableSRVConnectionUrl）用于关闭MongoDB数据库的SRV访问地址。
+
+        :param request: Request instance for DisableSRVConnectionUrl.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.DisableSRVConnectionUrlRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.DisableSRVConnectionUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DisableSRVConnectionUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.DisableSRVConnectionUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DropDBInstanceParamTpl(self, request):
         r"""本接口(DropDBInstanceParamTpl )用于删除云数据库MongoDB实例的参数模板
         **说明：DropDBInstanceParamTpl  API正在公测中，在此期间，该接口仅对公测用户开放**
@@ -895,6 +941,29 @@ class MongodbClient(AbstractClient):
             body = self.call("DropDBInstanceParamTpl", params, headers=headers)
             response = json.loads(body)
             model = models.DropDBInstanceParamTplResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def EnableSRVConnectionUrl(self, request):
+        r"""本接口（EnableSRVConnectionUrl）用于开启MongoDB数据库的SRV访问地址。
+
+        :param request: Request instance for EnableSRVConnectionUrl.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.EnableSRVConnectionUrlRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.EnableSRVConnectionUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableSRVConnectionUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableSRVConnectionUrlResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1251,6 +1320,29 @@ class MongodbClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifySRVConnectionUrl(self, request):
+        r"""本接口（DisableSRVConnectionUrl）用于修改MongoDB数据库的SRV访问地址的TTL时长。
+
+        :param request: Request instance for ModifySRVConnectionUrl.
+        :type request: :class:`tencentcloud.mongodb.v20190725.models.ModifySRVConnectionUrlRequest`
+        :rtype: :class:`tencentcloud.mongodb.v20190725.models.ModifySRVConnectionUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifySRVConnectionUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifySRVConnectionUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def OfflineIsolatedDBInstance(self, request):
         r"""本接口(OfflineIsolatedDBInstance)用于立即下线隔离状态的云数据库实例。进行操作的实例状态必须为隔离状态。
 
@@ -1528,7 +1620,8 @@ class MongodbClient(AbstractClient):
 
 
     def UpgradeDbInstanceVersion(self, request):
-        r"""本接口用于跨版本升级数据库内核。当前仅支持3.6版本升级为4.0版本、4.0版本升级为4.2版本、4.2版本升级为4.4版本及4.4版本升级为5.0版本。
+        r"""本接口（UpgradeDbInstanceVersion）用于升级数据库版本。
+        **说明**：支持3.6及以上版本升级，仅支持从低版本向高版本逐级升级，不支持跨版本升级或版本降级。
 
         :param request: Request instance for UpgradeDbInstanceVersion.
         :type request: :class:`tencentcloud.mongodb.v20190725.models.UpgradeDbInstanceVersionRequest`

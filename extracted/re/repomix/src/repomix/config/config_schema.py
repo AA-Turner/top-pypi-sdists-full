@@ -3,7 +3,7 @@ Configuration Module - Defines Repomix Configuration Schema and Default Values
 """
 
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass, field
 
 
@@ -13,6 +13,25 @@ class RepomixOutputStyle(str, Enum):
     PLAIN = "plain"
     XML = "xml"
     MARKDOWN = "markdown"
+    JSON = "json"
+
+
+@dataclass
+class RepomixConfigGit:
+    """Git-related output configuration"""
+
+    sort_by_changes: bool = True
+    sort_by_changes_max_commits: int = 100
+    include_diffs: bool = False
+    include_logs: bool = False
+    include_logs_count: int = 50
+
+
+@dataclass
+class RepomixConfigInput:
+    """Input configuration"""
+
+    max_file_size: int = 50 * 1024 * 1024  # Default: 50MB
 
 
 @dataclass
@@ -35,6 +54,14 @@ class RepomixConfigOutput:
     parsable_style: bool = False
     truncate_base64: bool = False
     stdout: bool = False
+    # New configuration items from TypeScript version
+    include_full_directory_structure: bool = False
+    split_output: Optional[int] = None  # Max bytes per output file for splitting
+    token_count_tree: bool | int | str = False  # Token count tree display
+    compress: bool = False  # Enable code compression
+    # Git configuration (nested)
+    git: RepomixConfigGit = field(default_factory=RepomixConfigGit)
+    # Legacy field for backward compatibility (deprecated, use git.include_diffs)
     include_diffs: bool = False
 
     def __post_init__(self):
@@ -52,17 +79,25 @@ class RepomixConfigOutput:
         else:
             self._style_enum = RepomixOutputStyle.MARKDOWN
 
+        # Handle git config if it's a dictionary
+        if isinstance(self.git, dict):
+            self.git = RepomixConfigGit(**self.git)
+
+        # Migrate legacy include_diffs to git.include_diffs
+        if self.include_diffs and not self.git.include_diffs:
+            self.git.include_diffs = True
+
     def _process_style_value(self, value):
         """Process style value and set _style accordingly"""
         if isinstance(value, RepomixOutputStyle):
             self._style_enum = value
             # Update the style field to match the enum value
-            object.__setattr__(self, 'style', value.value)
+            object.__setattr__(self, "style", value.value)
         elif isinstance(value, str):
             try:
                 self._style_enum = RepomixOutputStyle(value.lower())
                 # Update the style field to match the enum value
-                object.__setattr__(self, 'style', value.lower())
+                object.__setattr__(self, "style", value.lower())
             except ValueError:
                 raise ValueError(f"Invalid style value: {value}. Must be one of: {', '.join(s.value for s in RepomixOutputStyle)}") from None
         else:
@@ -70,7 +105,7 @@ class RepomixConfigOutput:
 
     def __setattr__(self, name, value):
         """Override setattr to validate style when it's set after initialization"""
-        if name == 'style' and hasattr(self, '_style_enum'):
+        if name == "style" and hasattr(self, "_style_enum"):
             # Only validate if we're setting style after initialization
             self._process_style_value(value)
         else:
@@ -79,7 +114,7 @@ class RepomixConfigOutput:
     @property
     def style_enum(self) -> RepomixOutputStyle:
         """Get the output style as enum"""
-        return self._style_enum if hasattr(self, '_style_enum') else RepomixOutputStyle.MARKDOWN
+        return self._style_enum if hasattr(self, "_style_enum") else RepomixOutputStyle.MARKDOWN
 
     @style_enum.setter
     def style_enum(self, value):
@@ -126,15 +161,24 @@ class RepomixConfigRemote:
 class RepomixConfig:
     """Repomix main configuration class"""
 
+    input: RepomixConfigInput = field(default_factory=RepomixConfigInput)
     output: RepomixConfigOutput = field(default_factory=RepomixConfigOutput)
     security: RepomixConfigSecurity = field(default_factory=RepomixConfigSecurity)
     ignore: RepomixConfigIgnore = field(default_factory=RepomixConfigIgnore)
     compression: RepomixConfigCompression = field(default_factory=RepomixConfigCompression)
     remote: RepomixConfigRemote = field(default_factory=RepomixConfigRemote)
     include: List[str] = field(default_factory=list)
+    # Skill generation configuration (string for skill name, or bool to enable/disable)
+    skill_generate: str | bool = False
+    # Current working directory (set at runtime)
+    cwd: str = "."
 
     def __post_init__(self):
         """Post-initialization processing to handle nested dictionaries"""
+        # Handle input if it's a dictionary
+        if isinstance(self.input, dict):
+            self.input = RepomixConfigInput(**self.input)
+
         # Handle output if it's a dictionary
         if isinstance(self.output, dict):
             # Create output object with all parameters (including style)

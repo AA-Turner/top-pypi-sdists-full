@@ -19,15 +19,14 @@ pub use options::{ConversionOptions, PreprocessingOptions};
 pub use types::InlineImageConfig;
 
 #[cfg(feature = "inline-images")]
-use conversion::{convert_with_inline_images, convert_with_inline_images_handle, convert_with_inline_images_json};
+use conversion::{convert_with_inline_images, convert_with_inline_images_handle};
 
 #[cfg(feature = "metadata")]
 pub use types::MetadataConfig;
 
 #[cfg(feature = "metadata")]
-use conversion::{convert_with_metadata, convert_with_metadata_handle, convert_with_metadata_json};
+use conversion::{convert_with_metadata, convert_with_metadata_handle};
 
-use html_to_markdown_bindings_common::parse_conversion_options;
 mod profiling;
 use helpers::{run_with_guard_and_profile, to_py_err};
 #[cfg(feature = "visitor")]
@@ -184,15 +183,6 @@ fn convert(
 }
 
 #[pyfunction]
-#[pyo3(signature = (html, options_json=None))]
-fn convert_json(py: Python<'_>, html: &str, options_json: Option<&str>) -> PyResult<String> {
-    let html = html.to_owned();
-    let rust_options = parse_conversion_options(options_json).map_err(to_py_err)?;
-    py.detach(move || run_with_guard_and_profile(|| html_to_markdown_rs::convert(&html, rust_options.clone())))
-        .map_err(to_py_err)
-}
-
-#[pyfunction]
 #[pyo3(signature = (html, handle))]
 fn convert_with_options_handle(py: Python<'_>, html: &str, handle: &ConversionOptionsHandle) -> PyResult<String> {
     let html = html.to_owned();
@@ -205,15 +195,6 @@ fn convert_with_options_handle(py: Python<'_>, html: &str, handle: &ConversionOp
 #[pyo3(signature = (options=None))]
 fn create_options_handle(options: Option<ConversionOptions>) -> ConversionOptionsHandle {
     ConversionOptionsHandle::new_with_options(options)
-}
-
-#[pyfunction]
-#[pyo3(signature = (options_json=None))]
-fn create_options_handle_json(options_json: Option<&str>) -> PyResult<ConversionOptionsHandle> {
-    let rust_options = parse_conversion_options(options_json)
-        .map_err(to_py_err)?
-        .unwrap_or_default();
-    Ok(ConversionOptionsHandle::new_with_rust(rust_options))
 }
 
 /// Convert HTML to Markdown with a custom visitor.
@@ -359,24 +340,20 @@ fn convert_with_async_visitor(
 #[pymodule]
 fn _html_to_markdown(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(convert, m)?)?;
-    m.add_function(wrap_pyfunction!(convert_json, m)?)?;
     m.add_function(wrap_pyfunction!(convert_with_options_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_options_handle, m)?)?;
-    m.add_function(wrap_pyfunction!(create_options_handle_json, m)?)?;
     m.add_class::<ConversionOptions>()?;
     m.add_class::<PreprocessingOptions>()?;
     m.add_class::<ConversionOptionsHandle>()?;
     #[cfg(feature = "inline-images")]
     {
         m.add_function(wrap_pyfunction!(convert_with_inline_images, m)?)?;
-        m.add_function(wrap_pyfunction!(convert_with_inline_images_json, m)?)?;
         m.add_function(wrap_pyfunction!(convert_with_inline_images_handle, m)?)?;
         m.add_class::<InlineImageConfig>()?;
     }
     #[cfg(feature = "metadata")]
     {
         m.add_function(wrap_pyfunction!(convert_with_metadata, m)?)?;
-        m.add_function(wrap_pyfunction!(convert_with_metadata_json, m)?)?;
         m.add_function(wrap_pyfunction!(convert_with_metadata_handle, m)?)?;
         m.add_class::<MetadataConfig>()?;
     }

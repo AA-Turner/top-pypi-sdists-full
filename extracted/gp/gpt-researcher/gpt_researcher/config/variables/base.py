@@ -26,12 +26,14 @@ class BaseConfig(TypedDict):
     AGENT_ROLE: Union[str, None]
     SCRAPER: str
     MAX_SCRAPER_WORKERS: int
+    SCRAPER_RATE_LIMIT_DELAY: float
     MAX_SUBTOPICS: int
     REPORT_SOURCE: Union[str, None]
     DOC_PATH: str
     PROMPT_FAMILY: str
     LLM_KWARGS: dict
     EMBEDDING_KWARGS: dict
+    VERBOSE: bool
     DEEP_RESEARCH_CONCURRENCY: int
     DEEP_RESEARCH_DEPTH: int
     DEEP_RESEARCH_BREADTH: int
@@ -41,3 +43,8 @@ class BaseConfig(TypedDict):
     MCP_ALLOWED_ROOT_PATHS: List[str]
     MCP_STRATEGY: str
     REASONING_EFFORT: str
+    # Image generation settings
+    IMAGE_GENERATION_MODEL: Union[str, None]
+    IMAGE_GENERATION_MAX_IMAGES: int
+    IMAGE_GENERATION_ENABLED: bool
+    IMAGE_GENERATION_STYLE: str  # Image style: "dark", "light", or "auto"

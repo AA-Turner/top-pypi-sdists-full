@@ -29,20 +29,17 @@ def get_log_path(ctx):
         return os.path.join(target_path, "edr.log")
 
 
-class ElementaryCLI(click.MultiCommand):
-    _CMD_MAP = {
-        "monitor": monitor,
-        "report": report,
-        "send-report": send_report,
-        "run-operation": run_operation,
-    }
+def get_quiet_logs(ctx):
+    try:
+        return "--quiet-logs" in ctx.args
+    except (ValueError, AttributeError):
+        return False
 
-    def list_commands(self, ctx):
-        return self._CMD_MAP.keys()
 
+class ElementaryCLI(click.Group):
     def get_command(self, ctx, name):
         ctx.auto_envvar_prefix = "EDR"
-        return self._CMD_MAP.get(name)
+        return super().get_command(ctx, name)
 
     def format_help(self, ctx, formatter):
         try:
@@ -57,16 +54,18 @@ class ElementaryCLI(click.MultiCommand):
 
     def invoke(self, ctx: click.Context) -> Any:
         files_target_path = get_log_path(ctx)
-        set_root_logger_handlers("elementary", files_target_path)
-        click.echo(
-            "Any feedback and suggestions are welcomed! join our community here - "
-            "https://bit.ly/slack-elementary\n"
-        )
-        logger.info(f"Running with edr={package.get_package_version()}")
+        quiet_logs = get_quiet_logs(ctx)
+        set_root_logger_handlers("elementary", files_target_path, quiet_logs=quiet_logs)
+        if not quiet_logs:
+            click.echo(
+                "Any feedback and suggestions are welcomed! join our community here - "
+                "https://bit.ly/slack-elementary\n"
+            )
+            logger.info(f"Running with edr={package.get_package_version()}")
         return super().invoke(ctx)
 
 
-@click.command(
+@click.group(
     cls=ElementaryCLI,
     help="Open source data reliability solution (https://docs.elementary-data.com/)",
 )
@@ -76,6 +75,12 @@ class ElementaryCLI(click.MultiCommand):
 )
 def cli():
     pass
+
+
+cli.add_command(monitor)
+cli.add_command(report)
+cli.add_command(send_report, name="send-report")
+cli.add_command(run_operation, name="run-operation")
 
 
 if __name__ == "__main__":

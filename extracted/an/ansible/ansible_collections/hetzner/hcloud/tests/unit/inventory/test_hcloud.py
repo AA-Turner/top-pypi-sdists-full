@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 from plugins.inventory.hcloud import InventoryModule, first_ipv6_address
-from plugins.module_utils.vendor.hcloud.servers import BoundServer
+from plugins.module_utils._vendor.hcloud.servers import BoundServer
 
 
 def test_first_ipv6_address():
@@ -33,18 +33,39 @@ def test_build_inventory_server():
                     "blocked": False,
                     "dns_ptr": "static.1.0.0.127.clients.your-server.de",
                 },
-                "ipv6": {"id": 56583279, "ip": "2001:db8::/64", "blocked": False, "dns_ptr": []},
+                "ipv6": {
+                    "id": 56583279,
+                    "ip": "2001:db8::/64",
+                    "blocked": False,
+                    "dns_ptr": [],
+                },
                 "floating_ips": [],
                 "firewalls": [],
             },
             "private_net": [],
-            "server_type": {"id": 109, "name": "cpx22", "architecture": "x86"},
+            "server_type": {
+                "id": 109,
+                "name": "cpx22",
+                "architecture": "x86",
+            },
+            "location": {
+                "id": 3,
+                "name": "hel1",
+            },
             "datacenter": {
                 "id": 3,
                 "name": "hel1-dc2",
-                "location": {"id": 3, "name": "hel1"},
+                "location": {
+                    "id": 3,
+                    "name": "hel1",
+                },
             },
-            "image": {"id": 114690387, "name": "debian-12", "os_flavor": "debian", "os_version": "12"},
+            "image": {
+                "id": 114690387,
+                "name": "debian-12",
+                "os_flavor": "debian",
+                "os_version": "12",
+            },
         },
     )
     # pylint: disable=protected-access

@@ -3174,6 +3174,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateActivationResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.description):
             query['Description'] = request.description
         if not DaraCore.is_null(request.instance_count):
@@ -3226,6 +3228,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateActivationResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.description):
             query['Description'] = request.description
         if not DaraCore.is_null(request.instance_count):
@@ -3770,6 +3774,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateCommandResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_content):
             query['CommandContent'] = request.command_content
         if not DaraCore.is_null(request.content_encoding):
@@ -3830,6 +3836,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateCommandResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_content):
             query['CommandContent'] = request.command_content
         if not DaraCore.is_null(request.content_encoding):
@@ -11940,6 +11948,8 @@ class Client(OpenApiClient):
     ) -> main_models.DeregisterManagedInstanceResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.instance_id):
             query['InstanceId'] = request.instance_id
         if not DaraCore.is_null(request.owner_account):
@@ -11980,6 +11990,8 @@ class Client(OpenApiClient):
     ) -> main_models.DeregisterManagedInstanceResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.instance_id):
             query['InstanceId'] = request.instance_id
         if not DaraCore.is_null(request.owner_account):
@@ -32886,6 +32898,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.parameters):
             request.parameters_shrink = Utils.array_to_string_with_specified_style(tmp_req.parameters, 'Parameters', 'json')
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_content):
             query['CommandContent'] = request.command_content
         if not DaraCore.is_null(request.content_encoding):
@@ -32942,6 +32956,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.parameters):
             request.parameters_shrink = Utils.array_to_string_with_specified_style(tmp_req.parameters, 'Parameters', 'json')
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_content):
             query['CommandContent'] = request.command_content
         if not DaraCore.is_null(request.content_encoding):
@@ -39574,6 +39590,8 @@ class Client(OpenApiClient):
     ) -> main_models.SendFileResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.content):
             query['Content'] = request.content
         if not DaraCore.is_null(request.content_type):
@@ -39638,6 +39656,8 @@ class Client(OpenApiClient):
     ) -> main_models.SendFileResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.content):
             query['Content'] = request.content
         if not DaraCore.is_null(request.content_type):
@@ -40018,6 +40038,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.encryption_options):
             request.encryption_options_shrink = Utils.array_to_string_with_specified_style(tmp_req.encryption_options, 'EncryptionOptions', 'json')
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_line):
             query['CommandLine'] = request.command_line
         if not DaraCore.is_null(request.connection_type):
@@ -40076,6 +40098,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.encryption_options):
             request.encryption_options_shrink = Utils.array_to_string_with_specified_style(tmp_req.encryption_options, 'EncryptionOptions', 'json')
         query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.command_line):
             query['CommandLine'] = request.command_line
         if not DaraCore.is_null(request.connection_type):

@@ -6,18 +6,22 @@
 from __future__ import annotations
 
 import pytest
-
+from ansible_collections.community.internal_test_tools.tests.unit.utils.trust import (
+    SUPPORTS_DATA_TAGGING,
+)
+from ansible_collections.community.internal_test_tools.tests.unit.utils.trust import (
+    is_trusted as _is_trusted,
+)
+from ansible_collections.community.internal_test_tools.tests.unit.utils.trust import (
+    make_trusted as _make_trusted,
+)
 from ansible_collections.community.internal_test_tools.tests.unit.utils.trust import (
     make_untrusted as _make_untrusted,
-    make_trusted as _make_trusted,
-    is_trusted as _is_trusted,
-    SUPPORTS_DATA_TAGGING,
 )
 
 from ansible_collections.community.general.plugins.plugin_utils.unsafe import (
     make_unsafe,
 )
-
 
 TEST_MAKE_UNSAFE = [
     (
@@ -139,7 +143,7 @@ def test_make_unsafe_dict_key():
 
 
 def test_make_unsafe_set():
-    value = set([_make_trusted("test")])
+    value = {_make_trusted("test")}
     if not SUPPORTS_DATA_TAGGING:
         value.add(_make_trusted(b"test"))
     unsafe_value = make_unsafe(value)
@@ -147,7 +151,7 @@ def test_make_unsafe_set():
     for obj in unsafe_value:
         assert _is_trusted(obj)
 
-    value = set([_make_trusted("{{test}}")])
+    value = {_make_trusted("{{test}}")}
     if not SUPPORTS_DATA_TAGGING:
         value.add(_make_trusted(b"{{test}}"))
     unsafe_value = make_unsafe(value)

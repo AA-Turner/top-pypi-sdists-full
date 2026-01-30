@@ -585,12 +585,12 @@ class TestPrintTree:
     def test_print_tree_rich_node_format_attr_callable(
         tree_node_style_callable, rich_console
     ):
-        def get_node_format(node):
-            if node.get_attr("style") and node.style == 1:
+        def get_node_format(_node):
+            if _node.get_attr("style") and _node.style == 1:
                 return "bold magenta"
-            elif node.get_attr("style") and node.style == "two":
+            elif _node.get_attr("style") and _node.style == "two":
                 return "blue"
-            elif node.node_name in ["d", "e", "f"]:
+            elif _node.node_name in ["d", "e", "f"]:
                 return "green"
             return "red"
 

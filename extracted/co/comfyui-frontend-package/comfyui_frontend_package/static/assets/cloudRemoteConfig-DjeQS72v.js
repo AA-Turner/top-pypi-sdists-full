@@ -1,0 +1,2 @@
+import{i as e,n as t}from"./rolldown-runtime-BKYq3fBv.js";import{fn as n,rr as r}from"./vendor-other-BQ5HftVH.js";import{Ao as i,bi as a,bo as o,ko as s,xi as c,yo as l}from"./dialogService-BJDTj7su.js";import{n as u,t as d}from"./refreshRemoteConfig-DL7sZqZW.js";t((()=>{n(),l(),s(),d(),a(),c().registerExtension({name:`Comfy.Cloud.RemoteConfig`,setup:async()=>{let{isLoggedIn:e}=o(),{isActiveSubscription:t}=i();r([e,t],()=>{e.value&&u()},{debounce:256,immediate:!0}),setInterval(()=>void u(),6e5)}})}))();
+//# sourceMappingURL=cloudRemoteConfig-DjeQS72v.js.map

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytokens
-Version: 0.4.0
+Version: 0.4.1
 Summary: A Fast, spec compliant Python 3.14+ tokenizer that runs on older Pythons.
 Author-email: Tushar Sadhwani <tushar.sadhwani000@gmail.com>
 License: MIT License

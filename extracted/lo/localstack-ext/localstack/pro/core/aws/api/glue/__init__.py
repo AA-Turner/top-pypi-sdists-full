@@ -235,6 +235,7 @@ TotalSegmentsInteger = int
 TransactionIdString = str
 TypeString = str
 URI = str
+UUIDv4 = str
 UpdatedTimestamp = str
 UriString = str
 UrlString = str
@@ -946,6 +947,19 @@ class MLUserDataEncryptionModeString(StrEnum):
     SSE_KMS = "SSE-KMS"
 
 
+class MaterializedViewRefreshState(StrEnum):
+    STARTING = "STARTING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    STOPPED = "STOPPED"
+
+
+class MaterializedViewRefreshType(StrEnum):
+    FULL = "FULL"
+    INCREMENTAL = "INCREMENTAL"
+
+
 class MetadataOperation(StrEnum):
     CREATE = "CREATE"
 
@@ -1574,6 +1588,30 @@ class MLTransformNotReadyException(ServiceException):
     """The machine learning transform is not ready to run."""
 
     code: str = "MLTransformNotReadyException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class MaterializedViewRefreshTaskNotRunningException(ServiceException):
+    """Exception thrown when stopping a task that is not in running state."""
+
+    code: str = "MaterializedViewRefreshTaskNotRunningException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class MaterializedViewRefreshTaskRunningException(ServiceException):
+    """Exception thrown when a task is already in running state."""
+
+    code: str = "MaterializedViewRefreshTaskRunningException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class MaterializedViewRefreshTaskStoppingException(ServiceException):
+    """Exception thrown when a task is already in stopping state."""
+
+    code: str = "MaterializedViewRefreshTaskStoppingException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -4830,6 +4868,9 @@ class BooleanColumnStatisticsData(TypedDict, total=False):
     NumberOfNulls: NonNegativeLong
 
 
+ByteCount = int
+
+
 class CancelDataQualityRuleRecommendationRunRequest(ServiceRequest):
     RunId: HashString
 
@@ -7971,6 +8012,37 @@ class GetMappingResponse(TypedDict, total=False):
     Mapping: MappingList
 
 
+class GetMaterializedViewRefreshTaskRunRequest(ServiceRequest):
+    CatalogId: NameString
+    MaterializedViewRefreshTaskRunId: UUIDv4
+
+
+class MaterializedViewRefreshTaskRun(TypedDict, total=False):
+    """The object that shows the details of the materialized view refresh task
+    run.
+    """
+
+    CustomerId: AccountId | None
+    MaterializedViewRefreshTaskRunId: UUIDv4 | None
+    DatabaseName: DatabaseName | None
+    TableName: TableName | None
+    CatalogId: CatalogIdString | None
+    Role: Role | None
+    Status: MaterializedViewRefreshState | None
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    ErrorMessage: DescriptionString | None
+    DPUSeconds: NonNegativeDouble | None
+    RefreshType: MaterializedViewRefreshType | None
+    ProcessedBytes: ByteCount | None
+
+
+class GetMaterializedViewRefreshTaskRunResponse(TypedDict, total=False):
+    MaterializedViewRefreshTaskRun: MaterializedViewRefreshTaskRun | None
+
+
 class GetPartitionIndexesRequest(ServiceRequest):
     CatalogId: CatalogIdString | None
     DatabaseName: NameString
@@ -8989,6 +9061,22 @@ class ListMLTransformsResponse(TypedDict, total=False):
     NextToken: PaginationToken | None
 
 
+class ListMaterializedViewRefreshTaskRunsRequest(ServiceRequest):
+    CatalogId: NameString
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
+
+
+MaterializedViewRefreshTaskRunsList = list[MaterializedViewRefreshTaskRun]
+
+
+class ListMaterializedViewRefreshTaskRunsResponse(TypedDict, total=False):
+    MaterializedViewRefreshTaskRuns: MaterializedViewRefreshTaskRunsList | None
+    NextToken: Token | None
+
+
 class ListRegistriesInput(ServiceRequest):
     MaxResults: MaxResultsNumber | None
     NextToken: SchemaRegistryTokenString | None
@@ -9525,6 +9613,17 @@ class StartMLLabelingSetGenerationTaskRunResponse(TypedDict, total=False):
     TaskRunId: HashString | None
 
 
+class StartMaterializedViewRefreshTaskRunRequest(ServiceRequest):
+    CatalogId: NameString
+    DatabaseName: NameString
+    TableName: NameString
+    FullRefresh: NullableBoolean | None
+
+
+class StartMaterializedViewRefreshTaskRunResponse(TypedDict, total=False):
+    MaterializedViewRefreshTaskRunId: UUIDv4 | None
+
+
 class StartTriggerRequest(ServiceRequest):
     Name: NameString
 
@@ -9573,6 +9672,16 @@ class StopCrawlerScheduleRequest(ServiceRequest):
 
 
 class StopCrawlerScheduleResponse(TypedDict, total=False):
+    pass
+
+
+class StopMaterializedViewRefreshTaskRunRequest(ServiceRequest):
+    CatalogId: NameString
+    DatabaseName: NameString
+    TableName: NameString
+
+
+class StopMaterializedViewRefreshTaskRunResponse(TypedDict, total=False):
     pass
 
 
@@ -13408,6 +13517,27 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("GetMaterializedViewRefreshTaskRun")
+    def get_materialized_view_refresh_task_run(
+        self,
+        context: RequestContext,
+        catalog_id: NameString,
+        materialized_view_refresh_task_run_id: UUIDv4,
+        **kwargs,
+    ) -> GetMaterializedViewRefreshTaskRunResponse:
+        """Get the associated metadata/information for a task run, given a task run
+        ID.
+
+        :param catalog_id: The ID of the Data Catalog where the table resides.
+        :param materialized_view_refresh_task_run_id: The identifier for the particular materialized view refresh task run.
+        :returns: GetMaterializedViewRefreshTaskRunResponse
+        :raises AccessDeniedException:
+        :raises EntityNotFoundException:
+        :raises OperationTimeoutException:
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
     @handler("GetPartition")
     def get_partition(
         self,
@@ -14714,6 +14844,31 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("ListMaterializedViewRefreshTaskRuns")
+    def list_materialized_view_refresh_task_runs(
+        self,
+        context: RequestContext,
+        catalog_id: NameString,
+        database_name: NameString | None = None,
+        table_name: NameString | None = None,
+        max_results: PageSize | None = None,
+        next_token: Token | None = None,
+        **kwargs,
+    ) -> ListMaterializedViewRefreshTaskRunsResponse:
+        """List all task runs for a particular account.
+
+        :param catalog_id: The ID of the Data Catalog where the table resides.
+        :param database_name: The database where the table resides.
+        :param table_name: The name of the table for which statistics is generated.
+        :param max_results: The maximum size of the response.
+        :param next_token: A continuation token, if this is a continuation call.
+        :returns: ListMaterializedViewRefreshTaskRunsResponse
+        :raises AccessDeniedException:
+        :raises InvalidInputException:
+        :raises OperationTimeoutException:
+        """
+        raise NotImplementedError
+
     @handler("ListRegistries")
     def list_registries(
         self,
@@ -15681,6 +15836,34 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("StartMaterializedViewRefreshTaskRun")
+    def start_materialized_view_refresh_task_run(
+        self,
+        context: RequestContext,
+        catalog_id: NameString,
+        database_name: NameString,
+        table_name: NameString,
+        full_refresh: NullableBoolean | None = None,
+        **kwargs,
+    ) -> StartMaterializedViewRefreshTaskRunResponse:
+        """Starts a materialized view refresh task run, for a specified table and
+        columns.
+
+        :param catalog_id: The ID of the Data Catalog where the table reside.
+        :param database_name: The name of the database where the table resides.
+        :param table_name: The name of the table to generate run the materialized view refresh
+        task.
+        :param full_refresh: Specifies whether this is a full refresh of the task run.
+        :returns: StartMaterializedViewRefreshTaskRunResponse
+        :raises AccessDeniedException:
+        :raises EntityNotFoundException:
+        :raises MaterializedViewRefreshTaskRunningException:
+        :raises OperationTimeoutException:
+        :raises ResourceNumberLimitExceededException:
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
     @handler("StartTrigger")
     def start_trigger(
         self, context: RequestContext, name: NameString, **kwargs
@@ -15781,6 +15964,30 @@ class GlueApi:
         :raises EntityNotFoundException:
         :raises SchedulerNotRunningException:
         :raises SchedulerTransitioningException:
+        :raises OperationTimeoutException:
+        """
+        raise NotImplementedError
+
+    @handler("StopMaterializedViewRefreshTaskRun")
+    def stop_materialized_view_refresh_task_run(
+        self,
+        context: RequestContext,
+        catalog_id: NameString,
+        database_name: NameString,
+        table_name: NameString,
+        **kwargs,
+    ) -> StopMaterializedViewRefreshTaskRunResponse:
+        """Stops a materialized view refresh task run, for a specified table and
+        columns.
+
+        :param catalog_id: The ID of the Data Catalog where the table reside.
+        :param database_name: The name of the database where the table resides.
+        :param table_name: The name of the table to generate statistics.
+        :returns: StopMaterializedViewRefreshTaskRunResponse
+        :raises AccessDeniedException:
+        :raises MaterializedViewRefreshTaskNotRunningException:
+        :raises MaterializedViewRefreshTaskStoppingException:
+        :raises InvalidInputException:
         :raises OperationTimeoutException:
         """
         raise NotImplementedError

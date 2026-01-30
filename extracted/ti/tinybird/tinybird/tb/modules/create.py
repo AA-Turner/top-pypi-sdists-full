@@ -21,6 +21,14 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.local_common import get_tinybird_local_client
 from tinybird.tb.modules.project import Project
 
+# Pre-compiled regex patterns for pipe type detection (performance optimization)
+_PATTERN_TYPE_COPY = re.compile(r"TYPE copy", re.IGNORECASE)
+_PATTERN_TYPE_MATERIALIZED = re.compile(r"TYPE materialized", re.IGNORECASE)
+_PATTERN_TYPE_SINK = re.compile(r"TYPE sink", re.IGNORECASE)
+_PATTERN_TYPE_ENDPOINT = re.compile(r"TYPE endpoint", re.IGNORECASE)
+_PATTERN_ENGINE_MERGETREE = re.compile(r'ENGINE\s+(?:"MergeTree"|MergeTree|"Null"|Null)')
+_PATTERN_ENGINE = re.compile(r"ENGINE\s+")
+
 
 @cli.command()
 @click.option(
@@ -228,10 +236,7 @@ def should_generate_fixtures(result: List[Path]) -> List[Path]:
         for path in result
         if path.suffix == ".datasource"
         # we only want to generate fixtures for MergeTree or Null engines
-        and (
-            re.search(r'ENGINE\s+(?:"MergeTree"|MergeTree|"Null"|Null)', path.read_text())
-            or not re.search(r"ENGINE\s+", path.read_text())
-        )
+        and (_PATTERN_ENGINE_MERGETREE.search(path.read_text()) or not _PATTERN_ENGINE.search(path.read_text()))
     ]
 
 
@@ -336,16 +341,16 @@ def init_git(folder: str):
 
 def generate_pipe_file(name: str, content: str, folder: str) -> Path:
     def is_copy(content: str) -> bool:
-        return re.search(r"TYPE copy", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_COPY.search(content) is not None
 
     def is_materialization(content: str) -> bool:
-        return re.search(r"TYPE materialized", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_MATERIALIZED.search(content) is not None
 
     def is_sink(content: str) -> bool:
-        return re.search(r"TYPE sink", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_SINK.search(content) is not None
 
     def is_endpoint(content: str) -> bool:
-        return re.search(r"TYPE endpoint", content, re.IGNORECASE) is not None
+        return _PATTERN_TYPE_ENDPOINT.search(content) is not None
 
     already_exists = glob.glob(f"{folder}/**/{name}.pipe")
     if already_exists:

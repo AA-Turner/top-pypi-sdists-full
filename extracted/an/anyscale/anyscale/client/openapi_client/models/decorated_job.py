@@ -50,6 +50,9 @@ class DecoratedJob(object):
         'integration_execution_details_id': 'str',
         'bucket_log_prefix': 'str',
         'bucket_log_prefix_streaming': 'str',
+        'inserted_at': 'datetime',
+        'updated_at': 'datetime',
+        'event_timestamp': 'datetime',
         'project': 'MiniProject',
         'cluster': 'MiniCluster',
         'creator': 'MiniUser',
@@ -77,6 +80,9 @@ class DecoratedJob(object):
         'integration_execution_details_id': 'integration_execution_details_id',
         'bucket_log_prefix': 'bucket_log_prefix',
         'bucket_log_prefix_streaming': 'bucket_log_prefix_streaming',
+        'inserted_at': 'inserted_at',
+        'updated_at': 'updated_at',
+        'event_timestamp': 'event_timestamp',
         'project': 'project',
         'cluster': 'cluster',
         'creator': 'creator',
@@ -86,7 +92,7 @@ class DecoratedJob(object):
         'integration_details': 'integration_details'
     }
 
-    def __init__(self, id=None, ray_session_name=None, ray_job_id=None, name=None, status=None, created_at=None, finished_at=None, ha_job_id=None, ray_job_submission_id=None, cluster_id=None, namespace_id='DEPRECATED_NAMESPACE_ID', environment_id=None, project_id=None, creator_id=None, integration_execution_details_id=None, bucket_log_prefix=None, bucket_log_prefix_streaming=None, project=None, cluster=None, creator=None, namespace=None, runtime_environment=None, access=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, ray_session_name=None, ray_job_id=None, name=None, status=None, created_at=None, finished_at=None, ha_job_id=None, ray_job_submission_id=None, cluster_id=None, namespace_id='DEPRECATED_NAMESPACE_ID', environment_id=None, project_id=None, creator_id=None, integration_execution_details_id=None, bucket_log_prefix=None, bucket_log_prefix_streaming=None, inserted_at=None, updated_at=None, event_timestamp=None, project=None, cluster=None, creator=None, namespace=None, runtime_environment=None, access=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -109,6 +115,9 @@ class DecoratedJob(object):
         self._integration_execution_details_id = None
         self._bucket_log_prefix = None
         self._bucket_log_prefix_streaming = None
+        self._inserted_at = None
+        self._updated_at = None
+        self._event_timestamp = None
         self._project = None
         self._cluster = None
         self._creator = None
@@ -144,6 +153,12 @@ class DecoratedJob(object):
             self.bucket_log_prefix = bucket_log_prefix
         if bucket_log_prefix_streaming is not None:
             self.bucket_log_prefix_streaming = bucket_log_prefix_streaming
+        if inserted_at is not None:
+            self.inserted_at = inserted_at
+        if updated_at is not None:
+            self.updated_at = updated_at
+        if event_timestamp is not None:
+            self.event_timestamp = event_timestamp
         if project is not None:
             self.project = project
         self.cluster = cluster
@@ -530,6 +545,69 @@ class DecoratedJob(object):
         """
 
         self._bucket_log_prefix_streaming = bucket_log_prefix_streaming
+
+    @property
+    def inserted_at(self):
+        """Gets the inserted_at of this DecoratedJob.  # noqa: E501
+
+
+        :return: The inserted_at of this DecoratedJob.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._inserted_at
+
+    @inserted_at.setter
+    def inserted_at(self, inserted_at):
+        """Sets the inserted_at of this DecoratedJob.
+
+
+        :param inserted_at: The inserted_at of this DecoratedJob.  # noqa: E501
+        :type: datetime
+        """
+
+        self._inserted_at = inserted_at
+
+    @property
+    def updated_at(self):
+        """Gets the updated_at of this DecoratedJob.  # noqa: E501
+
+
+        :return: The updated_at of this DecoratedJob.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at):
+        """Sets the updated_at of this DecoratedJob.
+
+
+        :param updated_at: The updated_at of this DecoratedJob.  # noqa: E501
+        :type: datetime
+        """
+
+        self._updated_at = updated_at
+
+    @property
+    def event_timestamp(self):
+        """Gets the event_timestamp of this DecoratedJob.  # noqa: E501
+
+
+        :return: The event_timestamp of this DecoratedJob.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._event_timestamp
+
+    @event_timestamp.setter
+    def event_timestamp(self, event_timestamp):
+        """Sets the event_timestamp of this DecoratedJob.
+
+
+        :param event_timestamp: The event_timestamp of this DecoratedJob.  # noqa: E501
+        :type: datetime
+        """
+
+        self._event_timestamp = event_timestamp
 
     @property
     def project(self):

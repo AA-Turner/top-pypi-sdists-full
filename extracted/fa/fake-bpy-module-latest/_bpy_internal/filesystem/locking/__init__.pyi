@@ -12,7 +12,7 @@ def mutex_lock_and_open(file_path, mode) -> None:
     """Obtain an exclusive lock on a file.Create a file on disk, and immediately lock it for exclusive use by this
     process.
 
-        :return: If the file was opened & locked succesfully, a tuple (file,
+        :return: If the file was opened & locked successfully, a tuple (file,
     unlocker) is returned. Otherwise returns None. The caller should call
     unlocker(file) to unlock the mutex.
     """

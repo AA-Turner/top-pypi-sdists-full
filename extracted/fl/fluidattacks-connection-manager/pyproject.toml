@@ -5,9 +5,9 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.11"
 dependencies = [
     "fa-purity >=2.1.0, <3.0.0",
-    "fluidattacks-etl-utils >=2.0.0, <3.0.0",
-    "redshift-client >=8.0.1, <9.0.0",
-    "snowflake-client >=3.0.2, <4.0.0",
+    "fluidattacks-etl-utils >=3.0.0, <4.0.0",
+    "redshift-client >=9.0.0, <10.0.0",
+    "snowflake-client >=4.0.0, <5.0.0",
 ]
 description = "Common connection utils"
 dynamic = ["version"]

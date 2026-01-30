@@ -5,18 +5,20 @@ into a readonly view.
 """
 from __future__ import annotations
 
+from .normalized import NormalizedName
 from abc import ABC
 from abc import abstractmethod
-from functools import singledispatch
-from functools import total_ordering
-from typing import Union
 from collections.abc import Hashable
 from collections.abc import ItemsView
 from collections.abc import Mapping
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from collections.abc import ValuesView
+from functools import singledispatch
+from functools import total_ordering
 from typing import TYPE_CHECKING
+from typing import TypeVar
+from typing import Union
 from typing import overload
 
 
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-_immutable = (bool, bytes, float, frozenset, int, str, type(None))
+_immutable = (NormalizedName, bool, bytes, float, frozenset, int, str, type(None))
 
 
 class ReadonlyView(ABC):
@@ -61,9 +63,19 @@ class ReadonlyView(ABC):
 
 
 Readonly = Union[
-    None, bool, bytes, float, frozenset, int, str,
-    'DictViewReadonly', 'ListViewReadonly',
-    'SetViewReadonly', 'TupleViewReadonly']
+    None,
+    NormalizedName,
+    bool,
+    bytes,
+    float,
+    frozenset,
+    int,
+    str,
+    "DictViewReadonly",
+    "ListViewReadonly",
+    "SetViewReadonly",
+    "TupleViewReadonly",
+]
 
 
 @total_ordering
@@ -149,13 +161,16 @@ class ListViewReadonly(SeqViewReadonly):
         self._data = data
 
 
-class SetViewReadonly(ReadonlyView, AbstractSet):
+T = TypeVar("T", bound=Hashable)
+
+
+class SetViewReadonly(ReadonlyView, AbstractSet[T]):
     __slots__ = ()
 
-    def __init__(self, data: AbstractSet) -> None:
+    def __init__(self, data: AbstractSet[T]) -> None:
         self._data = data
 
-    def __iter__(self) -> Iterator[Hashable]:
+    def __iter__(self) -> Iterator[T]:
         return iter(self._data)
 
 
@@ -179,6 +194,11 @@ def _(val: ReadonlyView) -> ReadonlyView:
 
 @ensure_deeply_readonly.register
 def _(val: None) -> None:
+    return val
+
+
+@ensure_deeply_readonly.register
+def _(val: NormalizedName) -> NormalizedName:
     return val
 
 
@@ -246,6 +266,11 @@ def _(val: ReadonlyView) -> ReadonlyView:
 
 @get_mutable_deepcopy.register
 def _(val: None) -> None:
+    return val
+
+
+@get_mutable_deepcopy.register
+def _(val: NormalizedName) -> NormalizedName:
     return val
 
 

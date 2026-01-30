@@ -13,31 +13,31 @@ import structlog
 from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
 from grpc import StatusCode
 from grpc.aio import AioRpcError
+from langgraph_grpc_common.conversion.config import config_from_proto
+from langgraph_grpc_common.proto import (
+    core_api_pb2 as pb,
+)
+from langgraph_grpc_common.proto import (
+    enum_cancel_run_action_pb2 as enum_cancel_run_action,
+)
+from langgraph_grpc_common.proto import (
+    enum_control_signal_pb2 as enum_control_signal,
+)
+from langgraph_grpc_common.proto import (
+    enum_multitask_strategy_pb2 as enum_multitask_strategy,
+)
+from langgraph_grpc_common.proto import (
+    enum_run_status_pb2 as enum_run_status,
+)
+from langgraph_grpc_common.proto import (
+    enum_stream_mode_pb2 as enum_stream_mode,
+)
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
 from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
 from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.grpc.client import get_shared_client
-from langgraph_api.grpc.config_conversion import config_from_proto
-from langgraph_api.grpc.generated import (
-    core_api_pb2 as pb,
-)
-from langgraph_api.grpc.generated import (
-    enum_cancel_run_action_pb2 as enum_cancel_run_action,
-)
-from langgraph_api.grpc.generated import (
-    enum_control_signal_pb2 as enum_control_signal,
-)
-from langgraph_api.grpc.generated import (
-    enum_multitask_strategy_pb2 as enum_multitask_strategy,
-)
-from langgraph_api.grpc.generated import (
-    enum_run_status_pb2 as enum_run_status,
-)
-from langgraph_api.grpc.generated import (
-    enum_stream_mode_pb2 as enum_stream_mode,
-)
 from langgraph_api.grpc.ops import (
     Authenticated,
     _handle_grpc_error,

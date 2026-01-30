@@ -1552,7 +1552,7 @@ def init_cos_client(connection: dict) -> "resource":
     from ibm_boto3 import resource
     from ibm_botocore.client import Config
 
-    # note: In case of connection_asset we need too get COS credentials from connection details.
+    # note: In case of connection_asset we need to get COS credentials from connection details.
     if connection.get("properties") is not None:
         if (
             "access_key" in connection["properties"]
@@ -2330,10 +2330,15 @@ def prepare_cos_client(
     data_cos_clients = []
 
     if training_result_reference is not None:
-        if (
-            isinstance(training_result_reference.connection, S3Connection)
-            or training_result_reference._check_if_connection_asset_is_s3()
-        ):
+        if isinstance(training_result_reference.connection, S3Connection):
+            cos_client_results = (
+                training_result_reference,
+                differentiate_between_credentials(
+                    connection=training_result_reference.connection
+                ),
+            )
+        elif training_result_reference._is_connection_asset_s3:
+            training_result_reference._init_s3_connection()
             cos_client_results = (
                 training_result_reference,
                 differentiate_between_credentials(
@@ -2343,10 +2348,17 @@ def prepare_cos_client(
 
     if training_data_references is not None:
         for reference in training_data_references:
-            if (
-                isinstance(reference.connection, S3Connection)
-                or reference._check_if_connection_asset_is_s3()
-            ):
+            if isinstance(reference.connection, S3Connection):
+                data_cos_clients.append(
+                    (
+                        reference,
+                        differentiate_between_credentials(
+                            connection=reference.connection
+                        ),
+                    )
+                )
+            elif reference._is_connection_asset_s3:
+                reference._init_s3_connection()
                 data_cos_clients.append(
                     (
                         reference,

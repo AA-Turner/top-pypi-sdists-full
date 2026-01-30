@@ -5,7 +5,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 try:
@@ -116,10 +115,7 @@ def validate_wsdl_call(conditions):
         for body_ in root.iter(lxml.etree.QName('http://schemas.xmlsoap.org/soap/envelope/', 'Body').text):
             body = body_
 
-        for condition in conditions:
-            if not condition(content, header, body):
-                return False  # pragma: no cover
-        return True
+        return all(condition(content, header, body) for condition in conditions)
 
     return predicate
 

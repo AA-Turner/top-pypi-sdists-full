@@ -11,10 +11,8 @@ import re
 import sys
 
 import yaml
-
-from voluptuous import Any, MultipleInvalid, PREVENT_EXTRA, Schema
+from voluptuous import PREVENT_EXTRA, Any, MultipleInvalid, Schema
 from voluptuous.humanize import humanize_error
-
 
 IGNORE_NO_MAINTAINERS = [
     "docs/docsite/rst/filter_guide.rst",
@@ -56,7 +54,7 @@ IGNORE_NO_MAINTAINERS = [
 
 
 class BotmetaCheck:
-    def __init__(self):
+    def __init__(self) -> None:
         self.errors: list[str] = []
         self.botmeta_filename = ".github/BOTMETA.yml"
         self.list_entries = frozenset(("supershipit", "maintainers", "labels", "keywords", "notify", "ignore"))
@@ -70,7 +68,7 @@ class BotmetaCheck:
         try:
             documentation = []
             in_docs = False
-            with open(filename, "r", encoding="utf-8") as f:
+            with open(filename, encoding="utf-8") as f:
                 for line in f:
                     if line.startswith("DOCUMENTATION ="):
                         in_docs = True
@@ -121,8 +119,8 @@ class BotmetaCheck:
             )
         ):
             maintainers = self.read_authors(filename)
-            for maintainer in maintainers:
-                maintainer = self.extract_author_name(maintainer)
+            for maintainer_str in maintainers:
+                maintainer = self.extract_author_name(maintainer_str)
                 if maintainer is not None and maintainer not in all_maintainers:
                     others = ", ".join(all_maintainers)
                     msg = f"Author {maintainer} not mentioned as active or inactive maintainer for {filename} (mentioned are: {others})"

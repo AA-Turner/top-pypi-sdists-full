@@ -12,7 +12,7 @@ dependencies = [
     "boto3-stubs >=1.34.160, <2.0.0",
     "Deprecated >=1.2.12, <2.0.0",
     "fa-purity >=2.0.0, <3.0.0",
-    "redshift-client >=8.1.1, <9.0.0",
+    "redshift-client >=9.0.0, <10.0.0",
     "snowflake-connector-python >=3.12.1, <4.0.0",
     "types-Deprecated >=1.2.1, <2.0.0",
 ]

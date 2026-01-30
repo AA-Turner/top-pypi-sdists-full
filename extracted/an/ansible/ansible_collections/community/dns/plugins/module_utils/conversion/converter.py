@@ -6,13 +6,13 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
 import warnings
 
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.dns.plugins.module_utils._six import raise_from
 from ansible_collections.community.dns.plugins.module_utils.conversion.base import (
     DNSConversionError,
@@ -35,8 +35,12 @@ class RecordConverter(object):
         # Valid values: 'decoded', 'encoded', 'encoded-no-octal' (deprecated), 'encoded-no-char-encoding'
         self._txt_api_handling = self._provider_information.txt_record_handling()
         if self._txt_api_handling == 'encoded-no-octal':
-            warnings.warn('provider_information.txt_record_handling() returned deprecated value "encoded-no-octal"')
+            warnings.warn(
+                'provider_information.txt_record_handling() returned deprecated value "encoded-no-octal"',
+                stacklevel=2,
+            )
         self._txt_api_character_encoding = self._provider_information.txt_character_encoding()
+        self._txt_always_quote = self._provider_information.txt_always_quote()
         # Valid values: 'api', 'quoted', 'unquoted'
         self._txt_transformation = self._option_provider.get_option('txt_transformation')
         # Valid values: 'decimal', 'octal'
@@ -58,6 +62,7 @@ class RecordConverter(object):
             if to_api:
                 record.target = encode_txt_value(
                     record.target,
+                    always_quote=self._txt_always_quote,
                     use_character_encoding=self._txt_api_handling == 'encoded',
                     character_encoding=self._txt_api_character_encoding)
             else:
@@ -100,8 +105,9 @@ class RecordConverter(object):
             if record.type == 'TXT':
                 self._handle_txt_api(True, record)
             return record
-        except DNSConversionError as e:
-            raise_from(DNSConversionError(u'While processing record for the API: {0}'.format(e.error_message)), e)
+        except DNSConversionError as e:  # pragma: no cover
+            # This can never happen
+            raise_from(DNSConversionError(u'While processing record for the API: {0}'.format(e.error_message)), e)  # pragma: no cover
 
     def process_from_user(self, record):
         """
@@ -125,8 +131,9 @@ class RecordConverter(object):
             if record.type == 'TXT':
                 self._handle_txt_user(True, record)
             return record
-        except DNSConversionError as e:
-            raise_from(DNSConversionError(u'While processing record for the user: {0}'.format(e.error_message)), e)
+        except DNSConversionError as e:  # pragma: no cover
+            # This can never happen
+            raise_from(DNSConversionError(u'While processing record for the user: {0}'.format(e.error_message)), e)  # pragma: no cover
 
     def clone_from_api(self, record):
         """
@@ -159,6 +166,15 @@ class RecordConverter(object):
         Return a list of modified clones of the records; the originals will not be modified.
         """
         return [self.clone_to_api(record) for record in records]
+
+    def clone_set_to_api(self, record_set):
+        """
+        Process a record set object (DNSRecordSet) for sending to API.
+        Return a modified clone of the record set; the original will not be modified.
+        """
+        record_set = record_set.clone()
+        record_set.records = [self.clone_to_api(record) for record in record_set.records]
+        return record_set
 
     def process_multiple_from_api(self, records):
         """
@@ -195,6 +211,42 @@ class RecordConverter(object):
         for record in records:
             self.process_to_user(record)
         return records
+
+    def process_set_from_api(self, record_set):
+        """
+        Process a record set object (DNSRecordSet) after receiving from API.
+        Modifies the records in-place.
+        """
+        for record in record_set.records:
+            self.process_from_api(record)
+        return record_set
+
+    def process_set_to_api(self, record_set):
+        """
+        Process a record set object (DNSRecordSet) for sending to API.
+        Modifies the records in-place.
+        """
+        for record in record_set.records:
+            self.process_to_api(record)
+        return record_set
+
+    def process_set_from_user(self, record_set):
+        """
+        Process a record set object (DNSRecordSet) after receiving from the user.
+        Modifies the records in-place.
+        """
+        for record in record_set.records:
+            self.process_from_user(record)
+        return record_set
+
+    def process_set_to_user(self, record_set):
+        """
+        Process a record set objects (DNSRecordSet) for sending to the user.
+        Modifies the records in-place.
+        """
+        for record in record_set.records:
+            self.process_to_user(record)
+        return record_set
 
     def process_value_from_user(self, record_type, value):
         """

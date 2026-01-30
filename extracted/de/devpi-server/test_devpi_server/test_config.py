@@ -1,5 +1,7 @@
-from devpi_server.config import MyArgumentParser, parseoptions, get_pluginmanager
+from devpi_server.config import MyArgumentParser
+from devpi_server.config import get_pluginmanager
 from devpi_server.config import hookimpl
+from devpi_server.config import parseoptions
 from devpi_server.main import Fatal
 from pathlib import Path
 import pytest
@@ -22,6 +24,7 @@ class TestParser:
         parser = MyArgumentParser()
         opt = parser.addoption("--hello", type=str, help="x", default="world")
         parser.post_process_actions()
+        assert opt.help is not None
         assert "[world]" in opt.help
 
     def test_addoption_getdefault(self):
@@ -31,10 +34,12 @@ class TestParser:
         opt = parser.addoption("--hello", default="world", type=str, help="x")
         parser.post_process_actions(defaultget=getter)
         assert opt.default == "world2"
+        assert opt.help is not None
         assert "[world2]" in opt.help
         opt = parser.addoption("--hello2", default="world", type=str, help="x")
         parser.post_process_actions(defaultget=getter)
         assert opt.default == "world"
+        assert opt.help is not None
         assert "[world]" in opt.help
 
     def test_addgroup(self):
@@ -361,7 +366,10 @@ class TestConfig:
                 return dict(
                     storage=keyfs_sqlite_fs.Storage,
                     name="foo",
-                    description="Foo backend")
+                    description="Foo backend",
+                    db_filestore=False,
+                )
+
         options = ("--storage", "foo:bar=ham")
         config = make_config(("devpi-server",) + options)
         assert config.args.storage == "foo:bar=ham"
@@ -486,7 +494,10 @@ class TestConfigFile:
                 return dict(
                     storage=keyfs_sqlite_fs.Storage,
                     name="foo",
-                    description="Foo backend")
+                    description="Foo backend",
+                    db_filestore=False,
+                )
+
         yaml_path = make_yaml_config(textwrap.dedent("""\
             devpi-server:
               storage:

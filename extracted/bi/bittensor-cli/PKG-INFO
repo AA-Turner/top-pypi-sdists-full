@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-cli
-Version: 9.17.0
+Version: 9.18.0
 Summary: Bittensor CLI
 Author: bittensor.com
 Requires-Python: >=3.9
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Utilities
 Requires-Dist: wheel
-Requires-Dist: async-substrate-interface>=1.5.14
+Requires-Dist: async-substrate-interface>=1.6.0
 Requires-Dist: aiohttp~=3.13
 Requires-Dist: backoff~=2.2.1
 Requires-Dist: bittensor-drand>=1.2.0
@@ -182,7 +182,7 @@ The default location of the config file is: `~/.bittensor/config.yml`. An exampl
 network: local
 use_cache: true
 dashboard_path: null
-disk_cache: false
+disk_cache: true
 rate_tolerance: null
 safe_staking: true
 wallet_hotkey: default

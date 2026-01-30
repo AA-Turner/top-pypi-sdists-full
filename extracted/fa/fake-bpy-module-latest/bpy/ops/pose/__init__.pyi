@@ -195,7 +195,7 @@ def constraint_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None = "",
+    type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None = "CHILD_OF",
 ) -> None:
     """Add a constraint to the active bone
 
@@ -207,7 +207,7 @@ def constraint_add_with_targets(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None = "",
+    type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None = "CHILD_OF",
 ) -> None:
     """Add a constraint to the active bone, with target (where applicable) set to the selected Objects/Bones
 

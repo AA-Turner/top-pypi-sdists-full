@@ -121,7 +121,7 @@ impl<'a> BindingsBuilder<'a> {
             SizeExpectation::Eq(elts.len())
         };
         self.insert_binding(
-            KeyExpect(range),
+            KeyExpect::UnpackedLength(range),
             BindingExpect::UnpackedLength(unpack_idx, range, expect),
         );
     }
@@ -133,7 +133,8 @@ impl<'a> BindingsBuilder<'a> {
     fn narrow_if_name_is_defined(&mut self, identifier: Identifier, narrowed_idx: Idx<Key>) {
         let name = Hashed::new(&identifier.id);
         let name_is_defined = !matches!(
-            self.scopes.look_up_name_for_read(name),
+            self.scopes
+                .look_up_name_for_read(name, &Usage::Narrowing(None)),
             NameReadInfo::NotFound,
         );
         if name_is_defined {

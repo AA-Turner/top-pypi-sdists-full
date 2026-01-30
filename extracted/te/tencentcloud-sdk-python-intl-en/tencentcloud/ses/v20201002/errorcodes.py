@@ -14,6 +14,9 @@
 # limitations under the License.
 
 
+# CAM token authentication failure.
+AUTHFAILURE_UNAUTHORIZEDOPERATION = 'AuthFailure.UnauthorizedOperation'
+
 # Operation failed.
 FAILEDOPERATION = 'FailedOperation'
 
@@ -38,6 +41,9 @@ FAILEDOPERATION_FREQUENCYLIMIT = 'FailedOperation.FrequencyLimit'
 # The email has been blocked temporarily due to high rejection rate.
 FAILEDOPERATION_HIGHREJECTIONRATE = 'FailedOperation.HighRejectionRate'
 
+# Mail contains non-compliant link.
+FAILEDOPERATION_ILLEGALURL = 'FailedOperation.IllegalURL'
+
 # Incorrect email address.
 FAILEDOPERATION_INCORRECTEMAIL = 'FailedOperation.IncorrectEmail'
 
@@ -50,7 +56,7 @@ FAILEDOPERATION_INSUFFICIENTBALANCE = 'FailedOperation.InsufficientBalance'
 # Insufficient emails in plans.
 FAILEDOPERATION_INSUFFICIENTQUOTA = 'FailedOperation.InsufficientQuota'
 
-# Unsupported attachment name. Make sure it does not contain special characters. For details, see the attachment description.
+# Unsupported attachment name. please check whether the attachment name contains special characters. for details, see the appendix attachment description (https://www.tencentcloud.comom/document/product/1288/51951?from_cn_redirect=1).
 FAILEDOPERATION_INVALIDATTACHNAME = 'FailedOperation.InvalidAttachName'
 
 # Reached the query limit (100).
@@ -89,7 +95,7 @@ FAILEDOPERATION_SERVICENOTAVAILABLE = 'FailedOperation.ServiceNotAvailable'
 # The template size is too large. Reduce the size.
 FAILEDOPERATION_TEMPLATECONTENTTOOLARGE = 'FailedOperation.TemplateContentToolarge'
 
-# The email has been blocked temporarily due to violations of rules.
+# The email push platform will suspend sending emails to the service provider for 10 minutes due to the corresponding recipient service provider's limit. it will be automatically released after 10 minutes.
 FAILEDOPERATION_TEMPORARYBLOCKED = 'FailedOperation.TemporaryBlocked'
 
 # Too many attachments. A single email supports up to 10 attachments.
@@ -97,6 +103,9 @@ FAILEDOPERATION_TOOMANYATTACHMENTS = 'FailedOperation.TooManyAttachments'
 
 # Too many recipients. Set a maximum of 50 recipients at a time.
 FAILEDOPERATION_TOOMANYRECIPIENTS = 'FailedOperation.TooManyRecipients'
+
+# Forbid users with low delivery rate to include URL webpage links in email content.
+FAILEDOPERATION_URLFORBIDDEN = 'FailedOperation.URLForbidden'
 
 # Unsupported email type.
 FAILEDOPERATION_UNSUPPORTMAILTYPE = 'FailedOperation.UnsupportMailType'
@@ -136,6 +145,9 @@ INVALIDPARAMETERVALUE_ILLEGALEMAILADDRESS = 'InvalidParameterValue.IllegalEmailA
 
 # The sender alias is incorrect.
 INVALIDPARAMETERVALUE_ILLEGALSENDERNAME = 'InvalidParameterValue.IllegalSenderName'
+
+# The template parameter attached to the recipient address cannot contain html tags.
+INVALIDPARAMETERVALUE_INVALIDTEMPLATEDATA = 'InvalidParameterValue.InValidTemplateData'
 
 # Invalid domain value.
 INVALIDPARAMETERVALUE_INVALIDEMAILIDENTITY = 'InvalidParameterValue.InvalidEmailIdentity'
@@ -181,6 +193,9 @@ INVALIDPARAMETERVALUE_TEMPLATEDATAERROR = 'InvalidParameterValue.TemplateDataErr
 
 # The name of a template parameter variable is not the same as the original name.
 INVALIDPARAMETERVALUE_TEMPLATEDATAINCONSISTENT = 'InvalidParameterValue.TemplateDataInconsistent'
+
+# The template parameter (entire JSON structure) attached to a single recipient address exceeds the length limit of 800 bytes.
+INVALIDPARAMETERVALUE_TEMPLATEDATALENLIMIT = 'InvalidParameterValue.TemplateDataLenLimit'
 
 # Invalid template name. Make sure the characters and length of the template name are valid.
 INVALIDPARAMETERVALUE_TEMPLATENAMEILLEGAL = 'InvalidParameterValue.TemplateNameIllegal'
@@ -238,6 +253,9 @@ OPERATIONDENIED_EXCEEDDOMAINLIMIT = 'OperationDenied.ExceedDomainLimit'
 
 # The number of sender addresses exceeds the upper limit.
 OPERATIONDENIED_EXCEEDSENDERLIMIT = 'OperationDenied.ExceedSenderLimit'
+
+# Domain name cannot be deleted.
+OPERATIONDENIED_NOTALLOWDELETE = 'OperationDenied.NotAllowDelete'
 
 # The recipient group is being uploaded. Try again later.
 OPERATIONDENIED_RECEIVERISOPERATING = 'OperationDenied.ReceiverIsOperating'

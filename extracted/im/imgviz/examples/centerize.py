@@ -5,16 +5,16 @@ import matplotlib.pyplot as plt
 import imgviz
 
 
-def centerize():
+def centerize() -> None:
     data = imgviz.data.arc2017()
 
     rgb = data["rgb"]
 
     H, W = rgb.shape[:2]
-    centerized1 = imgviz.centerize(rgb, shape=(H, H))
+    centerized1 = imgviz.centerize(rgb, height=H, width=H)
 
     rgb_T = rgb.transpose(1, 0, 2)
-    centerized2 = imgviz.centerize(rgb_T, shape=(H, H))
+    centerized2 = imgviz.centerize(rgb_T, height=H, width=H)
 
     # -------------------------------------------------------------------------
 
@@ -26,19 +26,17 @@ def centerize():
     plt.imshow(rgb)
 
     plt.subplot(132)
-    plt.title(f"centerized1:\n{centerized1.shape}")
+    plt.title("centerized1")
     plt.imshow(centerized1)
     plt.axis("off")
 
     plt.subplot(133)
-    plt.title(f"centerized2:\n{centerized2.shape}")
+    plt.title("centerized2")
     plt.imshow(centerized2)
     plt.axis("off")
 
-    return imgviz.io.pyplot_to_numpy()
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(centerize)

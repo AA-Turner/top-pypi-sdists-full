@@ -50,7 +50,7 @@ class Gyroscope(Phidget):
 			self._onAngularRateUpdate = fptr
 
 	def getAngularRate(self):
-		_AngularRate = (ctypes.c_double * 3)()
+		_AngularRate = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetGyroscope_getAngularRate
 		__func.restype = ctypes.c_int32
@@ -62,7 +62,7 @@ class Gyroscope(Phidget):
 		return list(_AngularRate)
 
 	def getMinAngularRate(self):
-		_MinAngularRate = (ctypes.c_double * 3)()
+		_MinAngularRate = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetGyroscope_getMinAngularRate
 		__func.restype = ctypes.c_int32
@@ -74,7 +74,7 @@ class Gyroscope(Phidget):
 		return list(_MinAngularRate)
 
 	def getMaxAngularRate(self):
-		_MaxAngularRate = (ctypes.c_double * 3)()
+		_MaxAngularRate = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetGyroscope_getMaxAngularRate
 		__func.restype = ctypes.c_int32

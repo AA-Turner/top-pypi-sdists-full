@@ -9,7 +9,7 @@ use ignore::overrides::OverrideBuilder;
 use rumdl_config::{resolve_rule_name, resolve_rule_names};
 use rumdl_lib::config as rumdl_config;
 use rumdl_lib::lint_context::LintContext;
-use rumdl_lib::rule::Rule;
+use rumdl_lib::rule::{FixCapability, LintWarning, Rule};
 use rumdl_lib::utils::code_block_utils::CodeBlockUtils;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -573,6 +573,30 @@ pub fn is_rule_actually_fixable(config: &rumdl_config::Config, rule_name: &str) 
     true
 }
 
+/// Check if a rule is fixable via CLI (considers both config AND rule's fix_capability)
+///
+/// A rule is CLI-fixable if:
+/// 1. It's not in the unfixable config list
+/// 2. It's in the fixable config list (if specified)
+/// 3. The rule itself doesn't declare FixCapability::Unfixable
+///
+/// This replaces hardcoded rule name checks (e.g., `&& name != "MD033"`) with
+/// capability-based checks that are future-proof for any rule.
+pub fn is_rule_cli_fixable(rules: &[Box<dyn Rule>], config: &rumdl_config::Config, rule_name: &str) -> bool {
+    // First check config-based fixability
+    if !is_rule_actually_fixable(config, rule_name) {
+        return false;
+    }
+
+    // Then check if the rule declares itself as Unfixable
+    // Rules like MD033 have LSP-only fixes (for VS Code quick actions) but
+    // their fix() method returns content unchanged, so CLI shouldn't count them
+    rules
+        .iter()
+        .find(|r| r.name().eq_ignore_ascii_case(rule_name))
+        .is_none_or(|r| r.fix_capability() != FixCapability::Unfixable)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn process_file_with_formatter(
     file_path: &str,
@@ -658,7 +682,19 @@ pub fn process_file_with_formatter(
             }
         } else {
             // In check mode, show all warnings with [*] for fixable issues
-            let formatted = formatter.format_warnings(&all_warnings, &display_path);
+            // Strip fix from warnings where the rule is not CLI-fixable (e.g., LSP-only fixes)
+            let display_warnings: Vec<_> = all_warnings
+                .iter()
+                .map(|w| {
+                    let rule_name = w.rule_name.as_deref().unwrap_or("");
+                    if !is_rule_cli_fixable(rules, config, rule_name) {
+                        LintWarning { fix: None, ..w.clone() }
+                    } else {
+                        w.clone()
+                    }
+                })
+                .collect();
+            let formatted = formatter.format_warnings(&display_warnings, &display_path);
             if !formatted.is_empty() {
                 output_writer.writeln(&formatted).unwrap_or_else(|e| {
                     eprintln!("Error writing output: {e}");
@@ -772,8 +808,8 @@ pub fn process_file_with_formatter(
             for warning in &all_warnings {
                 let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
 
-                // Check if the rule is actually fixable based on configuration
-                let is_fixable = is_rule_actually_fixable(config, rule_name);
+                // Check if the rule is CLI-fixable (config + rule capability)
+                let is_fixable = is_rule_cli_fixable(rules, config, rule_name);
 
                 let was_fixed = warning.fix.is_some()
                     && is_fixable
@@ -781,14 +817,9 @@ pub fn process_file_with_formatter(
                         w.line == warning.line && w.column == warning.column && w.rule_name == warning.rule_name
                     });
 
-                let fix_indicator = if warning.fix.is_some() {
-                    if !is_fixable {
-                        " [unfixable]".yellow().to_string()
-                    } else if was_fixed {
-                        " [fixed]".green().to_string()
-                    } else {
-                        String::new()
-                    }
+                // Show [fixed] only for issues that were actually fixed, nothing otherwise
+                let fix_indicator = if was_fixed {
+                    " [fixed]".green().to_string()
                 } else {
                     String::new()
                 };
@@ -983,14 +1014,14 @@ pub fn process_file_with_index(
             if verbose && !quiet {
                 println!("Cache hit for {file_path}");
             }
-            // Count fixable warnings from cache
+            // Count fixable warnings from cache (using capability-based check)
             let fixable_warnings = cached_warnings
                 .iter()
                 .filter(|w| {
                     w.fix.is_some()
                         && w.rule_name
                             .as_ref()
-                            .is_some_and(|name| is_rule_actually_fixable(config, name))
+                            .is_some_and(|name| is_rule_cli_fixable(rules, config, name))
                 })
                 .count();
 
@@ -1050,14 +1081,14 @@ pub fn process_file_with_index(
 
     let total_warnings = all_warnings.len();
 
-    // Count fixable issues (excluding unfixable rules)
+    // Count fixable issues (using capability-based check)
     let fixable_warnings = all_warnings
         .iter()
         .filter(|w| {
             w.fix.is_some()
                 && w.rule_name
                     .as_ref()
-                    .is_some_and(|name| is_rule_actually_fixable(config, name))
+                    .is_some_and(|name| is_rule_cli_fixable(rules, config, name))
         })
         .count();
 
@@ -1125,7 +1156,7 @@ pub fn apply_fixes_coordinated(
                     let rule_codes: Vec<&str> = result.fixed_rule_names.iter().map(|s| s.as_str()).collect();
                     eprintln!("Rule codes: {}", rule_codes.join(", "));
                 }
-                eprintln!("Please report at: https://github.com/rvben/rumdl/issues/new");
+                eprintln!("Please report at: https://github.com/rvben/rumdl/issues/new?template=bug_report.yml");
             }
 
             // Count warnings for the rules that were successfully applied

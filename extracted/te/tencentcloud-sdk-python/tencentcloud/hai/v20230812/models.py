@@ -1489,6 +1489,57 @@ class InquirePriceRunInstancesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class InquirePriceUpdateServiceConfigsRequest(AbstractModel):
+    r"""InquirePriceUpdateServiceConfigs请求参数结构体
+
+    """
+
+
+class InquirePriceUpdateServiceConfigsResponse(AbstractModel):
+    r"""InquirePriceUpdateServiceConfigs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Price: 发货参数对应的价格组合。
+        :type Price: :class:`tencentcloud.hai.v20230812.models.ServicePriceDetail`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Price = None
+        self._RequestId = None
+
+    @property
+    def Price(self):
+        r"""发货参数对应的价格组合。
+        :rtype: :class:`tencentcloud.hai.v20230812.models.ServicePriceDetail`
+        """
+        return self._Price
+
+    @Price.setter
+    def Price(self, Price):
+        self._Price = Price
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Price") is not None:
+            self._Price = ServicePriceDetail()
+            self._Price._deserialize(params.get("Price"))
+        self._RequestId = params.get("RequestId")
+
+
 class Instance(AbstractModel):
     r"""实例信息
 
@@ -1973,12 +2024,18 @@ class ItemPrice(AbstractModel):
         :type ChargeUnit: str
         :param _Amount: 商品数量
         :type Amount: int
+        :param _OriginPrice: 原价
+        :type OriginPrice: float
+        :param _DiscountPrice: 折扣价
+        :type DiscountPrice: float
         """
         self._UnitPrice = None
         self._DiscountUnitPrice = None
         self._Discount = None
         self._ChargeUnit = None
         self._Amount = None
+        self._OriginPrice = None
+        self._DiscountPrice = None
 
     @property
     def UnitPrice(self):
@@ -2036,6 +2093,28 @@ class ItemPrice(AbstractModel):
     def Amount(self, Amount):
         self._Amount = Amount
 
+    @property
+    def OriginPrice(self):
+        r"""原价
+        :rtype: float
+        """
+        return self._OriginPrice
+
+    @OriginPrice.setter
+    def OriginPrice(self, OriginPrice):
+        self._OriginPrice = OriginPrice
+
+    @property
+    def DiscountPrice(self):
+        r"""折扣价
+        :rtype: float
+        """
+        return self._DiscountPrice
+
+    @DiscountPrice.setter
+    def DiscountPrice(self, DiscountPrice):
+        self._DiscountPrice = DiscountPrice
+
 
     def _deserialize(self, params):
         self._UnitPrice = params.get("UnitPrice")
@@ -2043,6 +2122,8 @@ class ItemPrice(AbstractModel):
         self._Discount = params.get("Discount")
         self._ChargeUnit = params.get("ChargeUnit")
         self._Amount = params.get("Amount")
+        self._OriginPrice = params.get("OriginPrice")
+        self._DiscountPrice = params.get("DiscountPrice")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3065,6 +3146,44 @@ class SceneInfo(AbstractModel):
         
 
 
+class ServicePriceDetail(AbstractModel):
+    r"""推理集群费用数据结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServicePrice: 推理集群价格信息	
+        :type ServicePrice: :class:`tencentcloud.hai.v20230812.models.ItemPrice`
+        """
+        self._ServicePrice = None
+
+    @property
+    def ServicePrice(self):
+        r"""推理集群价格信息	
+        :rtype: :class:`tencentcloud.hai.v20230812.models.ItemPrice`
+        """
+        return self._ServicePrice
+
+    @ServicePrice.setter
+    def ServicePrice(self, ServicePrice):
+        self._ServicePrice = ServicePrice
+
+
+    def _deserialize(self, params):
+        if params.get("ServicePrice") is not None:
+            self._ServicePrice = ItemPrice()
+            self._ServicePrice._deserialize(params.get("ServicePrice"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class StartInstanceRequest(AbstractModel):
     r"""StartInstance请求参数结构体
 
@@ -3391,6 +3510,85 @@ class TerminateInstancesRequest(AbstractModel):
 
 class TerminateInstancesResponse(AbstractModel):
     r"""TerminateInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class UpdateServiceConfigsRequest(AbstractModel):
+    r"""UpdateServiceConfigs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceId: 服务ID
+        :type ServiceId: str
+        :param _TargetReplicas: 期望副本数
+        :type TargetReplicas: int
+        """
+        self._ServiceId = None
+        self._TargetReplicas = None
+
+    @property
+    def ServiceId(self):
+        r"""服务ID
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
+
+    @property
+    def TargetReplicas(self):
+        r"""期望副本数
+        :rtype: int
+        """
+        return self._TargetReplicas
+
+    @TargetReplicas.setter
+    def TargetReplicas(self, TargetReplicas):
+        self._TargetReplicas = TargetReplicas
+
+
+    def _deserialize(self, params):
+        self._ServiceId = params.get("ServiceId")
+        self._TargetReplicas = params.get("TargetReplicas")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateServiceConfigsResponse(AbstractModel):
+    r"""UpdateServiceConfigs返回参数结构体
 
     """
 

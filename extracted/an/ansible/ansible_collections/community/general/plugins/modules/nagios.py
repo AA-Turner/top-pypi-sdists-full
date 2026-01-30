@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: nagios
 short_description: Perform common tasks in Nagios related to downtime and notifications
@@ -266,9 +265,9 @@ EXAMPLES = r"""
     command: DISABLE_FAILURE_PREDICTION
 """
 
-import time
 import os.path
 import stat
+import time
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -422,7 +421,7 @@ class Nagios:
                 fp.write(cmd)
                 fp.flush()
             self.command_results.append(cmd.strip())
-        except IOError:
+        except OSError:
             self.module.fail_json(msg="unable to write to nagios command file", cmdfile=self.cmdfile)
 
     def _fmt_dt_str(self, cmd, host, duration, author=None, comment=None, start=None, svc=None, fixed=1, trigger=0):

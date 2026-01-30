@@ -82,7 +82,7 @@ class Spatial(Phidget):
 			self._onSpatialData = fptr
 
 	def getMinAcceleration(self):
-		_MinAcceleration = (ctypes.c_double * 3)()
+		_MinAcceleration = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMinAcceleration
 		__func.restype = ctypes.c_int32
@@ -94,7 +94,7 @@ class Spatial(Phidget):
 		return list(_MinAcceleration)
 
 	def getMaxAcceleration(self):
-		_MaxAcceleration = (ctypes.c_double * 3)()
+		_MaxAcceleration = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMaxAcceleration
 		__func.restype = ctypes.c_int32
@@ -168,7 +168,7 @@ class Spatial(Phidget):
 
 
 	def getMinAngularRate(self):
-		_MinAngularRate = (ctypes.c_double * 3)()
+		_MinAngularRate = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMinAngularRate
 		__func.restype = ctypes.c_int32
@@ -180,7 +180,7 @@ class Spatial(Phidget):
 		return list(_MinAngularRate)
 
 	def getMaxAngularRate(self):
-		_MaxAngularRate = (ctypes.c_double * 3)()
+		_MaxAngularRate = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMaxAngularRate
 		__func.restype = ctypes.c_int32
@@ -321,7 +321,7 @@ class Spatial(Phidget):
 
 
 	def getMinMagneticField(self):
-		_MinMagneticField = (ctypes.c_double * 3)()
+		_MinMagneticField = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMinMagneticField
 		__func.restype = ctypes.c_int32
@@ -333,7 +333,7 @@ class Spatial(Phidget):
 		return list(_MinMagneticField)
 
 	def getMaxMagneticField(self):
-		_MaxMagneticField = (ctypes.c_double * 3)()
+		_MaxMagneticField = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSpatial_getMaxMagneticField
 		__func.restype = ctypes.c_int32

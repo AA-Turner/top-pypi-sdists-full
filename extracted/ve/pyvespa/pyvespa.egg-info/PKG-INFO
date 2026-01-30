@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 0.63.0
+Version: 1.0.1
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -213,19 +213,20 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: requests_toolbelt
+Requires-Dist: httpr>=0.3.2
 Requires-Dist: docker
 Requires-Dist: jinja2
 Requires-Dist: cryptography
 Requires-Dist: aiohttp
-Requires-Dist: httpx[http2]
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing_extensions
 Requires-Dist: python-dateutil
 Requires-Dist: fastcore>=1.7.8
 Requires-Dist: lxml
 Requires-Dist: certifi
+Requires-Dist: requests
+Requires-Dist: requests_toolbelt
+Requires-Dist: httpx[http2]
 Provides-Extra: vespacli
 Requires-Dist: vespacli; extra == "vespacli"
 Provides-Extra: build
@@ -277,6 +278,9 @@ Requires-Dist: pytrec_eval; extra == "notebooks"
 Requires-Dist: papermill; extra == "notebooks"
 Requires-Dist: ipywidgets; extra == "notebooks"
 Requires-Dist: matplotlib; extra == "notebooks"
+Provides-Extra: mteb
+Requires-Dist: mteb>=2.7.5; python_version >= "3.10" and extra == "mteb"
+Requires-Dist: simplejson; python_version >= "3.10" and extra == "mteb"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: vespacli; extra == "dev"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ops
-Version: 3.5.0
+Version: 3.5.1
 Summary: The Python library behind great charms
 Author: The Charm Tech team at Canonical Ltd.
 License-Expression: Apache-2.0
@@ -22,9 +22,9 @@ Requires-Dist: PyYAML==6.*
 Requires-Dist: websocket-client==1.*
 Requires-Dist: opentelemetry-api~=1.0
 Provides-Extra: testing
-Requires-Dist: ops-scenario==8.5.0; extra == "testing"
+Requires-Dist: ops-scenario==8.5.1; extra == "testing"
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.5.0; extra == "tracing"
+Requires-Dist: ops-tracing==3.5.1; extra == "tracing"
 Provides-Extra: harness
 Dynamic: license-file
 

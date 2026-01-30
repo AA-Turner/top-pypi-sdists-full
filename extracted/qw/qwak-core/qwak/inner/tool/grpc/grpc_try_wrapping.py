@@ -1,13 +1,11 @@
-import logging
 import functools
 import inspect
 from inspect import BoundArguments, Signature
 from typing import Any, Callable, Optional
 
 import grpc
+from frogml_storage.logging import logger
 from qwak.exceptions import QwakException
-
-logger = logging.getLogger()
 
 
 def grpc_try_catch_wrapper(

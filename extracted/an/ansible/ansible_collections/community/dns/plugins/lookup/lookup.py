@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 name: lookup
 author: Felix Fontein (@felixfontein)
@@ -134,6 +133,7 @@ from collections.abc import Callable
 from ansible.errors import AnsibleLookupError
 from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.lookup import LookupBase
+
 from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
@@ -151,7 +151,6 @@ from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
 from ansible_collections.community.dns.plugins.plugin_utils.resolver import (
     guarded_run,
 )
-
 
 try:
     import dns.resolver

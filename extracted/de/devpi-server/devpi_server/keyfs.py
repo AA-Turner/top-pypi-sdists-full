@@ -6,28 +6,57 @@ write Transaction is ongoing.  Each Transaction will see a consistent
 view of key/values referring to the point in time it was started,
 independent from any future changes.
 """
-import contextlib
-import py
+from __future__ import annotations
+
 from . import mythread
-from .interfaces import IStorageConnection3
+from .filestore import Digests
+from .filestore import FileEntry
+from .filestore import FilePathInfo
+from .fileutil import read_int_from_file
+from .fileutil import write_int_to_file
+from .interfaces import IStorage
+from .interfaces import IStorageConnection4
 from .interfaces import IWriter2
 from .keyfs_types import PTypedKey
 from .keyfs_types import Record
+from .keyfs_types import RelPath
 from .keyfs_types import TypedKey
-from .log import threadlog, thread_push_log, thread_pop_log
 from .log import thread_change_log_prefix
-from .markers import absent, deleted
+from .log import thread_pop_log
+from .log import thread_push_log
+from .log import threadlog
+from .markers import absent
+from .markers import deleted
 from .model import RootModel
+from .readonly import DictViewReadonly
 from .readonly import ensure_deeply_readonly
 from .readonly import get_mutable_deepcopy
 from .readonly import is_deeply_readonly
-from .filestore import FileEntry
-from .fileutil import read_int_from_file, write_int_to_file
 from devpi_common.types import cached_property
 from pathlib import Path
+from typing import TYPE_CHECKING
+from typing import overload
+import contextlib
 import errno
+import py
 import time
 import warnings
+
+
+if TYPE_CHECKING:
+    from .keyfs_types import KeyFSTypesRO
+    from .keyfs_types import KeyType
+    from .markers import Absent
+    from .markers import Deleted
+    from .mythread import MyThread
+    from collections.abc import Iterable
+    from collections.abc import Iterator
+    from typing import Literal
+    from typing import Union
+
+    KeyFSConn = IStorageConnection4
+    KeyFSConnClosing = contextlib.closing[KeyFSConn]
+    KeyFSConnWithClosing = Union[KeyFSConn, KeyFSConnClosing]
 
 
 def __getattr__(name):
@@ -56,6 +85,9 @@ class MissingFileException(Exception):
 
 
 class TxNotificationThread:
+    _get_ixconfig_cache: dict[tuple[str, str], dict | None]
+    thread: MyThread
+
     def __init__(self, keyfs):
         self.keyfs = keyfs
         self.cv_new_event_serial = mythread.threading.Condition()
@@ -245,12 +277,23 @@ class TxNotificationThread:
         log.debug("finished calling all hooks for tx%s", event_serial)
 
 
-class KeyFS(object):
+class KeyFS:
     """ singleton storage object. """
+
     class ReadOnly(Exception):
         """ attempt to open write transaction while in readonly mode. """
 
-    def __init__(self, basedir, storage, readonly=False, cache_size=10000):
+    _keys: dict[str, PTypedKey | TypedKey]
+
+    def __init__(
+        self,
+        basedir,
+        storage,
+        *,
+        io_file_factory=None,
+        readonly=False,
+        cache_size=10000,
+    ):
         self.base_path = Path(basedir)
         self.base_path.mkdir(parents=True, exist_ok=True)
         self._keys = {}
@@ -258,11 +301,22 @@ class KeyFS(object):
         self._cv_new_transaction = mythread.threading.Condition()
         self._import_subscriber = None
         self.notifier = TxNotificationThread(self)
-        self._storage = storage(
-            py.path.local(self.base_path),
-            notify_on_commit=self._notify_on_commit,
-            cache_size=cache_size)
+        self._storage = IStorage(
+            storage(
+                py.path.local(self.base_path),
+                notify_on_commit=self._notify_on_commit,
+                cache_size=cache_size,
+            )
+        )
+        self.io_file_factory = io_file_factory
         self._readonly = readonly
+
+    def __getattr__(self, name: str) -> PTypedKey | TypedKey:
+        if name not in self._keys:
+            raise AttributeError(name)
+        assert name not in self.__dict__
+        self.__dict__[name] = key = self._keys[name]
+        return key
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.base_path}>"
@@ -276,20 +330,66 @@ class KeyFS(object):
             stacklevel=3)
         return py.path.local(self.base_path)
 
-    def get_connection(self, closing=True, write=False, timeout=30):
-        try:
-            conn = self._storage.get_connection(
-                closing=False, write=write, timeout=timeout)
-        except TypeError:
-            conn = self._storage.get_connection(
-                closing=False, write=write)
-        conn = IStorageConnection3(conn)
+    @overload
+    def get_connection(
+        self,
+        closing: Literal[True] = True,  # noqa: FBT002
+        write: bool = False,  # noqa: FBT001, FBT002 - API
+        timeout: float = 30,
+    ) -> KeyFSConnClosing:
+        pass
+
+    @overload
+    def get_connection(
+        self,
+        closing: Literal[False] = False,  # noqa: FBT002
+        write: bool = False,  # noqa: FBT001, FBT002 - API
+        timeout: float = 30,
+    ) -> KeyFSConn:
+        pass
+
+    def get_connection(
+        self,
+        closing: bool = True,  # noqa: FBT001, FBT002 - API
+        write: bool = False,  # noqa: FBT001, FBT002 - API
+        timeout: float = 30,
+    ) -> KeyFSConnWithClosing:
+        conn = self._storage.get_connection(closing=False, write=write, timeout=timeout)
+        conn = IStorageConnection4(conn)
         if closing:
             return contextlib.closing(conn)
         return conn
 
     def finalize_init(self):
-        self._storage.perform_crash_recovery()
+        if self.io_file_factory is None:
+            return
+        with self.get_connection() as conn:
+            if (serial := conn.last_changelog_serial) == -1:
+                return
+
+            def iter_rel_renames() -> Iterable[str]:
+                rel_renames = conn.get_rel_renames(serial)
+                if rel_renames is None:
+                    return
+                yield from rel_renames
+
+            def iter_file_path_infos(
+                relpaths: Iterable[RelPath],
+            ) -> Iterable[FilePathInfo]:
+                for relpath in relpaths:
+                    (_, _, val) = conn.get_relpath_at(relpath, serial)
+                    if (
+                        isinstance(val, (dict, DictViewReadonly))
+                        and "hash_spec" in val
+                        and isinstance(hash_spec := val["hash_spec"], str)
+                    ):
+                        digests = Digests.from_spec(hash_spec)
+                    else:
+                        digests = Digests()
+                    yield FilePathInfo(relpath, digests.get_default_value(None))
+
+            io_file = self.io_file_factory(conn)
+            io_file.perform_crash_recovery(iter_rel_renames, iter_file_path_infos)
 
     def import_changes(self, serial, changes):
         with contextlib.ExitStack() as cstack:
@@ -371,16 +471,21 @@ class KeyFS(object):
     def tx(self):
         return self._threadlocal.tx
 
-    def add_key(self, name, path, type):
+    def add_key(
+        self,
+        name: str,
+        path: str,
+        type: type[KeyType],  # noqa: A002
+    ) -> PTypedKey[KeyType] | TypedKey[KeyType]:
         assert isinstance(path, str)
+        key: PTypedKey | TypedKey
         if "{" in path:
             key = PTypedKey(self, path, type, name)
         else:
-            key = TypedKey(self, path, type, name)
+            key = TypedKey(self, RelPath(path), type, name)
         if name in self._keys:
             raise ValueError("Duplicate registration for key named '%s'" % name)
         self._keys[name] = key
-        setattr(self, name, key)
         if hasattr(self._storage, 'add_key'):
             self._storage.add_key(key)
         return key
@@ -388,7 +493,7 @@ class KeyFS(object):
     def get_key(self, name):
         return self._keys.get(name)
 
-    def get_key_instance(self, keyname, relpath):
+    def get_key_instance(self, keyname: str, relpath: RelPath) -> TypedKey:
         key = self.get_key(keyname)
         if isinstance(key, PTypedKey):
             key = key(**key.extract_params(relpath))
@@ -400,7 +505,11 @@ class KeyFS(object):
         at_serial = getattr(tx, "at_serial", "")
         return "[%stx%s]" % (mode, at_serial)
 
-    def begin_transaction_in_thread(self, write=False, at_serial=None):
+    def begin_transaction_in_thread(
+        self,
+        write: bool = False,  # noqa: FBT001, FBT002
+        at_serial: int | None = None,
+    ) -> Transaction:
         if write and self._readonly:
             raise self.ReadOnly()
         assert not hasattr(self._threadlocal, "tx")
@@ -449,7 +558,7 @@ class KeyFS(object):
             self.clear_transaction()
 
     @contextlib.contextmanager
-    def _filestore_transaction(self):
+    def _filestore_transaction(self) -> Iterator[FileStoreTransaction]:
         tx = FileStoreTransaction(self)
         self._threadlocal.tx = tx
         prefix = self._tx_prefix(filestore=True)
@@ -470,7 +579,7 @@ class KeyFS(object):
             thread_pop_log(prefix)
 
     @contextlib.contextmanager
-    def filestore_transaction(self):
+    def filestore_transaction(self) -> Iterator[FileStoreTransaction | Transaction]:
         """Guarantees a transaction able to directly write files.
 
         An existing transaction is reused.
@@ -483,7 +592,9 @@ class KeyFS(object):
                 yield tx
 
     @contextlib.contextmanager
-    def _transaction(self, *, write=False, at_serial=None):
+    def _transaction(
+        self, *, write: bool = False, at_serial: int | None = None
+    ) -> Iterator[Transaction]:
         tx = self.begin_transaction_in_thread(write=write, at_serial=at_serial)
         try:
             yield tx
@@ -493,7 +604,9 @@ class KeyFS(object):
         self.commit_transaction_in_thread()
 
     @contextlib.contextmanager
-    def read_transaction(self, *, at_serial=None, allow_reuse=False):
+    def read_transaction(
+        self, *, at_serial: int | None = None, allow_reuse: bool = False
+    ) -> Iterator[Transaction]:
         tx = getattr(self._threadlocal, 'tx', None)
         if tx is not None:
             if not allow_reuse:
@@ -512,7 +625,11 @@ class KeyFS(object):
                 yield tx
 
     @contextlib.contextmanager
-    def transaction(self, write=False, at_serial=None):
+    def transaction(
+        self,
+        write: bool = False,  # noqa: FBT001, FBT002
+        at_serial: int | None = None,
+    ) -> Iterator[Transaction]:
         warnings.warn(
             "The 'transaction' method is deprecated, "
             "use 'read_transaction' or 'write_transaction' instead.",
@@ -522,7 +639,9 @@ class KeyFS(object):
             yield tx
 
     @contextlib.contextmanager
-    def write_transaction(self, *, allow_restart=False):
+    def write_transaction(
+        self, *, allow_restart: bool = False
+    ) -> Iterator[Transaction]:
         """ Get a write transaction.
 
         If ``allow_restart`` is ``True`` then an existing read-only transaction is restarted as a write transaction.
@@ -638,6 +757,10 @@ class FileStoreTransaction:
     def conn(self):
         return self.keyfs.get_connection(write=True, closing=False)
 
+    @cached_property
+    def io_file(self):
+        return self.keyfs.io_file_factory(self.conn)
+
     def _close(self):
         if self.closed:
             # We can reach this when the transaction is restarted and there
@@ -650,17 +773,20 @@ class FileStoreTransaction:
         self.closed = True
 
     def commit(self):
-        self.conn.commit_files_without_increasing_serial()
+        self.io_file.commit()
         self._close()
 
     def rollback(self):
+        self.io_file.rollback()
         if hasattr(self.conn, "rollback"):
             self.conn.rollback()
         threadlog.debug("filestore transaction rollback")
         self._close()
 
 
-class Transaction(object):
+class Transaction:
+    _model: TransactionRootModel | Absent
+
     def __init__(self, keyfs, at_serial=None, write=False):
         if write and at_serial:
             raise RuntimeError(
@@ -688,6 +814,10 @@ class Transaction(object):
         return self.keyfs.get_connection(
             write=self.write, closing=False)
 
+    @cached_property
+    def io_file(self):
+        return self.keyfs.io_file_factory(self.conn)
+
     def get_model(self, xom):
         if self._model is absent:
             self._model = TransactionRootModel(xom)
@@ -703,7 +833,33 @@ class Transaction(object):
             yield (last_serial, val)
             last_serial = back_serial
 
-    def get_last_serial_and_value_at(self, typedkey, at_serial, raise_on_error=True):
+    @overload
+    def get_last_serial_and_value_at(
+        self,
+        typedkey: TypedKey,
+        at_serial: int,
+        *,
+        raise_on_error: Literal[False],
+    ) -> tuple[int, KeyFSTypesRO | None] | None:
+        pass
+
+    @overload
+    def get_last_serial_and_value_at(
+        self,
+        typedkey: TypedKey,
+        at_serial: int,
+        *,
+        raise_on_error: Literal[True] = True,
+    ) -> tuple[int, KeyFSTypesRO | None]:
+        pass
+
+    def get_last_serial_and_value_at(
+        self,
+        typedkey: TypedKey,
+        at_serial: int,
+        *,
+        raise_on_error: bool = True,
+    ) -> tuple[int, KeyFSTypesRO | None] | None:
         relpath = typedkey.relpath
         try:
             (last_serial, back_serial, val) = self.conn.get_relpath_at(relpath, at_serial)
@@ -715,11 +871,11 @@ class Transaction(object):
             raise KeyError(relpath)  # was deleted
         return (last_serial, val)
 
-    def get_value_at(self, typedkey, at_serial):
+    def get_value_at(self, typedkey: TypedKey, at_serial: int) -> KeyFSTypesRO | None:
         (last_serial, val) = self.get_last_serial_and_value_at(typedkey, at_serial)
         return val
 
-    def last_serial(self, typedkey):
+    def last_serial(self, typedkey: TypedKey) -> int:
         (last_serial, val) = self.get_last_serial_and_value_at(typedkey, self.at_serial)
         return last_serial
 
@@ -749,6 +905,7 @@ class Transaction(object):
         if typedkey not in self._original:
             tup = self.get_last_serial_and_value_at(
                 typedkey, self.at_serial, raise_on_error=False)
+            val: Absent | Deleted | KeyFSTypesRO | None
             if tup is None:
                 serial = -1
                 val = absent
@@ -779,6 +936,7 @@ class Transaction(object):
                 "The 'readonly' argument is deprecated. You should either drop it, "
                 "use the 'get_mutable' method "
                 "or wrap the result in the 'get_mutable_deepcopy' function.",
+                DeprecationWarning,
                 stacklevel=2,
             )
         if readonly:
@@ -835,14 +993,16 @@ class Transaction(object):
                     continue
                 val = None
             records.append(Record(typedkey, val, back_serial, old_val))
-        if not records and not self.conn.dirty_files:
+        if not records and not self.io_file.is_dirty():
             threadlog.debug("nothing to commit, just closing tx")
             result = self._close()
             self._run_listeners(self._finished_listeners)
             return result
         with contextlib.ExitStack() as cstack:
             cstack.callback(self._close)
+            cstack.enter_context(self.io_file)
             fswriter = IWriter2(cstack.enter_context(self.conn.write_transaction()))
+            fswriter.set_rel_renames(self.io_file.get_rel_renames())
             fswriter.records_set(records)
             commit_serial = getattr(fswriter, "commit_serial", absent)
             if commit_serial is absent:
@@ -888,6 +1048,8 @@ class Transaction(object):
         try:
             if hasattr(self.conn, 'rollback'):
                 self.conn.rollback()
+            if self.keyfs.io_file_factory is not None:
+                self.io_file.rollback()
             threadlog.debug("transaction rollback at %s" % (self.at_serial))
         finally:
             result = self._close()

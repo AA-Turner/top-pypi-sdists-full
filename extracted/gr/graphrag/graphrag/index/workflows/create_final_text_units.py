@@ -59,7 +59,7 @@ def create_final_text_units(
     final_covariates: pd.DataFrame | None,
 ) -> pd.DataFrame:
     """All the steps to transform the text units."""
-    selected = text_units.loc[:, ["id", "text", "document_ids", "n_tokens"]]
+    selected = text_units.loc[:, ["id", "text", "document_id", "n_tokens"]]
     selected["human_readable_id"] = selected.index
 
     entity_join = _entities(final_entities)
@@ -88,7 +88,8 @@ def _entities(df: pd.DataFrame) -> pd.DataFrame:
     unrolled = selected.explode(["text_unit_ids"]).reset_index(drop=True)
 
     return (
-        unrolled.groupby("text_unit_ids", sort=False)
+        unrolled
+        .groupby("text_unit_ids", sort=False)
         .agg(entity_ids=("id", "unique"))
         .reset_index()
         .rename(columns={"text_unit_ids": "id"})
@@ -100,7 +101,8 @@ def _relationships(df: pd.DataFrame) -> pd.DataFrame:
     unrolled = selected.explode(["text_unit_ids"]).reset_index(drop=True)
 
     return (
-        unrolled.groupby("text_unit_ids", sort=False)
+        unrolled
+        .groupby("text_unit_ids", sort=False)
         .agg(relationship_ids=("id", "unique"))
         .reset_index()
         .rename(columns={"text_unit_ids": "id"})
@@ -111,7 +113,8 @@ def _covariates(df: pd.DataFrame) -> pd.DataFrame:
     selected = df.loc[:, ["id", "text_unit_id"]]
 
     return (
-        selected.groupby("text_unit_id", sort=False)
+        selected
+        .groupby("text_unit_id", sort=False)
         .agg(covariate_ids=("id", "unique"))
         .reset_index()
         .rename(columns={"text_unit_id": "id"})

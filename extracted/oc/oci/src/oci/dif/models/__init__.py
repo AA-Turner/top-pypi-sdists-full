@@ -11,8 +11,10 @@ from .adb_detail import AdbDetail
 from .adb_update_detail import AdbUpdateDetail
 from .add_service_details import AddServiceDetails
 from .additional_details import AdditionalDetails
+from .ai_data_platform_detail import AiDataPlatformDetail
 from .assigned_connection_details import AssignedConnectionDetails
 from .change_stack_compartment_details import ChangeStackCompartmentDetails
+from .component_value_override import ComponentValueOverride
 from .create_stack_details import CreateStackDetails
 from .dataflow_artifacts_detail import DataflowArtifactsDetail
 from .dataflow_connection_details import DataflowConnectionDetails
@@ -35,6 +37,12 @@ from .ggcs_update_detail import GgcsUpdateDetail
 from .ggcs_user_detail import GgcsUserDetail
 from .object_storage_detail import ObjectStorageDetail
 from .object_storage_update_detail import ObjectStorageUpdateDetail
+from .oke_artifacts_detail import OkeArtifactsDetail
+from .oke_detail import OkeDetail
+from .omk_artifacts_detail import OmkArtifactsDetail
+from .omk_detail import OmkDetail
+from .secret_data import SecretData
+from .secret_detail import SecretDetail
 from .service_detail_response import ServiceDetailResponse
 from .shape_config import ShapeConfig
 from .stack import Stack
@@ -58,8 +66,10 @@ dif_type_mapping = {
     "AdbUpdateDetail": AdbUpdateDetail,
     "AddServiceDetails": AddServiceDetails,
     "AdditionalDetails": AdditionalDetails,
+    "AiDataPlatformDetail": AiDataPlatformDetail,
     "AssignedConnectionDetails": AssignedConnectionDetails,
     "ChangeStackCompartmentDetails": ChangeStackCompartmentDetails,
+    "ComponentValueOverride": ComponentValueOverride,
     "CreateStackDetails": CreateStackDetails,
     "DataflowArtifactsDetail": DataflowArtifactsDetail,
     "DataflowConnectionDetails": DataflowConnectionDetails,
@@ -82,6 +92,12 @@ dif_type_mapping = {
     "GgcsUserDetail": GgcsUserDetail,
     "ObjectStorageDetail": ObjectStorageDetail,
     "ObjectStorageUpdateDetail": ObjectStorageUpdateDetail,
+    "OkeArtifactsDetail": OkeArtifactsDetail,
+    "OkeDetail": OkeDetail,
+    "OmkArtifactsDetail": OmkArtifactsDetail,
+    "OmkDetail": OmkDetail,
+    "SecretData": SecretData,
+    "SecretDetail": SecretDetail,
     "ServiceDetailResponse": ServiceDetailResponse,
     "ShapeConfig": ShapeConfig,
     "Stack": Stack,

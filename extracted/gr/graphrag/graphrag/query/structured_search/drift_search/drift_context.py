@@ -5,10 +5,12 @@
 
 import logging
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+from graphrag_llm.tokenizer import Tokenizer
+from graphrag_vectors import VectorStore
 
 from graphrag.config.models.drift_search_config import DRIFTSearchConfig
 from graphrag.data_model.community_report import CommunityReport
@@ -16,7 +18,6 @@ from graphrag.data_model.covariate import Covariate
 from graphrag.data_model.entity import Entity
 from graphrag.data_model.relationship import Relationship
 from graphrag.data_model.text_unit import TextUnit
-from graphrag.language_model.protocol.base import ChatModel, EmbeddingModel
 from graphrag.prompts.query.drift_search_system_prompt import (
     DRIFT_LOCAL_SYSTEM_PROMPT,
     DRIFT_REDUCE_PROMPT,
@@ -27,9 +28,10 @@ from graphrag.query.structured_search.drift_search.primer import PrimerQueryProc
 from graphrag.query.structured_search.local_search.mixed_context import (
     LocalSearchMixedContext,
 )
-from graphrag.tokenizer.get_tokenizer import get_tokenizer
-from graphrag.tokenizer.tokenizer import Tokenizer
-from graphrag.vector_stores.base import BaseVectorStore
+
+if TYPE_CHECKING:
+    from graphrag_llm.completion import LLMCompletion
+    from graphrag_llm.embedding import LLMEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -39,27 +41,27 @@ class DRIFTSearchContextBuilder(DRIFTContextBuilder):
 
     def __init__(
         self,
-        model: ChatModel,
-        text_embedder: EmbeddingModel,
+        model: "LLMCompletion",
+        config: DRIFTSearchConfig,
+        text_embedder: "LLMEmbedding",
         entities: list[Entity],
-        entity_text_embeddings: BaseVectorStore,
+        entity_text_embeddings: VectorStore,
         text_units: list[TextUnit] | None = None,
         reports: list[CommunityReport] | None = None,
         relationships: list[Relationship] | None = None,
         covariates: dict[str, list[Covariate]] | None = None,
         tokenizer: Tokenizer | None = None,
         embedding_vectorstore_key: str = EntityVectorStoreKey.ID,
-        config: DRIFTSearchConfig | None = None,
         local_system_prompt: str | None = None,
         local_mixed_context: LocalSearchMixedContext | None = None,
         reduce_system_prompt: str | None = None,
         response_type: str | None = None,
     ):
         """Initialize the DRIFT search context builder with necessary components."""
-        self.config = config or DRIFTSearchConfig()
+        self.config = config
         self.model = model
         self.text_embedder = text_embedder
-        self.tokenizer = tokenizer or get_tokenizer()
+        self.tokenizer = tokenizer or model.tokenizer
         self.local_system_prompt = local_system_prompt or DRIFT_LOCAL_SYSTEM_PROMPT
         self.reduce_system_prompt = reduce_system_prompt or DRIFT_REDUCE_PROMPT
 

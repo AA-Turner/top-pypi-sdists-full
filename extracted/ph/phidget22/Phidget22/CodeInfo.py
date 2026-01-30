@@ -21,20 +21,20 @@ class CodeInfo(ctypes.Structure):
 		("_toggleMask", ctypes.c_char * 33),
 	]
 
-	def __init__(self):
-		self.bitCount = 0
-		self.encoding = 0
-		self.length = 0
-		self.gap = 0
-		self.trail = 0
-		self.header = [0] * 2
-		self.one = [0] * 2
-		self.zero = [0] * 2
-		self.repeat = [0] * 26
-		self.minRepeat = 0
-		self.dutyCycle = 0
-		self.carrierFrequency = 0
-		self.toggleMask = ""
+	def __init__(self, bitCount = 0, encoding = 0, length = 0, gap = 0, trail = 0, header = [0] * 2, one = [0] * 2, zero = [0] * 2, repeat = [0] * 26, minRepeat = 0, dutyCycle = 0, carrierFrequency = 0, toggleMask = ""):
+		self.bitCount = bitCount
+		self.encoding = encoding
+		self.length = length
+		self.gap = gap
+		self.trail = trail
+		self.header = header
+		self.one = one
+		self.zero = zero
+		self.repeat = repeat
+		self.minRepeat = minRepeat
+		self.dutyCycle = dutyCycle
+		self.carrierFrequency = carrierFrequency
+		self.toggleMask = toggleMask
 
 	def fromPython(self):
 		self._bitCount = self.bitCount

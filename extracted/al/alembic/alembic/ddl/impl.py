@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.selectable import TableClause
     from sqlalchemy.sql.type_api import TypeEngine
 
-    from .base import _ServerDefault
+    from .base import _ServerDefaultType
     from ..autogenerate.api import AutogenContext
     from ..operations.batch import ApplyBatchImpl
     from ..operations.batch import BatchOperationsImpl
@@ -269,7 +269,7 @@ class DefaultImpl(metaclass=ImplMeta):
         *,
         nullable: Optional[bool] = None,
         server_default: Optional[
-            Union[_ServerDefault, Literal[False]]
+            Union[_ServerDefaultType, Literal[False]]
         ] = False,
         name: Optional[str] = None,
         type_: Optional[TypeEngine] = None,
@@ -278,7 +278,9 @@ class DefaultImpl(metaclass=ImplMeta):
         comment: Optional[Union[str, Literal[False]]] = False,
         existing_comment: Optional[str] = None,
         existing_type: Optional[TypeEngine] = None,
-        existing_server_default: Optional[_ServerDefault] = None,
+        existing_server_default: Optional[
+            Union[_ServerDefaultType, Literal[False]]
+        ] = None,
         existing_nullable: Optional[bool] = None,
         existing_autoincrement: Optional[bool] = None,
         **kw: Any,
@@ -384,6 +386,7 @@ class DefaultImpl(metaclass=ImplMeta):
         *,
         schema: Optional[Union[str, quoted_name]] = None,
         if_not_exists: Optional[bool] = None,
+        inline_references: Optional[bool] = None,
     ) -> None:
         self._exec(
             base.AddColumn(
@@ -391,6 +394,7 @@ class DefaultImpl(metaclass=ImplMeta):
                 column,
                 schema=schema,
                 if_not_exists=if_not_exists,
+                inline_references=inline_references,
             )
         )
 

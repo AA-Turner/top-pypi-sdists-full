@@ -8,6 +8,10 @@
  * Please see the LICENSE.TXT file for specific restrictions.
  */
 
+/* Shared headers */
+#include "pginternal.h"
+#include "pgmodule.h"
+
 /* Get notice object attributes. */
 static PyObject *
 notice_getattr(noticeObject *self, PyObject *nameobj)
@@ -15,6 +19,9 @@ notice_getattr(noticeObject *self, PyObject *nameobj)
     PGresult const *res = self->res;
     const char *name = PyUnicode_AsUTF8(nameobj);
     int fieldcode;
+
+    if (!name)
+        return NULL;
 
     if (!res) {
         PyErr_SetString(PyExc_TypeError, "Cannot get current notice");
@@ -89,7 +96,7 @@ static struct PyMethodDef notice_methods[] = {
 static char notice__doc__[] = "PostgreSQL notice object";
 
 /* Notice type definition */
-static PyTypeObject noticeType = {
+PyTypeObject noticeType = {
     PyVarObject_HEAD_INIT(NULL, 0) "pg.Notice", /* tp_name */
     sizeof(noticeObject),                       /* tp_basicsize */
     0,                                          /* tp_itemsize */

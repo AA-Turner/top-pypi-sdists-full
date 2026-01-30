@@ -4383,6 +4383,20 @@ class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.
     """This class has no documentation."""
 
 
+class DivisionRounding(IntEnum):
+    """This class has no documentation."""
+
+    TRUNCATE = 0
+
+    FLOOR = 1
+
+    CEILING = 2
+
+    AWAY_FROM_ZERO = 3
+
+    EUCLIDEAN = 4
+
+
 class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 

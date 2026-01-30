@@ -3,7 +3,7 @@ Type annotations for mediaconnect service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -32,6 +32,7 @@ from .literals import (
     DesiredStateType,
     EncoderProfileType,
     EncodingNameType,
+    EncodingProfileType,
     EntitlementStatusType,
     FailoverInputSourcePriorityModeType,
     FailoverModeType,
@@ -169,6 +170,7 @@ __all__ = (
     "DestinationConfigurationTypeDef",
     "EgressGatewayBridgeTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EncodingConfigTypeDef",
     "EncodingParametersRequestTypeDef",
     "EncodingParametersTypeDef",
     "EncryptionTypeDef",
@@ -206,6 +208,7 @@ __all__ = (
     "GetRouterNetworkInterfaceRequestTypeDef",
     "GetRouterNetworkInterfaceResponseTypeDef",
     "GetRouterOutputRequestTypeDef",
+    "GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef",
     "GetRouterOutputRequestWaitExtraExtraExtraTypeDef",
     "GetRouterOutputRequestWaitExtraExtraTypeDef",
     "GetRouterOutputRequestWaitExtraTypeDef",
@@ -298,6 +301,11 @@ __all__ = (
     "NdiConfigTypeDef",
     "NdiConfigUnionTypeDef",
     "NdiDiscoveryServerConfigTypeDef",
+    "NdiMediaInfoTypeDef",
+    "NdiMediaStreamInfoTypeDef",
+    "NdiSourceInfoTypeDef",
+    "NdiSourceMetadataInfoTypeDef",
+    "NdiSourceSettingsTypeDef",
     "OfferingTypeDef",
     "OutputTypeDef",
     "PaginatorConfigTypeDef",
@@ -593,6 +601,11 @@ class MessageDetailTypeDef(TypedDict):
     Code: str
     Message: str
     ResourceName: NotRequired[str]
+
+
+class EncodingConfigTypeDef(TypedDict):
+    EncodingProfile: NotRequired[EncodingProfileType]
+    VideoMaxBitrate: NotRequired[int]
 
 
 class GatewayNetworkTypeDef(TypedDict):
@@ -909,31 +922,17 @@ class NdiDiscoveryServerConfigTypeDef(TypedDict):
     DiscoveryServerPort: NotRequired[int]
 
 
+class NdiSourceInfoTypeDef(TypedDict):
+    SourceName: str
+
+
+class NdiSourceSettingsTypeDef(TypedDict):
+    SourceName: NotRequired[str]
+
+
 class ResourceSpecificationTypeDef(TypedDict):
     ResourceType: Literal["Mbps_Outbound_Bandwidth"]
     ReservedBitrate: NotRequired[int]
-
-
-TransportTypeDef = TypedDict(
-    "TransportTypeDef",
-    {
-        "Protocol": ProtocolType,
-        "CidrAllowList": NotRequired[list[str]],
-        "MaxBitrate": NotRequired[int],
-        "MaxLatency": NotRequired[int],
-        "MaxSyncBuffer": NotRequired[int],
-        "MinLatency": NotRequired[int],
-        "RemoteId": NotRequired[str],
-        "SenderControlPort": NotRequired[int],
-        "SenderIpAddress": NotRequired[str],
-        "SmoothingLatency": NotRequired[int],
-        "SourceListenerAddress": NotRequired[str],
-        "SourceListenerPort": NotRequired[int],
-        "StreamId": NotRequired[str],
-        "NdiSpeedHqQuality": NotRequired[int],
-        "NdiProgramName": NotRequired[str],
-    },
-)
 
 
 class PublicRouterNetworkInterfaceRuleTypeDef(TypedDict):
@@ -1462,6 +1461,11 @@ class GetRouterInputRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef(TypedDict):
+    Arn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class GetRouterOutputRequestWaitExtraExtraExtraTypeDef(TypedDict):
     Arn: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
@@ -1586,6 +1590,17 @@ class MediaStreamAttributesRequestTypeDef(TypedDict):
 class MediaStreamAttributesTypeDef(TypedDict):
     Fmtp: FmtpTypeDef
     Lang: NotRequired[str]
+
+
+class NdiMediaStreamInfoTypeDef(TypedDict):
+    StreamType: str
+    Codec: str
+    StreamId: int
+    ScanMode: NotRequired[ScanModeType]
+    FrameResolution: NotRequired[FrameResolutionTypeDef]
+    FrameRate: NotRequired[str]
+    Channels: NotRequired[int]
+    SampleRate: NotRequired[int]
 
 
 class TransportStreamTypeDef(TypedDict):
@@ -1726,6 +1741,29 @@ class NdiConfigTypeDef(TypedDict):
     NdiState: NotRequired[NdiStateType]
     MachineName: NotRequired[str]
     NdiDiscoveryServers: NotRequired[Sequence[NdiDiscoveryServerConfigTypeDef]]
+
+
+TransportTypeDef = TypedDict(
+    "TransportTypeDef",
+    {
+        "Protocol": ProtocolType,
+        "CidrAllowList": NotRequired[list[str]],
+        "MaxBitrate": NotRequired[int],
+        "MaxLatency": NotRequired[int],
+        "MaxSyncBuffer": NotRequired[int],
+        "MinLatency": NotRequired[int],
+        "RemoteId": NotRequired[str],
+        "SenderControlPort": NotRequired[int],
+        "SenderIpAddress": NotRequired[str],
+        "SmoothingLatency": NotRequired[int],
+        "SourceListenerAddress": NotRequired[str],
+        "SourceListenerPort": NotRequired[int],
+        "StreamId": NotRequired[str],
+        "NdiSpeedHqQuality": NotRequired[int],
+        "NdiProgramName": NotRequired[str],
+        "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
+    },
+)
 
 
 class OfferingTypeDef(TypedDict):
@@ -2001,6 +2039,10 @@ class MediaStreamTypeDef(TypedDict):
     ClockRate: NotRequired[int]
     Description: NotRequired[str]
     VideoFormat: NotRequired[str]
+
+
+class NdiMediaInfoTypeDef(TypedDict):
+    Streams: list[NdiMediaStreamInfoTypeDef]
 
 
 class TransportStreamProgramTypeDef(TypedDict):
@@ -2302,6 +2344,13 @@ class UpdateFlowMediaStreamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class NdiSourceMetadataInfoTypeDef(TypedDict):
+    DiscoveredSources: list[NdiSourceInfoTypeDef]
+    MediaInfo: NdiMediaInfoTypeDef
+    Messages: list[MessageDetailTypeDef]
+    ActiveSource: NotRequired[NdiSourceInfoTypeDef]
+
+
 class TransportMediaInfoTypeDef(TypedDict):
     Programs: list[TransportStreamProgramTypeDef]
 
@@ -2394,6 +2443,7 @@ class FlowTypeDef(TypedDict):
     SourceMonitoringConfig: NotRequired[MonitoringConfigOutputTypeDef]
     FlowSize: NotRequired[FlowSizeType]
     NdiConfig: NotRequired[NdiConfigOutputTypeDef]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
 
 
 class UpdateFlowSourceResponseTypeDef(TypedDict):
@@ -2456,6 +2506,7 @@ class DescribeFlowSourceMetadataResponseTypeDef(TypedDict):
     Messages: list[MessageDetailTypeDef]
     Timestamp: datetime
     TransportMediaInfo: TransportMediaInfoTypeDef
+    NdiInfo: NdiSourceMetadataInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2470,6 +2521,7 @@ class UpdateFlowRequestTypeDef(TypedDict):
     SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
     NdiConfig: NotRequired[NdiConfigUnionTypeDef]
     FlowSize: NotRequired[FlowSizeType]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
 
 
 class BatchGetRouterNetworkInterfaceResponseTypeDef(TypedDict):
@@ -2579,6 +2631,7 @@ SetSourceRequestTypeDef = TypedDict(
         "VpcInterfaceName": NotRequired[str],
         "WhitelistCidr": NotRequired[str],
         "GatewayBridgeSource": NotRequired[SetGatewayBridgeSourceRequestTypeDef],
+        "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
         "SourceTags": NotRequired[Mapping[str, str]],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitDecryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
@@ -2638,6 +2691,7 @@ UpdateFlowSourceRequestTypeDef = TypedDict(
         "VpcInterfaceName": NotRequired[str],
         "WhitelistCidr": NotRequired[str],
         "GatewayBridgeSource": NotRequired[UpdateGatewayBridgeSourceRequestTypeDef],
+        "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitDecryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
     },
@@ -2700,6 +2754,7 @@ class CreateFlowRequestTypeDef(TypedDict):
     SourceMonitoringConfig: NotRequired[MonitoringConfigUnionTypeDef]
     FlowSize: NotRequired[FlowSizeType]
     NdiConfig: NotRequired[NdiConfigUnionTypeDef]
+    EncodingConfig: NotRequired[EncodingConfigTypeDef]
     FlowTags: NotRequired[Mapping[str, str]]
 
 

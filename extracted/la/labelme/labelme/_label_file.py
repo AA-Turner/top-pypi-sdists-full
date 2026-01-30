@@ -4,7 +4,7 @@ import contextlib
 import io
 import json
 import os.path as osp
-from typing import Optional
+from pathlib import PureWindowsPath
 from typing import TypedDict
 
 import numpy as np
@@ -32,8 +32,8 @@ class ShapeDict(TypedDict):
     shape_type: str
     flags: dict[str, bool]
     description: str
-    group_id: Optional[int]
-    mask: Optional[NDArray[np.bool]]
+    group_id: int | None
+    mask: NDArray[np.bool] | None
     other_data: dict
 
 
@@ -62,7 +62,7 @@ def _load_shape_json_obj(shape_json_obj: dict) -> ShapeDict:
     assert all(
         isinstance(point, list)
         and len(point) == 2
-        and all(isinstance(xy, (int, float)) for xy in point)
+        and all(isinstance(xy, int | float) for xy in point)
         for point in shape_json_obj["points"]
     ), f"points must be list of [x, y]: {shape_json_obj['points']}"
     points: list[list[float]] = shape_json_obj["points"]
@@ -91,14 +91,14 @@ def _load_shape_json_obj(shape_json_obj: dict) -> ShapeDict:
         )
         description = shape_json_obj["description"]
 
-    group_id: Optional[int] = None
+    group_id: int | None = None
     if shape_json_obj.get("group_id") is not None:
         assert isinstance(shape_json_obj["group_id"], int), (
             f"group_id must be int: {shape_json_obj['group_id']}"
         )
         group_id = shape_json_obj["group_id"]
 
-    mask: Optional[NDArray[np.bool]] = None
+    mask: NDArray[np.bool] | None = None
     if shape_json_obj.get("mask") is not None:
         assert isinstance(shape_json_obj["mask"], str), (
             f"mask must be base64-encoded PNG: {shape_json_obj['mask']}"
@@ -107,7 +107,7 @@ def _load_shape_json_obj(shape_json_obj: dict) -> ShapeDict:
 
     other_data = {k: v for k, v in shape_json_obj.items() if k not in SHAPE_KEYS}
 
-    loaded: ShapeDict = dict(
+    loaded: ShapeDict = ShapeDict(
         label=label,
         points=points,
         shape_type=shape_type,
@@ -172,14 +172,17 @@ class LabelFile:
             with open(filename, "r") as f:
                 data = json.load(f)
 
+            # Normalize Windows-style backslash paths to POSIX forward slashes
+            imagePath = PureWindowsPath(data["imagePath"]).as_posix()
+
             if data["imageData"] is not None:
                 imageData = base64.b64decode(data["imageData"])
             else:
                 # relative path from label file to relative path from cwd
-                imagePath = osp.join(osp.dirname(filename), data["imagePath"])
-                imageData = self.load_image_file(imagePath)
+                imageData = self.load_image_file(
+                    osp.join(osp.dirname(filename), imagePath)
+                )
             flags = data.get("flags") or {}
-            imagePath = data["imagePath"]
             self._check_image_height_and_width(
                 base64.b64encode(imageData).decode("utf-8"),
                 data.get("imageHeight"),

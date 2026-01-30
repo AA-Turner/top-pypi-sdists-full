@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-cache-url
-Version: 3.4.5
+Version: 3.4.6
 Summary: Use Cache URLs in your Django application.
 Home-page: https://github.com/epicserve/django-cache-url
 Author: Brent O'Connor
@@ -8,10 +8,9 @@ Author-email: epicserve@gmail.com
 License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -23,6 +22,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 License-File: AUTHORS.rst
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 
 django-cache-url

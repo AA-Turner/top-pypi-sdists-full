@@ -526,8 +526,8 @@ class ColumnNameMap:
 
         return spark_columns, snowpark_columns, qualifiers
 
-    def get_snowpark_columns(self) -> list[str]:
-        return [c.snowpark_name for c in self.columns if not c.is_hidden]
+    def get_snowpark_columns(self, with_hidden: bool = False) -> list[str]:
+        return [c.snowpark_name for c in self.columns if not c.is_hidden or with_hidden]
 
     def get_snowpark_columns_after_drop(
         self, cols_to_drop: list[str]

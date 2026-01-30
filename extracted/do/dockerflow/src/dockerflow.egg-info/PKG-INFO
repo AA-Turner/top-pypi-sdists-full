@@ -1,19 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dockerflow
-Version: 2024.4.2
+Version: 2026.1.26
 Summary: Python tools and helpers for Mozilla's Dockerflow
 Home-page: https://github.com/mozilla-services/python-dockerflow
-Author: Mozilla Foundation
-Author-email: dev-webdev@lists.mozilla.org
+Author: Mozilla Services Engineering
+Author-email: services-engineering+code@mozilla.com
 License: MPL 2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment :: Mozilla
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Flask
 Classifier: Framework :: FastAPI
 Classifier: Intended Audience :: Developers
@@ -21,13 +19,13 @@ Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.7,<4
+Requires-Python: >=3.9,<4
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
@@ -41,6 +39,17 @@ Requires-Dist: sanic; extra == "sanic"
 Provides-Extra: fastapi
 Requires-Dist: fastapi; extra == "fastapi"
 Requires-Dist: asgiref; extra == "fastapi"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 Python Dockerflow
 =================

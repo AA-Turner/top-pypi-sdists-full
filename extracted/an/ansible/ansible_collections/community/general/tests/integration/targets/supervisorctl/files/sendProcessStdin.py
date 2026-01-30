@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import sys
-from xmlrpc.client import ServerProxy
 from urllib.parse import quote
-
+from xmlrpc.client import ServerProxy
 
 proc = sys.argv[1]
 value = sys.argv[2]
@@ -17,9 +16,9 @@ username = sys.argv[3]
 password = sys.argv[4]
 
 if username:
-    url = "http://%s:%s@127.0.0.1:9001/RPC2" % (quote(username, safe=""), quote(password, safe=""))
+    url = "http://{}:{}@127.0.0.1:9001/RPC2".format(quote(username, safe=""), quote(password, safe=""))
 else:
     url = "http://127.0.0.1:9001/RPC2"
 
 server = ServerProxy(url, verbose=True)
-server.supervisor.sendProcessStdin(proc, "import sys; print(%s); sys.stdout.flush();\n" % value)
+server.supervisor.sendProcessStdin(proc, f"import sys; print({value}); sys.stdout.flush();\n")

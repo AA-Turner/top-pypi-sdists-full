@@ -1,5 +1,4 @@
 from collections.abc import Callable
-import html
 import subprocess
 import sys
 import time
@@ -7,16 +6,15 @@ from typing import TypeVar
 from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.stream.ws_client import ERROR_CHANNEL, WSClient
-from prompt_toolkit import print_formatted_text, HTML
+import traceback
+from websocket._core import WebSocket
 
 from adam.config import Config
+from adam.utils_context import Context
 from adam.utils_k8s.volumes import ConfigMapMount
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.utils import ParallelMapHandler, PodLogFile, log2, debug, log_exc, log_to_pods, pod_log_dir
-from adam.utils_async_job import AsyncJobs
+from adam.utils import Color, ParallelMapHandler, PodLogFile, log2, debug, log_exc
 from .kube_context import KubeContext
-
-from websocket._core import WebSocket
 
 T = TypeVar('T')
 _TEST_POD_EXEC_OUTS: PodExecResult = None
@@ -24,6 +22,8 @@ _TEST_POD_EXEC_OUTS: PodExecResult = None
 # utility collection on pods; methods are all static
 class Pods:
     _TEST_POD_CLOSE_SOCKET: bool = False
+
+    creating_dir: callable = None
 
     def set_test_pod_exec_outs(outs: PodExecResult):
         global _TEST_POD_EXEC_OUTS
@@ -51,29 +51,35 @@ class Pods:
 
         return ParallelMapHandler(collection, max_workers, samples = samples, msg = msg, name=action)
 
+    def get_command_printable(pod_name: str,
+             container: str,
+             namespace: str,
+             command: str,
+             shell = '/bin/sh',
+             env_prefix: str = None,
+             ctx: Context = Context.NULL):
+        if command.endswith(' &') or ctx and ctx.backgrounded:
+            cmd, _ = Pods._get_command_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx)
+            return cmd
+
+        return f'kubectl exec {pod_name} -c {container} -n {namespace} -- {shell} -c "{command}"'
+
     def exec(pod_name: str,
              container: str,
              namespace: str,
              command: str,
-             show_out = True,
              throw_err = False,
              shell = '/bin/sh',
-             backgrounded = False,
-             log_file = None,
              interaction: Callable[[any, list[str]], any] = None,
              env_prefix: str = None,
-             text_color: str = None,
-             job_id: str = None):
+             ctx: Context = Context.NULL):
         if _TEST_POD_EXEC_OUTS:
             return _TEST_POD_EXEC_OUTS
 
-        show_out = KubeContext.show_out(show_out)
+        ctx = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
 
-        if backgrounded or command.endswith(' &'):
-            if log_to_pods():
-                return Pods.exec_backgrounded_logging_to_pod(pod_name, container, namespace, command, show_out, shell, log_file, env_prefix, text_color, job_id)
-            else:
-                return Pods.exec_backgrounded(pod_name, container, command, show_out, shell, log_file, env_prefix, text_color)
+        if command.endswith(' &') or ctx and ctx.backgrounded:
+            return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
 
         api = client.CoreV1Api()
 
@@ -82,28 +88,14 @@ class Pods:
         if env_prefix:
             exec_command = [shell, '-c', f'{env_prefix} {command}']
 
-        # if backgrounded or command.endswith(' &'):
-        #     # should be false for starting a background process
-        #     tty = False
-
-        #     if Config().get('repl.background-process.auto-nohup', True):
-        #         command = command.strip(' &')
-        #         cmd_name = ''
-        #         if command.startswith('nodetool '):
-        #             cmd_name = f".{'_'.join(command.split(' ')[5:])}"
-
-        #         if not log_file:
-        #             log_file = f'{log_prefix()}-{datetime.now().strftime("%d%H%M%S")}{cmd_name}.log'
-        #         command = f"nohup {command} > {log_file} 2>&1 &"
-        #         if env_prefix:
-        #             command = f'{env_prefix} {command}'
-        #         exec_command = [shell, '-c', command]
-
         k_command = f'kubectl exec {pod_name} -c {container} -n {namespace} -- {shell} -c "{command}"'
-        if Config().is_debug():
+
+        text_color = ctx.text_color
+        if not text_color:
+            text_color = Color.gray
+
+        if ctx.debug:
             debug(k_command)
-        elif show_out:
-            log2(k_command, text_color=text_color)
 
         resp: WSClient = stream(
             api.connect_get_namespaced_pod_exec,
@@ -128,22 +120,16 @@ class Pods:
                 if resp.peek_stdout():
                     frag = resp.read_stdout()
                     stdout.append(frag)
-                    if show_out:
-                        if text_color:
-                            print_formatted_text(HTML(f'<ansi{text_color}>{html.escape(frag)}</ansi{text_color}>'), end="")
-                        else:
-                            print(frag, end="")
+                    if ctx.debug:
+                        ctx.log(frag, text_color=Color.gray, nl=False)
 
                     if interaction:
                         interaction(resp, stdout)
                 if resp.peek_stderr():
                     frag = resp.read_stderr()
                     stderr.append(frag)
-                    if show_out:
-                        if text_color:
-                            print_formatted_text(HTML(f'<ansi{text_color}>{html.escape(frag)}</ansi{text_color}>'), end="")
-                        else:
-                            print(frag, end="")
+                    if ctx.debug:
+                        ctx.log2(frag, text_color=Color.gray, nl=False)
 
             with log_exc():
                 # get the exit code from server
@@ -152,6 +138,7 @@ class Pods:
             if throw_err:
                 raise e
             else:
+                traceback.print_exc()
                 log2(e, text_color=text_color)
         finally:
             resp.close()
@@ -159,86 +146,48 @@ class Pods:
                 with log_exc():
                     s.sock.close()
 
-        return PodExecResult("".join(stdout), "".join(stderr), k_command, error_output, pod=pod_name, log_file=log_file)
+        return PodExecResult("".join(stdout), "".join(stderr), k_command, error_output, pod=pod_name, log_file=ctx.log_file if ctx else None)
 
-    def exec_backgrounded(pod_name: str,
-             container: str,
-             command: str,
-             show_out = True,
-             shell = '/bin/sh',
-             log_file = None,
-             env_prefix: str = None,
-             text_color: str = None):
-        # nohup kubectl exec cs-a7b13e29bd-cs-a7b13e29bd-default-sts-0 -c cassandra -- /bin/sh -c "nohup nodetool -u cs-a7b13e29bd-superuser -pw ... repair > /tmp/qing-db/q/logs/19230320.repair-0.log 2> /tmp/qing-db/q/logs/19230320.repair-0.err &" &
+    def exec_backgrounded_with_context(pod_name: str,
+                                       container: str,
+                                       namespace: str,
+                                       command: str,
+                                       shell = '/bin/sh',
+                                       env_prefix: str = None,
+                                       ctx: Context = Context.NULL):
+        cmd, log_file = Pods._get_command_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx)
 
+        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        return PodExecResult(result.stdout, result.stderr, cmd, None, pod=pod_name, log_file=PodLogFile(log_file, pod=pod_name), job_id=ctx.job_id)
+
+    def _get_command_with_context(pod_name: str,
+                                       container: str,
+                                       namespace: str,
+                                       command: str,
+                                       shell = '/bin/sh',
+                                       env_prefix: str = None,
+                                       ctx: Context = Context.NULL):
         command = command.strip(' &')
-
-        log_pod_file = None
-        if log_file:
-            log_pod_file = Pods.log_file_from_template(log_file, pod_name=pod_name)
-        else:
-            log_pod_file = AsyncJobs.pod_log_file(command, pod_name=pod_name)
 
         if env_prefix:
             command = f'{env_prefix} {command}'
 
-        log_err_file = log_pod_file.replace('.log', '.err')
+        log_file = Pods.creating_dir(pod_name, container, namespace, ctx.pod_log_file(pod_name, suffix='.log'), is_file=True)
+        err_file = ctx.pod_log_file(pod_name, suffix='.err', history=False)
+        pid_file = ctx.pod_log_file(pod_name, suffix='.pid', history=False)
 
         command = command.replace('"', '\\"')
-        # nohup kubectl exec cs-a7b13e29bd-cs-a7b13e29bd-default-sts-0 -c cassandra -- /bin/sh -c "nodetool -u cs-a7b13e29bd-superuser -pw ... repair &"
-        #   > /tmp/qing-db/q/logs/19080002.repair-0.log 2> /tmp/qing-db/q/logs/19080002.repair-0.err &
-        cmd = f'nohup kubectl exec {pod_name} -c {container} -- {shell} -c "{command} &" > {log_pod_file} 2> {log_err_file}'
-        cmd = f'{cmd} &'
 
-        if show_out:
-            log2(cmd, text_color=text_color)
+        pid_command = f'& PID=$! && echo -n QING:$PID > {pid_file}; wait $PID; echo :$? >> {pid_file}'
+        if ctx.show_out:
+            cmd = f'kubectl exec {pod_name} -c {container} -- nohup {shell} -c "({command} {pid_command}) > {log_file} 2> {err_file} &"'
+            ctx.log2(cmd, ctx)
 
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-        return PodExecResult(result.stdout, result.stderr, cmd, None, pod=pod_name, log_file=log_pod_file)
+        pid_command = pid_command.replace('$', '\\$')
 
-    def exec_backgrounded_logging_to_pod(pod_name: str,
-                                         container: str,
-                                         namespace: str,
-                                         command: str,
-                                         show_out = True,
-                                         shell = '/bin/sh',
-                                         log_file = None,
-                                         env_prefix: str = None,
-                                         text_color: str = None,
-                                         job_id: str = None):
-        command = command.strip(' &')
+        cmd = f'kubectl exec {pod_name} -c {container} -- nohup {shell} -c "({command} {pid_command}) > {log_file} 2> {err_file} &"'
 
-        log_pod_file = None
-        if log_file:
-            log_pod_file = log_file
-        else:
-            pod_suffix = None
-            dir = None
-            if log_to_pods():
-                pod_suffix = ''
-                dir = pod_log_dir()
-
-            if not job_id:
-                job_id = AsyncJobs.new_id()
-            log_pod_file = AsyncJobs.pod_log_file(command, job_id=job_id, pod_suffix=pod_suffix, dir=dir)
-
-        if env_prefix:
-            command = f'{env_prefix} {command}'
-
-        log_err_file = log_pod_file.replace('.log', '.err')
-        log_pid_file = log_pod_file.replace('.log', '.pid')
-
-        command = command.replace('"', '\\"')
-        if Config().get('job.cmder.enabled', False):
-            cmd = f'kubectl exec {pod_name} -c {container} -- nohup {Pods.cmder(pod_name, container, namespace)} "{command}" {log_pod_file} {log_err_file} &'
-        else:
-            cmd = f'kubectl exec {pod_name} -c {container} -- nohup {shell} -c "({command} & PID=\\$! && echo -n QING:\\$PID > {log_pid_file}; wait \\$PID; echo :\\$? >> {log_pid_file}) > {log_pod_file} 2> {log_err_file} &"'
-
-        if show_out:
-            log2(cmd, text_color=text_color)
-
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-        return PodExecResult(result.stdout, result.stderr, cmd, None, pod=pod_name, log_file=PodLogFile(log_pod_file, pod=pod_name), job_id=job_id)
+        return cmd, log_file
 
     def get_container(namespace: str, pod_name: str, container_name: str):
         pod = Pods.get(namespace, pod_name)

@@ -1,4 +1,4 @@
-from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
+from wbcore.contrib.permission.models.mixins import PermissionObjectModelMixin
 
 
 class PermissionTestModel(PermissionObjectModelMixin):

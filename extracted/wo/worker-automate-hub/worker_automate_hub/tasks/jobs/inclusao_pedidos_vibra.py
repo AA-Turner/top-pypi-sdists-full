@@ -45,14 +45,26 @@ async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
             #Login
             await page.wait_for_load_state('load')
             try:
+                try:
+                    await page.wait_for_selector('.modal-content')
+                    await asyncio.sleep(20)
+                    await page.locator('.modal-content .btn-fecha-informativo').click()
+                except:
+                    ...
                 await page.locator('//*[@id="usuario"]').type(config.get('login_vibra'))
                 await page.locator('//*[@id="senha"]').type(config.get('pass_vibra'))
                 await page.locator('//*[@id="btn-acessar"]').click()
                 await asyncio.sleep(20)
             except Exception as e:
-                raise Exception("An error occurred: Erro ao efetuar login")
+                raise Exception("Erro ao efetuar login")
+
             await page.wait_for_load_state('load')
-            await page.wait_for_selector("#img-menu-open", timeout=50000)
+            try:
+                await page.wait_for_selector("#img-menu-open", timeout=10000)
+                new_main_page = False
+            except:
+                await page.wait_for_selector('app-menu-item')
+                new_main_page = True
             selector = '.btn.btn-informativo'
             counter = 0
             count = await page.locator(selector).count()
@@ -66,23 +78,31 @@ async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
                         await button.scroll_into_view_if_needed(timeout=1000)
                         await button.click(force=True, timeout=1000)
                         await asyncio.sleep(1)
+                        try:
+                            await page.locator('.modal-footer input[value*="Continuar"]', timeout=5000).click()
+                        except:
+                            ...
                     except Exception as e:
                         continue
                 counter += 1
                 await asyncio.sleep(1)
                 
             try:
-                try:
-                    await page.locator('//*[@id="img-menu-open"]').click()
-                except:
-                    await page.locator('//*[@id="btnMenu"]').click()
-                await asyncio.sleep(1)
-                await page.locator('//*[@id="menu"]/div/div[2]/ul/li[4]').hover()
-                await asyncio.sleep(1)
-                await page.locator('//*[@id="menu"]/div/div[2]/ul/li[4]/ul/li[5]/a').click()
+                if not new_main_page:
+                    try:
+                        await page.locator('//*[@id="img-menu-open"]', timeout=1000).click()
+                    except:
+                        await page.locator('//*[@id="btnMenu"]').click()
+                    await asyncio.sleep(1)
+                    await page.locator('//*[@id="menu"]/div/div[2]/ul/li[4]').hover()
+                    await asyncio.sleep(1)
+                    await page.locator('//*[@id="menu"]/div/div[2]/ul/li[4]/ul/li[5]/a').click()
+                else:
+                    await page.get_by_text("shopping_cart", exact=True).click()
+                    await page.get_by_text("Grupo de Empresas").click()
             except Exception as e:
                 await capture_and_send_screenshot(task.historico_id, "Erro")
-                raise Exception("An error occurred: Erro ao abrir menu")
+                raise Exception("An error  Erro ao abrir menu")
             await asyncio.sleep(20)
             logger.print("Selecting company")
             #Getting cod SAP

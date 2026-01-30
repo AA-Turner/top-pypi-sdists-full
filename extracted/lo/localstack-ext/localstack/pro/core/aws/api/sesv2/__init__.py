@@ -52,6 +52,7 @@ FailedRecordsS3Url = str
 FailureRedirectionURL = str
 FeedbackId = str
 GeneralEnforcementStatus = str
+HostedZone = str
 Identity = str
 ImageUrl = str
 InsightsEmailAddress = str
@@ -239,6 +240,12 @@ class DkimStatus(StrEnum):
     NOT_STARTED = "NOT_STARTED"
 
 
+class EmailAddressInsightsConfidenceVerdict(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
 class EngagementEventType(StrEnum):
     OPEN = "OPEN"
     CLICK = "CLICK"
@@ -414,6 +421,12 @@ class Status(StrEnum):
 class SubscriptionStatus(StrEnum):
     OPT_IN = "OPT_IN"
     OPT_OUT = "OPT_OUT"
+
+
+class SuppressionConfidenceVerdictThreshold(StrEnum):
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    MANAGED = "MANAGED"
 
 
 class SuppressionListImportAction(StrEnum):
@@ -1011,6 +1024,29 @@ class VdmOptions(TypedDict, total=False):
     GuardianOptions: GuardianOptions | None
 
 
+class SuppressionConfidenceThreshold(TypedDict, total=False):
+    """Contains the confidence threshold settings for Auto Validation."""
+
+    ConfidenceVerdictThreshold: SuppressionConfidenceVerdictThreshold
+
+
+class SuppressionConditionThreshold(TypedDict, total=False):
+    """Contains Auto Validation settings, allowing you to suppress sending to
+    specific destination(s) if they do not meet required threshold. For
+    details on Auto Validation, see `Auto
+    Validation <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/email-validation.html>`__.
+    """
+
+    ConditionThresholdEnabled: FeatureStatus
+    OverallConfidenceThreshold: SuppressionConfidenceThreshold | None
+
+
+class SuppressionValidationOptions(TypedDict, total=False):
+    """Contains validation options for email address suppression."""
+
+    ConditionThreshold: SuppressionConditionThreshold
+
+
 SuppressionListReasons = list[SuppressionListReason]
 
 
@@ -1020,6 +1056,7 @@ class SuppressionOptions(TypedDict, total=False):
     """
 
     SuppressedReasons: SuppressionListReasons | None
+    ValidationOptions: SuppressionValidationOptions | None
 
 
 class Tag(TypedDict, total=False):
@@ -1176,6 +1213,7 @@ class CreateCustomVerificationEmailTemplateRequest(ServiceRequest):
     FromEmailAddress: EmailAddress
     TemplateSubject: EmailTemplateSubject
     TemplateContent: TemplateContent
+    Tags: TagList | None
     SuccessRedirectionURL: SuccessRedirectionURL
     FailureRedirectionURL: FailureRedirectionURL
 
@@ -1330,6 +1368,7 @@ class DkimAttributes(TypedDict, total=False):
     SigningEnabled: Enabled | None
     Status: DkimStatus | None
     Tokens: DnsTokenList | None
+    SigningHostedZone: HostedZone | None
     SigningAttributesOrigin: DkimSigningAttributesOrigin | None
     NextSigningKeyLength: DkimSigningKeyLength | None
     CurrentSigningKeyLength: DkimSigningKeyLength | None
@@ -1356,6 +1395,7 @@ class CreateEmailTemplateRequest(ServiceRequest):
 
     TemplateName: EmailTemplateName
     TemplateContent: EmailTemplateContent
+    Tags: TagList | None
 
 
 class CreateEmailTemplateResponse(TypedDict, total=False):
@@ -1946,6 +1986,23 @@ class DomainDeliverabilityTrackingOption(TypedDict, total=False):
 DomainDeliverabilityTrackingOptions = list[DomainDeliverabilityTrackingOption]
 
 
+class EmailAddressInsightsVerdict(TypedDict, total=False):
+    """Contains the overall validation verdict for an email address."""
+
+    ConfidenceVerdict: EmailAddressInsightsConfidenceVerdict | None
+
+
+class EmailAddressInsightsMailboxEvaluations(TypedDict, total=False):
+    """Contains individual validation checks performed on an email address."""
+
+    HasValidSyntax: EmailAddressInsightsVerdict | None
+    HasValidDnsRecords: EmailAddressInsightsVerdict | None
+    MailboxExists: EmailAddressInsightsVerdict | None
+    IsRoleAddress: EmailAddressInsightsVerdict | None
+    IsDisposable: EmailAddressInsightsVerdict | None
+    IsRandomInput: EmailAddressInsightsVerdict | None
+
+
 class EventDetails(TypedDict, total=False):
     """Contains a ``Bounce`` object if the event type is ``BOUNCE``. Contains a
     ``Complaint`` object if the event type is ``COMPLAINT``.
@@ -2063,12 +2120,21 @@ class VdmAttributes(TypedDict, total=False):
     GuardianAttributes: GuardianAttributes | None
 
 
+class SuppressionValidationAttributes(TypedDict, total=False):
+    """Structure containing validation attributes used for suppressing sending
+    to specific destination on account level.
+    """
+
+    ConditionThreshold: SuppressionConditionThreshold
+
+
 class SuppressionAttributes(TypedDict, total=False):
     """An object that contains information about the email address suppression
     preferences for your account in the current Amazon Web Services Region.
     """
 
     SuppressedReasons: SuppressionListReasons | None
+    ValidationAttributes: SuppressionValidationAttributes | None
 
 
 class SendQuota(TypedDict, total=False):
@@ -2189,6 +2255,7 @@ class GetCustomVerificationEmailTemplateResponse(TypedDict, total=False):
     FromEmailAddress: EmailAddress | None
     TemplateSubject: EmailTemplateSubject | None
     TemplateContent: TemplateContent | None
+    Tags: TagList | None
     SuccessRedirectionURL: SuccessRedirectionURL | None
     FailureRedirectionURL: FailureRedirectionURL | None
 
@@ -2347,6 +2414,25 @@ class GetDomainStatisticsReportResponse(TypedDict, total=False):
     DailyVolumes: DailyVolumes
 
 
+class GetEmailAddressInsightsRequest(ServiceRequest):
+    """A request to return validation insights about an email address."""
+
+    EmailAddress: EmailAddress
+
+
+class MailboxValidation(TypedDict, total=False):
+    """Contains detailed validation information about an email address."""
+
+    IsValid: EmailAddressInsightsVerdict | None
+    Evaluations: EmailAddressInsightsMailboxEvaluations | None
+
+
+class GetEmailAddressInsightsResponse(TypedDict, total=False):
+    """Validation insights about an email address."""
+
+    MailboxValidation: MailboxValidation | None
+
+
 class GetEmailIdentityPoliciesRequest(ServiceRequest):
     """A request to return the policies of an email identity."""
 
@@ -2428,6 +2514,7 @@ class GetEmailTemplateResponse(TypedDict, total=False):
 
     TemplateName: EmailTemplateName
     TemplateContent: EmailTemplateContent
+    Tags: TagList | None
 
 
 class GetExportJobRequest(ServiceRequest):
@@ -3143,6 +3230,7 @@ class PutAccountSuppressionAttributesRequest(ServiceRequest):
     """A request to change your account's suppression preferences."""
 
     SuppressedReasons: SuppressionListReasons | None
+    ValidationAttributes: SuppressionValidationAttributes | None
 
 
 class PutAccountSuppressionAttributesResponse(TypedDict, total=False):
@@ -3236,6 +3324,7 @@ class PutConfigurationSetSuppressionOptionsRequest(ServiceRequest):
 
     ConfigurationSetName: ConfigurationSetName
     SuppressedReasons: SuppressionListReasons | None
+    ValidationOptions: SuppressionValidationOptions | None
 
 
 class PutConfigurationSetSuppressionOptionsResponse(TypedDict, total=False):
@@ -3403,6 +3492,7 @@ class PutEmailIdentityDkimSigningAttributesResponse(TypedDict, total=False):
 
     DkimStatus: DkimStatus | None
     DkimTokens: DnsTokenList | None
+    SigningHostedZone: HostedZone | None
 
 
 class PutEmailIdentityFeedbackAttributesRequest(ServiceRequest):
@@ -3876,6 +3966,7 @@ class Sesv2Api:
         template_content: TemplateContent,
         success_redirection_url: SuccessRedirectionURL,
         failure_redirection_url: FailureRedirectionURL,
+        tags: TagList | None = None,
         **kwargs,
     ) -> CreateCustomVerificationEmailTemplateResponse:
         """Creates a new custom verification email template.
@@ -3895,6 +3986,8 @@ class Sesv2Api:
         or her address is successfully verified.
         :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his
         or her address is not successfully verified.
+        :param tags: An array of objects that define the tags (keys and values) to associate
+        with the custom verification email template.
         :returns: CreateCustomVerificationEmailTemplateResponse
         :raises BadRequestException:
         :raises AlreadyExistsException:
@@ -4078,6 +4171,7 @@ class Sesv2Api:
         context: RequestContext,
         template_name: EmailTemplateName,
         template_content: EmailTemplateContent,
+        tags: TagList | None = None,
         **kwargs,
     ) -> CreateEmailTemplateResponse:
         """Creates an email template. Email templates enable you to send
@@ -4090,6 +4184,8 @@ class Sesv2Api:
         :param template_name: The name of the template.
         :param template_content: The content of the email template, composed of a subject line, an HTML
         part, and a text-only part.
+        :param tags: An array of objects that define the tags (keys and values) to associate
+        with the email template.
         :returns: CreateEmailTemplateResponse
         :raises AlreadyExistsException:
         :raises TooManyRequestsException:
@@ -4733,6 +4829,21 @@ class Sesv2Api:
         :returns: GetDomainStatisticsReportResponse
         :raises TooManyRequestsException:
         :raises NotFoundException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("GetEmailAddressInsights")
+    def get_email_address_insights(
+        self, context: RequestContext, email_address: EmailAddress, **kwargs
+    ) -> GetEmailAddressInsightsResponse:
+        """Provides validation insights about a specific email address, including
+        syntax validation, DNS record checks, mailbox existence, and other
+        deliverability factors.
+
+        :param email_address: The email address to analyze for validation insights.
+        :returns: GetEmailAddressInsightsResponse
+        :raises TooManyRequestsException:
         :raises BadRequestException:
         """
         raise NotImplementedError
@@ -5466,12 +5577,15 @@ class Sesv2Api:
         self,
         context: RequestContext,
         suppressed_reasons: SuppressionListReasons | None = None,
+        validation_attributes: SuppressionValidationAttributes | None = None,
         **kwargs,
     ) -> PutAccountSuppressionAttributesResponse:
         """Change the settings for the account-level suppression list.
 
         :param suppressed_reasons: A list that contains the reasons that email addresses will be
         automatically added to the suppression list for your account.
+        :param validation_attributes: An object that contains additional suppression attributes for your
+        account.
         :returns: PutAccountSuppressionAttributesResponse
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -5594,6 +5708,7 @@ class Sesv2Api:
         context: RequestContext,
         configuration_set_name: ConfigurationSetName,
         suppressed_reasons: SuppressionListReasons | None = None,
+        validation_options: SuppressionValidationOptions | None = None,
         **kwargs,
     ) -> PutConfigurationSetSuppressionOptionsResponse:
         """Specify the account suppression list preferences for a configuration
@@ -5603,6 +5718,9 @@ class Sesv2Api:
         preferences for.
         :param suppressed_reasons: A list that contains the reasons that email addresses are automatically
         added to the suppression list for your account.
+        :param validation_options: An object that contains information about the email address suppression
+        preferences for the configuration set in the current Amazon Web Services
+        Region.
         :returns: PutConfigurationSetSuppressionOptionsResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from typing import Optional
 
 
 class SqlConfiguration(BaseModel):
@@ -15,6 +16,6 @@ class SqlConfiguration(BaseModel):
         }
     )
     host: str = Field(description="Database host")
-    port: int = Field(description="Database port", default=None)
+    port: Optional[int] = Field(description="Database port", default=None)
     username: str = Field(description="Database username")
     password: SecretStr = Field(description="Database password", json_schema_extra={'secret': True})

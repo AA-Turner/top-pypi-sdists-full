@@ -50,15 +50,18 @@ impl serde::Serialize for Annotations {
 /// Description of a validation error used within evaluation outputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorDescription {
-    keyword: &'static str,
+    keyword: String,
     message: String,
 }
 
 impl ErrorDescription {
     #[inline]
     #[must_use]
-    pub(crate) fn new(keyword: &'static str, message: String) -> Self {
-        Self { keyword, message }
+    pub(crate) fn new(keyword: impl Into<String>, message: String) -> Self {
+        Self {
+            keyword: keyword.into(),
+            message,
+        }
     }
 
     /// Create an `ErrorDescription` from a `ValidationError`.
@@ -66,7 +69,7 @@ impl ErrorDescription {
     #[must_use]
     pub(crate) fn from_validation_error(e: &ValidationError<'_>) -> Self {
         ErrorDescription {
-            keyword: e.kind().keyword(),
+            keyword: e.kind().keyword().to_owned(),
             message: e.to_string(),
         }
     }
@@ -74,8 +77,8 @@ impl ErrorDescription {
     /// Returns the keyword associated with this error.
     #[inline]
     #[must_use]
-    pub fn keyword(&self) -> &'static str {
-        self.keyword
+    pub fn keyword(&self) -> &str {
+        &self.keyword
     }
 
     /// Returns the inner [`String`] of the error description.
@@ -268,6 +271,12 @@ impl Evaluation {
     ///         "details": [
     ///             {"evaluationPath": "", "instanceLocation": "", "schemaLocation": "", "valid": false},
     ///             {
+    ///                 "valid": true,
+    ///                 "evaluationPath": "/type",
+    ///                 "instanceLocation": "",
+    ///                 "schemaLocation": "/type"
+    ///             },
+    ///             {
     ///                 "valid": false,
     ///                 "evaluationPath": "/items",
     ///                 "instanceLocation": "",
@@ -305,12 +314,6 @@ impl Evaluation {
     ///                 "evaluationPath": "/prefixItems/0/type",
     ///                 "instanceLocation": "/0",
     ///                 "schemaLocation": "/prefixItems/0/type"
-    ///             },
-    ///             {
-    ///                 "valid": true,
-    ///                 "evaluationPath": "/type",
-    ///                 "instanceLocation": "",
-    ///                 "schemaLocation": "/type"
     ///             }
     ///         ]
     ///     })
@@ -350,6 +353,12 @@ impl Evaluation {
     ///         "schemaLocation": "",
     ///         "instanceLocation": "",
     ///         "details": [
+    ///             {
+    ///                 "valid": true,
+    ///                 "evaluationPath": "/type",
+    ///                 "instanceLocation": "",
+    ///                 "schemaLocation": "/type"
+    ///             },
     ///             {
     ///                 "valid": false,
     ///                 "evaluationPath": "/items",
@@ -396,12 +405,6 @@ impl Evaluation {
     ///                         ]
     ///                     }
     ///                 ]
-    ///             },
-    ///             {
-    ///                 "valid": true,
-    ///                 "evaluationPath": "/type",
-    ///                 "instanceLocation": "",
-    ///                 "schemaLocation": "/type"
     ///             }
     ///         ]
     ///     })
@@ -746,7 +749,7 @@ pub struct AnnotationEntry<'a> {
 ///     }
 /// });
 /// let validator = jsonschema::validator_for(&schema)?;
-/// let instance = json!({"age": "oops"});
+/// let instance = json!({"name": "test", "age": "oops"});
 /// let evaluation = validator.evaluate(&instance);
 /// let entry = evaluation.iter_errors().next().unwrap();
 /// assert_eq!(entry.schema_location, "/properties/age/type");
@@ -876,9 +879,10 @@ impl<'a> Iterator for AnnotationIter<'a> {
 ///
 /// let errors: Vec<_> = evaluation.iter_errors().collect();
 /// assert_eq!(errors.len(), 2);
-/// assert_eq!(errors[0].instance_location.as_str(), "/age");
-/// assert_eq!(errors[0].schema_location, "/properties/age/minimum");
-/// assert_eq!(errors[1].schema_location, "/required");
+/// assert_eq!(errors[0].schema_location, "/required");
+/// assert_eq!(errors[0].instance_location.as_str(), "");
+/// assert_eq!(errors[1].schema_location, "/properties/age/minimum");
+/// assert_eq!(errors[1].instance_location.as_str(), "/age");
 /// # Ok(())
 /// # }
 /// ```
@@ -930,13 +934,13 @@ impl<'a> Iterator for ErrorIter<'a> {
 
 struct ErrorEntriesSerializer<'a>(&'a [ErrorDescription]);
 
-impl Serialize for ErrorEntriesSerializer<'_> {
+impl<'a> Serialize for ErrorEntriesSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let mut grouped: Vec<(&'static str, Vec<&str>)> = Vec::new();
-        let mut indexes: AHashMap<&'static str, usize> = AHashMap::new();
+        let mut grouped: Vec<(&'a str, Vec<&'a str>)> = Vec::new();
+        let mut indexes: AHashMap<&'a str, usize> = AHashMap::new();
 
         for error in self.0 {
             let keyword = error.keyword();
@@ -978,7 +982,7 @@ mod tests {
     impl ErrorDescription {
         fn from_string(s: &str) -> Self {
             ErrorDescription {
-                keyword: "error",
+                keyword: "error".into(),
                 message: s.to_string(),
             }
         }

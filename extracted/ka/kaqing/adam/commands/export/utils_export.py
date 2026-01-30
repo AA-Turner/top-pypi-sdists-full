@@ -5,6 +5,8 @@ import re
 from adam.config import Config
 from adam.utils import ExecResult, creating_dir, log2, log_to_pods
 from adam.repl_state import ReplState
+from adam.utils_context import Context
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -210,7 +212,7 @@ class ExportTableStatus:
 
         return statuses, status_in_whole
 
-    def from_log_file(pod: str, namespace: str, copy_session: str, log_file: str):
+    def from_log_file(pod: str, namespace: str, copy_session: str, log_file: str, ctx: Context = Context.NULL):
         def get_csv_files_n_table(target_table: str):
             db = f'{copy_session}_{target_table}'
             csv_file = f'{csv_dir()}/{db}/*.csv'
@@ -238,9 +240,9 @@ class ExportTableStatus:
             # 4 rows exported to 1 files in 0 day, 0 hour, 0 minute, and 1.335 seconds.
             pattern = 'rows exported to'
             if log_to_pods():
-                r: ExecResult = Pods.exec(pod, 'cassandra', namespace, f"grep '{pattern}' {log_file}", show_out=Config().is_debug())
+                r: ExecResult = Pods.exec(pod, 'cassandra', namespace, f"grep '{pattern}' {log_file}", ctx=ctx)
             else:
-                r: ExecResult = local_exec(["grep", pattern, log_file], show_out=Config().is_debug())
+                r: ExecResult = local_exec(["grep", pattern, log_file], show_out=ctx.debug)
 
             if r.exit_code() == 0:
                 csv_files, table = get_csv_files_n_table(target_table)
@@ -333,14 +335,15 @@ class PodPushHandler:
 def state_with_pod(state: ReplState, pod: str = None):
     return PodPushHandler(state, pod=pod)
 
-def fs_exec(pod: str, namespace: str, cmd: str, show_out = False):
+def fs_exec(pod: str, namespace: str, cmd: str, ctx: Context = Context.NULL):
     if log_to_pods():
-        Pods.exec(pod, 'cassandra', namespace, cmd, show_out = show_out)
+        CassandraNodes.exec(pod, namespace, cmd, ctx=ctx)
     else:
-        os_system_exec(cmd, show_out=show_out)
+        os_system_exec(cmd, show_out=ctx.show_out)
 
 def os_system_exec(cmd: str, show_out = False):
-    if show_out: log2(cmd)
+    if show_out:
+        log2(cmd)
 
     os.system(cmd)
 

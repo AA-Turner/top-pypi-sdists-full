@@ -122,7 +122,7 @@ class EntryModelViewSet(MergeMixin, EntryPermissionMixin, TransparencyMixin, vie
 
     @cached_property
     def is_internal_user(self):
-        return self.request.user.profile and self.request.user.profile.is_internal
+        return self.request.user.is_internal
 
 
 class PersonModelViewSet(ModelTranslateMixin, EntryModelViewSet):

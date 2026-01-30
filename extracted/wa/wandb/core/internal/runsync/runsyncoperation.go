@@ -1,15 +1,17 @@
 package runsync
 
 import (
+	"context"
 	"log/slog"
 	"path/filepath"
 	"slices"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/settings"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
-	"golang.org/x/sync/errgroup"
 )
 
 // RunSyncOperationFactory creates RunSyncOperations.
@@ -57,8 +59,8 @@ func (f *RunSyncOperationFactory) New(
 			continue
 		}
 
-		settings := MakeSyncSettings(globalSettings, userPath)
-		factory := InjectRunSyncerFactory(settings, op.logger)
+		s := MakeSyncSettings(globalSettings, userPath)
+		factory := InjectRunSyncerFactory(s, op.logger)
 		op.syncers = append(op.syncers,
 			factory.New(path, ToDisplayPath(userPath, cwd), updates, live))
 	}
@@ -67,10 +69,13 @@ func (f *RunSyncOperationFactory) New(
 }
 
 // Do starts syncing and blocks until all sync work completes.
-func (op *RunSyncOperation) Do(parallelism int) *spb.ServerSyncResponse {
+func (op *RunSyncOperation) Do(
+	ctx context.Context,
+	parallelism int,
+) *spb.ServerSyncResponse {
 	defer op.logFile.Close()
 
-	plan, err := op.initAndPlan()
+	plan, err := op.initAndPlan(ctx)
 
 	if err != nil {
 		LogSyncFailure(op.logger, err)
@@ -85,7 +90,7 @@ func (op *RunSyncOperation) Do(parallelism int) *spb.ServerSyncResponse {
 	for _, syncers := range plan {
 		group.Go(func() error {
 			for _, syncer := range syncers {
-				err := syncer.Sync()
+				err := syncer.Sync(ctx)
 
 				if err != nil {
 					LogSyncFailure(op.logger, err)
@@ -110,7 +115,9 @@ func (op *RunSyncOperation) Do(parallelism int) *spb.ServerSyncResponse {
 // Different paths can be synced independently, but all syncers for the same
 // path must run in order. This happens when syncing multiple resumed
 // instances of the same run.
-func (op *RunSyncOperation) initAndPlan() (map[string][]*RunSyncer, error) {
+func (op *RunSyncOperation) initAndPlan(
+	ctx context.Context,
+) (map[string][]*RunSyncer, error) {
 	type syncerAndTime struct {
 		syncer    *RunSyncer
 		startTime time.Time
@@ -118,7 +125,7 @@ func (op *RunSyncOperation) initAndPlan() (map[string][]*RunSyncer, error) {
 
 	syncerByRun := make(map[string][]syncerAndTime)
 	for _, syncer := range op.syncers {
-		info, err := syncer.Init()
+		info, err := syncer.Init(ctx)
 		if err != nil {
 			return nil, err
 		}

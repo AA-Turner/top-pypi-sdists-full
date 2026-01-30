@@ -105,8 +105,8 @@ urlpatterns = [
         include(("wbcore.contrib.workflow.urls", "wbcore.contrib.workflow"), namespace="workflow"),
     ),
     path(
-        "guardian/",
-        include(("wbcore.contrib.guardian.urls", "wbcore.contrib.guardian"), namespace="guardian"),
+        "permission/",
+        include(("wbcore.contrib.permission.urls", "wbcore.contrib.permission"), namespace="permission"),
     ),
     path("clear_cache/<str:cache_key>/", clear_cache, name="clear_cache"),
 ]

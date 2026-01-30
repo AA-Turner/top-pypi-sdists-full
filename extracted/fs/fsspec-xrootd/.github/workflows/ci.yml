@@ -19,10 +19,10 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v6
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --hook-stage manual --all-files
@@ -39,14 +39,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-        runs-on: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        runs-on: [ubuntu-latest, macos-latest]
     defaults:
       run:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Conda
@@ -70,7 +70,13 @@ jobs:
           UPROOT_VERSION=$(pip show uproot | grep Version | awk '{print $2}')
           git clone https://github.com/scikit-hep/uproot5.git uproot
           git -C uproot checkout tags/v${UPROOT_VERSION}
-          python -m pip install ./uproot[test]
+          (cd uproot && python -m pip install . --group test)
           # Install xrootd-fsspec again because it may have been overwritten by uproot
           python -m pip install .[test]
           python -m pytest -vv -k "xrootd" uproot/tests --reruns 10 --reruns-delay 30 --only-rerun "(?i)OSError|FileNotFoundError|timeout|expired|connection|socket"
+
+  pass:
+    needs: [checks]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All jobs passed"

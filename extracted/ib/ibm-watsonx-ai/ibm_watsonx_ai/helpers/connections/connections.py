@@ -460,7 +460,6 @@ class DataConnection(BaseDataConnection):
             regex = re.compile(prefix + "[^/]+$")
             return [obj["Key"] for obj in bucket_objects if re.match(regex, obj["Key"])]
 
-        self._check_if_connection_asset_is_s3()
         cos_resource_client = self._init_cos_client()
 
         prefix = self.location.get_location().strip("/") + "/"
@@ -525,8 +524,11 @@ class DataConnection(BaseDataConnection):
 
         new_data_connections = []
 
-        if isinstance(self.location, ContainerLocation):
-            self._check_if_connection_asset_is_s3()
+        if (
+            isinstance(self.location, ContainerLocation)
+            and self._is_connection_asset_s3
+        ):
+            self._init_s3_connection()
 
         paths = self._get_paths_from_location(recursive)
 
@@ -1355,7 +1357,7 @@ class DataConnection(BaseDataConnection):
             else:
                 try:
                     with all_logging_disabled():
-                        if self._check_if_connection_asset_is_s3():
+                        if self._is_connection_asset_s3:
                             cos_client = self._init_cos_client()
 
                             data = self._download_data_from_cos(
@@ -1457,7 +1459,7 @@ class DataConnection(BaseDataConnection):
                     )
                 try:
                     with all_logging_disabled():
-                        if self._check_if_connection_asset_is_s3():
+                        if self._is_connection_asset_s3:
                             cos_client = self._init_cos_client()
                             try:
                                 data = self._download_data_from_cos(
@@ -1672,7 +1674,7 @@ class DataConnection(BaseDataConnection):
             if self.type == DataConnectionTypes.CA and self.location is None:
                 raise ConnectionAssetNotSupported()
 
-            if self._check_if_connection_asset_is_s3():
+            if self._is_connection_asset_s3:
                 # do not try Flight if we are on the cloud
                 if (
                     self._api_client is not None
@@ -1892,6 +1894,8 @@ class DataConnection(BaseDataConnection):
         from ibm_boto3 import resource
         from ibm_botocore.client import Config
 
+        self._init_s3_connection()
+
         # Make sure endpoint_url startswith 'https://' prefix
         if hasattr(
             self.connection, "endpoint_url"
@@ -1934,7 +1938,54 @@ class DataConnection(BaseDataConnection):
         return cos_client
 
     def _validate_cos_resource(self):
-        cos_client = self._init_cos_client()
+        """Validate cos resource."""
+        # note - Initialize COS client for further usage.
+        # This is part of `_init_cos_client` method, but it excludes `_init_s3_connection()` to keep the logic unchanged.
+        # TODO: remove with S3 implementation in a future release
+
+        from ibm_boto3 import resource
+        from ibm_botocore.client import Config
+
+        # Make sure endpoint_url startswith 'https://' prefix
+        if hasattr(
+            self.connection, "endpoint_url"
+        ) and not self.connection.endpoint_url.startswith("https://"):
+            self.connection.endpoint_url = "https://" + self.connection.endpoint_url
+
+        try:
+            if isinstance(self.connection, _AmazonS3Connection):
+                cos_client = resource(
+                    service_name="s3",
+                    endpoint_url=f"https://s3.{self.connection.region}.amazonaws.com",
+                    aws_access_key_id=self.connection.access_key,
+                    aws_secret_access_key=self.connection.secret_key,
+                    aws_session_token=self.connection.session_token,
+                )
+
+            elif hasattr(self.connection, "auth_endpoint") and hasattr(
+                self.connection, "api_key"
+            ):
+                cos_client = resource(
+                    service_name="s3",
+                    ibm_api_key_id=self.connection.api_key,
+                    ibm_auth_endpoint=self.connection.auth_endpoint,
+                    config=Config(signature_version="oauth"),
+                    endpoint_url=self.connection.endpoint_url,
+                )
+
+            else:
+                cos_client = resource(
+                    service_name="s3",
+                    endpoint_url=self.connection.endpoint_url,
+                    aws_access_key_id=self.connection.access_key_id,
+                    aws_secret_access_key=self.connection.secret_access_key,
+                )
+        except ValueError as e:
+            raise WMLClientError(
+                "Error occurred during COS client initialisation {}".format(e)
+            )
+        # -- end note
+
         try:
             files = cos_client.Bucket(self.location.bucket).objects.all()
             next(x for x in files if x.key == self.location.path)
@@ -1945,7 +1996,8 @@ class DataConnection(BaseDataConnection):
         self, flight_parameters: dict, is_binary=True
     ):
         with all_logging_disabled():
-            self._check_if_connection_asset_is_s3()
+            if self._is_connection_asset_s3:
+                self._init_s3_connection()
 
             if isinstance(self.connection, S3Connection):
                 connection_properties = {

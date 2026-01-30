@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: instructor
-Version: 1.14.4
+Version: 1.14.5
 Summary: structured outputs for llm
 Project-URL: repository, https://github.com/instructor-ai/instructor
-Author-email: Jason Liu <jason@jxnl.co>, Ivan Leo <ivan@jxnl.co>
+Author: Jason Liu, Ivan Leo
+Maintainer-email: jason@jxnl.co, ivan@jxnl.co
 License: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
@@ -13,13 +14,11 @@ Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: jinja2<4.0.0,>=3.1.4
 Requires-Dist: jiter<0.12,>=0.6.1
 Requires-Dist: openai<3.0.0,>=2.0.0
-Requires-Dist: pre-commit>=4.3.0
 Requires-Dist: pydantic-core<3.0.0,>=2.18.0
 Requires-Dist: pydantic<3.0.0,>=2.8.0
 Requires-Dist: requests<3.0.0,>=2.32.3
 Requires-Dist: rich<15.0.0,>=13.7.0
 Requires-Dist: tenacity<10.0.0,>=8.2.3
-Requires-Dist: ty>=0.0.1a23
 Requires-Dist: typer<1.0.0,>=0.9.0
 Provides-Extra: anthropic
 Requires-Dist: anthropic==0.71.0; extra == 'anthropic'
@@ -33,6 +32,7 @@ Requires-Dist: cohere<6.0.0,>=5.1.8; extra == 'cohere'
 Provides-Extra: datasets
 Requires-Dist: datasets<5.0.0,>=3.0.1; extra == 'datasets'
 Provides-Extra: dev
+Requires-Dist: anthropic==0.71.0; extra == 'dev'
 Requires-Dist: coverage<8.0.0,>=7.3.2; extra == 'dev'
 Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'dev'
 Requires-Dist: pre-commit>=4.2.0; extra == 'dev'
@@ -41,6 +41,8 @@ Requires-Dist: pytest-examples>=0.0.15; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.3.3; extra == 'dev'
 Requires-Dist: python-dotenv>=1.0.1; extra == 'dev'
+Requires-Dist: ty>=0.0.1a23; extra == 'dev'
+Requires-Dist: xmltodict<1.1,>=0.13; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: mkdocs-jupyter<0.26.0,>=0.24.6; extra == 'docs'
 Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == 'docs'

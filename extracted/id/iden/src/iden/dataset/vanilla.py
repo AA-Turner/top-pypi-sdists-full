@@ -7,7 +7,7 @@ __all__ = ["VanillaDataset", "check_shards", "create_vanilla_dataset"]
 import logging
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
+from coola.utils.format import repr_indent, repr_mapping, str_indent, str_mapping
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 

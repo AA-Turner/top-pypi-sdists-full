@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: torch-sim-atomistic
-Version: 0.5.0
+Version: 0.5.1
 Summary: A pytorch toolkit for calculating material properties using MLIPs
 Keywords: chemistry,interatomic-potentials,machine-learning,materials-science
 Author: Abhijeet Gangan, Janosh Riebesell, Orion Cohen
@@ -22,7 +22,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Dist: h5py>=3.12.1
-Requires-Dist: nvalchemi-toolkit-ops
+Requires-Dist: nvalchemi-toolkit-ops>=0.2.0
 Requires-Dist: numpy>=1.26,<3
 Requires-Dist: tables>=3.10.2
 Requires-Dist: torch>=2
@@ -42,6 +42,7 @@ Requires-Dist: sphinx-copybutton==0.5.2 ; extra == 'docs'
 Requires-Dist: sphinx==8.1.3 ; extra == 'docs'
 Requires-Dist: sphinx-design==0.6.1 ; extra == 'docs'
 Requires-Dist: fairchem-core>=2.7 ; extra == 'fairchem'
+Requires-Dist: scipy<1.17.0 ; extra == 'fairchem'
 Requires-Dist: graph-pes>=0.1 ; extra == 'graphpes'
 Requires-Dist: mace-torch>=0.3.12 ; extra == 'graphpes'
 Requires-Dist: ase>=3.26 ; extra == 'io'
@@ -50,12 +51,13 @@ Requires-Dist: pymatgen>=2025.6.14 ; extra == 'io'
 Requires-Dist: mace-torch>=0.3.14 ; extra == 'mace'
 Requires-Dist: mattersim>=0.1.2 ; extra == 'mattersim'
 Requires-Dist: metatomic-torch>=0.1.3 ; extra == 'metatomic'
-Requires-Dist: metatrain[pet]>=2025.7 ; extra == 'metatomic'
-Requires-Dist: nequip>=0.12.0 ; extra == 'nequip'
+Requires-Dist: metatrain[pet]>=2025.12 ; extra == 'metatomic'
+Requires-Dist: nequip>=0.16.2 ; extra == 'nequip'
 Requires-Dist: orb-models>=0.5.2 ; extra == 'orb'
 Requires-Dist: sevenn>=0.11.0 ; extra == 'sevenn'
 Requires-Dist: ase>=3.26 ; extra == 'test'
 Requires-Dist: phonopy>=2.37.0 ; extra == 'test'
+Requires-Dist: platformdirs>=4.0.0 ; extra == 'test'
 Requires-Dist: psutil>=7.0.0 ; extra == 'test'
 Requires-Dist: pymatgen>=2025.6.14 ; extra == 'test'
 Requires-Dist: pytest-cov>=6 ; extra == 'test'

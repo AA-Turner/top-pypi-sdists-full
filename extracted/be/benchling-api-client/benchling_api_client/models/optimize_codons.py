@@ -4,7 +4,9 @@ import attr
 
 from ..extensions import NotPresentError
 from ..models.optimize_codons_gc_content import OptimizeCodonsGcContent
+from ..models.optimize_codons_gc_content_range import OptimizeCodonsGcContentRange
 from ..models.optimize_codons_hairpin_parameters import OptimizeCodonsHairpinParameters
+from ..models.optimize_codons_method import OptimizeCodonsMethod
 from ..models.reduced_pattern import ReducedPattern
 from ..types import UNSET, Unset
 
@@ -20,7 +22,9 @@ class OptimizeCodons:
     _avoided_cutsite_enzyme_ids: Union[Unset, List[str]] = UNSET
     _codon_usage_table_id: Union[Unset, str] = UNSET
     _gc_content: Union[Unset, OptimizeCodonsGcContent] = OptimizeCodonsGcContent.ANY
+    _gc_content_range: Union[Unset, OptimizeCodonsGcContentRange] = UNSET
     _hairpin_parameters: Union[Unset, OptimizeCodonsHairpinParameters] = UNSET
+    _method: Union[Unset, OptimizeCodonsMethod] = OptimizeCodonsMethod.MATCH_CODON_USAGE
     _reduced_patterns: Union[Unset, List[ReducedPattern]] = UNSET
     _schema_id: Union[Unset, str] = UNSET
     _should_deplete_uridine: Union[Unset, bool] = False
@@ -32,7 +36,9 @@ class OptimizeCodons:
         fields.append("avoided_cutsite_enzyme_ids={}".format(repr(self._avoided_cutsite_enzyme_ids)))
         fields.append("codon_usage_table_id={}".format(repr(self._codon_usage_table_id)))
         fields.append("gc_content={}".format(repr(self._gc_content)))
+        fields.append("gc_content_range={}".format(repr(self._gc_content_range)))
         fields.append("hairpin_parameters={}".format(repr(self._hairpin_parameters)))
+        fields.append("method={}".format(repr(self._method)))
         fields.append("reduced_patterns={}".format(repr(self._reduced_patterns)))
         fields.append("schema_id={}".format(repr(self._schema_id)))
         fields.append("should_deplete_uridine={}".format(repr(self._should_deplete_uridine)))
@@ -51,9 +57,17 @@ class OptimizeCodons:
         if not isinstance(self._gc_content, Unset):
             gc_content = self._gc_content.value
 
+        gc_content_range: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self._gc_content_range, Unset):
+            gc_content_range = self._gc_content_range.to_dict()
+
         hairpin_parameters: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._hairpin_parameters, Unset):
             hairpin_parameters = self._hairpin_parameters.to_dict()
+
+        method: Union[Unset, int] = UNSET
+        if not isinstance(self._method, Unset):
+            method = self._method.value
 
         reduced_patterns: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._reduced_patterns, Unset):
@@ -78,8 +92,12 @@ class OptimizeCodons:
             field_dict["codonUsageTableId"] = codon_usage_table_id
         if gc_content is not UNSET:
             field_dict["gcContent"] = gc_content
+        if gc_content_range is not UNSET:
+            field_dict["gcContentRange"] = gc_content_range
         if hairpin_parameters is not UNSET:
             field_dict["hairpinParameters"] = hairpin_parameters
+        if method is not UNSET:
+            field_dict["method"] = method
         if reduced_patterns is not UNSET:
             field_dict["reducedPatterns"] = reduced_patterns
         if schema_id is not UNSET:
@@ -157,6 +175,22 @@ class OptimizeCodons:
                 raise
             gc_content = cast(Union[Unset, OptimizeCodonsGcContent], UNSET)
 
+        def get_gc_content_range() -> Union[Unset, OptimizeCodonsGcContentRange]:
+            gc_content_range: Union[Unset, Union[Unset, OptimizeCodonsGcContentRange]] = UNSET
+            _gc_content_range = d.pop("gcContentRange")
+
+            if not isinstance(_gc_content_range, Unset):
+                gc_content_range = OptimizeCodonsGcContentRange.from_dict(_gc_content_range)
+
+            return gc_content_range
+
+        try:
+            gc_content_range = get_gc_content_range()
+        except KeyError:
+            if strict:
+                raise
+            gc_content_range = cast(Union[Unset, OptimizeCodonsGcContentRange], UNSET)
+
         def get_hairpin_parameters() -> Union[Unset, OptimizeCodonsHairpinParameters]:
             hairpin_parameters: Union[Unset, Union[Unset, OptimizeCodonsHairpinParameters]] = UNSET
             _hairpin_parameters = d.pop("hairpinParameters")
@@ -172,6 +206,24 @@ class OptimizeCodons:
             if strict:
                 raise
             hairpin_parameters = cast(Union[Unset, OptimizeCodonsHairpinParameters], UNSET)
+
+        def get_method() -> Union[Unset, OptimizeCodonsMethod]:
+            method = UNSET
+            _method = d.pop("method")
+            if _method is not None and _method is not UNSET:
+                try:
+                    method = OptimizeCodonsMethod(_method)
+                except ValueError:
+                    method = OptimizeCodonsMethod.of_unknown(_method)
+
+            return method
+
+        try:
+            method = get_method()
+        except KeyError:
+            if strict:
+                raise
+            method = cast(Union[Unset, OptimizeCodonsMethod], UNSET)
 
         def get_reduced_patterns() -> Union[Unset, List[ReducedPattern]]:
             reduced_patterns = []
@@ -218,7 +270,9 @@ class OptimizeCodons:
             avoided_cutsite_enzyme_ids=avoided_cutsite_enzyme_ids,
             codon_usage_table_id=codon_usage_table_id,
             gc_content=gc_content,
+            gc_content_range=gc_content_range,
             hairpin_parameters=hairpin_parameters,
+            method=method,
             reduced_patterns=reduced_patterns,
             schema_id=schema_id,
             should_deplete_uridine=should_deplete_uridine,
@@ -280,7 +334,7 @@ class OptimizeCodons:
 
     @property
     def gc_content(self) -> OptimizeCodonsGcContent:
-        """The amount of GC content in the optimized sequence. If not specified, the optimization will default to ANY (0-1). LOW is defined as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66."""
+        """The amount of GC content in the optimized sequence. LOW is defined as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66. If neither gcContent nor gcContentRange is specified, the optimization will default to ANY (0-1). Cannot be specified together with gcContentRange."""
         if isinstance(self._gc_content, Unset):
             raise NotPresentError(self, "gc_content")
         return self._gc_content
@@ -292,6 +346,21 @@ class OptimizeCodons:
     @gc_content.deleter
     def gc_content(self) -> None:
         self._gc_content = UNSET
+
+    @property
+    def gc_content_range(self) -> OptimizeCodonsGcContentRange:
+        """Custom GC content range for the optimized sequence, specified as decimal values between 0 and 1. The maximum must be greater than the minimum. Cannot be specified together with gcContent."""
+        if isinstance(self._gc_content_range, Unset):
+            raise NotPresentError(self, "gc_content_range")
+        return self._gc_content_range
+
+    @gc_content_range.setter
+    def gc_content_range(self, value: OptimizeCodonsGcContentRange) -> None:
+        self._gc_content_range = value
+
+    @gc_content_range.deleter
+    def gc_content_range(self) -> None:
+        self._gc_content_range = UNSET
 
     @property
     def hairpin_parameters(self) -> OptimizeCodonsHairpinParameters:
@@ -307,6 +376,21 @@ class OptimizeCodons:
     @hairpin_parameters.deleter
     def hairpin_parameters(self) -> None:
         self._hairpin_parameters = UNSET
+
+    @property
+    def method(self) -> OptimizeCodonsMethod:
+        """The codon optimization algorithm to use. Requires codonUsageTableId to be specified. MATCH_CODON_USAGE selects codons probabilistically based on the organism's codon usage frequencies. USE_BEST_CODON always selects the most frequently used codon for each amino acid."""
+        if isinstance(self._method, Unset):
+            raise NotPresentError(self, "method")
+        return self._method
+
+    @method.setter
+    def method(self, value: OptimizeCodonsMethod) -> None:
+        self._method = value
+
+    @method.deleter
+    def method(self) -> None:
+        self._method = UNSET
 
     @property
     def reduced_patterns(self) -> List[ReducedPattern]:

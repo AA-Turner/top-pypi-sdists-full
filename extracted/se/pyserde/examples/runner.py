@@ -23,6 +23,7 @@ def run_all() -> None:
     import default_dict
     import env
     import flatten
+    import flatten_dict
     import forward_reference
     import frozen_set
     import generics
@@ -67,6 +68,7 @@ def run_all() -> None:
     import yamlfile
     import enum34
     import kw_only
+    import self_type
 
     run(any)
     run(simple)
@@ -81,6 +83,7 @@ def run_all() -> None:
     run(default_dict)
     run(env)
     run(flatten)
+    run(flatten_dict)
     run(jsonfile)
     run(rename)
     run(rename_all)
@@ -128,6 +131,7 @@ def run_all() -> None:
     run(type_ipaddress)
     run(type_uuid)
     run(type_numpy)
+    run(self_type)
 
     try:
         import type_sqlalchemy

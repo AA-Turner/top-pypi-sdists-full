@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: howso-engine
-Version: 54.1.3
+Version: 54.2.0
 Summary: The Howso Engine™ is a natively and fully explainable ML engine, serving as an alternative to black box AI neural networks.
 Author: Howso Incorporated
 Author-email: support@howso.com
@@ -695,7 +695,7 @@ Requires-Dist: deprecation~=2.0
 Requires-Dist: Faker>=4.1.1
 Requires-Dist: humanize>=4.0.0
 Requires-Dist: mmh3
-Requires-Dist: numpy~=2.2.0
+Requires-Dist: numpy
 Requires-Dist: pandas<3.0
 Requires-Dist: psutil
 Requires-Dist: pyjwt~=2.0

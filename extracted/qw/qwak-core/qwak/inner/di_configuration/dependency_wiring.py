@@ -50,7 +50,6 @@ def wire_dependencies():
         prompt_manager,
         system_secret,
         user_application_instance,
-        vector_store,
         workspace_manager,
     )
 
@@ -76,7 +75,6 @@ def wire_dependencies():
             user_application_instance,
             alerts_registry,
             workspace_manager,
-            vector_store,
             integration_management,
             system_secret,
             prompt_manager,

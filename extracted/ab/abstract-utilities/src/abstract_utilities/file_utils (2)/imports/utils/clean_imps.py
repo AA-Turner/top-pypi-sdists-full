@@ -13,14 +13,7 @@ def get_caller_path(i=None):
     frame = inspect.stack()[i]
     return os.path.abspath(frame.filename)
 
-def make_list(obj: any) -> list:
-    if isinstance(obj, str) and ',' in obj:
-        obj = obj.split(',')
-    if isinstance(obj, (set, tuple)):
-        return list(obj)
-    if isinstance(obj, list):
-        return obj
-    return [obj]
+
 
 def eatElse(stringObj, chars=None):
     chars = make_list(chars or []) + list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')

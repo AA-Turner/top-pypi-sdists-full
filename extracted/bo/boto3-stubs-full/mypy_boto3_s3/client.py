@@ -212,6 +212,8 @@ from .type_defs import (
     SelectObjectContentRequestTypeDef,
     UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef,
     UpdateBucketMetadataJournalTableConfigurationRequestTypeDef,
+    UpdateObjectEncryptionRequestTypeDef,
+    UpdateObjectEncryptionResponseTypeDef,
     UploadPartCopyOutputTypeDef,
     UploadPartCopyRequestTypeDef,
     UploadPartOutputTypeDef,
@@ -235,6 +237,7 @@ __all__ = ("S3Client",)
 
 
 class Exceptions(BaseClientExceptions):
+    AccessDenied: type[BotocoreClientError]
     BucketAlreadyExists: type[BotocoreClientError]
     BucketAlreadyOwnedByYou: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
@@ -1364,6 +1367,17 @@ class S3Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_bucket_metadata_journal_table_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#update_bucket_metadata_journal_table_configuration)
+        """
+
+    def update_object_encryption(
+        self, **kwargs: Unpack[UpdateObjectEncryptionRequestTypeDef]
+    ) -> UpdateObjectEncryptionResponseTypeDef:
+        """
+        This operation is not supported for directory buckets or Amazon S3 on Outposts
+        buckets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_object_encryption.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#update_object_encryption)
         """
 
     def upload_part(self, **kwargs: Unpack[UploadPartRequestTypeDef]) -> UploadPartOutputTypeDef:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: entsoe-py
-Version: 0.7.8
+Version: 0.7.10
 Summary: A python API wrapper for ENTSO-E
 Home-page: https://github.com/EnergieID/entsoe-py
 Author: EnergieID.be, Frank Boerman
@@ -35,7 +35,7 @@ Dynamic: summary
 # entsoe-py
 Python client for the ENTSO-E API (european network of transmission system operators for electricity)
 
-Documentation of the API found on https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html
+Documentation of the API found on https://documenter.getpostman.com/view/7009892/2s93JtP3F6
 
 ## Installation
 `python3 -m pip install entsoe-py`

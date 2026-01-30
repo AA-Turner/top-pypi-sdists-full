@@ -840,19 +840,19 @@ async def executar_fluxo_geracao_exportacao_envio(
         )
 
     step("Aguardar janelas de confirmação (sleep 4s)", level="dim")
-    await worker_sleep(4)
+    await worker_sleep(8)
 
     step("Confirmar TMessageForm (&Yes) - 1", level="dim")
     _click_yes_messageform()
 
     step("Aguardar (sleep 4s)", level="dim")
-    await worker_sleep(4)
+    await worker_sleep(8)
 
     step("Confirmar TMessageForm (&Yes) - 2", level="dim")
     _click_yes_messageform()
 
     step("Aguardar (sleep 4s)", level="dim")
-    await worker_sleep(4)
+    await worker_sleep(8)
 
     step("Clicar em Transmitir (TFrmGerenciadorNFe2 found_index=5)", level="dim")
     app_nfe = Application().connect(class_name="TFrmGerenciadorNFe2")

@@ -3,6 +3,7 @@ from typing import Union
 
 from adam.app_session import AppSession
 from adam.apps import Apps
+from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
 from adam.utils import log2
@@ -58,14 +59,14 @@ class AppPodService:
     def __init__(self, handler: 'AppHandler'):
         self.handler = handler
 
-    def exec(self, command: str, show_out = True) -> Union[PodExecResult, list[PodExecResult]]:
+    def exec(self, command: str, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
 
         if state.app_pod:
-            return AppPods.exec(state.app_pod, state.namespace, command, show_out=show_out, shell='bash')
+            return AppPods.exec(state.app_pod, state.namespace, command, shell='bash', ctx=ctx)
         elif state.app_app:
             pods = AppPods.pod_names(state.namespace, state.app_env, state.app_app)
-            return AppClusters.exec(pods, state.namespace, command, action='bash', show_out=show_out, shell='bash')
+            return AppClusters.exec(pods, state.namespace, command, action='bash', shell='bash', ctx=ctx)
 
         return []
 

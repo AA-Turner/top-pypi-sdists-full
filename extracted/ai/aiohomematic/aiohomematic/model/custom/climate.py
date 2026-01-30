@@ -11,9 +11,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from enum import IntEnum, StrEnum
+from enum import IntEnum, StrEnum, unique
 import logging
-from typing import Final, Unpack, cast
+from typing import Final, Unpack, cast, override
 
 from aiohomematic import i18n
 from aiohomematic.const import (
@@ -63,6 +63,7 @@ _TEMP_CELSIUS: Final = "°C"
 PROFILE_PREFIX: Final = "week_program_"
 
 
+@unique
 class _ModeHm(StrEnum):
     """Enum with the HM modes."""
 
@@ -72,6 +73,7 @@ class _ModeHm(StrEnum):
     MANU = "MANU-MODE"  # 1
 
 
+@unique
 class _ModeHmIP(IntEnum):
     """Enum with the HmIP modes."""
 
@@ -80,6 +82,7 @@ class _ModeHmIP(IntEnum):
     MANU = 1
 
 
+@unique
 class _StateChangeArg(StrEnum):
     """Enum with climate state change arguments."""
 
@@ -88,6 +91,7 @@ class _StateChangeArg(StrEnum):
     TEMPERATURE = "temperature"
 
 
+@unique
 class ClimateActivity(StrEnum):
     """Enum with the climate activities."""
 
@@ -97,6 +101,7 @@ class ClimateActivity(StrEnum):
     OFF = "off"
 
 
+@unique
 class ClimateHeatingValveType(StrEnum):
     """Enum with the climate heating valve types."""
 
@@ -104,6 +109,7 @@ class ClimateHeatingValveType(StrEnum):
     NORMALLY_OPEN = "NORMALLY_OPEN"
 
 
+@unique
 class ClimateMode(StrEnum):
     """Enum with the thermostat modes."""
 
@@ -113,6 +119,7 @@ class ClimateMode(StrEnum):
     OFF = "off"
 
 
+@unique
 class ClimateProfile(StrEnum):
     """Enum with profiles."""
 
@@ -390,6 +397,7 @@ class BaseCustomDpClimate(CustomDataPoint):
             return await self._device.week_profile.get_weekday(profile=profile, weekday=weekday, force_load=force_load)
         return {}
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if (
@@ -509,6 +517,7 @@ class BaseCustomDpClimate(CustomDataPoint):
         # Inform listeners that relevant inputs may have changed
         self.publish_data_point_updated_event()
 
+    @override
     def _post_init(self) -> None:
         """Post action after initialisation of the data point fields."""
         super()._post_init()
@@ -770,6 +779,7 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
         ):
             self._old_manu_setpoint = self.target_temperature
 
+    @override
     def _post_init(self) -> None:
         """Post action after initialisation of the data point fields."""
         super()._post_init()
@@ -1021,6 +1031,7 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
         ):
             self._old_manu_setpoint = self.target_temperature
 
+    @override
     def _post_init(self) -> None:
         """Post action after initialisation of the data point fields."""
         super()._post_init()

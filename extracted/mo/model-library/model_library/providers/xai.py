@@ -2,7 +2,7 @@ import io
 import logging
 from typing import Any, Literal, Sequence
 
-import grpc
+from pydantic import SecretStr
 from typing_extensions import override
 from xai_sdk import AsyncClient
 from xai_sdk.aio.chat import Chat
@@ -14,6 +14,7 @@ from xai_sdk.proto.v6.chat_pb2 import Message, Tool
 from model_library import model_library_settings
 from model_library.base import (
     LLM,
+    DelegateConfig,
     FileBase,
     FileInput,
     FileWithBase64,
@@ -36,24 +37,26 @@ from model_library.exceptions import (
     MaxOutputTokensExceededError,
     ModelNoOutputError,
     NoMatchingToolCallError,
-    RateLimitException,
 )
 from model_library.providers.openai import OpenAIModel
 from model_library.register_models import register_provider
-from model_library.utils import create_openai_client_with_defaults
 
 
 @register_provider("grok")
 class XAIModel(LLM):
-    _client: AsyncClient | None = None
+    @override
+    def _get_default_api_key(self) -> str:
+        return model_library_settings.XAI_API_KEY
 
     @override
-    def get_client(self) -> AsyncClient:
-        if not XAIModel._client:
-            XAIModel._client = AsyncClient(
-                api_key=model_library_settings.XAI_API_KEY,
+    def get_client(self, api_key: str | None = None) -> AsyncClient:
+        if not self.has_client():
+            assert api_key
+            client = AsyncClient(
+                api_key=api_key,
             )
-        return XAIModel._client
+            self.assign_client(client)
+        return super().get_client()
 
     @override
     def __init__(
@@ -73,13 +76,13 @@ class XAIModel(LLM):
                 model_name=self.model_name,
                 provider=provider,
                 config=config,
-                custom_client=create_openai_client_with_defaults(
-                    api_key=model_library_settings.XAI_API_KEY,
+                delegate_config=DelegateConfig(
                     base_url=(
                         "https://us-west-1.api.x.ai/v1"
                         if "grok-3-mini-reasoning" in self.model_name
                         else "https://api.x.ai/v1"
                     ),
+                    api_key=SecretStr(model_library_settings.XAI_API_KEY),
                 ),
                 use_completions=True,
             )
@@ -210,11 +213,13 @@ class XAIModel(LLM):
             messages.append(system(str(kwargs.pop("system_prompt"))))
 
         body: dict[str, Any] = {
-            "max_tokens": self.max_tokens,
             "model": self.model_name,
             "tools": await self.parse_tools(tools),
             "messages": messages,
         }
+
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
 
         if self.supports_temperature:
             if self.temperature is not None:
@@ -253,38 +258,35 @@ class XAIModel(LLM):
 
         body = await self.build_body(input, tools=tools, **kwargs)
 
-        try:
-            chat: Chat = self.get_client().chat.create(**body)
+        chat: Chat = self.get_client().chat.create(**body)
 
-            latest_response: Response | None = None
-            async for response, _ in chat.stream():
-                latest_response = response
+        latest_response: Response | None = None
+        async for response, _ in chat.stream():
+            latest_response = response
 
-            if not latest_response:
-                raise ModelNoOutputError("Model failed to produce a response")
+        if not latest_response:
+            raise ModelNoOutputError("Model failed to produce a response")
 
-            tool_calls: list[ToolCall] = []
-            if (
-                latest_response.finish_reason == "REASON_TOOL_CALLS"
-                and latest_response.tool_calls
-            ):
-                for tool_call in latest_response.tool_calls:
-                    tool_calls.append(
-                        ToolCall(
-                            id=tool_call.id,
-                            name=tool_call.function.name,
-                            args=tool_call.function.arguments,
-                        )
+        tool_calls: list[ToolCall] = []
+        if (
+            latest_response.finish_reason == "REASON_TOOL_CALLS"
+            and latest_response.tool_calls
+        ):
+            for tool_call in latest_response.tool_calls:
+                tool_calls.append(
+                    ToolCall(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        args=tool_call.function.arguments,
                     )
+                )
 
-            if (
-                latest_response.finish_reason == "REASON_MAX_LEN"
-                and not latest_response.content
-                and not latest_response.reasoning_content
-            ):
-                raise MaxOutputTokensExceededError()
-        except grpc.RpcError as e:
-            raise RateLimitException(e.details())
+        if (
+            latest_response.finish_reason == "REASON_MAX_LEN"
+            and not latest_response.content
+            and not latest_response.reasoning_content
+        ):
+            raise MaxOutputTokensExceededError()
 
         return QueryResult(
             output_text=latest_response.content,
@@ -310,6 +312,9 @@ class XAIModel(LLM):
         tools: list[ToolDefinition] = [],
         **kwargs: object,
     ) -> int:
+        if not input and not history:
+            return 0
+
         string_input = await self.stringify_input(input, history=history, tools=tools)
         self.logger.debug(string_input)
 

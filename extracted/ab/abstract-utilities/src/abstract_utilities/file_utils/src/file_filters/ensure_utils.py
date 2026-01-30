@@ -127,7 +127,7 @@ def ensure_directories(*args,**kwargs):
         safe_directories = get_dir_filter_kwargs(**kwargs)
         safe_dirs = safe_directories.get('directories')
         safe_dirs = if_none_change(safe_dirs or None,get_initial_caller_dir())
-        directories+= make_list(safe_dirs)
+        directories+= make_list(safe_dirs,commaparse=False)
     return list(set([r for r in directories if r]))
 
 def get_proper_type_str(string):
@@ -210,7 +210,7 @@ def get_allowed_predicate(allowed=None,cfg=None,**kwargs):
 def get_globs(items,recursive: bool = True,allowed=None,cfg=None,**kwargs):
     glob_paths = []
     allowed = get_allowed_predicate(allowed=allowed,cfg=cfg,**kwargs)
-    items = [item for item in make_list(items) if item]
+    items = [item for item in make_list(items,commaparse=False) if item]
     for item in items:
         pattern = os.path.join(item, "**/*")  # include all files recursively\n
         nuItems = glob.glob(pattern, recursive=recursive)
@@ -451,7 +451,7 @@ def derive_all_defaults(**kwargs):
         else:
             value = default if key_value is None else key_value
             if typ == list:
-                value = make_list(value)
+                value = make_list(value,commaparse=False)
             elif typ == bool:
                 value = bool(value)
             nu_defaults[key] = value

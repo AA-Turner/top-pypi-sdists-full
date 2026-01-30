@@ -395,7 +395,6 @@ class Jp2kr(Jp2kBox):
         """
         .. deprecated:: 0.15.0
         """
-        breakpoint()
         msg = "Deprecated, do not use."
         warnings.warn(msg, DeprecationWarning)
         self._parse(force=force)
@@ -948,7 +947,7 @@ class Jp2kr(Jp2kBox):
         if is_cube and image.shape[2] == 1:
             # The third dimension has just a single layer.  Make the image
             # data 2D instead of 3D.
-            image.shape = image.shape[0:2]
+            image = np.reshape(image, image.shape[0:2])
 
         return image
 

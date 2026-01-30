@@ -794,7 +794,7 @@ class PraisonAI:
             return default_args
         
         # Define special commands
-        special_commands = ['chat', 'code', 'call', 'realtime', 'train', 'ui', 'context', 'research', 'memory', 'rules', 'workflow', 'hooks', 'knowledge', 'session', 'tools', 'todo', 'docs', 'mcp', 'commit', 'serve', 'schedule', 'skills', 'profile', 'eval', 'agents', 'run', 'thinking', 'compaction', 'output', 'deploy', 'templates', 'recipe', 'endpoints', 'audio', 'embed', 'embedding', 'images', 'moderate', 'files', 'batches', 'vector-stores', 'rerank', 'ocr', 'assistants', 'fine-tuning', 'completions', 'messages', 'guardrails', 'rag', 'videos', 'a2a', 'containers', 'passthrough', 'responses', 'search', 'realtime-api', 'doctor', 'registry', 'package', 'install', 'uninstall', 'acp', 'debug', 'lsp', 'diag', 'browser', 'replay']
+        special_commands = ['chat', 'code', 'call', 'realtime', 'train', 'ui', 'context', 'research', 'memory', 'rules', 'workflow', 'hooks', 'knowledge', 'session', 'tools', 'todo', 'docs', 'mcp', 'commit', 'serve', 'schedule', 'skills', 'profile', 'eval', 'agents', 'run', 'thinking', 'compaction', 'output', 'deploy', 'templates', 'recipe', 'endpoints', 'audio', 'embed', 'embedding', 'images', 'moderate', 'files', 'batches', 'vector-stores', 'rerank', 'ocr', 'assistants', 'fine-tuning', 'completions', 'messages', 'guardrails', 'rag', 'videos', 'a2a', 'containers', 'passthrough', 'responses', 'search', 'realtime-api', 'doctor', 'registry', 'package', 'install', 'uninstall', 'acp', 'debug', 'lsp', 'diag', 'browser', 'replay', 'bot', 'gateway', 'sandbox', 'wizard', 'migrate', 'security', 'persistence']
         
         parser = argparse.ArgumentParser(prog="praisonai", description="praisonAI command-line interface")
         parser.add_argument("--framework", choices=["crewai", "autogen", "praisonai"], help="Specify the framework")
@@ -832,7 +832,7 @@ class PraisonAI:
         parser.add_argument("--no-lsp", action="store_true", help="Disable LSP tools (code intelligence: symbols, definitions, references)")
         parser.add_argument("--save", "-s", action="store_true", help="Save research output to file (output/research/)")
         parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output for research")
-        parser.add_argument("--web-search", action="store_true", help="Enable native web search (OpenAI, Gemini, Anthropic, xAI, Perplexity)")
+        parser.add_argument("--web", "--web-search", action="store_true", help="Enable native web search (OpenAI, Gemini, Anthropic, xAI, Perplexity)")
         parser.add_argument("--web-fetch", action="store_true", help="Enable web fetch to retrieve URL content (Anthropic only)")
         parser.add_argument("--prompt-caching", action="store_true", help="Enable prompt caching to reduce costs (OpenAI, Anthropic, Bedrock, Deepseek)")
         
@@ -1387,6 +1387,9 @@ class PraisonAI:
                     recipe_args.append('--profile')
                 if getattr(args, 'profile_deep', False) and '--deep-profile' not in recipe_args:
                     recipe_args.append('--deep-profile')
+                # Re-inject memory flag for judge command (consumed by main parser)
+                if getattr(args, 'memory', False) and '--memory' not in recipe_args:
+                    recipe_args.append('--memory')
                 from .features.recipe import handle_recipe_command
                 exit_code = handle_recipe_command(recipe_args)
                 sys.exit(exit_code)
@@ -1637,6 +1640,45 @@ class PraisonAI:
                 exit_code = handler.cmd_uninstall(unknown_args)
                 sys.exit(exit_code)
             
+            elif args.command == 'gateway':
+                # Gateway command - WebSocket gateway for multi-agent coordination
+                from .features.gateway import handle_gateway_command
+                exit_code = handle_gateway_command(unknown_args)
+                sys.exit(exit_code)
+            
+            elif args.command == 'bot':
+                # Bot command - messaging bot runtimes (Telegram, Discord, Slack)
+                # Re-inject flags consumed by main parser into unknown_args for bot handler
+                bot_args = list(unknown_args)
+                if getattr(args, 'model', None) and '--model' not in bot_args and '-m' not in bot_args:
+                    bot_args.extend(['--model', args.model])
+                from .features.bots_cli import handle_bot_command
+                exit_code = handle_bot_command(bot_args)
+                sys.exit(exit_code)
+            
+            elif args.command == 'sandbox':
+                # Sandbox command - secure code execution environment
+                from .features.sandbox_cli import handle_sandbox_command
+                exit_code = handle_sandbox_command(unknown_args)
+                sys.exit(exit_code)
+            
+            elif args.command == 'wizard':
+                # Wizard command - interactive project setup
+                from .features.wizard import handle_wizard_command
+                exit_code = handle_wizard_command(unknown_args)
+                sys.exit(exit_code)
+            
+            elif args.command == 'migrate':
+                # Migrate command - config migration between formats
+                from .features.migrate import handle_migrate_command
+                exit_code = handle_migrate_command(unknown_args)
+                sys.exit(exit_code)
+            
+            elif args.command == 'security':
+                # Security command - security audit and scanning
+                from .features.audit_cli import handle_audit_command
+                exit_code = handle_audit_command(unknown_args)
+                sys.exit(exit_code)
 
         # Only check framework availability for agent-related operations
         if not args.command and (args.init or args.auto or args.framework):
@@ -2838,7 +2880,7 @@ class PraisonAI:
             print(f"[cyan]Run with: praisonai workflow run {output_file}[/cyan]")
             
         except ImportError:
-            print("[red]Auto-generation requires instructor: pip install instructor[/red]")
+            print("[red]Auto-generation requires litellm: pip install litellm[/red]")
         except Exception as e:
             print(f"[red]Generation failed: {e}[/red]")
 

@@ -62,6 +62,7 @@ class BaseClient(abc.ABC, Generic[T]):
         use_encrypted_content: Optional[bool] = None,
         max_turns: Optional[int] = None,
         include: Optional[Sequence[Union[IncludeOption, "chat_pb2.IncludeOption"]]] = None,
+        batch_request_id: Optional[str] = None,
     ) -> T:
         """Creates a new chat conversation.
 
@@ -164,6 +165,9 @@ class BaseClient(abc.ABC, Generic[T]):
             include: A list of output options to include in the response.
                 Check the `IncludeOption` enum for all possible values.
                 Defaults to None.
+            batch_request_id: An optional user-provided identifier for the batch request. **If provided, it must be
+              unique within the batch.**Used to identify the corresponding result when the response is returned to the
+              user.
 
         Returns:
             A new chat request bound to a client.
@@ -206,6 +210,7 @@ class BaseClient(abc.ABC, Generic[T]):
 
         return self._make_chat(
             conversation_id=conversation_id,
+            batch_request_id=batch_request_id,
             model=model,
             messages=messages,
             user=user,
@@ -232,7 +237,7 @@ class BaseClient(abc.ABC, Generic[T]):
         )
 
     @abc.abstractmethod
-    def _make_chat(self, conversation_id: Optional[str], **settings) -> T:
+    def _make_chat(self, conversation_id: Optional[str], batch_request_id: Optional[str], **settings) -> T:
         """Creates the proto wrapper for chat requests."""
 
 
@@ -245,6 +250,7 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         self,
         stub: chat_pb2_grpc.ChatStub,
         conversation_id: Optional[str],
+        batch_request_id: Optional[str],
         **settings,
     ) -> None:
         """Prepares a new chat request.
@@ -252,11 +258,14 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         Args:
             stub: gRPC stub used to connect to the server.
             conversation_id: The ID of the conversation.
+            batch_request_id: The ID of the batch request, should only be set when creating a chat completion
+                for a batch request.
             **settings: See `chat_pb2.GetCompletionsRequest`.
         """
         super().__init__(chat_pb2.GetCompletionsRequest(**settings))
         self._stub = stub
         self._conversation_id = conversation_id
+        self._batch_request_id = batch_request_id
 
     def append(self, message: Union[chat_pb2.Message, "Response"]) -> Self:
         """Adds a new message to the conversation history, enabling multi-turn interactions.
@@ -369,10 +378,11 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         """Creates a dictionary with all relevant request attributes to be set on the span as it is created."""
         attributes: dict[str, Any] = {
             "gen_ai.operation.name": "chat",
-            "gen_ai.system": "xai",
+            "gen_ai.provider.name": "xai",
             "gen_ai.output.type": "text",
             "gen_ai.request.model": self._proto.model,
             "server.port": 443,
+            "server.address": "api.x.ai",
         }
 
         if should_disable_sensitive_attributes():
@@ -476,6 +486,9 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
                     )
             elif message.role == chat_pb2.MessageRole.ROLE_SYSTEM:
                 prompt_attributes[f"gen_ai.prompt.{index}.role"] = "system"
+                prompt_attributes[f"gen_ai.prompt.{index}.content"] = "".join([c.text for c in message.content])
+            elif message.role == chat_pb2.MessageRole.ROLE_DEVELOPER:
+                prompt_attributes[f"gen_ai.prompt.{index}.role"] = "developer"
                 prompt_attributes[f"gen_ai.prompt.{index}.content"] = "".join([c.text for c in message.content])
             elif message.role == chat_pb2.MessageRole.ROLE_TOOL:
                 prompt_attributes[f"gen_ai.prompt.{index}.role"] = "tool"
@@ -589,12 +602,54 @@ def system(*args: Content) -> chat_pb2.Message:
     return chat_pb2.Message(role=chat_pb2.MessageRole.ROLE_SYSTEM, content=[_process_content(c) for c in args])
 
 
-def tool_result(result: str) -> chat_pb2.Message:
+def developer(*args: Content) -> chat_pb2.Message:
+    """Creates a new message of role "developer".
+
+    Note: This role is only supported by model versions higher than `grok-4.1`/`grok-4-1` (not included). Using the
+    `developer` role in `grok-4.1` or below will be converted to `system` message by the backend.
+    """
+    return chat_pb2.Message(role=chat_pb2.MessageRole.ROLE_DEVELOPER, content=[_process_content(c) for c in args])
+
+
+def tool_result(result: str, tool_call_id: Optional[str] = None) -> chat_pb2.Message:
     """Creates a new message of role "tool".
 
-    Use this to add the result of a tool call to conversation history via `append`.
+    Use this to provide the result of a client-side tool execution back to the model in the conversation history.
+    This enables multi-turn tool use and agentic workflows: the model calls a tool, you execute it, then append
+    the result.
+
+    Args:
+        result: The string output/result from your tool's execution. This will be sent to the model as content.
+        tool_call_id: Optional ID linking this result to a specific tool call (should match `tool_call.id` from
+            the assistant's tool_calls list). Essential for parallel_tool_calls or multiple tools to associate results
+            correctly.
+            If omitted (for single tool calls), the association may still work but is less explicit.
+
+    Examples:
+        Basic function calling loop:
+        ```python
+        from xai_sdk.chat import tool_result
+        import json
+
+        # ... after chat.sample() or in stream
+        if response.tool_calls:
+            for tool_call in response.tool_calls:
+                # Parse and execute
+                args = json.loads(tool_call.function.arguments)
+                tool_output = get_weather(args["city"])  # Your tool function
+                # Append with tool_call_id for proper linking
+                chat.append(tool_result(tool_output, tool_call_id=tool_call.id))
+            # Continue conversation
+            response = chat.sample()
+        ```
+
+        See `examples/sync/function_calling.py` and `examples/sync/server_side_tools.py` (for mixed client/server
+        tools) for complete patterns.
+
+    Returns:
+        A `chat_pb2.Message` object with ROLE_TOOL, ready to append to chat.
     """
-    return chat_pb2.Message(role=chat_pb2.MessageRole.ROLE_TOOL, content=[text(result)])
+    return chat_pb2.Message(role=chat_pb2.MessageRole.ROLE_TOOL, content=[text(result)], tool_call_id=tool_call_id)
 
 
 def tool(name: str, description: str, parameters: dict[str, Any]) -> chat_pb2.Tool:

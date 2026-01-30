@@ -78,22 +78,29 @@ class ZstdResponder:
                     return
 
                 # begin streaming
-                content_length: int = int(headers.get('Content-Length', -1))
+                try:
+                    content_length = int(headers.get('Content-Length', -1))
+                except ValueError:
+                    content_length = -1
                 del headers['Content-Length']
                 await send(start_message)
                 chunker = ZstdCompressor(level=self.level).chunker(content_length)
 
             # streaming
             for chunk in chunker.compress(body):  # type: ignore
-                await send(
-                    {'type': 'http.response.body', 'body': chunk, 'more_body': True}
-                )
+                await send({
+                    'type': 'http.response.body',
+                    'body': chunk,
+                    'more_body': True,
+                })
             if more_body:
                 return
             for chunk in chunker.finish():  # type: ignore
-                await send(
-                    {'type': 'http.response.body', 'body': chunk, 'more_body': True}
-                )
+                await send({
+                    'type': 'http.response.body',
+                    'body': chunk,
+                    'more_body': True,
+                })
 
             await send({'type': 'http.response.body'})
 

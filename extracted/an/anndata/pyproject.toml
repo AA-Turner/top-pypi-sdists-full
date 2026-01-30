@@ -40,7 +40,7 @@ dependencies = [
     "pandas >=2.1.0, !=2.1.2, <3",
     "numpy>=1.26",
     # https://github.com/scverse/anndata/issues/1434
-    "scipy >=1.12",
+    "scipy >=1.12,!=1.17.0",
     "h5py>=3.8",
     "natsort",
     "packaging>=24.2",
@@ -93,11 +93,10 @@ test-min = [
     "joblib",
     "boltons",
     "scanpy>=1.10",
-    # TODO: Is 1.0dev1 a real pre-release? https://pypi.org/project/httpx/#history
-    "httpx<1.0",         # For data downloading
     "dask[distributed]",
     "awkward>=2.3.2",
     "pyarrow",
+    "pooch",
     "anndata[dask]",
 ]
 test = [ "anndata[test-min,lazy]" ]
@@ -159,12 +158,11 @@ filterwarnings_when_strict = [
     "default::scipy.sparse.SparseEfficiencyWarning",
     "default::dask.array.core.PerformanceWarning",
     "default:anndata will no longer support zarr v2:DeprecationWarning",
-    "default:The codec `vlen-utf8:UserWarning",
-    "default:The dtype `StringDType():UserWarning",
     "default:Consolidated metadata is:UserWarning",
     "default:.*Structured:zarr.core.dtype.common.UnstableSpecificationWarning",
     "default:.*FixedLengthUTF32:zarr.core.dtype.common.UnstableSpecificationWarning",
     "default:Automatic shard shape inference is experimental",
+    "default:Writing zarr v2:UserWarning",
 ]
 python_files = [ "test_*.py" ]
 testpaths = [

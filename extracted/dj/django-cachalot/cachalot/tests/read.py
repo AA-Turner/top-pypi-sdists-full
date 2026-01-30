@@ -933,12 +933,16 @@ class ReadTestCase(TestUtilsMixin, FilteredTransactionTestCase):
                 costs=False,
             )
             operation_detail = (r'\(actual time=[\d\.]+..[\d\.]+\ '
-                                r'rows=\d+ loops=\d+\)')
+                                r'rows=[\d\.]+ loops=\d+\)')
             expected = (
                 r'^Sort %s\n'
                 r'  Sort Key: name\n'
                 r'  Sort Method: quicksort  Memory: \d+kB\n'
+                r'  Buffers: shared hit=\d+\n'
                 r'  ->  Seq Scan on cachalot_test %s\n'
+                r'        Buffers: shared hit=\d+\n'
+                r'Planning:\n'
+                r'  Buffers: shared hit=\d+\n'
                 r'Planning Time: [\d\.]+ ms\n'
                 r'Execution Time: [\d\.]+ ms$') % (operation_detail,
                                                    operation_detail)

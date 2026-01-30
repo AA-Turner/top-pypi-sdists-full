@@ -7,9 +7,12 @@ from typing import Callable, Optional, Tuple
 from urllib.parse import urlparse, ParseResult
 
 import grpc
+from grpc import AuthMetadataPlugin, Channel
 
 from qwak.exceptions import QwakException, QwakGrpcAddressException
-from .grpc_auth import Auth0Client
+from qwak.inner.di_configuration.account import UserAccountConfiguration
+from qwak.inner.tool.auth import Auth0ClientBase
+from .grpc_auth import Auth0Client, FrogMLGrpcClient
 
 logger = logging.getLogger()
 HOSTNAME_REGEX: str = r"^(?!-)(?:[A-Za-z0-9-]{1,63}\.)*[A-Za-z0-9-]{1,63}(?<!-)$"
@@ -19,7 +22,7 @@ def create_grpc_channel(
     url: str,
     enable_ssl: bool = True,
     enable_auth: bool = True,
-    auth_metadata_plugin: grpc.AuthMetadataPlugin = None,
+    auth_metadata_plugin: Optional[grpc.AuthMetadataPlugin] = None,
     timeout: int = 100,
     options=None,
     backoff_options=None,
@@ -49,18 +52,9 @@ def create_grpc_channel(
     if not url:
         raise QwakException("Unable to create gRPC channel. URL has not been defined.")
 
-    if enable_ssl or url.endswith(":443"):
-        credentials = grpc.ssl_channel_credentials()
-        if enable_auth:
-            if auth_metadata_plugin is None:
-                auth_metadata_plugin = Auth0Client()
-            credentials = grpc.composite_channel_credentials(
-                credentials, grpc.metadata_call_credentials(auth_metadata_plugin)
-            )
-
-        channel = grpc.secure_channel(url, credentials=credentials, options=options)
-    else:
-        channel = grpc.insecure_channel(url, options=options)
+    auth_metadata_plugin, channel = __get_channel_definition(
+        auth_metadata_plugin, enable_auth, enable_ssl, options, url
+    )
     try:
         interceptors = (
             RetryOnRpcErrorClientInterceptor(
@@ -98,6 +92,35 @@ def create_grpc_channel(
         raise QwakException(
             f"Connection timed out while attempting to connect to {url}, with: {repr(e)}"
         ) from e
+
+
+def __get_channel_definition(
+    auth_metadata_plugin: Optional[AuthMetadataPlugin],
+    enable_auth: bool,
+    enable_ssl: bool,
+    options,
+    url: str,
+) -> tuple[Optional[AuthMetadataPlugin], Channel]:
+    if enable_ssl or url.endswith(":443"):
+        credentials = grpc.ssl_channel_credentials()
+        if enable_auth:
+            if auth_metadata_plugin is None:
+                user_config = UserAccountConfiguration()
+
+                if issubclass(user_config._auth_client, Auth0ClientBase):
+                    auth_metadata_plugin = Auth0Client()
+                else:
+                    auth_metadata_plugin = FrogMLGrpcClient()
+
+            credentials = grpc.composite_channel_credentials(
+                credentials, grpc.metadata_call_credentials(auth_metadata_plugin)
+            )
+
+        channel = grpc.secure_channel(url, credentials=credentials, options=options)
+    else:
+        channel = grpc.insecure_channel(url, options=options)
+
+    return auth_metadata_plugin, channel
 
 
 def create_grpc_channel_or_none(

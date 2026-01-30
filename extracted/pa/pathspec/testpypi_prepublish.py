@@ -4,12 +4,15 @@ with TestPyPI.
 """
 
 import argparse
+import copy
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import (
 	Path)
+
+from packaging.version import (
+	Version)
 
 PYPROJECT_TOML = Path("pyproject.toml")
 VERSION_PY = Path("pathspec/_version.py")
@@ -25,16 +28,19 @@ def update_pyproject_toml() -> None:
 	], text=True).strip()
 
 	print("Get commit count.")
-	count = subprocess.check_output([
+	count = int(subprocess.check_output([
 		'git', 'rev-list', f'{tag}..HEAD', '--count',
-	], text=True).strip()
+	], text=True).strip())
 
 	print(f"Read: {VERSION_PY}")
 	version_input = VERSION_PY.read_text()
-	version = re.search(
+	version = Version(re.search(
 		'^__version__\\s*=\\s*["\'](.+)["\']', version_input, re.M,
-	).group(1)
-	version += f".dev{count}"
+	).group(1))
+	if not version.is_postrelease:
+		version = copy.replace(version, post=1)
+
+	version = copy.replace(version, dev=count)
 
 	print(f"Read: {PYPROJECT_TOML}")
 	output = PYPROJECT_TOML.read_text()

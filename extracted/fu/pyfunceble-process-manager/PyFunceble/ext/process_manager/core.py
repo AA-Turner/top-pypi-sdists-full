@@ -37,7 +37,7 @@ License:
 ::
 
 
-    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025 Nissar Chababy
+    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -691,7 +691,8 @@ class ProcessManagerCore:
             The dependent manager to remove.
         """
 
-        self.dependent_managers.remove(manager)
+        if manager in self.dependent_managers:
+            self.dependent_managers.remove(manager)
 
         return self
 
@@ -737,9 +738,9 @@ class ProcessManagerCore:
                     data, source_worker=source_worker, destination_worker=worker.name
                 )
         elif workers:
-            random.choice(workers).push_to_input_queue(
-                data, source_worker=source_worker
-            )
+            random.choice(  # nosec: B311 # We aren't doing encryption here.
+                workers
+            ).push_to_input_queue(data, source_worker=source_worker)
 
         logger.debug("%s-manager | Pushed to input queue: %r", self.STD_NAME, data)
 
@@ -790,9 +791,9 @@ class ProcessManagerCore:
                         destination_worker=worker.name,
                     )
             elif workers:
-                random.choice(workers).push_to_output_queues(
-                    data, source_worker=source_worker
-                )
+                random.choice(  # nosec: B311 # We aren't doing encryption here.
+                    workers
+                ).push_to_output_queues(data, source_worker=source_worker)
         else:
             for manager in self.dependent_managers:
                 # Their input queue is our output queue.
@@ -839,9 +840,9 @@ class ProcessManagerCore:
                     data, source_worker=source_worker, destination_worker=worker.name
                 )
         elif workers:
-            random.choice(workers).push_to_configuration_queue(
-                data, source_worker=source_worker
-            )
+            random.choice(  # nosec: B311 # We aren't doing encryption here.
+                workers
+            ).push_to_configuration_queue(data, source_worker=source_worker)
 
         logger.debug(
             "%s-manager | Pushed to configuration queue: %r", self.STD_NAME, data
@@ -1001,8 +1002,11 @@ class ProcessManagerCore:
                     "__immediate_shutdown__", destination_worker=worker_to_kill.name
                 )
 
-                self.running_workers.remove(worker_to_kill)
-                self.created_workers.remove(worker_to_kill)
+                if worker_to_kill in self.running_workers:
+                    self.running_workers.remove(worker_to_kill)
+
+                if worker_to_kill in self.created_workers:
+                    self.created_workers.remove(worker_to_kill)
 
                 return self
             return self

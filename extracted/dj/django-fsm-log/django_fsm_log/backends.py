@@ -4,7 +4,6 @@ from .helpers import FSMLogDescriptor
 
 
 def _pre_transition_callback(sender, instance, name, source, target, manager, **kwargs):
-
     if BaseBackend._get_model_qualified_name__(sender) in settings.DJANGO_FSM_LOG_IGNORED_MODELS:
         return
 
@@ -84,13 +83,8 @@ class SimpleBackend(BaseBackend):
 
 
 if settings.DJANGO_FSM_LOG_STORAGE_METHOD == "django_fsm_log.backends.CachedBackend":
-    try:
-        from django.core.cache import caches
-    except ImportError:
-        from django.core.cache import get_cache  # Deprecated, removed in 1.9.
+    from django.core.cache import caches
 
-        cache = get_cache(settings.DJANGO_FSM_LOG_CACHE_BACKEND)
-    else:
-        cache = caches[settings.DJANGO_FSM_LOG_CACHE_BACKEND]
+    cache = caches[settings.DJANGO_FSM_LOG_CACHE_BACKEND]
 else:
     cache = None

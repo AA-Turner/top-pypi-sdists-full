@@ -9,12 +9,11 @@ import signal
 import socket
 import sys
 import time
-from contextlib import contextmanager, suppress
+from contextlib import AsyncExitStack, contextmanager
 from datetime import datetime, timedelta, timezone
 from types import TracebackType
 from typing import (
     Any,
-    Coroutine,
     Generator,
     Mapping,
     Protocol,
@@ -25,12 +24,16 @@ from typing import (
 
 import cloudpickle
 
-if sys.version_info < (3, 11):  # pragma: no cover
-    from exceptiongroup import ExceptionGroup
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup  # pragma: no cover
+    from taskgroup import TaskGroup  # pragma: no cover
+else:
+    from asyncio import TaskGroup  # pragma: no cover
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, Tracer
 
+from ._cancellation import CANCEL_MSG_CLEANUP, cancel_task
 from ._telemetry import suppress_instrumentation
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError, LockError, ResponseError
@@ -38,14 +41,17 @@ from typing_extensions import Self
 
 from .dependencies import (
     AdmissionBlocked,
+    CompletionHandler,
     CurrentExecution,
     Dependency,
     FailedDependency,
+    FailureHandler,
     Perpetual,
-    Retry,
+    Runtime,
     SharedContext,
     TaskLogger,
-    Timeout,
+    TaskOutcome,
+    format_duration,
     get_single_dependency_of_type,
     get_single_dependency_parameter_of_type,
     resolved_dependencies,
@@ -66,9 +72,7 @@ from .instrumentation import (
     TASK_PUNCTUALITY,
     TASKS_COMPLETED,
     TASKS_FAILED,
-    TASKS_PERPETUATED,
     TASKS_REDELIVERED,
-    TASKS_RETRIED,
     TASKS_RUNNING,
     TASKS_STARTED,
     TASKS_STRICKEN,
@@ -193,22 +197,35 @@ class Worker:
             yield
 
     async def __aenter__(self) -> Self:
-        self._heartbeat_task = asyncio.create_task(
-            self._heartbeat(), name="docket.worker.heartbeat"
-        )
-        self._execution_counts: dict[str, int] = {}
-        # Track running tasks for cancellation lookup
-        self._tasks_by_key: dict[TaskKey, asyncio.Task[None]] = {}
-        # Events for coordinating worker loop shutdown
-        self._worker_stopping = asyncio.Event()
-        self._worker_done = asyncio.Event()
-        self._worker_done.set()  # Initially done (not running)
-        # Signaled when cancellation listener is subscribed and ready
-        self._cancellation_ready = asyncio.Event()
+        self._stack = AsyncExitStack()
+        await self._stack.__aenter__()
 
-        # Set up Shared dependency infrastructure
+        # Events for coordinating worker loop shutdown (cleaned up last)
+        self._worker_stopping = asyncio.Event()
+        self._stack.callback(lambda: delattr(self, "_worker_stopping"))
+        self._worker_done = asyncio.Event()
+        self._stack.callback(lambda: delattr(self, "_worker_done"))
+        self._worker_done.set()  # Initially done (not running)
+        self._cancellation_ready = asyncio.Event()
+        self._stack.callback(lambda: delattr(self, "_cancellation_ready"))
+
+        self._execution_counts: dict[str, int] = {}
+        self._stack.callback(lambda: delattr(self, "_execution_counts"))
+        self._tasks_by_key: dict[TaskKey, asyncio.Task[None]] = {}
+        self._stack.callback(lambda: delattr(self, "_tasks_by_key"))
+
+        self._heartbeat_task = asyncio.create_task(
+            self._heartbeat(), name=f"{self.docket.name} - heartbeat"
+        )
+        self._stack.callback(lambda: delattr(self, "_heartbeat_task"))
+        self._stack.push_async_callback(
+            cancel_task, self._heartbeat_task, CANCEL_MSG_CLEANUP
+        )
+
+        # Shared context is set up last, so it's cleaned up first (LIFO)
         self._shared_context = SharedContext(self.docket, self)
-        await self._shared_context.__aenter__()
+        self._stack.callback(lambda: delattr(self, "_shared_context"))
+        await self._stack.enter_async_context(self._shared_context)
 
         return self
 
@@ -222,20 +239,11 @@ class Worker:
         self._worker_stopping.set()
         await self._worker_done.wait()
 
-        self._heartbeat_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await self._heartbeat_task
-        del self._heartbeat_task
-
-        del self._execution_counts
-        del self._tasks_by_key
-        del self._worker_stopping
-        del self._worker_done
-        del self._cancellation_ready
-
-        # Clean up Shared dependencies (closes context managers in reverse order)
-        await self._shared_context.__aexit__(exc_type, exc_value, traceback)
-        del self._shared_context
+        # Stack handles LIFO cleanup: shared_context first, then heartbeat
+        try:
+            await self._stack.__aexit__(exc_type, exc_value, traceback)
+        finally:
+            del self._stack
 
     def labels(self) -> Mapping[str, str]:
         return {
@@ -334,11 +342,13 @@ class Worker:
                     try:
                         if until_finished:
                             run_task = asyncio.create_task(
-                                worker.run_until_finished(), name="docket.worker.run"
+                                worker.run_until_finished(),
+                                name=f"{docket_name} - worker",
                             )
                         else:
                             run_task = asyncio.create_task(
-                                worker.run_forever(), name="docket.worker.run"
+                                worker.run_forever(),
+                                name=f"{docket_name} - worker",
                             )  # pragma: no cover
                         await run_task
                     except asyncio.CancelledError:  # pragma: no cover
@@ -410,11 +420,6 @@ class Worker:
         self._worker_done.clear()
         self._cancellation_ready.clear()  # Reset for reconnection scenarios
 
-        # Initialize task variables before try block so finally can check them.
-        # This ensures _worker_done.set() is always called if _worker_done.clear() was.
-        cancellation_listener_task: asyncio.Task[None] | None = None
-        scheduler_task: asyncio.Task[None] | None = None
-        lease_renewal_task: asyncio.Task[None] | None = None
         active_tasks: dict[asyncio.Task[None], RedisMessageID] = {}
         task_executions: dict[asyncio.Task[None], Execution] = {}
         available_slots = self.concurrency
@@ -489,7 +494,10 @@ class Worker:
                 fallback_task=self.fallback_task,
             )
 
-            task = asyncio.create_task(self._execute(execution), name=execution.key)
+            task = asyncio.create_task(
+                self._execute(execution),
+                name=f"{self.docket.name} - task:{execution.key}",
+            )
             active_tasks[task] = message_id
             task_executions[task] = execution
             self._tasks_by_key[execution.key] = task
@@ -501,8 +509,8 @@ class Worker:
             completed_tasks = {task for task in active_tasks if task.done()}
             for task in completed_tasks:
                 message_id = active_tasks.pop(task)
-                task_executions.pop(task)
-                self._tasks_by_key.pop(task.get_name(), None)
+                execution = task_executions.pop(task)
+                self._tasks_by_key.pop(execution.key, None)
                 try:
                     await task
                     await ack_message(redis, message_id)
@@ -532,49 +540,54 @@ class Worker:
                 await pipeline.execute()
 
         try:
-            # Start cancellation listener and wait for it to be ready
-            cancellation_listener_task = asyncio.create_task(
-                self._cancellation_listener(),
-                name="docket.worker.cancellation_listener",
-            )
-            await self._cancellation_ready.wait()
+            async with TaskGroup() as infra:
+                # Start cancellation listener and wait for it to be ready
+                infra.create_task(
+                    self._cancellation_listener(),
+                    name=f"{self.docket.name} - cancellation listener",
+                )
+                await self._cancellation_ready.wait()
 
-            if self.schedule_automatic_tasks:
-                await self._schedule_all_automatic_perpetual_tasks()
+                if self.schedule_automatic_tasks:
+                    await self._schedule_all_automatic_perpetual_tasks()
 
-            scheduler_task = asyncio.create_task(
-                self._scheduler_loop(redis), name="docket.worker.scheduler"
-            )
-            lease_renewal_task = asyncio.create_task(
-                self._renew_leases(redis, active_tasks),
-                name="docket.worker.lease_renewal",
-            )
+                infra.create_task(
+                    self._scheduler_loop(redis),
+                    name=f"{self.docket.name} - scheduler",
+                )
+                infra.create_task(
+                    self._renew_leases(redis, active_tasks),
+                    name=f"{self.docket.name} - lease renewal",
+                )
 
-            has_work: bool = True
-            stopping = self._worker_stopping.is_set
-            while (forever or has_work or active_tasks) and not stopping():
-                await process_completed_tasks()
+                has_work: bool = True
+                stopping = self._worker_stopping.is_set
+                while (forever or has_work or active_tasks) and not stopping():
+                    await process_completed_tasks()
 
-                available_slots = self.concurrency - len(active_tasks)
-
-                if available_slots <= 0:
-                    await asyncio.sleep(self.minimum_check_interval.total_seconds())
-                    continue
-
-                for source in [get_redeliveries, get_new_deliveries]:
-                    for stream_key, messages in await source(redis):
-                        is_redelivery = stream_key == b"__redelivery__"
-                        for message_id, message in messages:
-                            if not message:  # pragma: no cover
-                                continue
-
-                            await start_task(message_id, message, is_redelivery)
+                    available_slots = self.concurrency - len(active_tasks)
 
                     if available_slots <= 0:
-                        break
+                        await asyncio.sleep(self.minimum_check_interval.total_seconds())
+                        continue
 
-                if not forever and not active_tasks:
-                    has_work = await check_for_work()
+                    for source in [get_redeliveries, get_new_deliveries]:
+                        for stream_key, messages in await source(redis):
+                            is_redelivery = stream_key == b"__redelivery__"
+                            for message_id, message in messages:
+                                if not message:  # pragma: no cover
+                                    continue
+
+                                await start_task(message_id, message, is_redelivery)
+
+                        if available_slots <= 0:
+                            break
+
+                    if not forever and not active_tasks:
+                        has_work = await check_for_work()
+
+                # Signal internal tasks to stop before exiting TaskGroup
+                self._worker_stopping.set()
 
         except asyncio.CancelledError:
             if active_tasks:  # pragma: no cover
@@ -588,21 +601,6 @@ class Worker:
             if active_tasks:
                 await asyncio.gather(*active_tasks, return_exceptions=True)
                 await process_completed_tasks()
-
-            # Signal internal tasks to stop
-            self._worker_stopping.set()
-
-            # These check _worker_stopping and exit cleanly
-            if scheduler_task is not None:
-                await scheduler_task
-            if lease_renewal_task is not None:
-                await lease_renewal_task
-
-            # Cancellation listener has while True loop, needs explicit cancellation
-            if cancellation_listener_task is not None:  # pragma: no branch
-                cancellation_listener_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await cancellation_listener_task
 
             self._worker_done.set()
 
@@ -669,7 +667,7 @@ class Worker:
 
         log_context = self._log_context()
 
-        while not self._worker_stopping.is_set():
+        while not self._worker_stopping.is_set():  # pragma: no branch
             try:
                 logger.debug("Scheduling due tasks", extra=log_context)
                 with self._maybe_suppress_instrumentation():
@@ -697,16 +695,15 @@ class Worker:
                     extra=log_context,
                 )
 
-            # Wait for worker to stop or scheduling interval to pass
+            # Use interruptible wait so we respond to stopping quickly
             try:
                 await asyncio.wait_for(
                     self._worker_stopping.wait(),
                     timeout=self.scheduling_resolution.total_seconds(),
                 )
+                return  # Event was set, exit the loop
             except asyncio.TimeoutError:
-                pass  # Time to check for due tasks again
-
-        logger.debug("Scheduler loop finished", extra=log_context)
+                pass  # Normal timeout, continue scheduling
 
     async def _renew_leases(
         self,
@@ -722,14 +719,16 @@ class Worker:
         renewal_interval = self.redelivery_timeout.total_seconds() / 4
 
         while not self._worker_stopping.is_set():  # pragma: no branch
+            # Use interruptible wait so we respond to stopping quickly
             try:
                 await asyncio.wait_for(
-                    self._worker_stopping.wait(),
-                    timeout=renewal_interval,
+                    self._worker_stopping.wait(), timeout=renewal_interval
                 )
-                break  # Worker is stopping
+                # Event was set, exit the loop
+                return
             except asyncio.TimeoutError:
-                pass  # Time to renew leases
+                # Normal timeout, continue with lease renewal
+                pass
 
             message_ids = list(active_messages.values())
             if not message_ids:
@@ -797,6 +796,7 @@ class Worker:
             async with self.docket.redis() as redis:
                 await self._delete_known_task(redis, execution)
 
+            await execution.mark_as_cancelled()
             logger.warning("🗙 %s", call, extra=log_context)
             TASKS_STRICKEN.add(1, counter_labels | {"docket.where": "worker"})
             return
@@ -816,7 +816,9 @@ class Worker:
         TASK_PUNCTUALITY.record(punctuality, counter_labels)
 
         arrow = "↬" if execution.attempt > 1 else "↪"
-        logger.info("%s [%s] %s", arrow, ms(punctuality), call, extra=log_context)
+        logger.info(
+            "%s [%s] %s", arrow, format_duration(punctuality), call, extra=log_context
+        )
 
         # Atomically claim task and transition to running state
         # This also initializes progress and cleans up known/stream_id to allow rescheduling
@@ -860,21 +862,21 @@ class Worker:
                             ],
                         )
 
-                    # Run task with user-specified timeout, or no timeout
-                    # Lease renewal keeps messages alive so we don't need implicit timeouts
-                    user_timeout = get_single_dependency_of_type(dependencies, Timeout)
-                    if user_timeout:
-                        user_timeout.start()
-                        result = await self._run_function_with_timeout(
-                            execution, dependencies, user_timeout
+                    # Merge resolved dependencies into execution kwargs
+                    final_kwargs = {**execution.kwargs, **dependencies}
+
+                    # Check for a Runtime dependency (e.g., Timeout) that controls execution
+                    runtime = get_single_dependency_of_type(dependencies, Runtime)
+                    if runtime:
+                        result = await runtime.run(
+                            execution,
+                            execution.function,
+                            execution.args,
+                            final_kwargs,
                         )
                     else:
                         result = await execution.function(
-                            *execution.args,
-                            **{
-                                **execution.kwargs,
-                                **dependencies,
-                            },
+                            *execution.args, **final_kwargs
                         )
 
                     duration = log_context["duration"] = time.time() - start
@@ -882,16 +884,21 @@ class Worker:
 
                     span.set_status(Status(StatusCode.OK))
 
-                    rescheduled = await self._perpetuate_if_requested(
-                        execution, dependencies, timedelta(seconds=duration)
+                    # Check for completion handler (e.g., Perpetual)
+                    completion_handler = get_single_dependency_of_type(
+                        dependencies, CompletionHandler
                     )
-
-                    if rescheduled:
-                        # Task was rescheduled - still mark this execution as completed
-                        # to set TTL on the runs hash (the new execution has its own entry)
+                    outcome = TaskOutcome(
+                        duration=timedelta(seconds=duration),
+                        result=result,
+                    )
+                    if completion_handler and await completion_handler.on_complete(
+                        execution, outcome
+                    ):
+                        # Handler took responsibility (rescheduled, logged, recorded metrics)
                         await execution.mark_as_completed(result_key=None)
                     else:
-                        # Store result if appropriate
+                        # No handler or handler didn't handle - normal completion
                         result_key = None
                         if result is not None and self.docket.execution_ttl:
                             # Serialize and store result
@@ -905,13 +912,13 @@ class Worker:
                             await self.docket.result_storage.put(
                                 result_key, {"data": encoded_result}, ttl=ttl_seconds
                             )
-                        # Mark execution as completed
                         await execution.mark_as_completed(result_key=result_key)
-
-                    arrow = "↫" if rescheduled else "↩"
-                    logger.info(
-                        "%s [%s] %s", arrow, ms(duration), call, extra=log_context
-                    )
+                        logger.info(
+                            "↩ [%s] %s",
+                            format_duration(duration),
+                            call,
+                            extra=log_context,
+                        )
             except AdmissionBlocked:
                 # Re-raise to be handled by process_completed_tasks
                 raise
@@ -921,7 +928,10 @@ class Worker:
                 span.set_status(Status(StatusCode.OK))
                 await execution.mark_as_cancelled()
                 logger.info(
-                    "✗ [%s] %s (cancelled)", ms(duration), call, extra=log_context
+                    "✗ [%s] %s (cancelled)",
+                    format_duration(duration),
+                    call,
+                    extra=log_context,
                 )
             except Exception as e:
                 duration = log_context["duration"] = time.time() - start
@@ -930,126 +940,61 @@ class Worker:
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
 
-                retried = await self._retry_if_requested(execution, dependencies)
-                if not retried:
-                    retried = await self._perpetuate_if_requested(
-                        execution, dependencies, timedelta(seconds=duration)
-                    )
-
-                # Store exception in result_storage
-                result_key = None
-                if self.docket.execution_ttl:
-                    pickled_exception = cloudpickle.dumps(e)  # type: ignore[arg-type]
-                    # Base64-encode for JSON serialization
-                    encoded_exception = base64.b64encode(pickled_exception).decode(
-                        "ascii"
-                    )
-                    result_key = execution.key
-                    ttl_seconds = int(self.docket.execution_ttl.total_seconds())
-                    await self.docket.result_storage.put(
-                        result_key, {"data": encoded_exception}, ttl=ttl_seconds
-                    )
-
-                # Mark execution as failed with error message
-                error_msg = f"{type(e).__name__}: {str(e)}"
-                await execution.mark_as_failed(error_msg, result_key=result_key)
-
-                arrow = "↫" if retried else "↩"
-                logger.exception(
-                    "%s [%s] %s", arrow, ms(duration), call, extra=log_context
+                outcome = TaskOutcome(
+                    duration=timedelta(seconds=duration),
+                    exception=e,
                 )
+
+                # Check for failure handler (e.g., Retry)
+                failure_handler = get_single_dependency_of_type(
+                    dependencies, FailureHandler
+                )
+                if failure_handler and await failure_handler.handle_failure(
+                    execution, outcome
+                ):
+                    # Handler took responsibility (scheduled retry, logged, recorded metrics)
+                    # Don't mark as failed - task is being retried
+                    pass
+                else:
+                    # Not retried - check for completion handler (e.g., Perpetual)
+                    completion_handler = get_single_dependency_of_type(
+                        dependencies, CompletionHandler
+                    )
+                    if completion_handler and await completion_handler.on_complete(
+                        execution, outcome
+                    ):
+                        # Handler took responsibility (rescheduled, logged, recorded metrics)
+                        pass
+                    else:
+                        # No handler took responsibility - log normally
+                        logger.exception(
+                            "↩ [%s] %s",
+                            format_duration(duration),
+                            call,
+                            extra=log_context,
+                        )
+
+                    # Store exception in result_storage (only when not retrying)
+                    result_key = None
+                    if self.docket.execution_ttl:
+                        pickled_exception = cloudpickle.dumps(e)  # type: ignore[arg-type]
+                        # Base64-encode for JSON serialization
+                        encoded_exception = base64.b64encode(pickled_exception).decode(
+                            "ascii"
+                        )
+                        result_key = execution.key
+                        ttl_seconds = int(self.docket.execution_ttl.total_seconds())
+                        await self.docket.result_storage.put(
+                            result_key, {"data": encoded_exception}, ttl=ttl_seconds
+                        )
+
+                    # Mark execution as failed with error message
+                    error_msg = f"{type(e).__name__}: {str(e)}"
+                    await execution.mark_as_failed(error_msg, result_key=result_key)
             finally:
                 TASKS_RUNNING.add(-1, counter_labels)
                 TASKS_COMPLETED.add(1, counter_labels)
                 TASK_DURATION.record(duration, counter_labels)
-
-    async def _run_function_with_timeout(
-        self,
-        execution: Execution,
-        dependencies: dict[str, Dependency],
-        timeout: Timeout,
-    ) -> Any:
-        task_coro = cast(
-            Coroutine[None, None, Any],
-            execution.function(
-                *execution.args,
-                **{
-                    **execution.kwargs,
-                    **dependencies,
-                },
-            ),
-        )
-        task = asyncio.create_task(
-            task_coro, name=f"docket.worker.task:{execution.key}"
-        )
-        try:
-            while not task.done():  # pragma: no branch
-                remaining = timeout.remaining().total_seconds()
-                if timeout.expired():
-                    task.cancel()
-                    break
-
-                try:
-                    result = await asyncio.wait_for(
-                        asyncio.shield(task), timeout=remaining
-                    )
-                    return result
-                except asyncio.TimeoutError:
-                    continue
-        finally:
-            if not task.done():  # pragma: no branch
-                task.cancel()
-
-        try:
-            return await task
-        except asyncio.CancelledError:
-            raise asyncio.TimeoutError
-
-    async def _retry_if_requested(
-        self,
-        execution: Execution,
-        dependencies: dict[str, Dependency],
-    ) -> bool:
-        retry = get_single_dependency_of_type(dependencies, Retry)
-        if not retry:
-            return False
-
-        if retry.attempts is not None and execution.attempt >= retry.attempts:
-            return False
-
-        execution.when = datetime.now(timezone.utc) + retry.delay
-        execution.attempt += 1
-        # Use replace=True since the task is being rescheduled after failure
-        await execution.schedule(replace=True)
-
-        TASKS_RETRIED.add(1, {**self.labels(), **execution.general_labels()})
-        return True
-
-    async def _perpetuate_if_requested(
-        self,
-        execution: Execution,
-        dependencies: dict[str, Dependency],
-        duration: timedelta,
-    ) -> bool:
-        perpetual = get_single_dependency_of_type(dependencies, Perpetual)
-        if not perpetual:
-            return False
-
-        if perpetual.cancelled:
-            await self.docket.cancel(execution.key)
-            return False
-
-        now = datetime.now(timezone.utc)
-        when = max(now, now + perpetual.every - duration)
-
-        await self.docket.replace(execution.function, when, execution.key)(
-            *perpetual.args,
-            **perpetual.kwargs,
-        )
-
-        TASKS_PERPETUATED.add(1, {**self.labels(), **execution.general_labels()})
-
-        return True
 
     def _startup_log(self) -> None:
         logger.info("Starting worker %r with the following tasks:", self.name)
@@ -1135,17 +1080,21 @@ class Worker:
         cancel_pattern = self.docket.key("cancel:*")
         log_context = self._log_context()
 
-        while True:
+        while not self._worker_stopping.is_set():
             try:
                 async with self.docket._pubsub() as pubsub:
                     await pubsub.psubscribe(cancel_pattern)
                     self._cancellation_ready.set()
-                    async for message in pubsub.listen():
-                        if message["type"] == "pmessage":
+                    # Poll for messages, checking _worker_stopping periodically
+                    while not self._worker_stopping.is_set():
+                        message = await pubsub.get_message(
+                            ignore_subscribe_messages=True, timeout=0.1
+                        )
+                        if message is not None and message["type"] == "pmessage":
                             await self._handle_cancellation(message)
-            except asyncio.CancelledError:
-                return
             except ConnectionError:
+                if self._worker_stopping.is_set():
+                    return  # pragma: no cover
                 REDIS_DISRUPTIONS.add(1, self.labels())
                 logger.warning(
                     "Redis connection error in cancellation listener, reconnecting...",
@@ -1153,6 +1102,8 @@ class Worker:
                 )
                 await asyncio.sleep(1)
             except Exception:
+                if self._worker_stopping.is_set():
+                    return  # pragma: no cover
                 logger.exception(
                     "Error in cancellation listener",
                     exc_info=True,
@@ -1165,17 +1116,10 @@ class Worker:
         data = message["data"]
         key: TaskKey = data.decode() if isinstance(data, bytes) else data
 
-        if task := self._tasks_by_key.get(key):
+        if task := self._tasks_by_key.get(key):  # pragma: no branch
             logger.info(
                 "Cancelling running task %r",
                 key,
                 extra=self._log_context(),
             )
             task.cancel()
-
-
-def ms(seconds: float) -> str:
-    if seconds < 100:
-        return f"{seconds * 1000:6.0f}ms"
-    else:
-        return f"{seconds:6.0f}s "

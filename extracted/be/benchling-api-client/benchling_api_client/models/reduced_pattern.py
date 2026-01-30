@@ -10,7 +10,9 @@ T = TypeVar("T", bound="ReducedPattern")
 
 @attr.s(auto_attribs=True, repr=False)
 class ReducedPattern:
-    """Patterns must consist of ATGC bases only, and are case-insensitive ("gat" will reduce usage of "GAT"). If avoidReverseComplement is true, then the pattern's reverse complement will also be avoided."""
+    """DNA patterns to avoid during optimization. Supports two formats: 1) DNA base patterns: strings of ATGC bases (case-insensitive, e.g., "ATGC" or "gat") 2) Repeat patterns: format "nxkmer" specifying n repeats of k-sized sequences (e.g., "3x4mer" matches 3 consecutive 4-base repeats). Maximum total length for repeat patterns is 50 bases (n * k ≤ 50).
+    If avoidReverseComplement is true, the pattern's reverse complement will also be avoided. Note: avoidReverseComplement cannot be true for repeat patterns (nxkmer format).
+    """
 
     _avoid_reverse_complement: Union[Unset, bool] = False
     _pattern: Union[Unset, str] = UNSET

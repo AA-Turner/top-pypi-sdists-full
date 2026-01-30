@@ -21,8 +21,8 @@ Project documentation:
 License:
     MIT License
 
-    Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Nissar Chababy
-    Copyright (c) 2019, 2020, 2021, 2022, 2023, 2024, 2025 PyFunceble Contributors
+    Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
+    Copyright (c) 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 PyFunceble Contributors
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -63,7 +63,7 @@ class TestFile(TestCase):
         expected = "Hello, World! I'm PyFunceble"
         File("hi").write(expected)
 
-        with open("hi") as file:
+        with open("hi", encoding="utf-8") as file:
             actual = file.read()
 
         self.assertEqual(expected, actual)
@@ -82,7 +82,7 @@ class TestFile(TestCase):
         expected = "Hello, World! I'm PyFunceble"
         File("hi").write(expected)
 
-        with open("hi") as file:
+        with open("hi", encoding="utf-8") as file:
             actual = file.read()
 
         self.assertEqual(expected, actual)
@@ -90,7 +90,7 @@ class TestFile(TestCase):
         expected = "Hello, World! Python is great, you should consider learning it!"
         File("hi").write(expected)
 
-        with open("hi") as file:
+        with open("hi", encoding="utf-8") as file:
             actual = file.read()
 
         self.assertEqual(expected, actual)

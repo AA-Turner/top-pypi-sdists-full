@@ -11,6 +11,7 @@ from .imagecontentpartschema import (
     ImageContentPartSchemaTypedDict,
 )
 from .publiccontact import PublicContact, PublicContactTypedDict
+from .publicidentity import PublicIdentity, PublicIdentityTypedDict
 from .reasoningpartschema import ReasoningPartSchema, ReasoningPartSchemaTypedDict
 from .redactedreasoningpartschema import (
     RedactedReasoningPartSchema,
@@ -1384,67 +1385,6 @@ class Prompt(BaseModel):
     r"""Version of the prompt to use (currently only \"latest\" supported)"""
 
 
-@deprecated(
-    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-)
-class CreateChatCompletionContactTypedDict(TypedDict):
-    r"""@deprecated Use identity instead. Information about the contact making the request."""
-
-    id: str
-    r"""Unique identifier for the contact"""
-    display_name: NotRequired[str]
-    r"""Display name of the contact"""
-    email: NotRequired[str]
-    r"""Email address of the contact"""
-    metadata: NotRequired[List[Dict[str, Any]]]
-    r"""A hash of key/value pairs containing any other data about the contact"""
-    logo_url: NotRequired[str]
-    r"""URL to the contact's avatar or logo"""
-    tags: NotRequired[List[str]]
-    r"""A list of tags associated with the contact"""
-
-
-@deprecated(
-    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-)
-class CreateChatCompletionContact(BaseModel):
-    r"""@deprecated Use identity instead. Information about the contact making the request."""
-
-    id: str
-    r"""Unique identifier for the contact"""
-
-    display_name: Optional[str] = None
-    r"""Display name of the contact"""
-
-    email: Optional[str] = None
-    r"""Email address of the contact"""
-
-    metadata: Optional[List[Dict[str, Any]]] = None
-    r"""A hash of key/value pairs containing any other data about the contact"""
-
-    logo_url: Optional[str] = None
-    r"""URL to the contact's avatar or logo"""
-
-    tags: Optional[List[str]] = None
-    r"""A list of tags associated with the contact"""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["display_name", "email", "metadata", "logo_url", "tags"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k)
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
 class CreateChatCompletionThreadTypedDict(TypedDict):
     r"""Thread information to group related requests"""
 
@@ -2422,9 +2362,10 @@ class CreateChatCompletionOrqTypedDict(TypedDict):
     r"""Array of fallback models to use if primary model fails"""
     prompt: NotRequired[PromptTypedDict]
     r"""Prompt configuration for the request"""
-    identity: NotRequired[PublicContactTypedDict]
+    identity: NotRequired[PublicIdentityTypedDict]
     r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
-    contact: NotRequired[CreateChatCompletionContactTypedDict]
+    contact: NotRequired[PublicContactTypedDict]
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
     thread: NotRequired[CreateChatCompletionThreadTypedDict]
     r"""Thread information to group related requests"""
     inputs: NotRequired[InputsTypedDict]
@@ -2458,10 +2399,16 @@ class CreateChatCompletionOrq(BaseModel):
     prompt: Optional[Prompt] = None
     r"""Prompt configuration for the request"""
 
-    identity: Optional[PublicContact] = None
+    identity: Optional[PublicIdentity] = None
     r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
 
-    contact: Optional[CreateChatCompletionContact] = None
+    contact: Annotated[
+        Optional[PublicContact],
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ] = None
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
 
     thread: Optional[CreateChatCompletionThread] = None
     r"""Thread information to group related requests"""
@@ -2521,6 +2468,8 @@ class CreateChatCompletionRequestBodyTypedDict(TypedDict):
     r"""Model ID used to generate the response, like `openai/gpt-4o` or `anthropic/claude-haiku-4-5-20251001`. The AI Gateway offers a wide range of models with different capabilities, performance characteristics, and price points. Refer to the (Supported models)[/docs/proxy/supported-models] to browse available models."""
     metadata: NotRequired[Dict[str, str]]
     r"""Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format. Keys can have a maximum length of 64 characters and values can have a maximum length of 512 characters."""
+    name: NotRequired[str]
+    r"""The name to display on the trace. If not specified, the default system name will be used."""
     audio: NotRequired[Nullable[CreateChatCompletionAudioTypedDict]]
     r"""Parameters for audio output. Required when audio output is requested with modalities: [\"audio\"]. Learn more."""
     frequency_penalty: NotRequired[Nullable[float]]
@@ -2601,6 +2550,9 @@ class CreateChatCompletionRequestBody(BaseModel):
 
     metadata: Optional[Dict[str, str]] = None
     r"""Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format. Keys can have a maximum length of 64 characters and values can have a maximum length of 512 characters."""
+
+    name: Optional[str] = None
+    r"""The name to display on the trace. If not specified, the default system name will be used."""
 
     audio: OptionalNullable[CreateChatCompletionAudio] = UNSET
     r"""Parameters for audio output. Required when audio output is requested with modalities: [\"audio\"]. Learn more."""
@@ -2711,6 +2663,7 @@ class CreateChatCompletionRequestBody(BaseModel):
         optional_fields = set(
             [
                 "metadata",
+                "name",
                 "audio",
                 "frequency_penalty",
                 "max_tokens",

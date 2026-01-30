@@ -52,7 +52,7 @@ RETURN = """
 hcloud_network_info:
     description: The network info as list
     returned: always
-    type: complex
+    type: list
     contains:
         id:
             description: Numeric identifier of the network
@@ -72,7 +72,7 @@ hcloud_network_info:
         subnetworks:
             description: Subnetworks belonging to the network
             returned: always
-            type: complex
+            type: list
             contains:
                 type:
                     description: Type of the subnetwork.
@@ -97,7 +97,7 @@ hcloud_network_info:
         routes:
             description: Routes belonging to the network
             returned: always
-            type: complex
+            type: list
             contains:
                 ip_range:
                     description: Destination network or host of this route.
@@ -117,7 +117,7 @@ hcloud_network_info:
         servers:
             description: Servers attached to the network
             returned: always
-            type: complex
+            type: list
             contains:
                 id:
                     description: Numeric identifier of the server
@@ -155,7 +155,12 @@ hcloud_network_info:
                     type: str
                     sample: fsn1
                 datacenter:
-                    description: Name of the datacenter of the server
+                    description: |
+                        Name of the datacenter of the server
+
+                        B(Deprecated:) The RV(hcloud_network_info[].servers[].datacenter) value is deprecated and will be removed
+                        after 1 July 2026. Please use the RV(hcloud_network_info[].servers[].location) value instead.
+                        See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters.
                     returned: always
                     type: str
                     sample: fsn1-dc14
@@ -186,9 +191,9 @@ hcloud_network_info:
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.networks import BoundNetwork
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.networks import BoundNetwork
 
 
 class AnsibleHCloudNetworkInfo(AnsibleHCloud):
@@ -227,8 +232,8 @@ class AnsibleHCloudNetworkInfo(AnsibleHCloud):
                     "ipv6": server.public_net.ipv6.ip if server.public_net.ipv6 is not None else None,
                     "image": server.image.name if server.image is not None else None,
                     "server_type": server.server_type.name,
-                    "datacenter": server.datacenter.name,
-                    "location": server.datacenter.location.name,
+                    "datacenter": server.datacenter and server.datacenter.name,
+                    "location": server.location.name,
                     "rescue_enabled": server.rescue_enabled,
                     "backup_window": server.backup_window,
                     "labels": server.labels,

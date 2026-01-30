@@ -167,6 +167,7 @@ OperationNameType = Literal[
     "S3PutObjectRetention",
     "S3PutObjectTagging",
     "S3ReplicateObject",
+    "S3UpdateObjectEncryption",
 ]
 OutputSchemaVersionType = Literal["V_1"]
 OwnerOverrideType = Literal["Destination"]

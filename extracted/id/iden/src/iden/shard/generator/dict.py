@@ -6,8 +6,8 @@ __all__ = ["ShardDictGenerator"]
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola import objects_are_equal
-from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
+from coola.equality import objects_are_equal
+from coola.utils.format import repr_indent, repr_mapping, str_indent, str_mapping
 
 from iden.shard import BaseShard, ShardDict, create_shard_dict
 from iden.shard.generator.base import BaseShardGenerator, setup_shard_generator

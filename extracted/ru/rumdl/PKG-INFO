@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.1.0
+Version: 0.1.6
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -109,7 +109,7 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
   - [Using Termux User Repository (TUR) (Android)](#using-termux-user-repository-tur-android)
   - [Using Archlinux User Repository](#using-archlinux-user-repository)
   - [Download binary](#download-binary)
-  - [VS Code Extension](#vs-code-extension)
+  - [Editor Plugins](#editor-plugins)
 - [Usage](#usage)
   - [Stdin/Stdout Formatting](#stdinstdout-formatting)
   - [Editor Integration](#editor-integration)
@@ -162,6 +162,8 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
   - [Building](#building)
   - [Testing](#testing)
   - [JSON Schema Generation](#json-schema-generation)
+- [Used By](#used-by)
+- [Sponsors](#sponsors)
 - [License](#license)
 
 ## Installation
@@ -210,7 +212,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.1.0
+mise use rumdl@0.1.6
 ```
 
 ### Using Nix (macOS/Linux)
@@ -267,31 +269,14 @@ Invoke-WebRequest -Uri "https://github.com/rvben/rumdl/releases/latest/download/
 Expand-Archive -Path "rumdl.zip" -DestinationPath "$env:USERPROFILE\.rumdl"
 ```
 
-### VS Code Extension
+### Editor Plugins
 
-For the best development experience, install the rumdl VS Code extension directly from the command line:
+| Editor                              | Install                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| VS Code / Cursor / Windsurf         | `rumdl vscode` or [Marketplace](https://marketplace.visualstudio.com/items?itemName=rumdl.rumdl) |
+| JetBrains (PyCharm, IntelliJ, etc.) | [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/29943-rumdl)                        |
 
-```bash
-# Install the VS Code extension
-rumdl vscode
-
-# Check if the extension is installed
-rumdl vscode --status
-
-# Force reinstall the extension
-rumdl vscode --force
-```
-
-The extension provides:
-
-- 🔍 Real-time linting as you type
-- 💡 Quick fixes for common issues
-- 🎨 Code formatting on save
-- 📋 Hover tooltips with rule documentation
-- ⚡ Lightning-fast performance with zero lag
-
-The CLI will automatically detect VS Code, Cursor, or Windsurf and install the appropriate extension. See the
-[VS Code extension documentation](https://github.com/rvben/rumdl/blob/main/docs/vscode-extension.md) for more details.
+All plugins provide real-time linting, formatting on save, hover documentation, and automatic configuration discovery.
 
 ## Usage
 
@@ -387,7 +372,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.0
+    rev: v0.1.6
     hooks:
       - id: rumdl      # Lint only (fails on issues)
       - id: rumdl-fmt  # Auto-format and fail if issues remain
@@ -421,7 +406,7 @@ However, for pre-commit workflows where you want to exclude certain files even w
    ```yaml
    repos:
      - repo: https://github.com/rvben/rumdl-pre-commit
-       rev: v0.1.0
+       rev: v0.1.6
        hooks:
          - id: rumdl
            args: [--force-exclude]  # Respect exclude patterns from config
@@ -489,7 +474,7 @@ rumdl implements 54 lint rules for Markdown files. Here are some key rule catego
 | **Images**     | Image alt text and references            | MD045, MD052        |
 | **Style**      | Consistent style across document         | MD031, MD032, MD035 |
 
-For a complete list of rules and their descriptions, see our [documentation](https://github.com/rvben/rumdl/blob/main/docs/RULES.md) or run:
+For a complete list of rules and their descriptions, see our [documentation](https://rumdl.dev/rules/) or run:
 
 ```bash
 rumdl rule
@@ -754,7 +739,7 @@ rumdl version
 
 rumdle is also available as LSP server for editor integration.
 
-For editor-specific information on setting up the LSP, refer to our [LSP documentation](https://github.com/rvben/rumdl/blob/main/docs/lsp.md)
+For editor-specific information on setting up the LSP, refer to our [LSP documentation](https://rumdl.dev/lsp/)
 
 ## Configuration
 
@@ -1172,13 +1157,19 @@ The schema is automatically generated from the Rust types using `schemars` and s
 
 rumdl is used by these notable open source projects:
 
-| Project                                                           | Stars                                                                                 |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| [PyO3/pyo3](https://github.com/PyO3/pyo3)                         | ![stars](https://img.shields.io/github/stars/PyO3/pyo3?style=flat-square)             |
-| [beeware/toga](https://github.com/beeware/toga)                   | ![stars](https://img.shields.io/github/stars/beeware/toga?style=flat-square)          |
-| [beeware/briefcase](https://github.com/beeware/briefcase)         | ![stars](https://img.shields.io/github/stars/beeware/briefcase?style=flat-square)     |
-| [mikavilpas/yazi.nvim](https://github.com/mikavilpas/yazi.nvim)   | ![stars](https://img.shields.io/github/stars/mikavilpas/yazi.nvim?style=flat-square)  |
-| [matrix-org/matrix.org](https://github.com/matrix-org/matrix.org) | ![stars](https://img.shields.io/github/stars/matrix-org/matrix.org?style=flat-square) |
+| Project                                                                                     | Stars                                                                                              |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [PyO3/pyo3](https://github.com/PyO3/pyo3)                                                   | ![stars](https://img.shields.io/github/stars/PyO3/pyo3?style=flat-square)                          |
+| [beeware/toga](https://github.com/beeware/toga)                                             | ![stars](https://img.shields.io/github/stars/beeware/toga?style=flat-square)                       |
+| [beeware/briefcase](https://github.com/beeware/briefcase)                                   | ![stars](https://img.shields.io/github/stars/beeware/briefcase?style=flat-square)                  |
+| [scop/bash-completion](https://github.com/scop/bash-completion)                             | ![stars](https://img.shields.io/github/stars/scop/bash-completion?style=flat-square)               |
+| [chrisgrieser/nvim-scissors](https://github.com/chrisgrieser/nvim-scissors)                 | ![stars](https://img.shields.io/github/stars/chrisgrieser/nvim-scissors?style=flat-square)         |
+| [chrisgrieser/nvim-spider](https://github.com/chrisgrieser/nvim-spider)                     | ![stars](https://img.shields.io/github/stars/chrisgrieser/nvim-spider?style=flat-square)           |
+| [chrisgrieser/nvim-various-textobjs](https://github.com/chrisgrieser/nvim-various-textobjs) | ![stars](https://img.shields.io/github/stars/chrisgrieser/nvim-various-textobjs?style=flat-square) |
+| [chrisgrieser/shimmering-focus](https://github.com/chrisgrieser/shimmering-focus)           | ![stars](https://img.shields.io/github/stars/chrisgrieser/shimmering-focus?style=flat-square)      |
+| [chrisgrieser/shimmering-obsidian](https://github.com/chrisgrieser/shimmering-obsidian)     | ![stars](https://img.shields.io/github/stars/chrisgrieser/shimmering-obsidian?style=flat-square)   |
+| [matrix-org/matrix.org](https://github.com/matrix-org/matrix.org)                           | ![stars](https://img.shields.io/github/stars/matrix-org/matrix.org?style=flat-square)              |
+| [mikavilpas/yazi.nvim](https://github.com/mikavilpas/yazi.nvim)                             | ![stars](https://img.shields.io/github/stars/mikavilpas/yazi.nvim?style=flat-square)               |
 
 *Using rumdl? [Let us know!](https://github.com/rvben/rumdl/issues/307)*
 

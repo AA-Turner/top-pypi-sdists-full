@@ -20,6 +20,10 @@ class BlockAction(GuardrailAction):
     def __init__(self, reason: str) -> None:
         self.reason = reason
 
+    @property
+    def action_type(self) -> str:
+        return "Block"
+
     def action_node(
         self,
         *,
@@ -38,5 +42,12 @@ class BlockAction(GuardrailAction):
                 detail=self.reason,
                 category=UiPathErrorCategory.USER,
             )
+
+        _node.__metadata__ = {  # type: ignore[attr-defined]
+            "reason": self.reason,
+            "guardrail": guardrail,
+            "scope": scope,
+            "execution_stage": execution_stage,
+        }
 
         return node_name, _node

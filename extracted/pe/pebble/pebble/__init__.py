@@ -1,9 +1,11 @@
 __author__ = 'Matteo Cafasso'
-__version__ = '5.1.3'
+__version__ = '5.2.0'
 __license__ = 'LGPL'
 
 
-__all__ = ['waitforthreads',
+__all__ = ['concurrent',
+           'asynchronous',
+           'waitforthreads',
            'waitforqueues',
            'synchronized',
            'sighandler',
@@ -12,7 +14,8 @@ __all__ = ['waitforthreads',
            'ProcessMapFuture',
            'ProcessExpired',
            'ProcessPool',
-           'ThreadPool']
+           'ThreadPool',
+           'CONSTS']
 
 
 from pebble import concurrent, asynchronous

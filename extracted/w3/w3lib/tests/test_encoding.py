@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import codecs
-import unittest
+import random
+from io import BytesIO
 from typing import Any
 
 from w3lib.encoding import (
@@ -14,7 +15,7 @@ from w3lib.encoding import (
 )
 
 
-class RequestEncodingTests(unittest.TestCase):
+class TestRequestEncoding:
     utf8_fragments = [
         # Content-Type as meta http-equiv
         b"""<meta http-equiv="content-type" content="text/html;charset=UTF-8" />""",
@@ -33,7 +34,7 @@ class RequestEncodingTests(unittest.TestCase):
 
     def test_bom(self):
         # cjk water character in unicode
-        water_unicode = "\u6C34"
+        water_unicode = "\u6c34"
         # BOM + water character encoded
         utf16be = b"\xfe\xff\x6c\x34"
         utf16le = b"\xff\xfe\x34\x6c"
@@ -44,84 +45,84 @@ class RequestEncodingTests(unittest.TestCase):
             assert bom_encoding is not None
             assert bom is not None
             decoded = string[len(bom) :].decode(bom_encoding)
-            self.assertEqual(water_unicode, decoded)
+            assert water_unicode == decoded
         # Body without BOM
         enc, bom = read_bom(b"foo")
-        self.assertEqual(enc, None)
-        self.assertEqual(bom, None)
+        assert enc is None
+        assert bom is None
         # Empty body
         enc, bom = read_bom(b"")
-        self.assertEqual(enc, None)
-        self.assertEqual(bom, None)
+        assert enc is None
+        assert bom is None
 
     def test_http_encoding_header(self):
         header_value = "Content-Type: text/html; charset=ISO-8859-4"
         extracted = http_content_type_encoding(header_value)
-        self.assertEqual(extracted, "iso8859-4")
-        self.assertEqual(None, http_content_type_encoding("something else"))
+        assert extracted == "iso8859-4"
+        assert http_content_type_encoding("something else") is None
 
     def test_html_body_declared_encoding(self):
         for fragment in self.utf8_fragments:
             encoding = html_body_declared_encoding(fragment)
-            self.assertEqual(encoding, "utf-8", fragment)
-        self.assertEqual(None, html_body_declared_encoding(b"something else"))
-        self.assertEqual(
-            None,
+            assert encoding == "utf-8", fragment
+        assert None is html_body_declared_encoding(b"something else")
+        assert (
             html_body_declared_encoding(
                 b"""
             <head></head><body>
             this isn't searched
             <meta charset="utf-8">
         """
-            ),
+            )
+            is None
         )
-        self.assertEqual(
-            None,
+        assert (
             html_body_declared_encoding(
                 b"""<meta http-equiv="Fake-Content-Type-Header" content="text/html; charset=utf-8">"""
-            ),
+            )
+            is None
         )
 
     def test_html_body_declared_encoding_unicode(self):
         # html_body_declared_encoding should work when unicode body is passed
-        self.assertEqual(None, html_body_declared_encoding("something else"))
+        assert html_body_declared_encoding("something else") is None
 
         for fragment in self.utf8_fragments:
             encoding = html_body_declared_encoding(fragment.decode("utf8"))
-            self.assertEqual(encoding, "utf-8", fragment)
+            assert encoding == "utf-8", fragment
 
-        self.assertEqual(
-            None,
+        assert (
             html_body_declared_encoding(
                 """
             <head></head><body>
             this isn't searched
             <meta charset="utf-8">
         """
-            ),
+            )
+            is None
         )
-        self.assertEqual(
-            None,
+        assert (
             html_body_declared_encoding(
                 """<meta http-equiv="Fake-Content-Type-Header" content="text/html; charset=utf-8">"""
-            ),
+            )
+            is None
         )
 
 
-class CodecsEncodingTestCase(unittest.TestCase):
+class TestCodecsEncoding:
     def test_resolve_encoding(self):
-        self.assertEqual(resolve_encoding("latin1"), "cp1252")
-        self.assertEqual(resolve_encoding(" Latin-1"), "cp1252")
-        self.assertEqual(resolve_encoding("gb_2312-80"), "gb18030")
-        self.assertEqual(resolve_encoding("unknown encoding"), None)
+        assert resolve_encoding("latin1") == "cp1252"
+        assert resolve_encoding(" Latin-1") == "cp1252"
+        assert resolve_encoding("gb_2312-80") == "gb18030"
+        assert resolve_encoding("unknown encoding") is None
 
 
-class UnicodeDecodingTestCase(unittest.TestCase):
+class TestUnicodeDecoding:
     def test_utf8(self):
-        self.assertEqual(to_unicode(b"\xc2\xa3", "utf-8"), "\xa3")
+        assert to_unicode(b"\xc2\xa3", "utf-8") == "\xa3"
 
     def test_invalid_utf8(self):
-        self.assertEqual(to_unicode(b"\xc2\xc2\xa3", "utf-8"), "\ufffd\xa3")
+        assert to_unicode(b"\xc2\xc2\xa3", "utf-8") == "\ufffd\xa3"
 
 
 def ct(charset: str | None) -> str | None:
@@ -132,14 +133,14 @@ def norm_encoding(enc: str) -> str:
     return codecs.lookup(enc).name
 
 
-class HtmlConversionTests(unittest.TestCase):
+class TestHtmlConversion:
     def test_unicode_body(self):
         unicode_string = "\u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0442\u0435\u043a\u0441\u0442"
         original_string = unicode_string.encode("cp1251")
-        encoding, body_unicode = html_to_unicode(ct("cp1251"), original_string)
+        _, body_unicode = html_to_unicode(ct("cp1251"), original_string)
         # check body_as_unicode
-        self.assertTrue(isinstance(body_unicode, str))
-        self.assertEqual(body_unicode, unicode_string)
+        assert isinstance(body_unicode, str)
+        assert body_unicode == unicode_string
 
     def _assert_encoding(
         self,
@@ -150,15 +151,14 @@ class HtmlConversionTests(unittest.TestCase):
     ) -> None:
         assert not isinstance(body, str)
         encoding, body_unicode = html_to_unicode(ct(content_type), body)
-        self.assertTrue(isinstance(body_unicode, str))
-        self.assertEqual(norm_encoding(encoding), norm_encoding(expected_encoding))
+        assert isinstance(body_unicode, str)
+        assert norm_encoding(encoding) == norm_encoding(expected_encoding)
 
         if isinstance(expected_unicode, str):
-            self.assertEqual(body_unicode, expected_unicode)
+            assert body_unicode == expected_unicode
         else:
-            self.assertTrue(
-                body_unicode in expected_unicode,
-                f"{body_unicode} is not in {expected_unicode}",
+            assert body_unicode in expected_unicode, (
+                f"{body_unicode} is not in {expected_unicode}"
             )
 
     def test_content_type_and_conversion(self):
@@ -207,7 +207,7 @@ class HtmlConversionTests(unittest.TestCase):
 
     def test_replace_wrong_encoding(self):
         """Test invalid chars are replaced properly"""
-        encoding, body_unicode = html_to_unicode(ct("utf-8"), b"PREFIX\xe3\xabSUFFIX")
+        _, body_unicode = html_to_unicode(ct("utf-8"), b"PREFIX\xe3\xabSUFFIX")
         # XXX: Policy for replacing invalid chars may suffer minor variations
         # but it should always contain the unicode replacement char ('\ufffd')
         assert "\ufffd" in body_unicode, repr(body_unicode)
@@ -215,7 +215,7 @@ class HtmlConversionTests(unittest.TestCase):
         assert "SUFFIX" in body_unicode, repr(body_unicode)
 
         # Do not destroy html tags due to encoding bugs
-        encoding, body_unicode = html_to_unicode(ct("utf-8"), b"\xf0<span>value</span>")
+        _, body_unicode = html_to_unicode(ct("utf-8"), b"\xf0<span>value</span>")
         assert "<span>value</span>" in body_unicode, repr(body_unicode)
 
     def _assert_encoding_detected(
@@ -227,8 +227,8 @@ class HtmlConversionTests(unittest.TestCase):
     ) -> None:
         assert not isinstance(body, str)
         encoding, body_unicode = html_to_unicode(ct(content_type), body, **kwargs)
-        self.assertTrue(isinstance(body_unicode, str))
-        self.assertEqual(norm_encoding(encoding), norm_encoding(expected_encoding))
+        assert isinstance(body_unicode, str)
+        assert norm_encoding(encoding) == norm_encoding(expected_encoding)
 
     def test_BOM(self):
         # utf-16 cases already tested, as is the BOM detection function
@@ -268,13 +268,10 @@ class HtmlConversionTests(unittest.TestCase):
         self._assert_encoding("utf-32", "hi".encode("utf-32-be"), "utf-32-be", "hi")
 
     def test_python_crash(self):
-        import random
-        from io import BytesIO
-
         random.seed(42)
         buf = BytesIO()
-        for i in range(150000):
-            buf.write(bytes([random.randint(0, 255)]))
+        for _ in range(150000):
+            buf.write(bytes([random.randint(0, 255)]))  # noqa: S311
         to_unicode(buf.getvalue(), "utf-16-le")
         to_unicode(buf.getvalue(), "utf-16-be")
         to_unicode(buf.getvalue(), "utf-32-le")

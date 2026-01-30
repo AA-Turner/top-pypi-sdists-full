@@ -205,7 +205,7 @@ class SoundSensor(Phidget):
 		return _NoiseFloor.value
 
 	def getOctaves(self):
-		_Octaves = (ctypes.c_double * 10)()
+		_Octaves = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetSoundSensor_getOctaves
 		__func.restype = ctypes.c_int32

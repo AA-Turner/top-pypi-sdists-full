@@ -68,7 +68,6 @@ __all__ = [
     'themes_api',
     'timeseries_channelmetadata',
     'timeseries_channelmetadata_api',
-    'timeseries_logicalseries',
     'timeseries_logicalseries_api',
     'timeseries_metadata',
     'timeseries_metadata_api',
@@ -80,5 +79,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.1080.0"
+__version__ = "0.1095.0"
 

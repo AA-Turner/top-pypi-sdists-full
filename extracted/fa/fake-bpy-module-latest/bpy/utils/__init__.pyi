@@ -177,10 +177,14 @@ def register_class(
     :param cls: Registerable Blender class type.
     """
 
-def register_classes_factory(classes) -> None:
+def register_classes_factory(
+    classes: collections.abc.Sequence[typing.Any],
+) -> tuple[collections.abc.Callable[None], collections.abc.Callable[None]]:
     """Utility function to create register and unregister functions
     which simply registers and unregisters a sequence of classes.
 
+        :param classes: Sequence of classes to register and unregister.
+        :return: register and unregister functions.
     """
 
 def register_cli_command(id: str, execute: collections.abc.Callable) -> None:

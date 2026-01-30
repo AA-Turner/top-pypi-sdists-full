@@ -1,31 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlalchemy-easy-softdelete
-Version: 0.8.3
+Version: 0.9.0
 Summary: Easily add soft-deletion to your SQLAlchemy Models.
-Home-page: https://github.com/flipbit03/sqlalchemy-easy-softdelete
-License: BSD-3-Clause
-Author: Cadu
-Author-email: cadu.coelho@gmail.com
-Requires-Python: >=3.9,<4.0
+Project-URL: homepage, https://github.com/flipbit03/sqlalchemy-easy-softdelete
+Project-URL: source, https://github.com/flipbit03/sqlalchemy-easy-softdelete
+Project-URL: issues, https://github.com/flipbit03/sqlalchemy-easy-softdelete/issues
+Author-email: Cadu <cadu.coelho@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Dist: SQLAlchemy (>=1.4,<2.1)
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: sqlalchemy<2.1,>=1.4
 Description-Content-Type: text/markdown
 
 # SQLAlchemy Easy Soft-Delete
 
-[![pypi](https://img.shields.io/pypi/v/sqlalchemy-easy-softdelete.svg)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
-[![python](https://img.shields.io/pypi/pyversions/sqlalchemy-easy-softdelete.svg)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
-[![Build Status](https://github.com/flipbit03/sqlalchemy-easy-softdelete/actions/workflows/test_matrix.yml/badge.svg)](https://github.com/flipbit03/sqlalchemy-easy-softdelete/actions/workflows/test.yml)
-![Supported SQLAlchemy Versions](https://img.shields.io/badge/SQLAlchemy-1.4%20%2F%202.0-brightgreen)
-
-[//]: # ([![codecov]&#40;https://codecov.io/gh/flipbit03/sqlalchemy-easy-softdelete/branch/main/graphs/badge.svg&#41;]&#40;https://codecov.io/github/flipbit03/sqlalchemy-easy-softdelete&#41;)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sqlalchemy-easy-softdelete?v=1)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
+[![PyPI - Version](https://img.shields.io/pypi/v/sqlalchemy-easy-softdelete?v=1)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
+[![PyPI - Types](https://img.shields.io/pypi/types/sqlalchemy-easy-softdelete?v=1)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/sqlalchemy-easy-softdelete?v=1)](https://pypi.org/project/sqlalchemy-easy-softdelete/)
+![Supported SQLAlchemy Versions](https://img.shields.io/badge/SQLAlchemy-1.4%20%2F%202.0-brightgreen?v=1)
 
 Easily add soft-deletion to your SQLAlchemy Models and automatically filter out soft-deleted objects from your queries and relationships.
 
@@ -48,18 +51,32 @@ pip install sqlalchemy-easy-softdelete
 ```py
 from sqlalchemy_easy_softdelete.mixin import generate_soft_delete_mixin_class
 from sqlalchemy_easy_softdelete.hook import IgnoredTable
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, Mapped
 from sqlalchemy import Column, Integer
 from datetime import datetime
 
 # Create a Class that inherits from our class builder
-class SoftDeleteMixin(generate_soft_delete_mixin_class(
-    # This table will be ignored by the hook
-    # even if the table has the soft-delete column
-    ignored_tables=[IgnoredTable(table_schema="public", name="cars"),]
-)):
-    # type hint for autocomplete IDE support
-    deleted_at: datetime
+class SoftDeleteMixin(
+    generate_soft_delete_mixin_class(  # type: ignore[misc]
+        # This table will be ignored by the hook
+        # even if the table has the soft-delete column
+        ignored_tables=[IgnoredTable(table_schema="public", name="cars"),]
+    )
+):
+    # type: ignore[misc] is required because the mixin is dynamically generated
+
+    # Type hint for IDE autocomplete and type checker support.
+    # Using Mapped[T | None] ensures type checkers understand this is a
+    # SQLAlchemy column that supports query operations like .where()
+    deleted_at: Mapped[datetime | None]
+
+    # Optional: Add method stubs for delete/undelete for type checker support.
+    # The actual implementations are provided by the generated mixin class.
+    def delete(self, v: datetime | None = None) -> None:
+        super().delete(v)  # type: ignore[misc]
+
+    def undelete(self) -> None:
+        super().undelete()  # type: ignore[misc]
 
 # Apply the mixin to your Models
 Base = declarative_base()
@@ -81,11 +98,10 @@ all_fruits = session.query(Fruit).execution_options(include_deleted=True).all()
 ```
 Setting `include_deleted=True` (attribute name can be customized) in the query disables soft delete for that query.
 
-#### License
+### Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+### License
 
 * BSD-3-Clause
-
-[//]: # (* Documentation: <https://flipbit03.github.io/sqlalchemy-easy-softdelete>)
-[//]: # (* GitHub: <https://github.com/flipbit03/sqlalchemy-easy-softdelete>)
-[//]: # (* PyPI: <https://pypi.org/project/sqlalchemy-easy-softdelete/>)
-

@@ -6,6 +6,7 @@ from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import tabulize, log, wait_log
+from adam.utils_context import Context
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.ingresses import Ingresses
 
@@ -150,13 +151,13 @@ class DeviceApp(Command, Device):
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.app_env != s1.app_env or s0.app_app != s1.app_app or s0.app_pod != s1.app_pod
 
-    def exec_no_dir(self, command: str, state: ReplState, text_color: str = None):
+    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         with app(state) as pods:
-            return pods.exec(command, text_color=text_color)
+            return pods.exec(command, ctx=ctx.copy(show_out=True, show_verbose=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, text_color: str = None):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         with app(state) as pods:
-            return pods.exec(command, not session_just_created, text_color=text_color)
+            return pods.exec(command, ctx=ctx.copy(show_out=not session_just_created, show_verbose=not session_just_created))
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return {cmd: BashCompleter(lambda: [])} | \

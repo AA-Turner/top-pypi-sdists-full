@@ -34,7 +34,7 @@ from opentelemetry import trace as otel_trace
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
 from semdep.parsers.util import DependencyParserError
 from semgrep import __VERSION__
-from semgrep import tracing
+from semgrep import telemetry
 from semgrep.app.project_config import ProjectConfig
 from semgrep.constants import TOO_MUCH_DATA
 from semgrep.constants import USER_FRIENDLY_PRODUCT_NAMES
@@ -47,6 +47,7 @@ from semgrep.subproject import (
     subproject_to_stats,
 )
 from semgrep.target_manager import ALL_PRODUCTS
+from semgrep.telemetry import scan_info_to_attrs
 from semgrep.types import FilteredMatches
 from semgrep.types import Target
 from semgrep.types import TargetInfo
@@ -89,6 +90,7 @@ class ScanHandler:
         dry_run: bool = False,
         partial_output: Optional[Path] = None,
         dump_scan_id_path: Optional[Path] = None,
+        enable_mal_deps: bool = False,
     ) -> None:
         """
         When dry_run is True, semgrep ci would get the config from the app,
@@ -101,6 +103,8 @@ class ScanHandler:
         is not None, override the transitive_reachability_enabled setting
         obtained from EngineConfiguration (from the Semgrep App server),
         and enable or disable transitive reachability accordingly.
+        :param enable_mal_deps: Override to enable malicious dependency
+        rules for this scan, even if disabled at the deployment level.
         """
         state = get_state()
         self.local_id = str(state.local_scan_id)
@@ -110,6 +114,7 @@ class ScanHandler:
             requested_products=[],
             dry_run=dry_run,
             sms_scan_id=state.env.sms_scan_id,
+            enable_mal_deps=enable_mal_deps if enable_mal_deps else None,
         )
         self.scan_response: Optional[out.ScanResponse] = None
         self.dry_run = dry_run
@@ -329,7 +334,7 @@ class ScanHandler:
             return config
         return out.HistoricalConfiguration(enabled=False)
 
-    @tracing.trace()
+    @telemetry.trace()
     def start_scan(
         self, project_metadata: out.ProjectMetadata, project_config: ProjectConfig
     ) -> None:
@@ -385,7 +390,9 @@ class ScanHandler:
             self.dump_scan_id_path.write_text(str(self.scan_id))
 
         otel_trace.get_current_span()
-        get_state().traces.set_scan_info(self.scan_response.info)
+        get_state().telemetry.add_resource_attrs(
+            scan_info_to_attrs(self.scan_response.info)
+        )
 
     def report_failure(self, exit_code: int) -> None:
         """
@@ -420,7 +427,7 @@ class ScanHandler:
         except requests.RequestException:
             raise Exception(f"API server returned this error: {response.text}")
 
-    @tracing.trace()
+    @telemetry.trace()
     def report_findings(
         self,
         *,

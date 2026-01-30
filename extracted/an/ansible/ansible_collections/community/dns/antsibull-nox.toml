@@ -28,17 +28,30 @@ stable_branches = [ "stable-*" ]
 
 [sessions.lint]
 extra_code_files = ["tests/update-docs-fragments.py"]
-isort_config = "tests/nox-config-isort.cfg"
+run_isort = false
+run_black = true
 run_black_modules = false  # modules still support Python 2
-black_config = "tests/nox-config-black.toml"
-flake8_config = "tests/nox-config-flake8.ini"
-pylint_rcfile = "tests/nox-config-pylint.rc"
-pylint_modules_rcfile = "tests/nox-config-pylint-py2.rc"
-yamllint_config = "tests/nox-config-yamllint.yml"
-yamllint_config_plugins = "tests/nox-config-yamllint-plugins.yml"
-yamllint_config_plugins_examples = "tests/nox-config-yamllint-plugins-examples.yml"
-yamllint_config_extra_docs = "tests/nox-config-yamllint-extra-docs.yml"
-mypy_config = "tests/nox-config-mypy.ini"
+black_config = "black.toml"
+run_ruff_autofix = true
+ruff_autofix_config = "ruff.toml"
+ruff_autofix_select = [
+    "I",
+    "RUF022",
+]
+run_ruff_check = true
+ruff_check_config = "ruff.toml"
+run_flake8 = true
+flake8_config = ".flake8"
+run_pylint = true
+pylint_rcfile = ".pylintrc"
+pylint_modules_rcfile = ".pylintrc-py2"
+run_yamllint = true
+yamllint_config = ".yamllint"
+yamllint_config_plugins = ".yamllint-docs"
+yamllint_config_plugins_examples = ".yamllint-examples"
+yamllint_config_extra_docs = ".yamllint-extra-docs"
+run_mypy = true
+mypy_config = ".mypy.ini"
 mypy_extra_deps = [
     "dnspython",
     "types-lxml",

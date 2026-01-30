@@ -1,14 +1,19 @@
 """
 This module provides some commonly used processors for Item Loaders.
 
-See documentation in docs/topics/loaders.rst
+See documentation in :ref:`declaring-loaders`.
 """
 
+from __future__ import annotations
+
 from collections import ChainMap
-from typing import Any, Callable, Iterable, List, MutableMapping, Optional
+from typing import TYPE_CHECKING, Any
 
 from itemloaders.common import wrap_loader_context
 from itemloaders.utils import arg_to_iter
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, MutableMapping
 
 
 class MapCompose:
@@ -53,14 +58,14 @@ class MapCompose:
     See :class:`Compose` processor for more info.
 
     .. _`parsel selectors`: https://parsel.readthedocs.io/en/latest/parsel.html#parsel.selector.Selector.extract
-    """  # noqa
+    """
 
     def __init__(self, *functions: Callable[..., Any], **default_loader_context: Any):
         self.functions = functions
         self.default_loader_context = default_loader_context
 
     def __call__(
-        self, value: Any, loader_context: Optional[MutableMapping[str, Any]] = None
+        self, value: Any, loader_context: MutableMapping[str, Any] | None = None
     ) -> Iterable[Any]:
         values = arg_to_iter(value)
         context: MutableMapping[str, Any]
@@ -70,15 +75,14 @@ class MapCompose:
             context = self.default_loader_context
         wrapped_funcs = [wrap_loader_context(f, context) for f in self.functions]
         for func in wrapped_funcs:
-            next_values: List[Any] = []
+            next_values: list[Any] = []
             for v in values:
                 try:
                     next_values += arg_to_iter(func(v))
                 except Exception as e:
                     raise ValueError(
-                        "Error in MapCompose with "
-                        "%s value=%r error='%s: %s'"
-                        % (str(func), value, type(e).__name__, str(e))
+                        f"Error in MapCompose with "
+                        f"{func!s} value={value!r} error='{type(e).__name__}: {e!s}'"
                     ) from e
             values = next_values
         return values
@@ -119,7 +123,7 @@ class Compose:
         self.default_loader_context = default_loader_context
 
     def __call__(
-        self, value: Any, loader_context: Optional[MutableMapping[str, Any]] = None
+        self, value: Any, loader_context: MutableMapping[str, Any] | None = None
     ) -> Any:
         context: MutableMapping[str, Any]
         if loader_context:
@@ -134,9 +138,8 @@ class Compose:
                 value = func(value)
             except Exception as e:
                 raise ValueError(
-                    "Error in Compose with "
-                    "%s value=%r error='%s: %s'"
-                    % (str(func), value, type(e).__name__, str(e))
+                    f"Error in Compose with "
+                    f"{func!s} value={value!r} error='{type(e).__name__}: {e!s}'"
                 ) from e
         return value
 
@@ -159,6 +162,7 @@ class TakeFirst:
         for value in values:
             if value is not None and value != "":
                 return value
+        return None
 
 
 class Identity:
@@ -181,9 +185,13 @@ class Identity:
 
 class SelectJmes:
     """
-    Query the input string for the jmespath (given at instantiation), and return the answer
-    Requires : jmespath(https://github.com/jmespath/jmespath)
-    Note: SelectJmes accepts only one input element at a time.
+    Query the input string for a *JMESPath* expression (given at instantiation), and return the answer.
+
+    *Requires*: `JMESPath <https://github.com/jmespath/jmespath>`__
+
+    .. note::
+
+        ``SelectJmes`` accepts only one input element at a time.
 
     Example:
 
@@ -194,7 +202,7 @@ class SelectJmes:
     >>> proc({'foo': {'bar': 'baz'}})
     {'bar': 'baz'}
 
-    Working with Json:
+    Working with JSON:
 
     >>> import json
     >>> proc_single_json_str = Compose(json.loads, SelectJmes("foo"))
@@ -207,16 +215,16 @@ class SelectJmes:
 
     def __init__(self, json_path: str):
         self.json_path: str = json_path
-        import jmespath.parser
+        import jmespath.parser  # noqa: PLC0415
 
         self.compiled_path: jmespath.parser.ParsedResult = jmespath.compile(
             self.json_path
         )
 
     def __call__(self, value: Any) -> Any:
-        """Query value for the jmespath query and return answer
+        """Query value for the JMESPath query and return answer
         :param value: a data structure (dict, list) to extract from
-        :return: Element extracted according to jmespath query
+        :return: Element extracted according to JMESPath query
         """
         return self.compiled_path.search(value)
 

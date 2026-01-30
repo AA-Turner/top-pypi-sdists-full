@@ -6,8 +6,13 @@ __all__ = ["NumpySafetensorsLoader", "TorchSafetensorsLoader"]
 
 from typing import TYPE_CHECKING, Any
 
-from coola import objects_are_equal
-from coola.utils import check_numpy, check_torch, is_numpy_available, is_torch_available
+from coola.equality import objects_are_equal
+from coola.utils.imports import (
+    check_numpy,
+    check_torch,
+    is_numpy_available,
+    is_torch_available,
+)
 from coola.utils.path import sanitize_path
 
 from iden.io.base import BaseLoader

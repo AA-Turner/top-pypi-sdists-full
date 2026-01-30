@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2025
+# Copyright (C) 2015-2026
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -1135,6 +1135,11 @@ class TestFilters:
         assert filters.StatusUpdate.ALL.check_update(update)
         assert filters.StatusUpdate.UNIQUE_GIFT.check_update(update)
         update.message.unique_gift = None
+
+        update.message.gift_upgrade_sent = "gift_upgrade_sent"
+        assert filters.StatusUpdate.ALL.check_update(update)
+        assert filters.StatusUpdate.GIFT_UPGRADE_SENT.check_update(update)
+        update.message.gift_upgrade_sent = None
 
         update.message.paid_message_price_changed = "paid_message_price_changed"
         assert filters.StatusUpdate.ALL.check_update(update)

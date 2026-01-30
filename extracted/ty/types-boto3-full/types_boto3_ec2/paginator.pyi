@@ -177,6 +177,7 @@ Usage::
         ListSnapshotsInRecycleBinPaginator,
         SearchLocalGatewayRoutesPaginator,
         SearchTransitGatewayMulticastGroupsPaginator,
+        SearchTransitGatewayRoutesPaginator,
     )
 
     session = Session()
@@ -347,6 +348,7 @@ Usage::
     list_snapshots_in_recycle_bin_paginator: ListSnapshotsInRecycleBinPaginator = client.get_paginator("list_snapshots_in_recycle_bin")
     search_local_gateway_routes_paginator: SearchLocalGatewayRoutesPaginator = client.get_paginator("search_local_gateway_routes")
     search_transit_gateway_multicast_groups_paginator: SearchTransitGatewayMulticastGroupsPaginator = client.get_paginator("search_transit_gateway_multicast_groups")
+    search_transit_gateway_routes_paginator: SearchTransitGatewayRoutesPaginator = client.get_paginator("search_transit_gateway_routes")
     ```
 """
 
@@ -688,6 +690,8 @@ from .type_defs import (
     SearchLocalGatewayRoutesResultTypeDef,
     SearchTransitGatewayMulticastGroupsRequestPaginateTypeDef,
     SearchTransitGatewayMulticastGroupsResultTypeDef,
+    SearchTransitGatewayRoutesRequestPaginateTypeDef,
+    SearchTransitGatewayRoutesResultTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -861,6 +865,7 @@ __all__ = (
     "ListSnapshotsInRecycleBinPaginator",
     "SearchLocalGatewayRoutesPaginator",
     "SearchTransitGatewayMulticastGroupsPaginator",
+    "SearchTransitGatewayRoutesPaginator",
 )
 
 if TYPE_CHECKING:
@@ -4088,4 +4093,22 @@ class SearchTransitGatewayMulticastGroupsPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/SearchTransitGatewayMulticastGroups.html#EC2.Paginator.SearchTransitGatewayMulticastGroups.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#searchtransitgatewaymulticastgroupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchTransitGatewayRoutesPaginatorBase = Paginator[SearchTransitGatewayRoutesResultTypeDef]
+else:
+    _SearchTransitGatewayRoutesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchTransitGatewayRoutesPaginator(_SearchTransitGatewayRoutesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/SearchTransitGatewayRoutes.html#EC2.Paginator.SearchTransitGatewayRoutes)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#searchtransitgatewayroutespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchTransitGatewayRoutesRequestPaginateTypeDef]
+    ) -> PageIterator[SearchTransitGatewayRoutesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/SearchTransitGatewayRoutes.html#EC2.Paginator.SearchTransitGatewayRoutes.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#searchtransitgatewayroutespaginator)
         """

@@ -722,6 +722,8 @@ class ClusterTimescaleSpecs(_message.Message):
         "bootstrap_cloud_resources",
         "suspended",
         "ip_allowlist",
+        "gateway_port",
+        "gateway_id",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -766,6 +768,8 @@ class ClusterTimescaleSpecs(_message.Message):
     BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     IP_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
+    GATEWAY_PORT_FIELD_NUMBER: _ClassVar[int]
+    GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -793,6 +797,8 @@ class ClusterTimescaleSpecs(_message.Message):
     bootstrap_cloud_resources: bool
     suspended: bool
     ip_allowlist: _containers.RepeatedScalarFieldContainer[str]
+    gateway_port: int
+    gateway_id: str
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -822,6 +828,8 @@ class ClusterTimescaleSpecs(_message.Message):
         bootstrap_cloud_resources: bool = ...,
         suspended: bool = ...,
         ip_allowlist: _Optional[_Iterable[str]] = ...,
+        gateway_port: _Optional[int] = ...,
+        gateway_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
@@ -1369,6 +1377,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "writers",
         "bootstrap_cloud_resources",
         "suspended",
+        "observability_daemons",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -1384,6 +1393,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     WRITERS_FIELD_NUMBER: _ClassVar[int]
     BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -1398,6 +1408,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     writers: _containers.RepeatedCompositeFieldContainer[BackgroundPersistenceWriterSpecs]
     bootstrap_cloud_resources: bool
     suspended: bool
+    observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -1414,6 +1425,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         writers: _Optional[_Iterable[_Union[BackgroundPersistenceWriterSpecs, _Mapping]]] = ...,
         bootstrap_cloud_resources: bool = ...,
         suspended: bool = ...,
+        observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
@@ -1552,15 +1564,21 @@ class PerfCollectorSpec(_message.Message):
     ) -> None: ...
 
 class PerfettoDaemonSpec(_message.Message):
-    __slots__ = ("config_text", "max_retained_runs", "interval")
+    __slots__ = ("config_text", "max_retained_runs", "interval", "trigger_name")
     CONFIG_TEXT_FIELD_NUMBER: _ClassVar[int]
     MAX_RETAINED_RUNS_FIELD_NUMBER: _ClassVar[int]
     INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_NAME_FIELD_NUMBER: _ClassVar[int]
     config_text: str
     max_retained_runs: int
     interval: int
+    trigger_name: str
     def __init__(
-        self, config_text: _Optional[str] = ..., max_retained_runs: _Optional[int] = ..., interval: _Optional[int] = ...
+        self,
+        config_text: _Optional[str] = ...,
+        max_retained_runs: _Optional[int] = ...,
+        interval: _Optional[int] = ...,
+        trigger_name: _Optional[str] = ...,
     ) -> None: ...
 
 class ObservabilityDaemonSpec(_message.Message):

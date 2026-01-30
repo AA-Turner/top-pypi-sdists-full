@@ -86,6 +86,7 @@ _integerMin2000Max30000 = int
 _integerMin22050Max192000 = int
 _integerMin22050Max48000 = int
 _integerMin24Max60000 = int
+_integerMin256Max3840 = int
 _integerMin25Max10000 = int
 _integerMin25Max2000 = int
 _integerMin2Max2147483647 = int
@@ -102,6 +103,7 @@ _integerMin48000Max48000 = int
 _integerMin4Max12 = int
 _integerMin6000Max1024000 = int
 _integerMin64000Max640000 = int
+_integerMin64Max2160 = int
 _integerMin6Max16 = int
 _integerMin8000Max192000 = int
 _integerMin8000Max96000 = int
@@ -649,6 +651,7 @@ class CaptionSourceType(StrEnum):
     NULL_SOURCE = "NULL_SOURCE"
     IMSC = "IMSC"
     WEBVTT = "WEBVTT"
+    TT_3GPP = "TT_3GPP"
 
 
 class CaptionSourceUpconvertSTLToTeletext(StrEnum):
@@ -1615,6 +1618,16 @@ class H265InterlaceMode(StrEnum):
     FOLLOW_BOTTOM_FIELD = "FOLLOW_BOTTOM_FIELD"
 
 
+class H265MvOverPictureBoundaries(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class H265MvTemporalPredictor(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
 class H265ParControl(StrEnum):
     INITIALIZE_FROM_SOURCE = "INITIALIZE_FROM_SOURCE"
     SPECIFIED = "SPECIFIED"
@@ -1675,9 +1688,19 @@ class H265TemporalIds(StrEnum):
     ENABLED = "ENABLED"
 
 
+class H265TilePadding(StrEnum):
+    NONE = "NONE"
+    PADDED = "PADDED"
+
+
 class H265Tiles(StrEnum):
     DISABLED = "DISABLED"
     ENABLED = "ENABLED"
+
+
+class H265TreeBlockSize(StrEnum):
+    AUTO = "AUTO"
+    TREE_SIZE_32X32 = "TREE_SIZE_32X32"
 
 
 class H265UnregisteredSeiTimecode(StrEnum):
@@ -5131,6 +5154,8 @@ class H265Settings(TypedDict, total=False):
     InterlaceMode: H265InterlaceMode | None
     MaxBitrate: _integerMin1000Max1466400000 | None
     MinIInterval: _integerMin0Max30 | None
+    MvOverPictureBoundaries: H265MvOverPictureBoundaries | None
+    MvTemporalPredictor: H265MvTemporalPredictor | None
     NumberBFramesBetweenReferenceFrames: _integerMin0Max7 | None
     NumberReferenceFrames: _integerMin1Max6 | None
     ParControl: H265ParControl | None
@@ -5149,7 +5174,11 @@ class H265Settings(TypedDict, total=False):
     Telecine: H265Telecine | None
     TemporalAdaptiveQuantization: H265TemporalAdaptiveQuantization | None
     TemporalIds: H265TemporalIds | None
+    TileHeight: _integerMin64Max2160 | None
+    TilePadding: H265TilePadding | None
+    TileWidth: _integerMin256Max3840 | None
     Tiles: H265Tiles | None
+    TreeBlockSize: H265TreeBlockSize | None
     UnregisteredSeiTimecode: H265UnregisteredSeiTimecode | None
     WriteMp4PackagingType: H265WriteMp4PackagingType | None
 
@@ -5723,6 +5752,7 @@ class VideoOverlayInputClipping(TypedDict, total=False):
 
 
 _listOfVideoOverlayInputClipping = list[VideoOverlayInputClipping]
+_mapOfAudioSelector = dict[_string, AudioSelector]
 
 
 class VideoOverlayInput(TypedDict, total=False):
@@ -5730,6 +5760,7 @@ class VideoOverlayInput(TypedDict, total=False):
     overlays in sequence at different times that you specify.
     """
 
+    AudioSelectors: _mapOfAudioSelector | None
     FileInput: _stringPatternS3Https | None
     InputClippings: _listOfVideoOverlayInputClipping | None
     TimecodeSource: InputTimecodeSource | None
@@ -5781,6 +5812,7 @@ class InputVideoGenerator(TypedDict, total=False):
     FramerateDenominator: _integerMin1Max1001 | None
     FramerateNumerator: _integerMin1Max60000 | None
     Height: _integerMin32Max8192 | None
+    ImageInput: _stringMin14PatternS3BmpBMPPngPNGTgaTGAHttpsBmpBMPPngPNGTgaTGA | None
     SampleRate: _integerMin32000Max48000 | None
     Width: _integerMin32Max8192 | None
 
@@ -5857,7 +5889,6 @@ class InputDecryptionSettings(TypedDict, total=False):
 
 
 _mapOfCaptionSelector = dict[_string, CaptionSelector]
-_mapOfAudioSelector = dict[_string, AudioSelector]
 _mapOfAudioSelectorGroup = dict[_string, AudioSelectorGroup]
 
 

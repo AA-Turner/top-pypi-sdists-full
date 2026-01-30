@@ -1,17 +1,17 @@
 unittest:
-	PYTHONPATH=`pwd` python3 -m pytest tests --cov=pymilvus -v
+	PYTHONPATH=`pwd` python3 -m pytest tests --ignore=tests/benchmark --cov=pymilvus -v
 
 lint:
-	PYTHONPATH=`pwd` python3 -m black pymilvus --check
-	PYTHONPATH=`pwd` python3 -m ruff check pymilvus
+	PYTHONPATH=`pwd` python3 -m black pymilvus tests --check --diff
+	PYTHONPATH=`pwd` python3 -m ruff check pymilvus tests
 
 format:
 	pip install -e ".[dev]"
-	PYTHONPATH=`pwd` python3 -m black pymilvus
-	PYTHONPATH=`pwd` python3 -m ruff check pymilvus --fix
+	PYTHONPATH=`pwd` python3 -m black pymilvus tests
+	PYTHONPATH=`pwd` python3 -m ruff check pymilvus tests --fix
 
 coverage:
-	PYTHONPATH=`pwd` pytest --cov=pymilvus --cov-report=xml tests -x -v -rxXs
+	PYTHONPATH=`pwd` pytest --cov=pymilvus --ignore=tests/benchmark --cov-report=html tests -x -v -rxXs
 
 example:
 	PYTHONPATH=`pwd` python examples/example.py

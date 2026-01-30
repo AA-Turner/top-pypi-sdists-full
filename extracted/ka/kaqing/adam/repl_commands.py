@@ -5,11 +5,12 @@ from adam.commands.app.show_app_id import ShowAppId
 from adam.commands.app.show_app_queues import ShowAppQueues
 from adam.commands.audit.audit import Audit
 from adam.commands.cassandra.restart_cluster import RestartCluster
-from adam.commands.cassandra.restart_node import RestartNode
 from adam.commands.cassandra.restart_nodes import RestartNodes
 from adam.commands.cassandra.rollout import RollOut
 from adam.commands.cassandra.show_cassandra_repairs import ShowCassandraRepairs
+from adam.commands.cassandra.show_cassandra_ring import ShowCassandraRing
 from adam.commands.cassandra.show_cassandra_status import ShowCassandraStatus
+from adam.commands.cassandra.show_node_restartable import ShowNodeRestartable
 from adam.commands.cassandra.show_cassandra_version import ShowCassandraVersion
 from adam.commands.cassandra.show_processes import ShowProcesses
 from adam.commands.cassandra.show_storage import ShowStorage
@@ -126,9 +127,10 @@ class ReplCommands:
                 DownloadCassandraLog(), DropExportDatabase(), DropExportDatabases(), DownloadExportSession(),
                 ExportTables(), ExportXSelect(), ExportUse(),
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
-                RestartNodes(), RestartNode(), RestartCluster(), RollOut(),
-                ShowCassandraStatus(), ShowCassandraVersion(), ShowCassandraRepairs(), ShowColumnCounts(),
-                ShowStorage(), ShowExportDatabases(), ShowExportSessions(), ShowExportSession(), ShowProcesses(),
+                RestartNodes(), RestartCluster(), RollOut(),
+                ShowCassandraRing(), ShowCassandraStatus(), ShowNodeRestartable(), ShowCassandraVersion(),
+                ShowCassandraRepairs(), ShowColumnCounts(), ShowStorage(), ShowExportDatabases(),
+                ShowExportSessions(), ShowExportSession(), ShowProcesses(),
                 Watch()] + \
                 Debug().cmd_list() + \
                 Medusa().cmd_list() + \

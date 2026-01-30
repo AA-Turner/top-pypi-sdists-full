@@ -1463,11 +1463,17 @@ def map_unresolved_function(
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
         case "~":
+            spark_function_name = f"~{snowpark_arg_names[0]}"
+            if not isinstance(snowpark_typed_args[0].typ, _IntegralType):
+                exception = AnalysisException(
+                    f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter 1 requires the "INTEGRAL" type, however "{snowpark_arg_names[0]}" has the type "{snowpark_typed_args[0].typ.simpleString().upper()}".;'
+                )
+                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
             result_exp = TypedColumn(
                 snowpark_fn.bitnot(snowpark_args[0]),
                 lambda: snowpark_typed_args[0].types,
             )
-            spark_function_name = f"~{snowpark_arg_names[0]}"
         case "<":
             if (
                 isinstance(snowpark_typed_args[0].typ, DecimalType)
@@ -1617,17 +1623,23 @@ def map_unresolved_function(
                 result_exp = TypedColumn(left >= right, lambda: [BooleanType()])
         case "&":
             spark_function_name = f"({snowpark_arg_names[0]} & {snowpark_arg_names[1]})"
+            result_type = _validate_and_get_bitwise_result_type(
+                snowpark_typed_args, spark_function_name
+            )
             result_exp = snowpark_args[0].bitwiseAnd(snowpark_args[1])
-            result_type = _evaluate_bitwise_operations_result_type(snowpark_typed_args)
             result_exp = snowpark_fn.cast(result_exp, result_type)
         case "|":
             spark_function_name = f"({snowpark_arg_names[0]} | {snowpark_arg_names[1]})"
+            result_type = _validate_and_get_bitwise_result_type(
+                snowpark_typed_args, spark_function_name
+            )
             result_exp = snowpark_args[0].bitwiseOR(snowpark_args[1])
-            result_type = _evaluate_bitwise_operations_result_type(snowpark_typed_args)
         case "^":
             spark_function_name = f"({snowpark_arg_names[0]} ^ {snowpark_arg_names[1]})"
+            result_type = _validate_and_get_bitwise_result_type(
+                snowpark_typed_args, spark_function_name
+            )
             result_exp = snowpark_args[0].bitwiseXOR(snowpark_args[1])
-            result_type = _evaluate_bitwise_operations_result_type(snowpark_typed_args)
         case "abs":
             input_type = snowpark_typed_args[0].typ
             if isinstance(input_type, StringType):
@@ -3490,14 +3502,23 @@ def map_unresolved_function(
             typ = snowpark_typed_args[0].typ
             match typ:
                 case ArrayType():
-                    result_exp = snowpark_fn.when(
-                        spark_index < 0,
-                        snowpark_fn.element_at(
-                            data,
-                            snowpark_fn.array_size(data) + spark_index,
-                        ),
-                    ).otherwise(snowpark_fn.element_at(data, spark_index - 1))
                     result_type = typ.element_type
+                    # Convert Spark 1-based index to Snowflake 0-based index
+                    # Trigger an exception by using a string instead of an integer when index == 0
+                    snow_index = (
+                        snowpark_fn.when(
+                            spark_index < 0,
+                            snowpark_fn.array_size(data) + spark_index,
+                        )
+                        .when(
+                            spark_index == 0,
+                            snowpark_fn.lit(
+                                "[snowpark_connect::invalid_index_of_zero] The index 0 is invalid. An index shall be either < 0 or > 0 (the first element has index 1)."
+                            ),
+                        )
+                        .otherwise(spark_index - 1)
+                    )
+                    result_exp = snowpark_fn.element_at(data, snow_index)
                 case MapType():
                     result_exp = snowpark_fn.element_at(data, spark_index)
                     result_type = typ.value_type
@@ -12691,22 +12712,45 @@ def _calculate_total_seconds(interval_arg):
     return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
 
-def _evaluate_bitwise_operations_result_type(snowpark_typed_args: list[TypedColumn]):
+def _validate_and_get_bitwise_result_type(
+    snowpark_typed_args: list[TypedColumn], spark_function_name: str
+) -> DataType:
     """
-    Determine the result type for bitwise operations (&, |, ^) based on Spark's type coercion rules.
+    Validate that both operands are integral types (or null) and determine the result type
+    for bitwise operations (&, |, ^) based on Spark's type coercion rules.
+
+    Raises AnalysisException if either operand is not an integral type or null.
 
     Bitwise operations preserve the input integral type when both operands are the same type,
     and promote to the larger type when operands differ:
     - byte & byte -> byte, int & int -> int, long & long -> long
     - byte & long -> long, short & int -> int
+    - integral & null -> integral type (with null result)
+    - null & null -> IntegerType (with null result)
 
     Args:
         snowpark_typed_args: List of two TypedColumn arguments for the bitwise operation
+        spark_function_name: The Spark function name for error messages
 
     Returns:
         The result integral type based on the promotion rules
     """
-    match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
+    type0 = snowpark_typed_args[0].typ
+    type1 = snowpark_typed_args[1].typ
+
+    # Check that both operands are either integral or null
+    def is_valid_bitwise_type(t):
+        return isinstance(t, (_IntegralType, NullType))
+
+    if not (is_valid_bitwise_type(type0) and is_valid_bitwise_type(type1)):
+        wrong_type = type0 if not is_valid_bitwise_type(type0) else type1
+        exception = AnalysisException(
+            f'[DATATYPE_MISMATCH.BINARY_OP_WRONG_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: the binary operator requires the input type "INTEGRAL", not "{wrong_type.simpleString().upper()}".;'
+        )
+        attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+        raise exception
+
+    match (type0, type1):
         case (LongType(), _) | (_, LongType()):
             return LongType()
         case (IntegerType(), _) | (_, IntegerType()):

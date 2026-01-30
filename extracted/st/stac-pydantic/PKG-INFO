@@ -1,52 +1,53 @@
 Metadata-Version: 2.4
 Name: stac-pydantic
-Version: 3.4.0
+Version: 3.5.0
 Summary: Pydantic data models for the STAC spec
-Author-email: Arturo Engineering <engineering@arturo.ai>
-License: MIT
 Project-URL: homepage, https://github.com/stac-utils/stac-pydantic
 Project-URL: repository, https://github.com/stac-utils/stac-pydantic.git
-Keywords: stac,pydantic,validation
+Author-email: Arturo Engineering <engineering@arturo.ai>
+Maintainer-email: Vincent Sarago <vincent@developmentseed.org>, Pete Gadomski <pete.gadomski@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2020 Arturo AI
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: pydantic,stac,validation
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: click>=8.1.7
-Requires-Dist: pydantic>=2.4.1
 Requires-Dist: geojson-pydantic>=1.0.0
+Requires-Dist: pydantic>=2.4.1
 Provides-Extra: validation
-Requires-Dist: jsonschema>=4.19.1; extra == "validation"
-Requires-Dist: requests>=2.31.0; extra == "validation"
-Provides-Extra: dev
-Requires-Dist: pytest>=7.4.2; extra == "dev"
-Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
-Requires-Dist: pytest-icdiff>=0.8; extra == "dev"
-Requires-Dist: requests>=2.31.0; extra == "dev"
-Requires-Dist: shapely>=2.0.1; extra == "dev"
-Requires-Dist: dictdiffer>=0.9.0; extra == "dev"
-Requires-Dist: jsonschema>=4.19.1; extra == "dev"
-Requires-Dist: pyyaml>=6.0.1; extra == "dev"
-Provides-Extra: lint
-Requires-Dist: types-requests>=2.31.0.5; extra == "lint"
-Requires-Dist: types-jsonschema>=4.19.0.3; extra == "lint"
-Requires-Dist: types-PyYAML>=6.0.12.12; extra == "lint"
-Requires-Dist: black>=23.9.1; extra == "lint"
-Requires-Dist: isort>=5.12.0; extra == "lint"
-Requires-Dist: flake8>=6.1.0; extra == "lint"
-Requires-Dist: Flake8-pyproject>=1.2.3; extra == "lint"
-Requires-Dist: mypy>=1.5.1; extra == "lint"
-Requires-Dist: pre-commit>=3.4.0; extra == "lint"
-Requires-Dist: tox>=4.11.3; extra == "lint"
-Dynamic: license-file
+Requires-Dist: jsonschema>=4.19.1; extra == 'validation'
+Requires-Dist: requests>=2.31.0; extra == 'validation'
+Description-Content-Type: text/markdown
 
 # stac-pydantic
 
@@ -68,12 +69,6 @@ python -m pip install stac-pydantic
 python -m pip install stac-pydantic["validation"]
 ```
 
-For local development:
-
-```shell
-python -m pip install -e '.[dev,lint]'
-```
-
 | stac-pydantic | STAC Version | STAC API Version | Pydantic Version |
 |--------------|---------------|------------------|-----------------|
 | 1.2.x         | 1.0.0-beta.1 | <1* | ^1.6 |
@@ -83,38 +78,6 @@ python -m pip install -e '.[dev,lint]'
 | 3.1.x         | 1.0.0        | 1.0.0 | ^2.4 |
 
 \* various beta releases, specs not fully implemented
-
-## Development
-
-Install the [pre-commit](https://pre-commit.com/) hooks:
-
-```shell
-pre-commit install
-```
-
-## Testing
-
-Ensure you have all Python versions installed that the tests will be run against. If using pyenv, run:
-
-```shell
-pyenv install 3.8.18
-pyenv install 3.9.18
-pyenv install 3.10.13
-pyenv install 3.11.5
-pyenv local 3.8.18 3.9.18 3.10.13 3.11.5
-```
-
-Run the entire test suite:
-
-```shell
-tox
-```
-
-Run a single test case using the standard pytest convention:
-
-```shell
-python -m pytest -v tests/test_models.py::test_item_extensions
-```
 
 ## Usage
 
@@ -187,31 +150,34 @@ It also implements models for defining ItemSeach queries.
 ```python
 from stac_pydantic.api import Item, ItemCollection
 
-stac_item = Item(**{
-    "id": "12345",
-    "type": "Feature",
-    "stac_extensions": [],
-    "geometry": { "type": "Point", "coordinates": [0, 0] },
-    "bbox": [0.0, 0.0, 0.0, 0.0],
-    "properties": {
-        "datetime": "2020-03-09T14:53:23.262208+00:00",
-    },
-    "collection": "CS3",
-    "links": [
-          {
-            "rel": "self",
-            "href": "http://stac.example.com/catalog/collections/CS3-20160503_132130_04/items/CS3-20160503_132130_04.json"
-          },
-          {
-            "rel": "collection",
-            "href": "http://stac.example.com/catalog/CS3-20160503_132130_04/catalog.json"
-          },
-          {
-            "rel": "root",
-            "href": "http://stac.example.com/catalog"
-          }],
-    "assets": {},
-    })
+stac_item = Item.model_validate(
+    {
+        "id": "12345",
+        "type": "Feature",
+        "stac_extensions": [],
+        "geometry": { "type": "Point", "coordinates": [0, 0] },
+        "bbox": [0.0, 0.0, 0.0, 0.0],
+        "properties": {
+            "datetime": "2020-03-09T14:53:23.262208+00:00",
+        },
+        "collection": "CS3",
+        "links": [
+            {
+                "rel": "self",
+                "href": "http://stac.example.com/catalog/collections/CS3-20160503_132130_04/items/CS3-20160503_132130_04.json"
+            },
+            {
+                "rel": "collection",
+                "href": "http://stac.example.com/catalog/CS3-20160503_132130_04/catalog.json"
+            },
+            {
+                "rel": "root",
+                "href": "http://stac.example.com/catalog"
+            }
+        ],
+        "assets": {},
+    }
+)
 
 stac_item_collection = ItemCollection(**{
     "type": "FeatureCollection",
@@ -242,6 +208,55 @@ item_dict = item.model_dump()
 assert item_dict['properties']['landsat:row'] == item.properties.row == 250
 ```
 
+#### Required keys
+
+STAC specification requires some keys to be present even if their value is `null`. When exporting a model to dict or json, stac-pydantic will make sure to keep the keys even if `exclude_none` is set to `True`. Users can overwrite this by using `exclude={'key'}`.
+
+```python
+from stac_pydantic.api import Item
+
+stac_item = Item.model_validate(
+    {
+        "id": "12345",
+        "type": "Feature",
+        "stac_extensions": [],
+        "geometry": None,
+        "properties": {
+            "datetime": None,
+            "start_datetime": "2024-01-01T00:00:00Z",
+            "end_datetime": "2024-01-02T00:00:00Z",
+        },
+        "collection": "collection",
+        "links": [
+            {
+                "rel": "self",
+                "href": "http://stac.example.com/catalog/collections/CS3-20160503_132130_04/items/CS3-20160503_132130_04.json"
+            },
+            {
+                "rel": "collection",
+                "href": "http://stac.example.com/catalog/CS3-20160503_132130_04/catalog.json"
+            },
+            {
+                "rel": "root",
+                "href": "http://stac.example.com/catalog"
+            }
+        ],
+        "assets": {},
+    }
+)
+
+out = stac_item.model_dump(exclude_none=True)
+# `geometry` is required
+assert out["geometry"] is None
+# `datetime` is a required property
+assert out["properties"]["datetime"] is None
+
+# force exclusion of required keys
+out = stac_item.model_dump(exclude_none=True, exclude={"properties": {"datetime"}, "geometry": True})
+assert "geometry" not in out
+assert "datetime" not in out["properties"]
+```
+
 ### CLI
 
 ```text
@@ -255,3 +270,7 @@ Options:
 Commands:
   validate-item  Validate STAC Item
 ```
+
+## Contribution & Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)

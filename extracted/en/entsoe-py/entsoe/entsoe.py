@@ -22,17 +22,17 @@ from .decorators import retry, paginated, year_limited, day_limited, documents_l
 import warnings
 
 logger = logging.getLogger(__name__)
-warnings.filterwarnings('always')
 warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
 
 __title__ = "entsoe-py"
-__version__ = "0.7.8"
+__version__ = "0.7.10"
 __author__ = "EnergieID.be, Frank Boerman"
 __license__ = "MIT"
 
 URL = os.getenv("ENTSOE_ENDPOINT_URL") or "https://web-api.tp.entsoe.eu/api"
 
-QUARTER_MTU_SDAC_GOLIVE =  pd.Timestamp('2025-10-01', tz='europe/amsterdam')
+QUARTER_MTU_SDAC_GOLIVE = pd.Timestamp('2025-10-01', tz='Europe/Amsterdam')
+
 
 
 class EntsoeRawClient:
@@ -238,8 +238,8 @@ class EntsoeRawClient:
         -------
         str
         """
-        if process_type not in ['A51', 'A52', 'A47']:
-            raise ValueError('processType allowed values: A51, A52, A47')
+        if process_type not in ['A51', 'A46', 'A47', 'A60', 'A61', 'A67', 'A68']:
+            raise ValueError('processType allowed values: A51, A46, A47, A60, A61, A67, A68')
         area = lookup_area(country_code)
         params = {
             'documentType': 'A24',
@@ -1178,7 +1178,9 @@ class EntsoePandasClient(EntsoeRawClient):
 
         """
         if resolution is not None:
-            warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right resolution', DeprecationWarning)
+            with warnings.catch_warnings():
+                warnings.simplefilter("always")
+                warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right resolution', DeprecationWarning)
         area = lookup_area(country_code)
         text = super(EntsoePandasClient, self).query_net_position(
             country_code=area, start=start, end=end, dayahead=dayahead)
@@ -1188,7 +1190,7 @@ class EntsoePandasClient(EntsoeRawClient):
         if dayahead:
             # This function should only return SDAC net positions for day ahead, which have a fixed defined resolution
             # before 2025-10-01 its 60min, after 15min
-            # this is aligned on businessday in timezone europe/amsterdam
+            # this is aligned on businessday in timezone Europe/Amsterdam
             # some zones already publish in different resolution.
             # for secondary auctions published on entsoe, use the query_day_ahead_prices_local function
             if series.index.max() < QUARTER_MTU_SDAC_GOLIVE:
@@ -1253,7 +1255,9 @@ class EntsoePandasClient(EntsoeRawClient):
         pd.Series
         """
         if resolution is not None:
-            warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right SDAC resolution', DeprecationWarning)
+            with warnings.catch_warnings():
+                warnings.simplefilter("always")
+                warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right resolution', DeprecationWarning)
         area = lookup_area(country_code)
         # we do here extra days at start and end to fix issue 187
         series = self._query_day_ahead_prices(
@@ -1286,11 +1290,11 @@ class EntsoePandasClient(EntsoeRawClient):
 
         # This function should only return SDAC prices, which have a fixed defined resolution
         # before 2025-10-01 its 60min, after 15min
-        # this is aligned on businessday in timezone europe/amsterdam
+        # this is aligned on businessday in timezone Europe/Amsterdam
         # some zones already publish in different resolution.
         # for secondary auctions published on entsoe, use the query_day_ahead_prices_local function
 
-        series = pd.concat([x for x in series_all.values() if len(x) > 0]).sort_index().tz_convert('europe/amsterdam')
+        series = pd.concat([x for x in series_all.values() if len(x) > 0]).sort_index().tz_convert('Europe/Amsterdam')
         if len(series) == 0:
             raise NoMatchingDataError
         if series.index.max() < QUARTER_MTU_SDAC_GOLIVE:

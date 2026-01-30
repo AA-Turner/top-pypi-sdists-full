@@ -159,6 +159,7 @@ from .Space import Space
 from .Spoiler import Spoiler
 from .Stack import Stack
 from .Switch import Switch
+from .TableOfContents import TableOfContents
 from .Text import Text
 from .ThemeIcon import ThemeIcon
 from .Title import Title
@@ -356,6 +357,7 @@ __all__ = [
     "Spoiler",
     "Stack",
     "Switch",
+    "TableOfContents",
     "Text",
     "ThemeIcon",
     "Title",

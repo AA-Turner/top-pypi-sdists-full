@@ -214,6 +214,11 @@ from .context import disable_template_security_validation
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
 
+# Pre-compiled regex patterns for whitespace filtering (performance optimization)
+_PATTERN_TAB_SPACE = re.compile(r"([\t ]+)")
+_PATTERN_NEWLINE_SPACE = re.compile(r"(\s*\n\s*)")
+_PATTERN_ALL_WHITESPACE = re.compile(r"(\s+)")
+
 
 def filter_whitespace(mode, text):
     """Transform whitespace in ``text`` according to ``mode``.
@@ -231,11 +236,11 @@ def filter_whitespace(mode, text):
     if mode == "all":
         return text
     elif mode == "single":
-        text = re.sub(r"([\t ]+)", " ", text)
-        text = re.sub(r"(\s*\n\s*)", "\n", text)
+        text = _PATTERN_TAB_SPACE.sub(" ", text)
+        text = _PATTERN_NEWLINE_SPACE.sub("\n", text)
         return text
     elif mode == "oneline":
-        return re.sub(r"(\s+)", " ", text)
+        return _PATTERN_ALL_WHITESPACE.sub(" ", text)
     else:
         raise Exception("invalid whitespace mode %s" % mode)
 

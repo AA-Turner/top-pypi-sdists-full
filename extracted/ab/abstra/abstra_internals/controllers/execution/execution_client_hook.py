@@ -53,6 +53,9 @@ class HookClient(ExecutionClient):
     def handle_start(self, execution_id: str):
         self._send(contract.ExecutionStartedMessage(execution_id))
 
+    def handle_abandoned(self) -> None:
+        self.conn.close()
+
     def _send(self, msg: contract.Message) -> None:
         str_data = serialize(msg.to_json())
         try:

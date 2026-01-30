@@ -33,6 +33,13 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 # I'll try not to make logic changes, just error reporting changes
 # from tinybird.sql import parse_indexes_structure, parse_table_structure, schema_to_sql_columns
 
+# Pre-compiled regex patterns
+_PATTERN_INDEX_ENTRY = re.compile(
+    r"(\w+)\s+([\w\s*\[\]\*\(\),\'\"-><.]+)\s+TYPE\s+(\w+)(?:\(([\w\s*.,]+)\))?(?:\s+GRANULARITY\s+(\d+))?"
+)
+_PATTERN_SIMPLE_AGG_FUNC = re.compile(r"SimpleAggregateFunction\((\w+),\s*(?!(?:Nullable))([\w,.()]+)\)")
+_PATTERN_VERSION_NUMBER = re.compile(r"[0-9]+$")
+
 
 class DatafileValidationError(Exception): ...
 
@@ -269,6 +276,74 @@ VALID_BLOB_STORAGE_CRON_VALUES = {
     "@on-demand",
     "@auto",
 }
+
+
+def extract_column_names_from_sorting_key_part(part: str) -> List[str]:
+    """
+    Extract actual column names from a sorting key part (which might be an expression).
+
+    Examples:
+    - "shop" -> ["shop"]
+    - "`column_name`" -> ["column_name"]
+    - "ifNull(ad_id, '')" -> ["ad_id"]
+    - "toDate(timestamp)" -> ["timestamp"]
+    - "concat(first_name, last_name)" -> ["first_name", "last_name"]
+    """
+    columns = []
+
+    if "(" in part and part.endswith(")"):
+        # Function expression - extract column names from inside parentheses
+        func_start = part.find("(")
+        inner_content = part[func_start + 1 : -1].strip()
+        for inner_part in inner_content.split(","):
+            inner_part = inner_part.strip().strip("`")
+            if inner_part and inner_part.isidentifier():
+                columns.append(inner_part)
+    elif part:
+        # Simple column name
+        column_name = part.strip("`")
+        if column_name:
+            columns.append(column_name)
+
+    return columns
+
+
+def parse_sorting_key_column_names(sorting_key: str) -> List[str]:
+    """
+    Extract all column names from a sorting key expression.
+
+    Examples:
+    - "shop, event_date, channel" -> ["shop", "event_date", "channel"]
+    - "shop, event_date, ifNull(ad_id, ''), event_id" -> ["shop", "event_date", "ad_id", "event_id"]
+    - "tuple(shop, toDate(timestamp))" -> ["shop", "timestamp"]
+    """
+    # Remove tuple() wrapper if present
+    column_str = sorting_key
+    if column_str.startswith("tuple(") and column_str.endswith(")"):
+        column_str = column_str[6:-1]
+
+    sorting_key_columns = []
+
+    # Use regex to find all sorting key parts, respecting parentheses and quotes
+    # Pattern matches: function calls with args, or simple identifiers
+    # This handles cases like: ifNull(col, ''), toDate(timestamp), simple_col
+    pattern = r"""
+        (?:                      # Non-capturing group for the whole part
+            \w+\s*\([^)]*\)      # Function call: word + ( + anything except ) + )
+            |                     # OR
+            `[^`]+`              # Backtick-quoted identifier
+            |                     # OR
+            \w+                  # Simple word/identifier
+        )
+    """
+
+    for match in re.finditer(pattern, column_str, re.VERBOSE):
+        part = match.group(0).strip()
+        # Extract column names from the part (handles both simple columns and function expressions)
+        extracted_columns = extract_column_names_from_sorting_key_part(part)
+        sorting_key_columns.extend(extracted_columns)
+
+    return sorting_key_columns
 
 
 class Datafile:
@@ -559,7 +634,7 @@ class Datafile:
                 )
 
             # Extract column names from the part
-            extracted_columns = self._extract_column_names_from_part(part)
+            extracted_columns = extract_column_names_from_sorting_key_part(part)
             sorting_key_columns.extend(extracted_columns)
 
         return sorting_key_columns
@@ -594,26 +669,6 @@ class Datafile:
         }
 
         return func_name in aggregate_function_names
-
-    def _extract_column_names_from_part(self, part: str) -> List[str]:
-        """Extract column names from a sorting key part."""
-        columns = []
-
-        if "(" in part and part.endswith(")"):
-            # Function expression - extract column names from inside parentheses
-            func_start = part.find("(")
-            inner_content = part[func_start + 1 : -1].strip()
-            for inner_part in inner_content.split(","):
-                inner_part = inner_part.strip().strip("`")
-                if inner_part and inner_part.isidentifier():
-                    columns.append(inner_part)
-        elif part:
-            # Simple column name
-            column_name = part.strip("`")
-            if column_name:
-                columns.append(column_name)
-
-        return columns
 
     def _validate_columns_against_schema(
         self, sorting_key_columns: List[str], schema_columns: Dict[str, Dict[str, Any]]
@@ -783,10 +838,7 @@ def parse_indexes_structure(indexes: Optional[List[str]]) -> List[TableIndex]:
                 pos=leading_whitespaces + 1,
             )
 
-        match = re.match(
-            r"(\w+)\s+([\w\s*\[\]\*\(\),\'\"-><.]+)\s+TYPE\s+(\w+)(?:\(([\w\s*.,]+)\))?(?:\s+GRANULARITY\s+(\d+))?",
-            index,
-        )
+        match = _PATTERN_INDEX_ENTRY.match(index)
         if match:
             index_name, a, index_type, value, granularity = match.groups()
             index_expr = f"{index_type}({value})" if value else index_type
@@ -1323,7 +1375,7 @@ def try_to_fix_nullable_in_simple_aggregating_function(t: str) -> Optional[str]:
     # as it is done with other aggregate functions.
     # If not, the aggregation could return incorrect results.
     result = None
-    if match := re.search(r"SimpleAggregateFunction\((\w+),\s*(?!(?:Nullable))([\w,.()]+)\)", t):
+    if match := _PATTERN_SIMPLE_AGG_FUNC.search(t):
         fn = match.group(1)
         inner_type = match.group(2)
         result = f"SimpleAggregateFunction({fn}, Nullable({inner_type}))"
@@ -2468,7 +2520,7 @@ def get_name_version(ds: str) -> Dict[str, Any]:
         return {"name": tk[0], "version": None}
     elif len(tk) == 2:
         if len(tk[1]):
-            if tk[1][0] == "v" and re.match("[0-9]+$", tk[1][1:]):
+            if tk[1][0] == "v" and _PATTERN_VERSION_NUMBER.match(tk[1][1:]):
                 return {"name": tk[0], "version": int(tk[1][1:])}
             else:
                 return {"name": tk[0] + "__" + tk[1], "version": None}

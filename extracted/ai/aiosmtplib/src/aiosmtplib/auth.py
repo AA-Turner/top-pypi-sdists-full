@@ -4,13 +4,16 @@ Authentication related methods.
 
 import base64
 import hmac
-from typing import Union
+
+__all__ = (
+    "auth_crammd5_verify",
+    "auth_login_encode",
+    "auth_plain_encode",
+    "auth_xoauth2_encode",
+)
 
 
-__all__ = ("auth_crammd5_verify", "auth_plain_encode", "auth_login_encode")
-
-
-def _ensure_bytes(value: Union[str, bytes]) -> bytes:
+def _ensure_bytes(value: str | bytes) -> bytes:
     if isinstance(value, (bytes, bytearray, memoryview)):
         return value
 
@@ -18,9 +21,9 @@ def _ensure_bytes(value: Union[str, bytes]) -> bytes:
 
 
 def auth_crammd5_verify(
-    username: Union[str, bytes],
-    password: Union[str, bytes],
-    challenge: Union[str, bytes],
+    username: str | bytes,
+    password: str | bytes,
+    challenge: str | bytes,
     /,
 ) -> bytes:
     """
@@ -39,8 +42,8 @@ def auth_crammd5_verify(
 
 
 def auth_plain_encode(
-    username: Union[str, bytes],
-    password: Union[str, bytes],
+    username: str | bytes,
+    password: str | bytes,
     /,
 ) -> bytes:
     """
@@ -56,8 +59,8 @@ def auth_plain_encode(
 
 
 def auth_login_encode(
-    username: Union[str, bytes],
-    password: Union[str, bytes],
+    username: str | bytes,
+    password: str | bytes,
     /,
 ) -> tuple[bytes, bytes]:
     """
@@ -71,3 +74,25 @@ def auth_login_encode(
     encoded_password = base64.b64encode(password_bytes)
 
     return encoded_username, encoded_password
+
+
+def auth_xoauth2_encode(
+    username: str | bytes,
+    access_token: str | bytes,
+    /,
+) -> bytes:
+    """
+    XOAUTH2 auth encodes the username and OAuth2 access token per
+    https://developers.google.com/gmail/imap/xoauth2-protocol
+
+    Format: base64("user=" + username + "\\x01auth=Bearer " + token + "\\x01\\x01")
+    """
+    username_bytes = _ensure_bytes(username)
+    token_bytes = _ensure_bytes(access_token)
+
+    auth_string = (
+        b"user=" + username_bytes + b"\x01auth=Bearer " + token_bytes + b"\x01\x01"
+    )
+    encoded = base64.b64encode(auth_string)
+
+    return encoded

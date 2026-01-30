@@ -9,10 +9,10 @@ class SpatialEulerAngles(ctypes.Structure):
 		("_heading", ctypes.c_double),
 	]
 
-	def __init__(self):
-		self.pitch = 0
-		self.roll = 0
-		self.heading = 0
+	def __init__(self, pitch = 0, roll = 0, heading = 0):
+		self.pitch = pitch
+		self.roll = roll
+		self.heading = heading
 
 	def fromPython(self):
 		self._pitch = self.pitch

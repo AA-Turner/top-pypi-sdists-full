@@ -22,10 +22,10 @@ from typing import List
 
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
-from google.ads.googleads.v22.services.services.google_ads_service import (
+from google.ads.googleads.v23.services.services.google_ads_service import (
     GoogleAdsServiceAsyncClient,
 )
-from google.ads.googleads.v22.services.types.google_ads_service import (
+from google.ads.googleads.v23.services.types.google_ads_service import (
     GoogleAdsRow,
 )
 
@@ -40,8 +40,7 @@ async def main(client: GoogleAdsClient, customer_id: str) -> None:
           campaign.id,
           campaign.name
         FROM campaign
-        ORDER BY campaign.id
-        LIMIT 10"""
+        ORDER BY campaign.id"""
 
     # Issues a search request using streaming.
     stream = await ga_service.search_stream(
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     # GoogleAdsClient will read the google-ads.yaml configuration file in the
     # home directory if none is specified.
     googleads_client: GoogleAdsClient = GoogleAdsClient.load_from_storage(
-        version="v22"
+        version="v23"
     )
 
     try:

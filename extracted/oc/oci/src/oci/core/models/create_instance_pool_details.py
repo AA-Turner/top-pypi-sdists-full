@@ -265,6 +265,7 @@ class CreateInstancePoolDetails(object):
         To use the instance pool with a regional subnet, provide a placement configuration for
         each availability domain, and include the regional subnet in each placement
         configuration.
+        To use compute cluster with instance pool, provide a single placement configuration.
 
 
         :return: The placement_configurations of this CreateInstancePoolDetails.
@@ -282,6 +283,7 @@ class CreateInstancePoolDetails(object):
         To use the instance pool with a regional subnet, provide a placement configuration for
         each availability domain, and include the regional subnet in each placement
         configuration.
+        To use compute cluster with instance pool, provide a single placement configuration.
 
 
         :param placement_configurations: The placement_configurations of this CreateInstancePoolDetails.

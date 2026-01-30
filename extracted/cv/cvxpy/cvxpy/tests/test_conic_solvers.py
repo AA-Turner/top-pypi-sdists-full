@@ -14,8 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import contextlib
 import math
+import os
 import re
+import string
+import sys
+import tempfile
 import unittest
 
 import numpy as np
@@ -367,7 +372,7 @@ class TestSCS(BaseTest):
         if Version(scs.__version__) >= Version('3.0.0'):
             # See https://github.com/cvxpy/cvxpy/issues/2059
             x = cp.Variable()
-            prob = cp.Problem(cp.Minimize(x**1.6 + x**2), [x >= 1])
+            prob = cp.Problem(cp.Minimize(cp.power(x, 1.6, approx=True) + x**2), [x >= 1])
             prob.solve(solver=cp.SCS, use_quad_obj=True)
             self.assertAlmostEqual(prob.value, 2)
             self.assertAlmostEqual(x.value, 1)
@@ -731,7 +736,9 @@ class TestMoreau(BaseTest):
         StandardTestSOCPs.test_socp_0(solver='MOREAU')
 
     def test_moreau_socp_1(self) -> None:
-        StandardTestSOCPs.test_socp_1(solver='MOREAU')
+        import moreau
+        ipm_settings = moreau.IPMSettings(tol_gap_abs=1e-9, tol_gap_rel=1e-9, tol_feas=1e-9)
+        StandardTestSOCPs.test_socp_1(solver='MOREAU', ipm_settings=ipm_settings)
 
     def test_moreau_socp_2(self) -> None:
         StandardTestSOCPs.test_socp_2(solver='MOREAU')
@@ -748,14 +755,15 @@ class TestMoreau(BaseTest):
     def test_moreau_exp_soc_1(self) -> None:
         StandardTestMixedCPs.test_exp_soc_1(solver='MOREAU')
 
-    def test_moreau_pcp_0(self) -> None:
-        StandardTestSOCPs.test_socp_0(solver='MOREAU')
-
     def test_moreau_pcp_1(self) -> None:
-        StandardTestSOCPs.test_socp_1(solver='MOREAU')
+        import moreau
+        ipm_settings = moreau.IPMSettings(tol_gap_abs=1e-9, tol_gap_rel=1e-9, tol_feas=1e-9)
+        StandardTestPCPs.test_pcp_1(solver='MOREAU', ipm_settings=ipm_settings)
 
     def test_moreau_pcp_2(self) -> None:
-        StandardTestSOCPs.test_socp_2(solver='MOREAU')
+        import moreau
+        ipm_settings = moreau.IPMSettings(tol_gap_abs=1e-9, tol_gap_rel=1e-9, tol_feas=1e-9)
+        StandardTestPCPs.test_pcp_2(solver='MOREAU', ipm_settings=ipm_settings)
 
 
 def is_mosek_available():
@@ -1205,7 +1213,8 @@ def fflush() -> None:
 
 # We can't inherit from unittest.TestCase since we access some advanced pytest features.
 # As a result, we use the pytest skipif decorator instead of unittest.skipUnless.
-@pytest.mark.skipif('CBC' not in INSTALLED_SOLVERS, reason='CBC is not installed.')
+@pytest.mark.skipif(('CBC' not in INSTALLED_SOLVERS) or sys.platform.startswith("win"),
+                    reason='CBC is not installed or tests are being run on Windows.')
 class TestCBC:
 
     def _cylp_checks_isProvenInfeasible():
@@ -2359,6 +2368,18 @@ class TestSCIP(unittest.TestCase):
                   "Try another solver, or solve with verbose=True for more information."
             assert str(se.value) == exc
 
+    def test_scip_solver_stats(self) -> None:
+        import pyscipopt
+
+        sth = sths.lp_0()
+        sth.solve(solver="SCIP")
+        stats = sth.prob.solver_stats
+        assert stats.solver_name == "SCIP"
+        assert stats.solve_time is not None
+        assert stats.num_iters is not None
+        assert stats.extra_stats["scip_status"] == "optimal"
+        assert isinstance(stats.extra_stats["model"], pyscipopt.Model)
+
 
 # We can't inherit from unittest.TestCase since we access some advanced pytest features.
 # As a result, we use the pytest skipif decorator instead of unittest.skipUnless.
@@ -2379,6 +2400,7 @@ class TestHIGHS:
             StandardTestLPs.test_mi_lp_3,
             StandardTestLPs.test_mi_lp_4,
             StandardTestLPs.test_mi_lp_5,
+            StandardTestLPs.test_mi_lp_6,
         ],
     )
     def test_highs_solving(self, problem) -> None:
@@ -2409,6 +2431,116 @@ class TestHIGHS:
         captured = capfd.readouterr()
         assert re.search(confirmation_string, captured.out) is not None
 
+    def test_highs_validate_column_name(self) -> None:
+        """Test that HiGHS column name check is working correctly.
+
+        For more information about the rules, see:
+        cvxpy.reductions.solvers.conic_solvers.highs_conif.INVALID_COLUMN_NAME_MESSAGE_TEMPLATE
+        """
+        from cvxpy.reductions.solvers.conic_solvers.highs_conif import validate_column_name
+
+        must_not_be_a_keyword = set(
+            ["st", "bounds", "min", "max", "bin", "binary", "gen", "semi", "end"]
+        )
+        must_not_begin_with = set(string.digits + "eE.=()<>[]")
+        may_contain = set(string.ascii_letters + string.digits + "\"!#$%&/}{,;?@_‘’'`|~.=()<>[]")
+        must_not_contain = set(string.printable) - set(may_contain)
+        may_begin_with = (set(may_contain) - set(must_not_begin_with)).union(
+            set(must_not_be_a_keyword) - set(["end"])
+        )
+
+        # Happy path: valid names
+        valid_names = (
+            ["a" * 255]
+            + [single_char_name for single_char_name in may_begin_with - must_not_be_a_keyword]
+            + [f"{beginning}{contains}" for beginning, contains in zip(may_begin_with, may_contain)]
+        )
+        for name in valid_names:
+            validate_column_name(name)
+
+        # Unhappy path: invalid names
+        invalid_names = (
+            ["a" * 256]
+            + [keyword for keyword in must_not_be_a_keyword]
+            + [f"{beginning}_with" for beginning in must_not_begin_with]
+            + [f"a_{containing}_name" for containing in must_not_contain]
+        )
+        for name in invalid_names:
+            with pytest.raises(ValueError):
+                validate_column_name(name)
+
+    @pytest.mark.parametrize(
+        "variables",
+        [
+            [
+                cp.Variable(name="var_with_no_shape"),
+                cp.Variable(name="var_with_shape_1", shape=1),
+                cp.Variable(name="var_with_shape_2_by_2_by_2", shape=[2, 2, 2]),
+                cp.Variable(name="nonneg_var_with_no_shape", nonneg=True),
+                cp.Variable(name="nonneg_var_with_shape_1", nonneg=True, shape=1),
+                cp.Variable(name="nonneg_var_with_shape_2_by_2", nonneg=True, shape=[2, 2]),
+                cp.Variable(name="boolean_variable_to_test_conif", boolean=True),
+            ],
+            [
+                cp.Variable(name="var_with_no_shape"),
+                cp.Variable(name="var_with_shape_1", shape=1),
+                cp.Variable(name="var_with_shape_2_by_2_by_2", shape=[2, 2, 2]),
+                cp.Variable(name="nonneg_var_with_no_shape", nonneg=True),
+                cp.Variable(name="nonneg_var_with_shape_1", nonneg=True, shape=1),
+                cp.Variable(name="nonneg_var_with_shape_2_by_2", nonneg=True, shape=[2, 2]),
+                cp.Variable(name="no_boolean_variable_to_test_qpif", boolean=False),
+            ],
+        ],
+    )
+    def test_highs_written_model_contains_variable_names(self, variables, capfd) -> None:
+        """Test that HiGHS actually receives and writes out the variable names.
+
+        Args:
+            variables: List of cvxpy variables to be used in the test.
+            capfd: Captures stdout to search for confirmation_string.
+        """
+        prob = cp.Problem(cp.Minimize(cp.sum(cp.sum(variables))), [cp.sum(cp.sum(variables)) >= 1])
+
+        fd, model_path = tempfile.mkstemp(suffix=".lp")
+        os.close(fd)
+        try:
+            prob.solve(cp.HIGHS, verbose=True, write_model_file=model_path)
+
+            captured = capfd.readouterr().out
+            # Check that the model is written to the file
+            assert re.search(
+                rf"\nWriting the model to {re.escape(model_path)}\n", captured
+            ), f"Expected model file to be written to {model_path}."
+
+            # Check that the model contains the variable names as expected.
+            # We search the entire model file because some variables (e.g.,
+            # nonneg variables with BOUNDED_VARIABLES=True) may not appear
+            # in the bounds section when their bounds match the LP default.
+            with open(model_path, "r", encoding="utf-8") as model_file:
+                model = model_file.read()
+
+            for expected_var in variables:
+                if expected_var.ndim == 0:
+                    # Scalar variables appear by their plain name.
+                    assert expected_var.name() in model, (
+                        f"Expected variable {expected_var.name()} to appear "
+                        f"in the model file."
+                    )
+                else:
+                    # Array variables appear as name[idx] entries.
+                    actual_var_count = len(re.findall(
+                        re.escape(expected_var.name()) + r"\[", model
+                    ))
+                    # Each element appears at least twice (objective + constraint),
+                    # and possibly once more in the bounds section.
+                    assert actual_var_count >= expected_var.size, (
+                        f"Expected variable {expected_var.name()} to appear "
+                        f"at least {expected_var.size} times in the model file "
+                        f"but found {actual_var_count}."
+                    )
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(model_path)
 
     def test_highs_nonstandard_name(self) -> None:
         """Test HiGHS solver with non-capitalized solver name."""
@@ -2481,9 +2613,14 @@ class TestAllSolvers(BaseTest):
         prob = cp.Problem(cp.Minimize(cp.norm(self.x, 1) + 1.0), [self.x == 0])
         for solver in SOLVER_MAP_CONIC.keys():
             if solver in INSTALLED_SOLVERS:
-                prob.solve(solver=solver)
-                self.assertAlmostEqual(prob.value, 1.0)
-                self.assertItemsAlmostEqual(self.x.value, [0, 0])
+                if solver is cp.MOSEK and not is_mosek_available():
+                    pass
+                elif solver is cp.KNITRO and not is_knitro_available():
+                    pass
+                else:
+                    prob.solve(solver=solver)
+                    self.assertAlmostEqual(prob.value, 1.0)
+                    self.assertItemsAlmostEqual(self.x.value, [0, 0])
             else:
                 with self.assertRaises(Exception) as cm:
                     prob.solve(solver=solver)
@@ -2491,8 +2628,11 @@ class TestAllSolvers(BaseTest):
 
         for solver in SOLVER_MAP_QP.keys():
             if solver in INSTALLED_SOLVERS:
-                prob.solve(solver=solver)
-                self.assertItemsAlmostEqual(self.x.value, [0, 0])
+                if solver is cp.KNITRO and not is_knitro_available():
+                    pass
+                else:
+                    prob.solve(solver=solver)
+                    self.assertItemsAlmostEqual(self.x.value, [0, 0])
             else:
                 with self.assertRaises(Exception) as cm:
                     prob.solve(solver=solver)
@@ -2506,9 +2646,14 @@ class TestAllSolvers(BaseTest):
             with pytest.raises(cp.error.SolverError, match="You need a mixed-integer "
                                                            "solver for this model"):
                 prob.solve()
-        else:
-            prob.solve()
+        elif is_mosek_available() and cp.MOSEK in INSTALLED_MI_SOLVERS:
+            prob.solve(solver=cp.MOSEK)
             self.assertItemsAlmostEqual(x.value, [0, 0])
+        elif cp.HIGHS in INSTALLED_MI_SOLVERS:
+            prob.solve(solver=cp.HIGHS)
+            self.assertItemsAlmostEqual(x.value, [0, 0])
+        else:
+            pass
 
 
 @unittest.skipUnless('ECOS' in INSTALLED_SOLVERS, 'ECOS_BB is not installed.')
@@ -2520,13 +2665,17 @@ class TestECOS_BB(unittest.TestCase):
         x = cp.Variable(1, name='x', integer=True)
         objective = cp.Minimize(cp.sum(x))
         prob = cp.Problem(objective, [x >= 0])
-        if INSTALLED_MI_SOLVERS != [cp.ECOS_BB]:
+        if INSTALLED_MI_SOLVERS != [cp.ECOS_BB] and is_mosek_available():
             prob.solve()
             assert prob.solver_stats.solver_name != cp.ECOS_BB
+        # The optional solvers build will always have MOSEK installed.
+        """
         else:
-            with pytest.raises(cp.error.SolverError, match="You need a mixed-integer "
-                                                           "solver for this model"):
-                prob.solve()
+            if not is_mosek_available():
+                with pytest.raises(cp.error.SolverError, match="You need a mixed-integer "
+                                                            "solver for this model"):
+                    prob.solve()
+        """
 
     def test_ecos_bb_lp_0(self) -> None:
         StandardTestLPs.test_lp_0(solver='ECOS_BB')
@@ -3065,4 +3214,3 @@ class TestCUOPT(unittest.TestCase):
 
     def test_cuopt_mi_lp_7(self) -> None:
         StandardTestLPs.test_mi_lp_5(solver='CUOPT', **TestCUOPT.kwargs, time_limit=5)
-

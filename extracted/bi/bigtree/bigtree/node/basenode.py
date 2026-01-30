@@ -611,8 +611,12 @@ class BaseNode:
             and (not len(exclude_prefix) or not item[0].startswith(exclude_prefix))
         ]
 
-    def get_attr(self, attr_name: str, default_value: Any = None) -> Any:
+    def get_attr(self, attr_name: str, default: Any = None) -> Any:
         """Get value of node attribute. Returns default value if attribute name does not exist.
+
+        - Support chained attribute (e.g., `parent.parent.attr_name`, `data.attr_name`)
+        - Support nested attribute (e.g., `children[0].attr_name`)
+        - Support Callable that takes in the node and return the attribute value
 
         Examples:
             >>> from bigtree.node.node import Node
@@ -622,15 +626,14 @@ class BaseNode:
 
         Args:
             attr_name: attribute name
-            default_value: default value if attribute does not exist
+            default: default value if attribute does not exist
 
         Returns:
             Attribute value of node
         """
-        try:
-            return getattr(self, attr_name)
-        except AttributeError:
-            return default_value
+        from bigtree.utils import common
+
+        return common.get_attr(self, attr_name, default)
 
     def set_attrs(self, attrs: Mapping[str, Any]) -> None:
         """Set node attributes.

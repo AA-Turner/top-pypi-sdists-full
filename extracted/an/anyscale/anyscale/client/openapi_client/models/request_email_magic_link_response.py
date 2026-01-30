@@ -34,15 +34,17 @@ class RequestEmailMagicLinkResponse(object):
     """
     openapi_types = {
         'send_to_password': 'bool',
-        'organization_id': 'str'
+        'organization_id': 'str',
+        'sso_url': 'str'
     }
 
     attribute_map = {
         'send_to_password': 'send_to_password',
-        'organization_id': 'organization_id'
+        'organization_id': 'organization_id',
+        'sso_url': 'sso_url'
     }
 
-    def __init__(self, send_to_password=None, organization_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, send_to_password=None, organization_id=None, sso_url=None, local_vars_configuration=None):  # noqa: E501
         """RequestEmailMagicLinkResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,11 +52,14 @@ class RequestEmailMagicLinkResponse(object):
 
         self._send_to_password = None
         self._organization_id = None
+        self._sso_url = None
         self.discriminator = None
 
         self.send_to_password = send_to_password
         if organization_id is not None:
             self.organization_id = organization_id
+        if sso_url is not None:
+            self.sso_url = sso_url
 
     @property
     def send_to_password(self):
@@ -99,6 +104,27 @@ class RequestEmailMagicLinkResponse(object):
         """
 
         self._organization_id = organization_id
+
+    @property
+    def sso_url(self):
+        """Gets the sso_url of this RequestEmailMagicLinkResponse.  # noqa: E501
+
+
+        :return: The sso_url of this RequestEmailMagicLinkResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._sso_url
+
+    @sso_url.setter
+    def sso_url(self, sso_url):
+        """Sets the sso_url of this RequestEmailMagicLinkResponse.
+
+
+        :param sso_url: The sso_url of this RequestEmailMagicLinkResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._sso_url = sso_url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

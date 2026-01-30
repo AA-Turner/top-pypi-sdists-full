@@ -14,6 +14,9 @@ export class CardView extends ColumnView {
     static __name__ = "CardView";
     button_el;
     header_el;
+    visible_child_views = new Map();
+    _updating_child_visibility = new Set();
+    _child_visible_callbacks = new Map();
     collapsed_style = new DOM.InlineStyleSheet();
     connect_signals() {
         super.connect_signals();
@@ -28,6 +31,9 @@ export class CardView extends ColumnView {
             this.child_views[0].el.style.backgroundColor = header_background;
             this.header_el.style.backgroundColor = header_background;
         });
+        for (const child_view of this.child_views.slice(1)) {
+            this._register_child_view(child_view);
+        }
     }
     stylesheets() {
         return [...super.stylesheets(), card_css];
@@ -83,10 +89,9 @@ export class CardView extends ColumnView {
             header.render();
             header.r_after_render();
         }
-        if (this.model.collapsed) {
-            return;
-        }
         for (const child_view of this.child_views.slice(1)) {
+            this._register_child_view(child_view);
+            this._apply_child_visible(child_view);
             this.shadow_el.appendChild(child_view.el);
             child_view.render();
             child_view.r_after_render();
@@ -94,6 +99,15 @@ export class CardView extends ColumnView {
     }
     async update_children() {
         await this.build_child_views();
+        const child_views = new Set(this.child_views.slice(1));
+        for (const child_view of this.visible_child_views.keys()) {
+            if (!child_views.has(child_view)) {
+                this._unregister_child_view(child_view);
+            }
+        }
+        for (const child_view of child_views) {
+            this._register_child_view(child_view);
+        }
         this.render();
         this.invalidate_layout();
     }
@@ -175,15 +189,16 @@ export class CardView extends ColumnView {
     }
     _collapse() {
         for (const child_view of this.child_views.slice(1)) {
+            this._register_child_view(child_view);
             if (this.model.collapsed) {
                 this.shadow_el.removeChild(child_view.el);
-                child_view.model.visible = false;
+                this._set_child_visible(child_view, false);
             }
             else {
                 child_view.render();
                 child_view.after_render();
                 this.shadow_el.appendChild(child_view.el);
-                child_view.model.visible = true;
+                this._apply_child_visible(child_view);
             }
         }
         if (this.model.collapsed) {
@@ -197,6 +212,51 @@ export class CardView extends ColumnView {
         }
         this.button_el.children[0].innerHTML = this.model.collapsed ? CHEVRON_RIGHT : CHEVRON_DOWN;
         this.invalidate_layout();
+    }
+    _set_child_visible(child_view, visible) {
+        if (child_view.model.visible == visible) {
+            return;
+        }
+        this._updating_child_visibility.add(child_view);
+        try {
+            child_view.model.visible = visible;
+        }
+        finally {
+            this._updating_child_visibility.delete(child_view);
+        }
+    }
+    _apply_child_visible(child_view) {
+        const desired_visible = this.visible_child_views.get(child_view) ?? child_view.model.visible;
+        this.visible_child_views.set(child_view, desired_visible);
+        this._set_child_visible(child_view, desired_visible && !this.model.collapsed);
+    }
+    _register_child_view(child_view) {
+        if (this.visible_child_views.has(child_view)) {
+            return;
+        }
+        this.visible_child_views.set(child_view, child_view.model.visible);
+        const { visible } = child_view.model.properties;
+        const callback = () => {
+            if (this._updating_child_visibility.has(child_view)) {
+                return;
+            }
+            const desired_visible = child_view.model.visible;
+            this.visible_child_views.set(child_view, desired_visible);
+            if (this.model.collapsed && desired_visible) {
+                this._set_child_visible(child_view, false);
+            }
+        };
+        this._child_visible_callbacks.set(child_view, callback);
+        this.on_change(visible, callback);
+    }
+    _unregister_child_view(child_view) {
+        const callback = this._child_visible_callbacks.get(child_view);
+        if (callback != null) {
+            child_view.model.properties.visible.change.disconnect(callback);
+            this._child_visible_callbacks.delete(child_view);
+        }
+        this.visible_child_views.delete(child_view);
+        this._updating_child_visibility.delete(child_view);
     }
     _create_element() {
         return DOM.create_element(this.model.tag, { class: this.css_classes() });

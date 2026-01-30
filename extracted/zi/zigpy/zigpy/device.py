@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import timeout as asyncio_timeout
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 import contextlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -36,7 +36,6 @@ import zigpy.listeners
 from zigpy.ota.manager import update_firmware
 from zigpy.profiles import zha, zll
 import zigpy.types as t
-from zigpy.typing import AddressingMode
 import zigpy.util
 from zigpy.zcl import Cluster, ClusterType, foundation
 from zigpy.zcl.clusters.general import Ota, PollControl
@@ -93,6 +92,10 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         self.nwk: t.NWK = t.NWK(nwk)
         self.zdo: zdo.ZDO = zdo.ZDO(self)
         self.endpoints: dict[int, zdo.ZDO | zigpy.endpoint.Endpoint] = {0: self.zdo}
+
+        # Persist the original signature for the device, before quirks are applied
+        self._original_signature: dict[str, Any] | None = None
+
         self.lqi: int | None = None
         self.rssi: int | None = None
         self.ota_in_progress: bool = False
@@ -198,7 +201,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
 
             yield
 
-    def get_sequence(self) -> t.uint8_t:
+    def get_sequence(self) -> int:
         self._send_sequence = (self._send_sequence + 1) % 256
         return self._send_sequence
 
@@ -220,7 +223,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         return self._last_seen.timestamp() if self._last_seen is not None else None
 
     @last_seen.setter
-    def last_seen(self, value: datetime | float):
+    def last_seen(self, value: datetime | float | None):
         if isinstance(value, int | float):
             value = datetime.fromtimestamp(value, UTC)
 
@@ -595,7 +598,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                     f"Duplicate request key: {rsp_key}"
                 )
 
-            future: asyncio.Future[list[typing.Any, ...] | foundation.CommandSchema] = (
+            future: asyncio.Future[list[typing.Any] | foundation.CommandSchema] = (
                 asyncio.Future()
             )
             self._requests[rsp_key] = future
@@ -616,17 +619,12 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         src_ep: int,
         dst_ep: int,
         message: bytes,
-        *,
-        dst_addressing: AddressingMode | None = None,
     ):
         """Deprecated compatibility function. Use `packet_received` instead."""
 
         warnings.warn(
             "`handle_message` is deprecated, use `packet_received`", DeprecationWarning
         )
-
-        if dst_addressing is None:
-            dst_addressing = t.AddrMode.NWK
 
         self.packet_received(
             t.ZigbeePacket(
@@ -636,11 +634,8 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 dst_ep=dst_ep,
                 data=t.SerializableBytes(message),
                 dst=t.AddrModeAddress(
-                    addr_mode=dst_addressing,
-                    address={
-                        t.AddrMode.NWK: self.nwk,
-                        t.AddrMode.IEEE: self.ieee,
-                    }[dst_addressing],
+                    addr_mode=t.AddrMode.NWK,
+                    address=self.nwk,
                 ),
             )
         )
@@ -748,8 +743,10 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         endpoint = self.endpoints[packet.src_ep]
 
         if packet.src_ep == zdo.ZDO_ENDPOINT:
+            assert isinstance(endpoint, zigpy.zdo.ZDO)
             return endpoint, None
         else:
+            assert isinstance(endpoint, zigpy.endpoint.Endpoint)
             try:
                 zcl_cluster = self._find_zcl_cluster(hdr, packet)
             except KeyError:
@@ -900,9 +897,9 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
     async def update_firmware(
         self,
         image: OtaImageWithMetadata,
-        progress_callback: callable | None = None,
+        progress_callback: Callable[[int, int, float], None] | None = None,
         force: bool = False,
-    ) -> foundation.Status:
+    ) -> foundation.Status | None:
         """Update device firmware."""
         if self.ota_in_progress:
             self.debug("OTA already in progress")
@@ -985,6 +982,17 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
     def model(self, value) -> None:
         if isinstance(value, str):
             self._model = value
+
+    @property
+    def original_signature(self) -> dict[str, Any] | None:
+        return self._original_signature
+
+    @original_signature.setter
+    def original_signature(self, value: dict[str, Any] | None) -> None:
+        if self._original_signature is not None:
+            return
+
+        self._original_signature = value
 
     @property
     def skip_configuration(self) -> bool:

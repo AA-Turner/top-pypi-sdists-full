@@ -86,10 +86,7 @@ class BreakdownClient:
         )
         client.manage.v1.projects.billing.breakdown.list(
             project_id="123456-7890-1234-5678-901234",
-            start="start",
-            end="end",
             accessor="12345678-1234-1234-1234-123456789012",
-            deployment="hosted",
             tag="tag1",
             line_item="streaming::nova-3",
         )
@@ -189,10 +186,7 @@ class AsyncBreakdownClient:
         async def main() -> None:
             await client.manage.v1.projects.billing.breakdown.list(
                 project_id="123456-7890-1234-5678-901234",
-                start="start",
-                end="end",
                 accessor="12345678-1234-1234-1234-123456789012",
-                deployment="hosted",
                 tag="tag1",
                 line_item="streaming::nova-3",
             )

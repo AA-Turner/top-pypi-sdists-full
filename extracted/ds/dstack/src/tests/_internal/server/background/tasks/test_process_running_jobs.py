@@ -68,6 +68,7 @@ from dstack._internal.server.testing.common import (
     get_job_runtime_data,
     get_run_spec,
     get_volume_configuration,
+    list_events,
 )
 from dstack._internal.utils.common import get_current_datetime
 
@@ -515,9 +516,12 @@ class TestProcessRunningJobs:
             await process_running_jobs()
             assert SSHTunnelMock.call_count == 3
         await session.refresh(job)
+        events = await list_events(session)
         assert job is not None
         assert job.disconnected_at is not None
         assert job.status == JobStatus.PULLING
+        assert len(events) == 1
+        assert events[0].message == "Job became unreachable"
         with (
             patch("dstack._internal.server.services.runner.ssh.SSHTunnel") as SSHTunnelMock,
             patch("dstack._internal.server.services.runner.ssh.time.sleep"),
@@ -528,7 +532,7 @@ class TestProcessRunningJobs:
             assert SSHTunnelMock.call_count == 3
         await session.refresh(job)
         assert job.status == JobStatus.TERMINATING
-        assert job.termination_reason == JobTerminationReason.INTERRUPTED_BY_NO_CAPACITY
+        assert job.termination_reason == JobTerminationReason.INSTANCE_UNREACHABLE
         assert job.remove_at is None
 
     @pytest.mark.asyncio

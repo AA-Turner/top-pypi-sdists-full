@@ -51,6 +51,10 @@ class GELUTanh(nn.Module):
         return self.act(input)
 
 
+# Added for compatibility with autoawq which is archived now and imports PytorchGELUTanh from activations.py
+PytorchGELUTanh = GELUTanh
+
+
 @use_kernel_forward_from_hub("NewGELU")
 class NewGELUActivation(nn.Module):
     """
@@ -201,7 +205,7 @@ class LaplaceActivation(nn.Module):
 
 class ReLUSquaredActivation(nn.Module):
     """
-    Applies the relu^2 activation introduced in https://huggingface.co/papers/2109.08668v2
+    Applies the relu^2 activation introduced in https://huggingface.co/papers/2109.08668
     """
 
     def forward(self, input):

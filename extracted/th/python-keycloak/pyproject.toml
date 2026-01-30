@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-keycloak"
-version = "v7.0.2"
+version = "v7.0.3"
 description = "python-keycloak is a Python package providing access to the Keycloak API."
 license = "MIT"
 readme = "README.md"
@@ -97,3 +97,4 @@ ignore = [
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+

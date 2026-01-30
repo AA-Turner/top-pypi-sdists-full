@@ -44,6 +44,9 @@ class WaitError(Exception):
 ConfigValue = Union[bool, int, float, str, SecretURI]
 """The possible types a charm config value can be."""
 
+ConstraintValue = Union[bool, int, float, str]
+"""The possible types a constraint value can be (model, bootstrap or deployment constraint)."""
+
 
 class Juju:
     """Instantiate this class to run Juju commands.
@@ -623,6 +626,9 @@ class Juju:
         *,
         destroy_storage: bool = False,
         force: bool = False,
+        no_wait: bool = False,
+        release_storage: bool = False,
+        timeout: float | None = None,
     ) -> None:
         """Terminate all machines (or containers) and resources for a model.
 
@@ -631,14 +637,26 @@ class Juju:
 
         Args:
             model: Name of model to destroy.
-            destroy_storage: If true, destroy all storage instances in the model.
-            force: If true, force model destruction and ignore any errors.
+            destroy_storage: If True, destroy all storage instances in the model.
+            force: If True, force model destruction and ignore any errors.
+            no_wait: If True, rush through model destruction without waiting for each step
+                to complete.
+            release_storage: If True, release all storage instances in the model.
+                This is mutually exclusive with *destroy_storage*.
+            timeout: Maximum time (in seconds) to wait for each step in the model destruction.
+                This option can only be used with *force*.
         """
         args = ['destroy-model', model, '--no-prompt']
         if destroy_storage:
             args.append('--destroy-storage')
         if force:
             args.append('--force')
+        if no_wait:
+            args.append('--no-wait')
+        if release_storage:
+            args.append('--release-storage')
+        if timeout is not None:
+            args.extend(['--timeout', f'{timeout}s'])
         self.cli(*args, include_model=False)
         if model == self.model:
             self.model = None
@@ -803,6 +821,32 @@ class Juju:
                 reset = ','.join(reset)
             args.extend(['--reset', reset])
 
+        self.cli(*args)
+
+    @overload
+    def model_constraints(self) -> Mapping[str, ConstraintValue]: ...
+
+    @overload
+    def model_constraints(self, constraints: Mapping[str, ConstraintValue]) -> None: ...
+
+    def model_constraints(
+        self,
+        constraints: Mapping[str, ConstraintValue] | None = None,
+    ) -> Mapping[str, ConstraintValue] | None:
+        """Get or set machine constraints on a model.
+
+        If called with no arguments, get the model constraints. If called with the
+        *constraints* argument, set the model constraints and return None.
+
+        Args:
+            constraints: Model constraints to set, for example, ``{'mem': '8G', 'cores': 4}``.
+        """
+        if constraints is None:
+            stdout = self.cli('model-constraints', '--format', 'json')
+            return json.loads(stdout)
+
+        args = ['set-model-constraints']
+        args.extend(_format_config(k, v) for k, v in constraints.items())
         self.cli(*args)
 
     def offer(
@@ -1056,6 +1100,12 @@ class Juju:
                 if 'timed out' in exc.stderr:
                     msg = f'timed out waiting for action, stderr:\n{exc.stderr}'
                     raise TimeoutError(msg) from None
+                # With Juju 4, trying to run an action that is not defined gives an error like:
+                # ERROR action "not-defined-action" not defined for unit "unit/0". (not found)
+                if '(not found)' in exc.stderr:
+                    raise ValueError(
+                        f'error running action {action!r}, stderr:\n{exc.stderr}'
+                    ) from None
                 # The "juju run" CLI command fails if the action has an uncaught exception.
                 if 'task failed' not in exc.stderr:
                     raise
@@ -1479,8 +1529,6 @@ class Juju:
 
 
 def _format_config(k: str, v: ConfigValue) -> str:
-    if v is None:  # type: ignore
-        raise TypeError(f'unexpected None value for config key {k!r}')
     if isinstance(v, bool):
         v = 'true' if v else 'false'
     return f'{k}={v}'

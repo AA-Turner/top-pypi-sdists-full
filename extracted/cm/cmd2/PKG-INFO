@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmd2
-Version: 3.1.0
+Version: 3.1.2
 Summary: cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python
 Author: cmd2 Contributors
 License-Expression: MIT
@@ -26,14 +26,15 @@ Requires-Dist: backports.strenum; python_version == "3.10"
 Requires-Dist: gnureadline>=8; platform_system == "Darwin"
 Requires-Dist: pyperclip>=1.8.2
 Requires-Dist: pyreadline3>=3.4; platform_system == "Windows"
-Requires-Dist: rich>=14.1.0
+Requires-Dist: rich>=14.3.0
 Requires-Dist: rich-argparse>=1.7.1
+Requires-Dist: typing-extensions; python_version == "3.10"
 Dynamic: license-file
 
 <h1 align="center">cmd2 : immersive interactive command line applications</h1>
 
 [![Latest Version](https://img.shields.io/pypi/v/cmd2.svg?style=flat-square&label=latest%20stable%20version)](https://pypi.python.org/pypi/cmd2/)
-[![GitHub Actions](https://github.com/python-cmd2/cmd2/workflows/CI/badge.svg)](https://github.com/python-cmd2/cmd2/actions?query=workflow%3ACI)
+[![Tests](https://github.com/python-cmd2/cmd2/actions/workflows/tests.yml/badge.svg)](https://github.com/python-cmd2/cmd2/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/python-cmd2/cmd2/branch/main/graph/badge.svg)](https://codecov.io/gh/python-cmd2/cmd2)
 [![Documentation Status](https://readthedocs.org/projects/cmd2/badge/?version=latest)](http://cmd2.readthedocs.io/en/latest/?badge=latest)
 <a href="https://discord.gg/RpVG6tk"><img src="https://img.shields.io/badge/chat-on%20discord-7289da.svg" alt="Chat"></a>

@@ -17,6 +17,17 @@ class BuildkitePlugin:
         self.in_flight = {}
         self.spans = {}
 
+    def pytest_collection_modifyitems(self, config, items):
+        """pytest_collection_modifyitems hook callback to filter tests by execution_tag markers"""
+        tag_filter = config.getoption("tag_filters")
+        if not tag_filter:
+            return
+
+        filtered_items, unfiltered_items = self._filter_tests_by_tag(items, tag_filter)
+
+        config.hook.pytest_deselected(items=unfiltered_items)
+        items[:] = filtered_items
+
     def pytest_runtest_logstart(self, nodeid, location):
         """pytest_runtest_logstart hook callback"""
         logger.debug('hook=pytest_runtest_logstart nodeid=%s', nodeid)
@@ -44,10 +55,12 @@ class BuildkitePlugin:
 
         # This hook is called three times during the lifecycle of a test:
         # after the setup phase, the call phase, and the teardown phase.
-        # We capture outcomes from the call phase, or setup phase if it failed
-        # (since setup failures prevent the call phase from running).
+        # We capture outcomes from the call phase, or setup/teardown phase if it failed
+        # (since setup failures prevent the call phase from running, and teardown
+        # failures should mark an otherwise passing test as failed).
         # See: https://github.com/buildkite/test-collector-python/pull/45
-        if report.when == 'call' or (report.when == 'setup' and report.failed):
+        # See: https://github.com/buildkite/test-collector-python/issues/84
+        if report.when == 'call' or (report.when in ('setup', 'teardown') and report.failed):
             self.update_test_result(report)
 
     # This hook only runs in xdist worker thread, not controller thread.
@@ -144,3 +157,32 @@ class BuildkitePlugin:
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f)
+
+    def _filter_tests_by_tag(self, items, tag_filter):
+        """
+        Filters tests based on the tag_filter option.
+        Supports filtering by a single tag in the format key:value.
+        Only equality comparison is supported.
+        Returns a tuple of (filtered_items, unfiltered_items).
+        """
+        key, _, value = tag_filter.partition(":")
+
+        filtered_items = []
+        unfiltered_items = []
+        for item in items:
+            # Extract all execution_tag markers and store them in a dict
+            tags = {}
+            markers = item.iter_markers("execution_tag")
+            for tag_marker in markers:
+                # Ensure the marker has exactly two arguments: key and value
+                if len(tag_marker.args) != 2:
+                    continue
+
+                tags[tag_marker.args[0]] = tag_marker.args[1]
+
+            if tags.get(key) == value:
+                filtered_items.append(item)
+            else:
+                unfiltered_items.append(item)
+
+        return filtered_items, unfiltered_items

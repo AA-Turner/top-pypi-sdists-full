@@ -1,117 +1,167 @@
-"""
-A DAG that demonstrates use of the operators in this provider package.
-"""
+from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
 from airflow import DAG
-from airflow.models.baseoperator import chain
 
-from great_expectations_provider.operators.great_expectations import (
-    GreatExpectationsOperator,
+try:
+    from airflow.sdk.bases.operator import chain
+except ImportError:
+    from airflow.models.baseoperator import (  # type: ignore[import-not-found,no-redef]
+        chain,
+    )
+
+
+from great_expectations_provider.operators.validate_batch import GXValidateBatchOperator
+from great_expectations_provider.operators.validate_checkpoint import (
+    GXValidateCheckpointOperator,
 )
-from include.great_expectations.object_configs.example_checkpoint_config import (
-    example_checkpoint_config,
+from great_expectations_provider.operators.validate_dataframe import (
+    GXValidateDataFrameOperator,
 )
-from include.great_expectations.object_configs.example_data_context_config import (
-    example_data_context_config,
-)
-from include.great_expectations.object_configs.example_runtime_batch_request_for_plugin_expectation import (
-    runtime_batch_request,
-)
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from great_expectations import Checkpoint, ExpectationSuite
+    from great_expectations.core.batch_definition import BatchDefinition
+    from great_expectations.data_context import AbstractDataContext
 
 base_path = Path(__file__).parents[2]
 data_dir = base_path / "include" / "data"
 data_file = data_dir / "yellow_tripdata_sample_2019-01.csv"
 
-ge_root_dir = str(base_path / "include" / "great_expectations")
+
+# configuration functions
+def configure_pandas_batch_definition(context: AbstractDataContext) -> BatchDefinition:
+    """This function takes a GX Context and returns a BatchDefinition that
+    can load our CSV files from the data directory."""
+    data_source = context.data_sources.add_pandas_filesystem(
+        name="Extract Data Source",
+        base_directory=data_dir,
+    )
+    asset = data_source.add_csv_asset(name="Extract CSV Asset")
+    batch_definition = asset.add_batch_definition_monthly(
+        name="Extract Batch Definition",
+        regex=r"yellow_tripdata_sample_(?P<year>\d{4})-(?P<month>\d{2}).csv",
+    )
+    return batch_definition
+
+
+def configure_data_frame() -> pd.DataFrame:
+    import pandas as pd
+
+    return pd.read_csv(data_file)
+
+
+def configure_checkpoint(context: AbstractDataContext) -> Checkpoint:
+    """This function takes a GX Context and returns a Checkpoint that
+    can load our CSV files from the data directory, validate them
+    against an ExpectationSuite, and run Actions."""
+    # import GX objects locally per Airflow best practices
+
+    import great_expectations.expectations as gxe
+    from great_expectations import Checkpoint, ExpectationSuite, ValidationDefinition
+
+    # setup data source, asset, batch definition
+    batch_definition = (
+        context.data_sources.add_pandas_filesystem(
+            name="Load Datasource", base_directory=data_dir
+        )
+        .add_csv_asset("Load Asset")
+        .add_batch_definition_monthly(
+            name="Load Batch Definition",
+            regex=r"yellow_tripdata_sample_(?P<year>\d{4})-(?P<month>\d{2}).csv",
+        )
+    )
+    # setup expectation suite
+    expectation_suite = context.suites.add(
+        ExpectationSuite(
+            name="Load ExpectationSuite",
+            expectations=[
+                gxe.ExpectTableRowCountToBeBetween(
+                    min_value=9000,
+                    max_value=11000,
+                ),
+                gxe.ExpectColumnValuesToNotBeNull(column="vendor_id"),
+                gxe.ExpectColumnValuesToBeBetween(
+                    column="passenger_count", min_value=1, max_value=6
+                ),
+            ],
+        )
+    )
+    # setup validation definition
+    validation_definition = context.validation_definitions.add(
+        ValidationDefinition(
+            name="Load Validation Definition",
+            data=batch_definition,
+            suite=expectation_suite,
+        )
+    )
+    # setup checkpoint
+    checkpoint = context.checkpoints.add(
+        Checkpoint(
+            name="Load Checkpoint",
+            validation_definitions=[validation_definition],
+            actions=[],
+        )
+    )
+    return checkpoint
+
+
+# To demo validation failure, use FAILURE_MONTH as a batch parameter instead of SUCCESS_MONTH
+SUCCESS_MONTH = "01"
+FAILURE_MONTH = "02"
+batch_parameters = {"year": "2019", "month": SUCCESS_MONTH}
+
+
+def configure_expectations_suite(context: AbstractDataContext) -> ExpectationSuite:
+    # import GX objects locally per Airflow best practices
+
+    import great_expectations.expectations as gxe
+    from great_expectations import ExpectationSuite
+
+    return context.suites.add_or_update(
+        ExpectationSuite(
+            name="Taxi Data Expectations",
+            expectations=[
+                gxe.ExpectTableRowCountToBeBetween(
+                    min_value=9000,
+                    max_value=11000,
+                ),
+                gxe.ExpectColumnValuesToNotBeNull(column="vendor_id"),
+                gxe.ExpectColumnValuesToBeBetween(
+                    column="passenger_count", min_value=1, max_value=6
+                ),
+            ],
+        )
+    )
 
 
 with DAG(
-    dag_id="example_great_expectations_dag",
-    start_date=datetime(2021, 12, 15),
-    catchup=False,
-    schedule_interval=None,
+    dag_id="gx_provider_example_dag",
 ) as dag:
-    ge_data_context_root_dir_with_checkpoint_name_pass = GreatExpectationsOperator(
-        task_id="ge_data_context_root_dir_with_checkpoint_name_pass",
-        data_context_root_dir=ge_root_dir,
-        checkpoint_name="taxi.pass.chk",
+    validate_extract = GXValidateBatchOperator(
+        task_id="validate_extract",
+        configure_batch_definition=configure_pandas_batch_definition,
+        configure_expectations=configure_expectations_suite,
+        batch_parameters=batch_parameters,
     )
 
-    ge_data_context_root_dir_with_checkpoint_name_fail_validation_and_not_task = GreatExpectationsOperator(
-        task_id="ge_data_context_root_dir_with_checkpoint_name_fail_validation_and_not_task",
-        data_context_root_dir=ge_root_dir,
-        checkpoint_name="taxi.fail.chk",
-        fail_task_on_validation_failure=False,
+    validate_transform = GXValidateDataFrameOperator(
+        task_id="validate_transform",
+        configure_dataframe=configure_data_frame,
+        configure_expectations=configure_expectations_suite,
     )
 
-    ge_checkpoint_kwargs_substitute_batch_request_fails_validation_but_not_task = GreatExpectationsOperator(
-        task_id="ge_checkpoint_kwargs_substitute_batch_request_fails_validation_but_not_task",
-        data_context_root_dir=ge_root_dir,
-        checkpoint_name="taxi.pass.chk",
-        checkpoint_kwargs={"expectation_suite_name": "taxi.demo_fail"},
-        fail_task_on_validation_failure=False,
+    validate_load = GXValidateCheckpointOperator(
+        task_id="validate_load",
+        configure_checkpoint=configure_checkpoint,
+        batch_parameters=batch_parameters,
     )
 
-    ge_data_context_config_with_checkpoint_config_pass = GreatExpectationsOperator(
-        task_id="ge_data_context_config_with_checkpoint_config_pass",
-        data_context_config=example_data_context_config,
-        checkpoint_config=example_checkpoint_config,
+    chain(
+        validate_extract,
+        validate_transform,
+        validate_load,
     )
-
-    ge_checkpoint_fails_and_runs_callback = GreatExpectationsOperator(
-        task_id="ge_checkpoint_fails_and_runs_callback",
-        data_context_root_dir=ge_root_dir,
-        checkpoint_name="taxi.fail.chk",
-        fail_task_on_validation_failure=False,
-        validation_failure_callback=(lambda x: print("Callback successfully run", x)),
-    )
-
-    ge_data_context_root_dir_with_checkpoint_name_using_custom_expectation_pass = GreatExpectationsOperator(
-        task_id="ge_data_context_root_dir_with_checkpoint_name_using_custom_expectation_pass",
-        data_context_root_dir=ge_root_dir,
-        checkpoint_name="plugin_expectation_checkpoint.chk",
-        checkpoint_kwargs={"validations": [{"batch_request": runtime_batch_request}]},
-    )
-
-    ge_data_context_root_directory_no_checkpoint_pass = GreatExpectationsOperator(
-        task_id="ge_data_context_root_directory_no_checkpoint_pass",
-        data_context_root_dir=ge_root_dir,
-        dataframe_to_validate=pd.read_csv(
-            filepath_or_buffer=data_file,
-            header=1,
-            parse_dates=True,
-            infer_datetime_format=True,
-        ),
-        expectation_suite_name="taxi.demo",
-        data_asset_name="taxi_dataframe",
-        execution_engine="PandasExecutionEngine",
-    )
-
-    ge_data_context_config_no_checkpoint_pass = GreatExpectationsOperator(
-        task_id="ge_data_context_config_no_checkpoint_pass",
-        data_context_config=example_data_context_config,
-        dataframe_to_validate=pd.read_csv(
-            filepath_or_buffer=data_file,
-            header=1,
-            parse_dates=True,
-            infer_datetime_format=True,
-        ),
-        expectation_suite_name="taxi.demo",
-        data_asset_name="taxi_dataframe",
-        execution_engine="PandasExecutionEngine",
-    )
-
-
-chain(
-    ge_data_context_root_dir_with_checkpoint_name_pass,
-    ge_data_context_root_dir_with_checkpoint_name_fail_validation_and_not_task,
-    ge_checkpoint_kwargs_substitute_batch_request_fails_validation_but_not_task,
-    ge_data_context_config_with_checkpoint_config_pass,
-    ge_checkpoint_fails_and_runs_callback,
-    ge_data_context_root_dir_with_checkpoint_name_using_custom_expectation_pass,
-    ge_data_context_root_directory_no_checkpoint_pass,
-)

@@ -2,4 +2,4 @@
 
 import typing
 
-ListenV1Version = typing.Any
+ListenV1Version = typing.Optional[typing.Any]

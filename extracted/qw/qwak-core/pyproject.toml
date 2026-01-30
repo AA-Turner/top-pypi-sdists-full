@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qwak-core"
-version = "0.6.4"
+version = "0.7.1"
 description = "Qwak Core contains the necessary objects and communication tools for using the Qwak Platform"
 authors = ["Qwak <info@qwak.com>"]
 readme = "README.md"
@@ -9,11 +9,13 @@ packages = [
     { include = "qwak/**/*", format = ["sdist", "wheel"] },
     { include = "_qwak_proto/**/*", format = ["sdist", "wheel"] },
     { include = "qwak_services_mock/**/*", format = ["sdist", "wheel"] },
+    { include = "frogml_storage/**/*", format = ["sdist", "wheel"] },
 ]
 include = [
     {path = "qwak/**/*", format = ["sdist", "wheel"]},
     {path = "_qwak_proto/**/*", format = ["sdist", "wheel"]},
     {path = "qwak_services_mock/**/*", format = ["sdist", "wheel"]},
+    {path = "frogml_storage/**/*", format = ["sdist", "wheel"]},
 ]
 classifiers = [
     "Operating System :: OS Independent",

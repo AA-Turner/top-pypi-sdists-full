@@ -161,6 +161,7 @@ import typing as t
 from ansible.errors import AnsibleLookupError
 from ansible.module_utils.common.text.converters import to_text
 from ansible.plugins.lookup import LookupBase
+
 from ansible_collections.community.dns.plugins.module_utils.dnspython_records import (
     NAME_TO_RDTYPE,
     NAME_TO_REQUIRED_VERSION,
@@ -195,12 +196,9 @@ except ImportError:
 class LookupModule(LookupBase):
     @staticmethod
     def _convert_rrset_to_rfc8427(
-        rrset: dns.rrset.RRset | None,
+        rrset: dns.rrset.RRset,
     ) -> list[dict[str, object]]:
         """Convert a DNS RRset to RFC 8427 format."""
-        if not rrset:
-            return []
-
         records = []
         for rdata in rrset:
             record = {

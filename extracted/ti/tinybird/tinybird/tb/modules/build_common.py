@@ -34,6 +34,7 @@ def process(
     load_fixtures: bool = True,
     project_with_vendors: Optional[Project] = None,
     is_branch: bool = False,
+    with_connections: bool = False,
 ) -> Optional[str]:
     time_start = time.time()
 
@@ -75,6 +76,7 @@ def process(
                 silent,
                 load_fixtures,
                 project_with_vendors=project_with_vendors,
+                with_connections=with_connections,
             )
             if build_status:
                 build_status.building = False
@@ -209,6 +211,7 @@ def build_project(
     silent: bool = False,
     load_fixtures: bool = True,
     project_with_vendors: Optional[Project] = None,
+    with_connections: bool = False,
 ) -> Optional[bool]:
     MULTIPART_BOUNDARY_DATA_PROJECT = "data_project://"
     DATAFILE_TYPE_TO_CONTENT_TYPE = {
@@ -216,7 +219,10 @@ def build_project(
         ".pipe": "text/plain",
         ".connection": "text/plain",
     }
-    TINYBIRD_API_URL = urljoin(tb_client.host, "/v1/build")
+    build_url = "/v1/build"
+    if with_connections:
+        build_url = f"{build_url}?with_connections=true"
+    TINYBIRD_API_URL = urljoin(tb_client.host, build_url)
     logging.debug(TINYBIRD_API_URL)
     TINYBIRD_API_KEY = tb_client.token
     error: Optional[str] = None

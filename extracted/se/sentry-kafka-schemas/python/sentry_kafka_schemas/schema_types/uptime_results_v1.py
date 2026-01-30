@@ -1,4 +1,4 @@
-from typing import Required, Union, Any, TypedDict, Literal, List
+from typing import Any, List, Union, Literal, Required, TypedDict
 
 
 class Assertion(TypedDict, total=False):
@@ -171,6 +171,71 @@ class AssertionOpJsonpath(TypedDict, total=False):
 
     op: Literal['json_path']
     value: str
+    operator: Union[None, "AssertionOpComparison"]
+    """ Aggregation type: oneOf """
+
+    operand: Union[None, "AssertionOpJsonpathOperand"]
+    """ Aggregation type: oneOf """
+
+
+
+AssertionOpJsonpathOperand = Union["AssertionOpJsonpathOperandGlob", "AssertionOpJsonpathOperandLiteral", "AssertionOpJsonpathOperandNone"]
+"""
+assertion_op_jsonpath_operand.
+
+An operand for comparison against json path values
+
+Aggregation type: anyOf
+"""
+
+
+
+class AssertionOpJsonpathOperandGlob(TypedDict, total=False):
+    """
+    assertion_op_jsonpath_operand_glob.
+
+    A glob pattern for matching
+    """
+
+    header_op: Literal['glob']
+    pattern: "AssertionOpJsonpathOperandGlobPattern"
+    """
+    assertion_op_jsonpath_operand_glob_pattern.
+
+    The actual glob pattern, as a string
+    """
+
+
+
+class AssertionOpJsonpathOperandGlobPattern(TypedDict, total=False):
+    """
+    assertion_op_jsonpath_operand_glob_pattern.
+
+    The actual glob pattern, as a string
+    """
+
+    value: str
+
+
+class AssertionOpJsonpathOperandLiteral(TypedDict, total=False):
+    """
+    assertion_op_jsonpath_operand_literal.
+
+    A literal value for comparison
+    """
+
+    jsonpath_op: Literal['literal']
+    value: str
+
+
+class AssertionOpJsonpathOperandNone(TypedDict, total=False):
+    """
+    assertion_op_jsonpath_operand_none.
+
+    A none operand for the comparison
+    """
+
+    header_op: Literal['none']
 
 
 class AssertionOpNot(TypedDict, total=False):

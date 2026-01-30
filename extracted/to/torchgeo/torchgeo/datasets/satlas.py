@@ -578,7 +578,7 @@ class SatlasPretrain(NonGeoDataset):
         self.split = pd.read_json(
             os.path.join(root, 'metadata', f'{split}.json'), typ='frame'
         )
-        self.good_images = pd.read_json(
+        good_images_df = pd.read_json(
             os.path.join(root, 'metadata', f'{good_images}.json'), typ='frame'
         )
         self.image_times = pd.read_json(
@@ -586,8 +586,8 @@ class SatlasPretrain(NonGeoDataset):
         )
 
         self.split.columns = ['col', 'row']
-        self.good_images.columns = ['col', 'row', 'directory']
-        self.good_images = self.good_images.groupby(['col', 'row'])
+        good_images_df.columns = ['col', 'row', 'directory']
+        self.good_images = good_images_df.groupby(['col', 'row'])
 
     def __len__(self) -> int:
         """Return the number of locations in the dataset.
@@ -657,8 +657,8 @@ class SatlasPretrain(NonGeoDataset):
         channels = []
         for band in self.bands[image]:
             path = os.path.join(self.root, image, directory, band, f'{col}_{row}.png')
-            with Image.open(path) as img:
-                img = img.resize((self.chip_size, self.chip_size), resample=resample)
+            with Image.open(path) as f:
+                img = f.resize((self.chip_size, self.chip_size), resample=resample)
                 array = np.atleast_3d(np.array(img, dtype=np.float32))
                 channels.append(torch.tensor(array))
         raster = rearrange(torch.cat(channels, dim=-1), 'h w c -> c h w')

@@ -2,8 +2,7 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 import numpy as np
@@ -35,7 +34,7 @@ print("After deletion, keys:", list(estore.keys()))
 
 # Reading back the tree
 if persistent:
-    estore_read = blosc2.EmbedStore(urlpath="example_estore.b2e", mode="a")
+    estore_read = blosc2.open("example_estore.b2e", mode="a")
 else:
     estore_read = blosc2.from_cframe(estore.to_cframe())
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: herbie-data
-Version: 2025.12.0
+Version: 2026.1.0
 Summary: Download numerical weather prediction GRIB2 model data.
 Project-URL: Homepage, https://github.com/blaylockbk/Herbie
 Project-URL: Documentation, https://herbie.readthedocs.io/
@@ -39,35 +39,35 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: cfgrib>=0.9.15
-Requires-Dist: eccodes>=2.37.0
-Requires-Dist: numpy>=1.24
-Requires-Dist: pandas>=2.1
+Requires-Dist: eccodes>=2.45.0
+Requires-Dist: eccodeslib>=2.44.1.8; sys_platform != 'win32'
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: pandas>=2.2.3
 Requires-Dist: pyproj>=3.7.0
 Requires-Dist: requests>=2.23.3
-Requires-Dist: toml>=0.10.2
 Requires-Dist: xarray>=2025.1.1
 Provides-Extra: extras
-Requires-Dist: cartopy; extra == 'extras'
-Requires-Dist: matplotlib; extra == 'extras'
-Requires-Dist: metpy; extra == 'extras'
-Requires-Dist: scikit-learn; extra == 'extras'
+Requires-Dist: cartopy>=0.25.0; extra == 'extras'
+Requires-Dist: matplotlib>=3.10.0; extra == 'extras'
+Requires-Dist: metpy>=1.7.1; extra == 'extras'
+Requires-Dist: scikit-learn>=1.8.0; extra == 'extras'
 Provides-Extra: metpy
-Requires-Dist: metpy; extra == 'metpy'
+Requires-Dist: metpy>=1.7.1; extra == 'metpy'
 Provides-Extra: plot
-Requires-Dist: cartopy; extra == 'plot'
-Requires-Dist: matplotlib; extra == 'plot'
-Requires-Dist: metpy; extra == 'plot'
+Requires-Dist: cartopy>=0.25.0; extra == 'plot'
+Requires-Dist: matplotlib>=3.10.0; extra == 'plot'
+Requires-Dist: metpy>=1.7.1; extra == 'plot'
 Provides-Extra: pygrib
-Requires-Dist: pygrib; extra == 'pygrib'
+Requires-Dist: pygrib>=2.1.8; extra == 'pygrib'
 Provides-Extra: scikit-learn
-Requires-Dist: scikit-learn; extra == 'scikit-learn'
+Requires-Dist: scikit-learn>=1.8.0; extra == 'scikit-learn'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -96,6 +96,8 @@ Description-Content-Type: text/markdown
 
 ## 📚 [Documentation](https://herbie.readthedocs.io/) | 💬 [Discussions](https://github.com/blaylockbk/Herbie/discussions) | ❔ [Get Help](https://github.com/blaylockbk/Herbie/discussions/categories/q-a)
 
+See also the [DeepWiki](https://deepwiki.com/blaylockbk/Herbie) generated docs.
+
 <!-- (Badges) -->
 
 </div>
@@ -115,6 +117,8 @@ Herbie is a Python package that makes downloading and working with numerical wea
 - 🗺️ **Visualization aids** - Includes Cartopy integration for mapping
 
 **Keywords:** weather data download, GRIB2, python, numerical weather prediction, meteorological data, weather forecast API, xarray, atmospheric data, research, academia, data science, machine learning,visualization
+
+
 
 ---
 

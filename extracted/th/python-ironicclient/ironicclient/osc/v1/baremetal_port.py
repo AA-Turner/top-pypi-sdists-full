@@ -70,17 +70,6 @@ class CreateBaremetalPort(command.ShowOne):
                    "Argument can be specified multiple times.")
         )
         parser.add_argument(
-            '-l',
-            dest='local_link_connection_deprecated',
-            metavar="<key=value>",
-            action='append',
-            help=_("DEPRECATED. Please use --local-link-connection instead. "
-                   "Key/value metadata describing Local link connection "
-                   "information. Valid keys are 'switch_info', 'switch_id', "
-                   "and 'port_id'. The keys 'switch_id' and 'port_id' are "
-                   "required. Can be specified multiple times.")
-        )
-        parser.add_argument(
             '--pxe-enabled',
             metavar='<boolean>',
             help=_('Indicates whether this Port should be used when '
@@ -118,27 +107,28 @@ class CreateBaremetalPort(command.ShowOne):
             metavar='<port description>',
             help=_("An optional description for the port."))
 
+        parser.add_argument(
+            '--vendor',
+            dest='vendor',
+            metavar='<port vendor>',
+            help=_("An optional vendor for the port."))
+
+        parser.add_argument(
+            '--category',
+            dest='category',
+            metavar='<port category>',
+            help=_("An optional category for the port."))
+
         return parser
 
     def take_action(self, parsed_args):
         self.log.debug("take_action(%s)", parsed_args)
         baremetal_client = self.app.client_manager.baremetal
 
-        if parsed_args.local_link_connection_deprecated:
-            self.log.warning("Please use --local-link-connection instead "
-                             "of -l, as it is deprecated and will be "
-                             "removed in future releases.")
-            # It is parsed to either None, or to an array
-            if parsed_args.local_link_connection:
-                parsed_args.local_link_connection.extend(
-                    parsed_args.local_link_connection_deprecated)
-            else:
-                parsed_args.local_link_connection = (
-                    parsed_args.local_link_connection_deprecated)
-
         field_list = ['address', 'uuid', 'extra', 'node_uuid', 'pxe_enabled',
                       'local_link_connection', 'portgroup_uuid',
-                      'physical_network', 'name', 'description']
+                      'physical_network', 'name', 'description', 'vendor',
+                      'category']
         fields = dict((k, v) for (k, v) in vars(parsed_args).items()
                       if k in field_list and v is not None)
         fields = utils.args_array_to_dict(fields, 'extra')
@@ -255,6 +245,18 @@ class UnsetBaremetalPort(command.Command):
             action='store_true',
             help=_("Unset the description for this port."))
 
+        parser.add_argument(
+            '--vendor',
+            dest='vendor',
+            action='store_true',
+            help=_("Unset the vendor for this port."))
+
+        parser.add_argument(
+            '--category',
+            dest='category',
+            action='store_true',
+            help=_("Unset the category for this port."))
+
         return parser
 
     def take_action(self, parsed_args):
@@ -281,6 +283,12 @@ class UnsetBaremetalPort(command.Command):
         if parsed_args.description:
             properties.extend(utils.args_array_to_patch('remove',
                               ['description']))
+        if parsed_args.vendor:
+            properties.extend(utils.args_array_to_patch('remove',
+                              ['vendor']))
+        if parsed_args.category:
+            properties.extend(utils.args_array_to_patch('remove',
+                              ['category']))
 
         if properties:
             baremetal_client.port.update(parsed_args.port, properties)
@@ -378,6 +386,18 @@ class SetBaremetalPort(command.Command):
             dest='description',
             help=_("Set a description for this port"))
 
+        parser.add_argument(
+            '--vendor',
+            metavar='<vendor>',
+            dest='vendor',
+            help=_("Set a vendor for this port"))
+
+        parser.add_argument(
+            '--category',
+            metavar='<category>',
+            dest='category',
+            help=_("Set a category for this port"))
+
         return parser
 
     def take_action(self, parsed_args):
@@ -421,6 +441,14 @@ class SetBaremetalPort(command.Command):
             port_description = ["description=%s" % parsed_args.description]
             properties.extend(utils.args_array_to_patch('add',
                                                         port_description))
+        if parsed_args.vendor:
+            port_vendor = ["vendor=%s" % parsed_args.vendor]
+            properties.extend(utils.args_array_to_patch('add',
+                                                        port_vendor))
+        if parsed_args.category:
+            port_category = ["category=%s" % parsed_args.category]
+            properties.extend(utils.args_array_to_patch('add',
+                                                        port_category))
 
         if properties:
             baremetal_client.port.update(parsed_args.port, properties)

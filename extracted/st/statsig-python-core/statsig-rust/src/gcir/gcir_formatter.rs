@@ -1,11 +1,12 @@
 use crate::gcir::dynamic_configs_processor::get_dynamic_config_evaluations_init_v2;
 use crate::gcir::feature_gates_processor::{get_gate_evaluations, get_gate_evaluations_init_v2};
 use crate::gcir::layer_configs_processor::get_layer_evaluations_init_v2;
+use crate::hashing::opt_bool_to_hashable;
 use ahash::AHashMap;
 
 use crate::initialize_v2_response::InitializeV2Response;
 use crate::interned_string::InternedString;
-use crate::specs_response::spec_types::SessionReplayTrigger;
+use crate::specs_response::spec_types::{SessionReplayPrivacySetting, SessionReplayTrigger};
 use crate::{
     evaluation::evaluator::{Evaluator, SpecType},
     evaluation::evaluator_context::EvaluatorContext,
@@ -15,9 +16,9 @@ use crate::{
     StatsigErr,
 };
 
-use crate::StatsigUser;
+use crate::{hashing, StatsigUser};
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::dynamic_configs_processor::{
@@ -33,6 +34,10 @@ pub enum GCIRResponseFormat {
     Initialize,                             // v1
     InitializeWithSecondaryExposureMapping, // v2
     InitializeV2,                           // v3
+}
+
+pub trait GCIRHashable {
+    fn create_hash(&self, name: &InternedString) -> u64;
 }
 
 impl GCIRResponseFormat {
@@ -61,8 +66,17 @@ impl GCIRFormatter {
         let layers = get_layer_evaluations(context, options, &mut sec_expo_hash_memo)?;
 
         let param_stores = get_serializeable_param_stores(context, options);
-        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let evaluated_keys = EvaluatedKeys::from_user(context.user.user_ref);
         let session_replay_info = get_session_replay_info(context, options);
+
+        let mut full_response_hash: Option<String> = None;
+        if let Some(previous_full_hash) = &options.previous_response_hash {
+            let new_full_hash = hashing::hash_one(context.gcir_hashes.clone()).to_string();
+            if previous_full_hash.as_str() == new_full_hash {
+                return Ok(InitializeResponse::blank_without_user());
+            }
+            full_response_hash = Some(new_full_hash);
+        }
 
         Ok(InitializeResponse {
             feature_gates: gates,
@@ -84,7 +98,10 @@ impl GCIRFormatter {
             session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
             session_recording_exposure_triggers: session_replay_info
                 .session_recording_exposure_triggers,
+            session_recording_privacy_settings: session_replay_info
+                .session_recording_privacy_settings,
             pa_hash: context.user.get_hashed_private_attributes(),
+            full_checksum: full_response_hash,
         })
     }
 
@@ -96,7 +113,7 @@ impl GCIRFormatter {
         let mut exposures = HashMap::new();
 
         let param_stores = get_serializeable_param_stores(context, options);
-        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let evaluated_keys = EvaluatedKeys::from_user(context.user.user_ref);
         let session_replay_info = get_session_replay_info(context, options);
 
         Ok(InitializeEvaluationsResponse {
@@ -136,6 +153,8 @@ impl GCIRFormatter {
             session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
             session_recording_exposure_triggers: session_replay_info
                 .session_recording_exposure_triggers,
+            session_recording_privacy_settings: session_replay_info
+                .session_recording_privacy_settings,
         })
     }
 
@@ -148,7 +167,7 @@ impl GCIRFormatter {
         let mut exposure_map = AHashMap::new();
         let mut exposures = HashMap::new();
         let param_stores = get_serializeable_param_stores(context, options);
-        let evaluated_keys = get_evaluated_keys(context.user.user_ref);
+        let evaluated_keys = EvaluatedKeys::from_user(context.user.user_ref);
         let session_replay_info = get_session_replay_info(context, options);
 
         Ok(InitializeV2Response {
@@ -192,40 +211,12 @@ impl GCIRFormatter {
             session_recording_event_triggers: session_replay_info.session_recording_event_triggers,
             session_recording_exposure_triggers: session_replay_info
                 .session_recording_exposure_triggers,
+            session_recording_privacy_settings: session_replay_info
+                .session_recording_privacy_settings,
             values,
             response_format: "init-v2".to_string(),
         })
     }
-}
-
-fn get_evaluated_keys(user: &StatsigUser) -> HashMap<InternedString, InternedString> {
-    let mut evaluated_keys = HashMap::new();
-
-    if let Some(user_id) = user.data.user_id.as_ref() {
-        evaluated_keys.insert(
-            InternedString::from_str_ref("userID"),
-            user_id
-                .string_value
-                .as_ref()
-                .map(|s| s.value.clone())
-                .unwrap_or_default(),
-        );
-    }
-
-    if let Some(custom_ids) = user.data.custom_ids.as_ref() {
-        for (key, value) in custom_ids {
-            evaluated_keys.insert(
-                InternedString::from_str_ref(key.as_str()),
-                value
-                    .string_value
-                    .as_ref()
-                    .map(|s| s.value.clone())
-                    .unwrap_or_default(),
-            );
-        }
-    }
-
-    evaluated_keys
 }
 
 fn get_sdk_info() -> HashMap<String, String> {
@@ -244,6 +235,18 @@ pub struct GCIRSessionReplayInfo {
     pub passes_session_recording_targeting: Option<bool>,
     pub session_recording_event_triggers: Option<HashMap<String, SessionReplayTrigger>>,
     pub session_recording_exposure_triggers: Option<HashMap<String, SessionReplayTrigger>>,
+    pub session_recording_privacy_settings: Option<SessionReplayPrivacySetting>,
+}
+
+impl GCIRHashable for GCIRSessionReplayInfo {
+    fn create_hash(&self, _: &InternedString) -> u64 {
+        let hash_array = vec![
+            opt_bool_to_hashable(&self.can_record_session),
+            opt_bool_to_hashable(&self.recording_blocked),
+            opt_bool_to_hashable(&self.passes_session_recording_targeting),
+        ];
+        hashing::hash_one(hash_array)
+    }
 }
 
 fn get_session_replay_info(
@@ -257,11 +260,15 @@ fn get_session_replay_info(
         passes_session_recording_targeting: None,
         session_recording_event_triggers: None,
         session_recording_exposure_triggers: None,
+        session_recording_privacy_settings: None,
     };
 
     let session_replay_data = match &context.specs_data.session_replay_info {
         Some(data) => data,
-        None => return session_replay_info,
+        None => {
+            context.gcir_hashes.push(0);
+            return session_replay_info;
+        }
     };
 
     session_replay_info.can_record_session = Some(true);
@@ -298,6 +305,7 @@ fn get_session_replay_info(
         }
     }
 
+    let mut event_triggers_hash = Vec::new();
     if let Some(triggers) = &session_replay_data.session_recording_event_triggers {
         let mut new_event_triggers = HashMap::new();
         for (key, trigger) in triggers {
@@ -309,11 +317,15 @@ fn get_session_replay_info(
             if let Some(rate) = &trigger.sampling_rate {
                 new_trigger.passes_sampling = Some(random <= *rate);
             }
-            new_event_triggers.insert(key.clone(), new_trigger);
+            if options.previous_response_hash.is_some() {
+                event_triggers_hash.push(new_trigger.create_hash(key));
+            }
+            new_event_triggers.insert(key.value.to_string(), new_trigger);
         }
         session_replay_info.session_recording_event_triggers = Some(new_event_triggers);
     }
 
+    let mut exposure_triggers_hash = Vec::new();
     if let Some(triggers) = &session_replay_data.session_recording_exposure_triggers {
         let mut new_exposure_triggers = HashMap::new();
         for (key, trigger) in triggers {
@@ -325,6 +337,9 @@ fn get_session_replay_info(
             if let Some(rate) = &trigger.sampling_rate {
                 new_trigger.passes_sampling = Some(random <= *rate);
             }
+            if options.previous_response_hash.is_some() {
+                exposure_triggers_hash.push(new_trigger.create_hash(key));
+            }
             new_exposure_triggers.insert(
                 context
                     .hashing
@@ -334,6 +349,65 @@ fn get_session_replay_info(
         }
         session_replay_info.session_recording_exposure_triggers = Some(new_exposure_triggers);
     }
+    if options.previous_response_hash.is_some() {
+        let combined_hashes = vec![
+            session_replay_info.create_hash(InternedString::empty_ref()),
+            hashing::hash_one(event_triggers_hash),
+            hashing::hash_one(exposure_triggers_hash),
+        ];
+        context.gcir_hashes.push(hashing::hash_one(combined_hashes));
+    }
+
+    session_replay_info.session_recording_privacy_settings = session_replay_data
+        .session_recording_privacy_settings
+        .clone();
 
     session_replay_info
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct EvaluatedKeys {
+    #[serde(rename = "userID", skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<InternedString>,
+    #[serde(rename = "customIDs", skip_serializing_if = "Option::is_none")]
+    pub custom_ids: Option<HashMap<InternedString, InternedString>>,
+}
+
+impl EvaluatedKeys {
+    pub fn from_user(user: &StatsigUser) -> Self {
+        let user_id = user.data.user_id.as_ref().and_then(|u| {
+            u.string_value.as_ref().and_then(|s| {
+                if s.value.is_empty() {
+                    None
+                } else {
+                    Some(s.value.clone())
+                }
+            })
+        });
+
+        let custom_ids = user.data.custom_ids.as_ref().and_then(|c| {
+            let mut custom_ids = HashMap::new();
+            for (key, value) in c {
+                custom_ids.insert(
+                    InternedString::from_str_ref(key.as_str()),
+                    value
+                        .string_value
+                        .as_ref()
+                        .map(|s| s.value.clone())
+                        .unwrap_or_default(),
+                );
+            }
+
+            if custom_ids.is_empty() {
+                None
+            } else {
+                Some(custom_ids)
+            }
+        });
+
+        Self {
+            user_id,
+            custom_ids,
+        }
+    }
 }

@@ -2,23 +2,23 @@ from __future__ import annotations
 
 import collections.abc
 import copy
+import enum
 import logging
 import sys
 import threading
 import typing
 import warnings
-from collections.abc import Iterable, Mapping
-from enum import Enum
+from collections.abc import Callable, Iterable, Mapping
 from os import cpu_count
+from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
     NewType,
     SupportsIndex,
+    TypeAlias,
     TypeVar,
-    Union,
 )
 
 import numpy as np
@@ -35,7 +35,7 @@ from .typing import Accumulator, ArrayLike, CppHistogram, RebinProtocol
 from .view import MeanView, WeightedMeanView, WeightedSumView, _to_view
 
 if TYPE_CHECKING:
-    from builtins import ellipsis
+    pass
 
 
 try:
@@ -55,8 +55,8 @@ except ImportError as err:
     raise new_exception from err
 
 
-# This is a StrEnum as defined in Python 3.10
-class Kind(str, Enum):
+# This is a StrEnum as defined in Python 3.11
+class Kind(str, enum.Enum):
     COUNT = "COUNT"
     MEAN = "MEAN"
 
@@ -74,16 +74,6 @@ def __dir__() -> list[str]:
     return __all__
 
 
-# Support cloudpickle - pybind11 submodules do not have __file__ attributes
-# And setting this in C++ causes a segfault
-_core.accumulators.__file__ = _core.__file__
-_core.algorithm.__file__ = _core.__file__
-_core.axis.__file__ = _core.__file__
-_core.axis.transform.__file__ = _core.__file__
-_core.hist.__file__ = _core.__file__
-_core.storage.__file__ = _core.__file__
-
-
 NOTHING = object()
 
 
@@ -95,6 +85,7 @@ _histograms: set[type[CppHistogram]] = {
     _core.hist.any_weight,
     _core.hist.any_mean,
     _core.hist.any_weighted_mean,
+    _core.hist.any_multi_cell,
 }
 
 logger = logging.getLogger(__name__)
@@ -102,11 +93,13 @@ logger = logging.getLogger(__name__)
 
 CppAxis = NewType("CppAxis", object)
 
-SimpleIndexing = Union[SupportsIndex, slice, RebinProtocol]
-InnerIndexing = Union[SimpleIndexing, Callable[[Axis], int]]
-FullInnerIndexing = Union[InnerIndexing, list[InnerIndexing]]
-IndexingWithMapping = Union[FullInnerIndexing, Mapping[int, FullInnerIndexing]]
-IndexingExpr = Union[IndexingWithMapping, tuple[IndexingWithMapping, ...], "ellipsis"]
+SimpleIndexing: TypeAlias = SupportsIndex | slice | RebinProtocol
+InnerIndexing: TypeAlias = SimpleIndexing | Callable[[Axis], int]
+FullInnerIndexing: TypeAlias = InnerIndexing | list[InnerIndexing]
+IndexingWithMapping: TypeAlias = FullInnerIndexing | Mapping[int, FullInnerIndexing]
+IndexingExpr: TypeAlias = (
+    IndexingWithMapping | tuple[IndexingWithMapping, ...] | EllipsisType
+)
 
 T = TypeVar("T")
 
@@ -122,7 +115,7 @@ def _fill_cast(
         return value
 
     if not inner and isinstance(value, (tuple, list)):
-        return tuple(_fill_cast(a, inner=True) for a in value)
+        return tuple(_fill_cast(a, inner=True) for a in value)  # type: ignore[misc]
 
     if hasattr(value, "__iter__") or hasattr(value, "__array__"):
         return np.asarray(value)
@@ -185,9 +178,9 @@ def _combine_group_contents(
     pos = [slice(None)] * (i)
     if new_view.dtype.names:
         for field in new_view.dtype.names:
-            new_view[(*pos, jj, ...)][field] += reduced_view[(*pos, j, ...)][field]
+            new_view[(*pos, jj, ...)][field] += reduced_view[(*pos, j, ...)][field]  # type: ignore[arg-type]
     else:
-        new_view[(*pos, jj, ...)] += reduced_view[(*pos, j, ...)]
+        new_view[(*pos, jj, ...)] += reduced_view[(*pos, j, ...)]  # type: ignore[arg-type]
 
 
 H = TypeVar("H", bound="Histogram")
@@ -497,7 +490,7 @@ class Histogram:
         kwargs = {}
         if copy is not None:
             kwargs["copy"] = copy
-        return np.asarray(self.view(False), dtype=dtype, **kwargs)  # type: ignore[call-overload]
+        return np.asarray(self.view(False), dtype=dtype, **kwargs)  # type: ignore[call-overload, no-any-return]
 
     __hash__ = None  # type: ignore[assignment]
 
@@ -577,10 +570,12 @@ class Histogram:
                 msg = f"Number of dimensions {len(other.shape)} must match histogram {self.ndim}"
                 raise ValueError(msg)
 
-            if all(a in {b, 1} for a, b in zip(other.shape, self.shape)):
+            if all(a in {b, 1} for a, b in zip(other.shape, self.shape, strict=False)):
                 view = self.view(flow=False)
                 getattr(view, name)(other)
-            elif all(a in {b, 1} for a, b in zip(other.shape, self.axes.extent)):
+            elif all(
+                a in {b, 1} for a, b in zip(other.shape, self.axes.extent, strict=False)
+            ):
                 view = self.view(flow=True)
                 getattr(view, name)(other)
             else:
@@ -632,6 +627,11 @@ class Histogram:
         ):
             self._variance_known = False
 
+        if self._hist._storage_type is _core.storage.multi_cell:
+            # Use weight keyword for MultiCell filling even though it uses sample on the C++ backend
+            sample = weight
+            weight = None
+
         # Convert to NumPy arrays
         args_ars = _fill_cast(args)
         weight_ars = _fill_cast(weight)
@@ -641,7 +641,7 @@ class Histogram:
             threads = cpu_count()
 
         if threads is None or threads == 1:
-            self._hist.fill(*args_ars, weight=weight_ars, sample=sample_ars)
+            self._hist.fill(*args_ars, weight=weight_ars, sample=sample_ars)  # type: ignore[arg-type]
             return self
 
         if self._hist._storage_type in {
@@ -651,7 +651,7 @@ class Histogram:
             raise RuntimeError("Mean histograms do not support threaded filling")
 
         data: list[list[np.typing.NDArray[Any]] | list[str]] = [
-            np.array_split(a, threads) if not isinstance(a, str) else [a] * threads
+            np.array_split(a, threads) if not isinstance(a, str) else [a] * threads  # type: ignore[arg-type, list-item]
             for a in args_ars
         ]
 
@@ -660,14 +660,14 @@ class Histogram:
             assert threads is not None
             weights = [weight_ars] * threads
         else:
-            weights = np.array_split(weight_ars, threads)
+            weights = np.array_split(weight_ars, threads)  # type: ignore[arg-type]
 
         samples: list[Any]
         if sample_ars is None or np.isscalar(sample_ars):
             assert threads is not None
             samples = [sample_ars] * threads
         else:
-            samples = np.array_split(sample_ars, threads)
+            samples = np.array_split(sample_ars, threads)  # type: ignore[arg-type]
 
         if self._hist._storage_type is _core.storage.atomic_int64:
 
@@ -694,7 +694,7 @@ class Histogram:
 
         thread_list = [
             threading.Thread(target=fun, args=arrays)
-            for arrays in zip(weights, samples, *data)
+            for arrays in zip(weights, samples, *data, strict=False)
         ]
 
         for thread in thread_list:
@@ -902,7 +902,7 @@ class Histogram:
         hist, *edges = self._hist.to_numpy(flow)
         hist = self.view(flow=flow) if view else self.values(flow=flow)
 
-        return (hist, edges) if dd else (hist, *edges)
+        return (hist, edges) if dd else (hist, *edges)  # type: ignore[return-value]
 
     def copy(self, *, deep: bool = True) -> Self:
         """
@@ -947,150 +947,40 @@ class Histogram:
         """
         return self.axes.size
 
-    # TODO: Marked as too complex by flake8. Should be factored out a bit.
     def __getitem__(self, index: IndexingExpr) -> Self | float | Accumulator:
         indexes = self._compute_commonindex(index)
 
-        # If this is (now) all integers, return the bin contents
-        # But don't try *dict!
+        # Early return for all-integer case
         if not hasattr(indexes, "items") and all(
             isinstance(a, SupportsIndex) for a in indexes
         ):
             return self._hist.at(*indexes)  # type: ignore[no-any-return, arg-type]
 
-        integrations: set[int] = set()
-        slices: list[_core.algorithm.reduce_command] = []
-        pick_each: dict[int, int] = {}
-        pick_set: dict[int, list[int]] = {}
+        integrations = set[int]()
+        slices = list[_core.algorithm.reduce_command]()
+        pick_each = dict[int, int]()
+        pick_set = dict[int, list[int]]()
         reduced: CppHistogram | None = None
 
-        # Compute needed slices and projections
-        for i, ind in enumerate(indexes):  # pylint: disable=too-many-nested-blocks
-            if isinstance(ind, SupportsIndex):
-                pick_each[i] = ind.__index__() + (
-                    1 if self.axes[i].traits.underflow else 0
-                )
-                continue
-
-            if isinstance(ind, collections.abc.Sequence):
-                pick_set[i] = list(ind)
-                continue
-
-            if not isinstance(ind, slice):
-                raise IndexError(
-                    "Must be a slice, an integer, or follow the locator protocol."
-                )
-
-            # If the dictionary brackets are forgotten, it's easy to put a slice
-            # into a slice - adding a nicer error message in that case
-            if any(isinstance(v, slice) for v in (ind.start, ind.stop, ind.step)):
-                raise TypeError(
-                    "You have put a slice in a slice. Did you forget curly braces [{...}]?"
-                )
-
-            # This ensures that callable start/stop are handled
-            start, stop = self.axes[i]._process_loc(ind.start, ind.stop)
-
-            groups = []
-            new_axis = None
-            if ind != slice(None):
-                merge = 1
-                if ind.step is not None:
-                    if getattr(ind.step, "factor", None) is not None:
-                        merge = ind.step.factor
-                    elif (
-                        hasattr(ind.step, "axis_mapping")
-                        and (tmp_both := ind.step.axis_mapping(self.axes[i]))
-                        is not None
-                    ):
-                        groups, new_axis = tmp_both
-                    elif (
-                        hasattr(ind.step, "group_mapping")
-                        and (tmp_groups := ind.step.group_mapping(self.axes[i]))
-                        is not None
-                    ):
-                        groups = tmp_groups
-                    elif callable(ind.step):
-                        if ind.step is sum:
-                            integrations.add(i)
-                        else:
-                            raise NotImplementedError
-
-                        if ind.start is not None or ind.stop is not None:
-                            slices.append(
-                                _core.algorithm.slice(
-                                    i, start, stop, _core.algorithm.slice_mode.crop
-                                )
-                            )
-                        if len(groups) == 0:
-                            continue
-                    else:
-                        raise IndexError(
-                            "The third argument to a slice must be rebin or projection"
-                        )
-
-                assert isinstance(start, int)
-                assert isinstance(stop, int)
-                # rebinning with factor
-                if len(groups) == 0:
-                    slices.append(
-                        _core.algorithm.slice_and_rebin(i, start, stop, merge)
+        for i, ind in enumerate(indexes):
+            match ind:
+                case SupportsIndex():
+                    pick_each[i] = ind.__index__() + (
+                        1 if self.axes[i].traits.underflow else 0
                     )
-                # rebinning with groups
-                elif len(groups) != 0:
-                    if not reduced:
-                        reduced = self._hist
-                    axes = [reduced.axis(x) for x in range(reduced.rank())]
-                    reduced_view = reduced.view(flow=True)
-                    new_axes_indices = [axes[i].edges[0]]
+                case collections.abc.Sequence():
+                    pick_set[i] = list(ind)
+                case slice(start=start, stop=stop, step=step):
+                    reduced, new_slices, new_integrations = self._handle_slice(
+                        i, start, stop, step, reduced
+                    )
+                    slices.extend(new_slices)
+                    integrations.update(new_integrations)
+                case _:
+                    raise IndexError(
+                        "Must be a slice, an integer, or follow the locator protocol."
+                    )
 
-                    j = 0
-                    for group in groups:
-                        new_axes_indices += [axes[i].edges[j + group]]
-                        j += group
-
-                    if new_axis is None:
-                        new_axis = Variable(
-                            new_axes_indices,
-                            __dict__=axes[i].raw_metadata,
-                            underflow=axes[i].traits_underflow,
-                            overflow=axes[i].traits_overflow,
-                        )
-                    old_axis = axes[i]
-                    axes[i] = new_axis._ax
-
-                    logger.debug("Axes: %s", axes)
-
-                    new_reduced = reduced.__class__(axes)
-                    new_view = new_reduced.view(flow=True)
-                    j = 0
-                    new_j_base = 0
-
-                    if old_axis.traits_underflow and axes[i].traits_underflow:
-                        groups = [1, *groups]
-                    elif axes[i].traits_underflow:
-                        new_j_base = 1
-
-                    if old_axis.traits_overflow and axes[i].traits_overflow:
-                        groups.append(1)
-
-                    for new_j, group in enumerate(groups):
-                        for _ in range(group):
-                            _combine_group_contents(
-                                new_view, reduced_view, i, j, new_j + new_j_base
-                            )
-                            j += 1
-
-                        if (
-                            old_axis.traits_underflow
-                            and not axes[i].traits_ordered
-                            and axes[i].traits_overflow
-                        ):
-                            _combine_group_contents(new_view, reduced_view, i, 0, -1)
-
-                    reduced = new_reduced
-
-        # Will be updated below
         if (slices or pick_set or pick_each or integrations) and not reduced:
             reduced = self._hist
         elif not reduced:
@@ -1100,12 +990,27 @@ class Histogram:
             tuple_slice = tuple(
                 pick_each.get(i, slice(None)) for i in range(reduced.rank())
             )
+
+            if isinstance(self._hist, _core.hist.any_multi_cell):
+                # View of multi cell histograms has as first (index 0) dimension the cell index
+                # Add a full slice to the beginning of the slicing expression to adept for this cell index
+                # e.g. a slice like [0, :, 3] is converted to [:, 0, :, 3]
+                tuple_slice = (slice(None, None, None), *tuple_slice)
+
             logger.debug("Slices for pick each: %s", tuple_slice)
             axes = [
                 reduced.axis(i) for i in range(reduced.rank()) if i not in pick_each
             ]
             logger.debug("Axes: %s", axes)
-            new_reduced = reduced.__class__(axes)
+            new_reduced: _core.hist._BaseHistogram | _core.hist.any_multi_cell = (
+                reduced.__class__(axes)
+            )
+            if isinstance(reduced, _core.hist.any_multi_cell) and isinstance(
+                new_reduced, _core.hist.any_multi_cell
+            ):
+                # The constructor in reduced.__class__(axes) does not take care of the number of cells.
+                # If reduced is a multi cell histogram, we have to set the number of cells per bin manually for new_reduced
+                new_reduced.reset_nelem(reduced.nelem())
             new_reduced.view(flow=True)[...] = reduced.view(flow=True)[tuple_slice]
             reduced = new_reduced
             integrations = {i - sum(j <= i for j in pick_each) for i in integrations}
@@ -1127,7 +1032,7 @@ class Histogram:
             logger.debug("Slices for picking sets: %s", pick_set)
             axes = [reduced.axis(i) for i in range(reduced.rank())]
             reduced_view = reduced.view(flow=True)
-            for i in pick_set:  # pylint: disable=consider-using-dict-items
+            for i in pick_set:
                 selection = copy.copy(pick_set[i])
                 ax = reduced.axis(i)
                 if ax.traits_ordered:
@@ -1152,6 +1057,127 @@ class Histogram:
             reduced = reduced.project(*projections)
 
         return self._new_hist(reduced) if reduced.rank() > 0 else reduced.sum(flow=True)
+
+    def _handle_slice(
+        self,
+        i: int,
+        start: int | None,
+        stop: int | None,
+        step: int
+        | slice
+        | Mapping[int, SupportsIndex | slice]
+        | Callable[[Any], int]
+        | None,
+        reduced: CppHistogram | None,
+    ) -> tuple[CppHistogram | None, list[_core.algorithm.reduce_command], set[int]]:
+        if any(isinstance(v, slice) for v in (start, stop, step)):
+            msg = (
+                "You have put a slice in a slice. Did you forget curly braces [{...}]?"
+            )
+            raise TypeError(msg)
+
+        slices = list[_core.algorithm.reduce_command]()
+        integrations = set[int]()
+
+        start_int, stop_int = self.axes[i]._process_loc(start, stop)
+        groups = []
+        new_axis = None
+        if start is None and stop is None and step is None:
+            return reduced, slices, integrations
+
+        merge = 1
+        match step:
+            case x if x is sum:  # https://github.com/oracle/graalpython/issues/620
+                integrations.add(i)
+                if start is not None or stop is not None:
+                    slices.append(
+                        _core.algorithm.slice(
+                            i, start_int, stop_int, _core.algorithm.slice_mode.crop
+                        )
+                    )
+                return reduced, slices, integrations
+            case None:
+                pass
+            case object(factor=x) if x is not None:
+                merge = x
+            case object(axis_mapping=x) if (tmp_both := x(self.axes[i])) is not None:
+                groups, new_axis = tmp_both
+            case object(group_mapping=x) if (tmp_groups := x(self.axes[i])) is not None:
+                groups = tmp_groups
+            case x if callable(x):
+                raise NotImplementedError
+            case _:
+                msg = "The third argument to a slice must be rebin or projection"
+                raise IndexError(msg)
+
+        assert isinstance(start_int, int)
+        assert isinstance(stop_int, int)
+        # rebinning with factor
+        if len(groups) == 0:
+            slices.append(
+                _core.algorithm.slice_and_rebin(i, start_int, stop_int, merge)
+            )
+        # rebinning with groups
+        else:
+            reduced = self._rebin_with_groups(
+                reduced or self._hist, i, groups, new_axis
+            )
+        return reduced, slices, integrations
+
+    def _rebin_with_groups(
+        self, reduced: CppHistogram, i: int, groups: list[int], new_axis: Any
+    ) -> CppHistogram:
+        """Handle rebinning with groups."""
+        axes = [reduced.axis(x) for x in range(reduced.rank())]
+        reduced_view = reduced.view(flow=True)
+        new_axes_indices = [axes[i].edges[0]]
+
+        j = 0
+        for group in groups:
+            new_axes_indices += [axes[i].edges[j + group]]
+            j += group
+
+        if new_axis is None:
+            new_axis = Variable(
+                new_axes_indices,
+                __dict__=axes[i].raw_metadata,
+                underflow=axes[i].traits_underflow,
+                overflow=axes[i].traits_overflow,
+            )
+        old_axis = axes[i]
+        axes[i] = new_axis._ax
+
+        logger.debug("Axes: %s", axes)
+
+        new_reduced: _core.hist._BaseHistogram | _core.hist.any_multi_cell
+        new_reduced = reduced.__class__(axes)
+        new_view = new_reduced.view(flow=True)
+        j = 0
+        new_j_base = 0
+
+        if old_axis.traits_underflow and axes[i].traits_underflow:
+            groups = [1, *groups]
+        elif axes[i].traits_underflow:
+            new_j_base = 1
+
+        if old_axis.traits_overflow and axes[i].traits_overflow:
+            groups.append(1)
+
+        for new_j, group in enumerate(groups):
+            for _ in range(group):
+                _combine_group_contents(
+                    new_view, reduced_view, i, j, new_j + new_j_base
+                )
+                j += 1
+
+            if (
+                old_axis.traits_underflow
+                and not axes[i].traits_ordered
+                and axes[i].traits_overflow
+            ):
+                _combine_group_contents(new_view, reduced_view, i, 0, -1)
+
+        return new_reduced
 
     def __setitem__(self, index: IndexingExpr, value: ArrayLike | Accumulator) -> None:
         """
@@ -1185,7 +1211,7 @@ class Histogram:
         if (
             in_array.ndim > 0
             and len(view.dtype) > 0
-            and len(in_array.dtype) == 0
+            and len(in_array.dtype) == 0  # type: ignore[arg-type]
             and len(view.dtype) == in_array.shape[-1]
         ):
             value_shape = in_array.shape[:-1]
@@ -1193,16 +1219,28 @@ class Histogram:
         else:
             value_shape = in_array.shape
             value_ndim = in_array.ndim
+        value_n_slice = sum(isinstance(i, slice) for i in indexes)
+        if isinstance(self._hist, _core.hist.any_multi_cell):
+            # MultiCell histograms have to provide the cell index as first dimension, but the cell index is not included in the histogram indexing.
+            # Slicing over the cell index is not possible for __setitem__ and is always represented as a full slice (as slice(None, None, None)).
+            # Therefore, the number of slices is always one large than the indexed number of slices in the MultiCell case.
+            value_n_slice += 1
 
         # NumPy does not broadcast partial slices, but we would need
         # to allow it (because we do allow broadcasting up dimensions)
         # Instead, we simply require matching dimensions.
-        if value_ndim > 0 and value_ndim != sum(isinstance(i, slice) for i in indexes):
-            msg = f"Setting a {len(indexes)}D histogram with a {value_ndim}D array must have a matching number of dimensions"
+        if value_ndim > 0 and value_ndim != value_n_slice:
+            if isinstance(self._hist, _core.hist.any_multi_cell):
+                msg = f"Setting a {len(indexes)}D MultiCell histogram with a {value_ndim}D array must have a one higher dimension of array than histogram"
+            else:
+                msg = f"Setting a {len(indexes)}D histogram with a {value_ndim}D array must have a matching number of dimensions"
             raise ValueError(msg)
 
         # Here, value_n does not increment with n if this is not a slice
         value_n = 0
+        if isinstance(self._hist, _core.hist.any_multi_cell):
+            # Ignore first dimension for MultiCell arrays, the first dimension is for the cells, the normal histogram axis indexing starts with dimension 2 in this case
+            value_n = 1
         for n, request in enumerate(indexes):
             has_underflow = self.axes[n].traits.underflow
             has_overflow = self.axes[n].traits.overflow
@@ -1268,6 +1306,11 @@ class Histogram:
             else:
                 indexes[n] = request + has_underflow
 
+        if isinstance(self._hist, _core.hist.any_multi_cell):
+            # View of multi cell histograms has as first (index 0) dimension the cell index
+            # Add a full slice to the beginning of the slicing expression to adept for this cell index
+            # e.g. a slice like [0, :, 3] is converted to [:, 0, :, 3]
+            indexes.insert(0, slice(None, None, None))
         view[tuple(indexes)] = in_array
 
     def project(self, *args: int) -> Self | float | Accumulator:
@@ -1318,8 +1361,8 @@ class Histogram:
         view: Any = self.view(flow)
         # TODO: Might be a NumPy typing bug
         if len(view.dtype) == 0:
-            return view
-        return view.value
+            return view  # type: ignore[no-any-return]
+        return view.value  # type: ignore[no-any-return]
 
     def variances(self, flow: bool = False) -> np.typing.NDArray[Any] | None:
         """
@@ -1351,7 +1394,7 @@ class Histogram:
 
         if hasattr(view, "sum_of_weights"):
             valid = view.sum_of_weights**2 > view.sum_of_weights_squared
-            return np.divide(
+            return np.divide(  # type: ignore[no-any-return]
                 view.variance,
                 view.sum_of_weights,
                 out=np.full(view.sum_of_weights.shape, np.nan),
@@ -1359,14 +1402,14 @@ class Histogram:
             )
 
         if hasattr(view, "count"):
-            return np.divide(
+            return np.divide(  # type: ignore[no-any-return]
                 view.variance,
                 view.count,
                 out=np.full(view.count.shape, np.nan),
                 where=view.count > 1,
             )
 
-        return view.variance
+        return view.variance  # type: ignore[no-any-return]
 
     def counts(self, flow: bool = False) -> np.typing.NDArray[Any]:
         """
@@ -1394,10 +1437,10 @@ class Histogram:
         view: Any = self.view(flow)
 
         if len(view.dtype) == 0:
-            return view
+            return view  # type: ignore[no-any-return]
 
         if hasattr(view, "sum_of_weights"):
-            return np.divide(
+            return np.divide(  # type: ignore[no-any-return]
                 view.sum_of_weights**2,
                 view.sum_of_weights_squared,
                 out=np.zeros_like(view.sum_of_weights, dtype=np.float64),
@@ -1405,9 +1448,9 @@ class Histogram:
             )
 
         if hasattr(view, "count"):
-            return view.count
+            return view.count  # type: ignore[no-any-return]
 
-        return view.value
+        return view.value  # type: ignore[no-any-return]
 
 
 if TYPE_CHECKING:

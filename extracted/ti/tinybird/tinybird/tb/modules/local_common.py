@@ -32,11 +32,16 @@ from tinybird.tb.modules.local_logs import (
 from tinybird.tb.modules.secret_common import load_secrets
 from tinybird.tb.modules.telemetry import add_telemetry_event
 
+# Pre-compiled regex patterns
+_PATTERN_HTTP_PREFIX = re.compile(r"^https?://")
+_PATTERN_TAG_SUFFIX = re.compile(r":.*$")
+_PATTERN_MESSAGE = re.compile(r'message="([^"]*)"')
+
 TB_IMAGE_NAME = "tinybirdco/tinybird-local:latest"
 TB_CONTAINER_NAME = "tinybird-local"
 TB_LOCAL_PORT = int(os.getenv("TB_LOCAL_PORT", 7181))
 TB_LOCAL_CLICKHOUSE_INTERFACE_PORT = int(os.getenv("TB_LOCAL_CLICKHOUSE_INTERFACE_PORT", 7182))
-TB_LOCAL_HOST = re.sub(r"^https?://", "", os.getenv("TB_LOCAL_HOST", "localhost"))
+TB_LOCAL_HOST = _PATTERN_HTTP_PREFIX.sub("", os.getenv("TB_LOCAL_HOST", "localhost"))
 TB_LOCAL_ADDRESS = f"http://{TB_LOCAL_HOST}:{TB_LOCAL_PORT}"
 TB_LOCAL_DEFAULT_WORKSPACE_NAME = "Tinybird_Local_Testing"
 
@@ -466,7 +471,9 @@ def start_tinybird_local(
         time.sleep(5)
 
     # Remove tinybird-local dangling images to avoid running out of disk space
-    images = docker_client.images.list(name=re.sub(r":.*$", "", TB_IMAGE_NAME), all=True, filters={"dangling": True})
+    images = docker_client.images.list(
+        name=_PATTERN_TAG_SUFFIX.sub("", TB_IMAGE_NAME), all=True, filters={"dangling": True}
+    )
     for image in images:
         image.remove(force=True)
 
@@ -771,7 +778,7 @@ def stream_logs_with_health_check(
                         if line.startswith(service):
                             message = line[len(service) :]
                             # extract content of message="...""
-                            match = re.search(r'message="([^"]*)"', message)
+                            match = _PATTERN_MESSAGE.search(message)
                             if match:
                                 message = match.group(1)
                             line = f"{color}{service}{RESET} {message}"

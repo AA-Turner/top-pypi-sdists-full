@@ -6,6 +6,7 @@ from __future__ import annotations
 __all__ = ('about', 'about_from_setup')
 
 import sys
+import os
 from typing import Any, NamedTuple
 from typing_extensions import Self
 from pathlib import Path
@@ -78,9 +79,11 @@ def about(package: str | None = None) -> adict:
     return pkg_metadata
 
 
-__sentinel = object()
+class __Sentinel: pass     # noqa: E305
+__sentinel = __Sentinel()  # noqa: E305
 
-def about_from_setup(package_path: Path | str | None = __sentinel) -> adict:
+def about_from_setup(package_path: Path | str | int | None
+                     | __Sentinel = __sentinel) -> adict:
     no_arg = (package_path is __sentinel)
     level = (1 if no_arg else
              # Potential backward incompatibility.
@@ -92,6 +95,8 @@ def about_from_setup(package_path: Path | str | None = __sentinel) -> adict:
     pkg_globals = sys._getframe(1).f_globals
     if level is not None:
         package_path = Path(pkg_globals["__file__"]).resolve().parents[level]
+
+    assert isinstance(package_path, (str, os.PathLike))
 
     metadata = build.util.project_wheel_metadata(package_path)
     version = packaging.version.parse(metadata["Version"])

@@ -25,11 +25,11 @@ class Config(ConfigReadable):
             except:
                 with open(copy_config_file(f'params.yaml.{__version__}', 'adam.embedded_params', show_out=not is_user_entry)) as f:
                     self.params = cast(dict[str, any], yaml.safe_load(f))
-
-            ConfigHolder().config = self
         elif not hasattr(self, 'params'):
             with open(copy_config_file(f'params.yaml.{__version__}', 'adam.embedded_params', show_out=not is_user_entry)) as f:
                 self.params = cast(dict[str, any], yaml.safe_load(f))
+
+        ConfigHolder().config = self
 
     def action_node_samples(self, action: str, default: T):
         return self.get(f'{action}.samples', default)

@@ -1,9 +1,9 @@
 import pytest
 import os
 
-from criteo_api_retailmedia_v2025_10.api.gateway_api import GatewayApi
-from criteo_api_retailmedia_v2025_10.api_client_builder import ApiClientBuilder
-from criteo_api_retailmedia_v2025_10.rest import ApiException
+from criteo_api_retailmedia_v2026_01.api.gateway_api import GatewayApi
+from criteo_api_retailmedia_v2026_01.api_client_builder import ApiClientBuilder
+from criteo_api_retailmedia_v2026_01.rest import ApiException
 from example_application_with_client_credentials import ExampleApplication
 
 class TestGatewayApi:

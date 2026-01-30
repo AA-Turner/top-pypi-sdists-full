@@ -40,6 +40,14 @@ def job_queue_cli() -> None:
     pass
 
 
+# TODO praneethkaturi: Implement job-queue create command
+# - Requires design decision on how to handle compute config
+# - Backend API exists: POST /api/v2/job-queues/create
+# - SDK method needed: anyscale.job_queue.create()
+# - CLI options: --name, --cloud, --project, --max-concurrency,
+#   --idle-timeout-s, --execution-mode, --tag
+
+
 class ViewOption(Enum):
     DEFAULT = "default"
     STATS = "stats"
@@ -145,12 +153,13 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     callback=lambda _ctx, _param, values: _parse_sort_fields("sort", list(values)),
 )
 @click.option(
-    "--no-interactive/--interactive",
-    default=False,
-    help="Use non-interactive batch mode instead of interactive paging.",
+    "--interactive/--no-interactive",
+    default=True,
+    show_default=True,
+    help="Enable interactive pagination.",
 )
 @click.option(
-    "--json", "json_output", is_flag=True, default=False, help="JSON output.",
+    "-j", "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
 def list_job_queues(  # noqa: PLR0913
     job_queue_id: Optional[str],
@@ -164,14 +173,18 @@ def list_job_queues(  # noqa: PLR0913
     page_size: int,
     max_items: Optional[int],
     sort_dirs: List[JobQueueSortDirective],
-    no_interactive: bool,
+    interactive: bool,
     json_output: bool,
 ) -> None:
     """List and page job queues according to filters and view."""
-    if max_items and not no_interactive:
+    if max_items and interactive:
         raise click.UsageError("--max-items only in non-interactive mode")
 
-    effective_max = max_items or NON_INTERACTIVE_DEFAULT_MAX_ITEMS
+    # Compute effective max_items for non-interactive mode only
+    effective_max = max_items
+    if not interactive and effective_max is None:
+        effective_max = NON_INTERACTIVE_DEFAULT_MAX_ITEMS
+
     console = Console()
     stderr = Console(stderr=True)
 
@@ -186,9 +199,9 @@ def list_job_queues(  # noqa: PLR0913
             cluster_status=cluster_status,
             view=view,
             sort_dirs=sort_dirs,
-            no_interactive=no_interactive,
+            interactive=interactive,
             page_size=page_size,
-            effective_max=effective_max,
+            effective_max=effective_max if not interactive else None,
         )
 
     try:
@@ -201,7 +214,7 @@ def list_job_queues(  # noqa: PLR0913
             project=project,
             tags_filter=parse_repeatable_tags_to_dict(tags) if tags else None,
             page_size=page_size,
-            max_items=None if not no_interactive else effective_max,
+            max_items=None if interactive else effective_max,
             sorting_directives=sort_dirs,
         )
         cols = VIEW_COLUMNS[view]
@@ -217,12 +230,15 @@ def list_job_queues(  # noqa: PLR0913
             table_creator=table_fn,
             json_output=json_output,
             page_size=page_size,
-            interactive=not no_interactive,
+            interactive=interactive,
             max_items=effective_max,
             console=console,
         )
         if not json_output:
-            stderr.print(f"Fetched {total} queues" if total else "No queues found.")
+            if total:
+                stderr.print(f"\nFetched {total} job-queue(s).")
+            else:
+                stderr.print("\nNo job-queues found.")
 
     except Exception as e:  # noqa: BLE001
         stderr.print(f"Error: {e}", style="red")
@@ -235,28 +251,33 @@ def list_job_queues(  # noqa: PLR0913
     cls=AnyscaleCommand,
     example=command_examples.JOB_QUEUE_UPDATE,
 )
-@click.option("--id", "job_queue_id", required=True, help="ID of the job queue.")
+@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--max-concurrency", type=int, help="Max number of concurrent jobs.")
 @click.option("--idle-timeout-s", type=int, help="Idle timeout in seconds.")
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
 def update_job_queue(
-    job_queue_id: str,
+    job_queue_id: Optional[str],
+    name: Optional[str],
     max_concurrency: Optional[int],
     idle_timeout_s: Optional[int],
     json_output: bool,
 ) -> None:
     """Update the max_concurrency or idle_timeout_s of a job queue."""
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
     if max_concurrency is None and idle_timeout_s is None:
         raise click.ClickException("Specify --max-concurrency or --idle-timeout-s")
     stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
     if not json_output:
-        stderr.print(f"Updating job queue '{job_queue_id}'...")
+        stderr.print(f"Updating job queue '{ident}'...")
     try:
         jq = anyscale.job_queue.update(
             job_queue_id=job_queue_id,
-            job_queue_name=None,
+            job_queue_name=name,
             max_concurrency=max_concurrency,
             idle_timeout_s=idle_timeout_s,
         )
@@ -357,7 +378,8 @@ def list_tags(
     cls=AnyscaleCommand,
     example=command_examples.JOB_QUEUE_STATUS,
 )
-@click.option("--id", "job_queue_id", required=True, help="ID of the job queue.")
+@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--name", "-n", help="Name of the job queue.")
 @click.option(
     "--view",
     type=click.Choice([opt.value for opt in ViewOption], case_sensitive=False),
@@ -368,13 +390,22 @@ def list_tags(
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
-def status(job_queue_id: str, view: ViewOption, json_output: bool,) -> None:
+def status(
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    view: ViewOption,
+    json_output: bool,
+) -> None:
     """Fetch and display a single job queue's details."""
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+
     stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
     if not json_output:
-        stderr.print(f"Fetching job queue '{job_queue_id}'...")
+        stderr.print(f"Fetching job queue '{ident}'...")
     try:
-        jq = anyscale.job_queue.status(job_queue_id=job_queue_id)
+        jq = anyscale.job_queue.status(job_queue_id=job_queue_id, name=name)
         if json_output:
             Console().print_json(json_dumps(_format_data(jq), indent=2))
         else:
@@ -383,6 +414,92 @@ def status(job_queue_id: str, view: ViewOption, json_output: bool,) -> None:
             _display_single(jq, stderr, display_view)
     except Exception as e:  # noqa: BLE001
         stderr.print(f"Failed: {e}", style="red")
+        sys.exit(1)
+
+
+@job_queue_cli.command(
+    name="archive",
+    help="Archive (seal) a job queue. No new jobs can be submitted.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_ARCHIVE_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--name", "-n", help="Name of the job queue.")
+@click.option("--project", help="Project name (required with --name).")
+@click.option("--cloud", help="Cloud name (required with --name).")
+def archive_job_queue(
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
+) -> None:
+    """Archive a job queue to prevent new job submissions."""
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    if name and not project:
+        raise click.ClickException("--project is required when using --name.")
+    if name and not cloud:
+        raise click.ClickException("--cloud is required when using --name.")
+    if job_queue_id and (project or cloud):
+        raise click.ClickException(
+            "--project and --cloud should only be used with --name, not --id."
+        )
+
+    stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
+    stderr.print(f"Archiving job queue '{ident}'...")
+
+    try:
+        jq_id = anyscale.job_queue.archive(
+            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud,
+        )
+        stderr.print(f"Job queue '{ident}' has been archived.")
+        stderr.print(f"Query the status with `anyscale job-queue status --id {jq_id}`.")
+    except Exception as e:  # noqa: BLE001
+        stderr.print(f"Archive failed: {e}", style="red")
+        sys.exit(1)
+
+
+@job_queue_cli.command(
+    name="terminate",
+    help="Terminate a job queue and all its pending/running jobs.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_TERMINATE_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--name", "-n", help="Name of the job queue.")
+@click.option("--project", help="Project name (required with --name).")
+@click.option("--cloud", help="Cloud name (required with --name).")
+def terminate_job_queue(
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
+) -> None:
+    """Terminate a job queue and all its jobs."""
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    if name and not project:
+        raise click.ClickException("--project is required when using --name.")
+    if name and not cloud:
+        raise click.ClickException("--cloud is required when using --name.")
+    if job_queue_id and (project or cloud):
+        raise click.ClickException(
+            "--project and --cloud should only be used with --name, not --id."
+        )
+
+    stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
+    stderr.print(f"Terminating job queue '{ident}'...")
+
+    try:
+        jq_id = anyscale.job_queue.terminate(
+            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud,
+        )
+        stderr.print(f"Job queue '{ident}' has been marked for termination.")
+        stderr.print(f"Query the status with `anyscale job-queue status --id {jq_id}`.")
+    except Exception as e:  # noqa: BLE001
+        stderr.print(f"Terminate failed: {e}", style="red")
         sys.exit(1)
 
 
@@ -451,27 +568,26 @@ def _print_list_diagnostics(  # noqa: PLR0913
     cluster_status: Optional[str],
     view: ViewOption,
     sort_dirs: List[JobQueueSortDirective],
-    no_interactive: bool,
+    interactive: bool,
     page_size: int,
-    effective_max: int,
+    effective_max: Optional[int],
 ) -> None:
     """Prints diagnostic information for the list_job_queues command."""
-    stderr.print("[bold]Listing with:[/]")
-    stderr.print(f"id: {job_queue_id or '<any>'}")
-    stderr.print(f"name: {name or '<any>'}")
-    stderr.print(f"creator: {'all' if include_all_users else 'mine'}")
-    stderr.print(f"cloud: {cloud or '<any>'}")
-    stderr.print(f"project: {project or '<any>'}")
-    stderr.print(f"cluster: {cluster_status or '<any>'}")
-    stderr.print(f"view: {view.value}")
-
     formatted_sort_dirs = [
         f"{'-' if d.sort_order == SortOrder.DESC else ''}{(d.sort_field or '').lower()}"
         for d in sort_dirs
     ]
-    stderr.print(f"sort: {formatted_sort_dirs}")
 
-    stderr.print(f"mode: {'batch' if no_interactive else 'interactive'}")
-    stderr.print(f"page-size: {page_size}")
-    stderr.print(f"max-items: {effective_max}")
-    stderr.print(f"UI: {get_endpoint('/job-queues')}\n")
+    stderr.print("[bold]Listing job-queues with:[/]")
+    stderr.print(f"• id              = {job_queue_id or '<any>'}")
+    stderr.print(f"• name            = {name or '<any>'}")
+    stderr.print(f"• creator         = {'all' if include_all_users else 'mine'}")
+    stderr.print(f"• cloud           = {cloud or '<any>'}")
+    stderr.print(f"• project         = {project or '<any>'}")
+    stderr.print(f"• cluster         = {cluster_status or '<any>'}")
+    stderr.print(f"• view            = {view.value}")
+    stderr.print(f"• sort            = {formatted_sort_dirs or '<none>'}")
+    stderr.print(f"• mode            = {'interactive' if interactive else 'batch'}")
+    stderr.print(f"• per-page limit  = {page_size}")
+    stderr.print(f"• max-items total = {effective_max if effective_max else 'all'}")
+    stderr.print(f"\nView your Job Queues in the UI at {get_endpoint('/job-queues')}\n")

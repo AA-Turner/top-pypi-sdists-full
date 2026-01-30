@@ -70,80 +70,46 @@ class Primitive(DaeObject):
 
         """
 
+    # Known semantic types for fast lookup
+    _KNOWN_SEMANTICS = frozenset([
+        'VERTEX', 'NORMAL', 'TEXCOORD', 'TEXTANGENT',
+        'TEXBINORMAL', 'COLOR', 'TANGENT', 'BINORMAL'])
+
     @staticmethod
     def _getInputsFromList(collada, localscope, inputs):
-        # first let's save any of the source that are references to a dict
-        to_append = []
-        for input in inputs:
-            offset, semantic, source, set = input
-            if semantic == 'VERTEX':
-                vertex_source = localscope.get(source[1:])
-                if isinstance(vertex_source, dict):
-                    for inputsemantic, inputsource in vertex_source.items():
-                        if inputsemantic == 'POSITION':
-                            to_append.append([offset, 'VERTEX', '#' + inputsource.id, set])
-                        else:
-                            to_append.append([offset, inputsemantic, '#' + inputsource.id, set])
-
-        # remove all the dicts
-        inputs[:] = [input for input in inputs
-                     if not isinstance(localscope.get(input[2][1:]), dict)]
-
-        # append the dereferenced dicts
-        for a in to_append:
-            inputs.append(a)
-
-        vertex_inputs = []
-        normal_inputs = []
-        texcoord_inputs = []
-        textangent_inputs = []
-        texbinormal_inputs = []
-        color_inputs = []
-        tangent_inputs = []
-        binormal_inputs = []
-
+        # Build result dict - only create lists as needed
         all_inputs = {}
+        known_semantics = Primitive._KNOWN_SEMANTICS
 
         for input in inputs:
             offset, semantic, source, set = input
-            if len(source) < 2 or source[0] != '#':
-                raise DaeMalformedError('Incorrect source id "%s" in input' % source)
-            if source[1:] not in localscope:
-                raise DaeBrokenRefError('Source input id "%s" not found' % source)
-            input = (input[0], input[1], input[2], input[3], localscope[source[1:]])
-            if semantic == 'VERTEX':
-                vertex_inputs.append(input)
-            elif semantic == 'NORMAL':
-                normal_inputs.append(input)
-            elif semantic == 'TEXCOORD':
-                texcoord_inputs.append(input)
-            elif semantic == 'TEXTANGENT':
-                textangent_inputs.append(input)
-            elif semantic == 'TEXBINORMAL':
-                texbinormal_inputs.append(input)
-            elif semantic == 'COLOR':
-                color_inputs.append(input)
-            elif semantic == 'TANGENT':
-                tangent_inputs.append(input)
-            elif semantic == 'BINORMAL':
-                binormal_inputs.append(input)
-            else:
-                try:
-                    raise DaeUnsupportedError('Unknown input semantic: %s' % semantic)
-                except DaeUnsupportedError as ex:
-                    collada.handleError(ex)
-                unknown_input = all_inputs.get(semantic, [])
-                unknown_input.append(input)
-                all_inputs[semantic] = unknown_input
+            source_key = source[1:]
+            vertex_source = localscope.get(source_key)
 
-        all_inputs['VERTEX'] = vertex_inputs
-        all_inputs['NORMAL'] = normal_inputs
-        all_inputs['TEXCOORD'] = texcoord_inputs
-        all_inputs['TEXBINORMAL'] = texbinormal_inputs
-        all_inputs['TEXTANGENT'] = textangent_inputs
-        all_inputs['COLOR'] = color_inputs
-        all_inputs['TANGENT'] = tangent_inputs
-        all_inputs['BINORMAL'] = binormal_inputs
+            # Handle VERTEX semantic referencing a dict of sources
+            if semantic == 'VERTEX' and isinstance(vertex_source, dict):
+                for inputsemantic, inputsource in vertex_source.items():
+                    actual_semantic = 'VERTEX' if inputsemantic == 'POSITION' else inputsemantic
+                    actual_source = '#' + inputsource.id
+                    input_tuple = (offset, actual_semantic, actual_source, set, inputsource)
+                    if actual_semantic not in all_inputs:
+                        all_inputs[actual_semantic] = []
+                    all_inputs[actual_semantic].append(input_tuple)
+            elif not isinstance(vertex_source, dict):
+                if len(source) < 2 or source[0] != '#':
+                    raise DaeMalformedError('Incorrect source id "%s" in input' % source)
+                if source_key not in localscope:
+                    raise DaeBrokenRefError('Source input id "%s" not found' % source)
+                input_tuple = (offset, semantic, source, set, localscope[source_key])
+                if semantic in known_semantics:
+                    if semantic not in all_inputs:
+                        all_inputs[semantic] = []
+                    all_inputs[semantic].append(input_tuple)
+                else:
+                    collada.handleError(DaeUnsupportedError('Unknown input semantic: %s' % semantic))
+                    if semantic not in all_inputs:
+                        all_inputs[semantic] = []
+                    all_inputs[semantic].append(input_tuple)
 
         return all_inputs
 

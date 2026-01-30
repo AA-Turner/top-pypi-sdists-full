@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyserde
-Version: 0.28.0
+Version: 0.29.1
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -27,7 +27,7 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10

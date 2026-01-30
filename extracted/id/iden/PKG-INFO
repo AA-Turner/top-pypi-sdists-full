@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iden
-Version: 0.3.0
+Version: 0.4.0
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: simple library to manage a dataset of shards to train machine learning models
@@ -26,7 +26,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
-Requires-Dist: coola<1.0,>=0.11.0
+Requires-Dist: coola<2.0,>=1.0
 Requires-Dist: objectory<1.0,>=0.3.0
 Provides-Extra: all
 Requires-Dist: cloudpickle<4.0,>=3.0; extra == 'all'
@@ -247,7 +247,8 @@ The following is the corresponding `iden` versions and tested dependencies.
 
 | `iden`  | `coola`         | `objectory`  | `numpy`<sup>*</sup> | `pyyaml`<sup>*</sup> | `safetensors`<sup>*</sup> | `torch`<sup>*</sup> | `python`      |
 |---------|-----------------|--------------|---------------------|----------------------|---------------------------|---------------------|---------------|
-| `main`  | `>=0.11.0,<1.0` | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
+| `main`  | `>=1.0,<2.0`    | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
+| `0.4.0` | `>=1.0,<2.0`    | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
 | `0.3.0` | `>=0.11.0,<1.0` | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
 | `0.2.0` | `>=0.8.4,<1.0`  | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
 | `0.1.0` | `>=0.8.4,<1.0`  | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
@@ -255,6 +256,7 @@ The following is the corresponding `iden` versions and tested dependencies.
 | `iden`  | `cloudpickle`<sup>*</sup> | `joblib`<sup>*</sup> |
 |---------|---------------------------|----------------------|
 | `main`  | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
+| `0.4.0` | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
 | `0.3.0` | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
 
 <sup>*</sup> indicates an optional dependency

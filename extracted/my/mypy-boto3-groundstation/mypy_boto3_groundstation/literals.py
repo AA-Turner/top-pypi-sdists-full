@@ -3,7 +3,7 @@ Type annotations for groundstation service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_groundstation/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -54,6 +54,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "TelemetrySinkTypeType",
     "WaiterName",
 )
 
@@ -78,6 +79,7 @@ ConfigCapabilityTypeType = Literal[
     "antenna-uplink",
     "dataflow-endpoint",
     "s3-recording",
+    "telemetry-sink",
     "tracking",
     "uplink-echo",
 ]
@@ -159,6 +161,7 @@ ListGroundStationsPaginatorName = Literal["list_ground_stations"]
 ListMissionProfilesPaginatorName = Literal["list_mission_profiles"]
 ListSatellitesPaginatorName = Literal["list_satellites"]
 PolarizationType = Literal["LEFT_HAND", "NONE", "RIGHT_HAND"]
+TelemetrySinkTypeType = Literal["KINESIS_DATA_STREAM"]
 GroundStationServiceName = Literal["groundstation"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -301,7 +304,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -566,6 +568,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

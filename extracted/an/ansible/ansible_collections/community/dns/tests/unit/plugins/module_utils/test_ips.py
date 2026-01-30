@@ -6,7 +6,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -17,7 +16,6 @@ from ansible_collections.community.dns.plugins.module_utils.ips import (
     assert_requirements_present,
     is_ip_address,
 )
-
 
 # We need ipaddress
 ipaddress = pytest.importorskip('ipaddress')
@@ -43,7 +41,7 @@ def test_assert_requirements_present():
             assert_requirements_present(module)
 
         assert 'ipaddress' in exc.value.args[0]['msg']
-        assert 'asdf' == exc.value.args[0]['exception']
+        assert exc.value.args[0]['exception'] == 'asdf'
 
     finally:
         ips.IPADDRESS_IMPORT_EXC = orig_importerror

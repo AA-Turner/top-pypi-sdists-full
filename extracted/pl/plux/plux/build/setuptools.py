@@ -1,7 +1,7 @@
 """
 Bindings to integrate plux into setuptools build processes.
 """
-import importlib
+
 import json
 import logging
 import os
@@ -9,12 +9,14 @@ import re
 import shutil
 import sys
 import typing as t
-from fnmatch import fnmatchcase
-from importlib.util import find_spec
 from pathlib import Path
 
 import setuptools
 from setuptools.command.egg_info import egg_info
+
+from plux.build import config
+from plux.build.config import EntrypointBuildMode
+from plux.build.project import Project
 
 try:
     from setuptools.command.editable_wheel import editable_wheel
@@ -28,22 +30,53 @@ except ImportError:
         def _ensure_dist_info(self, *args, **kwargs):
             pass
 
+
 from setuptools.command.egg_info import InfoCommon, write_entries
 
 from plux.core.entrypoint import EntryPointDict, discover_entry_points
-from plux.core.plugin import PluginFinder, PluginSpec
-from plux.runtime.metadata import Distribution, entry_points_from_metadata_path
-from .discovery import ModuleScanningPluginFinder
+from plux.runtime.metadata import entry_points_from_metadata_path
+from plux.build.discovery import PluginFromPackageFinder, PackageFinder, Filter, MatchAllFilter
+from plux.build.index import PluginIndexBuilder
 
 LOG = logging.getLogger(__name__)
 
 
+# SETUPTOOLS HOOKS
+# ================
+# The following classes and methods are a way for plux to hook into
+# the setuptools build process either indirectly or programmatically.
+
+
 class plugins(InfoCommon, setuptools.Command):
+    """
+    Setuptools command that discovers plugins and writes them into the egg_info directory to a ``plux.json`` file.
+
+    TODO: This only exists for compatibility with older ``setup.py`` workflows. It was meant as a frontend for
+      setuptools (to be called via ``setup.py plugins``. The modern way to build is either ``pip install -e .`` or
+      ``python -m build``, so the command is basically obsolete. We should remove it with a future release, and
+      instead rely on either the plux CLI frontend, or a transparent instrumentation of the build backend. It does help
+      *slightly* with the integration with setuptools, since we can call ``dist.run_command('plugins')``
+      programmatically, and then the ``egg_info`` command in a chain. However, we already have
+      ``patch_egg_info_command`` where we could implement this logic. More background can be found here:
+      https://github.com/pypa/setuptools/discussions/4223.
+    """
+
     description = "Discover plux plugins and store them in .egg_info"
 
-    user_options: t.ClassVar[t.List[t.Tuple[str, str, str]]] = [
-        ('exclude=', 'e', "a sequence of paths to exclude; '*' can be used as a wildcard in the names. 'foo.*' will exclude all subpackages of 'foo' (but not 'foo' itself)."),
-        # TODO: add more
+    user_options: t.ClassVar[list[tuple[str, str, str]]] = [
+        (
+            "exclude=",
+            "e",
+            "a sequence of paths to exclude; '*' can be used as a wildcard in the names. 'foo.*' will exclude all subpackages of 'foo' (but not 'foo' itself).",
+        ),
+        (
+            "include=",
+            "i",
+            "a sequence of paths to include; If it's specified, only the named items will be included. If it's not "
+            "specified, all found items in the path will be included. 'include' can contain shell style wildcard "
+            "patterns just like 'exclude'",
+        ),
+        # TODO: add more, this should mirror the entrypoints or discover cli
     ]
 
     egg_info: str
@@ -51,29 +84,29 @@ class plugins(InfoCommon, setuptools.Command):
     def initialize_options(self) -> None:
         self.plux_json_path = None
         self.exclude = None
+        self.include = None
+        self.plux_config = None
 
     def finalize_options(self) -> None:
         self.plux_json_path = get_plux_json_path(self.distribution)
-        self.ensure_string_list('exclude')
-        if self.exclude is None:
-            self.exclude = []
+        self.ensure_string_list("exclude")
+        self.ensure_string_list("include")
 
         # we merge the configuration from the CLI arguments with the configuration read from the `pyproject.toml`
         # [tool.plux] section
-        project_config = read_plux_configuration(self.distribution)
-        file_exclude = project_config.get("exclude")
-        if file_exclude:
-            self.exclude = set(self.exclude) | set(file_exclude)
-        self.exclude = [_path_to_module(item) for item in self.exclude]
+        self.plux_config = read_plux_configuration(self.distribution)
+        self.plux_config = self.plux_config.merge(
+            exclude=self.exclude,
+            include=self.include,
+        )
 
     def run(self) -> None:
-        plugin_finder = PluginFromPackageFinder(DistributionPackageFinder(self.distribution, exclude=self.exclude))
-        ep = discover_entry_points(plugin_finder)
-
+        # TODO: should be reconciled with Project.build_entrypoints()
+        index_builder = create_plugin_index_builder(self.plux_config, self.distribution)
         self.debug_print(f"writing discovered plugins into {self.plux_json_path}")
         self.mkpath(os.path.dirname(self.plux_json_path))
-        with open(self.plux_json_path, "w") as fd:
-            json.dump(ep, fd)
+        with open(self.plux_json_path, "w") as fp:
+            ep = index_builder.write(fp)
 
         update_entrypoints(self.distribution, ep)
 
@@ -102,9 +135,9 @@ def patch_editable_wheel_command():
     the .egg-info directory.
 
     TODO: this is a hacky patch that relies on setuptools internals. It would be better to find a clean way
-    to completely overwrite the ``editable_wheel`` command, perhaps via the command class resolution
-    mechanism. i looked into that for an hour or so and concluded that this is an acceptable workaround for
-    now.
+      to completely overwrite the ``editable_wheel`` command, perhaps via the command class resolution
+      mechanism. i looked into that for an hour or so and concluded that this is an acceptable workaround for
+      now.
     """
     _ensure_dist_info_orig = editable_wheel._ensure_dist_info
 
@@ -127,19 +160,25 @@ patch_editable_wheel_command()
 def patch_egg_info_command():
     """
     This patch fixes the build process when pip builds a wheel from a source distribution. A source distribution built
-    with plux will already contain an `.egg_info` directory, however during the build with pip, a new .egg-info
+    with plux will already contain an `.egg_info` directory, but during the build with pip, a new .egg-info
     directory is created from scratch from the python distribution configuration files (like setup.cfg or
     pyproject.toml). This is a problem, as building a wheel involves creating a .dist-info dir, which is populated from
     this new .egg-info directory. The .egg-info shipped with the source distribution is completely ignored during this
     process, including the `plux.json`, leading to a wheel that does not correctly contain the `entry_points.txt`.
 
-    This patch hooks into this procedure, and makes sure when this new .egg-info directory is created, we first locate
-    the one shipped with the source distribution, locate the `plux.json` file, and copy it into the new build context.
+    This patch hooks into this procedure and makes sure when this new .egg-info directory is created, we first locate
+    the one shipped with the source distribution, locate the ``plux.json`` file, and copy it into the new build context.
     """
     _run_orig = egg_info.run
 
     def _run(self):
         LOG.debug("Running egg_info command patch from plux")
+
+        cfg = read_plux_configuration(self.distribution)
+        if cfg.entrypoint_build_mode == EntrypointBuildMode.MANUAL:
+            LOG.debug("Entrypoint build mode is manual, skipping egg_info patch")
+            return _run_orig(self)
+
         # the working directory may be something like `/tmp/pip-req-build-bwekzpi_` where the source distribution
         # was copied into. this happens when you `pip install <dist>` where <dist> is
         # some source distribution.
@@ -164,25 +203,26 @@ def patch_egg_info_command():
 patch_egg_info_command()
 
 
-def find_plugins(where=".", exclude=(), include=("*",)) -> EntryPointDict:
-    """
-    Utility for setup.py that collects all plugins from the specified path, and creates a dictionary for
-    entry_points.
-
-    For example:
-
-    setup(
-        entry_points=find_plugins()
-    )
-    """
-
-    return discover_entry_points(
-        PackagePathPluginFinder(where=where, exclude=exclude, include=include)
-    )
-
-
 def load_plux_entrypoints(cmd, file_name, file_path):
+    """
+    This method is called indirectly by setuptools through the ``egg_info.writers`` plugin. It is used as the main hook
+    to generate entry points from the index file that plux generates. The plux distribution defines the following
+    setuptools entrypoint::
+
+        [project.entry-points."egg_info.writers"]
+        # this is actually not a writer, it's a reader :-)
+        "plux.json" = "plux.build.setuptools:load_plux_entrypoints"
+
+    It works in the following way: when setuptools builds the egg_info directory to the additional files that are
+    defined as egg_info.writers plugins. This is our hook into the build process of setuptools. The trick here is that
+    we have already previously built the ``plux.json``, and we use this hook to read the file, and use it to write the
+    ``entry_points.txt`` file.
+    """
     if not os.path.exists(file_path):
+        return
+
+    cfg = read_plux_configuration(cmd.distribution)
+    if cfg.entrypoint_build_mode == EntrypointBuildMode.MANUAL:
         return
 
     cmd.debug_print(f"extend entrypoints with plux plugins from {file_path}")
@@ -198,53 +238,22 @@ def load_plux_entrypoints(cmd, file_name, file_path):
     write_entries(cmd, ep_file, ep_path)
 
 
-def get_plux_json_path(distribution):
-    dirs = distribution.package_dir
-    egg_base = (dirs or {}).get("", os.curdir)
-    egg_info_dir = _to_filename(_safe_name(distribution.get_name())) + ".egg-info"
-    egg_info_dir = os.path.join(egg_base, egg_info_dir)
-    return os.path.join(egg_info_dir, "plux.json")
-
-
-def read_plux_configuration(distribution) -> dict:
+def find_plugins(where=".", exclude=(), include=("*",)) -> EntryPointDict:
     """
-    Try reading the [tool.plux] section of the `pyproject.toml` TOML file of the Distribution, and returns it as a
-    dictionary.
+    Utility for setup.py that collects all plugins from the specified path, and creates a dictionary for
+    entry_points.
+
+    For example:
+
+    setup(
+        entry_points=find_plugins()
+    )
     """
-    if find_spec("tomllib"):
-        # the tomllib library is part of the standard library since 3.11
-        from tomllib import load as load_toml
-    elif find_spec("tomli"):
-        # setuptools vendors the tomli library in 3.10
-        from tomli import load as load_toml
-    else:
-        # if we cannot find a TOML lib, we do not return any configuration
-        return {}
 
-    dirs = distribution.package_dir
-    pyproject_base = (dirs or {}).get("", os.curdir)
-    pyproject_file = os.path.join(pyproject_base, "pyproject.toml")
-    if not os.path.exists(pyproject_file):
-        return {}
-
-    with open(pyproject_file, "rb") as file:
-        pyproject_config = load_toml(file)
-
-    tool_table = pyproject_config.get("tool", {})
-    return tool_table.get("plux", {})
+    return discover_entry_points(PackagePathPluginFinder(where=where, exclude=exclude, include=include))
 
 
-def update_entrypoints(distribution, ep: EntryPointDict):
-    if distribution.entry_points is None:
-        distribution.entry_points = {}
-
-    # TODO: merge entry point groups
-    distribution.entry_points.update(ep)
-
-
-def load_entry_points(
-    where=".", exclude=(), include=("*",), merge: EntryPointDict = None
-) -> EntryPointDict:
+def load_entry_points(where=".", exclude=(), include=("*",), merge: EntryPointDict = None) -> EntryPointDict:
     """
     Finds plugins and builds and entry point map. This is to be used in a setup.py in the setup call:
 
@@ -264,6 +273,10 @@ def load_entry_points(
     fail if requirements aren't yet installed, which they aren't when running pip install. However,
     since source distributions package the .egg-info directory, we can read the entry points from there
     instead, acting as sort of a cache.
+
+    TODO: I'm not sure this is used or needed anymore, as we're moving away from ``setup.py`` files for which this
+      api was designed. Though the idea of merging manually defined entry points with those discovered by plux is
+      still valid and maybe useful in some cases.
 
     :param where: the file path to look for plugins (default, the current working dir)
     :param exclude: the shell style wildcard patterns to exclude
@@ -285,6 +298,112 @@ def load_entry_points(
     return eps
 
 
+# UTILITIES
+# =========
+# The remaining methods are utilities
+
+
+class SetuptoolsProject(Project):
+    distribution: setuptools.Distribution
+
+    def __init__(self, workdir: str = None):
+        super().__init__(workdir)
+
+        self.distribution = get_distribution_from_workdir(str(self.workdir))
+
+    def find_entry_point_file(self) -> Path:
+        if egg_info_dir := find_egg_info_dir():
+            return Path(egg_info_dir, "entry_points.txt")
+        raise FileNotFoundError("No .egg-info directory found. Have you run `python -m plux entrypoints`?")
+
+    def find_plux_index_file(self) -> Path:
+        if self.config.entrypoint_build_mode == EntrypointBuildMode.MANUAL:
+            return self.workdir / self.config.entrypoint_static_file
+
+        return Path(get_plux_json_path(self.distribution))
+
+    def create_plugin_index_builder(self) -> PluginIndexBuilder:
+        return create_plugin_index_builder(self.config, self.distribution)
+
+    def create_package_finder(self) -> PackageFinder:
+        exclude = [_path_to_module(item) for item in self.config.exclude]
+        include = [_path_to_module(item) for item in self.config.include]
+        return DistributionPackageFinder(self.distribution, exclude=exclude, include=include)
+
+    def build_entrypoints(self):
+        dist = self.distribution
+
+        dist.command_options["plugins"] = {
+            "exclude": ("command line", ",".join(self.config.exclude) or None),
+            "include": ("command line", ",".join(self.config.include) or None),
+        }
+        dist.run_command("plugins")
+
+        print(f"building {dist.get_name().replace('-', '_')}.egg-info...")
+        dist.run_command("egg_info")
+
+        print("discovered plugins:")
+        # print discovered plux plugins
+        with open(get_plux_json_path(dist)) as fd:
+            plux_json = json.load(fd)
+            json.dump(plux_json, sys.stdout, indent=2)
+
+
+def get_plux_json_path(distribution: setuptools.Distribution) -> str:
+    """
+    Returns the full path of ``plux.json`` file for the given distribution. The file is located within the .egg-info
+    directory that contains the built metadata of the distribution.
+    """
+    dirs = distribution.package_dir
+    egg_base = (dirs or {}).get("", os.curdir)
+    egg_info_dir = _to_filename(_safe_name(distribution.get_name())) + ".egg-info"
+    egg_info_dir = os.path.join(egg_base, egg_info_dir)
+    return os.path.join(egg_info_dir, "plux.json")
+
+
+def read_plux_configuration(distribution: setuptools.Distribution) -> config.PluxConfiguration:
+    """
+    Try reading the ``[tool.plux]`` section of the distribution's ``pyproject.toml`` file and parse it using our
+    config parser. Note this method will use the distribution's ``package_dir`` to try and resolve the path first,
+    so if you have a project with a namespace package, it may not work as expected if you call it from a CLI process.
+
+    :param distribution: The distribution containing the pyproject.toml file.
+    :return: The parsed configuration object
+    """
+    dirs = distribution.package_dir
+    pyproject_base = (dirs or {}).get("", os.curdir)
+    return config.read_plux_config_from_workdir(pyproject_base)
+
+
+def update_entrypoints(distribution: setuptools.Distribution, ep: EntryPointDict):
+    """
+    Updates ``distribution.entry_points`` with the given entry point dict. Currently, it simply overwrites sections
+    within the entrypoints.
+    """
+    if distribution.entry_points is None:
+        distribution.entry_points = {}
+
+    # TODO: merge entry point groups
+    distribution.entry_points.update(ep)
+
+
+def create_plugin_index_builder(
+    cfg: config.PluxConfiguration,
+    distribution: setuptools.Distribution,
+) -> PluginIndexBuilder:
+    """
+    Creates a PluginIndexBuilder instance for discovering plugins from a setuptools distribution. It uses a
+    ``DistributionPackageFinder`` to resolve the packages to scan for plugins from the given distribution (instead of
+    the path given in the PluxConfiguration). However, it respects excludes given in the PluxConfiguration.
+    """
+    exclude = [_path_to_module(item) for item in cfg.exclude]
+    include = [_path_to_module(item) for item in cfg.include]
+    plugin_finder = PluginFromPackageFinder(
+        DistributionPackageFinder(distribution, exclude=exclude, include=include)
+    )
+    return PluginIndexBuilder(plugin_finder)
+
+
 def entry_points_from_egg_info(egg_info_dir: str) -> EntryPointDict:
     """
     Reads the entry_points.txt from a distribution meta dir (e.g., the .egg-info directory).
@@ -292,18 +411,7 @@ def entry_points_from_egg_info(egg_info_dir: str) -> EntryPointDict:
     return entry_points_from_metadata_path(egg_info_dir)
 
 
-def _has_entry_points_cache() -> bool:
-    egg_info_dir = find_egg_info_dir()
-    if not egg_info_dir:
-        return False
-
-    if not os.path.isfile(os.path.join(egg_info_dir, "entry_points.txt")):
-        return False
-
-    return True
-
-
-def _should_read_existing_egg_info() -> t.Tuple[bool, t.Optional[str]]:
+def _should_read_existing_egg_info() -> tuple[bool, str | None]:
     # we want to read the .egg-info dir only if it exists, and if we are creating the egg_info or
     # installing it with pip install -e (which calls 'setup.py develop')
 
@@ -354,7 +462,7 @@ def _is_local_build_context():
     return False
 
 
-def find_egg_info_dir() -> t.Optional[str]:
+def find_egg_info_dir() -> str | None:
     """
     Heuristic to find the .egg-info dir of the current build context.
     """
@@ -426,49 +534,34 @@ def _path_to_module(path):
     return ".".join(Path(path).with_suffix("").parts)
 
 
-class _Filter:
-    """
-    Given a list of patterns, create a callable that will be true only if
-    the input matches at least one of the patterns.
-    This is from `setuptools.discovery._Filter`
-    """
-    def __init__(self, patterns: t.Iterable[str]):
-        self._patterns = patterns
-
-    def __call__(self, item: str):
-        return any(fnmatchcase(item, pat) for pat in self._patterns)
-
-
-class _PackageFinder:
-    """
-    Generate a list of Python packages. How these are generated depends on the implementation.
-    """
-
-    def find_packages(self) -> t.Iterable[str]:
-        raise NotImplementedError
-
-    @property
-    def path(self) -> str:
-        raise NotImplementedError
-
-
-class DistributionPackageFinder(_PackageFinder):
+class DistributionPackageFinder(PackageFinder):
     """
     PackageFinder that returns the packages found in the distribution. The Distribution will already have a
     list of resolved packages depending on the setup config. For example, if a ``pyproject.toml`` is used,
     then the ``[tool.setuptools.package.find]`` config will be interpreted, resolved, and then
     ``distribution.packages`` will contain the resolved packages. This already contains namespace packages
     correctly if configured.
-    You can additionally pass a sequence of values to the `exclude` parameters to provide a list of Unix shell style
+    You can additionally pass a sequence of values to the ``exclude`` parameters to provide a list of Unix shell style
     patterns that will be matched against the Python packages to exclude them from the resolved packages.
-    Wildcards are allowed in the patterns with '*'. 'foo.*' will exclude all subpackages of 'foo' (but not 'foo' itself)
+    Wildcards are allowed in the patterns with '*'. 'foo.*' will exclude all subpackages of 'foo' (but not 'foo'
+    itself). You can also pass ``include`` parameters, as specified in the ``PluxConfiguration``.
     """
 
-    def __init__(self, distribution: Distribution, exclude: t.Optional[t.Iterable[str]] = None):
+    def __init__(
+        self,
+        distribution: setuptools.Distribution,
+        exclude: t.Iterable[str] | None = None,
+        include: t.Iterable[str] | None = None,
+    ):
         self.distribution = distribution
-        self.exclude = _Filter(exclude or [])
+        self.exclude = Filter(exclude or [])
+        self.include = Filter(include) if include else MatchAllFilter()
 
     def find_packages(self) -> t.Iterable[str]:
+        if self.distribution.packages is None:
+            raise ValueError(
+                "No packages found in setuptools distribution. Is your project configured correctly?"
+            )
         return self.filter_packages(self.distribution.packages)
 
     @property
@@ -484,10 +577,14 @@ class DistributionPackageFinder(_PackageFinder):
         return where
 
     def filter_packages(self, packages: t.Iterable[str]) -> t.Iterable[str]:
-        return [item for item in packages if not self.exclude(item)]
+        return [item for item in packages if not self.exclude(item) and self.include(item)]
 
 
-class DefaultPackageFinder(_PackageFinder):
+class SetuptoolsPackageFinder(PackageFinder):
+    """
+    Uses setuptools internals to resolve packages.
+    """
+
     def __init__(self, where=".", exclude=(), include=("*",), namespace=True) -> None:
         self.where = where
         self.exclude = exclude
@@ -505,39 +602,6 @@ class DefaultPackageFinder(_PackageFinder):
         return self.where
 
 
-class PluginFromPackageFinder(PluginFinder):
-    finder: _PackageFinder
-
-    def __init__(self, finder: _PackageFinder):
-        self.finder = finder
-
-    def find_plugins(self) -> t.List[PluginSpec]:
-        collector = ModuleScanningPluginFinder(self.load_modules())
-        return collector.find_plugins()
-
-    def load_modules(self):
-        for module_name in self.list_module_names():
-            try:
-                yield importlib.import_module(module_name)
-            except Exception as e:
-                LOG.error("error importing module %s: %s", module_name, e)
-
-    def list_module_names(self):
-        # adapted from https://stackoverflow.com/a/54323162/804840
-        from pkgutil import iter_modules
-
-        modules = set()
-
-        for pkg in self.finder.find_packages():
-            modules.add(pkg)
-            pkgpath = self.finder.path + os.sep + pkg.replace(".", os.sep)
-            for info in iter_modules([pkgpath]):
-                if not info.ispkg:
-                    modules.add(pkg + "." + info.name)
-
-        return modules
-
-
 class PackagePathPluginFinder(PluginFromPackageFinder):
     """
     Uses setuptools and pkgutil to find and import modules within a given path and then uses a
@@ -546,4 +610,4 @@ class PackagePathPluginFinder(PluginFromPackageFinder):
     """
 
     def __init__(self, where=".", exclude=(), include=("*",), namespace=True) -> None:
-        super().__init__(DefaultPackageFinder(where, exclude, include, namespace=namespace))
+        super().__init__(SetuptoolsPackageFinder(where, exclude, include, namespace=namespace))

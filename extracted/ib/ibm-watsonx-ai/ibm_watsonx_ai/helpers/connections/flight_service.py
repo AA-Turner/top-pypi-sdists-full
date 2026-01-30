@@ -391,7 +391,7 @@ class FlightConnection(BaseFlightConnection):
             location=f"grpc+tls://{self.flight_location}:{self.flight_port}",
             disable_server_verification=True,
             override_hostname=self.flight_location,
-            middleware=[HeaderMiddlewareFactory(headers=self.headers)],
+            middleware=[HeaderMiddlewareFactory(api_client=self._api_client)],
             **self.additional_connection_args,
         )
 

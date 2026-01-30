@@ -15,7 +15,6 @@ use crate::options::ConversionOptions;
 use crate::types::{InlineImageConfig, inline_image_to_py, warning_to_py};
 #[cfg(feature = "visitor")]
 use crate::visitor;
-use html_to_markdown_bindings_common::{parse_conversion_options, parse_inline_image_config};
 use html_to_markdown_rs::DEFAULT_INLINE_IMAGE_LIMIT;
 #[cfg(feature = "visitor")]
 use html_to_markdown_rs::visitor::HtmlVisitor;
@@ -134,40 +133,6 @@ pub fn convert_with_inline_images<'py>(
         .detach(move || {
             run_with_guard_and_profile(|| {
                 html_to_markdown_rs::convert_with_inline_images(&html, rust_options.clone(), rust_cfg.clone(), None)
-            })
-        })
-        .map_err(to_py_err)?;
-
-    let images = extraction
-        .inline_images
-        .into_iter()
-        .map(|image| inline_image_to_py(py, image))
-        .collect::<PyResult<Vec<_>>>()?;
-
-    let warnings = extraction
-        .warnings
-        .into_iter()
-        .map(|warning| warning_to_py(py, warning))
-        .collect::<PyResult<Vec<_>>>()?;
-
-    Ok((extraction.markdown, images, warnings))
-}
-
-#[pyfunction]
-#[pyo3(signature = (html, options_json=None, image_config_json=None))]
-pub fn convert_with_inline_images_json<'py>(
-    py: Python<'py>,
-    html: &str,
-    options_json: Option<&str>,
-    image_config_json: Option<&str>,
-) -> PyInlineExtraction {
-    let html = html.to_owned();
-    let rust_options = parse_conversion_options(options_json).map_err(to_py_err)?;
-    let rust_config = parse_inline_image_config(image_config_json).map_err(to_py_err)?;
-    let extraction = py
-        .detach(move || {
-            run_with_guard_and_profile(|| {
-                html_to_markdown_rs::convert_with_inline_images(&html, rust_options.clone(), rust_config.clone(), None)
             })
         })
         .map_err(to_py_err)?;

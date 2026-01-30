@@ -11,6 +11,7 @@ import io
 import json
 import os
 from abc import ABC, abstractmethod
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Tuple, Union
 from warnings import warn
@@ -55,6 +56,8 @@ class BaseDataConnection(ABC):
         self._run_id = None
         self.id = None
         self._datasource_type = None
+        self._s3_type: Literal["ibm", "aws"] | None = None
+        self._connection_details: dict | None = None
 
     @abstractmethod
     def _to_dict(self) -> dict:
@@ -132,10 +135,8 @@ class BaseDataConnection(ABC):
                 # json_content = json.loads(buffer.getvalue().decode('utf-8'))
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
-            if self._check_if_connection_asset_is_s3():
-                from .connections import _AmazonS3Connection
-
-                if isinstance(self.connection, _AmazonS3Connection):
+            if self._is_connection_asset_s3:
+                if self._s3_type == "aws":
                     raise NotImplementedError(
                         "The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
                     )
@@ -236,7 +237,7 @@ class BaseDataConnection(ABC):
                     json_content = [json.loads(line) for line in text.splitlines()]
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
-            if self._check_if_connection_asset_is_s3():
+            if self._is_connection_asset_s3:
                 cos_client = self._init_cos_client()
                 data_conn = self.to_dict()
                 bucket = get_from_json(
@@ -354,7 +355,8 @@ class BaseDataConnection(ABC):
             connection_details, ["entity", "properties", "shared"], False
         )
 
-    def _check_if_connection_asset_is_s3(self) -> bool:
+    @cached_property
+    def _is_connection_asset_s3(self) -> bool:
         try:
             # fast return true if the connection is an instance of S3Connection and non s3 type,
             # or its attribute "is_s3" takes True
@@ -377,13 +379,13 @@ class BaseDataConnection(ABC):
                 return False
 
             try:
-                connection_details = self._prepare_connection_details()
+                self._connection_details = self._prepare_connection_details()
             except NotS3Connection:
                 return False
 
             # Note: Check with project libs if connection points to S3 (COS or AWS)
             if self._api_client is not None:
-                datasource_type = connection_details["entity"]["datasource_type"]
+                datasource_type = self._connection_details["entity"]["datasource_type"]
                 self._datasource_type = datasource_type
                 datasource_type_id_ibm_cos = (
                     self._api_client.connections.get_datasource_type_id_by_name(
@@ -411,9 +413,11 @@ class BaseDataConnection(ABC):
             elif self.type == DataConnectionTypes.CN:
                 is_s3 = True
 
-            elif "url" in connection_details:
+            elif "url" in self._connection_details:
                 is_s3 = True
-                connection_details["entity"] = {"properties": connection_details}
+                self._connection_details["entity"] = {
+                    "properties": self._connection_details
+                }
 
             else:
                 is_s3 = False
@@ -421,9 +425,9 @@ class BaseDataConnection(ABC):
 
             if is_s3:
                 if self._datasource_type == "amazons3":
-                    self._init_s3_aws_connection(connection_details)
+                    self._s3_type = "aws"
                 else:
-                    self._init_s3_cos_connection(connection_details)
+                    self._s3_type = "ibm"
 
             return is_s3
 
@@ -437,12 +441,25 @@ class BaseDataConnection(ABC):
             else:
                 return False  # if we are in WS, ignore this check even if there was some error
 
-    def _init_s3_cos_connection(self, connection_details: dict) -> None:
+    def _init_s3_connection(self) -> None:
+        """
+        Helper function that initializes internal `S3Connection` or `_AmazonS3Connection` object based on `_s3_type`.
+        Raises `NotS3Connection` if connection asset is not S3.
+        """
+        if not self._is_connection_asset_s3:
+            raise NotS3Connection()
+
+        if self._s3_type == "aws":
+            self._init_s3_aws_connection()
+        elif self._s3_type == "ibm":
+            self._init_s3_cos_connection()
+
+    def _init_s3_cos_connection(self) -> None:
         """
         Helper function that initializes internal `S3Connection` object based on connection_details retrieved
          from connection asset or container (IBM Cloud).
         """
-        connection_props = connection_details["entity"]["properties"]
+        connection_props = self._connection_details["entity"]["properties"]
 
         connection_values = {
             "api_key": connection_props.get("api_key"),
@@ -485,14 +502,14 @@ class BaseDataConnection(ABC):
 
         self.connection.is_s3 = True
 
-    def _init_s3_aws_connection(self, connection_details: dict) -> None:
+    def _init_s3_aws_connection(self) -> None:
         """
         Helper function that initializes internal `_AmazonS3Connection` object
         based on `connection_details` retrieved from container (IBM Cloud on AWS).
         """
         from .connections import _AmazonS3Connection
 
-        connection_props = connection_details["entity"]["properties"]
+        connection_props = self._connection_details["entity"]["properties"]
 
         self.connection = _AmazonS3Connection(
             access_key=connection_props["credentials"]["access_key_id"],

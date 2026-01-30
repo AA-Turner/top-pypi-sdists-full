@@ -1,13 +1,13 @@
 # Copyright (c) 2024 Microsoft Corporation.
 # Licensed under the MIT License
 
-"""A module containing cluster_graph, apply_clustering and run_layout methods definition."""
+"""A module containing cluster_graph method definition."""
 
 import logging
 
 import networkx as nx
-from graspologic.partition import hierarchical_leiden
 
+from graphrag.index.utils.graphs import hierarchical_leiden
 from graphrag.index.utils.stable_lcc import stable_largest_connected_component
 
 Communities = list[tuple[int, int, int, list[str]]]

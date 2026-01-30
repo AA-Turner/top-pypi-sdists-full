@@ -21,7 +21,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/server/v1/benchmark.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a"chalk/common/v1/online_query.proto\x1a\x1d\x63halk/server/v1/builder.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"6\n\rInputFeatures\x12%\n\x0einput_features\x18\x01 \x03(\tR\rinputFeatures"\xef\x01\n\x1cSimpleOnlineQueryBulkRequest\x12)\n\x0einput_features\x18\x01 \x03(\tB\x02\x18\x01R\rinputFeatures\x12P\n\x13input_features_list\x18\x03 \x01(\x0b\x32\x1e.chalk.server.v1.InputFeaturesH\x00R\x11inputFeaturesList\x12\x1f\n\ninput_file\x18\x04 \x01(\tH\x00R\tinputFile\x12\'\n\x0foutput_features\x18\x02 \x03(\tR\x0eoutputFeaturesB\x08\n\x06inputs"\xa9\x01\n\rContainerSpec\x12\x42\n\x07request\x18\x01 \x01(\x0b\x32#.chalk.server.v1.KubeResourceConfigH\x00R\x07request\x88\x01\x01\x12>\n\x05limit\x18\x02 \x01(\x0b\x32#.chalk.server.v1.KubeResourceConfigH\x01R\x05limit\x88\x01\x01\x42\n\n\x08_requestB\x08\n\x06_limit"\xf8\x04\n\x16\x43reateBenchmarkRequest\x12\x1d\n\nwarmup_qps\x18\x01 \x01(\x03R\twarmupQps\x12\x42\n\x0fwarmup_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0ewarmupDuration\x12\x10\n\x03qps\x18\x03 \x01(\x03R\x03qps\x12\x35\n\x08\x64uration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x08\x64uration\x12H\n\nquery_bulk\x18\x05 \x01(\x0b\x32\'.chalk.common.v1.OnlineQueryBulkRequestH\x00R\tqueryBulk\x12[\n\x11simple_query_bulk\x18\x06 \x01(\x0b\x32-.chalk.server.v1.SimpleOnlineQueryBulkRequestH\x00R\x0fsimpleQueryBulk\x12 \n\x0bpercentiles\x18\x07 \x03(\x03R\x0bpercentiles\x12*\n\x0eimage_override\x18\x08 \x01(\tH\x01R\rimageOverride\x88\x01\x01\x12R\n\x15warmup_container_spec\x18\t \x01(\x0b\x32\x1e.chalk.server.v1.ContainerSpecR\x13warmupContainerSpec\x12\x45\n\x0e\x63ontainer_spec\x18\n \x01(\x0b\x32\x1e.chalk.server.v1.ContainerSpecR\rcontainerSpecB\x0f\n\rquery_requestB\x11\n\x0f_image_override"v\n\x17\x43reateBenchmarkResponse\x12\x38\n\x06status\x18\x01 \x01(\x0e\x32 .chalk.server.v1.BenchmarkStatusR\x06status\x12!\n\x0c\x62\x65nchmark_id\x18\x02 \x01(\tR\x0b\x62\x65nchmarkId"\x99\x01\n\x12\x42\x65nchmarkInputFile\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x17\n\x04size\x18\x02 \x01(\x03H\x00R\x04size\x88\x01\x01\x12>\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tupdatedAt\x88\x01\x01\x42\x07\n\x05_sizeB\r\n\x0b_updated_at"7\n\x1dGetAvailableInputFilesRequest\x12\x16\n\x06prefix\x18\x01 \x01(\tR\x06prefix"f\n\x1eGetAvailableInputFilesResponse\x12\x44\n\x0binput_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\ninputFiles"e\n\x1dGetInputFileUploadUrlsRequest\x12\x44\n\x0binput_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\ninputFiles"G\n\x1eGetInputFileUploadUrlsResponse\x12%\n\x0epresigned_urls\x18\x01 \x03(\tR\rpresignedUrls"8\n\x1eGetAvailableResultFilesRequest\x12\x16\n\x06prefix\x18\x01 \x01(\tR\x06prefix"i\n\x1fGetAvailableResultFilesResponse\x12\x46\n\x0cresult_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\x0bresultFiles"9\n\x18GetResultFileUrlsRequest\x12\x1d\n\nfile_names\x18\x01 \x03(\tR\tfileNames"B\n\x19GetResultFileUrlsResponse\x12%\n\x0epresigned_urls\x18\x01 \x03(\tR\rpresignedUrls*\xe8\x01\n\x0f\x42\x65nchmarkStatus\x12 \n\x1c\x42\x45NCHMARK_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x42\x45NCHMARK_STATUS_QUEUED\x10\x01\x12\x1c\n\x18\x42\x45NCHMARK_STATUS_WORKING\x10\x02\x12\x1e\n\x1a\x42\x45NCHMARK_STATUS_COMPLETED\x10\x03\x12\x1b\n\x17\x42\x45NCHMARK_STATUS_FAILED\x10\x04\x12\x1c\n\x18\x42\x45NCHMARK_STATUS_SKIPPED\x10\x05\x12\x1d\n\x19\x42\x45NCHMARK_STATUS_CANCELED\x10\x06\x32\xf2\x04\n\x10\x42\x65nchmarkService\x12i\n\x0f\x43reateBenchmark\x12\'.chalk.server.v1.CreateBenchmarkRequest\x1a(.chalk.server.v1.CreateBenchmarkResponse"\x03\x80}\x03\x12~\n\x16GetAvailableInputFiles\x12..chalk.server.v1.GetAvailableInputFilesRequest\x1a/.chalk.server.v1.GetAvailableInputFilesResponse"\x03\x80}\x03\x12~\n\x16GetInputFileUploadUrls\x12..chalk.server.v1.GetInputFileUploadUrlsRequest\x1a/.chalk.server.v1.GetInputFileUploadUrlsResponse"\x03\x80}\x03\x12\x81\x01\n\x17GetAvailableResultFiles\x12/.chalk.server.v1.GetAvailableResultFilesRequest\x1a\x30.chalk.server.v1.GetAvailableResultFilesResponse"\x03\x80}\x03\x12o\n\x11GetResultFileUrls\x12).chalk.server.v1.GetResultFileUrlsRequest\x1a*.chalk.server.v1.GetResultFileUrlsResponse"\x03\x80}\x03\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0e\x42\x65nchmarkProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1f\x63halk/server/v1/benchmark.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a"chalk/common/v1/online_query.proto\x1a\x1d\x63halk/server/v1/builder.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"6\n\rInputFeatures\x12%\n\x0einput_features\x18\x01 \x03(\tR\rinputFeatures"n\n\x11NamedQueryRequest\x12\x1d\n\nquery_name\x18\x01 \x01(\tR\tqueryName\x12(\n\rquery_version\x18\x02 \x01(\tH\x00R\x0cqueryVersion\x88\x01\x01\x42\x10\n\x0e_query_version"\xe0\x02\n\x1cSimpleOnlineQueryBulkRequest\x12)\n\x0einput_features\x18\x01 \x03(\tB\x02\x18\x01R\rinputFeatures\x12P\n\x13input_features_list\x18\x03 \x01(\x0b\x32\x1e.chalk.server.v1.InputFeaturesH\x00R\x11inputFeaturesList\x12\x1f\n\ninput_file\x18\x04 \x01(\tH\x00R\tinputFile\x12\'\n\x0foutput_features\x18\x02 \x03(\tR\x0eoutputFeatures\x12W\n\x13named_query_request\x18\x05 \x01(\x0b\x32".chalk.server.v1.NamedQueryRequestH\x01R\x11namedQueryRequest\x88\x01\x01\x42\x08\n\x06inputsB\x16\n\x14_named_query_request"\xa9\x01\n\rContainerSpec\x12\x42\n\x07request\x18\x01 \x01(\x0b\x32#.chalk.server.v1.KubeResourceConfigH\x00R\x07request\x88\x01\x01\x12>\n\x05limit\x18\x02 \x01(\x0b\x32#.chalk.server.v1.KubeResourceConfigH\x01R\x05limit\x88\x01\x01\x42\n\n\x08_requestB\x08\n\x06_limit"\xf8\x04\n\x16\x43reateBenchmarkRequest\x12\x1d\n\nwarmup_qps\x18\x01 \x01(\x03R\twarmupQps\x12\x42\n\x0fwarmup_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0ewarmupDuration\x12\x10\n\x03qps\x18\x03 \x01(\x03R\x03qps\x12\x35\n\x08\x64uration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x08\x64uration\x12H\n\nquery_bulk\x18\x05 \x01(\x0b\x32\'.chalk.common.v1.OnlineQueryBulkRequestH\x00R\tqueryBulk\x12[\n\x11simple_query_bulk\x18\x06 \x01(\x0b\x32-.chalk.server.v1.SimpleOnlineQueryBulkRequestH\x00R\x0fsimpleQueryBulk\x12 \n\x0bpercentiles\x18\x07 \x03(\x03R\x0bpercentiles\x12*\n\x0eimage_override\x18\x08 \x01(\tH\x01R\rimageOverride\x88\x01\x01\x12R\n\x15warmup_container_spec\x18\t \x01(\x0b\x32\x1e.chalk.server.v1.ContainerSpecR\x13warmupContainerSpec\x12\x45\n\x0e\x63ontainer_spec\x18\n \x01(\x0b\x32\x1e.chalk.server.v1.ContainerSpecR\rcontainerSpecB\x0f\n\rquery_requestB\x11\n\x0f_image_override"v\n\x17\x43reateBenchmarkResponse\x12\x38\n\x06status\x18\x01 \x01(\x0e\x32 .chalk.server.v1.BenchmarkStatusR\x06status\x12!\n\x0c\x62\x65nchmark_id\x18\x02 \x01(\tR\x0b\x62\x65nchmarkId"\x99\x01\n\x12\x42\x65nchmarkInputFile\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x17\n\x04size\x18\x02 \x01(\x03H\x00R\x04size\x88\x01\x01\x12>\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tupdatedAt\x88\x01\x01\x42\x07\n\x05_sizeB\r\n\x0b_updated_at"7\n\x1dGetAvailableInputFilesRequest\x12\x16\n\x06prefix\x18\x01 \x01(\tR\x06prefix"f\n\x1eGetAvailableInputFilesResponse\x12\x44\n\x0binput_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\ninputFiles"e\n\x1dGetInputFileUploadUrlsRequest\x12\x44\n\x0binput_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\ninputFiles"G\n\x1eGetInputFileUploadUrlsResponse\x12%\n\x0epresigned_urls\x18\x01 \x03(\tR\rpresignedUrls"8\n\x1eGetAvailableResultFilesRequest\x12\x16\n\x06prefix\x18\x01 \x01(\tR\x06prefix"i\n\x1fGetAvailableResultFilesResponse\x12\x46\n\x0cresult_files\x18\x01 \x03(\x0b\x32#.chalk.server.v1.BenchmarkInputFileR\x0bresultFiles"9\n\x18GetResultFileUrlsRequest\x12\x1d\n\nfile_names\x18\x01 \x03(\tR\tfileNames"B\n\x19GetResultFileUrlsResponse\x12%\n\x0epresigned_urls\x18\x01 \x03(\tR\rpresignedUrls*\xe8\x01\n\x0f\x42\x65nchmarkStatus\x12 \n\x1c\x42\x45NCHMARK_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x42\x45NCHMARK_STATUS_QUEUED\x10\x01\x12\x1c\n\x18\x42\x45NCHMARK_STATUS_WORKING\x10\x02\x12\x1e\n\x1a\x42\x45NCHMARK_STATUS_COMPLETED\x10\x03\x12\x1b\n\x17\x42\x45NCHMARK_STATUS_FAILED\x10\x04\x12\x1c\n\x18\x42\x45NCHMARK_STATUS_SKIPPED\x10\x05\x12\x1d\n\x19\x42\x45NCHMARK_STATUS_CANCELED\x10\x06\x32\xf2\x04\n\x10\x42\x65nchmarkService\x12i\n\x0f\x43reateBenchmark\x12\'.chalk.server.v1.CreateBenchmarkRequest\x1a(.chalk.server.v1.CreateBenchmarkResponse"\x03\x80}\x03\x12~\n\x16GetAvailableInputFiles\x12..chalk.server.v1.GetAvailableInputFilesRequest\x1a/.chalk.server.v1.GetAvailableInputFilesResponse"\x03\x80}\x03\x12~\n\x16GetInputFileUploadUrls\x12..chalk.server.v1.GetInputFileUploadUrlsRequest\x1a/.chalk.server.v1.GetInputFileUploadUrlsResponse"\x03\x80}\x03\x12\x81\x01\n\x17GetAvailableResultFiles\x12/.chalk.server.v1.GetAvailableResultFilesRequest\x1a\x30.chalk.server.v1.GetAvailableResultFilesResponse"\x03\x80}\x03\x12o\n\x11GetResultFileUrls\x12).chalk.server.v1.GetResultFileUrlsRequest\x1a*.chalk.server.v1.GetResultFileUrlsResponse"\x03\x80}\x03\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0e\x42\x65nchmarkProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -44,36 +44,38 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_BENCHMARKSERVICE"].methods_by_name["GetAvailableResultFiles"]._serialized_options = b"\200}\003"
     _globals["_BENCHMARKSERVICE"].methods_by_name["GetResultFileUrls"]._options = None
     _globals["_BENCHMARKSERVICE"].methods_by_name["GetResultFileUrls"]._serialized_options = b"\200}\003"
-    _globals["_BENCHMARKSTATUS"]._serialized_start = 2228
-    _globals["_BENCHMARKSTATUS"]._serialized_end = 2460
+    _globals["_BENCHMARKSTATUS"]._serialized_start = 2453
+    _globals["_BENCHMARKSTATUS"]._serialized_end = 2685
     _globals["_INPUTFEATURES"]._serialized_start = 217
     _globals["_INPUTFEATURES"]._serialized_end = 271
-    _globals["_SIMPLEONLINEQUERYBULKREQUEST"]._serialized_start = 274
-    _globals["_SIMPLEONLINEQUERYBULKREQUEST"]._serialized_end = 513
-    _globals["_CONTAINERSPEC"]._serialized_start = 516
-    _globals["_CONTAINERSPEC"]._serialized_end = 685
-    _globals["_CREATEBENCHMARKREQUEST"]._serialized_start = 688
-    _globals["_CREATEBENCHMARKREQUEST"]._serialized_end = 1320
-    _globals["_CREATEBENCHMARKRESPONSE"]._serialized_start = 1322
-    _globals["_CREATEBENCHMARKRESPONSE"]._serialized_end = 1440
-    _globals["_BENCHMARKINPUTFILE"]._serialized_start = 1443
-    _globals["_BENCHMARKINPUTFILE"]._serialized_end = 1596
-    _globals["_GETAVAILABLEINPUTFILESREQUEST"]._serialized_start = 1598
-    _globals["_GETAVAILABLEINPUTFILESREQUEST"]._serialized_end = 1653
-    _globals["_GETAVAILABLEINPUTFILESRESPONSE"]._serialized_start = 1655
-    _globals["_GETAVAILABLEINPUTFILESRESPONSE"]._serialized_end = 1757
-    _globals["_GETINPUTFILEUPLOADURLSREQUEST"]._serialized_start = 1759
-    _globals["_GETINPUTFILEUPLOADURLSREQUEST"]._serialized_end = 1860
-    _globals["_GETINPUTFILEUPLOADURLSRESPONSE"]._serialized_start = 1862
-    _globals["_GETINPUTFILEUPLOADURLSRESPONSE"]._serialized_end = 1933
-    _globals["_GETAVAILABLERESULTFILESREQUEST"]._serialized_start = 1935
-    _globals["_GETAVAILABLERESULTFILESREQUEST"]._serialized_end = 1991
-    _globals["_GETAVAILABLERESULTFILESRESPONSE"]._serialized_start = 1993
-    _globals["_GETAVAILABLERESULTFILESRESPONSE"]._serialized_end = 2098
-    _globals["_GETRESULTFILEURLSREQUEST"]._serialized_start = 2100
-    _globals["_GETRESULTFILEURLSREQUEST"]._serialized_end = 2157
-    _globals["_GETRESULTFILEURLSRESPONSE"]._serialized_start = 2159
-    _globals["_GETRESULTFILEURLSRESPONSE"]._serialized_end = 2225
-    _globals["_BENCHMARKSERVICE"]._serialized_start = 2463
-    _globals["_BENCHMARKSERVICE"]._serialized_end = 3089
+    _globals["_NAMEDQUERYREQUEST"]._serialized_start = 273
+    _globals["_NAMEDQUERYREQUEST"]._serialized_end = 383
+    _globals["_SIMPLEONLINEQUERYBULKREQUEST"]._serialized_start = 386
+    _globals["_SIMPLEONLINEQUERYBULKREQUEST"]._serialized_end = 738
+    _globals["_CONTAINERSPEC"]._serialized_start = 741
+    _globals["_CONTAINERSPEC"]._serialized_end = 910
+    _globals["_CREATEBENCHMARKREQUEST"]._serialized_start = 913
+    _globals["_CREATEBENCHMARKREQUEST"]._serialized_end = 1545
+    _globals["_CREATEBENCHMARKRESPONSE"]._serialized_start = 1547
+    _globals["_CREATEBENCHMARKRESPONSE"]._serialized_end = 1665
+    _globals["_BENCHMARKINPUTFILE"]._serialized_start = 1668
+    _globals["_BENCHMARKINPUTFILE"]._serialized_end = 1821
+    _globals["_GETAVAILABLEINPUTFILESREQUEST"]._serialized_start = 1823
+    _globals["_GETAVAILABLEINPUTFILESREQUEST"]._serialized_end = 1878
+    _globals["_GETAVAILABLEINPUTFILESRESPONSE"]._serialized_start = 1880
+    _globals["_GETAVAILABLEINPUTFILESRESPONSE"]._serialized_end = 1982
+    _globals["_GETINPUTFILEUPLOADURLSREQUEST"]._serialized_start = 1984
+    _globals["_GETINPUTFILEUPLOADURLSREQUEST"]._serialized_end = 2085
+    _globals["_GETINPUTFILEUPLOADURLSRESPONSE"]._serialized_start = 2087
+    _globals["_GETINPUTFILEUPLOADURLSRESPONSE"]._serialized_end = 2158
+    _globals["_GETAVAILABLERESULTFILESREQUEST"]._serialized_start = 2160
+    _globals["_GETAVAILABLERESULTFILESREQUEST"]._serialized_end = 2216
+    _globals["_GETAVAILABLERESULTFILESRESPONSE"]._serialized_start = 2218
+    _globals["_GETAVAILABLERESULTFILESRESPONSE"]._serialized_end = 2323
+    _globals["_GETRESULTFILEURLSREQUEST"]._serialized_start = 2325
+    _globals["_GETRESULTFILEURLSREQUEST"]._serialized_end = 2382
+    _globals["_GETRESULTFILEURLSRESPONSE"]._serialized_start = 2384
+    _globals["_GETRESULTFILEURLSRESPONSE"]._serialized_end = 2450
+    _globals["_BENCHMARKSERVICE"]._serialized_start = 2688
+    _globals["_BENCHMARKSERVICE"]._serialized_end = 3314
 # @@protoc_insertion_point(module_scope)

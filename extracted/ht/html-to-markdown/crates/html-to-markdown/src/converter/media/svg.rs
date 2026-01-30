@@ -174,7 +174,7 @@ pub(crate) fn handle_svg(
     tag: &tl::HTMLTag,
     parser: &Parser,
     output: &mut String,
-    _options: &crate::options::ConversionOptions,
+    options: &crate::options::ConversionOptions,
     ctx: &super::Context,
     _depth: usize,
     dom_ctx: &super::DomContext,
@@ -214,6 +214,10 @@ pub(crate) fn handle_svg(
             }
         }
         handle_inline_svg(collector_ref, node_handle, parser, title_opt, attributes_map);
+    }
+
+    if options.skip_images {
+        return;
     }
 
     if ctx.convert_as_inline {

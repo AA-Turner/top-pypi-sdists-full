@@ -1152,8 +1152,7 @@ class OTSProtoBufferEncoder(object):
         if query.weight is not None:
             proto.weight = query.weight
 
-        if query.minimum_should_match is not None:
-            proto.minimum_should_match = query.minimum_should_match
+        self._encode_minimum_should_match(query, proto)
 
         if query.operator is not None:
             proto.operator = search_pb2.OR if (query.operator == QueryOperator.OR) else search_pb2.AND
@@ -1222,8 +1221,11 @@ class OTSProtoBufferEncoder(object):
             q_proto = proto.should_queries.add()
             self._make_query(q_proto, q)
 
-        if query.minimum_should_match is not None:
-            proto.minimum_should_match = query.minimum_should_match
+        self._encode_minimum_should_match(query, proto)
+
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _encode_nested_query(self, query):
@@ -1324,7 +1326,39 @@ class OTSProtoBufferEncoder(object):
         if query.filter is not None:
             self._make_query(proto.filter, query.filter)
 
+        if query.min_score is not None:
+            proto.min_score = query.min_score
+
+        if query.num_candidates is not None:
+            proto.num_candidates = query.num_candidates
+
         return proto.SerializeToString()
+
+    def _encode_dis_max_query(self, query):
+        proto = search_pb2.DisMaxQuery()
+        for q in query.queries:
+            q_proto = proto.queries.add()
+            self._make_query(q_proto, q)
+
+        if query.tie_breaker is not None:
+            proto.tie_breaker = query.tie_breaker
+
+        if query.weight is not None:
+            proto.weight = query.weight
+
+        return proto.SerializeToString()
+
+    def _encode_minimum_should_match(self, query, proto):
+        if query.minimum_should_match is not None:
+            if isinstance(query.minimum_should_match, int):
+                proto.minimum_should_match = query.minimum_should_match
+            elif isinstance(query.minimum_should_match, str):
+                proto.new_minimum_should_match = query.minimum_should_match
+                # for compatibility, send both new and old version
+                if query.minimum_should_match.isdigit():
+                    proto.minimum_should_match = int(query.minimum_should_match)
+            else:
+                raise OTSClientError("minimum_should_match must be an integer or string")
 
     def _make_query(self, proto, query):
         if isinstance(query, MatchQuery):
@@ -1375,6 +1409,9 @@ class OTSProtoBufferEncoder(object):
         elif isinstance(query, KnnVectorQuery):
             proto.type = search_pb2.KNN_VECTOR_QUERY
             proto.query = self._encode_knn_vector_query(query)
+        elif isinstance(query, DisMaxQuery):
+            proto.type = search_pb2.DIS_MAX_QUERY
+            proto.query = self._encode_dis_max_query(query)
         else:
             raise OTSClientError(
                 "Invalid query type: %s"

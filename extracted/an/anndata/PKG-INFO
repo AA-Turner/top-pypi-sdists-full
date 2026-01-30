@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anndata
-Version: 0.12.7
+Version: 0.12.9
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata
@@ -32,7 +32,7 @@ Requires-Dist: natsort
 Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24.2
 Requires-Dist: pandas!=2.1.2,<3,>=2.1.0
-Requires-Dist: scipy>=1.12
+Requires-Dist: scipy!=1.17.0,>=1.12
 Requires-Dist: zarr!=3.0.*,>=2.18.7
 Provides-Extra: cu11
 Requires-Dist: cupy-cuda11x; extra == 'cu11'
@@ -74,11 +74,11 @@ Requires-Dist: boltons; extra == 'test'
 Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'test'
 Requires-Dist: dask[distributed]; extra == 'test'
 Requires-Dist: filelock; extra == 'test'
-Requires-Dist: httpx<1.0; extra == 'test'
 Requires-Dist: joblib; extra == 'test'
 Requires-Dist: loompy>=3.0.5; extra == 'test'
 Requires-Dist: matplotlib; extra == 'test'
 Requires-Dist: openpyxl; extra == 'test'
+Requires-Dist: pooch; extra == 'test'
 Requires-Dist: pyarrow; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
@@ -96,11 +96,11 @@ Requires-Dist: boltons; extra == 'test-min'
 Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'test-min'
 Requires-Dist: dask[distributed]; extra == 'test-min'
 Requires-Dist: filelock; extra == 'test-min'
-Requires-Dist: httpx<1.0; extra == 'test-min'
 Requires-Dist: joblib; extra == 'test-min'
 Requires-Dist: loompy>=3.0.5; extra == 'test-min'
 Requires-Dist: matplotlib; extra == 'test-min'
 Requires-Dist: openpyxl; extra == 'test-min'
+Requires-Dist: pooch; extra == 'test-min'
 Requires-Dist: pyarrow; extra == 'test-min'
 Requires-Dist: pytest; extra == 'test-min'
 Requires-Dist: pytest-cov; extra == 'test-min'

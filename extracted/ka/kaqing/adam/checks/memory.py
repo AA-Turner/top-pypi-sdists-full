@@ -47,8 +47,9 @@ class Memory(Check):
         return CheckResult(self.name(), details, issues)
 
     def find_error(self, ctx: CheckContext, pattern: str, issue_desc: str):
+        ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
         escaped = pattern.replace('"', '\"')
-        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f'tac /c3/cassandra/logs/system.log | grep "{escaped}" | head -1', show_out=ctx.show_output, text_color=Color.gray)
+        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f'tac /c3/cassandra/logs/system.log | grep "{escaped}" | head -1', ctx=ctx_fg)
         if result.stdout.find(pattern) > 0:
             return Issue(
                 statefulset=ctx.statefulset,

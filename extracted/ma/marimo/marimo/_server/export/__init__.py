@@ -5,6 +5,7 @@ import asyncio
 import os
 import sys
 from dataclasses import dataclass, replace
+from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 from marimo import _loggers
@@ -47,9 +48,23 @@ if TYPE_CHECKING:
 
 @dataclass
 class ExportResult:
-    contents: str
+    contents: bytes | str
     download_filename: str
     did_error: bool
+
+    @cached_property
+    def bytez(self) -> bytes:
+        """Return UTF-8 encoded bytes (cached)."""
+        if isinstance(self.contents, bytes):
+            return self.contents
+        return self.contents.encode("utf-8")
+
+    @cached_property
+    def text(self) -> str:
+        """Return UTF-8 decoded text (cached)."""
+        if isinstance(self.contents, str):
+            return self.contents
+        return self.contents.decode("utf-8")
 
 
 def _as_ir(path: MarimoPath) -> NotebookSerialization:
@@ -90,7 +105,7 @@ def export_as_ipynb(
     app = load_app(path.absolute_name)
     if app is None:
         return ExportResult(
-            contents="",
+            contents=b"",
             download_filename=get_download_filename(path.short_name, "ipynb"),
             did_error=True,
         )
@@ -130,7 +145,7 @@ def export_as_wasm(
     _app = load_app(path.absolute_name)
     if _app is None:
         return ExportResult(
-            contents="",
+            contents=b"",
             download_filename=get_download_filename(
                 path.short_name, "wasm.html"
             ),
@@ -188,6 +203,41 @@ async def run_app_then_export_as_ipynb(
         download_filename=get_download_filename(filepath.short_name, "ipynb"),
         did_error=did_error,
     )
+
+
+async def run_app_then_export_as_pdf(
+    filepath: MarimoPath,
+    *,
+    include_outputs: bool,
+    webpdf: bool,
+    cli_args: SerializedCLIArgs,
+    argv: list[str] | None,
+) -> tuple[bytes | None, bool]:
+    file_router = AppFileRouter.from_filename(filepath)
+    file_key = file_router.get_unique_file_key()
+    assert file_key is not None
+    file_manager = file_router.get_file_manager(file_key)
+
+    session_view: SessionView | None = None
+    did_error = False
+
+    if include_outputs:
+        with patch_html_for_non_interactive_output():
+            # Using quiet=True to suppress runtime stdout/stderr since outputs
+            # are captured in the session_view and will be included in the PDF
+            (session_view, did_error) = await run_app_until_completion(
+                file_manager,
+                cli_args,
+                argv,
+                quiet=True,
+            )
+
+    pdf_data = Exporter().export_as_pdf(
+        app=file_manager.app,
+        session_view=session_view,
+        webpdf=webpdf,
+    )
+    return pdf_data, did_error
 
 
 async def run_app_then_export_as_html(

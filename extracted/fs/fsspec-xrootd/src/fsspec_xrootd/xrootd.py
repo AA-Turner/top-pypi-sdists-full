@@ -223,7 +223,7 @@ class ReadonlyFileHandleCache:
 class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
     protocol = "root"
     root_marker = "/"
-    default_timeout = 60
+    default_timeout = 0
     async_impl = True
     default_max_num_chunks = 1024
     default_max_chunk_size = 2097136
@@ -259,6 +259,9 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
             If given and locate_all_sources is True, fsspec will only reject any file host
             not in this list. Entries should be of the form ie: `cmsxrootd-site1.fnal.gov`
             (no port number)
+        timeout = 0: int
+            Sets the xrootd client timeout in seconds. 0 means no timeout.
+            This is option is part of fsspec storage_options.
         """
         super().__init__(self, asynchronous=asynchronous, loop=loop, **storage_options)
         self.timeout = storage_options.get("timeout", XRootDFileSystem.default_timeout)
@@ -392,7 +395,7 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
     touch = sync_wrapper(_touch)
 
     async def _modified(self, path: str) -> Any:
-        status, statInfo = await _async_wrap(self._myclient.stat)(path, self.timeout)  # type: ignore[var-annotated]
+        status, statInfo = await _async_wrap(self._myclient.stat)(path, self.timeout)
         return statInfo.modtime
 
     modified = sync_wrapper(_modified)
@@ -449,13 +452,13 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
         if path in self.dircache and not kwargs.get("force_update", False):
             if detail:
                 listing = self._ls_from_cache(path)
-                return listing
+                return cast(list[Any], listing)
             else:
                 return [
                     os.path.basename(item["name"]) for item in self._ls_from_cache(path)
                 ]
         else:
-            status, deets = await _async_wrap(self._myclient.dirlist)(  # type: ignore[var-annotated]
+            status, deets = await _async_wrap(self._myclient.dirlist)(
                 path, DirListFlags.STAT, self.timeout
             )
             if not status.ok:
@@ -504,7 +507,7 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
         if start is not None and end is not None:
             n_bytes = end - start
 
-        status, data = await _async_wrap(_myFile.read)(  # type: ignore[var-annotated]
+        status, data = await _async_wrap(_myFile.read)(
             start or 0,
             n_bytes or 0,
             self.timeout,
@@ -526,7 +529,7 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
             start: int = 0
             while True:
                 # Read a chunk of content from the remote file
-                status, chunk = await _async_wrap(remote_file.read)(  # type: ignore[var-annotated]
+                status, chunk = await _async_wrap(remote_file.read)(
                     start, chunk_size, self.timeout
                 )
                 start += chunk_size
@@ -562,7 +565,7 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
         data_server = f"{data_server.protocol}://{data_server.hostid}/"
         if data_server not in cls._dataserver_info_cache:
             fs = client.FileSystem(data_server)
-            status, result = await _async_wrap(fs.query)(  # type: ignore[var-annotated]
+            status, result = await _async_wrap(fs.query)(
                 QueryCode.CONFIG, "readv_iov_max readv_ior_max"
             )
             if not status.ok:
@@ -609,7 +612,7 @@ class XRootDFileSystem(AsyncFileSystem):  # type: ignore[misc]
         max_num_chunks, max_chunk_size = await self._get_max_chunk_info(_myFile)
         vectors = _chunks_to_vectors(chunks, max_num_chunks, max_chunk_size)
 
-        coros = [_async_wrap(_myFile.vector_read)(v, self.timeout) for v in vectors]  # type: ignore[var-annotated]
+        coros = [_async_wrap(_myFile.vector_read)(v, self.timeout) for v in vectors]
 
         results = await _run_coros_in_chunks(coros, batch_size=batch_size, nofiles=True)
         result_bufs = []
@@ -866,7 +869,7 @@ class XRootDFile(AbstractBufferedFile):  # type: ignore[misc]
         more hosts of the given file if self.fs is a redirector. Implementation of a
         solution from the Pepper project in this issue:
 
-        (https://github.com/CoffeaTeam/fsspec-xrootd/issues/36).
+        (https://github.com/scikit-hep/fsspec-xrootd/issues/36).
 
         If valid_sources is a non-empty list in fs.storage_options, will only return domain names
         that are also in valid_sources

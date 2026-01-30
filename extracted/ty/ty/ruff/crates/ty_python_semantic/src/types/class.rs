@@ -3,15 +3,15 @@ use std::cell::RefCell;
 use std::fmt::Write;
 use std::sync::{LazyLock, Mutex};
 
-use super::TypeVarVariance;
 use super::{
     BoundTypeVarInstance, MemberLookupPolicy, Mro, MroIterator, SpecialFormType, StaticMroError,
     SubclassOfType, Truthiness, Type, TypeQualifiers, class_base::ClassBase,
     function::FunctionType,
 };
+use super::{TypeVarVariance, display};
 use crate::place::{DefinedPlace, TypeOrigin};
 use crate::semantic_index::definition::{Definition, DefinitionState};
-use crate::semantic_index::scope::{NodeWithScopeKind, Scope, ScopeKind};
+use crate::semantic_index::scope::{NodeWithScopeKind, Scope};
 use crate::semantic_index::symbol::Symbol;
 use crate::semantic_index::{
     DeclarationWithConstraint, SemanticIndex, attribute_declarations, attribute_scopes,
@@ -27,7 +27,8 @@ use crate::types::enums::{
     enum_metadata, is_enum_class_by_inheritance, try_unwrap_nonmember_value,
 };
 use crate::types::function::{
-    DataclassTransformerFlags, DataclassTransformerParams, KnownFunction,
+    DataclassTransformerFlags, DataclassTransformerParams, FunctionDecorators, KnownFunction,
+    is_implicit_classmethod, is_implicit_staticmethod,
 };
 use crate::types::generics::{
     GenericContext, InferableTypeVars, Specialization, walk_generic_context, walk_specialization,
@@ -79,22 +80,6 @@ use ruff_text_size::{Ranged, TextRange};
 use rustc_hash::FxHashSet;
 use ty_module_resolver::{KnownModule, file_to_module};
 
-fn explicit_bases_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: StaticClassLiteral<'db>,
-) -> Box<[Type<'db>]> {
-    Box::default()
-}
-
-fn inheritance_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: StaticClassLiteral<'db>,
-) -> Option<InheritanceCycle> {
-    None
-}
-
 fn implicit_attribute_initial<'db>(
     _db: &'db dyn Db,
     id: salsa::Id,
@@ -135,14 +120,6 @@ fn try_mro_cycle_initial<'db>(
     ))
 }
 
-fn is_typed_dict_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: StaticClassLiteral<'db>,
-) -> bool {
-    false
-}
-
 #[allow(clippy::unnecessary_wraps)]
 fn try_metaclass_cycle_initial<'db>(
     _db: &'db dyn Db,
@@ -152,24 +129,6 @@ fn try_metaclass_cycle_initial<'db>(
     Err(MetaclassError {
         kind: MetaclassErrorKind::Cycle,
     })
-}
-
-fn decorators_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: StaticClassLiteral<'db>,
-) -> Box<[Type<'db>]> {
-    Box::default()
-}
-
-fn fields_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: StaticClassLiteral<'db>,
-    _specialization: Option<Specialization<'db>>,
-    _field_policy: CodeGeneratorKind<'db>,
-) -> FxIndexMap<Name, Field<'db>> {
-    FxIndexMap::default()
 }
 
 /// A category of classes with code generation capabilities (with synthesized methods).
@@ -392,18 +351,12 @@ impl<'db> From<GenericAlias<'db>> for Type<'db> {
     }
 }
 
-fn variance_of_cycle_initial<'db>(
-    _db: &'db dyn Db,
-    _id: salsa::Id,
-    _self: GenericAlias<'db>,
-    _typevar: BoundTypeVarInstance<'db>,
-) -> TypeVarVariance {
-    TypeVarVariance::Bivariant
-}
-
 #[salsa::tracked]
 impl<'db> VarianceInferable<'db> for GenericAlias<'db> {
-    #[salsa::tracked(heap_size=ruff_memory_usage::heap_size, cycle_initial=variance_of_cycle_initial)]
+    #[salsa::tracked(
+        cycle_initial=|_, _, _, _| TypeVarVariance::Bivariant,
+        heap_size=ruff_memory_usage::heap_size
+    )]
     fn variance_of(self, db: &'db dyn Db, typevar: BoundTypeVarInstance<'db>) -> TypeVarVariance {
         let origin = self.origin(db);
 
@@ -1064,6 +1017,77 @@ impl<'db> ClassType<'db> {
     /// Is this class final?
     pub(super) fn is_final(self, db: &'db dyn Db) -> bool {
         self.class_literal(db).is_final(db)
+    }
+
+    /// Returns a map of methods on this class that were defined as abstract on a superclass
+    /// and have not been overridden with a concrete implementation anywhere in the MRO
+    ///
+    /// The value of the map is a tuple of the class that defined the abstract method
+    /// and the [`Definition`] of the abstract method.
+    #[salsa::tracked(heap_size=ruff_memory_usage::heap_size)]
+    pub(crate) fn abstract_methods(
+        self,
+        db: &'db dyn Db,
+    ) -> FxIndexMap<Name, (ClassType<'db>, Definition<'db>)> {
+        fn is_abstract(db: &dyn Db, ty: Type) -> bool {
+            match ty {
+                Type::FunctionLiteral(function) => {
+                    function.has_known_decorator(db, FunctionDecorators::ABSTRACT_METHOD)
+                }
+                Type::BoundMethod(method) => method
+                    .function(db)
+                    .has_known_decorator(db, FunctionDecorators::ABSTRACT_METHOD),
+                Type::PropertyInstance(property) => {
+                    // A property is abstract if either its getter or setter is abstract.
+                    property
+                        .getter(db)
+                        .is_some_and(|getter| is_abstract(db, getter))
+                        || property
+                            .setter(db)
+                            .is_some_and(|setter| is_abstract(db, setter))
+                }
+                _ => false,
+            }
+        }
+
+        let mut abstract_methods: FxIndexMap<Name, _> = FxIndexMap::default();
+
+        // Iterate through the MRO in reverse order,
+        // skipping `object` (we know it doesn't define any abstract methods)
+        for supercls in self.iter_mro(db).rev().skip(1) {
+            let ClassBase::Class(class) = supercls else {
+                continue;
+            };
+            // Currently we do not recognize dynamic classes as being able to define abstract methods,
+            // but we do recognise them as being able to override abstract methods defined in static classes.
+            let ClassLiteral::Static(class_literal) = class.class_literal(db) else {
+                abstract_methods
+                    .retain(|name, _| class.own_class_member(db, None, name).is_undefined());
+                continue;
+            };
+            let scope = class_literal.body_scope(db);
+            let place_table = place_table(db, scope);
+            for (symbol_id, bindings_iterator) in
+                use_def_map(db, class_literal.body_scope(db)).all_end_of_scope_symbol_bindings()
+            {
+                let name = place_table.symbol(symbol_id).name();
+                let place_and_definition = place_from_bindings(db, bindings_iterator);
+                let Place::Defined(DefinedPlace { ty, .. }) = place_and_definition.place else {
+                    continue;
+                };
+                let Some(definition) = place_and_definition.first_definition else {
+                    continue;
+                };
+                if is_abstract(db, ty) {
+                    abstract_methods.insert(name.clone(), (class, definition));
+                } else {
+                    // If this method is concrete, remove it from the map of abstract methods.
+                    abstract_methods.shift_remove(name);
+                }
+            }
+        }
+
+        abstract_methods
     }
 
     /// Returns `true` if any class in this class's MRO (excluding `object`) defines an ordering
@@ -2455,7 +2479,7 @@ impl<'db> StaticClassLiteral<'db> {
     ///
     /// Were this not a salsa query, then the calling query
     /// would depend on the class's AST and rerun for every change in that file.
-    #[salsa::tracked(returns(deref), cycle_initial=explicit_bases_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(returns(deref), cycle_initial=|_, _, _| Box::default(), heap_size=ruff_memory_usage::heap_size)]
     pub(super) fn explicit_bases(self, db: &'db dyn Db) -> Box<[Type<'db>]> {
         tracing::trace!(
             "StaticClassLiteral::explicit_bases_query: {}",
@@ -2565,7 +2589,7 @@ impl<'db> StaticClassLiteral<'db> {
     }
 
     /// Return the types of the decorators on this class
-    #[salsa::tracked(returns(deref), cycle_initial=decorators_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(returns(deref), cycle_initial=|_, _, _| Box::default(), heap_size=ruff_memory_usage::heap_size)]
     fn decorators(self, db: &'db dyn Db) -> Box<[Type<'db>]> {
         tracing::trace!("StaticClassLiteral::decorators: {}", self.name(db));
 
@@ -2677,9 +2701,7 @@ impl<'db> StaticClassLiteral<'db> {
 
     /// Return `true` if this class constitutes a typed dict specification (inherits from
     /// `typing.TypedDict`, either directly or indirectly).
-    #[salsa::tracked(cycle_initial=is_typed_dict_cycle_initial,
-        heap_size=ruff_memory_usage::heap_size
-    )]
+    #[salsa::tracked(cycle_initial=|_, _, _| false, heap_size=ruff_memory_usage::heap_size)]
     pub fn is_typed_dict(self, db: &'db dyn Db) -> bool {
         if let Some(known) = self.known(db) {
             return known.is_typed_dict_subclass();
@@ -3901,7 +3923,7 @@ impl<'db> StaticClassLiteral<'db> {
     /// See [`StaticClassLiteral::own_fields`] for more details.
     #[salsa::tracked(
         returns(ref),
-        cycle_initial=fields_cycle_initial,
+        cycle_initial=|_, _, _, _, _| FxIndexMap::default(),
         heap_size=get_size2::GetSize::get_heap_size)]
     pub(crate) fn fields(
         self,
@@ -4214,32 +4236,45 @@ impl<'db> StaticClassLiteral<'db> {
         let class_map = use_def_map(db, class_body_scope);
         let class_table = place_table(db, class_body_scope);
         let is_valid_scope = |method_scope: &Scope| {
-            if let Some(method_def) = method_scope.node().as_function() {
-                let method_name = method_def.node(&module).name.as_str();
-                match class_member(db, class_body_scope, method_name)
-                    .inner
-                    .place
-                    .ignore_possibly_undefined()
-                {
-                    Some(Type::FunctionLiteral(method_type)) => {
-                        let method_decorator = MethodDecorator::try_from_fn_type(db, method_type);
-                        if method_decorator != Ok(target_method_decorator) {
-                            return false;
-                        }
+            let Some(method_def) = method_scope.node().as_function() else {
+                return true;
+            };
+
+            // Check the decorators directly on the AST node to determine if this method
+            // is a classmethod or staticmethod. This is more reliable than checking the
+            // final evaluated type, which may be wrapped by other decorators like @cache.
+            let function_node = method_def.node(&module);
+            let definition = index.expect_single_definition(method_def);
+
+            let mut is_classmethod = false;
+            let mut is_staticmethod = false;
+
+            for decorator in &function_node.decorator_list {
+                let decorator_ty =
+                    definition_expression_type(db, definition, &decorator.expression);
+                if let Type::ClassLiteral(class) = decorator_ty {
+                    match class.known(db) {
+                        Some(KnownClass::Classmethod) => is_classmethod = true,
+                        Some(KnownClass::Staticmethod) => is_staticmethod = true,
+                        _ => {}
                     }
-                    Some(Type::PropertyInstance(_)) => {
-                        // Property getters and setters have their own scopes. They take `self`
-                        // as the first parameter (like regular instance methods), so they're
-                        // included when looking for `MethodDecorator::None`. However, they're
-                        // not classmethods or staticmethods, so exclude them for those cases.
-                        if target_method_decorator != MethodDecorator::None {
-                            return false;
-                        }
-                    }
-                    _ => {}
                 }
             }
-            true
+
+            // Also check for implicit classmethods/staticmethods based on method name
+            let method_name = function_node.name.as_str();
+            if is_implicit_classmethod(method_name) {
+                is_classmethod = true;
+            }
+            if is_implicit_staticmethod(method_name) {
+                is_staticmethod = true;
+            }
+
+            match target_method_decorator {
+                MethodDecorator::None => !is_classmethod && !is_staticmethod,
+                MethodDecorator::ClassMethod => is_classmethod,
+                MethodDecorator::StaticMethod => is_staticmethod,
+            }
         };
 
         // First check declarations
@@ -4666,7 +4701,7 @@ impl<'db> StaticClassLiteral<'db> {
     ///
     /// A class definition like this will fail at runtime,
     /// but we must be resilient to it or we could panic.
-    #[salsa::tracked(cycle_initial=inheritance_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(cycle_initial=|_, _, _| None, heap_size=ruff_memory_usage::heap_size)]
     pub(super) fn inheritance_cycle(self, db: &'db dyn Db) -> Option<InheritanceCycle> {
         /// Return `true` if the class is cyclically defined.
         ///
@@ -4749,7 +4784,7 @@ impl<'db> StaticClassLiteral<'db> {
 
 #[salsa::tracked]
 impl<'db> VarianceInferable<'db> for StaticClassLiteral<'db> {
-    #[salsa::tracked(cycle_initial=crate::types::variance_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+    #[salsa::tracked(cycle_initial=|_, _, _, _| TypeVarVariance::Bivariant, heap_size=ruff_memory_usage::heap_size)]
     fn variance_of(self, db: &'db dyn Db, typevar: BoundTypeVarInstance<'db>) -> TypeVarVariance {
         let typevar_in_generic_context = self
             .generic_context(db)
@@ -5417,27 +5452,14 @@ pub struct DynamicNamedTupleLiteral<'db> {
     #[returns(ref)]
     pub name: Name,
 
-    /// The fields as (name, type, default) tuples.
-    /// For `collections.namedtuple`, all types are `Any`.
-    /// For `typing.NamedTuple`, types come from the field definitions.
-    /// The third element is the default type, if any.
-    #[returns(deref)]
-    pub fields: Box<[NamedTupleField<'db>]>,
-
-    /// Whether the fields are known statically.
-    ///
-    /// When `true`, the fields were determined from a literal (list or tuple).
-    /// When `false`, the fields argument was dynamic (e.g., a variable),
-    /// and attribute lookups should return `Any` instead of failing.
-    pub has_known_fields: bool,
-
     /// The anchor for this dynamic namedtuple, providing stable identity.
     ///
     /// - `Definition`: The call is assigned to a variable. The definition
     ///   uniquely identifies this namedtuple and can be used to find the call.
     /// - `ScopeOffset`: The call is "dangling" (not assigned). The offset
     ///   is relative to the enclosing scope's anchor node index.
-    pub anchor: DynamicClassAnchor<'db>,
+    #[returns(ref)]
+    pub anchor: DynamicNamedTupleAnchor<'db>,
 }
 
 impl get_size2::GetSize for DynamicNamedTupleLiteral<'_> {}
@@ -5447,16 +5469,18 @@ impl<'db> DynamicNamedTupleLiteral<'db> {
     /// Returns the definition where this namedtuple is created, if it was assigned to a variable.
     pub(crate) fn definition(self, db: &'db dyn Db) -> Option<Definition<'db>> {
         match self.anchor(db) {
-            DynamicClassAnchor::Definition(definition) => Some(definition),
-            DynamicClassAnchor::ScopeOffset { .. } => None,
+            DynamicNamedTupleAnchor::CollectionsDefinition { definition, .. }
+            | DynamicNamedTupleAnchor::TypingDefinition(definition) => Some(*definition),
+            DynamicNamedTupleAnchor::ScopeOffset { .. } => None,
         }
     }
 
     /// Returns the scope in which this dynamic class was created.
     pub(crate) fn scope(self, db: &'db dyn Db) -> ScopeId<'db> {
         match self.anchor(db) {
-            DynamicClassAnchor::Definition(definition) => definition.scope(db),
-            DynamicClassAnchor::ScopeOffset { scope, .. } => scope,
+            DynamicNamedTupleAnchor::CollectionsDefinition { definition, .. }
+            | DynamicNamedTupleAnchor::TypingDefinition(definition) => definition.scope(db),
+            DynamicNamedTupleAnchor::ScopeOffset { scope, .. } => *scope,
         }
     }
 
@@ -5472,7 +5496,8 @@ impl<'db> DynamicNamedTupleLiteral<'db> {
         let module = parsed_module(db, file).load(db);
 
         match self.anchor(db) {
-            DynamicClassAnchor::Definition(definition) => {
+            DynamicNamedTupleAnchor::CollectionsDefinition { definition, .. }
+            | DynamicNamedTupleAnchor::TypingDefinition(definition) => {
                 // For definitions, get the range from the definition's value.
                 // The namedtuple call is the value of the assignment.
                 definition
@@ -5481,7 +5506,7 @@ impl<'db> DynamicNamedTupleLiteral<'db> {
                     .expect("DynamicClassAnchor::Definition should only be used for assignments")
                     .range()
             }
-            DynamicClassAnchor::ScopeOffset { offset, .. } => {
+            DynamicNamedTupleAnchor::ScopeOffset { offset, .. } => {
                 // For dangling calls, compute the absolute index from the offset.
                 let scope_anchor = scope.node(db).node_index().unwrap_or(NodeIndex::from(0));
                 let anchor_u32 = scope_anchor
@@ -5519,7 +5544,11 @@ impl<'db> DynamicNamedTupleLiteral<'db> {
     /// 8. `typing.Protocol`
     /// 9. `typing.Generic`
     /// 10. `<class 'object'>`
-    #[salsa::tracked(returns(ref), heap_size = ruff_memory_usage::heap_size)]
+    #[salsa::tracked(
+        returns(ref),
+        heap_size=ruff_memory_usage::heap_size,
+        cycle_initial=dynamic_namedtuple_mro_cycle_initial
+    )]
     pub(crate) fn mro(self, db: &'db dyn Db) -> Mro<'db> {
         let self_base = ClassBase::Class(ClassType::NonGeneric(self.into()));
         let tuple_class = self.tuple_base_class(db);
@@ -5697,7 +5726,184 @@ impl<'db> DynamicNamedTupleLiteral<'db> {
             })
         }
     }
+
+    fn spec(self, db: &'db dyn Db) -> NamedTupleSpec<'db> {
+        #[salsa::tracked(cycle_initial=deferred_spec_initial, heap_size=ruff_memory_usage::heap_size)]
+        fn deferred_spec<'db>(db: &'db dyn Db, definition: Definition<'db>) -> NamedTupleSpec<'db> {
+            let module = parsed_module(db, definition.file(db)).load(db);
+            let node = definition
+                .kind(db)
+                .value(&module)
+                .expect("Expected `NamedTuple` definition to be an assignment")
+                .as_call_expr()
+                .expect("Expected `NamedTuple` definition r.h.s. to be a call expression");
+            match definition_expression_type(db, definition, &node.arguments.args[1]) {
+                Type::KnownInstance(KnownInstanceType::NamedTupleSpec(spec)) => spec,
+                _ => NamedTupleSpec::unknown(db),
+            }
+        }
+
+        fn deferred_spec_initial<'db>(
+            db: &'db dyn Db,
+            _id: salsa::Id,
+            _definition: Definition<'db>,
+        ) -> NamedTupleSpec<'db> {
+            NamedTupleSpec::unknown(db)
+        }
+
+        match self.anchor(db) {
+            DynamicNamedTupleAnchor::CollectionsDefinition { spec, .. }
+            | DynamicNamedTupleAnchor::ScopeOffset { spec, .. } => *spec,
+            DynamicNamedTupleAnchor::TypingDefinition(definition) => deferred_spec(db, *definition),
+        }
+    }
+
+    fn fields(self, db: &'db dyn Db) -> &'db [NamedTupleField<'db>] {
+        self.spec(db).fields(db)
+    }
+
+    fn has_known_fields(self, db: &'db dyn Db) -> bool {
+        self.spec(db).has_known_fields(db)
+    }
 }
+
+fn dynamic_namedtuple_mro_cycle_initial<'db>(
+    db: &'db dyn Db,
+    _id: salsa::Id,
+    self_: DynamicNamedTupleLiteral<'db>,
+) -> Mro<'db> {
+    Mro::from_error(
+        db,
+        ClassType::NonGeneric(ClassLiteral::DynamicNamedTuple(self_)),
+    )
+}
+
+/// Anchor for identifying a dynamic `namedtuple`/`NamedTuple` class literal.
+///
+/// This enum provides stable identity for `DynamicNamedTupleLiteral` instances:
+/// - For assigned calls, the `Definition` uniquely identifies the class.
+/// - For dangling calls, a relative offset provides stable identity.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+pub enum DynamicNamedTupleAnchor<'db> {
+    /// We're dealing with a `collections.namedtuple()` call
+    /// that's assigned to a variable.
+    ///
+    /// The `Definition` uniquely identifies this class. The `namedtuple()`
+    /// call expression is the `value` of the assignment, so we can get its
+    /// range from the definition.
+    CollectionsDefinition {
+        definition: Definition<'db>,
+        spec: NamedTupleSpec<'db>,
+    },
+
+    /// We're dealing with a `typing.NamedTuple()` call
+    /// that's assigned to a variable.
+    ///
+    /// The `Definition` uniquely identifies this class. The `NamedTuple()`
+    /// call expression is the `value` of the assignment, so we can get its
+    /// range from the definition.
+    ///
+    /// Unlike the `CollectionsDefinition` variant, this variant does not
+    /// hold a `NamedTupleSpec`. This is because the spec for a
+    /// `typing.NamedTuple` call can contain forward references and recursive
+    /// references that must be evaluated lazily. The spec is computed
+    /// on-demand from the definition.
+    TypingDefinition(Definition<'db>),
+
+    /// We're dealing with a `namedtuple()` or `NamedTuple` call that is
+    /// "dangling" (not assigned to a variable).
+    ///
+    /// The offset is relative to the enclosing scope's anchor node index.
+    /// For module scope, this is equivalent to an absolute index (anchor is 0).
+    ///
+    /// Dangling calls can always store the spec. They *can* contain
+    /// forward references if they appear in class bases:
+    ///
+    /// ```python
+    /// from typing import NamedTuple
+    ///
+    /// class F(NamedTuple("F", [("x", "F | None")]):
+    ///     pass
+    /// ```
+    ///
+    /// But this doesn't matter, because all class bases are deferred in their
+    /// entirety during type inference.
+    ScopeOffset {
+        scope: ScopeId<'db>,
+        offset: u32,
+        spec: NamedTupleSpec<'db>,
+    },
+}
+
+/// A specification describing the fields of a dynamic `namedtuple`
+/// or `NamedTuple` class.
+///
+/// # Ordering
+///
+/// Ordering is based on the spec's salsa-assigned id and not on its values.
+/// The id may change between runs, or when the spec was garbage collected and recreated.
+#[salsa::interned(debug, heap_size=ruff_memory_usage::heap_size)]
+#[derive(PartialOrd, Ord)]
+pub struct NamedTupleSpec<'db> {
+    #[returns(deref)]
+    pub(crate) fields: Box<[NamedTupleField<'db>]>,
+
+    pub(crate) has_known_fields: bool,
+}
+
+impl<'db> NamedTupleSpec<'db> {
+    /// Create a [`NamedTupleSpec`] with the given fields.
+    pub(crate) fn known(db: &'db dyn Db, fields: Box<[NamedTupleField<'db>]>) -> Self {
+        Self::new(db, fields, true)
+    }
+
+    /// Create a [`NamedTupleSpec`] that indicates a namedtuple class has unknown fields.
+    pub(crate) fn unknown(db: &'db dyn Db) -> Self {
+        Self::new(db, Box::default(), false)
+    }
+
+    pub(crate) fn normalized_impl(self, db: &'db dyn Db, visitor: &NormalizedVisitor<'db>) -> Self {
+        let fields: Box<_> = self
+            .fields(db)
+            .iter()
+            .map(|f| NamedTupleField {
+                name: f.name.clone(),
+                ty: f.ty.normalized_impl(db, visitor),
+                default: None,
+            })
+            .collect();
+
+        Self::new(db, fields, self.has_known_fields(db))
+    }
+
+    pub(crate) fn recursive_type_normalized_impl(
+        self,
+        db: &'db dyn Db,
+        div: Type<'db>,
+        nested: bool,
+    ) -> Option<Self> {
+        let fields = self
+            .fields(db)
+            .iter()
+            .map(|f| {
+                Some(NamedTupleField {
+                    name: f.name.clone(),
+                    ty: if nested {
+                        f.ty.recursive_type_normalized_impl(db, div, nested)?
+                    } else {
+                        f.ty.recursive_type_normalized_impl(db, div, nested)
+                            .unwrap_or(div)
+                    },
+                    default: None,
+                })
+            })
+            .collect::<Option<Box<_>>>()?;
+
+        Some(Self::new(db, fields, self.has_known_fields(db)))
+    }
+}
+
+impl get_size2::GetSize for NamedTupleSpec<'_> {}
 
 /// Performs member lookups over an MRO (Method Resolution Order).
 ///
@@ -5982,39 +6188,7 @@ impl<'db> QualifiedClassName<'db> {
             }
         };
 
-        let module_ast = parsed_module(self.db, file).load(self.db);
-        let index = semantic_index(self.db, file);
-
-        let mut name_parts = vec![];
-
-        for (_, ancestor_scope) in index.ancestor_scopes(file_scope_id).skip(skip_count) {
-            let node = ancestor_scope.node();
-
-            match ancestor_scope.kind() {
-                ScopeKind::Class => {
-                    if let Some(class_def) = node.as_class() {
-                        name_parts.push(class_def.node(&module_ast).name.as_str().to_string());
-                    }
-                }
-                ScopeKind::Function => {
-                    if let Some(function_def) = node.as_function() {
-                        name_parts.push(format!(
-                            "<locals of function '{}'>",
-                            function_def.node(&module_ast).name.as_str()
-                        ));
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        if let Some(module) = file_to_module(self.db, file) {
-            let module_name = module.name(self.db);
-            name_parts.push(module_name.as_str().to_string());
-        }
-
-        name_parts.reverse();
-        name_parts
+        display::qualified_name_components_from_scope(self.db, file, file_scope_id, skip_count)
     }
 }
 

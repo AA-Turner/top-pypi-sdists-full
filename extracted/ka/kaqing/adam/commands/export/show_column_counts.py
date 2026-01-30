@@ -4,6 +4,8 @@ from adam.commands.cql.utils_cql import cassandra_table_names
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 
 class ShowColumnCounts(Command):
     COMMAND = 'show column counts on'
@@ -33,7 +35,7 @@ class ShowColumnCounts(Command):
                     with export_db(state) as dbs:
                         query = Config().get(f'export.column_counts_query', 'select id, count(id) as columns from {table} group by id')
                         query = query.replace('{table}', table)
-                        dbs.sql(query, state.export_session, backgrounded=backgrounded)
+                        dbs.sql(query, state.export_session, Context.new(backgrounded=backgrounded))
 
             return state
 

@@ -31,6 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = [
     "version",
@@ -47,21 +48,21 @@ optional-dependencies.dev = [
     "click==8.3.1",
     "deptry==0.24.0",
     "doc8==2.0.0",
-    "docformatter==1.7.7",
     "interrogate==1.7.0",
     "mypy[faster-cache]==1.19.1",
     "mypy-strict-kwargs==2026.1.12",
-    "prek==0.2.30",
+    "prek==0.3.0",
+    "pydocstringformatter==0.7.5",
     "pydocstyle==6.3",
     "pylint[spelling]==4.0.4",
     "pylint-per-file-ignores==3.2.0",
     "pyproject-fmt==2.11.1",
-    "pyrefly==0.49.0",
+    "pyrefly==0.50.0",
     "pyright==1.1.408",
     "pyroma==5.0.1",
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
-    "ruff==0.14.13",
+    "ruff==0.14.14",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -69,8 +70,8 @@ optional-dependencies.dev = [
     "shfmt-py==3.12.0.2",
     "sphinx-lint==1.0.2",
     "sybil==9.3.0",
-    "ty==0.0.12",
-    "uv==0.9.26",
+    "ty==0.0.14",
+    "uv==0.9.27",
     "vulture==2.14",
     "yamlfix==1.19.1",
     "zizmor==1.22.0",
@@ -107,8 +108,8 @@ lint.ignore = [
     "C901",
     # Ruff warns that this conflicts with the formatter.
     "COM812",
-    # Allow our chosen docstring line-style - no one-line summary.
-    "D200",
+    # Allow our chosen docstring line-style - pydocstringformatter handles formatting
+    # but doesn't enforce D205 (blank line after summary) or D212 (summary on first line).
     "D205",
     "D212",
     # Ruff warns that this conflicts with the formatter.
@@ -119,6 +120,9 @@ lint.ignore = [
 ]
 
 lint.per-file-ignores."doccmd_*.py" = [
+    # Allow our chosen docstring line-style - pydocstringformatter handles
+    # formatting but docstrings in docs may not match this style.
+    "D200",
     # Allow 'assert' in docs.
     "S101",
 ]
@@ -256,9 +260,6 @@ spelling-private-dict-file = 'spelling_private_dict.txt'
 # --spelling-private-dict-file option instead of raising a message.
 spelling-store-unknown-words = 'no'
 
-[tool.docformatter]
-make-summary-multi-line = true
-
 [tool.check-manifest]
 
 ignore = [
@@ -300,7 +301,7 @@ pep621_dev_dependency_groups = [
 [tool.pyproject-fmt]
 indent = 4
 keep_full_version = true
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 
@@ -334,6 +335,12 @@ enableTypeIgnoreComments = false
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 exclude = [ "build", ".venv" ]
+
+[tool.pydocstringformatter]
+write = true
+split-summary-body = false
+max-line-length = 75
+linewrap-full-docstring = true
 
 [tool.interrogate]
 fail-under = 100

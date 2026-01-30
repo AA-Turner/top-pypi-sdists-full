@@ -87,6 +87,7 @@ from .util import (
     get_caller_location,
     mask_api_key,
     merge_dicts,
+    parse_env_var_float,
     response_raise_for_status,
 )
 
@@ -349,9 +350,16 @@ class BraintrustState:
     def __init__(self):
         self.id = str(uuid.uuid4())
         self.current_experiment: Experiment | None = None
-        self.current_logger: contextvars.ContextVar[Logger | None] = contextvars.ContextVar(
+        # We use both a ContextVar and a plain attribute for the current logger:
+        # - _cv_logger (ContextVar): Provides async context isolation so different
+        #   async tasks can have different loggers without affecting each other.
+        # - _local_logger (plain attribute): Fallback for threads, since ContextVars
+        #   don't propagate to new threads. This way if users don't want to do
+        #   anything specific they'll always have a "global logger"
+        self._cv_logger: contextvars.ContextVar[Logger | None] = contextvars.ContextVar(
             "braintrust_current_logger", default=None
         )
+        self._local_logger: Logger | None = None
         self.current_parent: contextvars.ContextVar[str | None] = contextvars.ContextVar(
             "braintrust_current_parent", default=None
         )
@@ -425,7 +433,8 @@ class BraintrustState:
     def reset_parent_state(self):
         # reset possible parent state for tests
         self.current_experiment = None
-        self.current_logger.set(None)
+        self._cv_logger.set(None)
+        self._local_logger = None
         self.current_parent.set(None)
         self.current_span.set(NOOP_SPAN)
 
@@ -485,7 +494,8 @@ class BraintrustState:
             if k
             not in (
                 "current_experiment",
-                "current_logger",
+                "_cv_logger",
+                "_local_logger",
                 "current_parent",
                 "current_span",
                 "_global_bg_logger",
@@ -555,10 +565,6 @@ class BraintrustState:
             self._user_info = self.api_conn().get_json("ping")
         return self._user_info
 
-    def set_user_info_if_null(self, info: Mapping[str, Any]):
-        if not self._user_info:
-            self._user_info = info
-
     def global_bg_logger(self) -> "_BackgroundLogger":
         return getattr(self._override_bg_logger, "logger", None) or self._global_bg_logger.get()
 
@@ -620,14 +626,28 @@ class RetryRequestExceptionsAdapter(HTTPAdapter):
         base_num_retries: Maximum number of retries before giving up and re-raising the exception.
         backoff_factor: A multiplier used to determine the time to wait between retries.
                        The actual wait time is calculated as: backoff_factor * (2 ** retry_count).
+        default_timeout_secs: Default timeout in seconds for requests that don't specify one.
+                             Prevents indefinite hangs on stale connections.
     """
 
-    def __init__(self, *args: Any, base_num_retries: int = 0, backoff_factor: float = 0.5, **kwargs: Any):
+    def __init__(
+        self,
+        *args: Any,
+        base_num_retries: int = 0,
+        backoff_factor: float = 0.5,
+        default_timeout_secs: float = 60,
+        **kwargs: Any,
+    ):
         self.base_num_retries = base_num_retries
         self.backoff_factor = backoff_factor
+        self.default_timeout_secs = default_timeout_secs
         super().__init__(*args, **kwargs)
 
     def send(self, *args, **kwargs):
+        # Apply default timeout if none provided to prevent indefinite hangs
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.default_timeout_secs
+
         num_prev_retries = 0
         while True:
             try:
@@ -639,6 +659,14 @@ class RetryRequestExceptionsAdapter(HTTPAdapter):
                 return response
             except (urllib3.exceptions.HTTPError, requests.exceptions.RequestException) as e:
                 if num_prev_retries < self.base_num_retries:
+                    if isinstance(e, requests.exceptions.ReadTimeout):
+                        # Clear all connection pools to discard stale connections. This
+                        # fixes hangs caused by NAT gateways silently dropping idle TCP
+                        # connections (e.g., Azure's ~4 min timeout). close() calls
+                        # PoolManager.clear() which is thread-safe: in-flight requests
+                        # keep their checked-out connections, and new requests create
+                        # fresh pools on demand.
+                        self.close()
                     # Emulates the sleeping logic in the backoff_factor of urllib3 Retry
                     sleep_s = self.backoff_factor * (2**num_prev_retries)
                     print("Retrying request after error:", e, file=sys.stderr)
@@ -660,14 +688,16 @@ class HTTPConnection:
     def ping(self) -> bool:
         try:
             resp = self.get("ping")
-            _state.set_user_info_if_null(resp.json())
             return resp.ok
         except requests.exceptions.ConnectionError:
             return False
 
     def make_long_lived(self) -> None:
         if not self.adapter:
-            self.adapter = RetryRequestExceptionsAdapter(base_num_retries=10, backoff_factor=0.5)
+            timeout_secs = parse_env_var_float("BRAINTRUST_HTTP_TIMEOUT", 60.0)
+            self.adapter = RetryRequestExceptionsAdapter(
+                base_num_retries=10, backoff_factor=0.5, default_timeout_secs=timeout_secs
+            )
         self._reset()
 
     @staticmethod
@@ -712,6 +742,8 @@ class HTTPConnection:
         return self.session.delete(_urljoin(self.base_url, path), *args, **kwargs)
 
     def get_json(self, object_type: str, args: Mapping[str, Any] | None = None, retries: int = 0) -> Mapping[str, Any]:
+        # FIXME[matt]: the retry logic seems to be unused and could be n*2 because of the the retry logic
+        # in the RetryRequestExceptionsAdapter. We should probably remove this.
         tries = retries + 1
         for i in range(tries):
             resp = self.get(f"/{object_type}", params=args)
@@ -1634,7 +1666,8 @@ def init_logger(
     if set_current:
         if _state is None:
             raise RuntimeError("_state is None in init_logger. This should never happen.")
-        _state.current_logger.set(ret)
+        _state._cv_logger.set(ret)
+        _state._local_logger = ret
     return ret
 
 
@@ -1955,7 +1988,7 @@ def current_experiment() -> Optional["Experiment"]:
 def current_logger() -> Optional["Logger"]:
     """Returns the currently-active logger (set by `braintrust.init_logger(...)`). Returns None if no current logger has been set."""
 
-    return _state.current_logger.get()
+    return _state._cv_logger.get() or _state._local_logger
 
 
 def current_span() -> Span:
@@ -3984,6 +4017,9 @@ class SpanImpl(Span):
         use_v4 = os.getenv("BRAINTRUST_OTEL_COMPAT", "false").lower() == "true"
         span_components_class = SpanComponentsV4 if use_v4 else SpanComponentsV3
 
+        # Disable span cache since remote function spans won't be in the local cache
+        self.state.span_cache.disable()
+
         return span_components_class(
             object_type=self.parent_object_type,
             object_id=object_id,
@@ -3997,7 +4033,7 @@ class SpanImpl(Span):
     def link(self) -> str:
         parent_type, info = self._get_parent_info()
         if parent_type == SpanObjectTypeV3.PROJECT_LOGS:
-            cur_logger = self.state.current_logger.get()
+            cur_logger = self.state._cv_logger.get() or self.state._local_logger
             if not cur_logger:
                 return NOOP_SPAN_PERMALINK
             base_url = cur_logger._get_link_base_url()

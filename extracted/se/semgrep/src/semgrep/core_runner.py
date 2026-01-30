@@ -43,7 +43,7 @@ from rich.progress import TimeElapsedColumn
 from ruamel.yaml import YAML
 
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
-from semgrep import tracing
+from semgrep import telemetry
 from semgrep.app import auth
 from semgrep.config_resolver import Config
 from semgrep.console import console
@@ -192,7 +192,7 @@ def uniq_error_id(error: SemgrepCoreError) -> Any:
         )
 
 
-@tracing.trace()
+@telemetry.trace()
 def open_and_ignore(fname: str) -> None:
     """
     Attempt to open 'fname' simply so a record of having done so will
@@ -475,7 +475,7 @@ class StreamingSemgrepCore:
 
         # Set parent span id as close to fork as possible to ensure core
         # spans nest under the correct pysemgrep parent span.
-        get_state().traces.inject()
+        get_state().telemetry.inject()
         if IS_WINDOWS:
             process = await asyncio.create_subprocess_exec(
                 *self._cmd,
@@ -525,7 +525,7 @@ class StreamingSemgrepCore:
         # Return exit code of cmd. process should already be done
         return await process.wait()
 
-    @tracing.trace()
+    @telemetry.trace()
     def execute(self) -> int:
         """
         Run semgrep-core and listen to stdout to update
@@ -671,9 +671,7 @@ class CoreRunner:
         # prints the stderr and never returns, so by doing this we avoid
         # printing stderr twice
         logger.debug(
-            f"--- semgrep-core stderr ---\n"
-            f"{core_stderr}"
-            f"--- end semgrep-core stderr ---"
+            f"--- semgrep-core stderr ---\n{core_stderr}--- end semgrep-core stderr ---"
         )
 
         # else:
@@ -776,7 +774,7 @@ class CoreRunner:
             "--- end semgrep-core stderr ---\n",
         )
         raise SemgrepError(
-            f"Error while matching: {reason}\n{details}" f"{PLEASE_FILE_ISSUE_TEXT}"
+            f"Error while matching: {reason}\n{details}{PLEASE_FILE_ISSUE_TEXT}"
         )
 
     def _check_ddprof_preconditions(self) -> bool:
@@ -880,6 +878,7 @@ class CoreRunner:
         return pyro_caml
 
     @staticmethod
+    @telemetry.trace()
     def plan_core_run(
         rules: List[Rule],
         target_manager: TargetManager,
@@ -887,6 +886,7 @@ class CoreRunner:
         *,
         all_targets: Optional[TargetAccumulator] = None,
         product: Optional[out.Product] = None,
+        make_target_info_and_unused_rules: bool = True,
     ) -> Plan:
         """
         Gets the targets to run for each rule
@@ -898,6 +898,11 @@ class CoreRunner:
         Also updates all_targets if set, used by core_runner
 
         Note: this is a list because a target can appear twice (e.g. Java + Generic)
+
+        Computing target info and unused rules is expensive (num_rules * num_targets) so this
+        function provides an option to skip it if the data will not be used. Doing so makes it
+        impossible to compute the unused rules accurately, so if make_target_info_and_unused_rules is False,
+        unused rules will be set to the empty list.
         """
         # The range of target_info is (index into rules x product as json)
         target_info: Dict[
@@ -906,26 +911,27 @@ class CoreRunner:
 
         unused_rules = []
 
-        for rule_num, rule in enumerate(rules):
-            some_target = False
-            for language in rule.languages:
-                selection = target_manager.get_files_for_rule(
-                    language, rule.includes, rule.excludes, rule.id, rule.product
-                )
+        if make_target_info_and_unused_rules:
+            for rule_num, rule in enumerate(rules):
+                some_target = False
+                for language in rule.languages:
+                    selection = target_manager.get_files_for_rule(
+                        language, rule.includes, rule.excludes, rule.id, rule.product
+                    )
 
-                targets = selection.targets
-                if all_targets is not None:
-                    all_targets.targets.update(targets)
+                    targets = selection.targets
+                    if all_targets is not None:
+                        all_targets.targets.update(targets)
 
-                some_target = some_target or len(targets) > 0
+                    some_target = some_target or len(targets) > 0
 
-                for target in targets:
-                    rules_nums, products = target_info[target, language]
-                    rules_nums.append(rule_num)
-                    products.add(rule.product)
+                    for target in targets:
+                        rules_nums, products = target_info[target, language]
+                        rules_nums.append(rule_num)
+                        products.add(rule.product)
 
-            if not some_target:
-                unused_rules.append(rule)
+                if not some_target:
+                    unused_rules.append(rule)
 
         return Plan(
             [
@@ -1014,6 +1020,8 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
 
             use_ddprof = self._check_ddprof_preconditions()
             use_pyro_caml = self._check_pyro_caml_preconditions()
+            if use_pyro_caml:
+                state.telemetry.setup_pyro_caml()
             cmd = [
                 # bugfix: self._binary_path is an Optional[Path]. The
                 # recommended way to convert a Path to a string is to use the
@@ -1365,7 +1373,7 @@ Exception raised: `{e}`
         by_sev_strings = [
             f"{len(findings)} {sev}" for sev, findings in by_severity.items()
         ]
-        logger.debug(f'findings summary: {", ".join(by_sev_strings)}')
+        logger.debug(f"findings summary: {', '.join(by_sev_strings)}")
 
         return (
             findings_by_rule,

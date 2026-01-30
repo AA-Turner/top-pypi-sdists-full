@@ -1426,6 +1426,7 @@ builtin_commands = {
                 "keyword_formatters": {
                     "COMMAND": KeywordFormatter.CommandLine,
                     "ARGS": KeywordFormatter.CommandLine,
+                    "IMPLICIT_DEPENDS": KeywordFormatter.Pairs,
                 },
             },
             "TARGET": {
@@ -2333,6 +2334,8 @@ builtin_commands = {
         "one_value_keywords": ["INSTALL_DESTINATION", "INSTALL_PREFIX"],
         "multi_value_keywords": ["PATH_VARS"],
     },
+    "set_and_check": {"front_positional_arguments": ["_var", "_file"]},
+    "check_required_components": {"front_positional_arguments": ["_NAME"]},
     "generate_apple_architecture_selection_file": {
         "front_positional_arguments": ["<filename>"],
         "one_value_keywords": [

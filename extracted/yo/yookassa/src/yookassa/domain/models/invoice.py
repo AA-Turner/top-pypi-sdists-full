@@ -32,7 +32,9 @@ class DeliveryMethodType:
 
     Код способа доставки счета пользователю.
     Возможные значения:
-    - `self` — Самостоятельно.
+    - `self` — Самостоятельно;
+    - `email` — По электронной почте;
+    - `sms` — В смс;
     Подробнее про [жизненный цикл счета](https://yookassa.ru/developers/payment-acceptance/scenario-extensions/invoices/basics)
     """  # noqa: E501
 
@@ -41,6 +43,10 @@ class DeliveryMethodType:
     """
     SELF = "self"
     """Самостоятельно"""
+    EMAIL = "email"
+    """По электронной почте"""
+    SMS = "sms"
+    """В смс"""
     UNKNOWN = "unknown"
     """Для неизвестных методов доставки счета пользователю"""
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyrevm
-Version: 0.3.3
+Version: 0.3.7
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

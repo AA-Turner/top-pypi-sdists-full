@@ -2026,7 +2026,6 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                 )
 
         collection = collection_to_upsert[0]
-        for mid in mids:
-            collection.metric_ids.append(mid)
+        collection.metric_ids.extend(mids)
 
         return self.update_collection(collection=collection).collection

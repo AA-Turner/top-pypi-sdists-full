@@ -7,6 +7,8 @@
 
 use std::cmp::Ordering;
 use std::cmp::Reverse;
+use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use dupe::Dupe;
 use fuzzy_matcher::FuzzyMatcher;
@@ -21,7 +23,6 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
-use pyrefly_python::keywords::get_keywords;
 use pyrefly_python::module::Module;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -32,9 +33,9 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::display::LspDisplayMode;
-use pyrefly_types::literal::Lit;
 use pyrefly_types::types::Union;
 use pyrefly_util::gas::Gas;
+use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::Cancelled;
@@ -78,7 +79,6 @@ use crate::state::require::Require;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionHandle;
-use crate::types::callable::Param;
 use crate::types::module::ModuleType;
 use crate::types::type_var::Restriction;
 use crate::types::types::Type;
@@ -86,7 +86,7 @@ use crate::types::types::Type;
 mod dict_completions;
 mod quick_fixes;
 
-pub(crate) use self::quick_fixes::extract_function::LocalRefactorCodeAction;
+pub(crate) use self::quick_fixes::types::LocalRefactorCodeAction;
 
 #[derive(Debug)]
 pub(crate) enum CalleeKind {
@@ -131,6 +131,28 @@ pub struct InlayHintConfig {
     #[serde(default = "default_true")]
     pub variable_types: bool,
 }
+
+/// PEP 610 direct_url.json structure for detecting editable installs.
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct DirectUrl {
+    url: String,
+    #[serde(default)]
+    dir_info: DirInfo,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize, Default)]
+struct DirInfo {
+    #[serde(default)]
+    editable: bool,
+}
+
+/// Cache for editable source paths, keyed by sorted site-packages paths.
+/// This avoids re-scanning site-packages on every check.
+#[allow(dead_code)]
+static EDITABLE_PATHS_CACHE: LazyLock<Mutex<SmallMap<Vec<PathBuf>, Vec<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(SmallMap::new()));
 
 impl Default for InlayHintConfig {
     fn default() -> Self {
@@ -1065,7 +1087,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn resolve_attribute_definition(
+    pub(crate) fn resolve_attribute_definition(
         &self,
         handle: &Handle,
         attr_name: &Name,
@@ -1100,6 +1122,16 @@ impl<'a> Transaction<'a> {
                 Some((
                     TextRangeWithModule::new(module_info, export.location),
                     export.docstring_range,
+                ))
+            }
+            AttrDefinition::Submodule { module_name } => {
+                // For submodule access (e.g., `b` in `a.b` when `import a.b.c`),
+                // resolve by finding the submodule's __init__.py
+                let def =
+                    self.find_definition_for_imported_module(handle, module_name, preference)?;
+                Some((
+                    TextRangeWithModule::new(def.module, def.definition_range),
+                    def.docstring_range,
                 ))
             }
         }
@@ -2018,10 +2050,44 @@ impl<'a> Transaction<'a> {
         )
     }
 
+    pub fn inline_variable_code_actions(
+        &self,
+        handle: &Handle,
+        selection: TextRange,
+    ) -> Option<Vec<LocalRefactorCodeAction>> {
+        quick_fixes::inline_variable::inline_variable_code_actions(self, handle, selection)
+    }
+
+    pub fn inline_method_code_actions(
+        &self,
+        handle: &Handle,
+        selection: TextRange,
+    ) -> Option<Vec<LocalRefactorCodeAction>> {
+        quick_fixes::inline_method::inline_method_code_actions(self, handle, selection)
+    }
+
+    pub fn inline_parameter_code_actions(
+        &self,
+        handle: &Handle,
+        selection: TextRange,
+    ) -> Option<Vec<LocalRefactorCodeAction>> {
+        quick_fixes::inline_parameter::inline_parameter_code_actions(self, handle, selection)
+    }
+
+    pub fn introduce_parameter_code_actions(
+        &self,
+        handle: &Handle,
+        selection: TextRange,
+    ) -> Option<Vec<LocalRefactorCodeAction>> {
+        quick_fixes::introduce_parameter::introduce_parameter_code_actions(self, handle, selection)
+    }
+
     /// Determines whether a module is a third-party package.
     ///
     /// Checks if the module's path is located within any of the configured
     /// site-packages directories (e.g., `site-packages/`, `dist-packages/`).
+    /// Modules in editable install source paths are NOT considered third-party,
+    /// even if they appear in sys.path.
     fn is_third_party_module(&self, module: &Module, handle: &Handle) -> bool {
         let config = self.get_config(handle);
         let module_path = module.path();
@@ -2053,9 +2119,98 @@ impl<'a> Transaction<'a> {
                     return true;
                 }
             }
+
+            // Check editable packages detected via direct_url.json (PEP 610)
+            let site_packages: Vec<PathBuf> = config.site_package_path().cloned().collect();
+            let editable_paths = Self::get_editable_source_paths(&site_packages);
+            for editable_path in &editable_paths {
+                if module_path.as_path().starts_with(editable_path) {
+                    return true;
+                }
+            }
         }
 
         false
+    }
+
+    /// Detect editable packages by scanning site-packages for direct_url.json files (PEP 610).
+    #[allow(dead_code)]
+    fn detect_editable_packages(site_packages: &[PathBuf]) -> Vec<PathBuf> {
+        let mut editable_paths = Vec::new();
+
+        for sp in site_packages {
+            let Ok(entries) = std::fs::read_dir(sp) else {
+                continue;
+            };
+
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+
+                // Look for .dist-info directories
+                if !path.is_dir() {
+                    continue;
+                }
+                if path.extension().is_none_or(|ext| ext != "dist-info") {
+                    continue;
+                }
+
+                let direct_url_path = path.join("direct_url.json");
+                let Ok(content) = std::fs::read_to_string(&direct_url_path) else {
+                    continue;
+                };
+                let Ok(direct_url) = serde_json::from_str::<DirectUrl>(&content) else {
+                    continue;
+                };
+
+                if !direct_url.dir_info.editable {
+                    continue;
+                }
+
+                // Parse the file:// URL and extract the path
+                let Ok(url) = lsp_types::Url::parse(&direct_url.url) else {
+                    continue;
+                };
+                if url.scheme() != "file" {
+                    continue;
+                }
+
+                let path_str = url.path();
+
+                // On Windows, file URLs look like file:///C:/path
+                // url.path() returns "/C:/path", we need to strip the leading "/"
+                #[cfg(windows)]
+                let path_str = path_str.strip_prefix('/').unwrap_or(path_str);
+
+                // Decode percent-encoded characters (e.g., %20 -> space)
+                let Ok(decoded) = percent_encoding::percent_decode_str(path_str).decode_utf8()
+                else {
+                    continue;
+                };
+
+                let source_path = PathBuf::from(decoded.as_ref());
+                if source_path.is_dir() {
+                    editable_paths.push(source_path);
+                }
+            }
+        }
+
+        editable_paths
+    }
+
+    /// Get editable source paths for the given site-packages, using cache.
+    #[allow(dead_code)]
+    fn get_editable_source_paths(site_packages: &[PathBuf]) -> Vec<PathBuf> {
+        let mut key: Vec<PathBuf> = site_packages.to_vec();
+        key.sort();
+
+        let mut cache = EDITABLE_PATHS_CACHE.lock();
+        if let Some(paths) = cache.get(&key) {
+            return paths.clone();
+        }
+
+        let paths = Self::detect_editable_packages(site_packages);
+        cache.insert(key, paths.clone());
+        paths
     }
 
     pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
@@ -2434,58 +2589,6 @@ impl<'a> Transaction<'a> {
         Some(references)
     }
 
-    fn add_kwargs_completions(
-        &self,
-        handle: &Handle,
-        position: TextSize,
-        completions: &mut Vec<CompletionItem>,
-    ) {
-        if let Some((callables, overload_idx, _, _)) =
-            self.get_callables_from_call(handle, position)
-            && let Some(callable) = callables.get(overload_idx).cloned()
-            && let Some(params) = Self::normalize_singleton_function_type_into_params(callable)
-        {
-            for param in params {
-                match param {
-                    Param::Pos(name, ty, _)
-                    | Param::PosOnly(Some(name), ty, _)
-                    | Param::KwOnly(name, ty, _)
-                    | Param::VarArg(Some(name), ty) => {
-                        if name.as_str() != "self" {
-                            completions.push(CompletionItem {
-                                label: format!("{}=", name.as_str()),
-                                detail: Some(ty.to_string()),
-                                kind: Some(CompletionItemKind::VARIABLE),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Param::VarArg(None, _) | Param::Kwargs(_, _) | Param::PosOnly(None, _, _) => {}
-                }
-            }
-        }
-    }
-
-    fn add_magic_method_completions(
-        &self,
-        identifier: &Identifier,
-        completions: &mut Vec<CompletionItem>,
-    ) {
-        let typed = identifier.as_str();
-        if !typed.is_empty() && !typed.starts_with("__") {
-            return;
-        }
-        for name in dunder::MAGIC_METHOD_NAMES {
-            if name.starts_with(typed) {
-                completions.push(CompletionItem {
-                    label: (*name).to_owned(),
-                    kind: Some(CompletionItemKind::METHOD),
-                    ..Default::default()
-                });
-            }
-        }
-    }
-
     fn add_builtins_autoimport_completions(
         &self,
         handle: &Handle,
@@ -2631,21 +2734,6 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn get_documentation_from_export(
-        &self,
-        export_info: Option<(Handle, Export)>,
-    ) -> Option<lsp_types::Documentation> {
-        let (definition_handle, export) = export_info?;
-        let docstring_range = export.docstring_range?;
-        let def_module = self.get_module_info(&definition_handle)?;
-        let docstring = Docstring(docstring_range, def_module.clone()).resolve();
-        let documentation = lsp_types::Documentation::MarkupContent(lsp_types::MarkupContent {
-            kind: lsp_types::MarkupKind::Markdown,
-            value: docstring,
-        });
-        Some(documentation)
-    }
-
     /// Adds completions for local variables and returns true if we have added any
     /// If an identifier is present, filter matches
     fn add_local_variable_completions(
@@ -2722,45 +2810,6 @@ impl<'a> Transaction<'a> {
         has_added_any
     }
 
-    fn add_keyword_completions(&self, handle: &Handle, completions: &mut Vec<CompletionItem>) {
-        get_keywords(handle.sys_info().version())
-            .iter()
-            .for_each(|name| {
-                completions.push(CompletionItem {
-                    label: (*name).to_owned(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    ..Default::default()
-                })
-            });
-    }
-
-    fn get_docstring_for_attribute(
-        &self,
-        handle: &Handle,
-        attr_info: &AttrInfo,
-    ) -> Option<lsp_types::Documentation> {
-        let definition = attr_info.definition.as_ref()?.clone();
-        let attribute_definition = self.resolve_attribute_definition(
-            handle,
-            &attr_info.name,
-            definition,
-            attr_info.docstring_range,
-            FindPreference::default(),
-        );
-
-        let (definition, Some(docstring_range)) = attribute_definition? else {
-            return None;
-        };
-        let docstring = Docstring(docstring_range, definition.module);
-
-        Some(lsp_types::Documentation::MarkupContent(
-            lsp_types::MarkupContent {
-                kind: lsp_types::MarkupKind::Markdown,
-                value: docstring.resolve().trim().to_owned(),
-            },
-        ))
-    }
-
     fn add_literal_completions(
         &self,
         handle: &Handle,
@@ -2781,41 +2830,6 @@ impl<'a> Transaction<'a> {
                 completions,
                 in_string_literal,
             );
-        }
-    }
-
-    fn add_literal_completions_from_type(
-        param_type: &Type,
-        completions: &mut Vec<CompletionItem>,
-        in_string_literal: bool,
-    ) {
-        match param_type {
-            Type::Literal(lit) => {
-                // TODO: Pass the flag correctly for whether literal string is single quoted or double quoted
-                let label = lit.value.to_string_escaped(true);
-                let insert_text = if in_string_literal {
-                    if let Lit::Str(s) = &lit.value {
-                        s.to_string()
-                    } else {
-                        label.clone()
-                    }
-                } else {
-                    label.clone()
-                };
-                completions.push(CompletionItem {
-                    label,
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some(format!("{param_type}")),
-                    insert_text: Some(insert_text),
-                    ..Default::default()
-                });
-            }
-            Type::Union(box Union { members, .. }) => {
-                for member in members {
-                    Self::add_literal_completions_from_type(member, completions, in_string_literal);
-                }
-            }
-            _ => {}
         }
     }
 
@@ -2964,7 +2978,11 @@ impl<'a> Transaction<'a> {
                             .for_each(|x| {
                                 let kind = match x.ty {
                                     Some(Type::BoundMethod(_)) => Some(CompletionItemKind::METHOD),
-                                    Some(Type::Function(_)) => Some(CompletionItemKind::FUNCTION),
+                                    Some(Type::Function(_) | Type::Overload(_)) => {
+                                        Some(CompletionItemKind::FUNCTION)
+                                    }
+                                    Some(Type::Module(_)) => Some(CompletionItemKind::MODULE),
+                                    Some(Type::ClassDef(_)) => Some(CompletionItemKind::CLASS),
                                     _ => Some(CompletionItemKind::FIELD),
                                 };
                                 let ty = &x.ty;
@@ -2997,10 +3015,10 @@ impl<'a> Transaction<'a> {
                 context,
             }) => {
                 if matches!(context, IdentifierContext::MethodDef { .. }) {
-                    self.add_magic_method_completions(&identifier, &mut result);
+                    Self::add_magic_method_completions(&identifier, &mut result);
                 }
                 self.add_kwargs_completions(handle, position, &mut result);
-                self.add_keyword_completions(handle, &mut result);
+                Self::add_keyword_completions(handle, &mut result);
                 let has_local_completions = self.add_local_variable_completions(
                     handle,
                     Some(&identifier),
@@ -3036,7 +3054,7 @@ impl<'a> Transaction<'a> {
                 if let Some(mod_module) = self.get_ast(handle) {
                     let nodes = Ast::locate_node(&mod_module, position);
                     if nodes.is_empty() {
-                        self.add_keyword_completions(handle, &mut result);
+                        Self::add_keyword_completions(handle, &mut result);
                         self.add_local_variable_completions(handle, None, position, &mut result);
                         self.add_builtins_autoimport_completions(handle, None, &mut result);
                     }
@@ -3480,6 +3498,8 @@ impl<'a> CancellableTransaction<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use ruff_python_ast::name::Name;
 
     use super::Transaction;
@@ -3539,5 +3559,96 @@ mod tests {
     fn match_summary(params: &[Param], idx: usize) -> Option<(&str, bool)> {
         Transaction::<'static>::param_name_for_positional_argument(params, idx)
             .map(|match_| (match_.name.as_str(), match_.is_vararg_repeat))
+    }
+
+    #[cfg(not(windows))] // TODO: fix and re-enable
+    #[test]
+    fn test_get_editable_source_paths_finds_editable_package() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let site_packages = temp_dir.path().join("site-packages");
+        fs::create_dir(&site_packages).unwrap();
+
+        let dist_info = site_packages.join("mypackage-1.0.0.dist-info");
+        fs::create_dir(&dist_info).unwrap();
+
+        let source_dir = temp_dir.path().join("mypackage_source");
+        fs::create_dir(&source_dir).unwrap();
+
+        // Use Url::from_file_path to construct a proper file URL that works on all platforms
+        let source_url = lsp_types::Url::from_file_path(&source_dir).unwrap();
+        let direct_url_content = format!(
+            r#"{{"url": "{}", "dir_info": {{"editable": true}}}}"#,
+            source_url.as_str()
+        );
+        fs::write(dist_info.join("direct_url.json"), direct_url_content).unwrap();
+
+        let result =
+            Transaction::<'static>::get_editable_source_paths(std::slice::from_ref(&site_packages));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], source_dir);
+    }
+
+    #[test]
+    fn test_get_editable_source_paths_ignores_non_editable_package() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let site_packages = temp_dir.path().join("site-packages");
+        fs::create_dir(&site_packages).unwrap();
+
+        let dist_info = site_packages.join("requests-2.28.0.dist-info");
+        fs::create_dir(&dist_info).unwrap();
+
+        let source_dir = temp_dir.path().join("requests_source");
+        fs::create_dir(&source_dir).unwrap();
+
+        // Use Url::from_file_path to construct a proper file URL that works on all platforms
+        let source_url = lsp_types::Url::from_file_path(&source_dir).unwrap();
+        let direct_url_content = format!(
+            r#"{{"url": "{}", "dir_info": {{"editable": false}}}}"#,
+            source_url.as_str()
+        );
+        fs::write(dist_info.join("direct_url.json"), direct_url_content).unwrap();
+
+        let result = Transaction::<'static>::get_editable_source_paths(&[site_packages]);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_editable_source_paths_ignores_missing_direct_url_json() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let site_packages = temp_dir.path().join("site-packages");
+        fs::create_dir(&site_packages).unwrap();
+
+        let dist_info = site_packages.join("somepackage-1.0.0.dist-info");
+        fs::create_dir(&dist_info).unwrap();
+
+        let result = Transaction::<'static>::get_editable_source_paths(&[site_packages]);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_get_editable_source_paths_ignores_nonexistent_source_directory() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let site_packages = temp_dir.path().join("site-packages");
+        fs::create_dir(&site_packages).unwrap();
+
+        let dist_info = site_packages.join("mypackage-1.0.0.dist-info");
+        fs::create_dir(&dist_info).unwrap();
+
+        let nonexistent_path = temp_dir.path().join("does_not_exist");
+
+        // Use Url::from_file_path to construct a proper file URL that works on all platforms
+        let nonexistent_url = lsp_types::Url::from_file_path(&nonexistent_path).unwrap();
+        let direct_url_content = format!(
+            r#"{{"url": "{}", "dir_info": {{"editable": true}}}}"#,
+            nonexistent_url.as_str()
+        );
+        fs::write(dist_info.join("direct_url.json"), direct_url_content).unwrap();
+
+        let result = Transaction::<'static>::get_editable_source_paths(&[site_packages]);
+
+        assert!(result.is_empty());
     }
 }

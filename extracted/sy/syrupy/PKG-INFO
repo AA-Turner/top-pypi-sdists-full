@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: syrupy
-Version: 5.0.0
+Version: 5.1.0
 Summary: Pytest Snapshot Test Utility
 License-Expression: MIT
 License-File: LICENSE
@@ -24,8 +24,6 @@ Project-URL: Repository, https://github.com/syrupy-project/syrupy
 Description-Content-Type: text/markdown
 
 # syrupy
-
-> Note that the main branch points to the v5 pre-release. To see documentation for the latest stable release, see the [README for v4.9.1](https://github.com/syrupy-project/syrupy/blob/v4.9.1/README.md).
 
 <img align="right" width="100px" height="100px" src="https://user-images.githubusercontent.com/2528959/69500147-85d71400-0ec6-11ea-867a-277881278e57.png" alt="Logo">
 
@@ -81,6 +79,47 @@ pytest --snapshot-update
 ```
 
 A snapshot file should be generated under a `__snapshots__` directory in the same directory as `test_file.py`. The `__snapshots__` directory and all its children should be committed along with your test code.
+
+#### Usage in `unittest.TestCase` subclasses
+
+[Due to limitations in `unittest` and `pytest`](https://docs.pytest.org/en/9.0.x/how-to/unittest.html#pytest-features-in-unittest-testcase-subclasses), the `snapshot` fixture is not directly usable in `TestCase` subclasses (including Django's `TestCase`).
+
+Possible workarounds include using marks:
+
+```python
+from unittest import TestCase
+import pytest
+
+@pytest.fixture(scope="function")
+def snapshot_in_class(request, snapshot):
+    """
+    Wraps snapshot fixture to provide instance snapshot property for
+    unittest.TestCase tests
+    """
+    request.cls.snapshot = snapshot
+
+class MyTest(TestCase):
+    @pytest.mark.usefixtures("snapshot_in_class")
+    def test_foo(self):
+        actual = "Some computed value!"
+        assert actual == self.snapshot
+```
+
+Or using a fixture with `autouse`:
+
+```python
+from unittest import TestCase
+import pytest
+
+class MyTest(TestCase):
+    @pytest.fixture(autouse=True)
+    def setupSnapshot(self, snapshot):
+        self.snapshot = snapshot
+
+    def test_foo(self):
+        actual = "Some computed value!"
+        assert actual == self.snapshot
+```
 
 #### Custom Objects
 
@@ -536,6 +575,7 @@ addopts = --snapshot-ignore-file-extensions dvc,tmp,zip
 - [Custom comparator](https://github.com/syrupy-project/syrupy/tree/main/tests/integration/test_custom_comparator.py)
 - [JPEG image extension](https://github.com/syrupy-project/syrupy/tree/main/tests/examples/test_custom_image_extension.py)
 - [Built-in image extensions](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/image/test_image_svg.py)
+- [Amber Serializer Plugins](https://github.com/syrupy-project/syrupy/blob/main/tests/syrupy/extensions/amber/test_amber_serializer_plugins.py) -- e.g. serializing attrs, dataclasses, Pydantic
 
 ### Inline Snapshots
 
@@ -638,6 +678,8 @@ To develop locally, clone this repository and run `. script/bootstrap` to instal
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/samylaumonier"><img src="https://avatars.githubusercontent.com/u/2417752?v=4?s=100" width="100px;" alt="Samy Laumonier"/><br /><sub><b>Samy Laumonier</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3Asamylaumonier" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/paul-ollis"><img src="https://avatars.githubusercontent.com/u/6062510?v=4?s=100" width="100px;" alt="Paul Ollis"/><br /><sub><b>Paul Ollis</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3Apaul-ollis" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://rahuliyer.me"><img src="https://avatars.githubusercontent.com/u/4255590?v=4?s=100" width="100px;" alt="Rahul Iyer"/><br /><sub><b>Rahul Iyer</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3Arahuliyer95" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://serl.it/"><img src="https://avatars.githubusercontent.com/u/2742655?v=4?s=100" width="100px;" alt="Sergio Livi"/><br /><sub><b>Sergio Livi</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=serl" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://bwrob.github.io/"><img src="https://avatars.githubusercontent.com/u/43605200?v=4?s=100" width="100px;" alt="Bartosz Marcin Wróblewski"/><br /><sub><b>Bartosz Marcin Wróblewski</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=bwrob" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-core
-Version: 0.5.7
+Version: 0.5.8
 Summary: Python Base SDK for interacting with the Toolbox service
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-core
@@ -24,7 +24,7 @@ Requires-Dist: deprecated<2.0.0,>=1.2.15
 Requires-Dist: google-auth<3.0.0,>=2.0.0
 Requires-Dist: requests<3.0.0,>=2.19.0
 Provides-Extra: test
-Requires-Dist: black[jupyter]==25.12.0; extra == "test"
+Requires-Dist: black[jupyter]==26.1.0; extra == "test"
 Requires-Dist: isort==7.0.0; extra == "test"
 Requires-Dist: mypy==1.19.1; extra == "test"
 Requires-Dist: pytest==9.0.2; extra == "test"
@@ -58,6 +58,9 @@ involving Large Language Models (LLMs).
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [Usage](#usage)
+- [Transport Protocols](#transport-protocols)
+    - [Supported Protocols](#supported-protocols)
+    - [Example](#example)
 - [Loading Tools](#loading-tools)
     - [Load a toolset](#load-a-toolset)
     - [Load a single tool](#load-a-single-tool)
@@ -179,6 +182,51 @@ All interactions for loading and invoking tools happen through this client.
 > all tools loaded from that client. As a result, any tool instances you have
 > loaded will cease to function and will raise an error if you attempt to invoke
 > them after the client is closed.
+
+## Transport Protocols
+
+The SDK supports multiple transport protocols for communicating with the Toolbox server. By default, the client uses the latest supported version of the **Model Context Protocol (MCP)**.
+
+You can explicitly select a protocol using the `protocol` option during client initialization. This is useful if you need to use the native Toolbox HTTP protocol or pin the client to a specific legacy version of MCP.
+
+> [!NOTE]
+> * **Native Toolbox Transport**: This uses the service's native **REST over HTTP** API.
+> * **MCP Transports**: These options use the **Model Context Protocol over HTTP**.
+
+### Supported Protocols
+
+| Constant | Description |
+| :--- | :--- |
+| `Protocol.MCP` | **(Default)** Alias for the default MCP version (currently `2025-06-18`). |
+| `Protocol.TOOLBOX` | The native Toolbox HTTP protocol. |
+| `Protocol.MCP_v20251125` | MCP Protocol version 2025-11-25. |
+| `Protocol.MCP_v20250618` | MCP Protocol version 2025-06-18. |
+| `Protocol.MCP_v20250326` | MCP Protocol version 2025-03-26. |
+| `Protocol.MCP_v20241105` | MCP Protocol version 2024-11-05. |
+
+### Example
+
+If you wish to use the native Toolbox protocol:
+
+```py
+from toolbox_core import ToolboxClient
+from toolbox_core.protocol import Protocol
+
+async with ToolboxClient("http://127.0.0.1:5000", protocol=Protocol.TOOLBOX) as toolbox:
+    # Use client
+    pass
+```
+
+If you want to pin the MCP Version 2025-03-26:
+
+```py
+from toolbox_core import ToolboxClient
+from toolbox_core.protocol import Protocol
+
+async with ToolboxClient("http://127.0.0.1:5000", protocol=Protocol.MCP_v20250326) as toolbox:
+    # Use client
+    pass
+```
 
 ## Loading Tools
 

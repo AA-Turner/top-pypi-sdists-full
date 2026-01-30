@@ -358,6 +358,7 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup(DaraModel):
         data_disks: List[main_models.DataDisk] = None,
         deploymentset_id: str = None,
         desired_size: int = None,
+        disk_init: List[main_models.DiskInit] = None,
         image_id: str = None,
         image_type: str = None,
         instance_charge_type: str = None,
@@ -427,6 +428,7 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup(DaraModel):
         self.deploymentset_id = deploymentset_id
         # The expected number of nodes in the node pool.
         self.desired_size = desired_size
+        self.disk_init = disk_init
         # The ID of the custom image. You can call the `DescribeKubernetesVersionMetadata` operation to query the images supported by ACK.
         self.image_id = image_id
         # The type of the OS image.
@@ -604,6 +606,10 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup(DaraModel):
             for v1 in self.data_disks:
                  if v1:
                     v1.validate()
+        if self.disk_init:
+            for v1 in self.disk_init:
+                 if v1:
+                    v1.validate()
         if self.instance_patterns:
             for v1 in self.instance_patterns:
                  if v1:
@@ -648,6 +654,11 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup(DaraModel):
 
         if self.desired_size is not None:
             result['desired_size'] = self.desired_size
+
+        result['disk_init'] = []
+        if self.disk_init is not None:
+            for k1 in self.disk_init:
+                result['disk_init'].append(k1.to_map() if k1 else None)
 
         if self.image_id is not None:
             result['image_id'] = self.image_id
@@ -811,6 +822,12 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup(DaraModel):
 
         if m.get('desired_size') is not None:
             self.desired_size = m.get('desired_size')
+
+        self.disk_init = []
+        if m.get('disk_init') is not None:
+            for k1 in m.get('disk_init'):
+                temp_model = main_models.DiskInit()
+                self.disk_init.append(temp_model.from_map(k1))
 
         if m.get('image_id') is not None:
             self.image_id = m.get('image_id')
@@ -1572,9 +1589,11 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsManagementAutoRepairPolicy(Da
     def __init__(
         self,
         approval_required: bool = None,
+        auto_repair_policy_id: str = None,
         restart_node: bool = None,
     ):
         self.approval_required = approval_required
+        self.auto_repair_policy_id = auto_repair_policy_id
         # Specifies whether to allow node restart. This parameter takes effect only when `auto_repair=true` is specified.
         # 
         # *   `true`: allows node restart.
@@ -1592,6 +1611,9 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsManagementAutoRepairPolicy(Da
         if self.approval_required is not None:
             result['approval_required'] = self.approval_required
 
+        if self.auto_repair_policy_id is not None:
+            result['auto_repair_policy_id'] = self.auto_repair_policy_id
+
         if self.restart_node is not None:
             result['restart_node'] = self.restart_node
 
@@ -1601,6 +1623,9 @@ class DescribeClusterNodePoolsResponseBodyNodepoolsManagementAutoRepairPolicy(Da
         m = m or dict()
         if m.get('approval_required') is not None:
             self.approval_required = m.get('approval_required')
+
+        if m.get('auto_repair_policy_id') is not None:
+            self.auto_repair_policy_id = m.get('auto_repair_policy_id')
 
         if m.get('restart_node') is not None:
             self.restart_node = m.get('restart_node')

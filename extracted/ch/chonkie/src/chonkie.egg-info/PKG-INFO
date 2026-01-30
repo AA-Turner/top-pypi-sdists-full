@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.5.2
+Version: 1.5.4
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
@@ -47,11 +47,15 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tqdm>=4.64.0
 Requires-Dist: numpy>=2.0.0
+Requires-Dist: chonkie-core>=0.8.0
+Requires-Dist: tenacity>=8.0.0
 Provides-Extra: hub
 Requires-Dist: huggingface-hub>=0.24.0; extra == "hub"
 Requires-Dist: jsonschema>=4.23.0; extra == "hub"
 Provides-Extra: viz
 Requires-Dist: rich>=13.0.0; extra == "viz"
+Provides-Extra: cli
+Requires-Dist: typer>=0.9.0; extra == "cli"
 Provides-Extra: table
 Requires-Dist: pandas; extra == "table"
 Requires-Dist: tabulate; extra == "table"
@@ -67,8 +71,6 @@ Requires-Dist: magika<1.1.0,>=0.6.0; extra == "code"
 Provides-Extra: neural
 Requires-Dist: transformers>=4.0.0; extra == "neural"
 Requires-Dist: torch<3.0,>=2.0.0; extra == "neural"
-Provides-Extra: fast
-Requires-Dist: memchunk>=0.3.0; extra == "fast"
 Provides-Extra: model2vec
 Requires-Dist: tokenizers>=0.16.0; extra == "model2vec"
 Requires-Dist: model2vec>=0.7.0; extra == "model2vec"
@@ -92,6 +94,12 @@ Requires-Dist: azure-identity>=1.23.0; extra == "azure-openai"
 Requires-Dist: tiktoken>=0.5.0; extra == "azure-openai"
 Requires-Dist: openai>=1.0.0; extra == "azure-openai"
 Requires-Dist: pydantic>=2.0.0; extra == "azure-openai"
+Provides-Extra: groq
+Requires-Dist: pydantic>=2.0.0; extra == "groq"
+Requires-Dist: groq>=0.4.0; extra == "groq"
+Provides-Extra: cerebras
+Requires-Dist: pydantic>=2.0.0; extra == "cerebras"
+Requires-Dist: cerebras-cloud-sdk>=1.0.0; extra == "cerebras"
 Provides-Extra: voyageai
 Requires-Dist: tokenizers>=0.16.0; extra == "voyageai"
 Requires-Dist: voyageai>=0.3.2; extra == "voyageai"
@@ -147,6 +155,8 @@ Requires-Dist: huggingface-hub>=0.24.0; extra == "all"
 Requires-Dist: jsonschema>=4.23.0; extra == "all"
 Requires-Dist: pydantic>=2.0.0; extra == "all"
 Requires-Dist: google-genai>=1.0.0; extra == "all"
+Requires-Dist: groq>=0.4.0; extra == "all"
+Requires-Dist: cerebras-cloud-sdk>=1.0.0; extra == "all"
 Requires-Dist: transformers>=4.0.0; extra == "all"
 Requires-Dist: torch<3.0,>=2.0.0; extra == "all"
 Requires-Dist: chromadb>=1.0.0; extra == "all"
@@ -166,7 +176,6 @@ Requires-Dist: pymilvus>=2.1.0; extra == "all"
 Requires-Dist: catsu>=0.0.1; extra == "all"
 Requires-Dist: litellm>=1.0.0; extra == "all"
 Requires-Dist: datasets>=1.14.0; extra == "all"
-Requires-Dist: memchunk>=0.3.0; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datasets>=1.14.0; extra == "dev"
 Requires-Dist: transformers>=4.0.0; extra == "dev"
@@ -175,9 +184,8 @@ Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 Requires-Dist: pytest-xdist>=2.5.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
-Requires-Dist: ruff>=0.0.265; extra == "dev"
+Requires-Dist: ruff>=0.13.3; extra == "dev"
 Requires-Dist: mypy>=1.11.0; extra == "dev"
-Requires-Dist: cython>=3.0.0; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: tabulate; extra == "dev"
 Requires-Dist: openpyxl; extra == "dev"
@@ -429,15 +437,17 @@ Seamlessly works with various embedding model providers. Bring your favorite emb
 </details>
 
 <details>
-<summary><strong>🧞‍♂️ Power Up with Genies! Chonkie supports 3+ LLM providers!</strong></summary>
+<summary><strong>🧞‍♂️ Power Up with Genies! Chonkie supports 5+ LLM providers!</strong></summary>
 
 Genies provide interfaces to interact with Large Language Models (LLMs) for advanced chunking strategies or other tasks within the pipeline.
 
-| Genie Name     | Class              | Description                       | Optional Install        |
-| -------------- | ------------------ | --------------------------------- | ----------------------- |
-| `gemini`       | `GeminiGenie`      | Interact with Google Gemini APIs. | `chonkie[gemini]`       |
-| `openai`       | `OpenAIGenie`      | Interact with OpenAI APIs.        | `chonkie[openai]`       |
-| `azure-openai` | `AzureOpenAIGenie` | Interact with Azure OpenAI APIs.  | `chonkie[azure-openai]` |
+| Genie Name     | Class              | Description                                | Optional Install        |
+| -------------- | ------------------ | ------------------------------------------ | ----------------------- |
+| `gemini`       | `GeminiGenie`      | Interact with Google Gemini APIs.          | `chonkie[gemini]`       |
+| `openai`       | `OpenAIGenie`      | Interact with OpenAI APIs.                 | `chonkie[openai]`       |
+| `azure-openai` | `AzureOpenAIGenie` | Interact with Azure OpenAI APIs.           | `chonkie[azure-openai]` |
+| `groq`         | `GroqGenie`        | Fast inference on Groq hardware.           | `chonkie[groq]`         |
+| `cerebras`     | `CerebrasGenie`    | Fastest inference on Cerebras hardware.    | `chonkie[cerebras]`     |
 
 You can also use the `OpenAIGenie` to interact with any LLM provider that supports the OpenAI API format, by simply changing the `model`, `base_url`, and `api_key` parameters. For example, here's how to use the `OpenAIGenie` to interact with the `Llama-4-Maverick` model via OpenRouter:
 

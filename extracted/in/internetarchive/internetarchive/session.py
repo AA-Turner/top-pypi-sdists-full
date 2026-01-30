@@ -32,7 +32,9 @@ import locale
 import logging
 import os
 import platform
+import socket
 import sys
+import threading
 import warnings
 from typing import Iterable, Mapping, MutableMapping
 from urllib.parse import unquote, urlparse
@@ -83,6 +85,12 @@ class ArchiveSession(requests.sessions.Session):
 
         :param config: A config dict used for initializing the
                        :class:`ArchiveSession <ArchiveSession>` object.
+                       Supports the following keys in the ``general`` section:
+
+                       - ``user_agent_suffix``: Custom string to append to the default
+                         User-Agent. The default (including access key) is always sent.
+                       - ``secure``: Use HTTPS (default: True).
+                       - ``host``: Host to connect to (default: archive.org).
 
         :param config_file: Path to config file used for initializing the
                             :class:`ArchiveSession <ArchiveSession>` object.
@@ -124,7 +132,12 @@ class ArchiveSession(requests.sessions.Session):
         self.http_adapter_kwargs: MutableMapping = http_adapter_kwargs or {}
 
         self.headers = default_headers()  # type: ignore[assignment]
-        self.headers.update({'User-Agent': self._get_user_agent_string()})
+        default_user_agent = self._get_user_agent_string()
+        user_agent_suffix = self.config.get('general', {}).get('user_agent_suffix')
+        if user_agent_suffix:
+            self.headers.update({'User-Agent': f'{default_user_agent} {user_agent_suffix}'})
+        else:
+            self.headers.update({'User-Agent': default_user_agent})
         self.headers.update({'Connection': 'close'})
 
         self.mount_http_adapter()
@@ -142,6 +155,35 @@ class ArchiveSession(requests.sessions.Session):
                     self.set_file_logger(logging_config.get('level', 'NOTSET'),
                                          logging_config.get('file', 'internetarchive.log'),
                                          'urllib3')
+
+        # Thread-local storage for connection info
+        self._connection_info_local = threading.local()
+
+        # Monkey-patch socket.connect
+        self._original_connect = socket.socket.connect
+
+        def instrumented_connect(sock, address):
+            result = self._original_connect(sock, address)
+            try:
+                src_ip, src_port = sock.getsockname()
+                dst_ip, dst_port = address
+                self._connection_info_local.info = {
+                    'src': f"{src_ip}:{src_port}",
+                    'dst': f"{dst_ip}:{dst_port}",
+                    'src_ip': src_ip,
+                    'src_port': src_port,
+                    'dst_ip': dst_ip,
+                    'dst_port': dst_port
+                }
+            except Exception:
+                self._connection_info_local.info = {}
+            return result
+
+        socket.socket.connect = instrumented_connect  # type: ignore[method-assign]
+
+    def get_connection_info(self):
+        """Get connection info for current thread"""
+        return getattr(self._connection_info_local, 'info', {})
 
     def _get_user_agent_string(self) -> str:
         """Generate a User-Agent string to be sent with every request."""

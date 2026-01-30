@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 import humanfriendly
@@ -15,11 +15,6 @@ from click import Context
 
 from tinybird.client import AuthNoTokenException, CanNotBeDeletedException, DoesNotExistException, TinyB
 from tinybird.config import get_display_host
-from tinybird.tb_cli_modules.config import CLIConfig
-
-if TYPE_CHECKING:
-    from tinybird.connectors import Connector
-
 from tinybird.datafile_common import get_name_version, wait_job
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.branch import warn_if_in_live
@@ -33,7 +28,6 @@ from tinybird.tb_cli_modules.common import (
     coro,
     echo_safe_humanfriendly_tables_format_smart_table,
     get_format_from_filename_or_url,
-    load_connector_config,
     push_data,
     sync_data,
     validate_datasource_name,
@@ -41,6 +35,7 @@ from tinybird.tb_cli_modules.common import (
     validate_kafka_group,
     validate_kafka_topic,
 )
+from tinybird.tb_cli_modules.config import CLIConfig
 from tinybird.tb_cli_modules.exceptions import CLIDatasourceException
 
 
@@ -125,12 +120,6 @@ async def datasource_ls(ctx: Context, match: Optional[str], format_: str):
 @datasource.command(name="append")
 @click.argument("datasource_name")
 @click.argument("url", nargs=-1)
-@click.option(
-    "--connector",
-    type=click.Choice(["bigquery", "snowflake"], case_sensitive=True),
-    help="Import from one of the selected connectors",
-    hidden=True,
-)
 @click.option("--sql", default=None, help="Query to extract data from one of the SQL connectors", hidden=True)
 @click.option(
     "--incremental",
@@ -152,7 +141,6 @@ async def datasource_append(
     ctx: Context,
     datasource_name: str,
     url,
-    connector: Optional[str],
     sql: Optional[str],
     incremental: Optional[str],
     ignore_empty: bool,
@@ -165,62 +153,26 @@ async def datasource_append(
 
     - Load from local file `tb datasource append [datasource_name] /path/to/local/file`
 
-    - Load from connector `tb datasource append [datasource_name] --connector [connector_name] --sql [the_sql_to_extract_from]`
     """
 
-    if not url and not connector:
-        raise CLIDatasourceException(FeedbackManager.error_missing_url_or_connector(datasource=datasource_name))
-
-    if incremental and not connector:
-        raise CLIDatasourceException(FeedbackManager.error_incremental_not_supported())
-
-    if incremental:
-        date = None
-        source_column = incremental.split(":")[0]
-        dest_column = incremental.split(":")[-1]
-        client: TinyB = ctx.obj["client"]
-        result = await client.query(f"SELECT max({dest_column}) as inc from {datasource_name} FORMAT JSON")
-        try:
-            date = result["data"][0]["inc"]
-        except Exception as e:
-            raise CLIDatasourceException(f"{str(e)}")
-        if date:
-            sql = f"{sql} WHERE {source_column} > '{date}'"
-    await push_data(
-        ctx, datasource_name, url, connector, sql, mode="append", ignore_empty=ignore_empty, concurrency=concurrency
-    )
+    if not url:
+        raise CLIDatasourceException(FeedbackManager.error_missing_url(datasource=datasource_name))
+    await push_data(ctx, datasource_name, url, mode="append", concurrency=concurrency)
 
 
 @datasource.command(name="replace")
 @click.argument("datasource_name")
 @click.argument("url", nargs=-1)
-@click.option(
-    "--connector",
-    type=click.Choice(["bigquery", "snowflake"], case_sensitive=True),
-    help="Import from one of the selected connectors",
-    hidden=True,
-)
-@click.option("--sql", default=None, help="Query to extract data from one of the SQL connectors", hidden=True)
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to replace data", hidden=True)
 @click.option("--skip-incompatible-partition-key", is_flag=True, default=False, hidden=True)
-@click.option(
-    "--ignore-empty",
-    help="Wheter or not to ignore empty results from the connector",
-    is_flag=True,
-    default=False,
-    hidden=True,
-)
 @click.pass_context
 @coro
 async def datasource_replace(
     ctx,
     datasource_name,
     url,
-    connector,
-    sql,
     sql_condition,
     skip_incompatible_partition_key,
-    ignore_empty: bool,
 ):
     """
     Replaces the data in a data source from a URL, local file or a connector
@@ -229,11 +181,10 @@ async def datasource_replace(
 
     - Replace from local file `tb datasource replace [datasource_name] /path/to/local/file --sql-condition "country='ES'"`
 
-    - Replace from connector `tb datasource replace [datasource_name] --connector [connector_name] --sql [the_sql_to_extract_from] --sql-condition "country='ES'"`
     """
 
-    if not url and not connector:
-        raise CLIDatasourceException(FeedbackManager.error_missing_url_or_connector(datasource=datasource_name))
+    if not url:
+        raise CLIDatasourceException(FeedbackManager.error_missing_url(datasource=datasource_name))
 
     replace_options = set()
     if skip_incompatible_partition_key:
@@ -242,36 +193,19 @@ async def datasource_replace(
         ctx,
         datasource_name,
         url,
-        connector,
-        sql,
         mode="replace",
         sql_condition=sql_condition,
         replace_options=replace_options,
-        ignore_empty=ignore_empty,
     )
 
 
 @datasource.command(name="analyze")
 @click.argument("url_or_file")
-@click.option(
-    "--connector",
-    type=click.Choice(["bigquery", "snowflake"], case_sensitive=True),
-    help="Use from one of the selected connectors. In this case pass a table name as a parameter instead of a file name or an URL",
-    hidden=True,
-)
 @click.pass_context
 @coro
-async def datasource_analyze(ctx, url_or_file, connector):
+async def datasource_analyze(ctx, url_or_file):
     """Analyze a URL or a file before creating a new data source"""
     client = ctx.obj["client"]
-
-    _connector = None
-    if connector:
-        load_connector_config(ctx, connector, False, check_uninstalled=False)
-        if connector not in ctx.obj:
-            raise CLIDatasourceException(FeedbackManager.error_connector_not_configured(connector=connector))
-        else:
-            _connector = ctx.obj[connector]
 
     def _table(title, columns, data):
         row_format = "{:<25}" * len(columns)
@@ -280,9 +214,7 @@ async def datasource_analyze(ctx, url_or_file, connector):
         for t in data:
             click.echo(FeedbackManager.info_datasource_row(row=row_format.format(*[str(element) for element in t])))
 
-    analysis, _ = await _analyze(
-        url_or_file, client, format=get_format_from_filename_or_url(url_or_file), connector=_connector
-    )
+    analysis, _ = await _analyze(url_or_file, client, format=get_format_from_filename_or_url(url_or_file))
 
     columns = ("name", "type", "nullable")
     if "columns" in analysis["analysis"]:
@@ -513,30 +445,14 @@ async def datasource_delete_rows(ctx, datasource_name, sql_condition, yes, wait,
 )
 @click.argument("filenames", nargs=-1, default=None)
 @click.option("--force", is_flag=True, default=False, help="Override existing files")
-@click.option(
-    "--connector",
-    type=click.Choice(["bigquery", "snowflake"], case_sensitive=True),
-    help="Use from one of the selected connectors. In this case pass a table name as a parameter instead of a file name",
-    hidden=True,
-)
 @click.pass_context
 @coro
-async def generate_datasource(ctx: Context, connector: str, filenames, force: bool):
+async def generate_datasource(ctx: Context, filenames, force: bool):
     """Generate a data source file based on a sample CSV file from local disk or url"""
     client: TinyB = ctx.ensure_object(dict)["client"]
 
-    _connector: Optional[Connector] = None
-    if connector:
-        load_connector_config(ctx, connector, False, check_uninstalled=False)
-        if connector not in ctx.ensure_object(dict):
-            raise CLIDatasourceException(FeedbackManager.error_connector_not_configured(connector=connector))
-        else:
-            _connector = ctx.ensure_object(dict)[connector]
-
     for filename in filenames:
-        await _generate_datafile(
-            filename, client, force=force, format=get_format_from_filename_or_url(filename), connector=_connector
-        )
+        await _generate_datafile(filename, client, force=force, format=get_format_from_filename_or_url(filename))
 
 
 @datasource.command(name="connect")

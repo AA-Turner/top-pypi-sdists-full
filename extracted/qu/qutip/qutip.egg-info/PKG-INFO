@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qutip
-Version: 5.2.2
+Version: 5.2.3
 Summary: QuTiP: The Quantum Toolbox in Python
 Author: Alexander Pitchford, Paul D. Nation, Robert J. Johansson, Chris Granade, Arne Grimsmo, Nathan Shammah, Shahnawaz Ahmed, Neill Lambert, Eric Giguère, Boxi Li, Jake Lishman, Simon Cross
 Author-email: qutip-admin@googlegroups.com
@@ -23,7 +23,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy>=1.22
-Requires-Dist: scipy!=1.16.0,>=1.9
+Requires-Dist: scipy!=1.16.0,!=1.17.0,>=1.9
 Requires-Dist: packaging
 Provides-Extra: graphics
 Requires-Dist: matplotlib>=3.5; extra == "graphics"

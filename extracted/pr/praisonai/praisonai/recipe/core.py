@@ -176,8 +176,8 @@ def run(
     config = config or {}
     input = input or {}
     
-    # Generate identifiers
-    run_id = _generate_run_id()
+    # Generate identifiers - use custom trace_name if provided
+    run_id = options.get("trace_name") or _generate_run_id()
     trace_id = _generate_trace_id()
     session_id = session_id or f"session-{uuid.uuid4().hex[:8]}"
     
@@ -198,7 +198,7 @@ def run(
             from praisonai.replay import ContextTraceWriter
             from praisonaiagents.trace.context_events import ContextTraceEmitter, set_context_emitter
             trace_writer = ContextTraceWriter(session_id=run_id)
-            trace_emitter = ContextTraceEmitter(sink=trace_writer, session_id=run_id)
+            trace_emitter = ContextTraceEmitter(sink=trace_writer, session_id=run_id, full_content=True)
             # Set as global emitter so agents can access it
             trace_emitter_token = set_context_emitter(trace_emitter)
             trace_emitter.session_start({"recipe": name, "run_id": run_id})
@@ -275,11 +275,21 @@ def run(
                 trace=trace,
             )
         
-        # Merge input and config
+        # Merge input and config with built-in variables
+        # Add built-in template variables that should always be resolved
+        builtin_vars = {
+            "today": datetime.now().strftime("%B %d, %Y"),  # e.g., "January 24, 2026"
+            "date": datetime.now().strftime("%Y-%m-%d"),     # e.g., "2026-01-24"
+            "time": datetime.now().strftime("%H:%M:%S"),     # e.g., "14:30:00"
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "year": datetime.now().strftime("%Y"),
+            "month": datetime.now().strftime("%B"),
+        }
+        
         if isinstance(input, str):
-            merged_config = {**recipe_config.defaults, "input": input, **config}
+            merged_config = {**builtin_vars, **recipe_config.defaults, "input": input, **config}
         else:
-            merged_config = {**recipe_config.defaults, **input, **config}
+            merged_config = {**builtin_vars, **recipe_config.defaults, **input, **config}
         
         # Execute recipe (pass trace_emitter for event tracking)
         output = _execute_recipe(
@@ -674,9 +684,38 @@ def describe(name: str, offline: bool = False) -> Optional[RecipeConfig]:
 # --- Internal Functions ---
 
 def _load_recipe(name: str, offline: bool = False) -> Optional[RecipeConfig]:
-    """Load a recipe by name or URI."""
+    """Load a recipe by name or URI or path."""
     try:
         from praisonai.templates import TemplateDiscovery, TemplateLoader
+        
+        # Check if name is an absolute path to a recipe directory
+        name_path = Path(name)
+        if name_path.is_absolute() and name_path.exists() and name_path.is_dir():
+            # Check for agents.yaml or TEMPLATE.yaml in the directory
+            agents_yaml = name_path / "agents.yaml"
+            template_yaml = name_path / "TEMPLATE.yaml"
+            
+            if agents_yaml.exists() or template_yaml.exists():
+                loader = TemplateLoader(offline=offline)
+                template = loader.load(str(name_path))
+                
+                return RecipeConfig(
+                    name=template.name,
+                    version=template.version,
+                    description=template.description,
+                    author=template.author,
+                    license=template.license,
+                    tags=template.tags,
+                    requires=template.requires,
+                    tools=template.raw.get("tools", {}),
+                    config_schema=template.config_schema,
+                    defaults=template.defaults,
+                    outputs=template.raw.get("outputs", []),
+                    governance=template.raw.get("governance", {}),
+                    data_policy=template.raw.get("data_policy", {}),
+                    path=str(template.path) if template.path else None,
+                    raw=template.raw,
+                )
         
         discovery = TemplateDiscovery()
         discovered = discovery.find_template(name)
@@ -860,8 +899,12 @@ def _execute_recipe(
         template_path = Path(recipe_config.path) if recipe_config.path else None
         
         # Determine workflow file - check for agents.yaml if workflow.yaml not specified
-        workflow_file = recipe_config.raw.get("workflow", "workflow.yaml")
-        agents_file = recipe_config.raw.get("agents", "agents.yaml")
+        workflow_raw = recipe_config.raw.get("workflow", "workflow.yaml")
+        agents_raw = recipe_config.raw.get("agents", "agents.yaml")
+        
+        # Handle case where "workflow" or "agents" is a dict (inline definition) vs string (file path)
+        workflow_file = workflow_raw if isinstance(workflow_raw, str) else "workflow.yaml"
+        agents_file = "agents.yaml"  # Always use agents.yaml as the file path
         
         # If workflow.yaml doesn't exist but agents.yaml does, use agents.yaml as workflow
         if template_path:
@@ -933,7 +976,17 @@ def _execute_praisonai_workflow(
     agents = []
     agent_map = {}
     
-    for agent_cfg in workflow_config.get("agents", []):
+    agents_cfg = workflow_config.get("agents", [])
+    if isinstance(agents_cfg, dict):
+        # Convert dict of agents to list of dicts, including the key as 'name'
+        agents_list = []
+        for name, cfg in agents_cfg.items():
+            if isinstance(cfg, dict):
+                cfg["name"] = cfg.get("name", name)
+                agents_list.append(cfg)
+        agents_cfg = agents_list
+    
+    for agent_cfg in agents_cfg:
         agent_tools = resolve_tools(
             agent_cfg.get("tools", []),
             registry=tool_registry,
@@ -985,7 +1038,6 @@ def _execute_praisonai_workflow(
         agents=agents,
         tasks=tasks,
         process=workflow_config.get("process", "sequential"),
-        verbose=1 if output_mode == "verbose" else 0,  # Agents still uses verbose int
     )
     
     return praison.start()

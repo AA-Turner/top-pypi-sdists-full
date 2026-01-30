@@ -12,15 +12,15 @@ from textwrap import dedent
 from tests.coveragetest import CoverageTest
 
 from coverage import env
-from coverage.bytecode import code_objects, op_set
+from coverage.bytecode import ByteParser, op_set
 
 
 class BytecodeTest(CoverageTest):
     """Tests for bytecode.py"""
 
     def test_code_objects(self) -> None:
-        code = compile(
-            dedent("""\
+        bp = ByteParser(
+            text=dedent("""\
                 def f(x):
                     def g(y):
                         return {z for z in range(10)}
@@ -30,12 +30,9 @@ class BytecodeTest(CoverageTest):
                 def h(x):
                     return x+1
                 """),
-            "<string>",
-            "exec",
         )
 
-        objs = list(code_objects(code))
-        assert code in objs
+        objs = list(bp.code_objects())
 
         expected = {"<module>", "f", "g", "j", "h"}
         if env.PYVERSION < (3, 12):

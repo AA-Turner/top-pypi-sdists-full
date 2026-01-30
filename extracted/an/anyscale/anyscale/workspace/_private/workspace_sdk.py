@@ -1,10 +1,14 @@
 import concurrent.futures
 from functools import partial
+import importlib.resources
 import os
+import shlex
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 from typing import cast, ClassVar, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import click
 
@@ -61,6 +65,11 @@ ANYSCALE_WORKSPACES_SSH_OPTIONS = [
     "-o",
     "IdentitiesOnly=yes",
 ]
+
+# HTTPS SSH constants for rsync
+HTTPS_PORT = "443"
+WSS_PATH = "/sshws"
+PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
 
 
 class PrivateWorkspaceSDK(WorkloadSDK):
@@ -454,7 +463,126 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 "\n".join([click.style(file, fg="red") for file in deleting_files])
             )
 
-    def _run_rsync(
+    def _get_https_public_hostname(self, cluster) -> Optional[str]:
+        """Extract public hostname from cluster for HTTPS connection."""
+        # Attempt 1: Use cluster.hostname
+        if hasattr(cluster, "hostname") and cluster.hostname:
+            return cluster.hostname
+
+        # Attempt 2: Fallback to parsing webterminal_auth_url
+        if hasattr(cluster, "webterminal_auth_url") and cluster.webterminal_auth_url:
+            parsed_url = urlparse(cluster.webterminal_auth_url)
+            if parsed_url.netloc:
+                return parsed_url.netloc
+
+        return None
+
+    def _get_https_cluster_access_token(self, cluster_id: str) -> Optional[str]:
+        """Get cluster access token for HTTPS connection."""
+        try:
+            cluster_access_token = self.client._internal_api_client.get_cluster_access_token_api_v2_authentication_cluster_id_cluster_access_token_get(  # noqa: SLF001
+                cluster_id=cluster_id
+            )
+            if not cluster_access_token:
+                return None
+            # Handle both str and bytes return types from API
+            if isinstance(cluster_access_token, bytes):
+                return cluster_access_token.decode("utf-8")
+            return str(cluster_access_token)
+        except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
+            self._logger.debug(
+                f"Failed to get cluster access token: {type(e).__name__}"
+            )
+            return None
+
+    def _create_https_proxy_command(
+        self, public_hostname: str, cluster_access_token: str
+    ) -> Optional[str]:
+        """Create the proxy command for HTTPS connection."""
+        wss_url = f"wss://{public_hostname}{WSS_PATH}"
+
+        try:
+            with importlib.resources.path(
+                "anyscale.utils", "ssh_websocket_proxy.py"
+            ) as proxy_path:
+                proxy_script_path = str(proxy_path)
+        except (ModuleNotFoundError, ImportError) as e:
+            self._logger.debug(
+                f"Failed to create HTTPS proxy command: {type(e).__name__}"
+            )
+            return None
+
+        return " ".join(
+            [
+                shlex.quote(sys.executable),
+                shlex.quote(proxy_script_path),
+                shlex.quote(wss_url),
+                shlex.quote(cluster_access_token),
+            ]
+        )
+
+    def _build_https_ssh_command(
+        self, workspace_id: str, config_file: str
+    ) -> Optional[str]:
+        """Build SSH command string with WebSocket ProxyCommand for rsync -e.
+
+        Returns None if HTTPS connection cannot be set up.
+        """
+        try:
+            cluster = self.client.get_workspace_cluster(workspace_id)
+            if not cluster or not cluster.id:
+                return None
+
+            public_hostname = self._get_https_public_hostname(cluster)
+            if not public_hostname:
+                return None
+
+            cluster_access_token = self._get_https_cluster_access_token(str(cluster.id))
+            if not cluster_access_token:
+                return None
+
+            proxy_cmd = self._create_https_proxy_command(
+                public_hostname, cluster_access_token
+            )
+            if not proxy_cmd:
+                return None
+
+            # Build SSH command with ProxyCommand for HTTPS tunnel
+            ssh_options = subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)
+            return (
+                f"ssh -F {config_file} "
+                f"-p {HTTPS_PORT} "
+                f"-o ProxyCommand='{proxy_cmd}' "
+                f"-o {PREFERRED_AUTH_METHOD} "
+                f"{ssh_options}"
+            )
+        except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
+            self._logger.debug(f"Failed to build HTTPS SSH command: {type(e).__name__}")
+            return None
+
+    def _execute_rsync_with_ssh_cmd(
+        self, ssh_cmd: str, base_rsync_args: List[str], delete: bool,
+    ) -> None:
+        """Execute rsync with the given SSH command."""
+        # Use -c (--checksum) to avoid retransmitting files that haven't changed
+        args = ["rsync", "-rzlc", "-e", ssh_cmd] + base_rsync_args
+
+        # Run dry-run first to detect deletions
+        self._dry_run_rsync(args, delete)
+
+        # Add --progress for real-time feedback (shows filenames and per-file transfer progress)
+        args_with_progress = args + ["--progress"]
+        try:
+            subprocess.run(
+                args_with_progress, check=True, capture_output=True, text=True
+            )
+        except subprocess.CalledProcessError as e:
+            self._logger.error(f">>> Error running rsync command: {e}")
+            self._logger.error(f">>> stdout: {e.stdout}")
+            self._logger.error(f">>> stderr: {e.stderr}")
+            raise RuntimeError(f"Rsync failed with return code {e.returncode}")
+
+    def _run_rsync(  # noqa: PLR0913
         self,
         *,
         id: Optional[str] = None,  # noqa: A002
@@ -466,6 +594,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         is_pull: bool = False,
         include_git_state: bool = False,
         delete: bool = False,
+        direct_ssh: bool = False,
     ):
         workspace_model = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
@@ -509,38 +638,43 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             elif not include_git_state:
                 rsync_args += ["--exclude", ".git"]
 
-            # Use -c (--checksum) to avoid retransmitting files that haven't changed
-            args = [
-                "rsync",
-                "-rzlc",
-                "-e",
-                f"ssh -F {config_file} {subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)}",
-                source,
-                destination,
-            ]
-
+            # Build base rsync args (without -e ssh command)
+            base_rsync_args = [source, destination]
             if delete:
                 # --delete removes files in the destination that are not in the source
                 # Note: This preserves excluded files (like .git) and is compatible with all rsync implementations
-                args.append("--delete")
-
+                base_rsync_args.insert(0, "--delete")
             if rsync_args:
-                args.extend(rsync_args)
+                base_rsync_args = rsync_args + base_rsync_args
 
-            self._dry_run_rsync(args, delete)
+            # Determine which SSH method to use (no fallback - use one or the other)
+            if direct_ssh:
+                # User explicitly requested direct SSH (port 22)
+                ssh_cmd = (
+                    f"ssh -F {config_file} "
+                    f"{subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)}"
+                )
+                click.echo("Syncing via direct SSH connection (port 22)...")
+            else:
+                # Use HTTPS if it can be configured, otherwise use direct SSH
+                # Note: No automatic fallback on transfer failure - if HTTPS fails mid-transfer,
+                # the operation fails and user can retry with --direct-ssh flag
+                https_ssh_cmd = self._build_https_ssh_command(
+                    workspace_model.id, config_file
+                )
+                if https_ssh_cmd:
+                    ssh_cmd = https_ssh_cmd
+                else:
+                    # HTTPS not configurable (e.g., missing cluster info), use direct SSH
+                    ssh_cmd = (
+                        f"ssh -F {config_file} "
+                        f"{subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)}"
+                    )
 
-            # Add -v / --verbose to the rsync command to be explicit about what is being transferred
-            args += ["-v"]
+            # Execute rsync (no automatic fallback on failure)
+            self._execute_rsync_with_ssh_cmd(ssh_cmd, base_rsync_args, delete)
 
-            try:
-                subprocess.run(args, check=True, capture_output=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self._logger.error(f">>> Error running rsync command: {e}")
-                self._logger.error(f">>> stdout: {e.stdout}")
-                self._logger.error(f">>> stderr: {e.stderr}")
-                raise RuntimeError(f"Rsync failed with return code {e.returncode}")
-
-    def pull(
+    def pull(  # noqa: PLR0913
         self,
         *,
         id: Optional[str] = None,  # noqa: A002
@@ -551,6 +685,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         pull_git_state: bool = False,
         rsync_args: Optional[List[str]] = None,
         delete: bool = False,
+        direct_ssh: bool = False,
     ):
         self._run_rsync(
             id=id,
@@ -562,9 +697,10 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             is_pull=True,
             include_git_state=pull_git_state,
             delete=delete,
+            direct_ssh=direct_ssh,
         )
 
-    def push(
+    def push(  # noqa: PLR0913
         self,
         *,
         id: Optional[str] = None,  # noqa: A002
@@ -575,6 +711,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         push_git_state: bool = False,
         rsync_args: Optional[List[str]] = None,
         delete: bool = False,
+        direct_ssh: bool = False,
     ):
         self._run_rsync(
             id=id,
@@ -586,6 +723,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             include_git_state=push_git_state,
             rsync_args=rsync_args,
             delete=delete,
+            direct_ssh=direct_ssh,
         )
 
     def update(

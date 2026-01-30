@@ -7,9 +7,7 @@ __all__ = ["BaseShard"]
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
-from coola.equality.testers import EqualityTester
-
-from iden.utils.comparator import ObjectEqualityComparator
+from coola.equality.tester import EqualNanEqualityTester, get_default_registry
 
 T = TypeVar("T")
 
@@ -185,5 +183,4 @@ class BaseShard(ABC, Generic[T]):
         """
 
 
-if not EqualityTester.has_comparator(BaseShard):  # pragma: no cover
-    EqualityTester.add_comparator(BaseShard, ObjectEqualityComparator())
+get_default_registry().register(BaseShard, EqualNanEqualityTester(), exist_ok=True)

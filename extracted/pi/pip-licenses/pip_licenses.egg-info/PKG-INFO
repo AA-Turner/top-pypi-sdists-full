@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: pip-licenses
-Version: 5.5.0
+Version: 5.5.1
 Summary: Dump the software license list of Python packages installed with pip.
 Author-email: raimon <raimon49@hotmail.com>
-License: MIT
-Project-URL: Homepage, https://github.com/raimon49/pip-licenses
-Project-URL: Releases, https://github.com/raimon49/pip-licenses/releases
-Project-URL: Issues, https://github.com/raimon49/pip-licenses/issues
+License-Expression: MIT
+Project-URL: homepage, https://github.com/raimon49/pip-licenses
+Project-URL: releasenotes, https://github.com/raimon49/pip-licenses/releases
+Project-URL: issues, https://github.com/raimon49/pip-licenses/issues
 Keywords: pip,pypi,package,license,check
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
@@ -525,6 +524,18 @@ If you also want to output the file `NOTICE` distributed under Apache License et
 
 **Note:** If you want to keep the license file path secret, specify `--no-license-path` option together.
 
+**Note:** When using `--with-license-file` with structured formats like CSV, Markdown, reST, or Confluence, the multi-line license file contents can break the formatting. For documentation workflows (like Sphinx), consider using separate commands:
+
+```bash
+# Generate clean RST table for documentation
+$ pip-licenses --from=mixed --format=rst --output-file summary.rst
+
+# Generate license file contents in plain-vertical format for inclusion
+$ pip-licenses --from=mixed --format=plain-vertical --with-license-file --no-license-path --output-file with_license.txt
+```
+
+The RST file can be rendered nicely in Sphinx, while the plain-vertical format preserves the license file contents as monospace text.
+
 #### Option: filter\-strings
 
 Some package data contains Unicode characters which might cause problems for certain output formats (in particular ReST tables). If this filter is enabled, all characters which cannot be encoded with a given code page (see `--filter-code-page`) will be removed from any input strings (e.g. package name, description).
@@ -644,7 +655,7 @@ Command-line options specified during execution will override the corresponding 
 Example `pyproject.toml` configuration:
 
 ```toml
-[tool.pip-licences]
+[tool.pip-licenses]
 from = "classifier"
 ignore-packages = [
   "scipy"
@@ -747,6 +758,16 @@ See [contribution guidelines](https://github.com/raimon49/pip-licenses/blob/mast
 
 ## CHANGELOG
 
+### 5.5.1
+
+* Fixed typographical issue in README examples, closing GHI #209.
+* Fixed typographical issue in docstring found by codespell.
+* Aligned Project URLs in `pyproject.toml` with [PEP 753](https://peps.python.org/pep-0753/)
+* Brought `pyproject.toml` (e.g., packaging metadata) into alignment with [PEP 639](https://peps.python.org/pep-0639/) and related packaging guidance.
+  * Improved `MANIFEST.in` to `setuptools-scm` build logic with better filtering, closing GHI #266
+* Fixed a regression in linting via `black` by deprecating support for python 3.9, closing GHI #264
+  * Applied `black 26.1.0`suggestions to codebase, closing GHI #269
+
 ### 5.5.0
 
 * Replace dependency on `tomli` with builtin `tomllib` for Python 3.11
@@ -755,6 +776,7 @@ See [contribution guidelines](https://github.com/raimon49/pip-licenses/blob/mast
 * Breaking change: The `--from=all` output now includes the `License-Expression` value
 * Fixed KeyError with `--partial` and `--allow-only` if a license matches multiple allowed licenses.
 * Declare support for Python 3.13 and 3.14
+* Added RST/Sphinx workflow example for `--with-license-file` option in documentation
 
 ### 5.0.0
 

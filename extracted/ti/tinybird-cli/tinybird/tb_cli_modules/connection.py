@@ -13,7 +13,6 @@ import click
 from click import Context
 
 from tinybird.client import DoesNotExistException, TinyB
-from tinybird.config import FeatureFlags
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import (
@@ -35,7 +34,6 @@ from tinybird.tb_cli_modules.common import (
     validate_string_connector_param,
 )
 from tinybird.tb_cli_modules.exceptions import CLIConnectionException
-from tinybird.tb_cli_modules.telemetry import is_ci_environment
 
 DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
     DataConnectorType.KAFKA: [
@@ -50,17 +48,6 @@ DATA_CONNECTOR_SETTINGS: Dict[DataConnectorType, List[str]] = {
         "kafka_ssl_ca_pem",
     ],
     DataConnectorType.GCLOUD_SCHEDULER: ["gcscheduler_region"],
-    DataConnectorType.SNOWFLAKE: [
-        "account",
-        "username",
-        "password",
-        "role",
-        "warehouse",
-        "warehouse_size",
-        "stage",
-        "integration",
-    ],
-    DataConnectorType.BIGQUERY: ["account"],
     DataConnectorType.GCLOUD_STORAGE: [
         "gcs_private_key_id",
         "gcs_client_x509_cert_url",
@@ -199,217 +186,6 @@ async def connection_create_kafka(
 
     id = result["id"]
     click.echo(FeedbackManager.success_connection_created(id=id))
-
-
-@connection_create.command(
-    name="snowflake", short_help="Creates a Snowflake connection in the current workspace", hidden=True
-)
-@click.option("--account", help="The account identifier of your Snowflake account (e.g. myorg-account123)")
-@click.option("--username", help="The Snowflake user you want to use for the connection")
-@click.option("--password", help="The Snowflake password of the chosen user")
-@click.option(
-    "--warehouse",
-    default=None,
-    help="If not provided, it's set to your Snowflake user default. Warehouse to run the export sentences.",
-)
-@click.option(
-    "--role",
-    default=None,
-    help="If not provided, it's set to your Snowflake user default. Snowflake role use in the export process.",
-)
-@click.option(
-    "--connection-name",
-    default=None,
-    help="The name of your Snowflake connection. If not provided, it's set as the account identifier",
-)
-@click.option(
-    "--integration-name",
-    default=None,
-    help="The name of your Snowflake integration. If not provided, we will create one.",
-)
-@click.option(
-    "--stage-name", default=None, help="The name of your Snowflake stage. If not provided, we will create one."
-)
-@click.option("--no-validate", is_flag=True, help="Do not validate Snowflake permissions during connection creation")
-@click.pass_context
-@coro
-async def connection_create_snowflake(
-    ctx: Context,
-    account: Optional[str],
-    username: Optional[str],
-    password: Optional[str],
-    warehouse: Optional[str],
-    role: Optional[str],
-    connection_name: Optional[str],
-    integration_name: Optional[str],
-    stage_name: Optional[str],
-    no_validate: Optional[bool],
-) -> None:
-    """
-    Creates a Snowflake connection in the current workspace
-
-    \b
-    $ tb connection create snowflake
-    """
-
-    snowflake_connector_enabled = FeatureFlags.enable_snowflake_connector_command()
-    if not snowflake_connector_enabled:
-        click.echo(FeedbackManager.error_snowflake_connector_not_enabled())
-        return
-
-    obj: Dict[str, Any] = ctx.ensure_object(dict)
-    client: TinyB = obj["client"]
-
-    is_connection_valid: bool = True
-
-    if not username:
-        username = click.prompt("User (must have created stage and create integration in Snowflake)")
-    assert isinstance(username, str)
-
-    if not password:
-        password = click.prompt("Password", hide_input=True)
-    assert isinstance(password, str)
-
-    if not account:
-        account = click.prompt("Account identifier")
-    assert isinstance(account, str)
-
-    account_parts = account.split(".", maxsplit=1)
-    if len(account_parts) == 2:
-        account = "-".join(account_parts)
-
-    if not role:
-        roles = await client.get_snowflake_roles(account, username, password) or []
-        default_role = roles[0] if len(roles) else ""
-        role = click.prompt(
-            "Role (optional)",
-            type=click.types.Choice(roles, case_sensitive=False),
-            show_choices=True,
-            default=default_role,
-            show_default=True,
-        )
-    assert isinstance(role, str)
-
-    if not warehouse:
-        warehouses = await client.get_snowflake_warehouses(account, username, password, role) or []
-        warehouses_names = [w["name"] for w in warehouses]
-        default_warehouse = warehouses_names[0] if warehouses_names else ""
-        warehouse = click.prompt(
-            "Warehouse (optional)",
-            type=click.types.Choice(warehouses_names, case_sensitive=False),
-            default=default_warehouse,
-            show_default=False,
-        )
-    assert isinstance(warehouse, str)
-
-    if connection_name and no_validate is False:
-        if await client.get_connector(connection_name, "snowflake") is not None:
-            raise CLIConnectionException(FeedbackManager.info_connection_already_exists(name=connection_name))
-    else:
-        while not connection_name:
-            connection_name = click.prompt(
-                f"Connection name (optional, current: {account})", default=account, show_default=False
-            )
-            assert isinstance(connection_name, str)
-
-            if no_validate is False and await client.get_connector(connection_name, "snowflake") is not None:
-                click.echo(FeedbackManager.info_connection_already_exists(name=connection_name))
-                connection_name = None
-    assert isinstance(connection_name, str)
-
-    show_instructions: bool = not is_ci_environment()
-
-    if show_instructions:
-        instructions = await client.get_snowflake_integration_query(role, stage_name, integration_name)
-        if instructions:
-            for step in instructions.get("steps", []):
-                click.echo(step.get("description"))
-                click.echo("\n------")
-                click.echo(step.get("action"))
-                click.echo("------\n")
-
-            while True:
-                ans: str = click.prompt(
-                    "Ready?", type=click.types.Choice(["Y", "n"], case_sensitive=False), default="Y", show_default=True
-                )
-                if ans.lower() == "y":
-                    break
-
-    conn_file_name = f"{connection_name}.connection"
-    conn_file_path = Path(getcwd(), conn_file_name)
-    if os.path.isfile(conn_file_path):
-        raise CLIConnectionException(FeedbackManager.error_connection_file_already_exists(name=conn_file_name))
-
-    if no_validate is False:
-        click.echo("** Validating connection...")
-        is_connection_valid = await client.validate_snowflake_connection(account, username, password)
-
-    if not is_connection_valid:
-        raise CLIConnectionException(FeedbackManager.error_snowflake_improper_permissions())
-
-    _ = await client.connection_create_snowflake(
-        account, username, password, warehouse, role, connection_name, integration_name, stage_name
-    )
-
-    async with aiofiles.open(conn_file_path, "w") as f:
-        await f.write(
-            f"""TYPE snowflake
-
-USERNAME='{username}'
-ACCOUNT='{account}'
-WAREHOUSE='{warehouse}'
-ROLE='{role}'
-"""
-        )
-    click.echo(FeedbackManager.success_connection_file_created(name=conn_file_name))
-
-
-@connection_create.command(name="bigquery", short_help="Add a BigQuery connection", hidden="True")
-@click.option("--no-validate", is_flag=True, help="Do not validate GCP permissions during connection creation")
-@click.pass_context
-@coro
-async def connection_create_bigquery(ctx: Context, no_validate: bool) -> None:
-    """
-    Add a BigQuery connection
-
-    \b
-    $ tb connection create bigquery
-    """
-
-    obj: Dict[str, Any] = ctx.ensure_object(dict)
-    client: TinyB = obj["client"]
-
-    click.echo(FeedbackManager.warning_bigquery_connector_deprecated())
-    click.echo("\n")
-
-    gcp_account_details: Dict[str, Any] = await client.get_gcp_service_account_details()
-
-    connection_created: bool = False
-
-    while True:
-        response = click.prompt(
-            FeedbackManager.prompt_bigquery_account(service_account=gcp_account_details["account"]),
-            type=click.Choice(["y", "N"], case_sensitive=False),
-            default="N",
-            show_default=True,
-            show_choices=True,
-        )
-
-        if response in ("n", "N"):
-            click.echo(FeedbackManager.info_cancelled_by_user())
-            break
-
-        if no_validate or await client.check_gcp_read_permissions():
-            connection_created = True
-            break
-        else:
-            click.echo("\n")
-            click.echo(FeedbackManager.error_bigquery_improper_permissions())
-
-    if connection_created:
-        async with aiofiles.open(Path(getcwd(), "bigquery.connection"), "w") as f:
-            await f.write("TYPE bigquery\n")
-        click.echo(FeedbackManager.success_connection_created(id="bigquery"))
 
 
 @connection.command(name="rm")
@@ -636,7 +412,7 @@ async def connection_create_gcs_hmac(
 @click.option("--private-key", help="Your GCS private key with access to the buckets")
 @click.option("--private-key-id", help="Your GCS private key id with access to the buckets")
 @click.option("--connection-name", default=None, help="The name of the connection to identify it in Tinybird")
-@click.option("--no-validate", is_flag=True, help="Do not validate Snowflake permissions during connection creation")
+@click.option("--no-validate", is_flag=True, help="Do not validate GCS permissions during connection creation")
 @click.pass_context
 @coro
 async def connection_create_gcs(

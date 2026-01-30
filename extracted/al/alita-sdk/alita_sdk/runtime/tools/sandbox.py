@@ -82,7 +82,7 @@ sandbox_tool_input = create_model(
 class PyodideSandboxTool(BaseTool):
     """
     A tool that provides secure Python code execution using Pyodide (Python compiled to WebAssembly).
-    This tool provides a safe environment for running untrusted Python code using Pyodide.
+    This tool leverages langchain-sandbox to provide a safe environment for running untrusted Python code.
     Optimized for performance with caching and stateless execution by default.
     """
 
@@ -147,25 +147,20 @@ class PyodideSandboxTool(BaseTool):
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
 
-            # Use our own implementation (compatible with langchain-core 1.x)
-            from alita_sdk.runtime.langchain.pyodide_sandbox import PyodideSandbox
+            from langchain_sandbox import PyodideSandbox
 
             # Air-gapped settings
             sandbox_base = os.environ.get("SANDBOX_BASE", os.path.expanduser('~/.cache/pyodide'))
             sandbox_tmp = os.path.join(sandbox_base, "tmp")
             deno_cache = os.environ.get("DENO_DIR", os.path.expanduser('~/.cache/deno'))
 
-            # Get the project node_modules path
-            node_modules_path = '/Users/mikalai_biazruchka/workspace/epam/elitea/sdk/alita-sdk/node_modules'
-            pyodide_cache_path = os.path.join(node_modules_path, '.deno/pyodide@0.27.7/node_modules/pyodide')
-
             # Configure sandbox with performance optimizations
             self._sandbox = PyodideSandbox(
                 stateful=self.stateful,
                 #
                 allow_env=["SANDBOX_BASE"],
-                allow_read=[sandbox_base, sandbox_tmp, deno_cache, node_modules_path],
-                allow_write=[sandbox_tmp, deno_cache, pyodide_cache_path],
+                allow_read=[sandbox_base, sandbox_tmp, deno_cache],
+                allow_write=[sandbox_tmp, deno_cache],
                 #
                 allow_net=self.allow_net,
                 # Use auto node_modules_dir for better caching
@@ -173,8 +168,16 @@ class PyodideSandboxTool(BaseTool):
             )
             logger.info(f"PyodideSandbox initialized successfully (stateful={self.stateful})")
         except ImportError as e:
-            logger.error(f"Failed to import PyodideSandbox: {e}")
-            raise
+            if "langchain_sandbox" in str(e):
+                error_msg = (
+                    "langchain-sandbox is required for the PyodideSandboxTool. "
+                    "Please install it with: pip install langchain-sandbox"
+                )
+                logger.error(error_msg)
+                raise ImportError(error_msg) from e
+            else:
+                logger.error(f"Failed to import required module: {e}")
+                raise
         except Exception as e:
             logger.error(f"Failed to initialize PyodideSandbox: {e}")
             raise
@@ -188,9 +191,7 @@ class PyodideSandboxTool(BaseTool):
             if self._sandbox is None:
                 self._initialize_sandbox()
 
-            # Prepare code with state and client injection
-            prepared_code = self._prepare_pyodide_input(code)
-
+            # Note: _arun() handles code preparation (alita_client injection)
             # Check if we're already in an async context
             try:
                 loop = asyncio.get_running_loop()
@@ -198,16 +199,16 @@ class PyodideSandboxTool(BaseTool):
                 # We'll need to use a different approach
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self._arun(prepared_code))
+                    future = executor.submit(asyncio.run, self._arun(code))
                     return future.result()
             except RuntimeError:
                 # No running loop, safe to use asyncio.run
-                return asyncio.run(self._arun(prepared_code))
+                return asyncio.run(self._arun(code))
         except (ImportError, RuntimeError) as e:
             # Handle specific dependency errors gracefully
             error_msg = str(e)
-            if "pyodide_sandbox" in error_msg:
-                return "❌ PyodideSandboxTool initialization failed. Check Deno installation."
+            if "langchain-sandbox" in error_msg:
+                return "❌ PyodideSandboxTool requires langchain-sandbox. Install with: pip install langchain-sandbox"
             elif "Deno" in error_msg:
                 return "❌ PyodideSandboxTool requires Deno. Install from: https://docs.deno.com/runtime/getting_started/installation/"
             else:
@@ -224,9 +225,13 @@ class PyodideSandboxTool(BaseTool):
             if self._sandbox is None:
                 self._initialize_sandbox()
 
+            # Prepare code with state and client injection
+            # This is needed when _arun is called directly via ainvoke()
+            prepared_code = self._prepare_pyodide_input(code)
+
             # Execute the code with session state if available
             result = await self._sandbox.execute(
-                code,
+                prepared_code,
                 session_bytes=self.session_bytes,
                 session_metadata=self.session_metadata
             )
@@ -304,7 +309,7 @@ def create_sandbox_tool(stateful: bool = False, allow_net: bool = True, alita_cl
         Configured sandbox tool instance
 
     Raises:
-        ImportError: If required dependencies are not available
+        ImportError: If langchain-sandbox is not installed
         RuntimeError: If Deno is not found in PATH
 
     Performance Notes:

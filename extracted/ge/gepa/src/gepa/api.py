@@ -4,7 +4,10 @@
 import os
 import random
 from collections.abc import Sequence
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+if TYPE_CHECKING:
+    from gepa.core.callbacks import GEPACallback
 
 from gepa.adapters.default_adapter.default_adapter import (
     ChatCompletionCallable,
@@ -15,7 +18,7 @@ from gepa.core.adapter import DataInst, GEPAAdapter, RolloutOutput, Trajectory
 from gepa.core.data_loader import DataId, DataLoader, ensure_loader
 from gepa.core.engine import GEPAEngine
 from gepa.core.result import GEPAResult
-from gepa.core.state import FrontierType
+from gepa.core.state import EvaluationCache, FrontierType
 from gepa.logging.experiment_tracker import create_experiment_tracker
 from gepa.logging.logger import LoggerProtocol, StdOutLogger
 from gepa.proposer.merge import MergeProposer
@@ -60,9 +63,10 @@ def optimize(
     # Budget and Stop Condition
     max_metric_calls: int | None = None,
     stop_callbacks: StopperProtocol | Sequence[StopperProtocol] | None = None,
-    # Logging
+    # Logging and Callbacks
     logger: LoggerProtocol | None = None,
     run_dir: str | None = None,
+    callbacks: "list[GEPACallback] | None" = None,
     use_wandb: bool = False,
     wandb_api_key: str | None = None,
     wandb_init_kwargs: dict[str, Any] | None = None,
@@ -72,6 +76,8 @@ def optimize(
     track_best_outputs: bool = False,
     display_progress_bar: bool = False,
     use_cloudpickle: bool = False,
+    # Evaluation caching
+    cache_evaluation: bool = False,
     # Reproducibility
     seed: int = 0,
     raise_on_exception: bool = True,
@@ -142,8 +148,9 @@ def optimize(
     - max_metric_calls: Optional maximum number of metric calls to perform. If not provided, stop_callbacks must be provided.
     - stop_callbacks: Optional stopper(s) that return True when optimization should stop. Can be a single StopperProtocol or a list or tuple of StopperProtocol instances. Examples: FileStopper, TimeoutStopCondition, SignalStopper, NoImprovementStopper, or custom stopping logic. If not provided, max_metric_calls must be provided.
 
-    # Logging
+    # Logging and Callbacks
     - logger: A `LoggerProtocol` instance that is used to log the progress of the optimization.
+    - callbacks: Optional list of callback objects for observing optimization progress. Callbacks receive events like on_optimization_start, on_iteration_start, on_candidate_accepted, etc. See `gepa.core.callbacks.GEPACallback` for the full protocol.
     - run_dir: The directory to save the results to. Optimization state and results will be saved to this directory. If the directory already exists, GEPA will read the state from this directory and resume the optimization from the last saved state. If provided, a FileStopper is automatically created which checks for the presence of "gepa.stop" in this directory, allowing graceful stopping of the optimization process upon its presence.
     - use_wandb: Whether to use Weights and Biases to log the progress of the optimization.
     - wandb_api_key: The API key to use for Weights and Biases.
@@ -156,11 +163,18 @@ def optimize(
     - display_progress_bar: Show a tqdm progress bar over metric calls when enabled.
     - use_cloudpickle: Use cloudpickle instead of pickle. This can be helpful when the serialized state contains dynamically generated DSPy signatures.
 
+    # Evaluation caching
+    - cache_evaluation: Whether to cache the (score, output, objective_scores) of (candidate, example) pairs. If True and a cache entry exists, GEPA will skip the fitness evaluation and use the cached results. This helps avoid redundant evaluations and saves metric calls. Defaults to False.
+
     # Reproducibility
     - seed: The seed to use for the random number generator.
     - val_evaluation_policy: Strategy controlling which validation ids to score each iteration and which candidate is currently best. Supported strings: "full_eval" (evaluate every id each time) Passing None defaults to "full_eval".
     - raise_on_exception: Whether to propagate proposer/evaluator exceptions instead of stopping gracefully.
     """
+    # Validate seed_candidate is not None or empty
+    if seed_candidate is None or not seed_candidate:
+        raise ValueError("seed_candidate must contain at least one component text.")
+
     active_adapter: GEPAAdapter[DataInst, Trajectory, RolloutOutput] | None = None
     if adapter is None:
         assert task_lm is not None, (
@@ -306,6 +320,11 @@ def optimize(
             "Set reflection_prompt_template to None."
         )
 
+    # Create evaluation cache if enabled
+    evaluation_cache: EvaluationCache[RolloutOutput, DataId] | None = None
+    if cache_evaluation:
+        evaluation_cache = EvaluationCache[RolloutOutput, DataId]()
+
     reflective_proposer = ReflectiveMutationProposer(
         logger=logger,
         trainset=train_loader,
@@ -318,11 +337,14 @@ def optimize(
         experiment_tracker=experiment_tracker,
         reflection_lm=reflection_lm,
         reflection_prompt_template=reflection_prompt_template,
+        callbacks=callbacks,
     )
 
-    def evaluator_fn(inputs: list[DataInst], prog: dict[str, str]) -> tuple[list[RolloutOutput], list[float]]:
+    def evaluator_fn(
+        inputs: list[DataInst], prog: dict[str, str]
+    ) -> tuple[list[RolloutOutput], list[float], Sequence[dict[str, float]] | None]:
         eval_out = active_adapter.evaluate(inputs, prog, capture_traces=False)
-        return eval_out.outputs, eval_out.scores
+        return eval_out.outputs, eval_out.scores, eval_out.objective_scores
 
     merge_proposer: MergeProposer | None = None
     if use_merge:
@@ -334,6 +356,7 @@ def optimize(
             max_merge_invocations=max_merge_invocations,
             rng=rng,
             val_overlap_floor=merge_val_overlap_floor,
+            callbacks=callbacks,
         )
 
     engine = GEPAEngine(
@@ -348,12 +371,14 @@ def optimize(
         frontier_type=frontier_type,
         logger=logger,
         experiment_tracker=experiment_tracker,
+        callbacks=callbacks,
         track_best_outputs=track_best_outputs,
         display_progress_bar=display_progress_bar,
         raise_on_exception=raise_on_exception,
         stop_callback=stop_callback,
         val_evaluation_policy=val_evaluation_policy,
         use_cloudpickle=use_cloudpickle,
+        evaluation_cache=evaluation_cache,
     )
 
     with experiment_tracker:

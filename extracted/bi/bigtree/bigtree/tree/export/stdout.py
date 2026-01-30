@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Collection, Iterable, TypeVar
 
 from bigtree.node import node
-from bigtree.tree.export._stdout import get_attr
-from bigtree.utils import common, constants
+from bigtree.utils import common, constants, exceptions
 
 try:
     import rich
@@ -28,6 +27,7 @@ __all__ = [
 T = TypeVar("T", bound=node.Node)
 
 
+@exceptions.optional_dependencies_rich
 def print_rich(
     pre_str: str,
     fill_str: str,
@@ -64,13 +64,13 @@ def print_rich(
     """
     # Add rich formatting
     if icon_prefix_attr:
-        node_str_prefix = get_attr(_node, icon_prefix_attr, "")
+        node_str_prefix = common.get_attr(_node, icon_prefix_attr, "")
         node_str = f"{node_str_prefix} {node_str}" if node_str_prefix else node_str
     if icon_suffix_attr:
-        node_str_suffix = get_attr(_node, icon_suffix_attr, "")
+        node_str_suffix = common.get_attr(_node, icon_suffix_attr, "")
         node_str = f"{node_str} {node_str_suffix}" if node_str_suffix else node_str
     if node_format or node_format_attr:
-        _node_format = get_attr(_node, node_format_attr, node_format)
+        _node_format = common.get_attr(_node, node_format_attr, node_format)
         node_str = (
             f"[{_node_format}]{node_str}[/{_node_format}]" if _node_format else node_str
         )
@@ -269,9 +269,10 @@ def print_tree(
         attr_bracket: open and close bracket for `all_attrs` or `attr_list`
         style: style of print
     """
-    # Forward-compatible, so signature does not change
+    # Backwards-compatible, so signature does not change
     rich_display = kwargs.pop("rich", False)
     if rich_display:
+        exceptions.optional_dependencies_rich(lambda: None)()
         from rich.console import Console
 
         kwargs["console"] = kwargs.get("console") or Console(force_terminal=True)

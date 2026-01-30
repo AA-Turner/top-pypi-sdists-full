@@ -35,15 +35,25 @@ from mlflow.genai.scorers.base import (
 )
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
+    resolve_expectations_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
+
+# JudgeField constants for standard instructions judge invocation fields
+INPUTS_FIELD = JudgeField(name="inputs", description="Input data to evaluate")
+OUTPUTS_FIELD = JudgeField(name="outputs", description="Output data to evaluate")
+EXPECTATIONS_FIELD = JudgeField(
+    name="expectations", description="Expected outcomes or ground truth"
+)
+TRACE_FIELD = JudgeField(name="trace", description="Trace to evaluate")
 
 
 class InstructionsJudge(Judge):
@@ -187,6 +197,11 @@ class InstructionsJudge(Judge):
         return self._instructions
 
     @property
+    def feedback_value_type(self) -> Any:
+        """Get the type of the feedback value."""
+        return self._feedback_value_type
+
+    @property
     def inference_params(self) -> dict[str, Any] | None:
         """Get the inference parameters for this judge."""
         return self._inference_params
@@ -201,18 +216,16 @@ class InstructionsJudge(Judge):
         fields = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            fields.append(JudgeField(name="inputs", description="Input data to evaluate"))
+            fields.append(INPUTS_FIELD)
 
         if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            fields.append(JudgeField(name="outputs", description="Output data to evaluate"))
+            fields.append(OUTPUTS_FIELD)
 
         if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
-            fields.append(
-                JudgeField(name="expectations", description="Expected outcomes or ground truth")
-            )
+            fields.append(EXPECTATIONS_FIELD)
 
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
-            fields.append(JudgeField(name="trace", description="Trace to evaluate"))
+            fields.append(TRACE_FIELD)
 
         return fields
 
@@ -277,35 +290,7 @@ class InstructionsJudge(Judge):
 
     def _validate_session(self, session: list[Trace]) -> None:
         """Validate that all traces in session belong to the same session."""
-        session_id_to_trace_ids: dict[str, list[str]] = {}
-        for trace in session:
-            session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
-            if session_id is None:
-                raise MlflowException(
-                    f"All traces in 'session' must have a session_id. "
-                    f"Trace {trace.info.trace_id} is missing session_id. "
-                    f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
-                    f"for information on how to set session_id on traces.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if session_id not in session_id_to_trace_ids:
-                session_id_to_trace_ids[session_id] = []
-            session_id_to_trace_ids[session_id].append(trace.info.trace_id)
-
-        if len(session_id_to_trace_ids) != 1:
-            session_details = "\n".join(
-                f"session_id '{sid}': trace_ids {trace_ids[:3]}"
-                + (
-                    f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
-                    if len(trace_ids) > 3
-                    else ""
-                )
-                for sid, trace_ids in session_id_to_trace_ids.items()
-            )
-            raise MlflowException.invalid_parameter_value(
-                f"All traces in 'session' must belong to the same session. "
-                f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
-            )
+        validate_session(session)
 
     def _warn_unused_parameters(
         self,
@@ -539,6 +524,8 @@ class InstructionsJudge(Judge):
             conversation = resolve_conversation_from_session(
                 session, include_tool_calls=self._include_tool_calls_in_conversation
             )
+            if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+                expectations = resolve_expectations_from_session(expectations, session)
 
         self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
@@ -764,4 +751,4 @@ class InstructionsJudge(Judge):
         return asdict(serialized_scorer)
 
 
-__all__ = ["InstructionsJudge"]
+__all__ = ["InstructionsJudge", "TraceMetadataKey"]

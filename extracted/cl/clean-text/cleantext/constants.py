@@ -23,9 +23,7 @@ CURRENCIES = {
     "₴": "UAH",
     "₹": "INR",
 }
-CURRENCY_REGEX = re.compile(
-    "({})+".format("|".join(re.escape(c) for c in CURRENCIES.keys()))
-)
+CURRENCY_REGEX = re.compile("({})+".format("|".join(re.escape(c) for c in CURRENCIES.keys())))
 
 PUNCT_TRANSLATE_UNICODE = dict.fromkeys(
     (i for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith("P")),
@@ -45,11 +43,73 @@ EMAIL_REGEX = re.compile(
 
 # for more information: https://github.com/jfilter/clean-text/issues/10
 PHONE_REGEX = re.compile(
-    r"((?:^|(?<=[^\w)]))(((\+?[01])|(\+\d{2}))[ .-]?)?(\(?\d{3,4}\)?/?[ .-]?)?(\d{3}[ .-]?\d{4})(\s?(?:ext\.?|[#x-])\s?\d{2,6})?(?:$|(?=\W)))|\+?\d{4,5}[ .-/]\d{6,9}"
+    r"((?:^|(?<=[^\w)]))(((00\d{1,3})|(\+?[01])|(\+\d{2}))[ .-]?)?(\(?\d{3,4}\)?/?[ .-]?)?(\d{3}[ .-]?\d{4})(\s?(?:ext\.?|[#x-])\s?\d{2,6})?(?:$|(?=\W)))|\+?\d{4,5}[ .-/]\d{6,9}"
+)
+
+_IPV4_PATTERN = (
+    r"(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+    r"(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
+)
+
+_HEX_GROUP = r"[0-9a-fA-F]{1,4}"
+
+_IPV6_PATTERN = (
+    r"(?:"
+    + _HEX_GROUP
+    + r":){7}"
+    + _HEX_GROUP
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,7}:"
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,6}:"
+    + _HEX_GROUP
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,5}(?::"
+    + _HEX_GROUP
+    + r"){1,2}"
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,4}(?::"
+    + _HEX_GROUP
+    + r"){1,3}"
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,3}(?::"
+    + _HEX_GROUP
+    + r"){1,4}"
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,2}(?::"
+    + _HEX_GROUP
+    + r"){1,5}"
+    + r"|"
+    + _HEX_GROUP
+    + r":(?::"
+    + _HEX_GROUP
+    + r"){1,6}"
+    + r"|:(?::"
+    + _HEX_GROUP
+    + r"){1,7}"
+    + r"|::(?:ffff(?::0{1,4})?:)?"
+    + _IPV4_PATTERN
+    + r"|(?:"
+    + _HEX_GROUP
+    + r":){1,4}:"
+    + _IPV4_PATTERN
+    + r"|::"
+)
+
+IP_REGEX = re.compile(
+    r"(?:(?:^|(?<=\s))(?:" + _IPV6_PATTERN + r")(?=\s|$))"
+    r"|(?:\b" + _IPV4_PATTERN + r"\b)",
+    flags=re.IGNORECASE | re.MULTILINE,
 )
 
 NUMBERS_REGEX = re.compile(
-    r"(?:^|(?<=[^\w,.]))[+–-]?(([1-9]\d{0,2}(,\d{3})+(\.\d*)?)|([1-9]\d{0,2}([ .]\d{3})+(,\d*)?)|(\d*?[.,]\d+)|\d+)(?:$|(?=\b))"
+    r"((?<=[a-zA-Z])\d+)|(\d+(?=[a-zA-Z]))|(?:^|(?<=[^\w,.]))[+–-]?(([1-9]\d{0,2}(,\d{3})+(\.\d*)?)|([1-9]\d{0,2}([ .]\d{3})+(,\d*)?)|(\d*?[.,]\d+)|\d+)(?:$|(?=\b))"
 )
 
 LINEBREAK_REGEX = re.compile(r"((\r\n)|[\n\v])+")
@@ -65,7 +125,8 @@ URL_REGEX = re.compile(
     # r"(?:(?:https?|ftp)://)"  <-- alt?
     r"(?:(?:https?:\/\/|ftp:\/\/|www\d{0,3}\.))"
     # user:pass authentication
-    r"(?:\S+(?::\S*)?@)?" r"(?:"
+    r"(?:\S+(?::\S*)?@)?"
+    r"(?:"
     # IP address exclusion
     # private & local networks
     r"(?!(?:10|127)(?:\.\d{1,3}){3})"
@@ -85,7 +146,10 @@ URL_REGEX = re.compile(
     # domain name
     r"(?:\.(?:[a-z\\u00a1-\\uffff0-9]-?)*[a-z\\u00a1-\\uffff0-9]+)*"
     # TLD identifier
-    r"(?:\.(?:[a-z\\u00a1-\\uffff]{2,}))" r"|" r"(?:(localhost))" r")"
+    r"(?:\.(?:[a-z\\u00a1-\\uffff]{2,}))"
+    r"|"
+    r"(?:(localhost))"
+    r")"
     # port number
     r"(?::\d{2,5})?"
     # resource path
@@ -119,3 +183,18 @@ strange_single_quotes = ["‘", "‛", "’", "❛", "❜", "`", "´", "‘", "�
 
 DOUBLE_QUOTE_REGEX = re.compile("|".join(strange_double_quotes))
 SINGLE_QUOTE_REGEX = re.compile("|".join(strange_single_quotes))
+
+CODE_REGEX = re.compile(
+    r"(`{3,})\w*\n[\s\S]*?\1"  # fenced code blocks (```lang\n...\n```)
+    r"|"
+    r"`[^`\n]+`",  # inline code (`...`)
+)
+
+FILE_PATH_REGEX = re.compile(
+    r"(?:(?<=\s)|^)(?:~|\.\.?)(?:/[\w.@+-]+)+(?=\s|$)"  # ~/docs, ./src, ../lib
+    r"|"
+    r"(?:(?<=\s)|^)(?:/[\w.@+-]+){2,}(?=\s|$)"  # /usr/local/bin (2+ segments)
+    r"|"
+    r"(?:(?<=\s)|^)[A-Za-z]:\\(?:[\w.@+-]+\\)*[\w.@+-]+(?=\s|$)",  # C:\Users\Name
+    flags=re.MULTILINE,
+)

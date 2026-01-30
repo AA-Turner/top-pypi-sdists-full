@@ -10,7 +10,11 @@ from pathlib import Path
 
 import typer
 
-from graphrag.config.defaults import graphrag_config_defaults
+from graphrag.config.defaults import (
+    DEFAULT_COMPLETION_MODEL,
+    DEFAULT_EMBEDDING_MODEL,
+    graphrag_config_defaults,
+)
 from graphrag.config.enums import IndexingMethod, SearchMethod
 from graphrag.prompt_tune.defaults import LIMIT, MAX_TOKEN_COUNT, N_SUBSET_MAX, K
 from graphrag.prompt_tune.types import DocSelectionType
@@ -64,9 +68,9 @@ def path_autocomplete(
         # Apply wildcard matching if required
         if match_wildcard:
             completions = filter(
-                lambda i: wildcard_match(i, match_wildcard)
-                if match_wildcard
-                else False,
+                lambda i: (
+                    wildcard_match(i, match_wildcard) if match_wildcard else False
+                ),
                 completions,
             )
 
@@ -94,14 +98,27 @@ ROOT_AUTOCOMPLETE = path_autocomplete(
 @app.command("init")
 def _initialize_cli(
     root: Path = typer.Option(
-        Path(),
+        Path.cwd(),
         "--root",
         "-r",
         help="The project root directory.",
         dir_okay=True,
         writable=True,
+        file_okay=False,
         resolve_path=True,
         autocompletion=ROOT_AUTOCOMPLETE,
+    ),
+    model: str = typer.Option(
+        DEFAULT_COMPLETION_MODEL,
+        "--model",
+        "-m",
+        prompt="Specify the default chat model to use",
+    ),
+    embedding_model: str = typer.Option(
+        DEFAULT_EMBEDDING_MODEL,
+        "--embedding",
+        "-e",
+        prompt="Specify the default embedding model to use",
     ),
     force: bool = typer.Option(
         False,
@@ -113,28 +130,21 @@ def _initialize_cli(
     """Generate a default configuration file."""
     from graphrag.cli.initialize import initialize_project_at
 
-    initialize_project_at(path=root, force=force)
+    initialize_project_at(
+        path=root, force=force, model=model, embedding_model=embedding_model
+    )
 
 
 @app.command("index")
 def _index_cli(
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="The configuration to use.",
-        exists=True,
-        file_okay=True,
-        readable=True,
-        autocompletion=CONFIG_AUTOCOMPLETE,
-    ),
     root: Path = typer.Option(
-        Path(),
+        Path.cwd(),
         "--root",
         "-r",
         help="The project root directory.",
         exists=True,
         dir_okay=True,
+        file_okay=False,
         writable=True,
         resolve_path=True,
         autocompletion=ROOT_AUTOCOMPLETE,
@@ -150,11 +160,6 @@ def _index_cli(
         "--verbose",
         "-v",
         help="Run the indexing pipeline with verbose logging",
-    ),
-    memprofile: bool = typer.Option(
-        False,
-        "--memprofile",
-        help="Run the indexing pipeline with memory profiling",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -174,18 +179,6 @@ def _index_cli(
         "--skip-validation",
         help="Skip any preflight validation. Useful when running no LLM steps.",
     ),
-    output: Path | None = typer.Option(
-        None,
-        "--output",
-        "-o",
-        help=(
-            "Indexing pipeline output directory. "
-            "Overrides output.base_dir in the configuration file."
-        ),
-        dir_okay=True,
-        writable=True,
-        resolve_path=True,
-    ),
 ) -> None:
     """Build a knowledge graph index."""
     from graphrag.cli.index import index_cli
@@ -193,35 +186,23 @@ def _index_cli(
     index_cli(
         root_dir=root,
         verbose=verbose,
-        memprofile=memprofile,
         cache=cache,
-        config_filepath=config,
         dry_run=dry_run,
         skip_validation=skip_validation,
-        output_dir=output,
         method=method,
     )
 
 
 @app.command("update")
 def _update_cli(
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="The configuration to use.",
-        exists=True,
-        file_okay=True,
-        readable=True,
-        autocompletion=CONFIG_AUTOCOMPLETE,
-    ),
     root: Path = typer.Option(
-        Path(),
+        Path.cwd(),
         "--root",
         "-r",
         help="The project root directory.",
         exists=True,
         dir_okay=True,
+        file_okay=False,
         writable=True,
         resolve_path=True,
         autocompletion=ROOT_AUTOCOMPLETE,
@@ -238,11 +219,6 @@ def _update_cli(
         "-v",
         help="Run the indexing pipeline with verbose logging.",
     ),
-    memprofile: bool = typer.Option(
-        False,
-        "--memprofile",
-        help="Run the indexing pipeline with memory profiling.",
-    ),
     cache: bool = typer.Option(
         True,
         "--cache/--no-cache",
@@ -252,18 +228,6 @@ def _update_cli(
         False,
         "--skip-validation",
         help="Skip any preflight validation. Useful when running no LLM steps.",
-    ),
-    output: Path | None = typer.Option(
-        None,
-        "--output",
-        "-o",
-        help=(
-            "Indexing pipeline output directory. "
-            "Overrides output.base_dir in the configuration file."
-        ),
-        dir_okay=True,
-        writable=True,
-        resolve_path=True,
     ),
 ) -> None:
     """
@@ -276,11 +240,8 @@ def _update_cli(
     update_cli(
         root_dir=root,
         verbose=verbose,
-        memprofile=memprofile,
         cache=cache,
-        config_filepath=config,
         skip_validation=skip_validation,
-        output_dir=output,
         method=method,
     )
 
@@ -288,25 +249,16 @@ def _update_cli(
 @app.command("prompt-tune")
 def _prompt_tune_cli(
     root: Path = typer.Option(
-        Path(),
+        Path.cwd(),
         "--root",
         "-r",
         help="The project root directory.",
         exists=True,
         dir_okay=True,
+        file_okay=False,
         writable=True,
         resolve_path=True,
         autocompletion=ROOT_AUTOCOMPLETE,
-    ),
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="The configuration to use.",
-        exists=True,
-        file_okay=True,
-        readable=True,
-        autocompletion=CONFIG_AUTOCOMPLETE,
     ),
     verbose: bool = typer.Option(
         False,
@@ -354,14 +306,14 @@ def _prompt_tune_cli(
         help="The minimum number of examples to generate/include in the entity extraction prompt.",
     ),
     chunk_size: int = typer.Option(
-        graphrag_config_defaults.chunks.size,
+        graphrag_config_defaults.chunking.size,
         "--chunk-size",
-        help="The size of each example text chunk. Overrides chunks.size in the configuration file.",
+        help="The size of each example text chunk. Overrides chunking.size in the configuration file.",
     ),
     overlap: int = typer.Option(
-        graphrag_config_defaults.chunks.overlap,
+        graphrag_config_defaults.chunking.overlap,
         "--overlap",
-        help="The overlap size for chunking documents. Overrides chunks.overlap in the configuration file.",
+        help="The overlap size for chunking documents. Overrides chunking.overlap in the configuration file.",
     ),
     language: str | None = typer.Option(
         None,
@@ -392,7 +344,6 @@ def _prompt_tune_cli(
     loop.run_until_complete(
         prompt_tune(
             root=root,
-            config=config,
             domain=domain,
             verbose=verbose,
             selection_method=selection_method,
@@ -412,27 +363,26 @@ def _prompt_tune_cli(
 
 @app.command("query")
 def _query_cli(
+    query: str = typer.Argument(
+        help="The query to execute.",
+    ),
+    root: Path = typer.Option(
+        Path.cwd(),
+        "--root",
+        "-r",
+        help="The project root directory.",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+        writable=True,
+        resolve_path=True,
+        autocompletion=ROOT_AUTOCOMPLETE,
+    ),
     method: SearchMethod = typer.Option(
-        ...,
+        SearchMethod.GLOBAL.value,
         "--method",
         "-m",
         help="The query algorithm to use.",
-    ),
-    query: str = typer.Option(
-        ...,
-        "--query",
-        "-q",
-        help="The query to execute.",
-    ),
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="The configuration to use.",
-        exists=True,
-        file_okay=True,
-        readable=True,
-        autocompletion=CONFIG_AUTOCOMPLETE,
     ),
     verbose: bool = typer.Option(
         False,
@@ -448,17 +398,6 @@ def _query_cli(
         exists=True,
         dir_okay=True,
         readable=True,
-        resolve_path=True,
-        autocompletion=ROOT_AUTOCOMPLETE,
-    ),
-    root: Path = typer.Option(
-        Path(),
-        "--root",
-        "-r",
-        help="The project root directory.",
-        exists=True,
-        dir_okay=True,
-        writable=True,
         resolve_path=True,
         autocompletion=ROOT_AUTOCOMPLETE,
     ),
@@ -500,7 +439,6 @@ def _query_cli(
     match method:
         case SearchMethod.LOCAL:
             run_local_search(
-                config_filepath=config,
                 data_dir=data,
                 root_dir=root,
                 community_level=community_level,
@@ -511,7 +449,6 @@ def _query_cli(
             )
         case SearchMethod.GLOBAL:
             run_global_search(
-                config_filepath=config,
                 data_dir=data,
                 root_dir=root,
                 community_level=community_level,
@@ -523,7 +460,6 @@ def _query_cli(
             )
         case SearchMethod.DRIFT:
             run_drift_search(
-                config_filepath=config,
                 data_dir=data,
                 root_dir=root,
                 community_level=community_level,
@@ -534,9 +470,9 @@ def _query_cli(
             )
         case SearchMethod.BASIC:
             run_basic_search(
-                config_filepath=config,
                 data_dir=data,
                 root_dir=root,
+                response_type=response_type,
                 streaming=streaming,
                 query=query,
                 verbose=verbose,

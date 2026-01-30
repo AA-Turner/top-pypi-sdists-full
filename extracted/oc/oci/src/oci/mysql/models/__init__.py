@@ -23,6 +23,7 @@ from .channel_source_mysql import ChannelSourceMysql
 from .channel_summary import ChannelSummary
 from .channel_target import ChannelTarget
 from .channel_target_db_system import ChannelTargetDbSystem
+from .compression_options import CompressionOptions
 from .configuration import Configuration
 from .configuration_summary import ConfigurationSummary
 from .configuration_variables import ConfigurationVariables
@@ -66,6 +67,8 @@ from .db_system_summary import DbSystemSummary
 from .deletion_policy_details import DeletionPolicyDetails
 from .encrypt_data_details import EncryptDataDetails
 from .error_on_anonymous_handling import ErrorOnAnonymousHandling
+from .export_backup_details import ExportBackupDetails
+from .export_options import ExportOptions
 from .heat_wave_cluster import HeatWaveCluster
 from .heat_wave_cluster_memory_estimate import HeatWaveClusterMemoryEstimate
 from .heat_wave_cluster_schema_memory_estimate import HeatWaveClusterSchemaMemoryEstimate
@@ -131,6 +134,7 @@ mysql_type_mapping = {
     "ChannelSummary": ChannelSummary,
     "ChannelTarget": ChannelTarget,
     "ChannelTargetDbSystem": ChannelTargetDbSystem,
+    "CompressionOptions": CompressionOptions,
     "Configuration": Configuration,
     "ConfigurationSummary": ConfigurationSummary,
     "ConfigurationVariables": ConfigurationVariables,
@@ -174,6 +178,8 @@ mysql_type_mapping = {
     "DeletionPolicyDetails": DeletionPolicyDetails,
     "EncryptDataDetails": EncryptDataDetails,
     "ErrorOnAnonymousHandling": ErrorOnAnonymousHandling,
+    "ExportBackupDetails": ExportBackupDetails,
+    "ExportOptions": ExportOptions,
     "HeatWaveCluster": HeatWaveCluster,
     "HeatWaveClusterMemoryEstimate": HeatWaveClusterMemoryEstimate,
     "HeatWaveClusterSchemaMemoryEstimate": HeatWaveClusterSchemaMemoryEstimate,

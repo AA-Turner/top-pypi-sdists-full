@@ -6,25 +6,27 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "0.63.0"
+version = "1.0.1"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = [
-    "requests",
-    "requests_toolbelt",
+    "httpr>=0.3.2",
     "docker",
     "jinja2",
     "cryptography",
     "aiohttp",
-    "httpx[http2]",
     "tenacity>=8.4.1",
     "typing_extensions",
     "python-dateutil",
     "fastcore>=1.7.8",
     "lxml",
     "certifi",
+    # Temporarily keeping for comparison testing - will remove after migration
+    "requests",
+    "requests_toolbelt",
+    "httpx[http2]",
 ]
 
 requires-python = ">=3.9,<3.14"
@@ -101,6 +103,10 @@ notebooks = [
     "papermill",
     "ipywidgets",
     "matplotlib",
+]
+mteb = [
+    "mteb>=2.7.5; python_version>='3.10'",
+    "simplejson; python_version>='3.10'",
 ]
 dev = [
     "pre-commit",

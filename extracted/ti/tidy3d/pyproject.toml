@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tidy3d"
-version = "2.10.1"
+version = "2.10.2"
 description = "A fast FDTD solver"
 authors = ["Tyler Hughes <tyler@flexcompute.com>"]
 license = "LGPLv2+"
@@ -119,7 +119,7 @@ vtk = { version = ">=9.2.6,<10.0.0", optional = true }
 sphinxemoji = { version = "^0.3.2", optional = true }
 cma = { version = "^4.4.1", optional = true }
 openpyxl = { version = "^3.1.5", optional = true }
-tidy3d-extras = { version = "2.10.1", optional = true }
+tidy3d-extras = { version = "2.10.2", optional = true }
 
 [tool.poetry.extras]
 dev = [
@@ -309,9 +309,11 @@ banned-module-level-imports = ["scipy", "matplotlib"]
 
 [tool.pytest.ini_options]
 # TODO: remove --assert=plain when https://github.com/scipy/scipy/issues/22236 is resolved
-addopts = "--cov=tidy3d --doctest-modules -n auto --dist worksteal --assert=plain -m 'not numerical'"
+addopts = "--cov=tidy3d --doctest-modules -n auto --dist worksteal --assert=plain -m 'not numerical and not perf'"
 markers = [
   "numerical: marks numerical tests for adjoint gradients that require running simulations (deselect with '-m \"not numerical\"')",
+  "perf: marks tests which test the runtime of operations (deselect with '-m \"not perf\"')",
+  "slow: marks tests as slow (deselect with -m 'not slow')",
 ]
 env = ["MPLBACKEND=Agg", "OMP_NUM_THREADS=1", "TIDY3D_MICROWAVE__SUPPRESS_RF_LICENSE_WARNING=true"]
 doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"

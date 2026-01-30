@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Common functionality for skbase unit tests."""
+
 from typing import List
 
 from skbase.base import BaseEstimator, BaseObject
-from skbase.utils.dependencies import _check_python_version
 
 __all__: List[str] = [
     "SKBASE_BASE_CLASSES",
@@ -16,11 +16,8 @@ __all__: List[str] = [
 ]
 __author__: List[str] = ["fkiraly", "RNKuhns"]
 
-# workaround for bug 442 where metaclasses do not get discovered in python <=3.10
-if _check_python_version(">=3.11", severity="none"):
-    IMPORT_CLS = ("CommonMagicMeta", "MagicAttribute")
-else:
-    IMPORT_CLS = ("CommonMagicMeta",)
+# bug 442 fixed: metaclasses now discovered correctly on all Python versions
+IMPORT_CLS = ("CommonMagicMeta", "MagicAttribute")
 
 SKBASE_BASE_CLASSES = (BaseObject, BaseEstimator)
 SKBASE_MODULES = (
@@ -64,6 +61,7 @@ SKBASE_MODULES = (
     "skbase.utils.dependencies._dependencies",
     "skbase.utils.dependencies._import",
     "skbase.utils.doctest_run",
+    "skbase.utils.git_diff",
     "skbase.utils.random_state",
     "skbase.utils.stderr_mute",
     "skbase.utils.stdout_mute",
@@ -92,6 +90,7 @@ SKBASE_PUBLIC_MODULES = (
     "skbase.utils.deep_equals",
     "skbase.utils.dependencies",
     "skbase.utils.doctest_run",
+    "skbase.utils.git_diff",
     "skbase.utils.random_state",
     "skbase.utils.stderr_mute",
     "skbase.utils.stdout_mute",
@@ -179,6 +178,7 @@ SKBASE_PUBLIC_FUNCTIONS_BY_MODULE = {
     "skbase.utils": (
         "check_random_state",
         "deep_equals",
+        "git_diff",
         "flatten",
         "is_flat",
         "make_strings_unique",
@@ -199,6 +199,7 @@ SKBASE_PUBLIC_FUNCTIONS_BY_MODULE = {
     "skbase.utils.deep_equals": ("deep_equals",),
     "skbase.utils.deep_equals._deep_equals": ("deep_equals", "deep_equals_custom"),
     "skbase.utils.doctest_run": ("run_doctest",),
+    "skbase.utils.git_diff": ("git_diff",),
     "skbase.utils.random_state": (
         "check_random_state",
         "sample_dependent_seed",
@@ -272,6 +273,7 @@ SKBASE_FUNCTIONS_BY_MODULE.update(
             "_is_npnan",
             "_is_npndarray",
             "_is_pandas",
+            "_jax_equals_plugin",
             "_numpy_equals_plugin",
             "_pandas_equals",
             "_pandas_equals_plugin",
@@ -281,6 +283,17 @@ SKBASE_FUNCTIONS_BY_MODULE.update(
             "_tuple_equals",
             "deep_equals",
             "deep_equals_custom",
+        ),
+        "skbase.utils.git_diff": (
+            "_get_packages_with_changed_specs",
+            "git_diff",
+            "_get_packages_with_changed_specs_list",
+            "_get_module_from_class",
+            "_get_path_from_module",
+            "_get_changed_lines",
+            "_run_git_diff",
+            "_is_module_changed",
+            "_is_class_changed",
         ),
         "skbase.utils.dependencies._dependencies": (
             "_check_env_marker",

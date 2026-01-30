@@ -271,7 +271,7 @@ class UserProfileModelSerializer(wb_serializers.ModelSerializer):
             resources["reset_settings"] = reverse(
                 "wbcore:authentication:userprofile-reset-settings", args=[instance.id], request=request
             )
-            if user.profile.is_internal:
+            if user.is_internal:
                 resources["see_profile"] = reverse(
                     "wbcore:directory:person-detail", args=[instance.profile.id], request=request
                 )

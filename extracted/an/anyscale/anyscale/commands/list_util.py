@@ -21,6 +21,30 @@ def validate_page_size(ctx, param, value):
     return value
 
 
+def create_table(
+    columns: List[tuple[str, Optional[str], bool]], is_first: bool = True
+) -> Table:
+    """Create a Rich table with specified columns.
+
+    Args:
+        columns: List of (column_name, style, no_wrap) tuples.
+                 E.g., [("ID", "cyan", True), ("Name", None, False)]
+        is_first: Show headers (True for first page, False for subsequent pages).
+
+    Returns:
+        Configured Rich Table ready for adding rows.
+
+    Example:
+        >>> columns = [("ID", "cyan", True), ("Name", None, False)]
+        >>> table = create_table(columns, is_first=True)
+        >>> table.add_row("123", "My Job")
+    """
+    table = Table(show_header=is_first, header_style="bold")
+    for name, style, no_wrap in columns:
+        table.add_column(name, style=style, no_wrap=no_wrap)
+    return table
+
+
 def _paginate(iterator: Iterator[Any], page_size: Optional[int]) -> Iterator[List[Any]]:
     if page_size is None:
         yield list(iterator)

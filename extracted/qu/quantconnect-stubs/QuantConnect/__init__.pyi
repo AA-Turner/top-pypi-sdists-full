@@ -6163,6 +6163,20 @@ class Currencies(System.Object):
         ...
 
     @staticmethod
+    @overload
+    def is_stable_coin_without_pair(account_currency: str, cash_symbol: str, market: str) -> bool:
+        """
+        Checks whether or not certain symbol is a StableCoin without pair in a given market
+        
+        :param account_currency: The account currency
+        :param cash_symbol: The target cash symbol
+        :param market: The market in which we want to search for that StableCoin
+        :returns: True if the given symbol is a StableCoin without pair in the given market.
+        """
+        ...
+
+    @staticmethod
+    @overload
     def is_stable_coin_without_pair(symbol: str, market: str) -> bool:
         """
         Checks whether or not certain symbol is a StableCoin without pair in a given market

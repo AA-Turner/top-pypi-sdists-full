@@ -128,12 +128,13 @@ AZURE_API_PROFILES = {
         'IotHubClient': 'latest',
         'RecoveryServicesBackupClient': 'latest',
         'DataFactoryManagementClient': 'latest',
-        'KeyVaultManagementClient': '2021-10-01',
+        'KeyVaultManagementClient': '2026-02-01',
         'HDInsightManagementClient': 'latest',
         'DevTestLabsClient': 'latest',
         'CosmosDBManagementClient': 'latest',
         'CdnManagementClient': '2017-04-02',
         'BatchManagementClient': 'latest',
+        'EventGridManagementClient': '2025-02-15',
     },
     '2019-03-01-hybrid': {
         'StorageManagementClient': '2017-10-01',
@@ -1292,7 +1293,7 @@ class AzureRMModuleBase(object):
         if not self._postgresql_flexible_client:
             self._postgresql_flexible_client = self.get_mgmt_svc_client(PostgreSQLFlexibleManagementClient,
                                                                         base_url=self._cloud_environment.endpoints.resource_manager,
-                                                                        api_version='2024-08-01')
+                                                                        api_version='2025-08-01')
         return self._postgresql_flexible_client
 
     @property
@@ -1606,7 +1607,7 @@ class AzureRMAuth(object):
                  tenant=None, ad_user=None, password=None, cloud_environment='AzureCloud', cert_validation_mode='validate',
                  api_profile='latest', adfs_authority_url=None, fail_impl=None, is_ad_resource=False,
                  x509_certificate_path=None, thumbprint=None, track1_cred=False,
-                 disable_instance_discovery=False, **kwargs):
+                 disable_instance_discovery=False , **kwargs):
 
         if fail_impl:
             self._fail_impl = fail_impl
@@ -1817,14 +1818,14 @@ class AzureRMAuth(object):
         subscription_id = subscription_id or self._get_env('subscription_id')
         if not subscription_id:
             try:
-                cmd = ["az", "account", "show", "--query", "id"]
-                subscription_id = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')
+                cmd = ["az", "account", "show", "--query", "id", "-o", "json"]
+                subscription_id = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')  # allow subprocess
             except Exception as ec:
                 raise CLIError("Obtain the az login's subscription occurred exception as {0}".format(ec))
 
         try:
-            cmd = ["az", "cloud", "show", "--query", "name"]
-            cloud_name = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')
+            cmd = ["az", "cloud", "show", "--query", "name", "-o", "json"]
+            cloud_name = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip().strip('"')  # allow subprocess
             all_clouds = [x[1] for x in inspect.getmembers(azure_cloud) if isinstance(x[1], azure_cloud.Cloud)]
             matched_clouds = [x for x in all_clouds if x.name == cloud_name]
         except Exception as ec:

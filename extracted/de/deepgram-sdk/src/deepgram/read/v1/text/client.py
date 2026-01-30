@@ -108,18 +108,6 @@ class TextClient:
             api_key="YOUR_API_KEY",
         )
         client.read.v1.text.analyze(
-            callback="callback",
-            callback_method="POST",
-            sentiment=True,
-            summarize="v2",
-            tag="tag",
-            topics=True,
-            custom_topic="custom_topic",
-            custom_topic_mode="extended",
-            intents=True,
-            custom_intent="custom_intent",
-            custom_intent_mode="extended",
-            language="language",
             request={"url": "url"},
         )
         """
@@ -239,18 +227,6 @@ class AsyncTextClient:
 
         async def main() -> None:
             await client.read.v1.text.analyze(
-                callback="callback",
-                callback_method="POST",
-                sentiment=True,
-                summarize="v2",
-                tag="tag",
-                topics=True,
-                custom_topic="custom_topic",
-                custom_topic_mode="extended",
-                intents=True,
-                custom_intent="custom_intent",
-                custom_intent_mode="extended",
-                language="language",
                 request={"url": "url"},
             )
 

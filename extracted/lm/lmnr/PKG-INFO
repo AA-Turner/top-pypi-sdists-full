@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.35
+Version: 0.7.37
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -29,7 +29,7 @@ Requires-Dist: orjson>=3.0.0
 Requires-Dist: packaging>=22.0
 Requires-Dist: opentelemetry-instrumentation-threading>=0.57b0
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.47.1 ; extra == 'alephalpha'
-Requires-Dist: lmnr-claude-code-proxy>=0.1.10 ; extra == 'all'
+Requires-Dist: lmnr-claude-code-proxy>=0.1.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.47.1 ; extra == 'all'
@@ -55,7 +55,7 @@ Requires-Dist: opentelemetry-instrumentation-watsonx>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-weaviate>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.47.1 ; extra == 'bedrock'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.47.1 ; extra == 'chromadb'
-Requires-Dist: lmnr-claude-code-proxy>=0.1.10 ; extra == 'claude-agent-sdk'
+Requires-Dist: lmnr-claude-code-proxy>=0.1.12 ; extra == 'claude-agent-sdk'
 Requires-Dist: opentelemetry-instrumentation-cohere>=0.47.1 ; extra == 'cohere'
 Requires-Dist: opentelemetry-instrumentation-crewai>=0.47.1 ; extra == 'crewai'
 Requires-Dist: opentelemetry-instrumentation-haystack>=0.47.1 ; extra == 'haystack'

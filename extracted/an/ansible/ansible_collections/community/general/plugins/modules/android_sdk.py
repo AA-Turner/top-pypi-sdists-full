@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: android_sdk
 short_description: Manages Android SDK packages
@@ -133,8 +132,8 @@ removed:
   sample: ["build-tools;34.0.0", "platform-tools"]
 """
 
+from ansible_collections.community.general.plugins.module_utils.android_sdkmanager import AndroidSdkManager, Package
 from ansible_collections.community.general.plugins.module_utils.mh.module_helper import StateModuleHelper
-from ansible_collections.community.general.plugins.module_utils.android_sdkmanager import Package, AndroidSdkManager
 
 
 class AndroidSdk(StateModuleHelper):
@@ -158,7 +157,7 @@ class AndroidSdk(StateModuleHelper):
         arg_pkgs = set(self.vars.package)
         if len(arg_pkgs) < len(self.vars.package):
             self.do_raise("Packages may not repeat")
-        return set(Package(p) for p in arg_pkgs)
+        return {Package(p) for p in arg_pkgs}
 
     def state_present(self):
         packages = self._parse_packages()

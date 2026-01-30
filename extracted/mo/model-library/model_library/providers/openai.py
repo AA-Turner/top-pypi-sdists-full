@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import datetime
 import io
 import json
 import logging
+import time
 from typing import Any, Literal, Sequence, cast
 
 from openai import APIConnectionError, AsyncOpenAI
@@ -30,6 +32,7 @@ from model_library.base import (
     LLM,
     BatchResult,
     Citation,
+    DelegateConfig,
     FileBase,
     FileInput,
     FileWithBase64,
@@ -44,6 +47,7 @@ from model_library.base import (
     QueryResultCost,
     QueryResultExtras,
     QueryResultMetadata,
+    RateLimit,
     RawInput,
     RawResponse,
     TextInput,
@@ -60,6 +64,7 @@ from model_library.exceptions import (
 )
 from model_library.model_utils import get_reasoning_in_tag
 from model_library.register_models import register_provider
+from model_library.retriers.base import BaseRetrier
 from model_library.utils import create_openai_client_with_defaults
 
 
@@ -234,23 +239,31 @@ class OpenAIBatchMixin(LLMBatchMixin):
 
 class OpenAIConfig(ProviderConfig):
     deep_research: bool = False
+    verbosity: Literal["low", "medium", "high"] | None = None
 
 
 @register_provider("openai")
 class OpenAIModel(LLM):
     provider_config = OpenAIConfig()
 
-    _client: AsyncOpenAI | None = None
+    @override
+    def _get_default_api_key(self) -> str:
+        if self.delegate_config:
+            return self.delegate_config.api_key.get_secret_value()
+        return model_library_settings.OPENAI_API_KEY
 
     @override
-    def get_client(self) -> AsyncOpenAI:
-        if self._delegate_client:
-            return self._delegate_client
-        if not OpenAIModel._client:
-            OpenAIModel._client = create_openai_client_with_defaults(
-                api_key=model_library_settings.OPENAI_API_KEY
+    def get_client(self, api_key: str | None = None) -> AsyncOpenAI:
+        if not self.has_client():
+            assert api_key
+            client = create_openai_client_with_defaults(
+                base_url=self.delegate_config.base_url
+                if self.delegate_config
+                else None,
+                api_key=api_key,
             )
-        return OpenAIModel._client
+            self.assign_client(client)
+        return super().get_client()
 
     def __init__(
         self,
@@ -258,20 +271,21 @@ class OpenAIModel(LLM):
         provider: str = "openai",
         *,
         config: LLMConfig | None = None,
-        custom_client: AsyncOpenAI | None = None,
         use_completions: bool = False,
+        delegate_config: DelegateConfig | None = None,
     ):
-        super().__init__(model_name, provider, config=config)
         self.use_completions: bool = (
             use_completions  # TODO: do completions in a separate file
         )
-        self.deep_research = self.provider_config.deep_research
+        self.delegate_config = delegate_config
 
-        # allow custom client to act as delegate (native)
-        self._delegate_client: AsyncOpenAI | None = custom_client
+        super().__init__(model_name, provider, config=config)
+
+        self.deep_research = self.provider_config.deep_research
+        self.verbosity = self.provider_config.verbosity
 
         # batch client
-        self.supports_batch: bool = self.supports_batch and not custom_client
+        self.supports_batch: bool = self.supports_batch and not self.delegate_config
         self.batch: LLMBatchMixin | None = (
             OpenAIBatchMixin(self) if self.supports_batch else None
         )
@@ -361,7 +375,6 @@ class OpenAIModel(LLM):
                         )
                 case RawResponse():
                     if self.use_completions:
-                        pass
                         new_input.append(item.response)
                     else:
                         new_input.extend(item.response)
@@ -522,18 +535,20 @@ class OpenAIModel(LLM):
 
         body: dict[str, Any] = {
             "model": self.model_name,
-            "max_tokens": self.max_tokens,
             "messages": parsed_input,
             # enable usage data in streaming responses
             "stream_options": {"include_usage": True},
         }
+
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
 
         if self.supports_tools:
             parsed_tools = await self.parse_tools(tools)
             if parsed_tools:
                 body["tools"] = parsed_tools
 
-        if self.reasoning:
+        if self.reasoning and self.max_tokens:
             del body["max_tokens"]
             body["max_completion_tokens"] = self.max_tokens
 
@@ -687,7 +702,7 @@ class OpenAIModel(LLM):
         self, tools: Sequence[ToolDefinition], **kwargs: object
     ) -> None:
         min_tokens = 30_000
-        if self.max_tokens < min_tokens:
+        if not self.max_tokens or self.max_tokens < min_tokens:
             self.logger.warning(
                 f"Recommended to set max_tokens >= {min_tokens} for deep research models"
             )
@@ -745,9 +760,11 @@ class OpenAIModel(LLM):
 
         body: dict[str, Any] = {
             "model": self.model_name,
-            "max_output_tokens": self.max_tokens,
             "input": parsed_input,
         }
+
+        if self.max_tokens:
+            body["max_output_tokens"] = self.max_tokens
 
         if parsed_tools:
             body["tools"] = parsed_tools
@@ -758,6 +775,9 @@ class OpenAIModel(LLM):
             body["reasoning"] = {"summary": "auto"}
             if self.reasoning_effort is not None:
                 body["reasoning"]["effort"] = self.reasoning_effort  # type: ignore[reportArgumentType]
+
+        if self.verbosity is not None:
+            body["text"] = {"format": {"type": "text"}, "verbosity": self.verbosity}
 
         if self.supports_temperature:
             if self.temperature is not None:
@@ -884,6 +904,61 @@ class OpenAIModel(LLM):
         return result
 
     @override
+    async def get_rate_limit(self) -> RateLimit | None:
+        headers = {}
+
+        try:
+            # NOTE: with_streaming_response doesn't seem to always work
+            if self.use_completions:
+                response = (
+                    await self.get_client().chat.completions.with_raw_response.create(
+                        max_completion_tokens=16,
+                        model=self.model_name,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": "Ping",
+                            }
+                        ],
+                        stream=True,
+                    )
+                )
+            else:
+                response = await self.get_client().responses.with_raw_response.create(
+                    max_output_tokens=16,
+                    input="Ping",
+                    model=self.model_name,
+                )
+            headers = response.headers
+
+            server_time_str = headers.get("date")
+            if server_time_str:
+                server_time = datetime.datetime.strptime(
+                    server_time_str, "%a, %d %b %Y %H:%M:%S GMT"
+                ).replace(tzinfo=datetime.timezone.utc)
+                timestamp = server_time.timestamp()
+            else:
+                timestamp = time.time()
+
+            # NOTE: for openai, max_tokens is used to reject requests if the amount of tokens left is less than the max_tokens
+
+            # we calculate estimated_tokens as (character_count / 4) + max_tokens. Note that OpenAI's rate limiter doesn't tokenize the request using the model's specific tokenizer but relies on a character count-based heuristic.
+
+            return RateLimit(
+                raw=headers,
+                unix_timestamp=timestamp,
+                request_limit=headers.get("x-ratelimit-limit-requests", None)
+                or headers.get("x-ratelimit-limit", None),
+                request_remaining=headers.get("x-ratelimit-remaining-requests", None)
+                or headers.get("x-ratelimit-remaining"),
+                token_limit=int(headers["x-ratelimit-limit-tokens"]),
+                token_remaining=int(headers["x-ratelimit-remaining-tokens"]),
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to get rate limit: {e}")
+            return None
+
+    @override
     async def query_json(
         self,
         input: Sequence[InputItem],
@@ -906,7 +981,9 @@ class OpenAIModel(LLM):
             except APIConnectionError:
                 raise ImmediateRetryException("Failed to connect to OpenAI")
 
-        response = await LLM.immediate_retry_wrapper(func=_query, logger=self.logger)
+        response = await BaseRetrier.immediate_retry_wrapper(
+            func=_query, logger=self.logger
+        )
 
         parsed: PydanticT | None = response.output_parsed
         if parsed is None:
@@ -937,7 +1014,7 @@ class OpenAIModel(LLM):
 
             return response.data[0].embedding
 
-        return await LLM.immediate_retry_wrapper(
+        return await BaseRetrier.immediate_retry_wrapper(
             func=_get_embedding, logger=self.logger
         )
 
@@ -952,7 +1029,7 @@ class OpenAIModel(LLM):
             except Exception as e:
                 raise Exception("Failed to query OpenAI's Moderation endpoint") from e
 
-        return await LLM.immediate_retry_wrapper(
+        return await BaseRetrier.immediate_retry_wrapper(
             func=_moderate_content, logger=self.logger
         )
 

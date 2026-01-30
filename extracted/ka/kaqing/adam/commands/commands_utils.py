@@ -1,8 +1,10 @@
+import traceback
 from kubernetes import client
 from typing import List
 
 from adam.checks.check_utils import run_checks
 from adam.columns.columns import Columns, collect_checks
+from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pods import Pods
@@ -59,25 +61,13 @@ def show_rollout(sts: str, ns: str):
         else:
             log2(f'Cluster has completed rollout {d} ago.')
 
-def show_table(state: ReplState, pods: list[str], cols: str, header: str, show_out=False, backgrounded = False, job_log: str = None):
+def show_table(state: ReplState, pods: list[str], cols: str, header: str, ctx: Context = Context.NULL):
     columns = Columns.create_columns(cols)
 
-    results = run_checks(cluster=state.sts, pod=state.pod, namespace=state.namespace, checks=collect_checks(columns), show_out=show_out)
+    results = run_checks(cluster=state.sts, pod=state.pod, namespace=state.namespace, checks=collect_checks(columns), ctx=ctx)
 
-    to = 0 if backgrounded else 1
-    r = tabulize(pods, lambda p: ','.join([c.pod_value(results, p) for c in columns]), header=header, separator=',', sorted=SORT, to = to)
-    i = IssuesUtils.show(results, state.in_repl, to = to)
-
-    if backgrounded:
-        if job_log:
-            with open(job_log, 'wt') as f:
-                f.write(r)
-                if i:
-                    f.write('\n')
-                    f.write(i)
-            return job_log
-
-        return write_to_kaqing_log_file(r, i)
+    tabulize(pods, lambda p: ','.join([c.pod_value(results, p) for c in columns]), header=header, separator=',', log_file=ctx.log_file, sorted=SORT)
+    IssuesUtils.show(results, state.in_repl, log_file=ctx.log_file)
 
 def write_to_kaqing_log_file(r: str, i: str = None):
     with kaqing_log_file() as f:

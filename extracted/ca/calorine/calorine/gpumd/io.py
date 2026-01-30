@@ -51,12 +51,19 @@ def read_msd(filename: str) -> DataFrame:
     if isinstance(data[0], np.float64):
         # If only a single row in msd.out, append a dimension
         data = data.reshape(1, -1)
-    tags = 'time msd_x msd_y msd_z sdc_x sdc_y sdc_z'.split()
-    if len(data[0]) != len(tags):
+    ncols = len(data[0])
+    ngroups = (ncols - 1) // 6
+    if ngroups * 6 + 1 != ncols:
         raise ValueError(
-            f'Input file contains {len(data[0])} data columns.'
-            f' Expected {len(tags)} columns.'
+            f'Input file contains {ncols} data columns.'
+            f' Expected {1+ngroups*6} columns (1+6*ngroups).'
         )
+    tags = ['time']
+    flds = 'msd_x msd_y msd_z sdc_x sdc_y sdc_z'.split()
+    if ngroups == 1:
+        tags.extend(flds)
+    else:
+        tags.extend([f'{f}_{n}' for n in range(ngroups) for f in flds])
     df = DataFrame(data=data, columns=tags)
     return df
 
@@ -125,6 +132,8 @@ def read_thermo(filename: str, natoms: int = 1) -> DataFrame:
         Number of atoms; used to normalize energies.
     """
     data = np.loadtxt(filename)
+    if len(data) == 0:
+        return DataFrame(data=data)
     if isinstance(data[0], np.float64):
         # If only a single row in loss.out, append a dimension
         data = data.reshape(1, -1)
@@ -450,8 +459,7 @@ def read_thermodynamic_data(
             dump_thermo = v
         elif p == 'run':
             if dump_thermo is None:
-                raise ValueError(
-                    'Could not extract value of `dump_thermo` keyword from `run.in` file.')
+                continue
             # We do not require dump_thermo to exist for subsequent
             # runs if it has been used for atleast one before.
             # But if there has been no new dump_thermo, we
@@ -477,6 +485,11 @@ def read_thermodynamic_data(
     if len(df) > expected_rows:
         raise ValueError(f'Too many rows in `thermo.out` file ({len(df)}) compared to'
                          f' expectation based on `run.in` file ({expected_rows}).')
+    if len(df) == 0:
+        # Could be the case when a run has just started and thermo.out has been created
+        # but not populated yet
+        warn('`thermo.out` is empty')
+        return df
 
     # Fewer rows than expected should be ok, since the run may have crashed/not completed yet.
     times = []

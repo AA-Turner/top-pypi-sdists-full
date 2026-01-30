@@ -63,7 +63,7 @@ Keyword arguments:
     the component or the page. Since only `value` is allowed this prop
     can normally be ignored.
 
-- persistence (string | number; optional):
+- persistence (string | number | boolean; optional):
     Used to allow user interactions in this component to be persisted
     when the component - or the page - is refreshed. If `persisted` is
     truthy and hasn't changed from its previous value, a `value` that
@@ -106,7 +106,7 @@ Keyword arguments:
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
-        persistence: typing.Optional[typing.Union[str, NumberType]] = None,
+        persistence: typing.Optional[typing.Union[str, NumberType, bool]] = None,
         persisted_props: typing.Optional[typing.Sequence[str]] = None,
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs

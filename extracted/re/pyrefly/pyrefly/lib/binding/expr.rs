@@ -52,6 +52,7 @@ use crate::binding::bindings::LegacyTParamId;
 use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::narrow::NarrowSource;
 use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
@@ -159,7 +160,7 @@ impl TestAssertion {
             {
                 Some(NarrowOps::from_single_narrow_op(
                     arg0,
-                    AtomicNarrowOp::IsInstance(arg1.clone()),
+                    AtomicNarrowOp::IsInstance(arg1.clone(), NarrowSource::Call),
                     arg0.range(),
                 ))
             }
@@ -169,7 +170,7 @@ impl TestAssertion {
             {
                 Some(NarrowOps::from_single_narrow_op(
                     arg0,
-                    AtomicNarrowOp::IsNotInstance(arg1.clone()),
+                    AtomicNarrowOp::IsNotInstance(arg1.clone(), NarrowSource::Call),
                     arg0.range(),
                 ))
             }
@@ -333,15 +334,28 @@ impl<'a> BindingsBuilder<'a> {
             } => {
                 // Uninitialized local errors are only reported when we are neither in a stub
                 // nor a static type context.
-                if !used_in_static_type
-                    && !self.module_info.path().is_interface()
-                    && let Some(error_message) = is_initialized.as_error_message(&name.id)
-                {
-                    self.error(
-                        name.range,
-                        ErrorInfo::Kind(ErrorKind::UnboundName),
-                        error_message,
-                    );
+                if !used_in_static_type && !self.module_info.path().is_interface() {
+                    if let Some(termination_keys) = is_initialized
+                        .deferred_termination_keys()
+                        .map(|s| s.to_vec())
+                    {
+                        // Defer the uninitialized check to solve time.
+                        // At solve time, we'll check if all termination keys have Never type.
+                        self.insert_binding(
+                            KeyExpect::UninitializedCheck(name.range),
+                            BindingExpect::UninitializedCheck {
+                                name: name.id.clone(),
+                                range: name.range,
+                                termination_keys,
+                            },
+                        );
+                    } else if let Some(error_message) = is_initialized.as_error_message(&name.id) {
+                        self.error(
+                            name.range,
+                            ErrorInfo::Kind(ErrorKind::UnboundName),
+                            error_message,
+                        );
+                    }
                 }
 
                 // For static type context, create binding immediately since it
@@ -820,7 +834,7 @@ impl<'a> BindingsBuilder<'a> {
             class_idx: self.scopes.current_method_context(),
         };
         self.insert_binding(
-            KeyExpect(attr.attr.range()),
+            KeyExpect::PrivateAttributeAccess(attr.attr.range()),
             BindingExpect::PrivateAttributeAccess(expect),
         );
     }

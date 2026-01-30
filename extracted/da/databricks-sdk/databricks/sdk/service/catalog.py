@@ -1606,7 +1606,7 @@ class ConnectionDependency:
 
 @dataclass
 class ConnectionInfo:
-    """Next ID: 23"""
+    """Next ID: 24"""
 
     comment: Optional[str] = None
     """User-provided free-form text description."""
@@ -8571,7 +8571,7 @@ class RowFilterOptions:
 
 @dataclass
 class SchemaInfo:
-    """Next ID: 44"""
+    """Next ID: 45"""
 
     browse_only: Optional[bool] = None
     """Indicates whether the principal is limited to retrieving metadata for the associated object
@@ -8784,7 +8784,7 @@ class Securable:
 
 
 class SecurableKind(Enum):
-    """Latest kind: CONNECTION_WORKDAY_HCM_USERNAME_PASSWORD = 292; Next id: 293"""
+    """Latest kind: CONNECTION_WORKDAY_HCM_USERNAME_PASSWORD = 293; Next id: 294"""
 
     TABLE_DB_STORAGE = "TABLE_DB_STORAGE"
     TABLE_DELTA = "TABLE_DELTA"

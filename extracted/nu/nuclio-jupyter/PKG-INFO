@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nuclio-jupyter
-Version: 0.13.1
+Version: 0.13.2
 Summary: Convert Jupyter notebook to nuclio
 Author: Iguazio
 License-Expression: Apache-2.0

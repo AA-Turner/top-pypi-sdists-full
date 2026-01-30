@@ -340,6 +340,144 @@ def typeof(value: Any) -> str:
     """
     ...
 
+def memory(value: Any) -> dict:
+    """Get memory/introspection info about a value (v4.8.9).
+
+    Args:
+        value: Any CSSL value (variable, function, class instance, etc.)
+
+    Returns:
+        Dictionary with keys:
+            - address: Memory address as hex string
+            - type: Type name string
+            - repr: Python repr() string
+            - value: Actual value for simple types
+            - methods: List of method names
+            - attributes: Dict of non-callable attributes
+            - class_name: For CSSL instances, the class name
+            - members: For CSSL instances, dict of member values
+
+    Example:
+        data = memory(myClass);
+        printl(data.get("address"));    // "0x7f..."
+        printl(data.get("type"));       // "MyClass"
+        printl(data.get("methods"));    // ["method1", "method2"]
+
+        // Copy the info
+        info = memory(func).copy();
+
+        // Get specific field
+        addr = memory(obj).get("address");
+    """
+    ...
+
+
+def address(value: Any) -> 'CSSLAddress':
+    """Get memory address of an object as an Address type (v4.9.0).
+
+    Shortcut for memory(obj).get("address") that returns an Address object
+    which can be used with reflect() to get the object back.
+
+    Args:
+        value: Any CSSL value
+
+    Returns:
+        Address object pointing to the value
+
+    Example:
+        string text = "Hello";
+        address addr = address(text);
+
+        // Later, in another function:
+        obj = addr.reflect();
+        printl(obj);  // "Hello"
+
+        // Or use the builtin
+        obj = reflect(addr);
+    """
+    ...
+
+
+def reflect(addr: Any) -> Any:
+    """Reflect an address to get the original object (v4.9.0).
+
+    Takes an Address object or address string and returns the object at that address.
+
+    Args:
+        addr: Address object or address string (hex)
+
+    Returns:
+        The object at that address, or None if not found
+
+    Example:
+        string text = "Hello";
+        address addr = address(text);
+
+        // Reflect to get object back
+        obj = reflect(addr);
+        printl(obj);  // "Hello"
+
+        // Also works with address strings from memory()
+        data = memory(text);
+        obj = reflect(data.get("address"));
+    """
+    ...
+
+
+def destroy(target: Any) -> bool:
+    """Destroy an object and free its memory (v4.9.2).
+
+    Clears the contents of containers, removes objects from the address registry,
+    and helps garbage collection by nullifying references.
+
+    Args:
+        target: Object to destroy (can be Address, container, or any object)
+
+    Returns:
+        True if destruction was successful, False otherwise
+
+    Example:
+        list data = [1, 2, 3, 4, 5];
+        printl(len(data));  // 5
+        destroy(data);
+        printl(len(data));  // 0
+
+        // Works with addresses
+        ptr addr = address(someVar);
+        destroy(addr);  // Removes from address registry
+    """
+    ...
+
+
+def execute(code: str, context: dict = None) -> Any:
+    """Execute CSSL code string inline (v4.9.2).
+
+    Parses and executes CSSL code from a string. Useful for dynamic code
+    execution, metaprogramming, and runtime code generation.
+
+    Args:
+        code: CSSL code string to execute
+        context: Optional dict of variables to inject into scope
+
+    Returns:
+        The result of the last expression or explicit return value.
+        Returns dict with 'error' key if execution fails.
+
+    Example:
+        // Simple execution
+        execute("x = 5; y = x * 2;");
+        printl(y);  // 10
+
+        // Get return value
+        result = execute("return 5 + 3;");
+        printl(result);  // 8
+
+        // With context
+        execute("printl(greeting + name);", {"greeting": "Hello, ", "name": "World"});
+    """
+    ...
+
+
 def isinstance(value: Any, type_name: str) -> bool:
     """Check if value is instance of specified type.
 
@@ -2500,6 +2638,129 @@ def delete(name: str) -> bool:
         $temp.doSomething();
         delete("temp");  // Remove when done
         // $temp is now null
+    """
+    ...
+
+def includecpp(cpp_proj: str, module: str) -> Any:
+    """Import a pre-built C++ module from IncludeCPP project (v4.8.8).
+
+    Loads compiled C++ modules directly into CSSL, enabling use of
+    high-performance C++ functions from within CSSL scripts.
+
+    Args:
+        cpp_proj: Path to cpp.proj file or project directory
+        module: Name of the compiled module to import
+
+    Returns:
+        Module proxy object with callable functions
+
+    Example:
+        // Import a compiled math module
+        @FastMath = includecpp(
+            cpp_proj="C:/Projects/QbbLibrary/cpp.proj",
+            module="fastmath"
+        );
+
+        // Call C++ functions
+        int result = @FastMath.fibonacci(40);
+        printl("Fib(40) = " + result);
+
+        // Import different module
+        @Crypto = includecpp(cpp_proj="/path/to/crypto/cpp.proj", module="hashing");
+        string hash = @Crypto.sha256("hello world");
+    """
+    ...
+
+def snapshot(variable: Any, name: str = None) -> bool:
+    """Capture variable state for later retrieval (v4.8.8).
+
+    Creates a snapshot of the variable's current value that can be
+    accessed using %name syntax even after the variable changes.
+
+    Args:
+        variable: Variable or function to snapshot
+        name: Optional custom snapshot name (defaults to variable name)
+
+    Returns:
+        True if snapshot was created
+
+    Example:
+        string version = "1.0";
+        snapshot(version);      // Capture current value
+
+        version = "2.0";        // Modify
+        printl(version);        // "2.0"
+        printl(%version);       // "1.0" (snapshotted)
+
+        // Named snapshot
+        int counter = 100;
+        snapshot(counter, "backup");
+        counter = 500;
+        printl(get_snapshot("backup"));  // 100
+
+        // Snapshot functions for CodeInfusion
+        snapshot(printl);
+        embedded define override &printl {
+            %printl("PREFIX: " + args[0]);  // Call original
+        }
+    """
+    ...
+
+def get_snapshot(name: str) -> Any:
+    """Retrieve a snapshotted value by name.
+
+    Example:
+        snapshot(myVar, "saved");
+        // ... later ...
+        value = get_snapshot("saved");
+    """
+    ...
+
+def has_snapshot(name: str) -> bool:
+    """Check if a snapshot exists.
+
+    Example:
+        if (has_snapshot("backup")) {
+            restore_snapshot("backup");
+        }
+    """
+    ...
+
+def clear_snapshot(name: str) -> bool:
+    """Delete a specific snapshot.
+
+    Example:
+        clear_snapshot("temp");
+    """
+    ...
+
+def clear_snapshots() -> int:
+    """Delete all snapshots. Returns count deleted.
+
+    Example:
+        int removed = clear_snapshots();
+        printl("Cleared " + removed + " snapshots");
+    """
+    ...
+
+def list_snapshots() -> List[str]:
+    """Get names of all active snapshots.
+
+    Example:
+        list names = list_snapshots();
+        foreach (name in names) {
+            printl("Snapshot: " + name);
+        }
+    """
+    ...
+
+def restore_snapshot(name: str) -> Any:
+    """Restore and remove a snapshot (pop operation).
+
+    Retrieves the snapshotted value and removes the snapshot.
+
+    Example:
+        myVar = restore_snapshot("backup");
     """
     ...
 
@@ -5131,6 +5392,683 @@ class AppendMode:
 
 
 # =============================================================================
+# BINARY TYPES (v4.9.0)
+# =============================================================================
+
+class CSSLBit:
+    """CSSL bit type - Single binary value (0 or 1).
+
+    A bit represents the smallest unit of data - a single binary digit that
+    can only be 0 or 1. Useful for flags, toggles, and binary operations.
+
+    Declaration in CSSL:
+        bit flag = 1;
+        bit enabled = 0;
+
+    Example:
+        bit active = 1;
+        printl(active);        // 1
+
+        active.switch();       // Toggle: 1 -> 0
+        printl(active);        // 0
+
+        active.set(1);         // Set to 1
+        printl(active);        // 1
+    """
+
+    def switch(self) -> 'CSSLBit':
+        """Toggle the bit value (0 -> 1, 1 -> 0).
+
+        Returns:
+            The bit (for chaining)
+
+        Example:
+            bit flag = 1;
+            flag.switch();     // Now 0
+            flag.switch();     // Now 1 again
+        """
+        ...
+
+    def toggle(self) -> 'CSSLBit':
+        """Alias for switch(). Toggle the bit value."""
+        ...
+
+    def set(self, value: int = 1) -> 'CSSLBit':
+        """Set the bit to a specific value.
+
+        Args:
+            value: 0 or 1 (default: 1)
+
+        Returns:
+            The bit (for chaining)
+
+        Example:
+            bit flag = 0;
+            flag.set(1);       // Now 1
+            flag.set(0);       // Now 0
+            flag.set();        // Now 1 (default)
+        """
+        ...
+
+    def clear(self) -> 'CSSLBit':
+        """Clear the bit (set to 0).
+
+        Returns:
+            The bit (for chaining)
+
+        Example:
+            bit flag = 1;
+            flag.clear();      // Now 0
+        """
+        ...
+
+    def is_set(self) -> bool:
+        """Check if the bit is set (equals 1).
+
+        Returns:
+            True if bit is 1, False if 0
+
+        Example:
+            bit flag = 1;
+            if (flag.is_set()) {
+                printl("Flag is active");
+            }
+        """
+        ...
+
+    def is_clear(self) -> bool:
+        """Check if the bit is clear (equals 0).
+
+        Returns:
+            True if bit is 0, False if 1
+        """
+        ...
+
+    def copy(self) -> 'CSSLBit':
+        """Create a copy of this bit.
+
+        Returns:
+            A new bit with the same value
+
+        Example:
+            bit a = 1;
+            bit b = a.copy();
+            a.switch();
+            printl(a);  // 0
+            printl(b);  // 1 (unchanged)
+        """
+        ...
+
+
+class CSSLByte:
+    """CSSL byte type - 8-bit value with x^y notation.
+
+    A byte represents 8 bits with a special notation: base^weight where
+    base is 0 or 1 (determines signed/unsigned interpretation) and
+    weight is the value (0-255).
+
+    Declaration in CSSL:
+        byte b = 1^200;    // Unsigned: value = 200
+        byte s = 0^100;    // Signed: value = 100
+
+    The x^y notation provides clear semantics:
+        - 1^n: Unsigned byte, value = n (0-255)
+        - 0^n: Signed interpretation context
+
+    Example:
+        byte data = 1^255;
+        printl(data.value());      // 255
+        printl(data.to_str());     // "11111111" (binary)
+        printl(data.info());       // Full byte info dict
+
+        byte flags = 1^0;
+        flags.set(7, 1);           // Set bit 7
+        printl(flags.to_str());    // "10000000"
+    """
+
+    def value(self) -> int:
+        """Get the numeric value of the byte.
+
+        Returns:
+            Integer value (0-255)
+
+        Example:
+            byte b = 1^200;
+            printl(b.value());  // 200
+        """
+        ...
+
+    def raw(self) -> int:
+        """Get raw weight value. Alias for value()."""
+        ...
+
+    def unsigned(self) -> int:
+        """Get unsigned interpretation of the byte.
+
+        Returns:
+            Unsigned integer value (0-255)
+        """
+        ...
+
+    def to_bits(self) -> List[int]:
+        """Get list of individual bits (LSB first).
+
+        Returns:
+            List of 8 integers, each 0 or 1
+
+        Example:
+            byte b = 1^200;
+            printl(b.to_bits());  // [0, 0, 0, 1, 0, 0, 1, 1] (200 = 11001000)
+        """
+        ...
+
+    def to_str(self) -> str:
+        """Get binary string representation.
+
+        Returns:
+            8-character string of 0s and 1s
+
+        Example:
+            byte b = 1^200;
+            printl(b.to_str());  // "11001000"
+        """
+        ...
+
+    def reverse(self) -> 'CSSLByte':
+        """Reverse the bit order.
+
+        Returns:
+            New byte with reversed bits
+
+        Example:
+            byte b = 1^200;           // 11001000
+            byte r = b.reverse();     // 00010011 (19)
+        """
+        ...
+
+    def copy(self) -> 'CSSLByte':
+        """Create a copy of this byte.
+
+        Returns:
+            A new byte with the same base and weight
+        """
+        ...
+
+    def get(self, index: int) -> 'CSSLBit':
+        """Get bit at specified index.
+
+        Args:
+            index: Bit position (0-7, where 0 is LSB)
+
+        Returns:
+            Bit object at that position
+
+        Example:
+            byte b = 1^200;  // 11001000
+            printl(b.get(3));  // 1 (bit 3 is set)
+            printl(b.get(0));  // 0 (bit 0 is clear)
+        """
+        ...
+
+    def at(self, index: int) -> int:
+        """Get bit value at index. Returns int directly.
+
+        Args:
+            index: Bit position (0-7)
+
+        Returns:
+            0 or 1
+        """
+        ...
+
+    def set(self, index: int, value: int) -> 'CSSLByte':
+        """Set bit at index to specific value.
+
+        Args:
+            index: Bit position (0-7)
+            value: 0 or 1
+
+        Returns:
+            The byte (for chaining)
+
+        Example:
+            byte b = 1^0;
+            b.set(7, 1);        // Set MSB
+            b.set(0, 1);        // Set LSB
+            printl(b.value());  // 129
+        """
+        ...
+
+    def change(self, index: int, value: int) -> 'CSSLByte':
+        """Alias for set(). Set bit at index."""
+        ...
+
+    def switch(self, index: int) -> 'CSSLByte':
+        """Toggle bit at specified index.
+
+        Args:
+            index: Bit position to toggle (0-7)
+
+        Returns:
+            The byte (for chaining)
+
+        Example:
+            byte b = 1^200;     // 11001000
+            b.switch(7);        // 01001000 (toggle bit 7)
+        """
+        ...
+
+    def write(self, index: int, count: int) -> 'CSSLByte':
+        """Set 'count' consecutive bits starting at index to 1.
+
+        Args:
+            index: Starting bit position
+            count: Number of bits to set
+
+        Returns:
+            The byte (for chaining)
+
+        Example:
+            byte b = 1^0;
+            b.write(0, 4);      // Set bits 0-3
+            printl(b.value());  // 15 (00001111)
+        """
+        ...
+
+    def info(self) -> Dict[str, Any]:
+        """Get detailed byte information.
+
+        Returns:
+            Dictionary with: base, weight, value, unsigned, binary, hex, bits
+
+        Example:
+            byte b = 1^200;
+            printl(b.info());
+            // {'base': 1, 'weight': 200, 'value': 200, 'unsigned': 200,
+            //  'binary': '11001000', 'hex': '0xc8',
+            //  'bits': [0, 0, 0, 1, 0, 0, 1, 1]}
+        """
+        ...
+
+    def len(self) -> int:
+        """Get number of bits (always 8).
+
+        Returns:
+            8
+        """
+        ...
+
+    @staticmethod
+    def from_bits(bits: List[int]) -> 'CSSLByte':
+        """Create byte from list of bits.
+
+        Args:
+            bits: List of 8 integers (0 or 1)
+
+        Returns:
+            New byte with those bit values
+
+        Example:
+            byte b = Byte.from_bits([1, 0, 0, 0, 0, 0, 0, 0]);  // 1
+        """
+        ...
+
+
+class CSSLAddress:
+    """CSSL address type - Memory reference (pointer-like).
+
+    An address stores a memory reference to an object and can be used to
+    retrieve the object later using reflect(). Works like a pointer but
+    with Python's reference semantics.
+
+    Declaration in CSSL:
+        address addr = address(someObject);
+        address ptr = memory(obj).get("address");
+
+    Example:
+        string text = "Hello";
+        address addr = address(text);
+
+        // Later, in another function:
+        obj = addr.reflect();  // or reflect(addr)
+        printl(obj);  // "Hello"
+    """
+
+    @property
+    def value(self) -> str:
+        """Get the address value as a hex string.
+
+        Returns:
+            Address string (e.g., "0x7fff3adb4ed8")
+
+        Example:
+            address addr = address(obj);
+            printl(addr.value);  // "0x7fff3adb4ed8"
+        """
+        ...
+
+    def reflect(self) -> Any:
+        """Reflect the address to get the original object.
+
+        Returns:
+            The object at this address, or None if not found
+
+        Example:
+            string text = "Hello";
+            address addr = address(text);
+
+            // In another function:
+            obj = addr.reflect();
+            printl(obj);  // "Hello"
+        """
+        ...
+
+    def is_null(self) -> bool:
+        """Check if this is a null address.
+
+        Returns:
+            True if address is null (0x0)
+
+        Example:
+            address addr;  // Null address
+            if (addr.is_null()) {
+                printl("No address set");
+            }
+        """
+        ...
+
+    def copy(self) -> 'CSSLAddress':
+        """Create a copy of this address.
+
+        Returns:
+            A new address pointing to the same location
+        """
+        ...
+
+    @staticmethod
+    def from_object(obj: Any) -> 'CSSLAddress':
+        """Create an Address from any object.
+
+        Args:
+            obj: Object to get address of
+
+        Returns:
+            Address pointing to the object
+        """
+        ...
+
+
+# Type aliases for quick access
+bit = CSSLBit
+byte = CSSLByte
+address = CSSLAddress
+
+
+# =============================================================================
+# ASYNC MODULE (v4.9.3)
+# =============================================================================
+
+class CSSLFuture:
+    """Future - represents the result of an async operation.
+
+    A Future is returned when you call an async function or use async.run().
+    Use await or async.wait() to get the result.
+
+    States:
+        pending   - Not started
+        running   - Currently executing
+        completed - Finished successfully
+        cancelled - Cancelled before completion
+        failed    - Finished with error
+
+    Example:
+        async define fetchData(url) {
+            return http.get(url);
+        }
+
+        // Calling async function returns Future immediately
+        future f = fetchData("http://example.com");
+
+        // Wait for result with await
+        data = await f;
+
+        // Or check state
+        if (f.is_done()) {
+            result = f.result();
+        }
+    """
+
+    PENDING: str
+    RUNNING: str
+    COMPLETED: str
+    CANCELLED: str
+    FAILED: str
+
+    def result(self, timeout: Optional[float] = None) -> Any:
+        """Get the result, blocking until complete.
+
+        Args:
+            timeout: Optional timeout in seconds
+
+        Returns:
+            The result of the async operation
+
+        Raises:
+            Exception if operation failed or timed out
+        """
+        ...
+
+    def is_done(self) -> bool:
+        """Check if the operation has completed (success, fail, or cancel)."""
+        ...
+
+    def cancel(self) -> bool:
+        """Cancel the operation if not yet complete."""
+        ...
+
+    def then(self, callback: Callable[[Any], Any]) -> 'CSSLFuture':
+        """Chain a callback to run when complete.
+
+        Example:
+            fetchData("url").then(lambda data: printl(data));
+        """
+        ...
+
+
+class CSSLGenerator:
+    """Generator - lazy iteration via yield.
+
+    Generators produce values on-demand using yield statements.
+    Created by calling a generator function (one that uses yield).
+
+    Example - Basic Generator:
+        generator<int> define Range(int n) {
+            int i = 0;
+            while (i < n) {
+                yield i;
+                i = i + 1;
+            }
+        }
+
+        gen = Range(5);
+        while (gen.has_next()) {
+            printl(gen.next());  // 0, 1, 2, 3, 4
+        }
+
+        // Or convert to list
+        numbers = Range(10).to_list();  // [0,1,2,...,9]
+
+    Example - Generator with send():
+        generator<int> define Counter() {
+            int value = 0;
+            while (true) {
+                received = yield value;
+                if (received != null) {
+                    value = received;
+                } else {
+                    value = value + 1;
+                }
+            }
+        }
+
+        counter = Counter();
+        printl(counter.next());   // 0
+        printl(counter.next());   // 1
+        counter.send(100);        // Resume with value 100
+        printl(counter.next());   // 101
+    """
+
+    def next(self) -> Any:
+        """Get the next yielded value.
+
+        Returns:
+            The next value from the generator, or None when exhausted
+        """
+        ...
+
+    def has_next(self) -> bool:
+        """Check if more values are available."""
+        ...
+
+    def send(self, value: Any) -> Any:
+        """Send a value into the generator.
+
+        The sent value becomes the result of the yield expression in the generator.
+        Use this to communicate with coroutine-style generators.
+
+        Args:
+            value: The value to send into the generator
+
+        Returns:
+            The next yielded value
+
+        Example:
+            received = yield current_value;  // received gets the sent value
+        """
+        ...
+
+    def to_list(self) -> List[Any]:
+        """Consume all remaining values into a list.
+
+        Warning: Do not use on infinite generators (while true)!
+        """
+        ...
+
+    def take(self, n: int) -> List[Any]:
+        """Take up to n values. Safe for infinite generators."""
+        ...
+
+    def skip(self, n: int) -> 'CSSLGenerator':
+        """Skip n values and return self for chaining."""
+        ...
+
+
+class AsyncModule:
+    """Async module - utilities for async/await operations.
+
+    Access via: async.run(), async.wait(), etc.
+    Or: Async.run(), Async.wait(), etc.
+
+    Example:
+        async define slowTask() {
+            async.sleep(1000);
+            return "Done!";
+        }
+
+        future f = async.run(slowTask);
+        result = await f;
+
+        // Or wait for multiple:
+        results = async.all([f1, f2, f3]);
+
+        // First to complete:
+        winner = async.race([f1, f2, f3]);
+    """
+
+    @staticmethod
+    def run(func: Callable, *args, **kwargs) -> CSSLFuture:
+        """Run a function asynchronously.
+
+        Args:
+            func: Function to run (async or regular)
+            *args: Arguments to pass
+            **kwargs: Keyword arguments
+
+        Returns:
+            Future representing the operation
+        """
+        ...
+
+    @staticmethod
+    def stop(future_or_name: Union[CSSLFuture, str]) -> bool:
+        """Cancel an async operation.
+
+        Args:
+            future_or_name: Future to cancel or function name
+
+        Returns:
+            True if cancelled successfully
+        """
+        ...
+
+    @staticmethod
+    def wait(future: CSSLFuture, timeout: Optional[float] = None) -> Any:
+        """Wait for a future to complete.
+
+        Args:
+            future: The future to wait for
+            timeout: Optional timeout in seconds
+
+        Returns:
+            The result of the future
+        """
+        ...
+
+    @staticmethod
+    def all(futures: List[CSSLFuture], timeout: Optional[float] = None) -> List[Any]:
+        """Wait for all futures to complete.
+
+        Args:
+            futures: List of futures to wait for
+            timeout: Optional timeout in seconds
+
+        Returns:
+            List of results in same order as input
+        """
+        ...
+
+    @staticmethod
+    def race(futures: List[CSSLFuture], timeout: Optional[float] = None) -> Any:
+        """Return result of first completed future.
+
+        Args:
+            futures: List of futures to race
+            timeout: Optional timeout in seconds
+
+        Returns:
+            Result of first completed future
+        """
+        ...
+
+    @staticmethod
+    def sleep(ms: int) -> CSSLFuture:
+        """Async sleep for milliseconds.
+
+        Args:
+            ms: Milliseconds to sleep
+
+        Returns:
+            Future that completes after delay
+        """
+        ...
+
+
+# Type aliases for async
+future = CSSLFuture
+generator = CSSLGenerator
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -5211,4 +6149,9 @@ __all__ = [
     "pipe", "contains_fast",
     # v4.8.4: Stream types
     "OutputStream", "InputStream", "FileStream", "Pipe", "CStruct",
+    # v4.9.0: Binary types and address pointer
+    "CSSLBit", "CSSLByte", "CSSLAddress", "bit", "byte", "address", "reflect",
+    # v4.9.3: Async types
+    "CSSLFuture", "CSSLGenerator", "AsyncModule", "future", "generator",
+    "async", "await", "yield",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_singlestoredb
-Version: 1.2.0
+Version: 1.2.1
 Summary: SQLAlchemy dialect for the SingleStoreDB database
 Author-email: SingleStore <support@singlestore.com>
 License: Apache-2.0

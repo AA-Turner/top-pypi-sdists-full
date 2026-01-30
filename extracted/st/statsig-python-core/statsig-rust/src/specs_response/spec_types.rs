@@ -6,10 +6,12 @@ use serde_with::skip_serializing_none;
 
 use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::{dynamic_returnable::DynamicReturnable, evaluator_value::EvaluatorValue};
+use crate::gcir::gcir_formatter::GCIRHashable;
+use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::specs_hash_map::SpecsHashMap;
-use crate::DynamicValue;
+use crate::{hashing, DynamicValue};
 
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
 
@@ -88,8 +90,31 @@ pub struct ConfigMapping {
 #[derive(Serialize, Deserialize, PartialEq, Debug)] /* DO_NOT_CLONE */
 pub struct SessionReplayTrigger {
     pub sampling_rate: Option<f64>,
-    pub values: Option<Vec<String>>,
+    pub values: Option<Vec<InternedString>>,
     pub passes_sampling: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)] /* DO_NOT_CLONE */
+pub struct SessionReplayPrivacySetting {
+    pub privacy_mode: InternedString,
+    pub unmasked_elements: Option<Vec<InternedString>>,
+    pub masked_elements: Option<Vec<InternedString>>,
+    pub blocked_elements: Option<Vec<InternedString>>,
+}
+
+impl GCIRHashable for SessionReplayTrigger {
+    fn create_hash(&self, name: &InternedString) -> u64 {
+        let mut hash_array = Vec::new();
+        hash_array.push(name.hash);
+        hash_array.push(opt_bool_to_hashable(&self.passes_sampling));
+        if let Some(values) = &self.values {
+            for value in values {
+                hash_array.push(value.hash);
+            }
+        }
+        hashing::hash_one(hash_array)
+    }
 }
 
 #[skip_serializing_none]
@@ -98,45 +123,84 @@ pub struct SessionReplayInfo {
     pub sampling_rate: Option<f64>,
     pub targeting_gate: Option<String>,
     pub recording_blocked: Option<bool>,
-    pub session_recording_event_triggers: Option<HashMap<String, SessionReplayTrigger>>,
-    pub session_recording_exposure_triggers: Option<HashMap<String, SessionReplayTrigger>>,
+    pub session_recording_event_triggers: Option<HashMap<InternedString, SessionReplayTrigger>>,
+    pub session_recording_exposure_triggers: Option<HashMap<InternedString, SessionReplayTrigger>>,
+    pub session_recording_privacy_settings: Option<SessionReplayPrivacySetting>,
 }
 
-#[derive(Deserialize)]
-pub struct SpecsResponsePartial {
-    pub experiment_to_layer: HashMap<String, String>,
-    pub session_replay_info: Option<SessionReplayInfo>,
-    pub diagnostics: Option<HashMap<String, f64>>,
-    pub sdk_configs: Option<HashMap<String, DynamicValue>>,
+// All this macro logic is to ensure that new fields that are added are automatically handled by the merge_from_partial method.
+macro_rules! flatten_struct {
+    (
+        $name:ident,
+        { $( $(#[$common_attr:meta])* $common_vis:vis $common_field:ident : $common_ty:ty ),* $(,)? },
+        { $( $(#[$special_attr:meta])* $special_vis:vis $special_field:ident : $special_ty:ty ),* $(,)? }
+    ) => {
+
+        #[skip_serializing_none]
+        #[derive(Serialize, Deserialize, PartialEq, Debug, Default)] /* DO_NOT_CLONE */
+        pub struct $name {
+            $( $(#[$common_attr])* $common_vis $common_field: $common_ty, )*
+            $( $(#[$special_attr])* $special_vis $special_field : $special_ty, )*
+        }
+
+        impl $name {
+            pub fn merge_from_partial(&mut self, partial: SpecsResponsePartial) {
+                $( self.$common_field = partial.$common_field; )*
+            }
+        }
+    };
 }
 
-#[skip_serializing_none]
-#[derive(Serialize, Deserialize, PartialEq, Debug, Default)] /* DO_NOT_CLONE */
-pub struct SpecsResponseFull {
-    pub company_id: Option<String>,
-    pub feature_gates: SpecsHashMap,
-    pub dynamic_configs: SpecsHashMap,
-    pub layer_configs: SpecsHashMap,
-    pub condition_map: AHashMap<InternedString, Condition>,
-    pub experiment_to_layer: HashMap<String, String>,
-    pub has_updates: bool,
-    pub time: u64,
+macro_rules! response_struct {
+    ( $name:ident, { $( $special:tt )* } ) => {
+        flatten_struct!(
+            $name,
+            {
+                pub app_id: Option<DynamicValue>,
+                pub cmab_configs: Option<HashMap<String, CMABConfig>>,
+                pub default_environment: Option<String>,
+                pub diagnostics: Option<HashMap<String, f64>>,
+                pub experiment_to_layer: HashMap<String, String>,
+                pub hashed_sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
+                pub id_lists: Option<HashMap<String, bool>>,
+                pub override_rules: Option<HashMap<String, Rule>>,
+                pub overrides: Option<HashMap<String, Vec<ConfigMapping>>>,
+                pub sdk_configs: Option<HashMap<String, DynamicValue>>,
+                pub sdk_flags: Option<HashMap<String, bool>>,
+                pub sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
+                pub session_replay_info: Option<SessionReplayInfo>,
+
+                // Add new fields here
+            },
+            { $( $special )* }
+        );
+    };
+}
+
+response_struct!(SpecsResponseFull, {
+    // Special Case Proto Fields
     pub checksum: Option<String>,
-    pub default_environment: Option<String>,
-    pub app_id: Option<DynamicValue>,
-    pub sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
-    pub hashed_sdk_keys_to_app_ids: Option<HashMap<String, DynamicValue>>,
-    pub diagnostics: Option<HashMap<String, f64>>,
+    pub company_id: Option<String>,
+    pub condition_map: AHashMap<InternedString, Condition>,
+    pub dynamic_configs: SpecsHashMap,
+    pub feature_gates: SpecsHashMap,
+    pub has_updates: bool,
+    pub layer_configs: SpecsHashMap,
     pub param_stores: Option<HashMap<InternedString, ParameterStore>>,
-    pub sdk_configs: Option<HashMap<String, DynamicValue>>,
-    pub sdk_flags: Option<HashMap<String, bool>>,
-    pub cmab_configs: Option<HashMap<String, CMABConfig>>,
-    pub overrides: Option<HashMap<String, Vec<ConfigMapping>>>,
-    pub override_rules: Option<HashMap<String, Rule>>,
-    pub id_lists: Option<HashMap<String, bool>>,
     pub response_format: Option<String>,
-    pub session_replay_info: Option<SessionReplayInfo>,
-}
+    pub time: u64,
+    // DO NOT add new fields here unless you know how the Protobuf parser handles them.
+
+    // This field was added by mistake and should be 'param_stores' as above
+    #[serde(default, skip_serializing_if = "SpecsHashMap::is_empty")]
+    pub parameter_stores: SpecsHashMap,
+});
+
+// Think of SpecsResponsePartial as the Typescript type Omit<SpecsResponseFull, "checksum" | "company_id" | etc...>
+// This is used by the protobuf parser to populate the top level fields of SpecsResponseFull.
+response_struct!(SpecsResponsePartial, {
+    // No Special Fields
+});
 
 impl SpecsResponseFull {
     pub fn reset(&mut self) {

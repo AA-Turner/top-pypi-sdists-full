@@ -1485,7 +1485,13 @@ class BacktestingBroker(Broker):
         strategy_name = getattr(strategy, "_name", None) or getattr(strategy, "name", "unknown_strategy")
         asset_symbol = getattr(asset, "symbol", "unknown_asset")
         asset_type = getattr(asset, "asset_type", "unknown_type")
-        return (strategy_name, asset_symbol, asset_type)
+        # Futures contract identity must include expiration.
+        #
+        # Strategies commonly construct futures as Asset(symbol="CL", expiration=YYYYMM or date),
+        # which means the root symbol alone is not unique. Calendar spreads (front/next month)
+        # would otherwise collide in the ledger and incorrectly net margin + realized PnL.
+        asset_expiration = getattr(asset, "expiration", None)
+        return (strategy_name, asset_symbol, asset_type, asset_expiration)
 
     def _realize_futures_pnl(self, ledger, closing_qty, exit_price, multiplier):
         remaining = closing_qty
@@ -1597,23 +1603,26 @@ class BacktestingBroker(Broker):
 
         """
 
-        # OPTIMIZATION: Get orders only once per list to minimize lock acquisitions
-        # This function is called 179k times
+        # This function is called once per bar (minute-level: ~100k/year). Avoid allocating lists
+        # or copying buckets when there are no pending orders.
         strategy_name = strategy.name
-        pending_orders = []
 
-        # Get unprocessed orders once with single lock acquisition
-        if hasattr(self, '_unprocessed_orders'):
-            unprocessed = self._unprocessed_orders.get_list()  # One lock acquisition
-            # Use list comprehension which is faster than extend with filter
-            pending_orders.extend([o for o in unprocessed if o.strategy == strategy_name])
+        unprocessed_bucket = getattr(self, "_unprocessed_orders", None)
+        new_bucket = getattr(self, "_new_orders", None)
+        if not unprocessed_bucket and not new_bucket:
+            return
 
-        # Get new orders once with single lock acquisition
-        if hasattr(self, '_new_orders'):
-            new_orders = self._new_orders.get_list()  # One lock acquisition
-            pending_orders.extend([o for o in new_orders if o.strategy == strategy_name])
+        pending_orders: list[Order] = []
+        if unprocessed_bucket:
+            for order in unprocessed_bucket:
+                if getattr(order, "strategy", None) == strategy_name:
+                    pending_orders.append(order)
+        if new_bucket:
+            for order in new_bucket:
+                if getattr(order, "strategy", None) == strategy_name:
+                    pending_orders.append(order)
 
-        if len(pending_orders) == 0:
+        if not pending_orders:
             return
 
         # Prefetching: Track assets and schedule prefetch
@@ -1775,7 +1784,11 @@ class BacktestingBroker(Broker):
                 and (order.is_buy_order() or order.is_sell_order())
                 and not self._is_option_asset(getattr(order, "asset", None))
             ):
-                fast_bid, fast_ask = self._fast_get_bid_ask_for_fill(order.asset, order.quote)
+                fast_bid, fast_ask = self._fast_get_bid_ask_for_fill(
+                    order.asset,
+                    order.quote,
+                    getattr(order, "exchange", None),
+                )
                 fast_bid = self._coerce_price(fast_bid)
                 fast_ask = self._coerce_price(fast_ask)
                 if fast_bid is not None and self._is_invalid_price(fast_bid):
@@ -2647,7 +2660,12 @@ class BacktestingBroker(Broker):
     def _bar_has_missing_prices(self, *values) -> bool:
         return any(self._is_invalid_price(val) for val in values)
 
-    def _fast_get_bid_ask_for_fill(self, asset: Asset, quote: Optional[Asset]) -> tuple[Optional[float], Optional[float]]:
+    def _fast_get_bid_ask_for_fill(
+        self,
+        asset: Asset,
+        quote: Optional[Asset],
+        exchange: Optional[str] = None,
+    ) -> tuple[Optional[float], Optional[float]]:
         """Fast-path for bid/ask retrieval in backtesting order fills.
 
         Why this exists:
@@ -2689,7 +2707,13 @@ class BacktestingBroker(Broker):
 
         # PERF: `Asset.__hash__`/`Asset.__eq__` are hot in high-churn backtests. Use `id()`-based
         # keys for this internal cache to avoid repeated rich-comparison and hashing work.
-        cache_key = (id(asset), id(quote), str(timestep))
+        effective_exchange = exchange if exchange is not None else getattr(data_source, "exchange", None)
+        try:
+            exchange_key = data_source._normalize_exchange_key(effective_exchange)  # type: ignore[attr-defined]
+        except Exception:
+            exchange_key = (str(effective_exchange or "").strip().upper() or "AUTO")
+
+        cache_key = (id(asset), id(quote), str(timestep), exchange_key)
         if cache_key in cache:
             data_obj, bid_line, ask_line = cache[cache_key]
         else:
@@ -2697,18 +2721,23 @@ class BacktestingBroker(Broker):
             bid_line = None
             ask_line = None
 
-            store_key = None
-            if hasattr(data_source, "find_asset_in_data_store"):
-                try:
-                    store_key = data_source.find_asset_in_data_store(asset, quote, timestep=timestep)
-                except TypeError:
-                    store_key = data_source.find_asset_in_data_store(asset, quote)
-                except Exception:
-                    store_key = None
-
+            quote_asset = quote if quote is not None else Asset("USD", asset_type=Asset.AssetType.FOREX)
             store = getattr(data_source, "_data_store", None)
-            if store_key is not None and isinstance(store, dict):
-                data_obj = store.get(store_key)
+            if isinstance(store, dict):
+                try:
+                    canonical_key, legacy_key = data_source._build_dataset_keys(  # type: ignore[attr-defined]
+                        asset,
+                        quote_asset,
+                        str(timestep),
+                        effective_exchange,
+                    )
+                except Exception:
+                    canonical_key = (asset, quote_asset, str(timestep), exchange_key)
+                    legacy_key = (asset, quote_asset, exchange_key)
+
+                data_obj = store.get(canonical_key)
+                if data_obj is None and str(timestep) == "minute":
+                    data_obj = store.get(legacy_key)
 
             if data_obj is not None:
                 try:

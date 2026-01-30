@@ -22,7 +22,7 @@ from setuptools import setup
 
 setup(
     name='django-cache-url',
-    version='3.4.5',
+    version='3.4.6',
     url='https://github.com/epicserve/django-cache-url',
     license='MIT',
     author="Brent O'Connor",
@@ -33,10 +33,9 @@ setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: Django',
-        'Framework :: Django :: 3.2',
-        'Framework :: Django :: 4.1',
         'Framework :: Django :: 4.2',
-        'Framework :: Django :: 5.0',
+        'Framework :: Django :: 5.2',
+        'Framework :: Django :: 6.0',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',

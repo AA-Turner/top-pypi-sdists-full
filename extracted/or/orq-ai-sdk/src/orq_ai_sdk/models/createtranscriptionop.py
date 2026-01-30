@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from .publiccontact import PublicContact, PublicContactTypedDict
+from .publicidentity import PublicIdentity, PublicIdentityTypedDict
 from dataclasses import dataclass, field
 import httpx
 import io
@@ -10,14 +11,8 @@ from orq_ai_sdk.types import BaseModel, Nullable, UNSET_SENTINEL
 from orq_ai_sdk.utils import FieldMetadata, MultipartFormMetadata
 import pydantic
 from pydantic import model_serializer
-from typing import Any, Dict, IO, List, Literal, Optional, Union
-from typing_extensions import (
-    Annotated,
-    NotRequired,
-    TypeAliasType,
-    TypedDict,
-    deprecated,
-)
+from typing import IO, List, Literal, Optional, Union
+from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
 
 CreateTranscriptionResponseFormat = Literal[
@@ -89,67 +84,6 @@ class CreateTranscriptionRetry(BaseModel):
         return m
 
 
-@deprecated(
-    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-)
-class CreateTranscriptionContactTypedDict(TypedDict):
-    r"""@deprecated Use identity instead. Information about the contact making the request."""
-
-    id: str
-    r"""Unique identifier for the contact"""
-    display_name: NotRequired[str]
-    r"""Display name of the contact"""
-    email: NotRequired[str]
-    r"""Email address of the contact"""
-    metadata: NotRequired[List[Dict[str, Any]]]
-    r"""A hash of key/value pairs containing any other data about the contact"""
-    logo_url: NotRequired[str]
-    r"""URL to the contact's avatar or logo"""
-    tags: NotRequired[List[str]]
-    r"""A list of tags associated with the contact"""
-
-
-@deprecated(
-    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-)
-class CreateTranscriptionContact(BaseModel):
-    r"""@deprecated Use identity instead. Information about the contact making the request."""
-
-    id: str
-    r"""Unique identifier for the contact"""
-
-    display_name: Optional[str] = None
-    r"""Display name of the contact"""
-
-    email: Optional[str] = None
-    r"""Email address of the contact"""
-
-    metadata: Optional[List[Dict[str, Any]]] = None
-    r"""A hash of key/value pairs containing any other data about the contact"""
-
-    logo_url: Optional[str] = None
-    r"""URL to the contact's avatar or logo"""
-
-    tags: Optional[List[str]] = None
-    r"""A list of tags associated with the contact"""
-
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
-        optional_fields = set(["display_name", "email", "metadata", "logo_url", "tags"])
-        serialized = handler(self)
-        m = {}
-
-        for n, f in type(self).model_fields.items():
-            k = f.alias or n
-            val = serialized.get(k)
-
-            if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
-                    m[k] = val
-
-        return m
-
-
 CreateTranscriptionLoadBalancerType = Literal["weight_based",]
 
 
@@ -196,11 +130,11 @@ class CreateTranscriptionLoadBalancer1(BaseModel):
 
 
 CreateTranscriptionLoadBalancerTypedDict = CreateTranscriptionLoadBalancer1TypedDict
-r"""Array of models with weights for load balancing requests"""
+r"""Load balancer configuration for the request."""
 
 
 CreateTranscriptionLoadBalancer = CreateTranscriptionLoadBalancer1
-r"""Array of models with weights for load balancing requests"""
+r"""Load balancer configuration for the request."""
 
 
 class CreateTranscriptionTimeoutTypedDict(TypedDict):
@@ -217,19 +151,144 @@ class CreateTranscriptionTimeout(BaseModel):
     r"""Timeout value in milliseconds"""
 
 
+class CreateTranscriptionRouterAudioTranscriptionsFallbacksTypedDict(TypedDict):
+    model: str
+    r"""Fallback model identifier"""
+
+
+class CreateTranscriptionRouterAudioTranscriptionsFallbacks(BaseModel):
+    model: str
+    r"""Fallback model identifier"""
+
+
+class CreateTranscriptionRouterAudioTranscriptionsRetryTypedDict(TypedDict):
+    r"""Retry configuration for the request"""
+
+    count: NotRequired[float]
+    r"""Number of retry attempts (1-5)"""
+    on_codes: NotRequired[List[float]]
+    r"""HTTP status codes that trigger retry logic"""
+
+
+class CreateTranscriptionRouterAudioTranscriptionsRetry(BaseModel):
+    r"""Retry configuration for the request"""
+
+    count: Optional[float] = 3
+    r"""Number of retry attempts (1-5)"""
+
+    on_codes: Optional[List[float]] = None
+    r"""HTTP status codes that trigger retry logic"""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["count", "on_codes"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+CreateTranscriptionLoadBalancerRouterAudioTranscriptionsType = Literal["weight_based",]
+
+
+class CreateTranscriptionLoadBalancerRouterAudioTranscriptionsModelsTypedDict(
+    TypedDict
+):
+    model: str
+    r"""Model identifier for load balancing"""
+    weight: NotRequired[float]
+    r"""Weight assigned to this model for load balancing"""
+
+
+class CreateTranscriptionLoadBalancerRouterAudioTranscriptionsModels(BaseModel):
+    model: str
+    r"""Model identifier for load balancing"""
+
+    weight: Optional[float] = 0.5
+    r"""Weight assigned to this model for load balancing"""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["weight"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+class CreateTranscriptionLoadBalancerRouterAudioTranscriptions1TypedDict(TypedDict):
+    type: CreateTranscriptionLoadBalancerRouterAudioTranscriptionsType
+    models: List[
+        CreateTranscriptionLoadBalancerRouterAudioTranscriptionsModelsTypedDict
+    ]
+
+
+class CreateTranscriptionLoadBalancerRouterAudioTranscriptions1(BaseModel):
+    type: CreateTranscriptionLoadBalancerRouterAudioTranscriptionsType
+
+    models: List[CreateTranscriptionLoadBalancerRouterAudioTranscriptionsModels]
+
+
+CreateTranscriptionRouterAudioTranscriptionsLoadBalancerTypedDict = (
+    CreateTranscriptionLoadBalancerRouterAudioTranscriptions1TypedDict
+)
+r"""Array of models with weights for load balancing requests"""
+
+
+CreateTranscriptionRouterAudioTranscriptionsLoadBalancer = (
+    CreateTranscriptionLoadBalancerRouterAudioTranscriptions1
+)
+r"""Array of models with weights for load balancing requests"""
+
+
+class CreateTranscriptionRouterAudioTranscriptionsTimeoutTypedDict(TypedDict):
+    r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
+
+    call_timeout: float
+    r"""Timeout value in milliseconds"""
+
+
+class CreateTranscriptionRouterAudioTranscriptionsTimeout(BaseModel):
+    r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
+
+    call_timeout: float
+    r"""Timeout value in milliseconds"""
+
+
 class CreateTranscriptionOrqTypedDict(TypedDict):
     name: NotRequired[str]
     r"""The name to display on the trace. If not specified, the default system name will be used."""
-    fallbacks: NotRequired[List[CreateTranscriptionFallbacksTypedDict]]
+    fallbacks: NotRequired[
+        List[CreateTranscriptionRouterAudioTranscriptionsFallbacksTypedDict]
+    ]
     r"""Array of fallback models to use if primary model fails"""
-    retry: NotRequired[CreateTranscriptionRetryTypedDict]
+    retry: NotRequired[CreateTranscriptionRouterAudioTranscriptionsRetryTypedDict]
     r"""Retry configuration for the request"""
-    identity: NotRequired[PublicContactTypedDict]
+    identity: NotRequired[PublicIdentityTypedDict]
     r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
-    contact: NotRequired[CreateTranscriptionContactTypedDict]
-    load_balancer: NotRequired[CreateTranscriptionLoadBalancerTypedDict]
+    contact: NotRequired[PublicContactTypedDict]
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
+    load_balancer: NotRequired[
+        CreateTranscriptionRouterAudioTranscriptionsLoadBalancerTypedDict
+    ]
     r"""Array of models with weights for load balancing requests"""
-    timeout: NotRequired[CreateTranscriptionTimeoutTypedDict]
+    timeout: NotRequired[CreateTranscriptionRouterAudioTranscriptionsTimeoutTypedDict]
     r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
 
 
@@ -237,21 +296,31 @@ class CreateTranscriptionOrq(BaseModel):
     name: Optional[str] = None
     r"""The name to display on the trace. If not specified, the default system name will be used."""
 
-    fallbacks: Optional[List[CreateTranscriptionFallbacks]] = None
+    fallbacks: Optional[List[CreateTranscriptionRouterAudioTranscriptionsFallbacks]] = (
+        None
+    )
     r"""Array of fallback models to use if primary model fails"""
 
-    retry: Optional[CreateTranscriptionRetry] = None
+    retry: Optional[CreateTranscriptionRouterAudioTranscriptionsRetry] = None
     r"""Retry configuration for the request"""
 
-    identity: Optional[PublicContact] = None
+    identity: Optional[PublicIdentity] = None
     r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
 
-    contact: Optional[CreateTranscriptionContact] = None
+    contact: Annotated[
+        Optional[PublicContact],
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ] = None
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
 
-    load_balancer: Optional[CreateTranscriptionLoadBalancer] = None
+    load_balancer: Optional[
+        CreateTranscriptionRouterAudioTranscriptionsLoadBalancer
+    ] = None
     r"""Array of models with weights for load balancing requests"""
 
-    timeout: Optional[CreateTranscriptionTimeout] = None
+    timeout: Optional[CreateTranscriptionRouterAudioTranscriptionsTimeout] = None
     r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
 
     @model_serializer(mode="wrap")
@@ -346,6 +415,16 @@ class CreateTranscriptionRequestBodyTypedDict(TypedDict):
     r"""The language of the input audio. Supplying the input language in ISO-639-1 format will improve accuracy and latency."""
     timestamp_granularities: NotRequired[List[TimestampGranularities]]
     r"""The timestamp granularities to populate for this transcription. response_format must be set to verbose_json to use timestamp granularities. Either or both of these options are supported: \"word\" or \"segment\". Note: There is no additional latency for segment timestamps, but generating word timestamps incurs additional latency."""
+    name: NotRequired[str]
+    r"""The name to display on the trace. If not specified, the default system name will be used."""
+    fallbacks: NotRequired[List[CreateTranscriptionFallbacksTypedDict]]
+    r"""Array of fallback models to use if primary model fails"""
+    retry: NotRequired[CreateTranscriptionRetryTypedDict]
+    r"""Retry configuration for the request"""
+    load_balancer: NotRequired[CreateTranscriptionLoadBalancerTypedDict]
+    r"""Load balancer configuration for the request."""
+    timeout: NotRequired[CreateTranscriptionTimeoutTypedDict]
+    r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
     orq: NotRequired[CreateTranscriptionOrqTypedDict]
     file: NotRequired[CreateTranscriptionFileTypedDict]
     r"""The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, or webm."""
@@ -393,6 +472,33 @@ class CreateTranscriptionRequestBody(BaseModel):
     ] = None
     r"""The timestamp granularities to populate for this transcription. response_format must be set to verbose_json to use timestamp granularities. Either or both of these options are supported: \"word\" or \"segment\". Note: There is no additional latency for segment timestamps, but generating word timestamps incurs additional latency."""
 
+    name: Annotated[Optional[str], FieldMetadata(multipart=True)] = None
+    r"""The name to display on the trace. If not specified, the default system name will be used."""
+
+    fallbacks: Annotated[
+        Optional[List[CreateTranscriptionFallbacks]],
+        FieldMetadata(multipart=MultipartFormMetadata(json=True)),
+    ] = None
+    r"""Array of fallback models to use if primary model fails"""
+
+    retry: Annotated[
+        Optional[CreateTranscriptionRetry],
+        FieldMetadata(multipart=MultipartFormMetadata(json=True)),
+    ] = None
+    r"""Retry configuration for the request"""
+
+    load_balancer: Annotated[
+        Optional[CreateTranscriptionLoadBalancer],
+        FieldMetadata(multipart=MultipartFormMetadata(json=True)),
+    ] = None
+    r"""Load balancer configuration for the request."""
+
+    timeout: Annotated[
+        Optional[CreateTranscriptionTimeout],
+        FieldMetadata(multipart=MultipartFormMetadata(json=True)),
+    ] = None
+    r"""Timeout configuration to apply to the request. If the request exceeds the timeout, it will be retried or fallback to the next model if configured."""
+
     orq: Annotated[
         Optional[CreateTranscriptionOrq],
         FieldMetadata(multipart=MultipartFormMetadata(json=True)),
@@ -418,6 +524,11 @@ class CreateTranscriptionRequestBody(BaseModel):
                 "temperature",
                 "language",
                 "timestamp_granularities",
+                "name",
+                "fallbacks",
+                "retry",
+                "load_balancer",
+                "timeout",
                 "orq",
                 "file",
             ]

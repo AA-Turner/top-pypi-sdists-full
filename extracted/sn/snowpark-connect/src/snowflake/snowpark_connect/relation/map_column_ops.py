@@ -27,13 +27,12 @@ from snowflake.snowpark._internal.analyzer.expression import (
 from snowflake.snowpark._internal.utils import generate_random_alphanumeric
 from snowflake.snowpark.column import Column
 from snowflake.snowpark.table_function import _ExplodeFunctionCall
-from snowflake.snowpark.types import DataType, StructField, StructType, _NumericType
+from snowflake.snowpark.types import DataType, StructType, _NumericType
 from snowflake.snowpark_connect import tcm
 from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
     ColumnQualifier,
     make_column_names_snowpark_compatible,
-    make_unique_snowpark_name,
 )
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -54,6 +53,7 @@ from snowflake.snowpark_connect.relation.output_struct_utils import (
     unpack_struct_output_to_container,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
+    METADATA_FILENAME_COLUMN,
     without_internal_columns,
 )
 from snowflake.snowpark_connect.relation.utils import (
@@ -582,44 +582,52 @@ def map_to_df(
     """
     Transform the column names of the input DataFrame and return a container.
     """
-    input_container = without_internal_columns(map_relation(rel.to_df.input))
+    input_container = map_relation(rel.to_df.input)
     input_df = input_container.dataframe
 
     new_column_names = list(rel.to_df.column_names)
-    if len(new_column_names) != len(input_container.column_map.columns):
+
+    # Remove hidden columns but keep METADATA$FILENAME
+    visible_container = input_container.without_hidden_columns()
+    if len(new_column_names) != len(
+        without_internal_columns(input_container).column_map.columns
+    ):
         # TODO: Check error type here
         exception = ValueError(
             "Number of column names must match number of columns in DataFrame"
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
         raise exception
-    snowpark_new_column_names = make_column_names_snowpark_compatible(
-        new_column_names, rel.common.plan_id
-    )
-    result = input_df.toDF(*snowpark_new_column_names)
+
+    visible_snowpark_columns = visible_container.column_map.get_snowpark_columns()
+    result = visible_container.dataframe.select("*")
 
     if result._select_statement is not None:
         # do not allow snowpark to flatten the to_df result
         # TODO: remove after SNOW-2203706 is fixed
         result._select_statement.flatten_disabled = True
 
-    def _get_schema():
-        return StructType(
-            [
-                StructField(n, f.datatype, _is_column=False)
-                for n, f in zip(snowpark_new_column_names, input_df.schema.fields)
-            ]
-        )
+    visible_spark_columns = visible_container.column_map.get_spark_columns()
+    result_spark_column_names = []
+    new_name_idx = 0
+    for spark_col in visible_spark_columns:
+        if spark_col == METADATA_FILENAME_COLUMN:
+            result_spark_column_names.append(METADATA_FILENAME_COLUMN)
+        else:
+            result_spark_column_names.append(new_column_names[new_name_idx])
+            new_name_idx += 1
 
     result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=result,
-        spark_column_names=new_column_names,
-        snowpark_column_names=snowpark_new_column_names,
+        spark_column_names=result_spark_column_names,
+        snowpark_column_names=visible_snowpark_columns,
         parent_column_name_map=input_container.column_map,
         table_name=input_container.table_name,
         alias=input_container.alias,
-        cached_schema_getter=_get_schema,
-        equivalent_snowpark_names=[set()] * len(new_column_names),
+        cached_schema_getter=lambda: StructType(
+            [f for f in input_df.schema.fields if f.name in visible_snowpark_columns]
+        ),
+        equivalent_snowpark_names=[set()] * len(result_spark_column_names),
     )
     context.set_df_before_projection(result_container)
     return result_container
@@ -778,9 +786,7 @@ def map_with_columns_renamed(
     """
     Rename columns in a DataFrame and return a container.
     """
-    input_container = without_internal_columns(
-        map_relation(rel.with_columns_renamed.input)
-    )
+    input_container = map_relation(rel.with_columns_renamed.input)
     input_df = input_container.dataframe
     rename_columns_map = dict(rel.with_columns_renamed.rename_columns_map)
 
@@ -855,8 +861,6 @@ def map_with_columns_renamed(
         seen.add(new_name)
 
     new_spark_names = []
-    new_snowpark_names = []
-    qualifiers = []
     equivalent_snowpark_names = []
     for c in column_map.columns:
         spark_name = c.spark_name
@@ -870,17 +874,14 @@ def map_with_columns_renamed(
 
         if new_spark_name:
             new_spark_names.append(new_spark_name)
-            new_snowpark_names.append(make_unique_snowpark_name(new_spark_name))
-            qualifiers.append(set())
             equivalent_snowpark_names.append(set())
         else:
             new_spark_names.append(c.spark_name)
-            new_snowpark_names.append(c.snowpark_name)
-            qualifiers.append(c.qualifiers)
             equivalent_snowpark_names.append(c.equivalent_snowpark_names)
 
     # Creating a new df to avoid updating the state of cached dataframe.
     new_df = input_df.select("*")
+    column_is_hidden = [c.is_hidden for c in input_container.column_map.columns]
     result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=new_df,
         spark_column_names=new_spark_names,
@@ -890,6 +891,8 @@ def map_with_columns_renamed(
         table_name=input_container.table_name,
         alias=input_container.alias,
         equivalent_snowpark_names=equivalent_snowpark_names,
+        cached_schema_getter=lambda: input_df.schema,
+        column_is_hidden=column_is_hidden,
     )
     result_container.column_map.rename_chains = rename_columns_map
 
@@ -902,7 +905,7 @@ def map_with_columns(
     """
     Add columns to a DataFrame and return a container.
     """
-    input_container = without_internal_columns(map_relation(rel.with_columns.input))
+    input_container = map_relation(rel.with_columns.input)
     input_df = input_container.dataframe
     with_columns = []
     for alias in rel.with_columns.aliases:
@@ -990,6 +993,13 @@ def map_with_columns(
         equivalent_snowpark_names,
     ) = input_container.column_map.with_columns(new_spark_names, with_columns_names)
 
+    snowpark_to_hidden = {
+        c.snowpark_name: c.is_hidden for c in input_container.column_map.columns
+    }
+    column_is_hidden = []
+    for snowpark_col in new_snowpark_columns:
+        column_is_hidden.append(snowpark_to_hidden.get(snowpark_col, False))
+
     # dedup the change in columns at snowpark name level, this is required by the with columns functions
     with_columns_names_deduped = []
     with_columns_exprs_deduped = []
@@ -1036,6 +1046,7 @@ def map_with_columns(
         table_name=input_container.table_name,
         alias=input_container.alias,
         equivalent_snowpark_names=equivalent_snowpark_names,
+        column_is_hidden=column_is_hidden,
     )
 
 

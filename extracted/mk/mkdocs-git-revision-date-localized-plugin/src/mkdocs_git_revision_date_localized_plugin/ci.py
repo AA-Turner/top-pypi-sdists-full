@@ -4,8 +4,8 @@ Helper functions related to continuous integration (CI).
 This is because often CI runners do not have access to full git history.
 """
 
-import os
 import logging
+import os
 
 
 def raise_ci_warnings(repo) -> None:

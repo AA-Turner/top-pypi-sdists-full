@@ -19,8 +19,10 @@ from . import list_func as list_module
 from .build import build_command
 from .clone import clone_repository, get_clone_message, print_error, print_tutorial
 from .debug import debug_mcp_stdio
+from .deploy import deploy_command
 from .dev import run_mcp_dev_server
 from .eval import eval_command
+from .link import link_command
 from .pull import pull_command
 from .push import push_command
 from .remove import remove_command
@@ -401,6 +403,14 @@ def models(
             console.print("[yellow]No models found[/yellow]")
             return
 
+        # Sort models alphabetically by name
+        models_list = sorted(
+            models_list,
+            key=lambda x: (x.get("name") or str(x)).lower()
+            if isinstance(x, dict)
+            else str(x).lower(),
+        )
+
         console.print(Panel.fit("📋 [bold cyan]Available Models[/bold cyan]", border_style="cyan"))
 
         table = Table()
@@ -764,7 +774,9 @@ def build(
         hud build . --tag my-env:v1.0 -e VAR1=value1 -e VAR2=value2
         hud build . --no-cache       # Force rebuild
         hud build . --remote-cache my-cache-repo   # Use ECR remote cache (requires AWS_ACCOUNT_ID and AWS_DEFAULT_REGION)
-        hud build . --build-arg NODE_ENV=production  # Pass Docker build args[/not dim]
+        hud build . --build-arg NODE_ENV=production  # Pass Docker build args
+        hud build . --secret id=MY_KEY,env=MY_KEY  # Pass build secrets, reading $MY_KEY env var. These will be encrypted at rest.
+        hud build . --secret id=MY_KEY,src=./my_key.txt  # Pass build secret from file.[/not dim]
     """  # noqa: E501
     # Parse directory and extra arguments
     if params:
@@ -828,6 +840,11 @@ def build(
         remote_cache,
         build_args or None,
     )
+
+
+# Register the deploy and link commands
+app.command(name="deploy")(deploy_command)
+app.command(name="link")(link_command)
 
 
 @app.command()

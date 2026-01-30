@@ -1,27 +1,16 @@
 """
 Item Loader
 
-See documentation in docs/topics/loaders.rst
+See documentation in :ref:`declaring-loaders`.
 """
 
 from __future__ import annotations
 
 from contextlib import suppress
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Pattern,
-    Union,
-)
+from typing import TYPE_CHECKING, Any
 
 from itemadapter import ItemAdapter
-from parsel import Selector
+from parsel import Selector  # noqa: TC002  # for sphinx
 from parsel.utils import extract_regex, flatten
 
 from itemloaders.common import wrap_loader_context
@@ -29,6 +18,9 @@ from itemloaders.processors import Identity
 from itemloaders.utils import arg_to_iter
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, MutableMapping
+    from re import Pattern
+
     # typing.Self requires Python 3.11
     from typing_extensions import Self
 
@@ -122,37 +114,35 @@ class ItemLoader:
     def __init__(
         self,
         item: Any = None,
-        selector: Optional[Selector] = None,
-        parent: Optional[ItemLoader] = None,
+        selector: Selector | None = None,
+        parent: ItemLoader | None = None,
         **context: Any,
     ):
-        self.selector: Optional[Selector] = selector
+        self.selector: Selector | None = selector
         context.update(selector=selector)
         if item is None:
             item = self.default_item_class()
         self._local_item = item
         context["item"] = item
         self.context: MutableMapping[str, Any] = context
-        self.parent: Optional[ItemLoader] = parent
-        self._local_values: Dict[str, List[Any]] = {}
+        self.parent: ItemLoader | None = parent
+        self._local_values: dict[str, list[Any]] = {}
         # values from initial item
         for field_name, value in ItemAdapter(item).items():
             self._values.setdefault(field_name, [])
             self._values[field_name] += arg_to_iter(value)
 
     @property
-    def _values(self) -> Dict[str, List[Any]]:
+    def _values(self) -> dict[str, list[Any]]:
         if self.parent is not None:
             return self.parent._values
-        else:
-            return self._local_values
+        return self._local_values
 
     @property
     def item(self) -> Any:
         if self.parent is not None:
             return self.parent.item
-        else:
-            return self._local_item
+        return self._local_item
 
     def nested_xpath(self, xpath: str, **context: Any) -> Self:
         """
@@ -166,8 +156,7 @@ class ItemLoader:
         assert self.selector is not None
         selector = self.selector.xpath(xpath)
         context.update(selector=selector)
-        subloader = self.__class__(item=self.item, parent=self, **context)
-        return subloader
+        return self.__class__(item=self.item, parent=self, **context)
 
     def nested_css(self, css: str, **context: Any) -> Self:
         """
@@ -181,15 +170,14 @@ class ItemLoader:
         assert self.selector is not None
         selector = self.selector.css(css)
         context.update(selector=selector)
-        subloader = self.__class__(item=self.item, parent=self, **context)
-        return subloader
+        return self.__class__(item=self.item, parent=self, **context)
 
     def add_value(
         self,
-        field_name: Optional[str],
+        field_name: str | None,
         value: Any,
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -229,10 +217,10 @@ class ItemLoader:
 
     def replace_value(
         self,
-        field_name: Optional[str],
+        field_name: str | None,
         value: Any,
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -267,7 +255,7 @@ class ItemLoader:
         self,
         value: Any,
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Any:
         """
@@ -297,13 +285,13 @@ class ItemLoader:
             if value is None:
                 break
             _proc = proc
-            proc = wrap_loader_context(proc, self.context)
+            proc = wrap_loader_context(proc, self.context)  # noqa: PLW2901
             try:
                 value = proc(value)
             except Exception as e:
                 raise ValueError(
-                    "Error with processor %s value=%r error='%s: %s'"
-                    % (_proc.__class__.__name__, value, type(e).__name__, str(e))
+                    f"Error with processor {_proc.__class__.__name__} "
+                    f"value={value!r} error='{type(e).__name__}: {e!s}'"
                 ) from e
         return value
 
@@ -333,16 +321,16 @@ class ItemLoader:
             return proc(value)
         except Exception as e:
             raise ValueError(
-                "Error with output processor: field=%r value=%r error='%s: %s'"
-                % (field_name, value, type(e).__name__, str(e))
+                f"Error with output processor: field={field_name!r} "
+                f"value={value!r} error='{type(e).__name__}: {e!s}'"
             ) from e
 
-    def get_collected_values(self, field_name: str) -> List[Any]:
+    def get_collected_values(self, field_name: str) -> list[Any]:
         """Return the collected values for the given field."""
         return self._values.get(field_name, [])
 
     def get_input_processor(self, field_name: str) -> Callable[..., Any]:
-        proc = getattr(self, "%s_in" % field_name, None)
+        proc = getattr(self, f"{field_name}_in", None)
         if not proc:
             proc = self._get_item_field_attr(
                 field_name, "input_processor", self.default_input_processor
@@ -350,7 +338,7 @@ class ItemLoader:
         return unbound_method(proc)
 
     def get_output_processor(self, field_name: str) -> Callable[..., Any]:
-        proc = getattr(self, "%s_out" % field_name, None)
+        proc = getattr(self, f"{field_name}_out", None)
         if not proc:
             proc = self._get_item_field_attr(
                 field_name, "output_processor", self.default_output_processor
@@ -371,30 +359,23 @@ class ItemLoader:
             return proc(value)
         except Exception as e:
             raise ValueError(
-                "Error with input processor %s: field=%r value=%r "
-                "error='%s: %s'"
-                % (
-                    _proc.__class__.__name__,
-                    field_name,
-                    value,
-                    type(e).__name__,
-                    str(e),
-                )
+                f"Error with input processor {_proc.__class__.__name__}:"
+                f" field={field_name!r} value={value!r} error='{type(e).__name__}: {e!s}'"
             ) from e
 
     def _check_selector_method(self) -> None:
         if self.selector is None:
             raise RuntimeError(
-                "To use XPath or CSS selectors, %s "
-                "must be instantiated with a selector" % self.__class__.__name__
+                f"To use XPath or CSS selectors, {self.__class__.__name__} "
+                f"must be instantiated with a selector"
             )
 
     def add_xpath(
         self,
-        field_name: Optional[str],
-        xpath: Union[str, Iterable[str]],
+        field_name: str | None,
+        xpath: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -423,10 +404,10 @@ class ItemLoader:
 
     def replace_xpath(
         self,
-        field_name: Optional[str],
-        xpath: Union[str, Iterable[str]],
+        field_name: str | None,
+        xpath: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -441,9 +422,9 @@ class ItemLoader:
 
     def get_xpath(
         self,
-        xpath: Union[str, Iterable[str]],
+        xpath: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Any:
         """
@@ -469,9 +450,7 @@ class ItemLoader:
         values = self._get_xpathvalues(xpath, **kw)
         return self.get_value(values, *processors, re=re, **kw)
 
-    def _get_xpathvalues(
-        self, xpaths: Union[str, Iterable[str]], **kw: Any
-    ) -> List[Any]:
+    def _get_xpathvalues(self, xpaths: str | Iterable[str], **kw: Any) -> list[Any]:
         self._check_selector_method()
         assert self.selector is not None
         xpaths = arg_to_iter(xpaths)
@@ -479,10 +458,10 @@ class ItemLoader:
 
     def add_css(
         self,
-        field_name: Optional[str],
-        css: Union[str, Iterable[str]],
+        field_name: str | None,
+        css: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -511,10 +490,10 @@ class ItemLoader:
 
     def replace_css(
         self,
-        field_name: Optional[str],
-        css: Union[str, Iterable[str]],
+        field_name: str | None,
+        css: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -529,9 +508,9 @@ class ItemLoader:
 
     def get_css(
         self,
-        css: Union[str, Iterable[str]],
+        css: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Any:
         """
@@ -556,7 +535,7 @@ class ItemLoader:
         values = self._get_cssvalues(css)
         return self.get_value(values, *processors, re=re, **kw)
 
-    def _get_cssvalues(self, csss: Union[str, Iterable[str]]) -> List[Any]:
+    def _get_cssvalues(self, csss: str | Iterable[str]) -> list[Any]:
         self._check_selector_method()
         assert self.selector is not None
         csss = arg_to_iter(csss)
@@ -564,10 +543,10 @@ class ItemLoader:
 
     def add_jmes(
         self,
-        field_name: Optional[str],
+        field_name: str | None,
         jmes: str,
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -595,10 +574,10 @@ class ItemLoader:
 
     def replace_jmes(
         self,
-        field_name: Optional[str],
-        jmes: Union[str, Iterable[str]],
+        field_name: str | None,
+        jmes: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Self:
         """
@@ -612,9 +591,9 @@ class ItemLoader:
 
     def get_jmes(
         self,
-        jmes: Union[str, Iterable[str]],
+        jmes: str | Iterable[str],
         *processors: Callable[..., Any],
-        re: Union[str, Pattern[str], None] = None,
+        re: str | Pattern[str] | None = None,
         **kw: Any,
     ) -> Any:
         """
@@ -639,12 +618,12 @@ class ItemLoader:
         values = self._get_jmesvalues(jmes)
         return self.get_value(values, *processors, re=re, **kw)
 
-    def _get_jmesvalues(self, jmess: Union[str, Iterable[str]]) -> List[Any]:
+    def _get_jmesvalues(self, jmess: str | Iterable[str]) -> list[Any]:
         self._check_selector_method()
         assert self.selector is not None
         jmess = arg_to_iter(jmess)
         if not hasattr(self.selector, "jmespath"):
             raise AttributeError(
-                "Please install parsel >= 1.8.1 to get jmespath support"
+                "Please install parsel >= 1.8.1 to get JMESPath support"
             )
         return flatten(self.selector.jmespath(jmes).getall() for jmes in jmess)

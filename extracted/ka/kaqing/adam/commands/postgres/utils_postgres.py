@@ -3,7 +3,8 @@ import functools
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, wait_log
+from adam.utils import ExecResult, log2, wait_log
+from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 
 TestPG = [False]
@@ -46,7 +47,7 @@ class PostgresPodService:
     def __init__(self, handler: 'PostgresExecHandler'):
         self.handler = handler
 
-    def exec(self, command: str, show_out=True):
+    def exec(self, command: str, ctx: Context = Context.NULL):
         state = self.handler.state
 
         pod, container = PostgresDatabases.pod_and_container(state.namespace)
@@ -54,16 +55,26 @@ class PostgresPodService:
             log2('Cannot locate postgres agent or ops pod.')
             return state
 
-        return Pods.exec(pod, container, state.namespace, command, show_out=show_out)
+        r = Pods.exec(pod, container, state.namespace, command, ctx=ctx)
 
-    def sql(self, args: list[str], backgrounded=False):
+        if r and ctx.show_out and not ctx.debug:
+            ctx.log(r.command, verbose=True)
+
+            if r.stdout:
+                ctx.log(r.stdout)
+            if r.stderr:
+                ctx.log2(r.stderr)
+
+        return r
+
+    def sql(self, args: list[str], ctx: Context = Context.NULL) -> ExecResult:
         state = self.handler.state
 
         query = args
         if isinstance(args, list):
             query = ' '.join(args)
 
-        PostgresDatabases.run_sql(state, query, show_out=Config().is_debug(), backgrounded=backgrounded)
+        return PostgresDatabases.run_sql(state, query, ctx=ctx)
 
 class PostgresExecHandler:
     def __init__(self, state: ReplState, backgrounded=False):

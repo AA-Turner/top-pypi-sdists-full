@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: td-client
-Version: 1.5.0
+Version: 1.7.0
 Summary: Treasure Data API library for Python
 Author-email: "Treasure Data, Inc." <support@treasure-data.com>
 License: Apache Software License
@@ -11,24 +11,27 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: python-dateutil
-Requires-Dist: msgpack>=0.6.2
-Requires-Dist: urllib3
-Provides-Extra: dev
-Requires-Dist: ruff; extra == "dev"
+Requires-Dist: python-dateutil>=2.9.0.post0
+Requires-Dist: msgpack>=1.1.2
+Requires-Dist: urllib3>=2.0.0
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: test
+Requires-Dist: coverage[toml]; extra == "test"
+Requires-Dist: pytest>=8.3; extra == "test"
+Requires-Dist: coveralls<5.0,>=1.1; extra == "test"
+Requires-Dist: pyyaml; extra == "test"
 Dynamic: license-file
 
 
@@ -39,11 +42,6 @@ Treasure Data API library for Python
 .. image:: https://github.com/treasure-data/td-client-python/workflows/Python%20testing/badge.svg
    :target: https://github.com/treasure-data/td-client-python/actions
    :alt: Build Status on GitHub Actions
-
-
-.. image:: https://ci.appveyor.com/api/projects/status/eol91l1ag50xee9m/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/treasure-data/td-client-python/branch/master
-   :alt: Build status
 
 
 .. image:: https://badge.fury.io/py/td-client.svg
@@ -59,7 +57,7 @@ Requirements
 ``td-client`` supports the following versions of Python.
 
 
-* Python 3.5+
+* Python 3.10+
 * PyPy
 
 Install
@@ -97,7 +95,7 @@ Listing jobs
 
 Treasure Data API key will be read from environment variable ``TD_API_KEY``\ , if none is given via ``apikey=`` argument passed to ``tdclient.Client``.
 
-Treasure Data API endpoint ``https://api.treasuredata.com`` is used by default. You can override this with environment variable ``TD_API_SERVER``\ , which in turn can be overridden via ``endpoint=`` argument passed to ``tdclient.Client``. List of available Treasure Data sites and corresponding API endpoints can be found `here <https://tddocs.atlassian.net/wiki/spaces/PD/pages/1085143/Sites+and+Endpoints>`_.
+Treasure Data API endpoint ``https://api.treasuredata.com`` is used by default. You can override this with environment variable ``TD_API_SERVER``\ , which in turn can be overridden via ``endpoint=`` argument passed to ``tdclient.Client``. List of available Treasure Data sites and corresponding API endpoints can be found `here <https://api-docs.treasuredata.com/en/overview/aboutendpoints/#treasure-data-api-baseurls>`_.
 
 .. code-block:: python
 
@@ -288,22 +286,86 @@ which would produce:
   1575454204, "a", "0001", ["a", "b", "c"]
   1575454204, "b", "0002", ["d", "e", "f"]
 
+Type Hints
+----------
+
+td-client-python includes comprehensive type hints (PEP 484) for improved development experience with static type checkers like mypy and pyright. Type hints are available for all public APIs.
+
+**Features:**
+
+
+* Fully typed public API with precise type annotations
+* ``py.typed`` marker file for PEP 561 compliance
+* Type aliases in ``tdclient.types`` for common patterns
+* Support for type checking with mypy, pyright, and other tools
+
+**Example with type checking:**
+
+.. code-block:: python
+
+   import tdclient
+
+   # Type checkers will understand the types
+   with tdclient.Client(apikey="your_api_key") as client:
+       # client is inferred as tdclient.Client
+       job = client.query("sample_db", "SELECT COUNT(1) FROM table", type="presto")
+       # job is inferred as tdclient.models.Job
+       job.wait()
+       for row in job.result():
+           # row is inferred as dict[str, Any]
+           print(row)
+
+**Using type aliases:**
+
+.. code-block:: python
+
+   from tdclient.types import QueryEngineType, Priority
+
+   def run_query(engine: QueryEngineType, priority: Priority) -> None:
+       with tdclient.Client() as client:
+           job = client.query("mydb", "SELECT 1", type=engine, priority=priority)
+           job.wait()
+
 Development
 -----------
 
 Running tests
 ^^^^^^^^^^^^^
 
-Run tests.
+Install the project dependencies with `uv <https://docs.astral.sh/uv/>`_ (runtime
+and test extras) and execute pytest via ``uv run``.
 
 .. code-block:: sh
 
-   $ pytest tdclient
+    $ uv sync --extra test
+    $ uv run pytest tdclient/test
+
+To run the coverage suite locally, use:
+
+.. code-block:: sh
+
+    $ uv run coverage run --source=tdclient -m pytest tdclient/test
+    $ uv run coverage report
+
+Linting and type checking
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install the development extras and invoke ``ruff`` and ``pyright`` using
+``uv run``.
+
+.. code-block:: sh
+
+    $ uv sync --dev
+    $ uv run ruff format tdclient --diff --exit-non-zero-on-fix
+    $ uv run ruff check tdclient
+    $ uv run pyright tdclient
 
 Running tests (tox)
 ^^^^^^^^^^^^^^^^^^^
 
-You can run tests against all supported Python versions. I'd recommend you to install `pyenv <https://github.com/yyuu/pyenv>`_ to manage Pythons.
+You can run tests against all supported Python versions with ``tox``. I'd
+recommend you to install `pyenv <https://github.com/yyuu/pyenv>`_ to manage
+additional interpreters.
 
 .. code-block:: sh
 
@@ -311,17 +373,17 @@ You can run tests against all supported Python versions. I'd recommend you to in
    $ for version in $(cat .python-version); do [ -d "$(pyenv root)/versions/${version}" ] || pyenv install "${version}"; done
    $ pyenv shell --unset
 
-Install `tox <https://pypi.python.org/pypi/tox>`_.
+Install the development extras (which include ``tox``) with ``uv``.
 
 .. code-block:: sh
 
-   $ pip install tox
+    $ uv sync --dev
 
-Then, run ``tox``.
+Then, run ``tox`` via ``uv``.
 
 .. code-block:: sh
 
-   $ tox
+    $ uv run tox
 
 Release
 ^^^^^^^

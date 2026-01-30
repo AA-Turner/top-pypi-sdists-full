@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ascii_magic
-Version: 2.7.2
+Version: 2.7.4
 Summary: Converts pictures into ASCII art
 Home-page: https://github.com/LeandroBarone/python-ascii_magic
 Author: Leandro Barone
@@ -20,6 +20,9 @@ Python package that converts images into ASCII art for terminals and HTML.
 Code based on [ProfOak's Ascii Py](https://github.com/ProfOak/Ascii_py/).
 
 # Changelog
+
+### v2.7.3 - Jan 2026
+- Fixed Python 3.9 [compatibility issue](https://github.com/LeandroBarone/python-ascii_magic/pull/28)
 
 ### v2.7 - Oct 2025
 - SwarmUI support: from_swarmui()

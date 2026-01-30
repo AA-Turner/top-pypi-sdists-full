@@ -1,10 +1,16 @@
 import logging
 import os
-from typing import Optional
+from collections.abc import Iterator
+from typing import Any, Optional
 
+from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.messages import BaseMessage
+from langchain_core.outputs import ChatGenerationChunk, ChatResult
+from tenacity import AsyncRetrying, Retrying
 from uipath._utils import resource_override
 from uipath.utils import EndpointManager
 
+from .retryers.bedrock import AsyncBedrockRetryer, BedrockRetryer
 from .supported_models import BedrockModels
 from .types import APIFlavor, LLMProvider
 
@@ -38,6 +44,7 @@ def _check_bedrock_dependencies() -> None:
 _check_bedrock_dependencies()
 
 import boto3
+import botocore.config
 from langchain_aws import (
     ChatBedrock,
     ChatBedrockConverse,
@@ -90,6 +97,11 @@ class AwsBedrockCompletionsPassthroughClient:
             region_name="none",
             aws_access_key_id="none",
             aws_secret_access_key="none",
+            config=botocore.config.Config(
+                retries={
+                    "total_max_attempts": 1,
+                }
+            ),
         )
         client.meta.events.register(
             "before-send.bedrock-runtime.*", self._modify_request
@@ -128,6 +140,8 @@ class UiPathChatBedrockConverse(ChatBedrockConverse):
     llm_provider: LLMProvider = LLMProvider.BEDROCK
     api_flavor: APIFlavor = APIFlavor.AWS_BEDROCK_CONVERSE
     model: str = ""  # For tracing serialization
+    retryer: Optional[Retrying] = None
+    aretryer: Optional[AsyncRetrying] = None
 
     def __init__(
         self,
@@ -137,6 +151,8 @@ class UiPathChatBedrockConverse(ChatBedrockConverse):
         model_name: str = BedrockModels.anthropic_claude_haiku_4_5,
         agenthub_config: Optional[str] = None,
         byo_connection_id: Optional[str] = None,
+        retryer: Optional[Retrying] = None,
+        aretryer: Optional[AsyncRetrying] = None,
         **kwargs,
     ):
         org_id = org_id or os.getenv("UIPATH_ORGANIZATION_ID")
@@ -169,12 +185,24 @@ class UiPathChatBedrockConverse(ChatBedrockConverse):
         kwargs["model"] = model_name
         super().__init__(**kwargs)
         self.model = model_name
+        self.retryer = retryer
+        self.aretryer = aretryer
+
+    def invoke(self, *args, **kwargs):
+        retryer = self.retryer or _get_default_retryer()
+        return retryer(super().invoke, *args, **kwargs)
+
+    async def ainvoke(self, *args, **kwargs):
+        retryer = self.aretryer or _get_default_async_retryer()
+        return await retryer(super().ainvoke, *args, **kwargs)
 
 
 class UiPathChatBedrock(ChatBedrock):
     llm_provider: LLMProvider = LLMProvider.BEDROCK
     api_flavor: APIFlavor = APIFlavor.AWS_BEDROCK_INVOKE
     model: str = ""  # For tracing serialization
+    retryer: Optional[Retrying] = None
+    aretryer: Optional[AsyncRetrying] = None
 
     def __init__(
         self,
@@ -184,6 +212,8 @@ class UiPathChatBedrock(ChatBedrock):
         model_name: str = BedrockModels.anthropic_claude_haiku_4_5,
         agenthub_config: Optional[str] = None,
         byo_connection_id: Optional[str] = None,
+        retryer: Optional[Retrying] = None,
+        aretryer: Optional[AsyncRetrying] = None,
         **kwargs,
     ):
         org_id = org_id or os.getenv("UIPATH_ORGANIZATION_ID")
@@ -216,3 +246,75 @@ class UiPathChatBedrock(ChatBedrock):
         kwargs["model"] = model_name
         super().__init__(**kwargs)
         self.model = model_name
+        self.retryer = retryer
+        self.aretryer = aretryer
+
+    def invoke(self, *args, **kwargs):
+        retryer = self.retryer or _get_default_retryer()
+        return retryer(super().invoke, *args, **kwargs)
+
+    async def ainvoke(self, *args, **kwargs):
+        retryer = self.aretryer or _get_default_async_retryer()
+        return await retryer(super().ainvoke, *args, **kwargs)
+
+    @staticmethod
+    def _convert_file_blocks_to_anthropic_documents(
+        messages: list[BaseMessage],
+    ) -> list[BaseMessage]:
+        """Convert FileContentBlock items to Anthropic document format.
+
+        langchain_aws's _format_data_content_block() does not support
+        type='file' blocks (only images). This pre-processes messages to
+        convert PDF FileContentBlocks into Anthropic's native 'document'
+        format so they pass through formatting without error.
+        """
+        for message in messages:
+            if not isinstance(message.content, list):
+                continue
+            for i, block in enumerate(message.content):
+                if (
+                    isinstance(block, dict)
+                    and block.get("type") == "file"
+                    and block.get("mime_type") == "application/pdf"
+                    and "base64" in block
+                ):
+                    anthropic_block: dict[str, Any] = {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": block["mime_type"],
+                            "data": block["base64"],
+                        },
+                    }
+                    message.content[i] = anthropic_block
+        return messages
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        messages = self._convert_file_blocks_to_anthropic_documents(messages)
+        return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        messages = self._convert_file_blocks_to_anthropic_documents(messages)
+        yield from super()._stream(
+            messages, stop=stop, run_manager=run_manager, **kwargs
+        )
+
+
+def _get_default_retryer() -> BedrockRetryer:
+    return BedrockRetryer(logger=logger)
+
+
+def _get_default_async_retryer() -> AsyncBedrockRetryer:
+    return AsyncBedrockRetryer(logger=logger)

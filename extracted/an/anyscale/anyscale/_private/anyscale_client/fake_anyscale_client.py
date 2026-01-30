@@ -394,12 +394,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         # Return a mock response with results and metadata
         return Mock(results=results, metadata=Mock(next_paging_token=None))
 
-    def get_user_info(self) -> Dict[str, str]:
+    def get_user_info(self) -> Any:
         """Return mock user information for testing."""
-        return {
-            "id": self.DEFAULT_USER_ID,
-            "email": self.DEFAULT_USER_EMAIL,
-        }
+        # Return a Mock with the minimal attributes needed by SDK code
+        return Mock(id=self.DEFAULT_USER_ID, email=self.DEFAULT_USER_EMAIL)
 
     def get_job_ui_url(self, job_id: str) -> str:
         return f"{self.BASE_UI_URL}/jobs/{job_id}"
@@ -566,7 +564,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             is_default=getattr(image, "is_default", False),
         )
 
-    def _ensure_application_template_metadata(
+    def _ensure_application_template_metadata(  # noqa: PLR0913
         self,
         env_id: str,
         *,
@@ -1468,6 +1466,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         tags_filter: Optional[List[str]] = None,  # noqa: ARG002
         count: Optional[int] = None,
         paging_token: Optional[str] = None,  # noqa: ARG002
+        sort_field: Optional[str] = None,  # noqa: ARG002
+        sort_order: Optional[str] = None,  # noqa: ARG002
     ) -> DecoratedproductionjobListResponse:
         """Mock implementation of list_jobs API for testing.
 
@@ -2264,7 +2264,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             return self._deleted_services[service_id]
         return None
 
-    def list_services(
+    def list_services(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -2576,5 +2576,37 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                     {"user_id": "usr_owner_001", "user_email": "owner1@example.com"},
                 ],
                 "users": users,
+            }
+        }
+
+    def scim_migration_preview(self) -> Dict:
+        """Fake implementation of SCIM migration preview."""
+        return {
+            "result": {
+                "organization_id": "org_fake_001",
+                "users_with_changes": [
+                    {
+                        "user_id": "usr_fake_001",
+                        "user_email": "user1@example.com",
+                        "cloud_changes": [
+                            {
+                                "resource_id": "cld_fake_001",
+                                "resource_name": "prod-cloud",
+                                "old_role": "collaborator",
+                                "new_role": "readonly",
+                            }
+                        ],
+                        "project_changes": [],
+                        "org_role_change": {
+                            "resource_id": "org_fake_001",
+                            "resource_name": "organization",
+                            "old_role": "owner",
+                            "new_role": "collaborator",
+                        },
+                    }
+                ],
+                "users_to_remove": [
+                    {"user_id": "usr_fake_002", "user_email": "user2@example.com"}
+                ],
             }
         }

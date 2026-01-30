@@ -54,6 +54,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "TelemetrySinkTypeType",
     "WaiterName",
 )
 
@@ -78,6 +79,7 @@ ConfigCapabilityTypeType = Literal[
     "antenna-uplink",
     "dataflow-endpoint",
     "s3-recording",
+    "telemetry-sink",
     "tracking",
     "uplink-echo",
 ]
@@ -159,6 +161,7 @@ ListGroundStationsPaginatorName = Literal["list_ground_stations"]
 ListMissionProfilesPaginatorName = Literal["list_mission_profiles"]
 ListSatellitesPaginatorName = Literal["list_satellites"]
 PolarizationType = Literal["LEFT_HAND", "NONE", "RIGHT_HAND"]
+TelemetrySinkTypeType = Literal["KINESIS_DATA_STREAM"]
 GroundStationServiceName = Literal["groundstation"]
 ServiceName = Literal[
     "accessanalyzer",

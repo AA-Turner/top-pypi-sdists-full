@@ -59,7 +59,6 @@ class ModelsClient:
         )
         client.manage.v1.projects.models.list(
             project_id="123456-7890-1234-5678-901234",
-            include_outdated=True,
         )
         """
         _response = self._raw_client.list(
@@ -160,7 +159,6 @@ class AsyncModelsClient:
         async def main() -> None:
             await client.manage.v1.projects.models.list(
                 project_id="123456-7890-1234-5678-901234",
-                include_outdated=True,
             )
 
 

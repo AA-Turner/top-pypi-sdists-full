@@ -608,3 +608,321 @@ async def test_import_end_user_handles_api_error():
                 private_key=private_key,
                 key_type="evm",
             )
+
+
+# --- Add End User EVM Account Tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_evm_account_success(add_end_user_evm_account_response_factory):
+    """Test successfully adding an EVM account to an existing end user."""
+    mock_user_id = "test-user-id"
+    mock_response = add_end_user_evm_account_response_factory()
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.add_end_user_evm_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    result = await client.add_end_user_evm_account(user_id=mock_user_id)
+
+    assert result.evm_account.address == mock_response.evm_account.address
+    mock_api_clients.end_user.add_end_user_evm_account.assert_called_once_with(
+        user_id=mock_user_id,
+        body={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_evm_account_handles_error():
+    """Test that errors are propagated when adding an EVM account."""
+    mock_api_clients = AsyncMock()
+    expected_error = Exception("API Error: User not found")
+    mock_api_clients.end_user.add_end_user_evm_account = AsyncMock(side_effect=expected_error)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    with pytest.raises(Exception, match="API Error: User not found"):
+        await client.add_end_user_evm_account(user_id="non-existent-user")
+
+
+# --- Add End User EVM Smart Account Tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_evm_smart_account_success(
+    add_end_user_evm_smart_account_response_factory,
+):
+    """Test successfully adding an EVM smart account to an existing end user."""
+    mock_user_id = "test-user-id"
+    mock_response = add_end_user_evm_smart_account_response_factory()
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.add_end_user_evm_smart_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    result = await client.add_end_user_evm_smart_account(
+        user_id=mock_user_id,
+        enable_spend_permissions=True,
+    )
+
+    assert result.evm_smart_account.address == mock_response.evm_smart_account.address
+    mock_api_clients.end_user.add_end_user_evm_smart_account.assert_called_once()
+    call_args = mock_api_clients.end_user.add_end_user_evm_smart_account.call_args
+    assert call_args.kwargs["user_id"] == mock_user_id
+    request = call_args.kwargs["add_end_user_evm_smart_account_request"]
+    assert request.enable_spend_permissions is True
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_evm_smart_account_without_spend_permissions(
+    add_end_user_evm_smart_account_response_factory,
+):
+    """Test adding an EVM smart account without spend permissions enabled."""
+    mock_user_id = "test-user-id"
+    mock_response = add_end_user_evm_smart_account_response_factory()
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.add_end_user_evm_smart_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    result = await client.add_end_user_evm_smart_account(
+        user_id=mock_user_id,
+        enable_spend_permissions=False,
+    )
+
+    assert result.evm_smart_account.address == mock_response.evm_smart_account.address
+    call_args = mock_api_clients.end_user.add_end_user_evm_smart_account.call_args
+    request = call_args.kwargs["add_end_user_evm_smart_account_request"]
+    assert request.enable_spend_permissions is False
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_evm_smart_account_handles_error():
+    """Test that errors are propagated when adding an EVM smart account."""
+    mock_api_clients = AsyncMock()
+    expected_error = Exception("API Error: User not found")
+    mock_api_clients.end_user.add_end_user_evm_smart_account = AsyncMock(side_effect=expected_error)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    with pytest.raises(Exception, match="API Error: User not found"):
+        await client.add_end_user_evm_smart_account(
+            user_id="non-existent-user",
+            enable_spend_permissions=True,
+        )
+
+
+# --- Add End User Solana Account Tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_solana_account_success(add_end_user_solana_account_response_factory):
+    """Test successfully adding a Solana account to an existing end user."""
+    mock_user_id = "test-user-id"
+    mock_response = add_end_user_solana_account_response_factory()
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.add_end_user_solana_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    result = await client.add_end_user_solana_account(user_id=mock_user_id)
+
+    assert result.solana_account.address == mock_response.solana_account.address
+    mock_api_clients.end_user.add_end_user_solana_account.assert_called_once_with(
+        user_id=mock_user_id,
+        body={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_end_user_solana_account_handles_error():
+    """Test that errors are propagated when adding a Solana account."""
+    mock_api_clients = AsyncMock()
+    expected_error = Exception("API Error: User not found")
+    mock_api_clients.end_user.add_end_user_solana_account = AsyncMock(side_effect=expected_error)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    with pytest.raises(Exception, match="API Error: User not found"):
+        await client.add_end_user_solana_account(user_id="non-existent-user")
+
+
+# --- EndUserAccount Method Tests ---
+
+
+@pytest.mark.asyncio
+async def test_create_end_user_returns_end_user_account_with_methods(end_user_model_factory):
+    """Test that create_end_user returns an EndUserAccount with action methods."""
+    from cdp.end_user_account import EndUserAccount
+
+    mock_end_user_model = end_user_model_factory(user_id="test-user")
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.create_end_user = AsyncMock(return_value=mock_end_user_model)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    auth_method = AuthenticationMethod(EmailAuthentication(type="email", email="test@example.com"))
+
+    with patch("cdp.end_user_client.uuid.uuid4") as mock_uuid:
+        mock_uuid.return_value = "generated-uuid"
+        result = await client.create_end_user(authentication_methods=[auth_method])
+
+    assert isinstance(result, EndUserAccount)
+    assert result.user_id == "test-user"
+    assert callable(result.add_evm_account)
+    assert callable(result.add_evm_smart_account)
+    assert callable(result.add_solana_account)
+
+
+@pytest.mark.asyncio
+async def test_list_end_users_returns_end_user_accounts_with_methods(
+    end_user_model_factory, list_end_users_response_factory
+):
+    """Test that list_end_users returns EndUserAccount objects with action methods."""
+    from cdp.end_user_account import EndUserAccount
+
+    mock_end_user_1 = end_user_model_factory(user_id="user1")
+    mock_end_user_2 = end_user_model_factory(user_id="user2")
+    mock_response = list_end_users_response_factory(
+        end_users=[mock_end_user_1, mock_end_user_2], next_page_token="next_page_token"
+    )
+
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.list_end_users = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    result = await client.list_end_users()
+
+    assert len(result.end_users) == 2
+    for end_user in result.end_users:
+        assert isinstance(end_user, EndUserAccount)
+        assert callable(end_user.add_evm_account)
+        assert callable(end_user.add_evm_smart_account)
+        assert callable(end_user.add_solana_account)
+
+
+@pytest.mark.asyncio
+async def test_import_end_user_returns_end_user_account_with_methods(end_user_model_factory):
+    """Test that import_end_user returns an EndUserAccount with action methods."""
+    from cdp.end_user_account import EndUserAccount
+
+    mock_user_id = "test-user-id"
+    mock_end_user_model = end_user_model_factory(user_id=mock_user_id)
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.import_end_user = AsyncMock(return_value=mock_end_user_model)
+
+    mock_public_key = MagicMock()
+    mock_public_key.encrypt.return_value = b"encrypted_key"
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    auth_method = AuthenticationMethod(EmailAuthentication(type="email", email="test@example.com"))
+    private_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+    with (
+        patch("cdp.end_user_client.uuid.uuid4") as mock_uuid,
+        patch("cdp.end_user_client.load_pem_public_key") as mock_load_key,
+    ):
+        mock_uuid.return_value = mock_user_id
+        mock_load_key.return_value = mock_public_key
+
+        result = await client.import_end_user(
+            authentication_methods=[auth_method],
+            private_key=private_key,
+            key_type="evm",
+        )
+
+    assert isinstance(result, EndUserAccount)
+    assert result.user_id == mock_user_id
+    assert callable(result.add_evm_account)
+    assert callable(result.add_evm_smart_account)
+    assert callable(result.add_solana_account)
+
+
+@pytest.mark.asyncio
+async def test_end_user_account_add_evm_account_method(
+    end_user_model_factory, add_end_user_evm_account_response_factory
+):
+    """Test that EndUserAccount.add_evm_account calls the API correctly."""
+    mock_end_user_model = end_user_model_factory(user_id="test-user")
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.create_end_user = AsyncMock(return_value=mock_end_user_model)
+
+    mock_response = add_end_user_evm_account_response_factory()
+    mock_api_clients.end_user.add_end_user_evm_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    auth_method = AuthenticationMethod(EmailAuthentication(type="email", email="test@example.com"))
+
+    with patch("cdp.end_user_client.uuid.uuid4") as mock_uuid:
+        mock_uuid.return_value = "generated-uuid"
+        end_user = await client.create_end_user(authentication_methods=[auth_method])
+
+    result = await end_user.add_evm_account()
+
+    assert result == mock_response
+    mock_api_clients.end_user.add_end_user_evm_account.assert_called_once_with(
+        user_id="test-user",
+        body={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_end_user_account_add_evm_smart_account_method(
+    end_user_model_factory, add_end_user_evm_smart_account_response_factory
+):
+    """Test that EndUserAccount.add_evm_smart_account calls the API correctly."""
+    mock_end_user_model = end_user_model_factory(user_id="test-user")
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.create_end_user = AsyncMock(return_value=mock_end_user_model)
+
+    mock_response = add_end_user_evm_smart_account_response_factory()
+    mock_api_clients.end_user.add_end_user_evm_smart_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    auth_method = AuthenticationMethod(EmailAuthentication(type="email", email="test@example.com"))
+
+    with patch("cdp.end_user_client.uuid.uuid4") as mock_uuid:
+        mock_uuid.return_value = "generated-uuid"
+        end_user = await client.create_end_user(authentication_methods=[auth_method])
+
+    result = await end_user.add_evm_smart_account(enable_spend_permissions=True)
+
+    assert result == mock_response
+    mock_api_clients.end_user.add_end_user_evm_smart_account.assert_called_once()
+    call_args = mock_api_clients.end_user.add_end_user_evm_smart_account.call_args
+    assert call_args.kwargs["user_id"] == "test-user"
+    request = call_args.kwargs["add_end_user_evm_smart_account_request"]
+    assert request.enable_spend_permissions is True
+
+
+@pytest.mark.asyncio
+async def test_end_user_account_add_solana_account_method(
+    end_user_model_factory, add_end_user_solana_account_response_factory
+):
+    """Test that EndUserAccount.add_solana_account calls the API correctly."""
+    mock_end_user_model = end_user_model_factory(user_id="test-user")
+    mock_api_clients = AsyncMock()
+    mock_api_clients.end_user.create_end_user = AsyncMock(return_value=mock_end_user_model)
+
+    mock_response = add_end_user_solana_account_response_factory()
+    mock_api_clients.end_user.add_end_user_solana_account = AsyncMock(return_value=mock_response)
+
+    client = EndUserClient(api_clients=mock_api_clients)
+
+    auth_method = AuthenticationMethod(EmailAuthentication(type="email", email="test@example.com"))
+
+    with patch("cdp.end_user_client.uuid.uuid4") as mock_uuid:
+        mock_uuid.return_value = "generated-uuid"
+        end_user = await client.create_end_user(authentication_methods=[auth_method])
+
+    result = await end_user.add_solana_account()
+
+    assert result == mock_response
+    mock_api_clients.end_user.add_end_user_solana_account.assert_called_once_with(
+        user_id="test-user",
+        body={},
+    )

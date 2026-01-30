@@ -16,23 +16,24 @@ from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
 from adam.utils import debug, log, log_to_pods, offload, parallelize, log2, ing, log_exc
 from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 
 class Exporter:
-    def export_tables(args: list[str], state: ReplState, export_only: bool = False, max_workers = 0) -> ExportExecResult:
+    def export_tables(args: list[str], state: ReplState, export_only: bool = False, max_workers = 0, ctx: Context = Context.NULL) -> ExportExecResult:
         if export_only:
-            log2('export-only for testing')
+            ctx.log2('export-only for testing')
 
         spec: ExportSpec = None
         with log_exc(True):
             spec = Exporter.export_spec(' '.join(args), state)
 
-            r = Exporter._export_tables(spec, state, max_workers=max_workers, export_state='init')
+            r = Exporter._export_tables(spec, state, max_workers=max_workers, export_state='init', ctx=ctx)
             if not r:
                 return r
 
-            return Exporter._export_tables(spec, state, export_only, max_workers, 'pending_export')
+            return Exporter._export_tables(spec, state, export_only, max_workers, 'pending_export', ctx=ctx)
 
         return None
 
@@ -71,18 +72,18 @@ class Exporter:
 
         return spec
 
-    def import_session(spec_str: str, state: ReplState, max_workers = 0) -> ExportExecResult:
+    def import_session(spec_str: str, state: ReplState, max_workers = 0, ctx: Context = Context.NULL) -> ExportExecResult:
         import_spec: ImportSpec = None
         with log_exc(True):
             import_spec = Exporter.import_spec(spec_str, state)
             tables, status_in_whole = ExportTableStatus.from_session(state.sts, state.pod, state.namespace, import_spec.session)
             if status_in_whole == 'done':
-                log2(f'The session has been completely done - no more csv files are found.')
+                ctx.log2(f'The session has been completely done - no more csv files are found.')
                 return ExportExecResult(spec=ExportSpec(None, None, importer=import_spec.importer, tables=[]))
 
             spec = ExportSpec(None, None, importer=import_spec.importer, tables=[ExportTableSpec.from_status(table) for table in tables], session=import_spec.session)
 
-            return Exporter._export_tables(spec, state, max_workers=max_workers, export_state = 'import')
+            return Exporter._export_tables(spec, state, max_workers=max_workers, export_state = 'import', ctx=ctx)
 
         return None
 
@@ -142,7 +143,7 @@ class Exporter:
 
         return spec
 
-    def _export_tables(spec: ExportSpec, state: ReplState, export_only = False, max_workers = 0, export_state = None) -> ExportExecResult:
+    def _export_tables(spec: ExportSpec, state: ReplState, export_only = False, max_workers = 0, export_state = None, ctx: Context = Context.NULL) -> ExportExecResult:
         if not spec.keyspace:
             spec.keyspace = f'{state.namespace}_db'
 
@@ -153,14 +154,7 @@ class Exporter:
             max_workers = Config().action_workers(f'export.{spec.importer}', 8)
 
         if export_state == 'init':
-            CassandraNodes.exec(state.pod, state.namespace, f'rm -rf {csv_dir()}/{spec.session}_*', show_out=Config().is_debug(), shell='bash')
-
-        job_id = None
-        job_log = None
-        if export_state != 'init':
-            job_id = AsyncJobs.new_id()
-            job_log = AsyncJobs.local_log_file(f'export {spec.specs_str}', job_id, extra={'session': spec.session})
-            ReplSession().append_history(f':cat {job_log}')
+            CassandraNodes.exec(state.pod, state.namespace, f'rm -rf {csv_dir()}/{spec.session}_*', shell='bash', ctx=ctx)
 
         action = f'[{spec.session}] Triggering export of'
         if export_state == 'init':
@@ -169,6 +163,9 @@ class Exporter:
             action = f'[{spec.session}] Importing|Imported'
         msg = action + ' {size} Cassandra tables'
         pod = state.pod
+        if export_state != 'init':
+            ctx = ctx.copy(backgrounded=True, extra={'session': spec.session})
+
         with parallelize(spec.tables, max_workers, msg=msg, collect=export_state == 'init', name='exporter') as exec:
             statuses = exec.map(lambda table: Exporter.export_table(table,
                                                                 state.with_pod(pod),
@@ -178,8 +175,8 @@ class Exporter:
                                                                 len(spec.tables) > 1,
                                                                 consistency=spec.consistency,
                                                                 export_state=export_state,
-                                                                job_log=None if export_state == 'init' else job_log))
-            return ExportExecResult(log_file=job_log, job_id=job_id, spec=spec, statuses=statuses)
+                                                                ctx=ctx))
+            return ExportExecResult(log_file=ctx.log_file, job_id=ctx.job_id, spec=spec, statuses=statuses)
 
     def export_table(spec: ExportTableSpec,
                      state: ReplState,
@@ -189,12 +186,12 @@ class Exporter:
                      multi_tables = True,
                      consistency: str = None,
                      export_state=None,
-                     job_log: str = None):
+                     ctx: Context = Context.NULL):
         status: ExportTableStatus = None
 
-        table, target_table, columns = Exporter.resove_table_n_columns(spec, state, include_ks_in_target=False, importer=importer)
+        table, target_table, columns = Exporter.resove_table_n_columns(spec, state, include_ks_in_target=False, importer=importer, ctx=ctx)
 
-        log_file = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
+        table_log_base = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
         create_db = not state.export_session
 
         if export_state == 'init':
@@ -203,59 +200,60 @@ class Exporter:
         else:
             try:
                 if export_state == 'pending_export':
-                    Exporter.export_to_csv(spec, state, session, table, target_table, columns, multi_tables=multi_tables, consistency=consistency, job_log=job_log)
+                    Exporter.export_to_csv(spec, state, session, table, target_table, columns, multi_tables=multi_tables, consistency=consistency, ctx=ctx)
 
-                log_files: list[str] = PodFiles.find_files(state.pod, 'cassandra', state.namespace, f'{log_file}*', remote=log_to_pods())
-                if not log_files:
+                table_logs: list[str] = PodFiles.find_files(state.pod, 'cassandra', state.namespace, f'{table_log_base}*', remote=log_to_pods())
+                if not table_logs:
                     return None
 
-                log_file = log_files[0]
+                table_log = table_logs[0]
 
-                status = ExportTableStatus.from_log_file(state.pod, state.namespace, session, log_file)
+                status = ExportTableStatus.from_log_file(state.pod, state.namespace, session, table_log)
 
                 with offload(name='exporter') as exec:
-                    ctx = ExportTableContext(spec, state, session, importer, export_only, multi_tables, table, target_table, columns, create_db, log_file, status, job_log)
-                    exec.submit(lambda: Exporter.export_loop(ctx))
+                    etc = ExportTableContext(spec, state, session, importer, export_only, multi_tables, table, target_table, columns, create_db, table_log, status, ctx=ctx)
+                    exec.submit(lambda: Exporter.export_loop(etc))
             except:
                 traceback.print_exc()
 
             return status
 
-    def export_loop(ctx: 'ExportTableContext'):
+    def export_loop(etc: 'ExportTableContext'):
         try:
-            while ctx.status.status != 'done':
-                if ctx.status.status == 'export_in_pregress':
+            while etc.status.status != 'done':
+                if etc.status.status == 'export_in_pregress':
                     debug('Exporting to CSV is still in progess, sleeping for 1 sec...')
                     time.sleep(1)
-                elif ctx.status.status == 'exported':
-                    ctx.log_file = Exporter.rename_to_pending_import(ctx.spec, ctx.state, ctx.session, ctx.target_table)
+                elif etc.status.status == 'exported':
+                    etc.table_log = Exporter.rename_to_pending_import(etc.spec, etc.state, etc.session, etc.target_table)
                     ExportSessions.clear_export_session_cache()
-                    if ctx.importer == 'csv' or ctx.export_only:
+                    if etc.importer == 'csv' or etc.export_only:
                         return 'pending_import'
-                elif ctx.status.status == 'pending_import':
-                    ctx.log_file, ctx.session = Exporter.import_from_csv(ctx.spec,
-                                                                         ctx.state,
-                                                                         ctx.session,
-                                                                         ctx.importer,
-                                                                         ctx.table,
-                                                                         ctx.target_table,
-                                                                         ctx.columns,
-                                                                         multi_tables=ctx.multi_tables,
-                                                                         create_db=ctx.create_db,
-                                                                         job_log=ctx.f)
+                elif etc.status.status == 'pending_import':
+                    etc.table_log, etc.session = Exporter.import_from_csv(
+                        etc.spec,
+                        etc.state,
+                        etc.session,
+                        etc.importer,
+                        etc.table,
+                        etc.target_table,
+                        etc.columns,
+                        multi_tables=etc.multi_tables,
+                        create_db=etc.create_db,
+                        ctx=etc.ctx)
 
-                ctx.status = ExportTableStatus.from_log_file(ctx.state.pod, ctx.state.namespace, ctx.session, ctx.log_file)
+                etc.status = ExportTableStatus.from_log_file(etc.state.pod, etc.state.namespace, etc.session, etc.table_log)
 
-            return ctx.status.status
+            return etc.status.status
         except:
             traceback.print_exc()
 
-    def create_table_log(spec: ExportTableSpec, state: ReplState, session: str, table: str, target_table: str):
+    def create_table_log(spec: ExportTableSpec, state: ReplState, session: str, table: str, target_table: str, ctx: Context = Context.NULL):
         dir = table_log_dir(state.pod, state.namespace)
         log_file = f'{dir}/{session}_{spec.keyspace}.{target_table}.log'
 
         cmd = f'rm -f {log_file}* && mkdir -p {dir} && touch {log_file}'
-        fs_exec(state.pod, state.namespace, cmd, show_out=Config().is_debug())
+        fs_exec(state.pod, state.namespace, cmd, ctx=ctx)
 
         return table
 
@@ -267,14 +265,14 @@ class Exporter:
                       columns: str,
                       multi_tables = True,
                       consistency: str = None,
-                      job_log: str = None):
+                      ctx: Context = Context.NULL):
         db = f'{session}_{target_table}'
 
-        CassandraNodes.exec(state.pod, state.namespace, f'mkdir -p {csv_dir()}/{db}', show_out=Config().is_debug(), shell='bash')
+        CassandraNodes.exec(state.pod, state.namespace, f'mkdir -p {csv_dir()}/{db}', shell='bash', ctx=ctx)
         csv_file = f'{csv_dir()}/{db}/{table}.csv'
         table_log_file = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
 
-        suppress_ing_log = Config().is_debug() or multi_tables
+        suppress_ing_log = ctx.debug or multi_tables
         queries = []
         if consistency:
             queries.append(f'CONSISTENCY {consistency}')
@@ -282,17 +280,17 @@ class Exporter:
 
         with ing(f'[{session}] Triggering dump of table {spec.keyspace}.{table}{f" with consistency {consistency}" if consistency else ""}',
                  suppress_log=suppress_ing_log,
-                 job_log = job_log):
-            run_cql(state, ';'.join(queries), show_out=Config().is_debug(), backgrounded=True, log_file=table_log_file, history=False)
+                 job_log=ctx.log_file):
+            run_cql(state, ';'.join(queries), ctx=ctx.copy(backgrounded=True, pod_log_file=table_log_file, history=False))
 
         return table_log_file
 
-    def rename_to_pending_import(spec: ExportTableSpec, state: ReplState, session: str, target_table: str):
+    def rename_to_pending_import(spec: ExportTableSpec, state: ReplState, session: str, target_table: str, ctx: Context = Context.NULL):
         log_file = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
         to = f'{log_file}.pending_import'
 
         cmd =f'mv {log_file} {to}'
-        fs_exec(state.pod, state.namespace, cmd, show_out=Config().is_debug())
+        fs_exec(state.pod, state.namespace, cmd, ctx=ctx)
 
         return to
 
@@ -305,11 +303,11 @@ class Exporter:
                         columns: str,
                         multi_tables = True,
                         create_db = False,
-                        job_log: str = None):
+                        ctx: Context = Context.NULL):
         im = AthenaImporter() if importer == 'athena' else SqliteImporter()
-        return im.import_from_csv(state, session if session else state.export_session, spec.keyspace, table, target_table, columns, multi_tables, create_db, job_log=job_log)
+        return im.import_from_csv(state, session if session else state.export_session, spec.keyspace, table, target_table, columns, multi_tables, create_db, ctx=ctx)
 
-    def resove_table_n_columns(spec: ExportTableSpec, state: ReplState, include_ks_in_target = False, importer = 'sqlite'):
+    def resove_table_n_columns(spec: ExportTableSpec, state: ReplState, include_ks_in_target = False, importer = 'sqlite', ctx: Context = Context.NULL):
         table = spec.table
         columns = spec.columns
         if not columns:
@@ -324,7 +322,7 @@ class Exporter:
             columns = ','.join([c.name for c in table_spec(state, keyspaced_table, on_any=True).columns])
 
         if not columns:
-            log2(f'ERROR: Empty columns on {table}.')
+            ctx.log2(f'ERROR: Empty columns on {table}.')
             return table, None, None
 
         target_table = spec.target_table if spec.target_table else table
@@ -334,7 +332,7 @@ class Exporter:
         return table, target_table, columns
 
 class ExportTableContext:
-    def __init__(self, spec: ExportTableSpec, state: ReplState, session: str, importer: str, export_only = False, multi_tables = True, table: str = None, target_table: str = None, columns: str = None, create_db = False, log_file: str = None, status: ExportTableStatus = None, f: str = None):
+    def __init__(self, spec: ExportTableSpec, state: ReplState, session: str, importer: str, export_only = False, multi_tables = True, table: str = None, target_table: str = None, columns: str = None, create_db = False, table_log: str = None, status: ExportTableStatus = None, ctx: Context = None):
         self.spec = spec
         self.state = state
         self.session = session
@@ -345,18 +343,18 @@ class ExportTableContext:
         self.target_table = target_table
         self.columns = columns
         self.create_db = create_db
-        self.log_file = log_file
+        self.table_log = table_log
         self.status = status
-        self.f = f
+        self.ctx = ctx
 
 class ExportService:
     def __init__(self, handler: 'ExporterHandler'):
         self.handler = handler
 
-    def export(self, args: list[str], export_only=False) -> ExportExecResult:
+    def export(self, args: list[str], export_only=False, ctx: Context = Context.NULL) -> ExportExecResult:
         with state_with_pod(self.handler.state) as state:
             # --export-only for testing only
-            r: ExportExecResult = Exporter.export_tables(args, state, export_only=export_only)
+            r: ExportExecResult = Exporter.export_tables(args, state, export_only=export_only, ctx=ctx)
             if not r or not r.statuses:
                 return r
 
@@ -364,16 +362,16 @@ class ExportService:
 
             return r
 
-    def import_session(self, spec_str: str):
+    def import_session(self, spec_str: str, ctx: Context = Context.NULL):
         state = self.handler.state
 
-        r: ExportExecResult = Exporter.import_session(spec_str, state)
+        r: ExportExecResult = Exporter.import_session(spec_str, state, ctx=ctx)
         if not r or not r.statuses:
             return r
 
         ExportSessions.clear_export_session_cache()
 
-        log()
+        ctx.log()
         with export_db(state) as dbs:
             dbs.show_database()
 

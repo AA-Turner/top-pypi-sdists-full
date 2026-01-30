@@ -113,7 +113,7 @@ def set_default_cell(structure: Atoms, box_length: float = 100):
 
 
 def get_descriptors(
-    structure: Atoms, model_filename: Optional[str] = None, debug: bool = False
+    structure: Atoms, model_filename: str, debug: bool = False
 ) -> np.ndarray:
     """Calculates the NEP descriptors for a given structure. A NEP model defined by a nep.txt
     can additionally be provided to get the NEP3 model specific descriptors.
@@ -123,10 +123,9 @@ def get_descriptors(
     structure
         Input structure
     model_filename
-        Path to NEP model in ``nep.txt`` format. Defaults to ``None``.
+        Path to NEP model in ``nep.txt`` format.
     debug
-        Flag to toggle debug mode. Makes the generated dummy NEP2 model available
-        in a local tmp directory, as well as prints GPUMD output. Defaults to ``False``.
+        Flag to toggle debug mode. Prints GPUMD output. Defaults to ``False``.
 
     Returns
     -------
@@ -758,11 +757,11 @@ def _predict_dipole_batch(
             mode=1,
             version=model.version,
             n_max=[model.n_max_radial, model.n_max_angular],
+            type=[len(model.types), *model.types],
             cutoff=[model.radial_cutoff, model.angular_cutoff],
             basis_size=[model.n_basis_radial, model.n_basis_radial],
             l_max=[model.l_max_3b, model.l_max_4b, model.l_max_5b],
             neuron=model.n_neuron,
-            type=[len(model.types), *model.types],
         )
 
         write_nepfile(parameters, directory)

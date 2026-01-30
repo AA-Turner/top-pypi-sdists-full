@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone-brain
-Version: 0.21.4
+Version: 0.21.5
 Summary: FiftyOne Brain
 Home-page: https://github.com/voxel51/fiftyone-brain
 Author: Voxel51, Inc.
@@ -104,7 +104,7 @@ and run the install script:
 
 ```shell
 # Mac or Linux
-bash install.bash
+bash install.sh
 
 # Windows
 .\install.bat
@@ -117,7 +117,7 @@ developer installation using the `-d` flag of the install script:
 
 ```shell
 # Mac or Linux
-bash install.bash -d
+bash install.sh -d
 
 # Windows
 .\install.bat -d

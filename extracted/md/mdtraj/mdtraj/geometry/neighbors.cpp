@@ -19,7 +19,7 @@
         ],
         "include_dirs": [
             "mdtraj/geometry/include",
-            "/tmp/build-env-_0rw6f36/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-ge7r5ui4/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "language": "c++",
         "libraries": [

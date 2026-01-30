@@ -3,6 +3,7 @@ from enum import Enum
 import re
 from typing import Callable
 
+from adam.utils_context import Context
 from adam.utils_k8s.app_clusters import AppClusters
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.cassandra_clusters import CassandraClusters
@@ -20,7 +21,7 @@ class BashSession:
         command = f'cat /tmp/.qing-{self.session_id}'
 
         with device(state) as pods:
-            return pods.exec(command, action='bash', show_out=False)
+            return pods.exec(command, action='bash', ctx=Context.NULL)
 
 class RequiredState(Enum):
     CLUSTER = 'cluster'
@@ -437,24 +438,30 @@ class ReplState:
 
         return state1
 
+    def with_namespace(self, namespace: str):
+        state1 = copy(self)
+        state1.namespace = namespace
+
+        return state1
+
 class DevicePodService:
     def __init__(self, handler: 'DeviceExecHandler'):
         self.handler = handler
 
-    def exec(self, command: str, action='bash', show_out = True):
+    def exec(self, command: str, action='bash', ctx: Context = Context.NULL):
         state = self.handler.state
 
         rs = None
         if state.device == ReplState.A and state.app_app:
             if state.app_pod:
-                rs = [AppPods.exec(state.app_pod, state.namespace, command, show_out=show_out)]
+                rs = [AppPods.exec(state.app_pod, state.namespace, command, ctx=ctx)]
             else:
                 pods = AppPods.pod_names(state.namespace, state.app_env, state.app_app)
-                rs = AppClusters.exec(pods, state.namespace, command, show_out=show_out)
+                rs = AppClusters.exec(pods, state.namespace, command, ctx=ctx)
         elif state.pod:
-            rs = [CassandraNodes.exec(state.pod, state.namespace, command, show_out=show_out)]
+            rs = [CassandraNodes.exec(state.pod, state.namespace, command, ctx=ctx)]
         elif state.sts:
-            rs = CassandraClusters.exec(state.sts, state.namespace, command, action=action, show_out=show_out)
+            rs = CassandraClusters.exec(state.sts, state.namespace, command, action=action, ctx=ctx)
         # assume that pg-agent or ops pod is single pod
 
         dir = None

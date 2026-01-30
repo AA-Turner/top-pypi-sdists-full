@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.18.19
+Version: 1.18.20
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
@@ -38,6 +38,17 @@ Provides-Extra: full
 Requires-Dist: akqmt; extra == "full"
 Provides-Extra: qmt
 Requires-Dist: akqmt; extra == "qmt"
+Provides-Extra: dev
+Requires-Dist: akqmt>=0.1.0; extra == "dev"
+Requires-Dist: commitizen>=4.12.0; extra == "dev"
+Requires-Dist: pre-commit>=3.6.2; extra == "dev"
+Requires-Dist: sphinx>=7.4.3; extra == "dev"
+Requires-Dist: recommonmark>=0.7.1; extra == "dev"
+Requires-Dist: sphinx_markdown_tables>=0.0.17; extra == "dev"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
+Requires-Dist: mplfinance>=0.12.10b0; extra == "dev"
+Requires-Dist: ruff>=0.14.13; extra == "dev"
+Requires-Dist: ruff-lsp>=0.0.53; extra == "dev"
 Dynamic: license-file
 
 **资源分享**：对于想了解更多财经数据与量化投研的小伙伴，推荐一个专注于财经数据和量化研究的知识社区。

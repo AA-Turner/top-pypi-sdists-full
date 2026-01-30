@@ -501,4 +501,9 @@ async def extracao_dados_nielsen(task: RpaProcessoEntradaDTO) -> RpaRetornoProce
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
-
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass

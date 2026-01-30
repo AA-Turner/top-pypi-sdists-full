@@ -8,6 +8,7 @@ use squawk_syntax::{
 use crate::binder::Binder;
 use crate::classify::{NameRefClass, classify_name_ref};
 use crate::column_name::ColumnName;
+use crate::infer::{Type, infer_type_from_expr, infer_type_from_ty};
 pub(crate) use crate::symbols::Schema;
 use crate::symbols::{Name, SymbolKind};
 
@@ -111,7 +112,7 @@ pub(crate) fn resolve_name_ref_ptrs(
             let position = name_ref.syntax().text_range().start();
             resolve_index_name_ptr(binder, &index_name, &schema, position).map(|ptr| smallvec![ptr])
         }
-        NameRefClass::DropType | NameRefClass::TypeReference => {
+        NameRefClass::DropType | NameRefClass::DropDomain | NameRefClass::TypeReference => {
             let (type_name, schema) = if let Some(parent) = name_ref.syntax().parent()
                 && let Some(field_expr) = ast::FieldExpr::cast(parent)
                 && field_expr
@@ -390,6 +391,18 @@ pub(crate) fn resolve_name_ref_ptrs(
             resolve_procedure(binder, &procedure_name, &schema, None, position)
                 .map(|ptr| smallvec![ptr])
         }
+        NameRefClass::OperatorFunctionRef => {
+            let path_type = name_ref
+                .syntax()
+                .ancestors()
+                .find_map(ast::PathType::cast)?;
+            let path = path_type.path()?;
+            let function_name = extract_table_name(&path)?;
+            let schema = extract_schema_name(&path);
+            let position = name_ref.syntax().text_range().start();
+            resolve_function(binder, &function_name, &schema, None, position)
+                .map(|ptr| smallvec![ptr])
+        }
         NameRefClass::SelectFunctionCall => {
             let schema = if let Some(parent_node) = name_ref.syntax().parent()
                 && let Some(field_expr) = ast::FieldExpr::cast(parent_node)
@@ -522,7 +535,94 @@ fn resolve_type_name_ptr(
     schema: &Option<Schema>,
     position: TextSize,
 ) -> Option<SyntaxNodePtr> {
-    binder.lookup_with(type_name, SymbolKind::Type, position, schema)
+    if let Some(ptr) = binder.lookup_with(type_name, SymbolKind::Type, position, schema) {
+        return Some(ptr);
+    }
+
+    if schema.is_none()
+        && let Some(fallback_name) = fallback_type_alias(type_name)
+    {
+        return binder.lookup_with(&fallback_name, SymbolKind::Type, position, &None);
+    }
+
+    None
+}
+
+pub(crate) fn resolve_type_ptr_from_type(
+    binder: &Binder,
+    ty: &ast::Type,
+    position: TextSize,
+) -> Option<SyntaxNodePtr> {
+    let (type_name, schema) = type_name_and_schema_from_type(ty)?;
+    resolve_type_name_ptr(binder, &type_name, &schema, position)
+}
+
+fn type_name_and_schema_from_type(ty: &ast::Type) -> Option<(Name, Option<Schema>)> {
+    match ty {
+        ast::Type::ArrayType(array_type) => {
+            let inner = array_type.ty()?;
+            type_name_and_schema_from_type(&inner)
+        }
+        ast::Type::BitType(bit_type) => {
+            let name = if bit_type.varying_token().is_some() {
+                "varbit"
+            } else {
+                "bit"
+            };
+            Some((Name::from_string(name), None))
+        }
+        ast::Type::IntervalType(_) => Some((Name::from_string("interval"), None)),
+        ast::Type::PathType(path_type) => {
+            let path = path_type.path()?;
+            let type_name = extract_table_name(&path)?;
+            let schema = extract_schema_name(&path);
+            Some((type_name, schema))
+        }
+        ast::Type::ExprType(expr_type) => {
+            let expr = expr_type.expr()?;
+            if let ast::Expr::FieldExpr(field_expr) = expr
+                && let Some(field) = field_expr.field()
+                && let Some(ast::Expr::NameRef(schema_name_ref)) = field_expr.base()
+            {
+                let type_name = Name::from_node(&field);
+                let schema = Some(Schema(Name::from_node(&schema_name_ref)));
+                Some((type_name, schema))
+            } else {
+                None
+            }
+        }
+        ast::Type::CharType(char_type) => {
+            let name = if char_type.varchar_token().is_some() || char_type.varying_token().is_some()
+            {
+                "varchar"
+            } else {
+                "bpchar"
+            };
+            Some((Name::from_string(name), None))
+        }
+        ast::Type::DoubleType(_) => Some((Name::from_string("float8"), None)),
+        ast::Type::TimeType(time_type) => {
+            let mut name = if time_type.timestamp_token().is_some() {
+                "timestamp".to_string()
+            } else {
+                "time".to_string()
+            };
+            if let Some(ast::Timezone::WithTimezone(_)) = time_type.timezone() {
+                name.push_str("tz");
+            }
+            Some((Name::from_string(name), None))
+        }
+        ast::Type::PercentType(_) => None,
+    }
+}
+
+fn fallback_type_alias(type_name: &Name) -> Option<Name> {
+    match type_name.0.as_str() {
+        "bigint" | "bigserial" | "serial8" => Some(Name::from_string("int8")),
+        "int" | "integer" | "serial" | "serial4" => Some(Name::from_string("int4")),
+        "smallint" | "smallserial" | "serial2" => Some(Name::from_string("int2")),
+        _ => None,
+    }
 }
 
 fn resolve_view_name_ptr(
@@ -1025,10 +1125,13 @@ fn resolve_select_qualified_column_ptr(
     };
 
     if schema.is_none() {
-        if let Some(cte_column_ptr) =
-            resolve_cte_column(binder, root, column_name_ref, &table_name, &column_name)
-        {
-            return Some(cte_column_ptr);
+        if resolve_cte_table(column_name_ref, &table_name).is_some() {
+            if let Some(cte_column_ptr) =
+                resolve_cte_column(binder, root, column_name_ref, &table_name, &column_name)
+            {
+                return Some(cte_column_ptr);
+            }
+            return None;
         }
         if let Some(alias_table_name) = resolve_alias(column_name_ref, &table_name) {
             table_name = alias_table_name;
@@ -1158,11 +1261,13 @@ fn resolve_from_item_column_ptr(
 
     let (table_name, schema) = table_and_schema_from_from_item(from_item)?;
 
-    if schema.is_none()
-        && let Some(cte_column_ptr) =
+    if schema.is_none() && resolve_cte_table(column_name_ref, &table_name).is_some() {
+        if let Some(cte_column_ptr) =
             resolve_cte_column(binder, root, column_name_ref, &table_name, &column_name)
-    {
-        return Some(cte_column_ptr);
+        {
+            return Some(cte_column_ptr);
+        }
+        return None;
     }
 
     resolve_column_from_table_or_view(
@@ -1751,6 +1856,13 @@ fn resolve_cte_table(name_ref: &ast::NameRef, cte_name: &Name) -> Option<SyntaxN
         if let Some(name) = with_table.name()
             && Name::from_node(&name) == *cte_name
         {
+            if with_table
+                .syntax()
+                .text_range()
+                .contains_range(name_ref.syntax().text_range())
+            {
+                continue;
+            }
             return Some(SyntaxNodePtr::new(name.syntax()));
         }
     }
@@ -2066,6 +2178,7 @@ fn resolve_subquery_column_ptr(
         }
     }
 
+    // TODO: this should just be a match stmt
     if let ast::SelectVariant::Table(table) = select_variant {
         let path = table.relation_name()?.path()?;
         let (table_name, schema) = extract_table_schema_from_path(&path)?;
@@ -2085,6 +2198,19 @@ fn resolve_subquery_column_ptr(
             &schema,
             column_name,
         );
+    }
+
+    if let ast::SelectVariant::Values(values) = select_variant {
+        if let Some(num_str) = column_name.0.strip_prefix("column")
+            && let Ok(col_num) = num_str.parse::<usize>()
+            && col_num > 0
+            && let Some(row_list) = values.row_list()
+            && let Some(first_row) = row_list.rows().next()
+            && let Some(expr) = first_row.exprs().nth(col_num - 1)
+        {
+            return Some(SyntaxNodePtr::new(expr.syntax()));
+        }
+        return None;
     }
 
     let ast::SelectVariant::Select(subquery_select) = select_variant else {
@@ -2415,9 +2541,14 @@ pub(crate) enum TableSource {
     CreateView(ast::CreateView),
     CreateMaterializedView(ast::CreateMaterializedView),
     CreateTable(ast::CreateTableLike),
+    ParenSelect(ast::ParenSelect),
 }
 
 pub(crate) fn find_table_source(node: &SyntaxNode) -> Option<TableSource> {
+    if let Some(paren_select) = ast::ParenSelect::cast(node.clone()) {
+        return Some(TableSource::ParenSelect(paren_select));
+    }
+
     for ancestor in node.ancestors() {
         if let Some(with_table) = ast::WithTable::cast(ancestor.clone()) {
             return Some(TableSource::WithTable(with_table));
@@ -2835,6 +2966,22 @@ pub(crate) fn collect_view_column_names(create_view: &ast::CreateView) -> Vec<Na
     collect_target_list_column_names(&target_list)
 }
 
+pub(crate) fn collect_view_columns_with_types(
+    create_view: &ast::CreateView,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(select) = select_from_view_query(create_view) else {
+        return vec![];
+    };
+    let Some(select_clause) = select.select_clause() else {
+        return vec![];
+    };
+    let Some(target_list) = select_clause.target_list() else {
+        return vec![];
+    };
+
+    collect_target_list_columns_with_types(&target_list)
+}
+
 pub(crate) fn collect_materialized_view_column_names(
     create_materialized_view: &ast::CreateMaterializedView,
 ) -> Vec<Name> {
@@ -2856,6 +3003,22 @@ pub(crate) fn collect_materialized_view_column_names(
     };
 
     collect_target_list_column_names(&target_list)
+}
+
+pub(crate) fn collect_materialized_view_columns_with_types(
+    create_materialized_view: &ast::CreateMaterializedView,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(select) = select_from_materialized_view_query(create_materialized_view) else {
+        return vec![];
+    };
+    let Some(select_clause) = select.select_clause() else {
+        return vec![];
+    };
+    let Some(target_list) = select_clause.target_list() else {
+        return vec![];
+    };
+
+    collect_target_list_columns_with_types(&target_list)
 }
 
 fn select_from_materialized_view_query(
@@ -2961,6 +3124,146 @@ fn collect_target_list_column_names(target_list: &ast::TargetList) -> Vec<Name> 
         }
     }
     columns
+}
+
+pub(crate) fn collect_with_table_columns_with_types(
+    with_table: &ast::WithTable,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(query) = with_table.query() else {
+        return vec![];
+    };
+
+    if let ast::WithQuery::Values(values) = query {
+        let mut results = vec![];
+        if let Some(row_list) = values.row_list()
+            && let Some(first_row) = row_list.rows().next()
+        {
+            for (idx, expr) in first_row.exprs().enumerate() {
+                let name = Name::from_string(format!("column{}", idx + 1));
+                let ty = infer_type_from_expr(&expr);
+                results.push((name, ty));
+            }
+        }
+        return results;
+    }
+
+    let Some(cte_select) = select_from_with_query(query) else {
+        return vec![];
+    };
+    let Some(select_clause) = cte_select.select_clause() else {
+        return vec![];
+    };
+    let Some(target_list) = select_clause.target_list() else {
+        return vec![];
+    };
+
+    collect_target_list_columns_with_types(&target_list)
+}
+
+fn collect_target_list_columns_with_types(
+    target_list: &ast::TargetList,
+) -> Vec<(Name, Option<Type>)> {
+    let mut columns = vec![];
+    for target in target_list.targets() {
+        if let Some((col_name, _node)) = ColumnName::from_target(target.clone())
+            && let Some(col_name_str) = col_name.to_string()
+        {
+            let ty = target.expr().and_then(|e| infer_type_from_expr(&e));
+            columns.push((Name::from_string(col_name_str), ty));
+        }
+    }
+    columns
+}
+
+pub(crate) fn collect_paren_select_columns_with_types(
+    binder: &Binder,
+    root: &SyntaxNode,
+    paren_select: &ast::ParenSelect,
+) -> Vec<(Name, Option<Type>)> {
+    let Some(select_variant) = paren_select.select() else {
+        return vec![];
+    };
+    collect_select_variant_columns_with_types(binder, root, &select_variant)
+}
+
+fn collect_select_variant_columns_with_types(
+    binder: &Binder,
+    root: &SyntaxNode,
+    select_variant: &ast::SelectVariant,
+) -> Vec<(Name, Option<Type>)> {
+    match select_variant {
+        ast::SelectVariant::Values(values) => {
+            let mut results = vec![];
+            if let Some(row_list) = values.row_list()
+                && let Some(first_row) = row_list.rows().next()
+            {
+                for (idx, expr) in first_row.exprs().enumerate() {
+                    let name = Name::from_string(format!("column{}", idx + 1));
+                    let ty = infer_type_from_expr(&expr);
+                    results.push((name, ty));
+                }
+            }
+            results
+        }
+        ast::SelectVariant::Select(select) => {
+            let Some(select_clause) = select.select_clause() else {
+                return vec![];
+            };
+            let Some(target_list) = select_clause.target_list() else {
+                return vec![];
+            };
+            collect_target_list_columns_with_types(&target_list)
+        }
+        ast::SelectVariant::SelectInto(select_into) => {
+            let Some(select_clause) = select_into.select_clause() else {
+                return vec![];
+            };
+            let Some(target_list) = select_clause.target_list() else {
+                return vec![];
+            };
+            collect_target_list_columns_with_types(&target_list)
+        }
+        ast::SelectVariant::ParenSelect(nested) => {
+            collect_paren_select_columns_with_types(binder, root, nested)
+        }
+        ast::SelectVariant::CompoundSelect(compound) => {
+            let Some(lhs) = compound.lhs() else {
+                return vec![];
+            };
+            collect_select_variant_columns_with_types(binder, root, &lhs)
+        }
+        ast::SelectVariant::Table(table) => {
+            let Some(path) = table.relation_name().and_then(|r| r.path()) else {
+                return vec![];
+            };
+            let Some(table_name) = extract_table_name(&path) else {
+                return vec![];
+            };
+            let schema = extract_schema_name(&path);
+            let position = table.syntax().text_range().start();
+            let Some(table_ptr) =
+                binder.lookup_with(&table_name, SymbolKind::Table, position, &schema)
+            else {
+                return vec![];
+            };
+            let Some(create_table) = table_ptr
+                .to_node(root)
+                .ancestors()
+                .find_map(ast::CreateTableLike::cast)
+            else {
+                return vec![];
+            };
+            let columns = collect_table_columns(binder, root, &create_table);
+            columns
+                .into_iter()
+                .filter_map(|col| {
+                    let name = Name::from_node(&col.name()?);
+                    let ty = col.ty().and_then(|t| infer_type_from_ty(&t));
+                    Some((name, ty))
+                })
+                .collect()
+        }
+    }
 }
 
 fn select_from_view_query(create_view: &ast::CreateView) -> Option<ast::Select> {

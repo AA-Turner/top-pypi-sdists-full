@@ -2,9 +2,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import (
     dataclass,
 )
-from datetime import (
-    datetime,
-)
+from datetime import date, datetime, time
 from logging import (
     Logger,
 )
@@ -16,6 +14,7 @@ from typing import (
 
 from fa_purity import (
     Cmd,
+    Coproduct,
     FrozenDict,
     FrozenList,
     Maybe,
@@ -26,12 +25,11 @@ from fa_purity import (
     ResultFactory,
     Stream,
     StreamFactory,
+    UnionFactory,
     Unsafe,
     cast_exception,
 )
-from fa_purity.json import (
-    Primitive,
-)
+from fa_purity.json import Primitive
 from psycopg2 import (
     DatabaseError,
     DataError,
@@ -51,6 +49,7 @@ from redshift_client.sql_client._core.cursor import (
 )
 from redshift_client.sql_client._core.primitive import (
     DbPrimitive,
+    DbTimes,
 )
 from redshift_client.sql_client._core.query import (
     Query,
@@ -125,7 +124,24 @@ def _util_empty_or_error(
     )
 
 
-def _primitive_to_raw(item: DbPrimitive) -> Primitive | datetime:
+def _unwrap_date_time(v: Coproduct[date, time]) -> date | time:
+    factory = UnionFactory[date, time]()
+    return v.map(
+        lambda d: factory.inl(d),
+        lambda t: factory.inr(t),
+    )
+
+
+def _cast_times(raw: DbTimes) -> datetime | date | time:
+    factory = UnionFactory[datetime, date | time]()
+
+    return raw.map(
+        lambda dt: factory.inl(dt),  # datetime
+        lambda v: factory.inr(_unwrap_date_time(v)),  # date | time
+    )
+
+
+def _primitive_to_raw(item: DbPrimitive) -> Primitive | datetime | date | time:
     def _cast(item: Primitive) -> Primitive:
         return item
 
@@ -138,13 +154,13 @@ def _primitive_to_raw(item: DbPrimitive) -> Primitive | datetime:
             lambda x: _cast(x),
             lambda: _cast(None),
         ),
-        lambda d: d,
+        lambda d: _cast_times(d),
     )
 
 
 def _to_raw(
     items: FrozenDict[str, DbPrimitive],
-) -> FrozenDict[str, Primitive | datetime]:
+) -> FrozenDict[str, Primitive | datetime | date | time]:
     return FrozenDict({k: _primitive_to_raw(v) for k, v in items.items()})
 
 
@@ -158,7 +174,7 @@ class _SqlClient1:
         query: Query,
         args: QueryValues | None,
     ) -> Cmd[ResultE[None]]:
-        _values: FrozenDict[str, Primitive | datetime] = (
+        _values: FrozenDict[str, Primitive | datetime | date | time] = (
             _to_raw(args.values) if args else FrozenDict({})
         )
         preview = self._cursor.mogrify(
@@ -180,7 +196,7 @@ class _SqlClient1:
         args: FrozenList[QueryValues],
     ) -> Cmd[ResultE[None]]:
         def _action() -> ResultE[None]:
-            _args: FrozenList[FrozenDict[str, Primitive | datetime]] = tuple(
+            _args: FrozenList[FrozenDict[str, Primitive | datetime | date | time]] = tuple(
                 _to_raw(v.values) for v in args
             )
             self._log.debug(
@@ -206,7 +222,7 @@ class _SqlClient1:
     ) -> Cmd[ResultE[None]]:
         def _action() -> ResultE[None]:
             self._log.debug("Executing query over values: %s", query.statement)
-            _args: PureIter[FrozenList[Primitive | datetime]] = args.map(
+            _args: PureIter[FrozenList[Primitive | datetime | date | time]] = args.map(
                 lambda r: PureIterFactory.from_list(r.data).map(_primitive_to_raw).to_list(),
             )
             return _handle_psycopg_errors(
@@ -228,10 +244,12 @@ class _SqlClient1:
     ) -> Cmd[ResultE[None]]:
         def _action() -> ResultE[None]:
             self._log.debug("Executing query over values: %s", query.statement)
-            _args: PureIter[FrozenDict[str, Primitive | datetime]] = PureIterFactory.from_list(
-                args,
-            ).map(
-                lambda q: _to_raw(q.values),
+            _args: PureIter[FrozenDict[str, Primitive | datetime | date | time]] = (
+                PureIterFactory.from_list(
+                    args,
+                ).map(
+                    lambda q: _to_raw(q.values),
+                )
             )
             return _handle_psycopg_errors(
                 lambda: extras.execute_values(  # type: ignore[misc]

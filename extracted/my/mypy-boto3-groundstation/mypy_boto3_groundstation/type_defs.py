@@ -3,7 +3,7 @@ Type annotations for groundstation service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_groundstation/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -133,6 +133,7 @@ __all__ = (
     "GroundStationDataTypeDef",
     "ISO8601TimeRangeTypeDef",
     "IntegerRangeTypeDef",
+    "KinesisDataStreamDataTypeDef",
     "KmsKeyTypeDef",
     "ListConfigsRequestPaginateTypeDef",
     "ListConfigsRequestTypeDef",
@@ -181,6 +182,8 @@ __all__ = (
     "TLEDataTypeDef",
     "TLEEphemerisTypeDef",
     "TagResourceRequestTypeDef",
+    "TelemetrySinkConfigTypeDef",
+    "TelemetrySinkDataTypeDef",
     "TimeAzElTypeDef",
     "TimeRangeTypeDef",
     "TimestampTypeDef",
@@ -442,6 +445,11 @@ class IntegerRangeTypeDef(TypedDict):
     maximum: int
 
 
+class KinesisDataStreamDataTypeDef(TypedDict):
+    kinesisRoleArn: str
+    kinesisDataStreamArn: str
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -686,6 +694,7 @@ class CreateMissionProfileRequestTypeDef(TypedDict):
     trackingConfigArn: str
     contactPrePassDurationSeconds: NotRequired[int]
     contactPostPassDurationSeconds: NotRequired[int]
+    telemetrySinkConfigArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     streamsKmsKey: NotRequired[KmsKeyTypeDef]
     streamsKmsRole: NotRequired[str]
@@ -701,6 +710,7 @@ class GetMissionProfileResponseTypeDef(TypedDict):
     minimumViableContactDurationSeconds: int
     dataflowEdges: list[list[str]]
     trackingConfigArn: str
+    telemetrySinkConfigArn: str
     tags: dict[str, str]
     streamsKmsKey: KmsKeyTypeDef
     streamsKmsRole: str
@@ -715,6 +725,7 @@ class UpdateMissionProfileRequestTypeDef(TypedDict):
     minimumViableContactDurationSeconds: NotRequired[int]
     dataflowEdges: NotRequired[Sequence[Sequence[str]]]
     trackingConfigArn: NotRequired[str]
+    telemetrySinkConfigArn: NotRequired[str]
     streamsKmsKey: NotRequired[KmsKeyTypeDef]
     streamsKmsRole: NotRequired[str]
 
@@ -767,6 +778,10 @@ class ListGroundStationsResponseTypeDef(TypedDict):
 class RangedSocketAddressTypeDef(TypedDict):
     name: str
     portRange: IntegerRangeTypeDef
+
+
+class TelemetrySinkDataTypeDef(TypedDict):
+    kinesisDataStreamData: NotRequired[KinesisDataStreamDataTypeDef]
 
 
 class ListConfigsRequestPaginateTypeDef(TypedDict):
@@ -898,6 +913,11 @@ class RangedConnectionDetailsTypeDef(TypedDict):
     mtu: NotRequired[int]
 
 
+class TelemetrySinkConfigTypeDef(TypedDict):
+    telemetrySinkType: Literal["KINESIS_DATA_STREAM"]
+    telemetrySinkData: TelemetrySinkDataTypeDef
+
+
 class ReserveContactRequestTypeDef(TypedDict):
     missionProfileArn: str
     startTime: TimestampTypeDef
@@ -933,16 +953,6 @@ class DescribeEphemerisResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ConfigTypeDataTypeDef(TypedDict):
-    antennaDownlinkConfig: NotRequired[AntennaDownlinkConfigTypeDef]
-    trackingConfig: NotRequired[TrackingConfigTypeDef]
-    dataflowEndpointConfig: NotRequired[DataflowEndpointConfigTypeDef]
-    antennaDownlinkDemodDecodeConfig: NotRequired[AntennaDownlinkDemodDecodeConfigTypeDef]
-    antennaUplinkConfig: NotRequired[AntennaUplinkConfigTypeDef]
-    uplinkEchoConfig: NotRequired[UplinkEchoConfigTypeDef]
-    s3RecordingConfig: NotRequired[S3RecordingConfigTypeDef]
-
-
 class AwsGroundStationAgentEndpointTypeDef(TypedDict):
     name: str
     egressAddress: ConnectionDetailsTypeDef
@@ -961,9 +971,28 @@ class UplinkConnectionDetailsTypeDef(TypedDict):
     agentIpAndPortAddress: RangedConnectionDetailsTypeDef
 
 
+class ConfigTypeDataTypeDef(TypedDict):
+    antennaDownlinkConfig: NotRequired[AntennaDownlinkConfigTypeDef]
+    trackingConfig: NotRequired[TrackingConfigTypeDef]
+    dataflowEndpointConfig: NotRequired[DataflowEndpointConfigTypeDef]
+    antennaDownlinkDemodDecodeConfig: NotRequired[AntennaDownlinkDemodDecodeConfigTypeDef]
+    antennaUplinkConfig: NotRequired[AntennaUplinkConfigTypeDef]
+    uplinkEchoConfig: NotRequired[UplinkEchoConfigTypeDef]
+    s3RecordingConfig: NotRequired[S3RecordingConfigTypeDef]
+    telemetrySinkConfig: NotRequired[TelemetrySinkConfigTypeDef]
+
+
 class AzElSegmentsDataTypeDef(TypedDict):
     s3Object: NotRequired[S3ObjectTypeDef]
     azElData: NotRequired[AzElSegmentsTypeDef]
+
+
+class DownlinkDataflowDetailsTypeDef(TypedDict):
+    agentConnectionDetails: NotRequired[DownlinkConnectionDetailsTypeDef]
+
+
+class UplinkDataflowDetailsTypeDef(TypedDict):
+    agentConnectionDetails: NotRequired[UplinkConnectionDetailsTypeDef]
 
 
 class CreateConfigRequestTypeDef(TypedDict):
@@ -987,14 +1016,6 @@ class UpdateConfigRequestTypeDef(TypedDict):
     name: str
     configType: ConfigCapabilityTypeType
     configData: ConfigTypeDataTypeDef
-
-
-class DownlinkDataflowDetailsTypeDef(TypedDict):
-    agentConnectionDetails: NotRequired[DownlinkConnectionDetailsTypeDef]
-
-
-class UplinkDataflowDetailsTypeDef(TypedDict):
-    agentConnectionDetails: NotRequired[UplinkConnectionDetailsTypeDef]
 
 
 class AzElEphemerisTypeDef(TypedDict):

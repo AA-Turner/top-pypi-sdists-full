@@ -21,7 +21,7 @@ def get_contents(
     if content:
         if parse_lines:
             content = str(content).split('\n')
-        return make_list(content)
+        return make_list(content,commaparse=False)
     return []
 
 def _normalize(s: str, strip_comments=True, collapse_ws=True, lower=True):
@@ -156,7 +156,7 @@ def findContent(
     return found_paths
 def return_function(start_dir=None,preferred_dir=None,basenames=None,functionName=None):
     if basenames:
-        basenames = make_list(basenames)
+        basenames = make_list(basenames,commaparse=False)
         abstract_file_finder = AbstractFileFinderImporter(start_dir=start_dir,preferred_dir=preferred_dir)
         paths = abstract_file_finder.find_paths(basenames)
         func = abstract_file_finder.import_function_from_path(paths[0], functionName)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.7
+Version: 0.1.8
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -23,6 +23,7 @@ Requires-Dist: ai21<5.0,>=4.3.0
 Requires-Dist: boto3<2.0,>=1.38.27
 Requires-Dist: google-genai[aiohttp]>=1.51.0
 Requires-Dist: google-cloud-storage>=1.26.0
+Requires-Dist: pytest-xdist>=3.8.0
 Dynamic: license-file
 
 # Model Library

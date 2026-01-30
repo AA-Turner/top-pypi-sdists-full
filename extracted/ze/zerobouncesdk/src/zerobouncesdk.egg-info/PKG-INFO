@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zerobouncesdk
-Version: 2.0.0
+Version: 2.0.2
 Summary: ZeroBounce Python API - https://www.zerobounce.net.
 Author-email: ZeroBounce <support@zerobounce.net>
 Project-URL: Homepage, https://github.com/zerobounce/zero-bounce-python-sdk-setup
@@ -559,5 +559,9 @@ OK
 . venv/bin/activate
 pip install build twine
 vi pyproject.toml # update version
+git commit -m 
+git tag -a vX.Y.Z -m "Release X.Y.Z"
+git push origin master
+git push origin vX.Y.Z
 python -m build
 ```

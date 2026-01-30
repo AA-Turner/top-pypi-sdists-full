@@ -637,6 +637,7 @@ async def lista_clientes_sap(task: RpaProcessoSapDTO) -> RpaRetornoProcessoDTO:
         return resultado
 
     except Exception as ex:
+        notas_sap.driver.quit()
         console.print("[MAIN][ERRO] Exceção em lista_clientes_sap.")
         console.print(f"[MAIN][ERRO] Tipo: {type(ex).__name__}")
         console.print(f"[MAIN][ERRO] str(ex): {str(ex)}")

@@ -14,7 +14,6 @@ from ..sql import (
 )
 
 DEFAULT_EMPTY_PARAMETERS = ["ttl", "partition_key", "sorting_key"]
-DEFAULT_JOIN_EMPTY_PARAMETERS = ["join_strictness", "join_type", "key_columns"]
 
 # Currently we only support the simplest TTLs
 # f(X) + toIntervalZ(N)
@@ -62,25 +61,6 @@ class TableDetails:
     >>> ed.to_datafile()
     'ENGINE "MergeTree"\\nENGINE_PARTITION_KEY "toYear(timestamp)"\\nENGINE_SORTING_KEY "timestamp, cityHash64(location)"\\nENGINE_SAMPLING_KEY "cityHash64(location)"\\nENGINE_SETTINGS "index_granularity = 32, index_granularity_bytes = 2048"\\nENGINE_TTL "toDate(timestamp) + INTERVAL 1 DAY"'
 
-    >>> ed = TableDetails({"engine_full": "Join(ANY, LEFT, id)", "engine": "Join", "partition_key": "", "sorting_key": "", "primary_key": "", "sampling_key": ""})
-    >>> ed.engine_full
-    'Join(ANY, LEFT, id)'
-    >>> ed.engine
-    'Join'
-    >>> ed.to_json()
-    {'engine_full': 'Join(ANY, LEFT, id)', 'engine': 'Join', 'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'id'}
-    >>> ed.to_datafile()
-    'ENGINE "Join"\\nENGINE_JOIN_STRICTNESS "ANY"\\nENGINE_JOIN_TYPE "LEFT"\\nENGINE_KEY_COLUMNS "id"'
-
-    >>> ed = TableDetails({"database": "d_01", "name": "t_01", "engine": "Join", "join_strictness": "ANY", "join_type": "LEFT", "key_columns": "id"})
-    >>> ed.engine_full == None
-    True
-    >>> ed.engine
-    'Join'
-    >>> ed.to_json()
-    {'engine_full': None, 'engine': 'Join', 'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'id'}
-    >>> ed.to_datafile()
-    'ENGINE "Join"\\nENGINE_JOIN_STRICTNESS "ANY"\\nENGINE_JOIN_TYPE "LEFT"\\nENGINE_KEY_COLUMNS "id"'
     >>> ed = TableDetails({ "engine_full": "MergeTree() PARTITION BY toYear(timestamp) ORDER BY (timestamp, cityHash64(location)) SAMPLE BY cityHash64(location) SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1, merge_with_ttl_timeout = 1800 TTL toDate(timestamp) + INTERVAL 1 DAY"})
     >>> ed.engine_full
     'MergeTree() PARTITION BY toYear(timestamp) ORDER BY (timestamp, cityHash64(location)) SAMPLE BY cityHash64(location) SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1, merge_with_ttl_timeout = 1800 TTL toDate(timestamp) + INTERVAL 1 DAY'
@@ -223,21 +203,6 @@ class TableDetails:
         return _sign
 
     @property
-    def join_strictness(self):
-        _join_strictness = self.details.get("join_strictness", None)
-        return _join_strictness
-
-    @property
-    def join_type(self):
-        _join_type = self.details.get("join_type", None)
-        return _join_type
-
-    @property
-    def key_columns(self):
-        _key_columns = self.details.get("key_columns", None)
-        return _key_columns
-
-    @property
     def statistics(self) -> Dict[str, Any]:
         return {
             "bytes": self.details.get("total_bytes", None),
@@ -268,12 +233,6 @@ class TableDetails:
             d["sampling_key"] = self.sampling_key
         if self.settings:
             d["settings"] = self.settings
-        if self.join_strictness:
-            d["join_strictness"] = self.join_strictness
-        if self.join_type:
-            d["join_type"] = self.join_type
-        if self.key_columns:
-            d["key_columns"] = self.key_columns
         if self.ver:
             d["ver"] = self.ver
         if self.is_deleted:
@@ -292,10 +251,7 @@ class TableDetails:
             d = {**d, **engine_params}
 
         if include_empty_details:
-            if self.engine and self.engine.lower() == "join":
-                d = set_empty_details(d, DEFAULT_JOIN_EMPTY_PARAMETERS)
-            else:
-                d = set_empty_details(d, DEFAULT_EMPTY_PARAMETERS)
+            d = set_empty_details(d, DEFAULT_EMPTY_PARAMETERS)
 
         if exclude:
             for attr in exclude:
@@ -480,20 +436,6 @@ ENABLED_ENGINES = [
         ],
         MERGETREE_OPTIONS,
     ),
-    # Join(join_strictness, join_type, k1[, k2, ...])
-    engine_config(
-        "Join",
-        [
-            # https://github.com/ClickHouse/ClickHouse/blob/fa8e4e4735b932f08b6beffcb2d069b72de34401/src/Storages/StorageJoin.cpp
-            EngineParam(
-                name="join_strictness", required=True, is_valid=case_insensitive_check(["ANY", "ALL", "SEMI", "ANTI"])
-            ),
-            EngineParam(
-                name="join_type", required=True, is_valid=case_insensitive_check(["LEFT", "INNER", "RIGHT", "FULL"])
-            ),
-            EngineParam(name="key_columns", required=True, is_valid=columns_are_valid),
-        ],
-    ),
     # Null()
     engine_config("Null"),
 ]
@@ -599,26 +541,13 @@ def engine_full_from_dict(
     >>> engine_full_from_dict('wadus', {}, schema=schema)
     Traceback (most recent call last):
     ...
-    ValueError: Engine wadus is not supported, supported engines include: MergeTree, ReplacingMergeTree, SummingMergeTree, AggregatingMergeTree, CollapsingMergeTree, VersionedCollapsingMergeTree, Join, Null
+    ValueError: Engine wadus is not supported, supported engines include: MergeTree, ReplacingMergeTree, SummingMergeTree, AggregatingMergeTree, CollapsingMergeTree, VersionedCollapsingMergeTree, Null
     >>> schema = ''
     >>> engine_full_from_dict('null', {}, schema=schema)
     'Null()'
     >>> schema = ''
     >>> engine_full_from_dict('null', {}, columns=[])
     'Null()'
-
-    >>> schema = 'cid Int32'
-    >>> engine_full_from_dict('Join', {'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'cid'}, schema=schema)
-    'Join(ANY, LEFT, cid)'
-    >>> engine_full_from_dict('Join', {'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'cid'}, columns=[{'name': 'cid', 'type': 'Int32', 'codec': None, 'default_value': None, 'nullable': False, 'normalized_name': 'cid'}])
-    'Join(ANY, LEFT, cid)'
-    >>> schema = 'cid1 Int32, cid2 Int8'
-    >>> engine_full_from_dict('Join', {'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'cid1, cid2'}, schema=schema)
-    'Join(ANY, LEFT, cid1, cid2)'
-    >>> engine_full_from_dict('Join', {'join_strictness': 'ANY', 'join_type': 'OUTER', 'key_columns': 'cid'}, schema=schema)
-    Traceback (most recent call last):
-    ...
-    ValueError: Invalid value 'OUTER' for parameter 'engine_join_type', reason: valid values are LEFT, INNER, RIGHT, FULL
 
     >>> schema = ''
     >>> engine_full_from_dict('MergeTree', {}, schema=schema)
@@ -715,10 +644,6 @@ def engine_params_from_engine_full(engine_full: str) -> Dict[str, Any]:
     """
     >>> engine_params_from_engine_full("Null()")
     {}
-    >>> engine_params_from_engine_full("Join(ANY, LEFT, id)")
-    {'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'id'}
-    >>> engine_params_from_engine_full("Join(ANY, LEFT, k1, k2)")
-    {'join_strictness': 'ANY', 'join_type': 'LEFT', 'key_columns': 'k1, k2'}
     >>> engine_params_from_engine_full("AggregatingMergeTree('/clickhouse/tables/{layer}-{shard}/d_f837aa.sales_by_country_rt__v0_staging_t_00c3091e7530472caebda05e97288a1d', '{replica}') PARTITION BY toYYYYMM(date) ORDER BY (purchase_location, cod_device, date) SETTINGS index_granularity = 8192")
     {}
     >>> engine_params_from_engine_full("ReplicatedSummingMergeTree('/clickhouse/tables/{layer}-{shard}/d_abcf3e.t_69f9da31f4524995b8911e1b24c80ab4', '{replica}') PARTITION BY toYYYYMM(date) ORDER BY (date, purchase_location, sku_rank_lc) SETTINGS index_granularity = 8192")

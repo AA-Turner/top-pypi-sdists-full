@@ -9,9 +9,9 @@ Public API of this module is defined by __all__.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import StrEnum
+from enum import StrEnum, unique
 import math
-from typing import Final, TypedDict, Unpack
+from typing import Final, TypedDict, Unpack, override
 
 from aiohomematic.const import DataPointCategory, DataPointUsage, DeviceProfile, Field, Parameter
 from aiohomematic.model.custom.capabilities.light import LightCapabilities
@@ -48,6 +48,7 @@ _NOT_USED: Final = 111600
 _SATURATION_MULTIPLIER: Final = 100
 
 
+@unique
 class _DeviceOperationMode(StrEnum):
     """Enum with device operation modes."""
 
@@ -57,6 +58,7 @@ class _DeviceOperationMode(StrEnum):
     TUNABLE_WHITE = "2_TUNABLE_WHITE"
 
 
+@unique
 class _ColorBehaviour(StrEnum):
     """Enum with color behaviours."""
 
@@ -66,6 +68,7 @@ class _ColorBehaviour(StrEnum):
     ON = "ON"
 
 
+@unique
 class FixedColor(StrEnum):
     """Enum with colors."""
 
@@ -81,6 +84,7 @@ class FixedColor(StrEnum):
     YELLOW = "YELLOW"
 
 
+@unique
 class _StateChangeArg(StrEnum):
     """Enum with light state change arguments."""
 
@@ -306,6 +310,7 @@ class CustomDpDimmer(StateChangeTimerMixin, BrightnessMixin, CustomDataPoint):
         """Return true if dimmer is on."""
         return self._dp_level.value is not None and self._dp_level.value > _DIMMER_OFF
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if self.is_timer_state_change():
@@ -771,6 +776,7 @@ class CustomDpIpFixedColorLight(TimerUnitMixin, CustomDpDimmer):
 
         await super().turn_on(collector=collector, **kwargs)
 
+    @override
     def _post_init(self) -> None:
         """Post action after initialisation of the data point fields."""
         super()._post_init()
@@ -1022,6 +1028,15 @@ DeviceProfileRegistry.register(
     data_point_class=CustomDpIpFixedColorLight,
     profile_type=DeviceProfile.IP_SIMPLE_FIXED_COLOR_LIGHT_WIRED,
     channels=(7, 8, 9, 10, 11, 12, 13),
+)
+
+# IP Simple Fixed Color Light 230V
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIP-WRC6-230",
+    data_point_class=CustomDpIpFixedColorLight,
+    profile_type=DeviceProfile.IP_SIMPLE_FIXED_COLOR_LIGHT_WIRED,
+    channels=(12, 13, 14, 15, 16, 17, 18),
 )
 
 # IP RGBW Light

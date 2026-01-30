@@ -3,7 +3,7 @@ Type annotations for mediaconnect service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -34,6 +34,7 @@ __all__ = (
     "DurationUnitsType",
     "EncoderProfileType",
     "EncodingNameType",
+    "EncodingProfileType",
     "EntitlementStatusType",
     "FailoverInputSourcePriorityModeType",
     "FailoverModeType",
@@ -73,6 +74,7 @@ __all__ = (
     "OutputRoutedWaiterName",
     "OutputStandbyWaiterName",
     "OutputStatusType",
+    "OutputUnroutedWaiterName",
     "PaginatorName",
     "PriceUnitsType",
     "ProtocolType",
@@ -129,12 +131,13 @@ DesiredStateType = Literal["ACTIVE", "DELETED", "STANDBY"]
 DurationUnitsType = Literal["MONTHS"]
 EncoderProfileType = Literal["high", "main"]
 EncodingNameType = Literal["jxsv", "pcm", "raw", "smpte291"]
+EncodingProfileType = Literal["CONTRIBUTION_H264_DEFAULT", "DISTRIBUTION_H264_DEFAULT"]
 EntitlementStatusType = Literal["DISABLED", "ENABLED"]
 FailoverInputSourcePriorityModeType = Literal["NO_PRIORITY", "PRIMARY_SECONDARY"]
 FailoverModeType = Literal["FAILOVER", "MERGE"]
 FlowActiveWaiterName = Literal["flow_active"]
 FlowDeletedWaiterName = Literal["flow_deleted"]
-FlowSizeType = Literal["LARGE", "MEDIUM"]
+FlowSizeType = Literal["LARGE", "LARGE_4X", "MEDIUM"]
 FlowStandbyWaiterName = Literal["flow_standby"]
 FlowTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 ForwardErrorCorrectionStateType = Literal["DISABLED", "ENABLED"]
@@ -176,6 +179,7 @@ OutputDeletedWaiterName = Literal["output_deleted"]
 OutputRoutedWaiterName = Literal["output_routed"]
 OutputStandbyWaiterName = Literal["output_standby"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
+OutputUnroutedWaiterName = Literal["output_unrouted"]
 PriceUnitsType = Literal["HOURLY"]
 ProtocolType = Literal[
     "cdi",
@@ -381,7 +385,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -646,6 +649,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -682,6 +686,7 @@ WaiterName = Literal[
     "output_deleted",
     "output_routed",
     "output_standby",
+    "output_unrouted",
 ]
 RegionName = Literal[
     "af-south-1",

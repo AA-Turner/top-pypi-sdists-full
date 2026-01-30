@@ -1,0 +1,2 @@
+import{i as __name,n as __esmMin}from"./rolldown-runtime-BKYq3fBv.js";function getWidgetStep(e){return e.step2||(e.step||10)*.1}function evaluateInput(input){if(/^[\d\s.()*+/-]+$/.test(input))try{input=eval(input)}catch{}const newValue=Number(input);if(!isNaN(newValue))return newValue}var init_widget=__esmMin((()=>{}));export{getWidgetStep as n,init_widget as r,evaluateInput as t};
+//# sourceMappingURL=widget-D00AxrDc.js.map

@@ -8,7 +8,7 @@ from __future__ import annotations as _
 import logging as _logging
 import os as _os
 import sys as _sys
-import warnings as _warnings
+import typing as _t
 from pathlib import Path as _Path
 
 import astroid as _ast
@@ -62,7 +62,7 @@ def setup_logger(verbose: bool) -> None:
 
 
 # pylint: disable=too-many-arguments,too-many-locals
-# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-positional-arguments,too-many-boolean-expressions
 def _run_check(
     child: _Parent,
     parent: _Parent,
@@ -79,8 +79,10 @@ def _run_check(
     target: _Messages,
     failures: _Failures,
 ) -> None:
-    if isinstance(child, _Function):
-        if not (child.isoverridden and not check_overridden) and (
+    if (
+        isinstance(child, _Function)
+        and not (child.isoverridden and not check_overridden)
+        and (
             not (child.isprotected and not check_protected)
             and not (
                 child.isinit
@@ -91,36 +93,19 @@ def _run_check(
             )
             and not (child.isdunder and not check_dunders)
             and not (child.docstring.bare and ignore_no_params)
-        ):
-            failure = _Failure(
-                child,
-                target,
-                check_property_returns,
-                ignore_typechecker,
-            )
-            if failure:
-                failures.append(failure)
+        )
+    ):
+        failure = _Failure(
+            child,
+            target,
+            check_property_returns,
+            ignore_typechecker,
+        )
+        if failure:
+            failures.append(failure)
 
-        if check_nested:
-            for func in child.children:
-                _run_check(
-                    func,
-                    child,
-                    check_class,
-                    check_class_constructor,
-                    check_dunders,
-                    check_nested,
-                    check_overridden,
-                    check_protected,
-                    check_property_returns,
-                    ignore_no_params,
-                    ignore_typechecker,
-                    no_ansi,
-                    target,
-                    failures,
-                )
-    else:
-        # this is a class
+    # recurse for either class methods or, if enabled, nested functions
+    if not isinstance(child, _Function) or check_nested:
         for func in child.children:
             _run_check(
                 func,
@@ -145,7 +130,7 @@ def _from_file(
     messages: _Messages,
     ignore_args: bool,
     ignore_kwargs: bool,
-    check_class_constructor,
+    check_class_constructor: bool,
 ) -> _Parent:
     try:
         code = path.read_text(encoding="utf-8")
@@ -174,14 +159,15 @@ def _from_file(
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def _from_str(
-    context: dict,
+    context: dict[str, _t.Any],
     messages: _Messages,
     ignore_args: bool,
     ignore_kwargs: bool,
-    check_class_constructor,
+    check_class_constructor: bool,
     path: _Path | None = None,
 ) -> _Parent:
     logger = _logging.getLogger(__package__)
+    source_name = path or "stdin"
     try:
         parent = _Parent(
             _ast.parse(**context),
@@ -191,13 +177,9 @@ def _from_str(
             ignore_kwargs,
             check_class_constructor,
         )
-        logger.debug(
-            _FILE_INFO,
-            path or "stdin",
-            "Parsing Python code successful",
-        )
+        logger.debug(_FILE_INFO, source_name, "Parsing Python code successful")
     except _ast.AstroidSyntaxError as err:
-        logger.debug(_FILE_INFO, path or "stdin", str(err).replace("\n", " "))
+        logger.debug(_FILE_INFO, source_name, str(err).replace("\n", " "))
         parent = _Parent(error=_Error.SYNTAX)
 
     return parent
@@ -342,21 +324,6 @@ def runner(
     )
 
 
-def handle_deprecations(enforce_capitalization: bool, stacklevel: int) -> None:
-    """Warn for deprecated arguments.
-
-    :param enforce_capitalization: Whether using or not.
-    :param stacklevel: Warning stacklevel.
-    """
-    if enforce_capitalization:
-        _warnings.warn(
-            "enforce-capitalization is deprecated and will be removed in a"
-            " future version",
-            category=FutureWarning,
-            stacklevel=stacklevel,
-        )
-
-
 @_decorators.parse_msgs
 @_decorators.validate_args
 def docsig(  # pylint: disable=too-many-locals,too-many-arguments
@@ -376,7 +343,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     ignore_args: bool = False,
     ignore_kwargs: bool = False,
     ignore_typechecker: bool = False,
-    enforce_capitalization: bool = False,  # deprecated
     no_ansi: bool = False,
     verbose: bool = False,
     target: _Messages | None = None,
@@ -413,8 +379,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param ignore_args: Ignore args prefixed with an asterisk.
     :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
     :param ignore_typechecker: Ignore checking return values.
-    :param enforce_capitalization: Ensure param descriptions are
-        capitalized.
     :param no_ansi: Disable ANSI output.
     :param verbose: Increase output verbosity.
     :param target: List of errors to target.
@@ -424,7 +388,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param excludes: Files or dirs to exclude from checks.
     :return: Exit status for whether a test failed or not.
     """
-    handle_deprecations(enforce_capitalization, stacklevel=5)
     setup_logger(verbose)
     if list_checks:
         return int(bool(_print_checks()))  # type: ignore
@@ -465,9 +428,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         return max(retcodes)
 
     module = _from_str(
-        {
-            "code": string,
-        },
+        {"code": string},
         disable or _Messages(),
         ignore_args,
         ignore_kwargs,

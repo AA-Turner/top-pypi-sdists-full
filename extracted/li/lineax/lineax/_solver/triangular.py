@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
+import equinox.internal as eqxi
 import jax.scipy as jsp
 from jaxtyping import Array, PyTree
 
@@ -35,10 +35,12 @@ from .misc import (
 )
 
 
-_TriangularState: TypeAlias = tuple[Array, bool, bool, PackedStructures, bool]
+_TriangularState: TypeAlias = tuple[
+    Array, eqxi.Static, eqxi.Static, PackedStructures, eqxi.Static
+]
 
 
-class Triangular(AbstractLinearSolver[_TriangularState], strict=True):
+class Triangular(AbstractLinearSolver[_TriangularState]):
     """Triangular solver for linear systems.
 
     The operator should either be lower triangular or upper triangular.
@@ -57,16 +59,19 @@ class Triangular(AbstractLinearSolver[_TriangularState], strict=True):
             )
         return (
             operator.as_matrix(),
-            is_lower_triangular(operator),
-            has_unit_diagonal(operator),
+            eqxi.Static(is_lower_triangular(operator)),
+            eqxi.Static(has_unit_diagonal(operator)),
             pack_structures(operator),
-            False,  # transposed
+            eqxi.Static(False),  # transposed
         )
 
     def compute(
         self, state: _TriangularState, vector: PyTree[Array], options: dict[str, Any]
     ) -> tuple[PyTree[Array], RESULTS, dict[str, Any]]:
         matrix, lower, unit_diagonal, packed_structures, transpose = state
+        lower = lower.value
+        unit_diagonal = unit_diagonal.value
+        transpose = transpose.value
         del state, options
         vector = ravel_vector(vector, packed_structures)
         if transpose:
@@ -80,6 +85,7 @@ class Triangular(AbstractLinearSolver[_TriangularState], strict=True):
         return solution, RESULTS.successful, {}
 
     def transpose(self, state: _TriangularState, options: dict[str, Any]):
+        del options
         matrix, lower, unit_diagonal, packed_structures, transpose = state
         transposed_packed_structures = transpose_packed_structures(packed_structures)
         transpose_state = (
@@ -87,12 +93,13 @@ class Triangular(AbstractLinearSolver[_TriangularState], strict=True):
             lower,
             unit_diagonal,
             transposed_packed_structures,
-            not transpose,
+            eqxi.Static(not transpose.value),
         )
         transpose_options = {}
         return transpose_state, transpose_options
 
     def conj(self, state: _TriangularState, options: dict[str, Any]):
+        del options
         matrix, lower, unit_diagonal, packed_structures, transpose = state
         conj_state = (
             matrix.conj(),
@@ -104,11 +111,8 @@ class Triangular(AbstractLinearSolver[_TriangularState], strict=True):
         conj_options = {}
         return conj_state, conj_options
 
-    def allow_dependent_columns(self, operator):
-        return False
-
-    def allow_dependent_rows(self, operator):
-        return False
+    def assume_full_rank(self):
+        return True
 
 
 Triangular.__init__.__doc__ = """**Arguments:**

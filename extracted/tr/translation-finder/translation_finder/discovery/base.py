@@ -9,7 +9,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from itertools import chain
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from charset_normalizer import from_fp
@@ -18,12 +18,15 @@ from weblate_language_data.language_codes import LANGUAGES
 
 from translation_finder.data import LANGUAGES_BLACKLIST
 
-from .result import DiscoveryResult, ResultDict
+from .result import DiscoveryResult
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from pathlib import PurePath
 
     from translation_finder.finder import Finder
+
+    from .result import ResultDict
 
 TOKEN_SPLIT = re.compile(r"([_.-])")
 
@@ -52,6 +55,9 @@ EXTENSION_MAP = (
     (".html", "html"),
     (".idml", "idml"),
     (".rc", "rc"),
+    (".catkeys", "catkeys"),
+    (".lang", "mi18n-lang"),
+    (".toml", "toml"),
 )
 
 TEMPLATE_REPLACEMENTS = (
@@ -79,6 +85,7 @@ class BaseDiscovery:
 
     @staticmethod
     def is_country_code(code: str) -> bool:
+        """Check whether string looks like a country code."""
         code = code.lower()
         return code in COUNTRIES or code in LOCALES
 
@@ -102,6 +109,7 @@ class BaseDiscovery:
 
     @staticmethod
     def detect_format(filemask: str) -> str:
+        """Detect format based on the file mask."""
         filemask = filemask.lower()
         for end, result in EXTENSION_MAP:
             if filemask.endswith(end):
@@ -148,6 +156,7 @@ class BaseDiscovery:
         return None
 
     def fill_in_new_base(self, result: ResultDict) -> None:
+        """Extend the result for new_base and intermediate parameters."""
         if self.new_base_mask is None:
             return
         path = result["filemask"]
@@ -181,7 +190,7 @@ class BaseDiscovery:
         """Check whether finder has a storage."""
         return self.finder.has_file(name)
 
-    def get_language_aliases(self, language: str) -> list[str]:
+    def get_language_aliases(self, language: str) -> list[str]:  # noqa: PLR6301
         """Language code aliases."""
         return [language]
 
@@ -198,6 +207,7 @@ class BaseDiscovery:
         result: ResultDict,
         source_language: str | None = None,
     ) -> None:
+        """Extend the result with template name."""
         if "template" not in result:
             if source_language is None:
                 source_language = self.source_language
@@ -210,16 +220,18 @@ class BaseDiscovery:
                     break
 
     def fill_in_file_format(self, result: ResultDict) -> None:
+        """Extend the result with class default file format if not present."""
         if "file_format" not in result:
             result["file_format"] = self.file_format
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, result: ResultDict) -> None:  # noqa: PLR6301
+        """Override detected format, based on the file content."""
         return
 
     def discover(
         self, *, eager: bool = False, hint: str | None = None
     ) -> Generator[DiscoveryResult]:
-        """Retun list of translation configurations matching this discovery."""
+        """Yield translation configurations matching this discovery."""
         discovered = set()
         for result in self.get_masks(eager=eager, hint=hint):
             if result["filemask"] in discovered:
@@ -237,6 +249,7 @@ class BaseDiscovery:
 
     @property
     def masks_list(self) -> tuple[str, ...]:
+        """Normalized access for mask property."""
         if isinstance(self.mask, str):
             if not self.mask:
                 return ()
@@ -293,7 +306,8 @@ class MonoTemplateDiscovery(BaseDiscovery):
 
     uses_template = True
 
-    def fill_in_new_base(self, result: ResultDict) -> None:
+    def fill_in_new_base(self, result: ResultDict) -> None:  # noqa: PLR6301
+        """Extend the result for new_base and intermediate parameters."""
         if "new_base" not in result and "template" in result:
             result["new_base"] = result["template"]
 
@@ -304,6 +318,7 @@ class EncodingDiscovery(BaseDiscovery):
     encoding_map: ClassVar[dict[str, str]] = {}
 
     def adjust_format(self, result: ResultDict) -> None:
+        """Override detected format, based on the file content."""
         encoding: str | None = None
         matches = [self.finder.mask_matches(result["filemask"])]
         if "template" in result:
@@ -325,6 +340,8 @@ class EncodingDiscovery(BaseDiscovery):
 
 
 class EnglishVariantsDiscovery(BaseDiscovery):
+    """Discovery supporting widely used English variants."""
+
     def get_language_aliases(self, language: str) -> list[str]:
         """Language code aliases."""
         result = super().get_language_aliases(language)

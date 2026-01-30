@@ -26,10 +26,11 @@ keywords = [
 dependencies = [
   "arviz",
   "altair >= 5",
+  "bidict",
   "immutabledict",
   "joblib",
   "natsort >= 7.1.1, < 8",
-  "numpy >= 2.0.2, < 3",
+  "numpy >= 2.0.2, < 2.4.0",
   "pandas >= 2.2.2, < 3",
   "scipy >= 1.13.1, < 2",
   "statsmodels >= 0.14.5",
@@ -79,7 +80,7 @@ jax = [
 ]
 # MMM proto schema.
 schema = [
-  "mmm-proto-schema >= 1.1.0",
+  "mmm-proto-schema >= 1.1.1",
   "semver",
 ]
 
@@ -87,7 +88,7 @@ schema = [
 scenarioplanner = [
   "google-api-python-client",
   "google-auth",
-  "mmm-proto-schema >= 1.1.0",
+  "mmm-proto-schema >= 1.1.1",
   "semver",
 ]
 

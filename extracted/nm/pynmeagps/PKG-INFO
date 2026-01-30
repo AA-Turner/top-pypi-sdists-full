@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynmeagps
-Version: 1.0.57
+Version: 1.1.0
 Summary: NMEA protocol parser and generator
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>

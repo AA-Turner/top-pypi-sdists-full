@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2018-2025)
+// SPDX-License-Identifier: MPL-2.0
+// Copyright ijl (2018-2026)
 
+use crate::ffi::PyStrRef;
 use crate::serialize::error::SerializeError;
 use crate::serialize::per_type::dict::ZeroDictSerializer;
 use crate::serialize::serializer::PyObjectSerializer;
 use crate::serialize::state::SerializerState;
-use crate::str::PyStr;
 use crate::typeref::{
     DATACLASS_FIELDS_STR, DICT_STR, FIELD_TYPE, FIELD_TYPE_STR, SLOTS_STR, STR_TYPE,
 };
@@ -102,13 +102,23 @@ impl Serialize for DataclassFastSerializer {
         let mut next_key: *mut crate::ffi::PyObject = core::ptr::null_mut();
         let mut next_value: *mut crate::ffi::PyObject = core::ptr::null_mut();
 
-        pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+        pydict_next!(
+            self.ptr,
+            &raw mut pos,
+            &raw mut next_key,
+            &raw mut next_value
+        );
 
         for _ in 0..len {
             let key = next_key;
             let value = next_value;
 
-            pydict_next!(self.ptr, &mut pos, &mut next_key, &mut next_value);
+            pydict_next!(
+                self.ptr,
+                &raw mut pos,
+                &raw mut next_key,
+                &raw mut next_value
+            );
 
             let key_as_str = {
                 let key_ob_type = ob_type!(key);
@@ -116,7 +126,7 @@ impl Serialize for DataclassFastSerializer {
                     cold_path!();
                     err!(SerializeError::KeyMustBeStr)
                 }
-                match unsafe { PyStr::from_ptr_unchecked(key).to_str() } {
+                match unsafe { PyStrRef::from_ptr_unchecked(key).as_str() } {
                     Some(uni) => uni,
                     None => err!(SerializeError::InvalidStr),
                 }
@@ -174,13 +184,13 @@ impl Serialize for DataclassFallbackSerializer {
         let mut next_key: *mut crate::ffi::PyObject = core::ptr::null_mut();
         let mut next_value: *mut crate::ffi::PyObject = core::ptr::null_mut();
 
-        pydict_next!(fields, &mut pos, &mut next_key, &mut next_value);
+        pydict_next!(fields, &raw mut pos, &raw mut next_key, &raw mut next_value);
 
         for _ in 0..len {
             let attr = next_key;
             let field = next_value;
 
-            pydict_next!(fields, &mut pos, &mut next_key, &mut next_value);
+            pydict_next!(fields, &raw mut pos, &raw mut next_key, &raw mut next_value);
 
             let field_type = ffi!(PyObject_GetAttr(field, FIELD_TYPE_STR));
             debug_assert!(ffi!(Py_REFCNT(field_type)) >= 2);
@@ -190,7 +200,7 @@ impl Serialize for DataclassFallbackSerializer {
                 continue;
             }
 
-            let key_as_str = match unsafe { PyStr::from_ptr_unchecked(attr).to_str() } {
+            let key_as_str = match unsafe { PyStrRef::from_ptr_unchecked(attr).as_str() } {
                 Some(uni) => uni,
                 None => err!(SerializeError::InvalidStr),
             };

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 name: opennebula
 author:
@@ -90,13 +89,13 @@ try:
 except ImportError:
     HAS_PYONE = False
 
+import os
+from collections import namedtuple
+
 from ansible.errors import AnsibleError
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 
 from ansible_collections.community.general.plugins.plugin_utils.unsafe import make_unsafe
-
-from collections import namedtuple
-import os
 
 
 class InventoryModule(BaseInventoryPlugin, Constructable):
@@ -119,10 +118,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             if authfile is None:
                 authfile = os.path.join(os.environ.get("HOME"), ".one", "one_auth")
             try:
-                with open(authfile, "r") as fp:
+                with open(authfile) as fp:
                     authstring = fp.read().rstrip()
                 username, password = authstring.split(":")
-            except (OSError, IOError) as e:
+            except OSError as e:
                 raise AnsibleError(f"Could not find or read ONE_AUTH file at '{authfile}'") from e
             except Exception as e:
                 raise AnsibleError(f"Error occurs when reading ONE_AUTH file at '{authfile}'") from e

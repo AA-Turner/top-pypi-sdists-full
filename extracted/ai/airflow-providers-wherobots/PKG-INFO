@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow-providers-wherobots
-Version: 1.4.3
+Version: 1.5.0
 Summary: Airflow extension for communicating with Wherobots Cloud
 Project-URL: Homepage, https://github.com/wherobots/airflow-provider-wherobots
 Project-URL: Tracker, https://github.com/wherobots/airflow-provider-wherobots

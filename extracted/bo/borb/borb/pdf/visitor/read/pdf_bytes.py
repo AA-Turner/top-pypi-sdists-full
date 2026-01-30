@@ -15,6 +15,7 @@ location of PDF-specific keywords, such as locating the end-of-file marker or
 header indicator, which are important for tasks like validation, content extraction,
 and structural analysis.
 """
+
 import typing
 
 
@@ -80,7 +81,7 @@ class PDFBytes:
         end: typing.Optional[int] = None,
     ) -> int:
         start = start or 0
-        end = end or (start - 1024)
+        end = max(0, end or (start - 1024))
         assert start >= 0
         assert end >= 0
         assert end < start

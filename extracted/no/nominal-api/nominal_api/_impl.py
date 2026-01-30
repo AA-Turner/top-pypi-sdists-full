@@ -3397,17 +3397,23 @@ via this endpoint.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'id_token': ConjureFieldDefinition('idToken', str)
+            'id_token': ConjureFieldDefinition('idToken', str),
+            'access_token': ConjureFieldDefinition('accessToken', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_id_token']
+    __slots__: List[str] = ['_id_token', '_access_token']
 
-    def __init__(self, id_token: str) -> None:
+    def __init__(self, id_token: str, access_token: Optional[str] = None) -> None:
         self._id_token = id_token
+        self._access_token = access_token
 
     @builtins.property
     def id_token(self) -> str:
         return self._id_token
+
+    @builtins.property
+    def access_token(self) -> Optional[str]:
+        return self._access_token
 
 
 authorization_GetAccessTokenRequest.__name__ = "GetAccessTokenRequest"
@@ -5537,14 +5543,16 @@ class datasource_api_GetTagValuesForDataSourceRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'tag_keys': ConjureFieldDefinition('tagKeys', OptionalTypeWrapper[List[api_TagName]]),
-            'range': ConjureFieldDefinition('range', OptionalTypeWrapper[api_Range])
+            'range': ConjureFieldDefinition('range', OptionalTypeWrapper[api_Range]),
+            'max_values_per_key': ConjureFieldDefinition('maxValuesPerKey', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_tag_keys', '_range']
+    __slots__: List[str] = ['_tag_keys', '_range', '_max_values_per_key']
 
-    def __init__(self, range: Optional["api_Range"] = None, tag_keys: Optional[List[str]] = None) -> None:
+    def __init__(self, max_values_per_key: Optional[int] = None, range: Optional["api_Range"] = None, tag_keys: Optional[List[str]] = None) -> None:
         self._tag_keys = tag_keys
         self._range = range
+        self._max_values_per_key = max_values_per_key
 
     @builtins.property
     def tag_keys(self) -> Optional[List[str]]:
@@ -5559,6 +5567,12 @@ months spanned by the range. If left empty, this defaults to the last month. For
 the range must not be specified, as all tag values are returned.
         """
         return self._range
+
+    @builtins.property
+    def max_values_per_key(self) -> Optional[int]:
+        """If supplied, caps the number of values per key at the specified value.
+        """
+        return self._max_values_per_key
 
 
 datasource_api_GetTagValuesForDataSourceRequest.__name__ = "GetTagValuesForDataSourceRequest"
@@ -5604,18 +5618,20 @@ class datasource_api_SearchChannelsRequest(ConjureBeanType):
             'prefix': ConjureFieldDefinition('prefix', OptionalTypeWrapper[str]),
             'exact_match': ConjureFieldDefinition('exactMatch', List[str]),
             'data_sources': ConjureFieldDefinition('dataSources', List[api_rids_DataSourceRid]),
+            'data_types': ConjureFieldDefinition('dataTypes', List[api_SeriesDataType]),
             'previously_selected_channels': ConjureFieldDefinition('previouslySelectedChannels', OptionalTypeWrapper[Dict[api_rids_DataSourceRid, List[api_Channel]]]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
             'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_fuzzy_search_text', '_prefix', '_exact_match', '_data_sources', '_previously_selected_channels', '_next_page_token', '_page_size']
+    __slots__: List[str] = ['_fuzzy_search_text', '_prefix', '_exact_match', '_data_sources', '_data_types', '_previously_selected_channels', '_next_page_token', '_page_size']
 
-    def __init__(self, data_sources: List[str], exact_match: List[str], fuzzy_search_text: str, next_page_token: Optional[str] = None, page_size: Optional[int] = None, prefix: Optional[str] = None, previously_selected_channels: Optional[Dict[str, List[str]]] = None) -> None:
+    def __init__(self, data_sources: List[str], data_types: List["api_SeriesDataType"], exact_match: List[str], fuzzy_search_text: str, next_page_token: Optional[str] = None, page_size: Optional[int] = None, prefix: Optional[str] = None, previously_selected_channels: Optional[Dict[str, List[str]]] = None) -> None:
         self._fuzzy_search_text = fuzzy_search_text
         self._prefix = prefix
         self._exact_match = exact_match
         self._data_sources = data_sources
+        self._data_types = data_types
         self._previously_selected_channels = previously_selected_channels
         self._next_page_token = next_page_token
         self._page_size = page_size
@@ -5637,6 +5653,12 @@ class datasource_api_SearchChannelsRequest(ConjureBeanType):
     @builtins.property
     def data_sources(self) -> List[str]:
         return self._data_sources
+
+    @builtins.property
+    def data_types(self) -> List["api_SeriesDataType"]:
+        """Filter to only channels with these data types. An empty set means no filtering (all data types included).
+        """
+        return self._data_types
 
     @builtins.property
     def previously_selected_channels(self) -> Optional[Dict[str, List[str]]]:
@@ -28648,7 +28670,7 @@ scout_chartdefinition_api_AxisThresholdVisualization.__module__ = "nominal_api.s
 
 
 class scout_chartdefinition_api_BitFlag(ConjureBeanType):
-    """The settings for a bit flag mapping. Each position should be unique. Position 0 represents the least significant bit 
+    """The settings for a bit flag mapping. Each position should be unique. Position 0 represents the least significant bit
 and position 31 represents the most significant bit.
     """
 
@@ -30808,6 +30830,10 @@ scout_chartdefinition_api_Geo3dCustomModel.__module__ = "nominal_api.scout_chart
 
 class scout_chartdefinition_api_Geo3dDefaultModel(ConjureEnumType):
 
+    FICTIONAL_FIGHTER = 'FICTIONAL_FIGHTER'
+    '''FICTIONAL_FIGHTER'''
+    SATELLITE = 'SATELLITE'
+    '''SATELLITE'''
     QUADCOPTER = 'QUADCOPTER'
     '''QUADCOPTER'''
     FIXEDWING = 'FIXEDWING'
@@ -31077,6 +31103,102 @@ scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__qualname__ = "Geo3dOri
 scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_Geo3dOrientationStatic(ConjureUnionType):
+    _principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'principal_axes': ConjureFieldDefinition('principalAxes', scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes)
+        }
+
+    def __init__(
+            self,
+            principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (principal_axes is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if principal_axes is not None:
+                self._principal_axes = principal_axes
+                self._type = 'principalAxes'
+
+        elif type_of_union == 'principalAxes':
+            if principal_axes is None:
+                raise ValueError('a union value must not be None')
+            self._principal_axes = principal_axes
+            self._type = 'principalAxes'
+
+    @builtins.property
+    def principal_axes(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"]:
+        return self._principal_axes
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dOrientationStaticVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dOrientationStaticVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'principalAxes' and self.principal_axes is not None:
+            return visitor._principal_axes(self.principal_axes)
+
+
+scout_chartdefinition_api_Geo3dOrientationStatic.__name__ = "Geo3dOrientationStatic"
+scout_chartdefinition_api_Geo3dOrientationStatic.__qualname__ = "Geo3dOrientationStatic"
+scout_chartdefinition_api_Geo3dOrientationStatic.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dOrientationStaticVisitor:
+
+    @abstractmethod
+    def _principal_axes(self, principal_axes: "scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__name__ = "Geo3dOrientationStaticVisitor"
+scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__qualname__ = "Geo3dOrientationStaticVisitor"
+scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes(ConjureBeanType):
+    """Orientation specified as heading/pitch/roll in WGS84.
+Heading is clockwise with respect to north.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'heading': ConjureFieldDefinition('heading', float),
+            'pitch': ConjureFieldDefinition('pitch', float),
+            'roll': ConjureFieldDefinition('roll', float)
+        }
+
+    __slots__: List[str] = ['_heading', '_pitch', '_roll']
+
+    def __init__(self, heading: float, pitch: float, roll: float) -> None:
+        self._heading = heading
+        self._pitch = pitch
+        self._roll = roll
+
+    @builtins.property
+    def heading(self) -> float:
+        """Clockwise angle with respect to north (a.k.a. yaw).
+        """
+        return self._heading
+
+    @builtins.property
+    def pitch(self) -> float:
+        return self._pitch
+
+    @builtins.property
+    def roll(self) -> float:
+        return self._roll
+
+
+scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__name__ = "Geo3dOrientationStaticPrincipalAxes"
+scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__qualname__ = "Geo3dOrientationStaticPrincipalAxes"
+scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_Geo3dPosition(ConjureUnionType):
     _wgs84: Optional["scout_chartdefinition_api_Geo3dPositionWgs84"] = None
     _ecef: Optional["scout_chartdefinition_api_Geo3dPositionEcef"] = None
@@ -31222,6 +31344,214 @@ class scout_chartdefinition_api_Geo3dPositionWgs84(ConjureBeanType):
 scout_chartdefinition_api_Geo3dPositionWgs84.__name__ = "Geo3dPositionWgs84"
 scout_chartdefinition_api_Geo3dPositionWgs84.__qualname__ = "Geo3dPositionWgs84"
 scout_chartdefinition_api_Geo3dPositionWgs84.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
+    """A 3D sensor configuration for rendering/animating sensors in a 3D scene.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sensor_id': ConjureFieldDefinition('sensorId', str),
+            'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
+            'name': ConjureFieldDefinition('name', OptionalTypeWrapper[str]),
+            'orientation': ConjureFieldDefinition('orientation', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorOrientationConfig]),
+            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_HexColor])
+        }
+
+    __slots__: List[str] = ['_sensor_id', '_enabled', '_name', '_orientation', '_color']
+
+    def __init__(self, sensor_id: str, color: Optional[str] = None, enabled: Optional[bool] = None, name: Optional[str] = None, orientation: Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"] = None) -> None:
+        self._sensor_id = sensor_id
+        self._enabled = enabled
+        self._name = name
+        self._orientation = orientation
+        self._color = color
+
+    @builtins.property
+    def sensor_id(self) -> str:
+        return self._sensor_id
+
+    @builtins.property
+    def enabled(self) -> Optional[bool]:
+        return self._enabled
+
+    @builtins.property
+    def name(self) -> Optional[str]:
+        """The name of the sensor.
+        """
+        return self._name
+
+    @builtins.property
+    def orientation(self) -> Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"]:
+        """The orientation of the sensor.
+        """
+        return self._orientation
+
+    @builtins.property
+    def color(self) -> Optional[str]:
+        """The color of the sensor.
+        """
+        return self._color
+
+
+scout_chartdefinition_api_Geo3dSensor.__name__ = "Geo3dSensor"
+scout_chartdefinition_api_Geo3dSensor.__qualname__ = "Geo3dSensor"
+scout_chartdefinition_api_Geo3dSensor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorOrientationConfig(ConjureUnionType):
+    """Orientation configuration for a sensor.
+    """
+    _static: Optional["scout_chartdefinition_api_Geo3dOrientationStatic"] = None
+    _channel: Optional["scout_chartdefinition_api_Geo3dOrientation"] = None
+    _nadir: Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"] = None
+    _zenith: Optional["scout_chartdefinition_api_Geo3dSensorOrientationZenith"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'static': ConjureFieldDefinition('static', scout_chartdefinition_api_Geo3dOrientationStatic),
+            'channel': ConjureFieldDefinition('channel', scout_chartdefinition_api_Geo3dOrientation),
+            'nadir': ConjureFieldDefinition('nadir', scout_chartdefinition_api_Geo3dSensorOrientationNadir),
+            'zenith': ConjureFieldDefinition('zenith', scout_chartdefinition_api_Geo3dSensorOrientationZenith)
+        }
+
+    def __init__(
+            self,
+            static: Optional["scout_chartdefinition_api_Geo3dOrientationStatic"] = None,
+            channel: Optional["scout_chartdefinition_api_Geo3dOrientation"] = None,
+            nadir: Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"] = None,
+            zenith: Optional["scout_chartdefinition_api_Geo3dSensorOrientationZenith"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (static is not None) + (channel is not None) + (nadir is not None) + (zenith is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if static is not None:
+                self._static = static
+                self._type = 'static'
+            if channel is not None:
+                self._channel = channel
+                self._type = 'channel'
+            if nadir is not None:
+                self._nadir = nadir
+                self._type = 'nadir'
+            if zenith is not None:
+                self._zenith = zenith
+                self._type = 'zenith'
+
+        elif type_of_union == 'static':
+            if static is None:
+                raise ValueError('a union value must not be None')
+            self._static = static
+            self._type = 'static'
+        elif type_of_union == 'channel':
+            if channel is None:
+                raise ValueError('a union value must not be None')
+            self._channel = channel
+            self._type = 'channel'
+        elif type_of_union == 'nadir':
+            if nadir is None:
+                raise ValueError('a union value must not be None')
+            self._nadir = nadir
+            self._type = 'nadir'
+        elif type_of_union == 'zenith':
+            if zenith is None:
+                raise ValueError('a union value must not be None')
+            self._zenith = zenith
+            self._type = 'zenith'
+
+    @builtins.property
+    def static(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationStatic"]:
+        return self._static
+
+    @builtins.property
+    def channel(self) -> Optional["scout_chartdefinition_api_Geo3dOrientation"]:
+        return self._channel
+
+    @builtins.property
+    def nadir(self) -> Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"]:
+        return self._nadir
+
+    @builtins.property
+    def zenith(self) -> Optional["scout_chartdefinition_api_Geo3dSensorOrientationZenith"]:
+        return self._zenith
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'static' and self.static is not None:
+            return visitor._static(self.static)
+        if self._type == 'channel' and self.channel is not None:
+            return visitor._channel(self.channel)
+        if self._type == 'nadir' and self.nadir is not None:
+            return visitor._nadir(self.nadir)
+        if self._type == 'zenith' and self.zenith is not None:
+            return visitor._zenith(self.zenith)
+
+
+scout_chartdefinition_api_Geo3dSensorOrientationConfig.__name__ = "Geo3dSensorOrientationConfig"
+scout_chartdefinition_api_Geo3dSensorOrientationConfig.__qualname__ = "Geo3dSensorOrientationConfig"
+scout_chartdefinition_api_Geo3dSensorOrientationConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor:
+
+    @abstractmethod
+    def _static(self, static: "scout_chartdefinition_api_Geo3dOrientationStatic") -> Any:
+        pass
+
+    @abstractmethod
+    def _channel(self, channel: "scout_chartdefinition_api_Geo3dOrientation") -> Any:
+        pass
+
+    @abstractmethod
+    def _nadir(self, nadir: "scout_chartdefinition_api_Geo3dSensorOrientationNadir") -> Any:
+        pass
+
+    @abstractmethod
+    def _zenith(self, zenith: "scout_chartdefinition_api_Geo3dSensorOrientationZenith") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor.__name__ = "Geo3dSensorOrientationConfigVisitor"
+scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor.__qualname__ = "Geo3dSensorOrientationConfigVisitor"
+scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorOrientationNadir(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_Geo3dSensorOrientationNadir.__name__ = "Geo3dSensorOrientationNadir"
+scout_chartdefinition_api_Geo3dSensorOrientationNadir.__qualname__ = "Geo3dSensorOrientationNadir"
+scout_chartdefinition_api_Geo3dSensorOrientationNadir.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorOrientationZenith(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_Geo3dSensorOrientationZenith.__name__ = "Geo3dSensorOrientationZenith"
+scout_chartdefinition_api_Geo3dSensorOrientationZenith.__qualname__ = "Geo3dSensorOrientationZenith"
+scout_chartdefinition_api_Geo3dSensorOrientationZenith.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_GeoAdditionalTileset(ConjureEnumType):
@@ -31409,18 +31739,20 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
             'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
             'visualization_options': ConjureFieldDefinition('visualizationOptions', scout_chartdefinition_api_GeoPlot3dVisualizationOptions),
             'position': ConjureFieldDefinition('position', scout_chartdefinition_api_Geo3dPosition),
-            'orientation': ConjureFieldDefinition('orientation', scout_chartdefinition_api_Geo3dOrientation)
+            'orientation': ConjureFieldDefinition('orientation', scout_chartdefinition_api_Geo3dOrientation),
+            'sensors': ConjureFieldDefinition('sensors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dSensor]])
         }
 
-    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation']
+    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation', '_sensors']
 
-    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None) -> None:
+    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, sensors: Optional[List["scout_chartdefinition_api_Geo3dSensor"]] = None) -> None:
         self._plot_id = plot_id
         self._enabled = enabled
         self._label = label
         self._visualization_options = visualization_options
         self._position = position
         self._orientation = orientation
+        self._sensors = sensors
 
     @builtins.property
     def plot_id(self) -> str:
@@ -31445,6 +31777,10 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
     @builtins.property
     def orientation(self) -> "scout_chartdefinition_api_Geo3dOrientation":
         return self._orientation
+
+    @builtins.property
+    def sensors(self) -> Optional[List["scout_chartdefinition_api_Geo3dSensor"]]:
+        return self._sensors
 
 
 scout_chartdefinition_api_GeoPlot3d.__name__ = "GeoPlot3d"
@@ -32587,8 +32923,8 @@ scout_chartdefinition_api_NumericBarGaugeVisualisation.__module__ = "nominal_api
 
 class scout_chartdefinition_api_NumericBarVisualisationV2(ConjureBeanType):
     """A numeric visualisation that will fill the cell from left to right with a colored background
-representing where the value falls inside a set range. 
-The lowest and highest values in the thresholds determine the start and end of the range. 
+representing where the value falls inside a set range.
+The lowest and highest values in the thresholds determine the start and end of the range.
 Middle threshold values will still affect the cell's coloration.
     """
 
@@ -33297,7 +33633,7 @@ class scout_chartdefinition_api_PlotColoringConfiguration(ConjureUnionType):
 
     @builtins.property
     def row_shared(self) -> Optional["scout_chartdefinition_api_RowSharedPlotColoringConfiguration"]:
-        """Series plotted on each row will be colored using the same order of colors as the plots in the other rows 
+        """Series plotted on each row will be colored using the same order of colors as the plots in the other rows
 in the panel.
         """
         return self._row_shared
@@ -34248,7 +34584,7 @@ class scout_chartdefinition_api_Threshold(ConjureBeanType):
 
     @builtins.property
     def latch(self) -> Optional["scout_chartdefinition_api_ThresholdLatch"]:
-        """Options for pinning an indicator that data was within the threshold range 
+        """Options for pinning an indicator that data was within the threshold range
 while streaming.
         """
         return self._latch
@@ -68207,19 +68543,19 @@ scout_compute_resolved_api_StaleRangesNode.__module__ = "nominal_api.scout_compu
 
 class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
     _nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None
-    _external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None
+    _external: Optional["timeseries_logicalseries_api_ExternalStorageLocator"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'nominal': ConjureFieldDefinition('nominal', scout_compute_resolved_api_NominalStorageLocator),
-            'external': ConjureFieldDefinition('external', timeseries_logicalseries_api_LogicalSeries)
+            'external': ConjureFieldDefinition('external', timeseries_logicalseries_api_ExternalStorageLocator)
         }
 
     def __init__(
             self,
             nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None,
-            external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None,
+            external: Optional["timeseries_logicalseries_api_ExternalStorageLocator"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
@@ -68249,7 +68585,7 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
         return self._nominal
 
     @builtins.property
-    def external(self) -> Optional["timeseries_logicalseries_api_LogicalSeries"]:
+    def external(self) -> Optional["timeseries_logicalseries_api_ExternalStorageLocator"]:
         return self._external
 
     def accept(self, visitor) -> Any:
@@ -68273,7 +68609,7 @@ class scout_compute_resolved_api_StorageLocatorVisitor:
         pass
 
     @abstractmethod
-    def _external(self, external: "timeseries_logicalseries_api_LogicalSeries") -> Any:
+    def _external(self, external: "timeseries_logicalseries_api_ExternalStorageLocator") -> Any:
         pass
 
 
@@ -95031,6 +95367,63 @@ scout_workbookcommon_api_CheckAlertReference.__qualname__ = "CheckAlertReference
 scout_workbookcommon_api_CheckAlertReference.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
+class scout_workbookcommon_api_EventAlignTo(ConjureEnumType):
+    """The align to value for an event offset. If the queried event is a moment, the offset will be the moment timestamp regardless of the align to value.
+    """
+
+    START = 'START'
+    '''START'''
+    END = 'END'
+    '''END'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_workbookcommon_api_EventAlignTo.__name__ = "EventAlignTo"
+scout_workbookcommon_api_EventAlignTo.__qualname__ = "EventAlignTo"
+scout_workbookcommon_api_EventAlignTo.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_EventAlignment(ConjureBeanType):
+    """An offset that is defined relative to the first target event found by query.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'target_run_rid': ConjureFieldDefinition('targetRunRid', scout_run_api_RunRid),
+            'align_to': ConjureFieldDefinition('alignTo', scout_workbookcommon_api_EventAlignTo),
+            'event_query': ConjureFieldDefinition('eventQuery', event_SearchQuery)
+        }
+
+    __slots__: List[str] = ['_target_run_rid', '_align_to', '_event_query']
+
+    def __init__(self, align_to: "scout_workbookcommon_api_EventAlignTo", event_query: "event_SearchQuery", target_run_rid: str) -> None:
+        self._target_run_rid = target_run_rid
+        self._align_to = align_to
+        self._event_query = event_query
+
+    @builtins.property
+    def target_run_rid(self) -> str:
+        return self._target_run_rid
+
+    @builtins.property
+    def align_to(self) -> "scout_workbookcommon_api_EventAlignTo":
+        return self._align_to
+
+    @builtins.property
+    def event_query(self) -> "event_SearchQuery":
+        return self._event_query
+
+
+scout_workbookcommon_api_EventAlignment.__name__ = "EventAlignment"
+scout_workbookcommon_api_EventAlignment.__qualname__ = "EventAlignment"
+scout_workbookcommon_api_EventAlignment.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
 class scout_workbookcommon_api_EventReference(ConjureBeanType):
 
     @builtins.classmethod
@@ -95121,22 +95514,25 @@ scout_workbookcommon_api_InputTypeVisitor.__module__ = "nominal_api.scout_workbo
 class scout_workbookcommon_api_Offset(ConjureUnionType):
     _custom: Optional["scout_rids_api_UserDuration"] = None
     _run_align: Optional["scout_workbookcommon_api_RunAlignment"] = None
+    _event_align: Optional["scout_workbookcommon_api_EventAlignment"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'custom': ConjureFieldDefinition('custom', scout_rids_api_UserDuration),
-            'run_align': ConjureFieldDefinition('runAlign', scout_workbookcommon_api_RunAlignment)
+            'run_align': ConjureFieldDefinition('runAlign', scout_workbookcommon_api_RunAlignment),
+            'event_align': ConjureFieldDefinition('eventAlign', scout_workbookcommon_api_EventAlignment)
         }
 
     def __init__(
             self,
             custom: Optional["scout_rids_api_UserDuration"] = None,
             run_align: Optional["scout_workbookcommon_api_RunAlignment"] = None,
+            event_align: Optional["scout_workbookcommon_api_EventAlignment"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (custom is not None) + (run_align is not None) != 1:
+            if (custom is not None) + (run_align is not None) + (event_align is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if custom is not None:
@@ -95145,6 +95541,9 @@ class scout_workbookcommon_api_Offset(ConjureUnionType):
             if run_align is not None:
                 self._run_align = run_align
                 self._type = 'runAlign'
+            if event_align is not None:
+                self._event_align = event_align
+                self._type = 'eventAlign'
 
         elif type_of_union == 'custom':
             if custom is None:
@@ -95156,6 +95555,11 @@ class scout_workbookcommon_api_Offset(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._run_align = run_align
             self._type = 'runAlign'
+        elif type_of_union == 'eventAlign':
+            if event_align is None:
+                raise ValueError('a union value must not be None')
+            self._event_align = event_align
+            self._type = 'eventAlign'
 
     @builtins.property
     def custom(self) -> Optional["scout_rids_api_UserDuration"]:
@@ -95165,6 +95569,10 @@ class scout_workbookcommon_api_Offset(ConjureUnionType):
     def run_align(self) -> Optional["scout_workbookcommon_api_RunAlignment"]:
         return self._run_align
 
+    @builtins.property
+    def event_align(self) -> Optional["scout_workbookcommon_api_EventAlignment"]:
+        return self._event_align
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_workbookcommon_api_OffsetVisitor):
             raise ValueError('{} is not an instance of scout_workbookcommon_api_OffsetVisitor'.format(visitor.__class__.__name__))
@@ -95172,6 +95580,8 @@ class scout_workbookcommon_api_Offset(ConjureUnionType):
             return visitor._custom(self.custom)
         if self._type == 'runAlign' and self.run_align is not None:
             return visitor._run_align(self.run_align)
+        if self._type == 'eventAlign' and self.event_align is not None:
+            return visitor._event_align(self.event_align)
 
 
 scout_workbookcommon_api_Offset.__name__ = "Offset"
@@ -95187,6 +95597,10 @@ class scout_workbookcommon_api_OffsetVisitor:
 
     @abstractmethod
     def _run_align(self, run_align: "scout_workbookcommon_api_RunAlignment") -> Any:
+        pass
+
+    @abstractmethod
+    def _event_align(self, event_align: "scout_workbookcommon_api_EventAlignment") -> Any:
         pass
 
 
@@ -100732,177 +101146,6 @@ timeseries_channelmetadata_api_UpdateChannelMetadataRequest.__qualname__ = "Upda
 timeseries_channelmetadata_api_UpdateChannelMetadataRequest.__module__ = "nominal_api.timeseries_channelmetadata_api"
 
 
-class timeseries_logicalseries_LogicalSeriesService(Service):
-    """A logical series is a timeseries, represented by a channel name and a tag set.
-    """
-
-    def create_logical_series(self, auth_header: str, create_logical_series: "timeseries_logicalseries_api_CreateLogicalSeries") -> "timeseries_logicalseries_api_LogicalSeries":
-        """Create a new logical series.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(create_logical_series)
-
-        _path = '/timeseries/logical-series/v1/logical-series'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_logicalseries_api_LogicalSeries, self._return_none_for_unknown_union_types)
-
-    def batch_create_logical_series(self, auth_header: str, request: "timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest") -> "timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse":
-        """Batch create new logical series.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/timeseries/logical-series/v1/logical-series/batch-create'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse, self._return_none_for_unknown_union_types)
-
-    def batch_update_logical_series(self, auth_header: str, request: "timeseries_logicalseries_api_BatchUpdateLogicalSeriesRequest") -> "timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse":
-        """Batch update logical series descriptions and units.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/timeseries/logical-series/v1/logical-series/batch-update'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse, self._return_none_for_unknown_union_types)
-
-    def get_logical_series(self, auth_header: str, rid: str) -> "timeseries_logicalseries_api_LogicalSeries":
-        """Get a logical series by logical series rid.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-            'rid': quote(str(_conjure_encoder.default(rid)), safe=''),
-        }
-
-        _json: Any = None
-
-        _path = '/timeseries/logical-series/v1/logical-series/{rid}'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'GET',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_logicalseries_api_LogicalSeries, self._return_none_for_unknown_union_types)
-
-    def resolve_batch(self, auth_header: str, request: "timeseries_logicalseries_api_BatchResolveSeriesRequest") -> "timeseries_logicalseries_api_BatchResolveSeriesResponse":
-        """Resolves groups of channels, datasources and tags into logical series rids. An error response is provided
-if the channel + datasource + tag cannot be resolved into a logical series rid.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/timeseries/logical-series/v1/resolve'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_logicalseries_api_BatchResolveSeriesResponse, self._return_none_for_unknown_union_types)
-
-
-timeseries_logicalseries_LogicalSeriesService.__name__ = "LogicalSeriesService"
-timeseries_logicalseries_LogicalSeriesService.__qualname__ = "LogicalSeriesService"
-timeseries_logicalseries_LogicalSeriesService.__module__ = "nominal_api.timeseries_logicalseries"
-
-
 class timeseries_logicalseries_api_ApiLocator(ConjureBeanType):
 
     @builtins.classmethod
@@ -100958,50 +101201,50 @@ timeseries_logicalseries_api_ApiType.__qualname__ = "ApiType"
 timeseries_logicalseries_api_ApiType.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest(ConjureBeanType):
+class timeseries_logicalseries_api_BatchCreateExternalStorageLocatorRequest(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'requests': ConjureFieldDefinition('requests', List[timeseries_logicalseries_api_CreateLogicalSeries])
+            'requests': ConjureFieldDefinition('requests', List[timeseries_logicalseries_api_CreateExternalStorageLocator])
         }
 
     __slots__: List[str] = ['_requests']
 
-    def __init__(self, requests: List["timeseries_logicalseries_api_CreateLogicalSeries"]) -> None:
+    def __init__(self, requests: List["timeseries_logicalseries_api_CreateExternalStorageLocator"]) -> None:
         self._requests = requests
 
     @builtins.property
-    def requests(self) -> List["timeseries_logicalseries_api_CreateLogicalSeries"]:
+    def requests(self) -> List["timeseries_logicalseries_api_CreateExternalStorageLocator"]:
         return self._requests
 
 
-timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest.__name__ = "BatchCreateLogicalSeriesRequest"
-timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest.__qualname__ = "BatchCreateLogicalSeriesRequest"
-timeseries_logicalseries_api_BatchCreateLogicalSeriesRequest.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorRequest.__name__ = "BatchCreateExternalStorageLocatorRequest"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorRequest.__qualname__ = "BatchCreateExternalStorageLocatorRequest"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorRequest.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse(ConjureBeanType):
+class timeseries_logicalseries_api_BatchCreateExternalStorageLocatorResponse(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'responses': ConjureFieldDefinition('responses', List[timeseries_logicalseries_api_LogicalSeries])
+            'responses': ConjureFieldDefinition('responses', List[timeseries_logicalseries_api_ExternalStorageLocator])
         }
 
     __slots__: List[str] = ['_responses']
 
-    def __init__(self, responses: List["timeseries_logicalseries_api_LogicalSeries"]) -> None:
+    def __init__(self, responses: List["timeseries_logicalseries_api_ExternalStorageLocator"]) -> None:
         self._responses = responses
 
     @builtins.property
-    def responses(self) -> List["timeseries_logicalseries_api_LogicalSeries"]:
+    def responses(self) -> List["timeseries_logicalseries_api_ExternalStorageLocator"]:
         return self._responses
 
 
-timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse.__name__ = "BatchCreateLogicalSeriesResponse"
-timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse.__qualname__ = "BatchCreateLogicalSeriesResponse"
-timeseries_logicalseries_api_BatchCreateLogicalSeriesResponse.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorResponse.__name__ = "BatchCreateExternalStorageLocatorResponse"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorResponse.__qualname__ = "BatchCreateExternalStorageLocatorResponse"
+timeseries_logicalseries_api_BatchCreateExternalStorageLocatorResponse.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
 class timeseries_logicalseries_api_BatchResolveSeriesRequest(ConjureBeanType):
@@ -101050,50 +101293,50 @@ timeseries_logicalseries_api_BatchResolveSeriesResponse.__qualname__ = "BatchRes
 timeseries_logicalseries_api_BatchResolveSeriesResponse.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_BatchUpdateLogicalSeriesRequest(ConjureBeanType):
+class timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorRequest(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'requests': ConjureFieldDefinition('requests', List[timeseries_logicalseries_api_UpdateLogicalSeries])
+            'requests': ConjureFieldDefinition('requests', List[timeseries_logicalseries_api_UpdateExternalStorageLocator])
         }
 
     __slots__: List[str] = ['_requests']
 
-    def __init__(self, requests: List["timeseries_logicalseries_api_UpdateLogicalSeries"]) -> None:
+    def __init__(self, requests: List["timeseries_logicalseries_api_UpdateExternalStorageLocator"]) -> None:
         self._requests = requests
 
     @builtins.property
-    def requests(self) -> List["timeseries_logicalseries_api_UpdateLogicalSeries"]:
+    def requests(self) -> List["timeseries_logicalseries_api_UpdateExternalStorageLocator"]:
         return self._requests
 
 
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesRequest.__name__ = "BatchUpdateLogicalSeriesRequest"
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesRequest.__qualname__ = "BatchUpdateLogicalSeriesRequest"
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesRequest.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorRequest.__name__ = "BatchUpdateExternalStorageLocatorRequest"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorRequest.__qualname__ = "BatchUpdateExternalStorageLocatorRequest"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorRequest.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse(ConjureBeanType):
+class timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorResponse(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'responses': ConjureFieldDefinition('responses', List[timeseries_logicalseries_api_LogicalSeries])
+            'responses': ConjureFieldDefinition('responses', List[timeseries_logicalseries_api_ExternalStorageLocator])
         }
 
     __slots__: List[str] = ['_responses']
 
-    def __init__(self, responses: List["timeseries_logicalseries_api_LogicalSeries"]) -> None:
+    def __init__(self, responses: List["timeseries_logicalseries_api_ExternalStorageLocator"]) -> None:
         self._responses = responses
 
     @builtins.property
-    def responses(self) -> List["timeseries_logicalseries_api_LogicalSeries"]:
+    def responses(self) -> List["timeseries_logicalseries_api_ExternalStorageLocator"]:
         return self._responses
 
 
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse.__name__ = "BatchUpdateLogicalSeriesResponse"
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse.__qualname__ = "BatchUpdateLogicalSeriesResponse"
-timeseries_logicalseries_api_BatchUpdateLogicalSeriesResponse.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorResponse.__name__ = "BatchUpdateExternalStorageLocatorResponse"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorResponse.__qualname__ = "BatchUpdateExternalStorageLocatorResponse"
+timeseries_logicalseries_api_BatchUpdateExternalStorageLocatorResponse.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
 class timeseries_logicalseries_api_BigQueryLocator(ConjureBeanType):
@@ -101240,7 +101483,7 @@ timeseries_logicalseries_api_ContextPropertyVisitor.__qualname__ = "ContextPrope
 timeseries_logicalseries_api_ContextPropertyVisitor.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_CreateLogicalSeries(ConjureBeanType):
+class timeseries_logicalseries_api_CreateExternalStorageLocator(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -101311,9 +101554,84 @@ with this id, will throw a CONFLICT.
         return self._series_archetype_rid
 
 
-timeseries_logicalseries_api_CreateLogicalSeries.__name__ = "CreateLogicalSeries"
-timeseries_logicalseries_api_CreateLogicalSeries.__qualname__ = "CreateLogicalSeries"
-timeseries_logicalseries_api_CreateLogicalSeries.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_CreateExternalStorageLocator.__name__ = "CreateExternalStorageLocator"
+timeseries_logicalseries_api_CreateExternalStorageLocator.__qualname__ = "CreateExternalStorageLocator"
+timeseries_logicalseries_api_CreateExternalStorageLocator.__module__ = "nominal_api.timeseries_logicalseries_api"
+
+
+class timeseries_logicalseries_api_ExternalStorageLocator(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', api_LogicalSeriesRid),
+            'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_DataSourceRid),
+            'locator': ConjureFieldDefinition('locator', timeseries_logicalseries_api_Locator),
+            'time_locator': ConjureFieldDefinition('timeLocator', OptionalTypeWrapper[timeseries_logicalseries_api_Locator]),
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit]),
+            'series_data_type': ConjureFieldDefinition('seriesDataType', OptionalTypeWrapper[api_SeriesDataType]),
+            'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity])
+        }
+
+    __slots__: List[str] = ['_rid', '_data_source_rid', '_locator', '_time_locator', '_channel', '_description', '_unit', '_series_data_type', '_granularity']
+
+    def __init__(self, channel: str, data_source_rid: str, locator: "timeseries_logicalseries_api_Locator", rid: str, description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, series_data_type: Optional["api_SeriesDataType"] = None, time_locator: Optional["timeseries_logicalseries_api_Locator"] = None, unit: Optional[str] = None) -> None:
+        self._rid = rid
+        self._data_source_rid = data_source_rid
+        self._locator = locator
+        self._time_locator = time_locator
+        self._channel = channel
+        self._description = description
+        self._unit = unit
+        self._series_data_type = series_data_type
+        self._granularity = granularity
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
+
+    @builtins.property
+    def data_source_rid(self) -> str:
+        return self._data_source_rid
+
+    @builtins.property
+    def locator(self) -> "timeseries_logicalseries_api_Locator":
+        return self._locator
+
+    @builtins.property
+    def time_locator(self) -> Optional["timeseries_logicalseries_api_Locator"]:
+        """Only required to be present for legacy CSVs.
+        """
+        return self._time_locator
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def unit(self) -> Optional[str]:
+        return self._unit
+
+    @builtins.property
+    def series_data_type(self) -> Optional["api_SeriesDataType"]:
+        return self._series_data_type
+
+    @builtins.property
+    def granularity(self) -> Optional["api_Granularity"]:
+        """Time granularity of the series. If omitted, defaults to nanoseconds.
+        """
+        return self._granularity
+
+
+timeseries_logicalseries_api_ExternalStorageLocator.__name__ = "ExternalStorageLocator"
+timeseries_logicalseries_api_ExternalStorageLocator.__qualname__ = "ExternalStorageLocator"
+timeseries_logicalseries_api_ExternalStorageLocator.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
 class timeseries_logicalseries_api_Influx1Locator(ConjureBeanType):
@@ -101639,81 +101957,6 @@ class timeseries_logicalseries_api_LocatorVisitor:
 timeseries_logicalseries_api_LocatorVisitor.__name__ = "LocatorVisitor"
 timeseries_logicalseries_api_LocatorVisitor.__qualname__ = "LocatorVisitor"
 timeseries_logicalseries_api_LocatorVisitor.__module__ = "nominal_api.timeseries_logicalseries_api"
-
-
-class timeseries_logicalseries_api_LogicalSeries(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'rid': ConjureFieldDefinition('rid', api_LogicalSeriesRid),
-            'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_DataSourceRid),
-            'locator': ConjureFieldDefinition('locator', timeseries_logicalseries_api_Locator),
-            'time_locator': ConjureFieldDefinition('timeLocator', OptionalTypeWrapper[timeseries_logicalseries_api_Locator]),
-            'channel': ConjureFieldDefinition('channel', api_Channel),
-            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
-            'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit]),
-            'series_data_type': ConjureFieldDefinition('seriesDataType', OptionalTypeWrapper[api_SeriesDataType]),
-            'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity])
-        }
-
-    __slots__: List[str] = ['_rid', '_data_source_rid', '_locator', '_time_locator', '_channel', '_description', '_unit', '_series_data_type', '_granularity']
-
-    def __init__(self, channel: str, data_source_rid: str, locator: "timeseries_logicalseries_api_Locator", rid: str, description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, series_data_type: Optional["api_SeriesDataType"] = None, time_locator: Optional["timeseries_logicalseries_api_Locator"] = None, unit: Optional[str] = None) -> None:
-        self._rid = rid
-        self._data_source_rid = data_source_rid
-        self._locator = locator
-        self._time_locator = time_locator
-        self._channel = channel
-        self._description = description
-        self._unit = unit
-        self._series_data_type = series_data_type
-        self._granularity = granularity
-
-    @builtins.property
-    def rid(self) -> str:
-        return self._rid
-
-    @builtins.property
-    def data_source_rid(self) -> str:
-        return self._data_source_rid
-
-    @builtins.property
-    def locator(self) -> "timeseries_logicalseries_api_Locator":
-        return self._locator
-
-    @builtins.property
-    def time_locator(self) -> Optional["timeseries_logicalseries_api_Locator"]:
-        """Only required to be present for legacy CSVs.
-        """
-        return self._time_locator
-
-    @builtins.property
-    def channel(self) -> str:
-        return self._channel
-
-    @builtins.property
-    def description(self) -> Optional[str]:
-        return self._description
-
-    @builtins.property
-    def unit(self) -> Optional[str]:
-        return self._unit
-
-    @builtins.property
-    def series_data_type(self) -> Optional["api_SeriesDataType"]:
-        return self._series_data_type
-
-    @builtins.property
-    def granularity(self) -> Optional["api_Granularity"]:
-        """Time granularity of the series. If omitted, defaults to nanoseconds.
-        """
-        return self._granularity
-
-
-timeseries_logicalseries_api_LogicalSeries.__name__ = "LogicalSeries"
-timeseries_logicalseries_api_LogicalSeries.__qualname__ = "LogicalSeries"
-timeseries_logicalseries_api_LogicalSeries.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
 class timeseries_logicalseries_api_NominalLocator(ConjureBeanType):
@@ -102111,7 +102354,7 @@ timeseries_logicalseries_api_UnitUpdateVisitor.__qualname__ = "UnitUpdateVisitor
 timeseries_logicalseries_api_UnitUpdateVisitor.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
-class timeseries_logicalseries_api_UpdateLogicalSeries(ConjureBeanType):
+class timeseries_logicalseries_api_UpdateExternalStorageLocator(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -102147,9 +102390,9 @@ class timeseries_logicalseries_api_UpdateLogicalSeries(ConjureBeanType):
         return self._unit_update
 
 
-timeseries_logicalseries_api_UpdateLogicalSeries.__name__ = "UpdateLogicalSeries"
-timeseries_logicalseries_api_UpdateLogicalSeries.__qualname__ = "UpdateLogicalSeries"
-timeseries_logicalseries_api_UpdateLogicalSeries.__module__ = "nominal_api.timeseries_logicalseries_api"
+timeseries_logicalseries_api_UpdateExternalStorageLocator.__name__ = "UpdateExternalStorageLocator"
+timeseries_logicalseries_api_UpdateExternalStorageLocator.__qualname__ = "UpdateExternalStorageLocator"
+timeseries_logicalseries_api_UpdateExternalStorageLocator.__module__ = "nominal_api.timeseries_logicalseries_api"
 
 
 class timeseries_logicalseries_api_VisualCrossingEndpointUri(ConjureEnumType):
@@ -104210,6 +104453,8 @@ datasource_DatasetFileId = str
 
 api_rids_AiConversationRid = str
 
+api_rids_LinkRid = str
+
 api_rids_WorkspaceRid = str
 
 persistent_compute_api_SubscriptionId = str
@@ -104262,6 +104507,8 @@ scout_chart_api_JsonString = str
 
 scout_chartdefinition_api_LogTagFilter = Dict[str, List[str]]
 
+api_rids_LocalResourceRid = str
+
 scout_checks_api_JobRid = str
 
 api_rids_VideoRid = str
@@ -104300,6 +104547,8 @@ scout_units_api_UnitProperty = str
 
 timeseries_logicalseries_api_MeasurementName = str
 
+api_rids_RemoteConnectionRid = str
+
 datasource_VideoFileId = str
 
 themes_api_HexColor = str
@@ -104322,15 +104571,11 @@ timeseries_logicalseries_api_TableName = str
 
 scout_rids_api_NotebookRid = str
 
-api_rids_MeshSinkRid = str
-
 scout_rids_api_UserRid = str
 
 api_rids_DatasetRid = str
 
 scout_units_api_UnitSymbol = str
-
-api_rids_MeshSourceRid = str
 
 timeseries_logicalseries_api_LocationName = str
 
@@ -104388,6 +104633,8 @@ api_rids_EventRid = str
 
 module_ModuleVersion = str
 
+api_rids_RemoteResourceRid = str
+
 persistent_compute_api_Milliseconds = int
 
 ingest_api_IngestJobRid = str
@@ -104403,8 +104650,6 @@ timeseries_logicalseries_api_DatabaseName = str
 modules_api_ModuleRid = str
 
 timeseries_logicalseries_api_SchemaName = str
-
-api_rids_LinkRid = str
 
 scout_rids_api_MarkingRid = str
 

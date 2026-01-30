@@ -16,7 +16,7 @@ from telnyx.types import (
     IPConnectionUpdateResponse,
     IPConnectionRetrieveResponse,
 )
-from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -61,6 +61,11 @@ class TestIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -202,6 +207,11 @@ class TestIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -274,7 +284,7 @@ class TestIPConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         ip_connection = client.ip_connections.list()
-        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -285,13 +295,11 @@ class TestIPConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -301,7 +309,7 @@ class TestIPConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         ip_connection = response.parse()
-        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -311,7 +319,7 @@ class TestIPConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             ip_connection = response.parse()
-            assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -400,6 +408,11 @@ class TestAsyncIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -541,6 +554,11 @@ class TestAsyncIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -613,7 +631,7 @@ class TestAsyncIPConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         ip_connection = await async_client.ip_connections.list()
-        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -624,13 +642,11 @@ class TestAsyncIPConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -640,7 +656,7 @@ class TestAsyncIPConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         ip_connection = await response.parse()
-        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -650,7 +666,7 @@ class TestAsyncIPConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             ip_connection = await response.parse()
-            assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[IPConnection], ip_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

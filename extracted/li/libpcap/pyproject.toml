@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 [build-system]
-requires = ['setuptools>=80.10.1', 'packaging>=26.0.0']
+requires = ['setuptools>=80.10.2', 'packaging>=26.0.0']
 build-backend = 'setuptools.build_meta'
 
 [project]
 name        = 'libpcap'
-version     = '1.11.0b27'
+version     = '1.11.0b28'
 description = 'Python binding for the libpcap C library.'
 authors = [
     { name  = 'Adam Karpierz', email = 'adam@karpierz.net' },
@@ -59,16 +59,16 @@ dynamic = ['readme']
 [dependency-groups]
 base = [
     'pip>=25.3',
-    'setuptools>=80.10.1',
+    'setuptools>=80.10.2',
 ]
 test = [
     { include-group = 'base' },
     'deepdiff>=8.6.1',
-    'rich>=14.2.0',
+    'rich>=14.3.1',
 ]
 coverage = [
     { include-group = 'test' },
-    'coverage>=7.13.1',
+    'coverage>=7.13.2',
     'covdefaults>=2.3.0',
     'diff-cover>=10.2.0',
 ]
@@ -99,7 +99,7 @@ typing = [
     { include-group = 'base' },
     'mypy>=1.19.1',
     'mypy_extensions>=1.1.0',
-    'types-setuptools>=80.9.0.20251223',
+    'types-setuptools>=80.10.0.20260124',
 ]
 lint = [
     { include-group = 'test' },

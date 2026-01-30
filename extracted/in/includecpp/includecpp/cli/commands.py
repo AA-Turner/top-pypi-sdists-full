@@ -3620,8 +3620,11 @@ def plugin(plugin_name, files, private):
                     existing_ctors.add(sig)
 
             # v3.2.2: Extract fields (including comma-separated declarations)
+            # v4.6.6: Now returns (type, name, array_size) tuples
             field_list = extract_fields(public_section, class_name)
-            for field_type, field_name in field_list:
+            for field_info in field_list:
+                field_type, field_name = field_info[0], field_info[1]
+                array_size = field_info[2] if len(field_info) > 2 else 0
                 if (field_type, field_name) not in classes[class_name]['fields']:
                     classes[class_name]['fields'].append((field_type, field_name))
 
@@ -8159,8 +8162,8 @@ def exec_repl(lang, path, import_all):
 
     # Collect code lines
     lines = []
-    prompt = '>>> ' if is_python else 'cpp> '
-    continuation = '... ' if is_python else '   > '
+    prompt = '>>> ' if is_python else 'cssl> '
+    continuation = '... ' if is_python else '    > '
 
     try:
         while True:
@@ -8234,16 +8237,16 @@ def exec_repl(lang, path, import_all):
             cssl_lang = CsslLang()
             result = cssl_lang.exec(full_code)
 
-            # Print any output from the execution
+            # v4.8.6: Don't re-print output buffer - runtime.output() already prints to stdout
+            # Just check if there was output for the "(no output)" message
             output = cssl_lang.get_output()
-            if output:
-                for line in output:
-                    click.echo(line)
+            had_output = bool(output)
+            cssl_lang.clear_output()  # Clear buffer for next execution
 
             if result is not None:
                 click.echo(result)
 
-            if not output and result is None:
+            if not had_output and result is None:
                 click.secho("(no output)", fg='bright_black')
 
         except Exception as e:
@@ -8345,16 +8348,18 @@ def cssl_exec(path, code, python):
 
 
 def _cssl_execute(path, code, force_python=False):
-    """Internal: Execute CSSL code or file."""
+    """Internal: Execute CSSL code or file.
+
+    v4.8.7: Uses CSSLRuntime directly for consistent behavior.
+    CsslLang is an extra API layer for users, not needed for CLI execution.
+    """
     from pathlib import Path as PathLib
 
     try:
-        from ..core.cssl_bridge import CsslLang
+        from ..core.cssl.cssl_runtime import CSSLRuntime
     except ImportError as e:
         click.secho(f"CSSL runtime not available: {e}", fg='red')
         return
-
-    cssl_lang = CsslLang()
 
     # Determine source
     if code:
@@ -8396,13 +8401,31 @@ def _cssl_execute(path, code, force_python=False):
 
         source = '\n'.join(lines)
 
-    # Execute
+    # Execute using CSSLRuntime directly
+    # v4.9.1: Use execute_program for standalone scripts (not service format)
     try:
-        result = cssl_lang.run(source, force_python=force_python)
+        runtime = CSSLRuntime()
+        # v4.9.3: Set current file path for relative payload resolution
+        if path:
+            import os
+            runtime._current_file_path = os.path.abspath(path)
+            runtime._current_file = os.path.basename(path)
+        # Auto-detect: service format starts with service-init/run/include
+        stripped = source.lstrip()
+        if stripped.startswith('service-init') or stripped.startswith('service-run') or stripped.startswith('service-include'):
+            result = runtime.execute(source)
+        else:
+            result = runtime.execute_program(source)
     except Exception as e:
         error_msg = str(e)
-        # Clean display - single CSSL Error: prefix with colorama
-        click.echo(f"{Fore.RED}CSSL Error: {error_msg}{Style.RESET_ALL}")
+        # v4.8.6: Handle Unicode encoding errors in error messages
+        try:
+            # Clean display - single CSSL Error: prefix with colorama
+            click.echo(f"{Fore.RED}CSSL Error: {error_msg}{Style.RESET_ALL}")
+        except UnicodeEncodeError:
+            # Fallback: replace non-ASCII characters with placeholders
+            safe_msg = error_msg.encode('ascii', 'replace').decode('ascii')
+            click.echo(f"CSSL Error: {safe_msg}")
 
 
 @cssl.command(name='makemodule')
@@ -8877,61 +8900,212 @@ def _show_doc_globals():
 
 def _show_doc_injection():
     """Show code injection operators documentation."""
-    click.secho("Code Injection Operators", fg='red', bold=True)
-    click.secho("=" * 60, fg='red')
+    click.secho("╔══════════════════════════════════════════════════════════════╗", fg='red', bold=True)
+    click.secho("║           CODE INJECTION & FILTERING SYSTEM                  ║", fg='red', bold=True)
+    click.secho("╚══════════════════════════════════════════════════════════════╝", fg='red', bold=True)
     click.echo()
 
-    click.secho("<== BruteInjection (Replace)", fg='cyan')
-    click.echo("-" * 40)
-    click.echo("  Completely replaces a method body.")
+    # ===== SECTION 1: BASIC OPERATORS =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  1. BASIC INJECTION OPERATORS                               │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
     click.echo()
-    click.echo("  Syntax: ClassName::method <== { new body }")
+
+    click.secho("  <==  Replace (BruteInjection)", fg='cyan', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    target <== source;           // Replace target with source")
+    click.echo("    myList <== { 1, 2, 3 };      // Replace list contents")
+    click.echo("    Player::update <== { ... };  // Replace method body")
     click.echo()
-    click.echo("  Example:")
-    click.echo("    Player::update <== {")
-    click.echo("        // Completely new implementation")
-    click.echo("        this->x += this->speed;")
+
+    click.secho("  +<== Add/Append", fg='cyan', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    target +<== source;          // Add source to target")
+    click.echo("    myList +<== { 4, 5, 6 };     // Append items to list")
+    click.echo("    myDict +<== { \"key\" = val }; // Merge dict into target")
+    click.echo("    printl +<<== { log(msg); };  // Add code to function")
+    click.echo()
+
+    click.secho("  -<== Remove/Subtract", fg='cyan', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    target -<== source;          // Remove source items from target")
+    click.echo("    myList -<== { 2, 4, 6 };     // Remove specific items")
+    click.echo("    myDict -<== { \"key\" };       // Remove keys from dict")
+    click.echo()
+
+    click.secho("  ==> Receive (Reverse Direction)", fg='cyan', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    source ==> target;           // Move source to target")
+    click.echo("    source ==>+ target;          // Add source to target")
+    click.echo("    source -==> target;          // Move & clear source")
+    click.echo()
+
+    # ===== SECTION 2: CODE INFUSION =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  2. CODE INFUSION OPERATORS                                 │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
+    click.echo()
+
+    click.secho("  <<== CodeInfusion (Function Hooking)", fg='magenta', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    func <<== { code };          // Replace function body")
+    click.echo("    func +<<== { code };         // Add code AFTER function")
+    click.echo("    func -<<== { code };         // Add code BEFORE function")
+    click.echo()
+    click.echo("    Example - Hook into printl:")
+    click.secho("      printl +<<== { log(\"Called printl\"); };", fg='green')
+    click.secho("      printl(\"Hello\");  // Also triggers hook", fg='green')
+    click.echo()
+
+    click.secho("  ==>> Right-side Infusion", fg='magenta', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    { code } ==>> func;          // Infuse code into function")
+    click.echo()
+
+    # ===== SECTION 3: FILTERING =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  3. INJECTION FILTERS [type::helper=value]                  │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
+    click.echo()
+
+    click.secho("  Filter Syntax:", fg='cyan', bold=True)
+    click.echo("    target <==[filter] source;")
+    click.echo("    target <==[f1][f2][f3] source;   // Chained filters")
+    click.echo("    source ==>[filter] target;")
+    click.echo()
+
+    click.secho("  String Filters:", fg='green', bold=True)
+    click.echo("    [string::where=VALUE]     // Exact match")
+    click.echo("    [string::contains=SUB]    // Contains substring")
+    click.echo("    [string::not=VALUE]       // Exclude matches")
+    click.echo("    [string::length=N]        // Filter by length")
+    click.echo("    [string::startswith=PRE]  // Starts with prefix")
+    click.echo("    [string::endswith=SUF]    // Ends with suffix")
+    click.echo()
+
+    click.secho("  Integer/Number Filters:", fg='green', bold=True)
+    click.echo("    [integer::where=N]        // Exact value match")
+    click.echo("    [integer::gt=N]           // Greater than N")
+    click.echo("    [integer::lt=N]           // Less than N")
+    click.echo("    [integer::range=A,B]      // Between A and B")
+    click.echo()
+
+    click.secho("  Array/List/Vector Filters:", fg='green', bold=True)
+    click.echo("    [array::index=N]          // Get element at index N")
+    click.echo("    [array::length=N]         // Filter by length")
+    click.echo("    [array::first]            // Get first element")
+    click.echo("    [array::last]             // Get last element")
+    click.echo("    [array::slice=A,B]        // Get slice [A:B]")
+    click.echo("    [vector::where=VAL]       // Filter containing VAL")
+    click.echo()
+
+    click.secho("  JSON/Dict Filters:", fg='green', bold=True)
+    click.echo("    [json::key=KEY]           // Extract value by key")
+    click.echo("    [json::value=VAL]         // Filter by value")
+    click.echo("    [json::keys]              // Get all keys")
+    click.echo("    [json::values]            // Get all values")
+    click.echo()
+
+    click.secho("  Dynamic/Type Filters:", fg='green', bold=True)
+    click.echo("    [dynamic::VarName=VAL]    // Filter by variable value")
+    click.echo("    [type::string]            // Filter only strings")
+    click.echo("    [type::int]               // Filter only integers")
+    click.echo()
+
+    click.secho("  Instance/Object Filters:", fg='green', bold=True)
+    click.echo("    [instance::class]         // Get classes from object")
+    click.echo("    [instance::method]        // Get methods from object")
+    click.echo("    [instance::var]           // Get variables from object")
+    click.echo("    [instance::all]           // Get all (categorized)")
+    click.echo("    [instance::\"ClassName\"]   // Get specific class")
+    click.echo()
+
+    click.secho("  Name Filter:", fg='green', bold=True)
+    click.echo("    [name::\"MyName\"]          // Filter by name attribute")
+    click.echo()
+
+    # ===== SECTION 4: CHAINED FILTERS =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  4. CHAINED FILTERS (Multiple Filters)                      │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
+    click.echo()
+
+    click.echo("  Apply multiple filters in sequence:")
+    click.echo()
+    click.secho("    data <==[json::key=\"users\"][array::index=0] source;", fg='green')
+    click.echo("    // Extract 'users' key, then get first element")
+    click.echo()
+    click.secho("    items <==[type::string][string::contains=\"error\"] logs;", fg='green')
+    click.echo("    // Get strings containing 'error'")
+    click.echo()
+    click.secho("    nums <==[array::slice=0,10][integer::gt=5] data;", fg='green')
+    click.echo("    // Get first 10 elements, then filter > 5")
+    click.echo()
+
+    # ===== SECTION 5: EMBEDDED REPLACEMENT =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  5. EMBEDDED FUNCTION REPLACEMENT                           │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
+    click.echo()
+
+    click.secho("  embedded define - Replace & Wrap Functions:", fg='magenta', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    embedded define NewFunc(args) &oldFunc {")
+    click.echo("        // Pre-processing")
+    click.echo("        result = %oldFunc(args);  // Call original")
+    click.echo("        // Post-processing")
+    click.echo("        return result;")
     click.echo("    }")
     click.echo()
 
-    click.secho("+<== BruteInjection (Append)", fg='cyan')
-    click.echo("-" * 40)
-    click.echo("  Appends code to end of existing method.")
-    click.echo()
-    click.echo("  Syntax: ClassName::method +<== { appended code }")
-    click.echo()
-    click.echo("  Example:")
-    click.echo("    Player::update +<== {")
-    click.echo("        // This runs after original update()")
-    click.echo("        this->checkBounds();")
+    click.secho("  Example - Logging Wrapper:", fg='green')
+    click.echo("    embedded define Logger(msg) &printl {")
+    click.echo("        timestamp = now();")
+    click.echo("        %printl(\"[\" + timestamp + \"] \" + msg);")
     click.echo("    }")
     click.echo()
 
-    click.secho("-<== BruteInjection (Prepend)", fg='cyan')
-    click.echo("-" * 40)
-    click.echo("  Prepends code to start of existing method.")
-    click.echo()
-    click.echo("  Syntax: ClassName::method -<== { prepended code }")
-    click.echo()
-    click.echo("  Example:")
-    click.echo("    Player::update -<== {")
-    click.echo("        // This runs before original update()")
-    click.echo("        this->validateState();")
+    click.secho("  Class Method Replacement:", fg='magenta', bold=True)
+    click.echo("  ─────────────────────────────────")
+    click.echo("    embedded define NewMethod() &Class::method {")
+    click.echo("        // Replace Class::method")
     click.echo("    }")
     click.echo()
 
-    click.secho("<<== CodeInfusion (Contextual Replace)", fg='cyan')
-    click.echo("-" * 40)
-    click.echo("  Like <== but preserves class context (this, super).")
+    # ===== SECTION 6: PRACTICAL EXAMPLES =====
+    click.secho("┌─────────────────────────────────────────────────────────────┐", fg='yellow')
+    click.secho("│  6. PRACTICAL EXAMPLES                                      │", fg='yellow', bold=True)
+    click.secho("└─────────────────────────────────────────────────────────────┘", fg='yellow')
     click.echo()
-    click.echo("  Syntax: ClassName::method <<== { new body }")
+
+    click.secho("  List Operations:", fg='cyan')
+    click.echo("    list items = { 1, 2, 3, 4, 5 };")
+    click.echo("    items +<== { 6, 7, 8 };       // [1,2,3,4,5,6,7,8]")
+    click.echo("    items -<== { 2, 4, 6 };       // [1,3,5,7,8]")
+    click.echo("    items <== { 10, 20 };         // [10,20] (replace)")
     click.echo()
-    click.echo("  Example:")
-    click.echo("    Enemy::attack <<== {")
-    click.echo("        // Has access to this-> context")
-    click.echo("        this->damage = this->baseDamage * 2;")
-    click.echo("        super::attack();  // Call parent")
-    click.echo("    }")
+
+    click.secho("  Dict/DataStruct Operations:", fg='cyan')
+    click.echo("    datastruct<dynamic> data;")
+    click.echo("    data +<== { \"name\" = \"John\" };")
+    click.echo("    data +<== { \"age\" = 30 };")
+    click.echo("    config <==[json::key=\"name\"] data;  // \"John\"")
+    click.echo()
+
+    click.secho("  Function Hooking:", fg='cyan')
+    click.echo("    // Add logging to all printl calls")
+    click.echo("    printl +<<== { logToFile(msg); };")
+    click.echo()
+    click.echo("    // Validate before function runs")
+    click.echo("    saveData -<<== { validate(data); };")
+    click.echo()
+
+    click.secho("  Snapshot & Restore:", fg='cyan')
+    click.echo("    list original = { 1, 2, 3 };")
+    click.echo("    snapshot(original);")
+    click.echo("    original +<== { 4, 5 };")
+    click.echo("    printl(original);      // [1,2,3,4,5]")
+    click.echo("    printl(%original);     // [1,2,3] (snapshot)")
 
 
 def _show_doc_open():
@@ -10495,12 +10669,85 @@ def vscode(force, reinstall, stubs_only):
 
                     click.echo(f"  Location: {target_dir}")
                     click.echo()
+
+                    # Run npm install for vscode-languageclient dependency
+                    click.secho("  Installing Node.js dependencies...", fg='cyan')
+                    npm_path = shutil.which('npm')
+                    if npm_path:
+                        try:
+                            # Use cwd instead of --prefix for better Windows compatibility
+                            result = subprocess.run(
+                                [npm_path, 'install'],
+                                capture_output=True,
+                                text=True,
+                                timeout=120,
+                                cwd=str(target_dir)
+                            )
+                            if result.returncode == 0:
+                                click.secho("  Node.js dependencies installed", fg='green')
+                            else:
+                                click.secho("  Warning: npm install had issues", fg='yellow')
+                                click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
+                        except subprocess.TimeoutExpired:
+                            click.secho("  Warning: npm install timed out", fg='yellow')
+                        except Exception as e:
+                            click.secho(f"  Warning: npm install failed: {e}", fg='yellow')
+                            click.echo(f"  Run manually: cd \"{target_dir}\" && npm install")
+                    else:
+                        click.secho("  Note: npm not found - install Node.js for full LSP support", fg='yellow')
+
                     click.secho("  Restart VSCode to activate the extension!", fg='yellow', bold=True)
             else:
                 click.secho("  VSCode extensions directory not found.", fg='red')
                 click.echo("  Make sure VSCode is installed.")
         else:
             click.secho("  Warning: CSSL extension source not found", fg='yellow')
+
+        # Install Python LSP dependencies
+        click.echo()
+        click.secho("Installing Language Server dependencies...", fg='yellow')
+        try:
+            result = subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', 'pygls>=2.0.0', 'lsprotocol>=2025.0.0', '-q'],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            if result.returncode == 0:
+                click.secho("  pygls and lsprotocol installed", fg='green')
+            else:
+                click.secho(f"  Warning: pip install had issues", fg='yellow')
+                if result.stderr:
+                    click.echo(f"  {result.stderr[:200]}")
+        except subprocess.TimeoutExpired:
+            click.secho("  Warning: pip install timed out", fg='yellow')
+        except Exception as e:
+            click.secho(f"  Warning: Could not install LSP dependencies: {e}", fg='yellow')
+            click.echo("  Run manually: pip install pygls>=2.0.0 lsprotocol>=2025.0.0")
+
+        # Test Language Server
+        click.echo()
+        click.secho("Testing Language Server...", fg='yellow')
+        try:
+            result = subprocess.run(
+                [sys.executable, '-m', 'includecpp.vscode.cssl.server', '--test'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0:
+                click.secho("  Language Server test passed!", fg='green')
+                # Extract completion count from output
+                for line in result.stdout.split('\n'):
+                    if 'Completions:' in line:
+                        click.echo(f"  {line.strip()}")
+            else:
+                click.secho("  Language Server test failed", fg='red')
+                click.echo(f"  {result.stderr[:200] if result.stderr else result.stdout[:200]}")
+        except subprocess.TimeoutExpired:
+            click.secho("  Language Server test timed out", fg='yellow')
+        except Exception as e:
+            click.secho(f"  Could not test Language Server: {e}", fg='yellow')
 
         click.echo()
 
@@ -10670,9 +10917,18 @@ def vscode(force, reinstall, stubs_only):
     click.echo()
     click.secho("VSCode configuration complete!", fg='green', bold=True)
     click.echo()
+    click.secho("Features enabled:", fg='cyan')
+    click.echo("  - Syntax highlighting for .cssl, .cssl-mod, .cssl-pl")
+    click.echo("  - Real-time diagnostics (errors in red, warnings in yellow)")
+    click.echo("  - Autocomplete with 264+ completions (builtins, types, keywords)")
+    click.echo("  - Hover documentation for functions and types")
+    click.echo("  - Go-to-definition (Ctrl+Click or F12)")
+    click.echo("  - Find references (Shift+F12)")
+    click.echo()
     click.echo("Tips:")
     click.echo("  - Re-run 'includecpp vscode' after adding new plugins")
     click.echo("  - Use --force to overwrite all files")
+    click.echo("  - Use --reinstall to completely reinstall the extension")
     click.echo("  - Use --stubs-only to only regenerate stubs")
 
 

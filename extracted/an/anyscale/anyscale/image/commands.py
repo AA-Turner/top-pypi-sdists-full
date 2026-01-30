@@ -103,7 +103,7 @@ _LIST_ARG_DOCSTRINGS = {
     doc_py_example=_LIST_EXAMPLE,
     arg_docstrings=_LIST_ARG_DOCSTRINGS,
 )
-def list(  # noqa: A001
+def list(  # noqa: A001, PLR0913
     *,
     image_id: Optional[str] = None,
     name: Optional[str] = None,

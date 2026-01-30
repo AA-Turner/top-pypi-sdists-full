@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyGreSQL
-Version: 6.2.2
+Version: 6.2.3
 Summary: Python PostgreSQL interfaces
 Home-page: https://pygresql.github.io/
 Download-URL: https://pygresql.github.io/download/

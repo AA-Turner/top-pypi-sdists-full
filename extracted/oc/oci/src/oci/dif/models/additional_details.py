@@ -44,6 +44,14 @@ class AdditionalDetails(object):
             The value to assign to the private_endpoint_id property of this AdditionalDetails.
         :type private_endpoint_id: str
 
+        :param cluster_id:
+            The value to assign to the cluster_id property of this AdditionalDetails.
+        :type cluster_id: str
+
+        :param namespace_name:
+            The value to assign to the namespace_name property of this AdditionalDetails.
+        :type namespace_name: str
+
         """
         self.swagger_types = {
             'assigned_connections': 'list[AssignedConnectionDetails]',
@@ -51,7 +59,9 @@ class AdditionalDetails(object):
             'model_version': 'str',
             'oci_region': 'str',
             'endpoint_details': 'list[EndpointAdditional]',
-            'private_endpoint_id': 'str'
+            'private_endpoint_id': 'str',
+            'cluster_id': 'str',
+            'namespace_name': 'str'
         }
         self.attribute_map = {
             'assigned_connections': 'assignedConnections',
@@ -59,7 +69,9 @@ class AdditionalDetails(object):
             'model_version': 'modelVersion',
             'oci_region': 'ociRegion',
             'endpoint_details': 'endpointDetails',
-            'private_endpoint_id': 'privateEndpointId'
+            'private_endpoint_id': 'privateEndpointId',
+            'cluster_id': 'clusterId',
+            'namespace_name': 'namespaceName'
         }
         self._assigned_connections = None
         self._model_id = None
@@ -67,6 +79,8 @@ class AdditionalDetails(object):
         self._oci_region = None
         self._endpoint_details = None
         self._private_endpoint_id = None
+        self._cluster_id = None
+        self._namespace_name = None
 
     @property
     def assigned_connections(self):
@@ -211,6 +225,54 @@ class AdditionalDetails(object):
         :type: str
         """
         self._private_endpoint_id = private_endpoint_id
+
+    @property
+    def cluster_id(self):
+        """
+        Gets the cluster_id of this AdditionalDetails.
+        OCID of cluster assigned to OMK cluster-namespace.
+
+
+        :return: The cluster_id of this AdditionalDetails.
+        :rtype: str
+        """
+        return self._cluster_id
+
+    @cluster_id.setter
+    def cluster_id(self, cluster_id):
+        """
+        Sets the cluster_id of this AdditionalDetails.
+        OCID of cluster assigned to OMK cluster-namespace.
+
+
+        :param cluster_id: The cluster_id of this AdditionalDetails.
+        :type: str
+        """
+        self._cluster_id = cluster_id
+
+    @property
+    def namespace_name(self):
+        """
+        Gets the namespace_name of this AdditionalDetails.
+        Kubernetes namespace-name of omk cluster-namespace.
+
+
+        :return: The namespace_name of this AdditionalDetails.
+        :rtype: str
+        """
+        return self._namespace_name
+
+    @namespace_name.setter
+    def namespace_name(self, namespace_name):
+        """
+        Sets the namespace_name of this AdditionalDetails.
+        Kubernetes namespace-name of omk cluster-namespace.
+
+
+        :param namespace_name: The namespace_name of this AdditionalDetails.
+        :type: str
+        """
+        self._namespace_name = namespace_name
 
     def __repr__(self):
         return formatted_flat_dict(self)

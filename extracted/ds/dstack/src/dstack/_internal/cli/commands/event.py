@@ -6,6 +6,7 @@ from dstack._internal.cli.services.events import EventListFilters, EventPaginato
 from dstack._internal.cli.utils.common import (
     get_start_time,
 )
+from dstack._internal.core.errors import CLIError
 from dstack._internal.core.models.events import EventTargetType
 from dstack._internal.server.schemas.events import LIST_EVENTS_DEFAULT_LIMIT
 from dstack.api import Client
@@ -51,6 +52,27 @@ class EventCommand(APIBaseCommand):
                 metavar="NAME",
                 dest="target_runs",
                 help="Only show events that target the specified runs",
+            )
+            target_filters_group.add_argument(
+                "--target-volume",
+                action="append",
+                metavar="NAME",
+                dest="target_volumes",
+                help="Only show events that target the specified volumes",
+            )
+            target_filters_group.add_argument(
+                "--target-gateway",
+                action="append",
+                metavar="NAME",
+                dest="target_gateways",
+                help="Only show events that target the specified gateways",
+            )
+            target_filters_group.add_argument(
+                "--target-secret",
+                action="append",
+                metavar="NAME",
+                dest="target_secrets",
+                help="Only show events that target the specified secrets",
             )
             within_filters_group = parser.add_mutually_exclusive_group()
             within_filters_group.add_argument(
@@ -107,6 +129,26 @@ def _build_filters(args: argparse.Namespace, api: Client) -> EventListFilters:
     elif args.target_runs:
         filters.target_runs = [
             api.client.runs.get(api.project, name).id for name in args.target_runs
+        ]
+    elif args.target_volumes:
+        filters.target_volumes = [
+            api.client.volumes.get(project_name=api.project, name=name).id
+            for name in args.target_volumes
+        ]
+    elif args.target_gateways:
+        filters.target_gateways = []
+        for name in args.target_gateways:
+            id = api.client.gateways.get(api.project, name).id
+            if id is None:
+                # TODO(0.21): Remove this check once `Gateway.id` is required.
+                raise CLIError(
+                    "Cannot determine gateway ID, most likely due to an outdated dstack server."
+                    " Update the server to 0.20.7 or higher or remove --target-gateway."
+                )
+            filters.target_gateways.append(id)
+    elif args.target_secrets:
+        filters.target_secrets = [
+            api.client.secrets.get(api.project, name=name).id for name in args.target_secrets
         ]
 
     if args.within_fleets:

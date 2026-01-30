@@ -17,6 +17,7 @@ import textwrap
 
 from collections.abc import Callable, Iterable
 from typing import cast
+from unittest import mock
 
 import pytest
 
@@ -39,7 +40,9 @@ from tests.helpers import (
     os_sep,
 )
 
-BAD_SQLITE_REGEX = r"file( is encrypted or)? is not a database"
+# Error messages can differ by version or implementation.
+BAD_SQLITE_REGEX = r"file is not a database"
+NO_OPEN_REGEX = r"unable to open database file|Could not open database"
 
 
 class ApiTest(CoverageTest):
@@ -181,6 +184,41 @@ class ApiTest(CoverageTest):
         # but none were in random.py
         _, statements, missing, _ = cov1.analysis("random.py")
         assert statements == missing
+
+    def test_stdlib_symlink(self) -> None:
+        # Find the stdlib and make a symlink to it.
+        import colorsys
+
+        stdlib_dir = os.path.dirname(colorsys.__file__)
+        os.symlink(stdlib_dir, "myliblink")
+
+        sys.path.insert(0, os.path.abspath("myliblink"))
+        del sys.modules["colorsys"]
+
+        class FakeSysconfig:
+            """A fake for the sysconfig module."""
+
+            def get_scheme_names(self) -> list[str]:  # pylint: disable=missing-function-docstring
+                return ["xyzzy"]
+
+            def get_paths(self, _: str) -> dict[str, str]:  # pylint: disable=missing-function-docstring
+                return {
+                    "stdlib": os.path.abspath("myliblink"),
+                }
+
+        self.make_file(
+            "mymain.py",
+            """\
+            import colorsys
+            hls = colorsys.rgb_to_hls(1, 0, 0)
+            """,
+        )
+
+        with mock.patch.object(coverage.inorout, "sysconfig", FakeSysconfig()):
+            cov = coverage.Coverage()
+            self.start_import_stop(cov, "mymain")
+        files = cov.get_data().measured_files()
+        assert not any(os.path.basename(f) == "colorsys.py" for f in files)
 
     def test_exclude_list(self) -> None:
         cov = coverage.Coverage()
@@ -444,13 +482,21 @@ class ApiTest(CoverageTest):
         cov.save()
         self.assert_file_count(".coverage.*", 2)
 
-    def test_combining_corrupt_data(self) -> None:
-        # If you combine a corrupt data file, then you will get a warning,
+    @pytest.mark.parametrize(
+        "problem, msgpattern",
+        [("badcontent", BAD_SQLITE_REGEX), ("noperms", NO_OPEN_REGEX)],
+    )
+    def test_combining_bad_data(self, problem: str, msgpattern: str) -> None:
+        # If you try to combine a bad data file, then you will get a warning,
         # and the file will remain.
         self.make_good_data_files()
         self.make_file(".coverage.foo", """La la la, this isn't coverage data!""")
+        if problem == "noperms":
+            if env.WINDOWS:
+                pytest.skip("os.chmod doesn't work on Windows")
+            os.chmod(".coverage.foo", 0o000)
         cov = coverage.Coverage()
-        warning_regex = r"Couldn't use data file '.*\.coverage\.foo': " + BAD_SQLITE_REGEX
+        warning_regex = r"Couldn't use data file '.*\.coverage\.foo': " + msgpattern
         with self.assert_warnings(cov, [warning_regex]):
             cov.combine()
 

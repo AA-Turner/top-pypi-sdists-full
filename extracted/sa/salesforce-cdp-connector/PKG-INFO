@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: salesforce-cdp-connector
-Version: 1.0.18
+Version: 1.0.19
 Summary: Salesforce Data Cloud Python Connector
 Project-URL: homepage, https://github.com/forcedotcom/salesforce-cdp-connector
 Project-URL: source, https://github.com/forcedotcom/salesforce-cdp-connector

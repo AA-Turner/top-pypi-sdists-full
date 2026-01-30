@@ -160,6 +160,7 @@ def iterate(
     * handler (:doc:`uproot.source.chunk.Source` class; None)
     * timeout (float for HTTP, int for XRootD; 30)
     * max_num_elements (None or int; None)
+        The maximum number of elements to be requested in a single vector read, when using XRootD.
     * num_workers (int; 1)
     * use_threads (bool; False on the emscripten platform (i.e. in a web browser), else True)
     * num_fallback_workers (int; 10)
@@ -191,6 +192,7 @@ def iterate(
         )
 
         if hasbranches is not None:
+
             with hasbranches:
                 try:
                     for item in hasbranches.iterate(
@@ -345,6 +347,7 @@ def concatenate(
     * handler (:doc:`uproot.source.chunk.Source` class; None)
     * timeout (float for HTTP, int for XRootD; 30)
     * max_num_elements (None or int; None)
+        The maximum number of elements to be requested in a single vector read, when using XRootD.
     * num_workers (int; 1)
     * use_threads (bool; False on the emscripten platform (i.e. in a web browser), else True)
     * num_fallback_workers (int; 10)
@@ -1398,6 +1401,9 @@ class HasBranches(Mapping):
                 (lambda branchname, interpretation: None),
             )
 
+            if len(branchid_interpretation) == 0:
+                return
+
             entry_step = _regularize_step_size(
                 self, step_size, entry_start, entry_stop, branchid_interpretation
             )
@@ -2449,6 +2455,9 @@ in file {self._file.file_path}"""
             fParentName = self.member("fParentName", none_if_missing=True)
             fClassName = self.member("fClassName", none_if_missing=True)
 
+            fParentName = fParentName.replace(" ", "") if fParentName else None
+            fClassName = fClassName.replace(" ", "") if fClassName else None
+
             if fParentName is not None and fParentName != "":
                 matches = self._file.streamers.get(fParentName)
 
@@ -2481,19 +2490,21 @@ in file {self._file.file_path}"""
                                         break
                                 break
 
-                    if (
-                        self.parent.member("fClassName") == "TClonesArray"
-                        or self.parent.member("fClonesName", none_if_missing=True)
-                        == fParentName
-                    ):
+                    if self.parent.member(
+                        "fClassName"
+                    ) == "TClonesArray" or self.parent.member(
+                        "fClonesName", none_if_missing=True
+                    ) == self.member(
+                        "fParentName"
+                    ):  # Use `self.member("fParentName")` since `fClonesName` could contain spaces between brackets.
                         self._streamer_isTClonesArray = True
 
             elif fClassName is not None and fClassName != "":
                 if fClassName == "TClonesArray":
                     self._streamer_isTClonesArray = True
-                    matches = self._file.streamers.get(
-                        self.member("fClonesName", none_if_missing=True)
-                    )
+                    fClonesName = self.member("fClonesName", none_if_missing=True)
+                    fClonesName = fClonesName.replace(" ", "") if fClonesName else None
+                    matches = self._file.streamers.get(fClonesName)
                 else:
                     matches = self._file.streamers.get(fClassName)
 

@@ -32,7 +32,7 @@ from flax.nnx.proxy_caller import (
 )
 from flax.nnx.statelib import FlatState, State, map_state
 from flax.nnx.variablelib import Variable, is_array_ref, V
-from flax.typing import Key, PathParts, is_key_like
+from flax.typing import HashableMapping, Key, PathParts, is_key_like
 import jax
 import numpy as np
 import treescope  # type: ignore[import-not-found,import-untyped]
@@ -301,50 +301,6 @@ def get_node_impl_for_type(
     return None
 
 
-class HashableMapping(tp.Mapping[HA, HB], tp.Hashable):
-  _mapping: dict[HA, HB] | tp.Mapping[HA, HB]
-
-  def __init__(self, mapping: tp.Mapping[HA, HB], copy: bool = True):
-    self._mapping = dict(mapping) if copy else mapping
-
-  def __contains__(self, key: object) -> bool:
-    return key in self._mapping
-
-  def __getitem__(self, key: HA) -> HB:
-    return self._mapping[key]
-
-  def __iter__(self) -> tp.Iterator[HA]:
-    return iter(self._mapping)
-
-  def __len__(self) -> int:
-    return len(self._mapping)
-
-  def __hash__(self) -> int:
-    # use type-aware sorting to support int keys
-    def _pytree__key_sort_fn(item: tuple[tp.Any, tp.Any]) -> tuple[int, tp.Any]:
-      key, _ = item
-      if isinstance(key, int):
-        return (0, key)
-      elif isinstance(key, str):
-        return (1, key)
-      else:
-        raise ValueError(f'Unsupported key type: {type(key)!r}')
-    return hash(tuple(sorted(self._mapping.items(), key=_pytree__key_sort_fn)))
-
-  def __eq__(self, other: tp.Any) -> bool:
-    return (
-      isinstance(other, HashableMapping) and self._mapping == other._mapping
-    )
-
-  def __repr__(self) -> str:
-    return repr(self._mapping)
-
-  def update(self, other: tp.Mapping[HA, HB]) -> HashableMapping[HA, HB]:
-    """Updates the mapping with another mapping."""
-    mapping = dict(self._mapping)
-    mapping.update(other)
-    return HashableMapping(mapping, copy=False)
-
 
 @jax.tree_util.register_static
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -401,6 +357,17 @@ class VariableDef(reprlib.Representable, tp.Generic[Node]):
       else self.array_refdef,
     )
 
+  def with_matching_outer_index(self, other) -> VariableDef:
+    return VariableDef(
+      type=self.type,
+      index=self.index,
+      outer_index=other.outer_index,
+      metadata=self.metadata,
+      array_refdef=self.array_refdef.with_matching_outer_index(other.array_refdef)
+      if isinstance(self.array_refdef, ArrayRefDef)
+      else self.array_refdef
+    )
+
   def __nnx_repr__(self):
     yield reprlib.Object(type=type(self))
     yield reprlib.Attr('type', self.type.__name__)
@@ -444,6 +411,12 @@ class ArrayRefDef(reprlib.Representable):
     return ArrayRefDef(
       index=self.index,
       outer_index=self.index,
+    )
+
+  def with_matching_outer_index(self, other):
+    return ArrayRefDef(
+      index=self.index,
+      outer_index=other.outer_index,
     )
 
   def __nnx_repr__(self):
@@ -490,6 +463,15 @@ class NodeDef(tp.Generic[Node], reprlib.Representable):
       type=self.type,
       index=self.index,
       outer_index=self.index,
+      num_attributes=self.num_attributes,
+      metadata=self.metadata,
+    )
+
+  def with_matching_outer_index(self, other) -> NodeDef[Node]:
+    return NodeDef(
+      type=self.type,
+      index=self.index,
+      outer_index=other.outer_index,
       num_attributes=self.num_attributes,
       metadata=self.metadata,
     )
@@ -579,6 +561,16 @@ class GraphDef(tp.Generic[Node]):
       nodes=[
         node.with_no_outer_index() if not isinstance(node, NodeRef) else node
         for node in self.nodes
+      ],
+      attributes=self.attributes,
+      num_leaves=self.num_leaves,
+    )
+
+  def with_matching_outer_index(self, other) -> GraphDef[Node]:
+    return GraphDef(
+      nodes=[
+        node.with_matching_outer_index(other_node) if not isinstance(node, NodeRef) else node
+        for node, other_node in zip(self.nodes, other.nodes)
       ],
       attributes=self.attributes,
       num_leaves=self.num_leaves,
@@ -1400,7 +1392,7 @@ def _cached_partial(f: tp.Callable[..., tp.Any], *cached_args):
   of the cache, and these clones will contain references to the same Variable objects
   which guarantees that state is propagated correctly back to the original graph nodes.
   Because of the previous, the final structure of all graph nodes must be the same
-  after each call to the cached function, otherswise an error will be raised. Temporary
+  after each call to the cached function, otherwise an error will be raised. Temporary
   mutations are allowed (e.g. the use of ``Module.sow``) as long as they are cleaned up before
   the function returns (e.g. via ``nnx.pop``).
 
@@ -1702,7 +1694,7 @@ class MergeContext:
       )
 
     elif static_cache is not None:
-      assert isinstance(graphdef.nodes[0], NodeDef)
+      assert isinstance(graphdef.nodes[0], NodeDef) or isinstance(graphdef.nodes[0], VariableDef)
       assert ctx is not None
       if (outer_index := graphdef.nodes[0].outer_index) is not None:
         outer_index_outer_ref = ctx.outer_index_outer_ref
@@ -2429,20 +2421,20 @@ def vars_as(
   node: A,
   /,
   *,
-  is_hijax: bool | None = None,
-  has_ref: bool | None = None,
-  is_mutable: bool | None = None,
+  hijax: bool | None = None,
+  ref: bool | None = None,
+  mutable: bool | None = None,
   only: filterlib.Filter = ...,
   allow_duplicates: bool = False,
 ) -> A:
   """ """
   new_attrs: dict[str, bool] = {}
-  if is_hijax is not None:
-    new_attrs['is_hijax'] = is_hijax
-  if has_ref is not None:
-    new_attrs['has_ref'] = has_ref
-  if is_mutable is not None:
-    new_attrs['is_mutable'] = is_mutable
+  if hijax is not None:
+    new_attrs['hijax'] = hijax
+  if ref is not None:
+    new_attrs['ref'] = ref
+  if mutable is not None:
+    new_attrs['mutable'] = mutable
 
   def _different_vars(path, x):
     return isinstance(x, Variable) and any(
@@ -2474,100 +2466,6 @@ def vars_as(
     _to_refs, node, is_leaf=lambda x: isinstance(x, Variable)
   )
   return node
-
-
-def as_ref_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """Converts a Variable or structure of Variables to Variables with `has_ref=True`.
-
-  Example::
-
-    >>> from flax import nnx
-    >>> import jax
-    >>> import jax.numpy as jnp
-    ...
-    >>> node = [nnx.Variable(jnp.array(1.0)), nnx.Variable(jnp.array(2.0))]
-    >>> node = nnx.as_ref_vars(node)
-    >>> assert node[0].has_ref
-    >>> assert node[1].has_ref
-
-  If the structure contains duplicate arrays a ValueError is raised::
-
-    >>> shared = nnx.Variable(jnp.array(1.0))
-    >>> node = [shared, shared]
-    >>> try:
-    ...   nnx.as_ref_vars(node)
-    ... except ValueError as e:
-    ...   print(e)
-    Found duplicate at paths:
-      ---
-      0
-      1
-      ---
-
-  ``only`` is a `Filter <https://flax.readthedocs.io/en/latest/guides/filters_guide.html>`__
-  that can be used to specify which arrays to convert to array refs.
-
-    >>> node = [nnx.Variable(jnp.array(1.0)), nnx.Variable(jnp.array(2.0))]
-    >>> mutable_node = nnx.as_ref_vars(node, only=lambda path, x: path[0] == 0)
-    ...
-    >>> assert mutable_node[0].has_ref
-    >>> assert not mutable_node[1].has_ref
-
-  Args:
-    node: A structure potentially containing arrays.
-    only: A Filter to specify which arrays to convert to array refs.
-  Returns:
-    A structure with the array refs.
-  """
-  return vars_as(
-    node, has_ref=True, only=only, allow_duplicates=allow_duplicates
-  )
-
-
-def as_array_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """ """
-  return vars_as(
-    node, has_ref=False, only=only, allow_duplicates=allow_duplicates
-  )
-
-
-def as_hijax_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """ """
-  return vars_as(
-    node, is_hijax=True, only=only, allow_duplicates=allow_duplicates
-  )
-
-
-def as_pytree_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """ """
-  return vars_as(
-    node, is_hijax=False, allow_duplicates=allow_duplicates, only=only
-  )
-
-
-def as_immutable_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """ """
-  return vars_as(
-    node, is_mutable=False, allow_duplicates=allow_duplicates, only=only
-  )
-
-def as_mutable_vars(
-  node: A, /, *, only: filterlib.Filter = ..., allow_duplicates: bool = False
-) -> A:
-  """ """
-  return vars_as(
-    node, is_mutable=True, allow_duplicates=allow_duplicates, only=only
-  )
 
 
 def pure(tree: A) -> A:
@@ -2807,7 +2705,9 @@ def iter_graph(node: tp.Any, /) -> tp.Iterator[tuple[PathParts, tp.Any]]:
 
 def recursive_map(f: tp.Callable[[PathParts, tp.Any], tp.Any], node: tp.Any, /):
   """Recursively applies a function to all nodes and leaves of the given graph node.
+
   Example::
+
     >>> from flax import nnx
     >>> class MyModule(nnx.Module):
     ...   def __init__(self, *, rngs: nnx.Rngs):

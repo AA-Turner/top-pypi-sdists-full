@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: einops
-Version: 0.8.1
+Version: 0.8.2
 Summary: A new flavour of deep learning operations
 Project-URL: Homepage, https://github.com/arogozhnikov/einops
 Author: Alex Rogozhnikov
@@ -10,7 +10,7 @@ Keywords: deep learning,einops,machine learning,neural networks,scientific compu
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 
@@ -99,6 +99,8 @@ Plain and simple:
 ```bash
 pip install einops
 ```
+
+(`uv pip install einops` works as well)
 
 ## Tutorials <a name="Tutorials"></a>
 
@@ -324,15 +326,24 @@ Einops works with ...
 - [tinygrad](https://github.com/tinygrad/tinygrad) (community)
 - [pytensor](https://github.com/pymc-devs/pytensor) (community)
 
-Additionally, einops can be used with any framework that supports
+
+
+```python
+from einops import rearrange  
+=> from einops.array_api import rearrange
+```
+
+But actually it is even better: einops can be used with *any* framework that supports
 [Python array API standard](https://data-apis.org/array-api/latest/API_specification/index.html),
-which includes
+to name a few:
 
 - numpy >= 2.0
-- [MLX](https://github.com/ml-explore/mlx)
-- [pydata/sparse](https://github.com/pydata/sparse) >= 0.15
+- [MLX](https://github.com/ml-explore/mlx)  # yes, einops works with apple's framework
+- [pydata/sparse](https://github.com/pydata/sparse) >= 0.15 # and works with sparse tensors
+- [cubed](https://github.com/cubed-dev/cubed) # and with distributed tensors too
 - [quantco/ndonnx](https://github.com/Quantco/ndonnx)
-- recent releases of jax and cupy.
+- jax
+- cupy
 - dask is supported via [array-api-compat](https://github.com/data-apis/array-api-compat)
 
 
@@ -342,15 +353,14 @@ Devcontainer is provided, this environment can be used locally, or on your serve
 or within github codespaces. 
 To start with devcontainers in vs code, clone repo, and click 'Reopen in Devcontainer'. 
 
-Starting from the next version, einops will distribute tests as a part of package.
-To run tests:
+Starting from einops 0.8.1, einops distributes tests as a part of package.
 
 ```bash
-# pip install einops
+# pip install einops pytest
 python -m einops.tests.run_tests numpy pytorch jax --pip-install
 ```
 
-`numpy pytorch jax` is an example, any subset of testable frameworks can be provided.
+`numpy pytorch jax` is an _example_, any subset of testable frameworks can be provided.
 Every framework is tested against numpy, so it is a requirement for tests.
 
 Specifying `--pip-install` will install requirements in current virtualenv,
@@ -381,4 +391,4 @@ Please use the following bibtex record
 
 ## Supported python versions
 
-`einops` works with python 3.8 or later.
+`einops` works with python 3.9 or later.

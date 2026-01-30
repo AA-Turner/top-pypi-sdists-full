@@ -584,12 +584,20 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
             "*"
         ],
         "AllowedMethods": [
-            "GET"
+            "GET",
+            "PUT",
+            "POST",
+            "HEAD",
+            "DELETE"
         ],
         "AllowedOrigins": [
             "https://console.anyscale-staging.com"
         ],
-        "ExposeHeaders": []
+        "ExposeHeaders": [
+            "Accept-Ranges",
+            "Content-Range",
+            "Content-Length"
+        ]
     }]
     """
 
@@ -615,10 +623,14 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
             )
             logger.error(f"Malformed CORS rule {rule} for your S3 bucket.")
             return False
+        expose_headers = rule.get("ExposeHeaders", [])
         has_correct_cors_rule = (
             ANYSCALE_CORS_ORIGIN in rule.get("AllowedOrigins", [])
             and "*" in rule.get("AllowedHeaders", [])
             and "GET" in rule.get("AllowedMethods", [])
+            and "Accept-Ranges" in expose_headers
+            and "Content-Range" in expose_headers
+            and "Content-Length" in expose_headers
         )
 
     if not has_correct_cors_rule:

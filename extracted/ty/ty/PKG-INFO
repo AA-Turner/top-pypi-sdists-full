@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ty
-Version: 0.0.13
+Version: 0.0.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -99,7 +99,7 @@ at this time. Please [open pull requests](https://github.com/astral-sh/ruff/pull
 to anything in the `ruff` submodule (which includes all of the Rust source code).
 
 See the
-[contributing guide](https://github.com/astral-sh/ty/blob/0.0.13/CONTRIBUTING.md) for more details.
+[contributing guide](https://github.com/astral-sh/ty/blob/0.0.14/CONTRIBUTING.md) for more details.
 
 ## FAQ
 
@@ -123,7 +123,7 @@ Just "ty", please.
 
 ## License
 
-ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.13/LICENSE) or
+ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.14/LICENSE) or
 <https://opensource.org/licenses/MIT>).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in ty

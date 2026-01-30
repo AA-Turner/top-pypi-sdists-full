@@ -32,6 +32,10 @@ class CertificateBundle(object):
     STAGES_PENDING = "PENDING"
 
     #: A constant which can be used with the stages property of a CertificateBundle.
+    #: This constant has a value of "PENDING_ACTIVATION"
+    STAGES_PENDING_ACTIVATION = "PENDING_ACTIVATION"
+
+    #: A constant which can be used with the stages property of a CertificateBundle.
     #: This constant has a value of "LATEST"
     STAGES_LATEST = "LATEST"
 
@@ -101,7 +105,7 @@ class CertificateBundle(object):
 
         :param stages:
             The value to assign to the stages property of this CertificateBundle.
-            Allowed values for items in this list are: "CURRENT", "PENDING", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for items in this list are: "CURRENT", "PENDING", "PENDING_ACTIVATION", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type stages: list[str]
 
@@ -423,7 +427,7 @@ class CertificateBundle(object):
         **[Required]** Gets the stages of this CertificateBundle.
         A list of rotation states for the certificate bundle.
 
-        Allowed values for items in this list are: "CURRENT", "PENDING", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for items in this list are: "CURRENT", "PENDING", "PENDING_ACTIVATION", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -442,7 +446,7 @@ class CertificateBundle(object):
         :param stages: The stages of this CertificateBundle.
         :type: list[str]
         """
-        allowed_values = ["CURRENT", "PENDING", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED"]
+        allowed_values = ["CURRENT", "PENDING", "PENDING_ACTIVATION", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED"]
         if stages:
             stages[:] = ['UNKNOWN_ENUM_VALUE' if not value_allowed_none_or_none_sentinel(x, allowed_values) else x for x in stages]
         self._stages = stages

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
+import equinox.internal as eqxi
 import jax.numpy as jnp
 import jax.scipy as jsp
 from jaxtyping import Array, PyTree
@@ -30,10 +30,10 @@ from .misc import (
 )
 
 
-_QRState: TypeAlias = tuple[tuple[Array, Array], bool, PackedStructures]
+_QRState: TypeAlias = tuple[tuple[Array, Array], eqxi.Static, PackedStructures]
 
 
-class QR(AbstractLinearSolver, strict=True):
+class QR(AbstractLinearSolver):
     """QR solver for linear systems.
 
     This solver can handle non-square operators.
@@ -60,7 +60,7 @@ class QR(AbstractLinearSolver, strict=True):
             matrix = matrix.T
         qr = jnp.linalg.qr(matrix, mode="reduced")  # pyright: ignore
         packed_structures = pack_structures(operator)
-        return qr, transpose, packed_structures
+        return qr, eqxi.Static(transpose), packed_structures
 
     def compute(
         self,
@@ -69,6 +69,7 @@ class QR(AbstractLinearSolver, strict=True):
         options: dict[str, Any],
     ) -> tuple[PyTree[Array], RESULTS, dict[str, Any]]:
         (q, r), transpose, packed_structures = state
+        transpose = transpose.value
         del state, options
         vector = ravel_vector(vector, packed_structures)
         if transpose:
@@ -87,7 +88,11 @@ class QR(AbstractLinearSolver, strict=True):
     def transpose(self, state: _QRState, options: dict[str, Any]):
         (q, r), transpose, structures = state
         transposed_packed_structures = transpose_packed_structures(structures)
-        transpose_state = (q, r), not transpose, transposed_packed_structures
+        transpose_state = (
+            (q, r),
+            eqxi.Static(not transpose.value),
+            transposed_packed_structures,
+        )
         transpose_options = {}
         return transpose_state, transpose_options
 
@@ -101,22 +106,8 @@ class QR(AbstractLinearSolver, strict=True):
         conj_options = {}
         return conj_state, conj_options
 
-    def allow_dependent_columns(self, operator):
-        rows = operator.out_size()
-        columns = operator.in_size()
-        # We're able to pull an efficiency trick here.
-        #
-        # As we don't use a rank-revealing implementation, then we always require that
-        # the operator have full rank.
-        #
-        # So if we have columns <= rows, then we know that all our columns are linearly
-        # independent. We can return `False` and get a computationally cheaper jvp rule.
-        return columns > rows
-
-    def allow_dependent_rows(self, operator):
-        rows = operator.out_size()
-        columns = operator.in_size()
-        return rows > columns
+    def assume_full_rank(self):
+        return True
 
 
 QR.__init__.__doc__ = """**Arguments:**

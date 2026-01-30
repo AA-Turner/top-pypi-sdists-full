@@ -181,6 +181,7 @@ single_street_name_list = [
     "Highpoint",
     "Parkway",
     r"Black\ Hou?rse",
+    r"Route",
 ]
 
 numbered_road_re = r"""[Ss][Tt][Aa][Tt][Ee]\ [Rr][Oo][Aa][Dd]\ \d{1,4}(?!\d)"""
@@ -994,24 +995,28 @@ full_street = r"""
     (?:
         (?P<full_street>
             (?:
-                (?:(?P<po_box_b>{po_box}){part_div})?
-                {street_number}{space_div}?
-                (?:
-                    (?:{numbered_or_typeless_street_name})
-                    |
-                    (?:{typed_street_name}(?![A-Za-z\d\.]))
-                    |
+                (?P<line1>
+                    (?:(?P<po_box_b>{po_box}){part_div})?
+                    {street_number}{space_div}?
                     (?:
-                        {post_direction_re}\ 
-                        \d{{,3}}[A-Za-z\-]{{1,31}}
+                        (?:{numbered_or_typeless_street_name})
+                        |
+                        (?:{typed_street_name}(?![A-Za-z\d\.]))
+                        |
+                        (?:
+                            {post_direction_re}\ 
+                            \d{{,3}}[A-Za-z\-]{{1,31}}
+                        )
                     )
+                    (?:{space_div}{post_direction})?
                 )
-                (?:{space_div}{post_direction})?
-                (?:{part_div}{floor})?
-                (?:{part_div}{building})?
-                (?:{part_div}?{occupancy})?
-                (?:{part_div}{mail_stop})?
-                (?:{part_div}(?P<po_box_a>{po_box}))?
+                (?P<line2>
+                    (?:{part_div}{floor})?
+                    (?:{part_div}{building})?
+                    (?:{part_div}?{occupancy})?
+                    (?:{part_div}{mail_stop})?
+                    (?:{part_div}(?P<po_box_a>{po_box}))?
+                )?
             )
             |
             (?P<po_box_c>{po_box})

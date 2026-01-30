@@ -1,5 +1,6 @@
-from mkdocs_git_revision_date_localized_plugin.exclude import exclude
 import pytest
+
+from mkdocs_git_revision_date_localized_plugin.exclude import exclude
 
 
 def test_exclude():

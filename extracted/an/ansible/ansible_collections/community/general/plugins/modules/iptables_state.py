@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: iptables_state
 short_description: Save iptables state into a file or restore it from a file
@@ -222,13 +221,12 @@ tables:
 """
 
 
-import re
 import os
+import re
 import time
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_native
-
 
 IPTABLES = dict(
     ipv4="iptables",
@@ -252,7 +250,7 @@ def read_state(b_path):
     """
     Read a file and store its content in a variable as a list.
     """
-    with open(b_path, "r") as f:
+    with open(b_path) as f:
         text = f.read()
     return [t for t in text.splitlines() if t != ""]
 

@@ -46,9 +46,8 @@ options:
 import os
 
 import yaml
-
-from ansible.parsing.yaml.loader import AnsibleLoader
 from ansible.parsing.yaml.dumper import AnsibleDumper
+from ansible.parsing.yaml.loader import AnsibleLoader
 from ansible.plugins.cache import BaseFileCacheModule
 
 
@@ -58,7 +57,7 @@ class CacheModule(BaseFileCacheModule):
     """
 
     def _load(self, filepath):
-        with open(os.path.abspath(filepath), "r", encoding="utf-8") as f:
+        with open(os.path.abspath(filepath), encoding="utf-8") as f:
             return AnsibleLoader(f).get_single_data()
 
     def _dump(self, value, filepath):

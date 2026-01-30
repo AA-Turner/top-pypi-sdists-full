@@ -16,7 +16,7 @@ from telnyx.types import (
     FqdnConnectionUpdateResponse,
     FqdnConnectionRetrieveResponse,
 )
-from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -66,6 +66,11 @@ class TestFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             microsoft_teams_sbc=True,
             noise_suppression="both",
             noise_suppression_details={
@@ -215,6 +220,11 @@ class TestFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -290,7 +300,7 @@ class TestFqdnConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         fqdn_connection = client.fqdn_connections.list()
-        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -301,13 +311,11 @@ class TestFqdnConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -317,7 +325,7 @@ class TestFqdnConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         fqdn_connection = response.parse()
-        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -327,7 +335,7 @@ class TestFqdnConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             fqdn_connection = response.parse()
-            assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -421,6 +429,11 @@ class TestAsyncFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             microsoft_teams_sbc=True,
             noise_suppression="both",
             noise_suppression_details={
@@ -570,6 +583,11 @@ class TestAsyncFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -645,7 +663,7 @@ class TestAsyncFqdnConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         fqdn_connection = await async_client.fqdn_connections.list()
-        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -656,13 +674,11 @@ class TestAsyncFqdnConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -672,7 +688,7 @@ class TestAsyncFqdnConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         fqdn_connection = await response.parse()
-        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -682,7 +698,7 @@ class TestAsyncFqdnConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             fqdn_connection = await response.parse()
-            assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[FqdnConnection], fqdn_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

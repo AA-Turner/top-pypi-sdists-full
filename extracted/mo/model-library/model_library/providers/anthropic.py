@@ -1,16 +1,20 @@
+import datetime
 import io
 import logging
+import time
 from typing import Any, Literal, Sequence, cast
 
-from anthropic import AsyncAnthropic
+from anthropic import APIConnectionError, AsyncAnthropic
 from anthropic.types.beta.beta_tool_use_block import BetaToolUseBlock
 from anthropic.types.beta.parsed_beta_message import ParsedBetaMessage
+from pydantic import SecretStr
 from typing_extensions import override
 
 from model_library import model_library_settings
 from model_library.base import (
     LLM,
     BatchResult,
+    DelegateConfig,
     FileBase,
     FileInput,
     FileWithBase64,
@@ -22,6 +26,7 @@ from model_library.base import (
     QueryResult,
     QueryResultCost,
     QueryResultMetadata,
+    RateLimit,
     RawInput,
     RawResponse,
     TextInput,
@@ -31,6 +36,7 @@ from model_library.base import (
     ToolResult,
 )
 from model_library.exceptions import (
+    ImmediateRetryException,
     MaxOutputTokensExceededError,
     NoMatchingToolCallError,
 )
@@ -38,8 +44,7 @@ from model_library.model_utils import get_default_budget_tokens
 from model_library.providers.openai import OpenAIModel
 from model_library.register_models import register_provider
 from model_library.utils import (
-    create_openai_client_with_defaults,
-    default_httpx_client,
+    create_anthropic_client_with_defaults,
 )
 
 
@@ -246,21 +251,25 @@ class AnthropicBatchMixin(LLMBatchMixin):
 
 @register_provider("anthropic")
 class AnthropicModel(LLM):
-    _client: AsyncAnthropic | None = None
+    def _get_default_api_key(self) -> str:
+        if self.delegate_config:
+            return self.delegate_config.api_key.get_secret_value()
+        return model_library_settings.ANTHROPIC_API_KEY
 
     @override
-    def get_client(self) -> AsyncAnthropic:
-        if self._delegate_client:
-            return self._delegate_client
-        if not AnthropicModel._client:
+    def get_client(self, api_key: str | None = None) -> AsyncAnthropic:
+        if not self.has_client():
+            assert api_key
             headers: dict[str, str] = {}
-            AnthropicModel._client = AsyncAnthropic(
-                api_key=model_library_settings.ANTHROPIC_API_KEY,
-                http_client=default_httpx_client(),
-                max_retries=1,
+            client = create_anthropic_client_with_defaults(
+                base_url=self.delegate_config.base_url
+                if self.delegate_config
+                else None,
+                api_key=api_key,
                 default_headers=headers,
             )
-        return AnthropicModel._client
+            self.assign_client(client)
+        return super().get_client()
 
     def __init__(
         self,
@@ -268,33 +277,32 @@ class AnthropicModel(LLM):
         provider: str = "anthropic",
         *,
         config: LLMConfig | None = None,
-        custom_client: AsyncAnthropic | None = None,
+        delegate_config: DelegateConfig | None = None,
     ):
-        super().__init__(model_name, provider, config=config)
+        self.delegate_config = delegate_config
 
-        # allow custom client to act as delegate (native)
-        self._delegate_client: AsyncAnthropic | None = custom_client
+        super().__init__(model_name, provider, config=config)
 
         # https://docs.anthropic.com/en/api/openai-sdk
         self.delegate = (
             None
-            if self.native or custom_client
+            if self.native or self.delegate_config
             else OpenAIModel(
                 model_name=self.model_name,
-                provider=provider,
+                provider=self.provider,
                 config=config,
-                custom_client=create_openai_client_with_defaults(
-                    api_key=model_library_settings.ANTHROPIC_API_KEY,
-                    base_url="https://api.anthropic.com/v1/",
-                ),
                 use_completions=True,
+                delegate_config=DelegateConfig(
+                    base_url="https://api.anthropic.com/v1/",
+                    api_key=SecretStr(model_library_settings.ANTHROPIC_API_KEY),
+                ),
             )
         )
 
         # Initialize batch support if enabled
         # Disable batch when using custom_client (similar to OpenAI)
         self.supports_batch: bool = (
-            self.supports_batch and self.native and not custom_client
+            self.supports_batch and self.native and not self.delegate_config
         )
         self.batch: LLMBatchMixin | None = (
             AnthropicBatchMixin(self) if self.supports_batch else None
@@ -520,7 +528,6 @@ class AnthropicModel(LLM):
         **kwargs: object,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
-            "max_tokens": self.max_tokens,
             "model": self.model_name,
             "messages": await self.parse_input(input),
         }
@@ -533,6 +540,11 @@ class AnthropicModel(LLM):
                     "cache_control": self.cache_control,
                 }
             ]
+
+        if not self.max_tokens:
+            raise Exception("Anthropic models require a max_tokens parameter")
+
+        body["max_tokens"] = self.max_tokens
 
         if self.reasoning:
             budget_tokens = kwargs.pop(
@@ -577,7 +589,7 @@ class AnthropicModel(LLM):
         client = self.get_client()
 
         # only send betas for the official Anthropic endpoint
-        is_anthropic_endpoint = self._delegate_client is None
+        is_anthropic_endpoint = self.delegate_config is None
         if not is_anthropic_endpoint:
             client_base_url = getattr(client, "_base_url", None) or getattr(
                 client, "base_url", None
@@ -592,11 +604,14 @@ class AnthropicModel(LLM):
                 betas.append("context-1m-2025-08-07")
             stream_kwargs["betas"] = betas
 
-        async with client.beta.messages.stream(
-            **stream_kwargs,
-        ) as stream:  # pyright: ignore[reportAny]
-            message = await stream.get_final_message()
-        self.logger.info(f"Anthropic Response finished: {message.id}")
+        try:
+            async with client.beta.messages.stream(
+                **stream_kwargs,
+            ) as stream:  # pyright: ignore[reportAny]
+                message = await stream.get_final_message()
+            self.logger.info(f"Anthropic Response finished: {message.id}")
+        except APIConnectionError:
+            raise ImmediateRetryException("Failed to connect to Anthropic")
 
         text = ""
         reasoning = ""
@@ -633,6 +648,38 @@ class AnthropicModel(LLM):
         )
 
     @override
+    async def get_rate_limit(self) -> RateLimit:
+        response = await self.get_client().messages.with_raw_response.create(
+            max_tokens=1,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Ping",
+                }
+            ],
+            model=self.model_name,
+        )
+        headers = response.headers
+
+        server_time_str = headers.get("date")
+        if server_time_str:
+            server_time = datetime.datetime.strptime(
+                server_time_str, "%a, %d %b %Y %H:%M:%S GMT"
+            ).replace(tzinfo=datetime.timezone.utc)
+            timestamp = server_time.timestamp()
+        else:
+            timestamp = time.time()
+
+        return RateLimit(
+            unix_timestamp=timestamp,
+            raw=headers,
+            request_limit=int(headers["anthropic-ratelimit-requests-limit"]),
+            request_remaining=int(headers["anthropic-ratelimit-requests-remaining"]),
+            token_limit=int(response.headers["anthropic-ratelimit-tokens-limit"]),
+            token_remaining=int(headers["anthropic-ratelimit-tokens-remaining"]),
+        )
+
+    @override
     async def count_tokens(
         self,
         input: Sequence[InputItem],
@@ -645,20 +692,26 @@ class AnthropicModel(LLM):
         Count the number of tokens using Anthropic's native token counting API.
         https://docs.anthropic.com/en/docs/build-with-claude/token-counting
         """
-        input = [*history, *input]
-        if not input:
-            return 0
+        try:
+            input = [*history, *input]
+            if not input:
+                return 0
 
-        body = await self.build_body(input, tools=tools, **kwargs)
+            body = await self.build_body(input, tools=tools, **kwargs)
 
-        # Remove fields not supported by count_tokens endpoint
-        body.pop("max_tokens", None)
-        body.pop("temperature", None)
+            # Remove fields not supported by count_tokens endpoint
+            body.pop("max_tokens", None)
+            body.pop("temperature", None)
 
-        client = self.get_client()
-        response = await client.messages.count_tokens(**body)
+            client = self.get_client()
+            response = await client.messages.count_tokens(**body)
 
-        return response.input_tokens
+            return response.input_tokens
+        except Exception as e:
+            self.logger.error(f"Error counting tokens: {e}")
+            return await super().count_tokens(
+                input, history=history, tools=tools, **kwargs
+            )
 
     @override
     async def _calculate_cost(

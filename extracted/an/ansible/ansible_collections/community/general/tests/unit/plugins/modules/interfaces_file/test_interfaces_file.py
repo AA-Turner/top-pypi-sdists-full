@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from ansible_collections.community.general.plugins.modules import interfaces_file
-from shutil import copyfile, move
 import difflib
 import inspect
 import json
@@ -17,6 +15,9 @@ import re
 import shutil
 import tempfile
 import unittest
+from shutil import copyfile, move
+
+from ansible_collections.community.general.plugins.modules import interfaces_file
 
 
 class AnsibleFailJson(Exception):
@@ -82,7 +83,7 @@ class TestInterfacesFileModule(unittest.TestCase):
             with open(testfilepath, "wb") as f:
                 f.write(string.encode())
         else:
-            with open(testfilepath, "r") as goldenfile:
+            with open(testfilepath) as goldenfile:
                 goldenData = json.load(goldenfile)
         self.assertEqual(goldenData, ifaces)
 
@@ -96,7 +97,7 @@ class TestInterfacesFileModule(unittest.TestCase):
             f.write(string.encode())
             f.close()
         else:
-            with open(testfilepath, "r") as goldenfile:
+            with open(testfilepath) as goldenfile:
                 goldenstring = goldenfile.read()
                 goldenfile.close()
         self.assertEqual(goldenstring, string)

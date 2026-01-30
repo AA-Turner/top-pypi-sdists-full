@@ -333,28 +333,34 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                             logger.info(f"   From (wallet): {auth.get('from', 'unknown')}")
                             logger.info(f"   To (provider): {auth.get('to', 'unknown')}")
                             logger.info(f"   Request path: {auth.get('requestPath', auth.get('request_path', 'unknown'))}")
+
+                            # Set api_key_to_use for tool to access
                             request.state.api_key_to_use = self.internal_api_key
                             request.state.payment_validated = True
                             request.state.payment_dict = payment_dict
                             request.state.tool_name = tool_name  # Store for settlement
-                            
+
                             # Store payment info for settlement
                             request.state.payment_payload = PaymentPayload.model_validate(payment_dict)
                             logger.info(f"💾 {tool_name}: Payment payload stored for settlement")
-                            
+
                         except Exception as e:
                             logger.error(f"❌ {tool_name}: Payment validation error: {e}")
                             config = self.tool_payment_configs[tool_name]
                             return self._create_402_response(config, f"Payment validation failed: {str(e)}", request_path=tool_path)
-            
+
             # Continue with reconstructed request
             response = await self._continue_with_body(request, body, call_next)
-            
+
             # If payment was validated and response is successful, settle the payment
             if hasattr(request.state, 'payment_validated') and request.state.payment_validated:
+                tool_name = getattr(request.state, 'tool_name', 'unknown')
+                logger.info(f"📊 Tool '{tool_name}' completed with HTTP status: {response.status_code}")
+
+                # Check HTTP status code - only 2xx are successful
                 if 200 <= response.status_code < 300:
                     payment_uuid = getattr(request.state, 'payment_uuid', None)
-                    
+
                     # Read response body ONCE (handle different response types)
                     response_body = b""
                     try:
@@ -371,24 +377,37 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                     except Exception as e:
                         logger.error(f"Error reading response body: {e}")
                         response_body = b""
-                    
-                    # Check if response contains errors - don't settle if upstream API failed
+
+                    # Check JSON structure for MCP/API errors (not string searching)
                     should_settle = True
                     try:
                         response_str = response_body.decode() if response_body else ""
-                        # Check for MCP error indicators
-                        if '"isError":true' in response_str or '"isError": true' in response_str:
-                            logger.warning(f"⚠️  Tool returned isError=true - NOT settling payment")
-                            should_settle = False
-                        # Check for error field in response (indicates API failure)
-                        elif '"error":' in response_str or '"error" :' in response_str:
-                            logger.warning(f"⚠️  Tool response contains error field - NOT settling payment")
-                            should_settle = False
-                        # Check for HTTP error codes in response body (e.g., "401 Client Error", "500 Internal Server Error")
-                        elif any(code in response_str for code in ['"401', '"403', '"404', '"500', '"502', '"503', 'Unauthorized', 'Forbidden', 'Internal Server Error']):
-                            logger.warning(f"⚠️  Tool response contains HTTP error indicators - NOT settling payment")
-                            should_settle = False
-                        
+
+                        # Try to parse as JSON and check for error structures
+                        try:
+                            response_json = json.loads(response_str)
+
+                            # Check for MCP isError flag
+                            if response_json.get('isError') is True:
+                                logger.warning(f"⚠️  Tool returned isError=true - NOT settling payment")
+                                error_msg = response_json.get('error', 'Unknown error')
+                                logger.warning(f"❌ Error: {error_msg}")
+                                should_settle = False
+                            # Check for top-level error field
+                            elif 'error' in response_json and response_json['error']:
+                                logger.warning(f"⚠️  Tool response contains error field - NOT settling payment")
+                                logger.warning(f"❌ Error: {response_json['error']}")
+                                should_settle = False
+                            # Check for nested error in result
+                            elif 'result' in response_json and isinstance(response_json['result'], dict):
+                                if 'error' in response_json['result'] and response_json['result']['error']:
+                                    logger.warning(f"⚠️  Tool result contains error - NOT settling payment")
+                                    logger.warning(f"❌ Error: {response_json['result']['error']}")
+                                    should_settle = False
+                        except json.JSONDecodeError:
+                            # Not JSON or malformed - but HTTP was 200, so proceed
+                            logger.debug(f"Response is not JSON, but HTTP {response.status_code} - proceeding")
+
                         # Recreate response for return with buffered body
                         from starlette.responses import Response
                         response = Response(
@@ -401,10 +420,13 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                         logger.error(f"Error checking response for errors: {e}")
                         # If we can't check, don't settle to be safe
                         should_settle = False
-                    
+
                     if not should_settle:
-                        logger.info(f"💳 Skipping settlement due to tool error")
+                        logger.warning(f"💳 Skipping settlement for '{tool_name}' - tool returned error in successful HTTP response")
+                        logger.info(f"   Payment UUID: {payment_uuid}")
                         return response
+                    
+                    logger.info(f"✅ Tool '{tool_name}' succeeded - proceeding with settlement")
                     
                     logger.info(f"💳 Successful response with validated payment - triggering settlement")
                     logger.info(f"   Payment UUID: {payment_uuid}")
@@ -474,6 +496,10 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                         
                         asyncio.create_task(do_settlement())
                         logger.info(f"📅 Settlement task scheduled - client gets response immediately")
+                else:
+                    # Non-2xx HTTP status - don't settle
+                    logger.info(f"⚠️  Tool '{tool_name}' returned non-success status: {response.status_code}")
+                    logger.info(f"💳 Skipping settlement due to HTTP {response.status_code}")
             
             return response
             

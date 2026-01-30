@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.101.0
+Version: 3.102.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
+License-Expression: GPL-2.0-or-later
 Project-URL: Homepage, https://pulpproject.org
 Project-URL: Documentation, https://pulpproject.org
 Project-URL: Repository, https://github.com/pulp/pulpcore
 Project-URL: Bug Tracker, https://github.com/pulp/pulpcore/issues
 Project-URL: Changelog, https://pulpproject.org/pulpcore/changes/
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
@@ -30,23 +30,23 @@ Requires-Dist: Django!=5.0,!=5.1,<5.3,>=4.2.24
 Requires-Dist: django-filter<=25.2,>=23.1
 Requires-Dist: django-guid<3.6,>=3.3.0
 Requires-Dist: django-import-export<5.0,>=2.9
-Requires-Dist: django-lifecycle<=1.2.4,>=1.0
+Requires-Dist: django-lifecycle<=1.2.6,>=1.0
 Requires-Dist: djangorestframework<=3.16.1,>=3.14.0
 Requires-Dist: djangorestframework-queryfields<=1.1.0,>=1.0
 Requires-Dist: drf-access-policy<1.5.1,>=1.1.2
 Requires-Dist: drf-nested-routers<=0.95.0,>=0.93.4
 Requires-Dist: drf-spectacular==0.27.2
 Requires-Dist: dynaconf<3.3.0,>=3.2.5
-Requires-Dist: gunicorn<23.1.0,>=22.0
+Requires-Dist: gunicorn<24.2.0,>=22.0
 Requires-Dist: jinja2<=3.1.6,>=3.1
 Requires-Dist: json_stream<2.5,>=2.3.2
-Requires-Dist: jq<1.11.0,>=1.6.0
+Requires-Dist: jq<1.12.0,>=1.6.0
 Requires-Dist: PyOpenSSL<26.0
 Requires-Dist: opentelemetry-api<1.40,>=1.27.0
 Requires-Dist: opentelemetry-sdk<1.40,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.40,>=1.27.0
 Requires-Dist: protobuf<7.0,>=4.21.1
-Requires-Dist: pulp-glue<0.38,>=0.28.0
+Requires-Dist: pulp-glue<0.38,>=0.30.0
 Requires-Dist: pygtrie<=2.5.0,>=2.5
 Requires-Dist: psycopg[binary]<3.4,>=3.1.8
 Requires-Dist: pyparsing<3.4,>=3.1.0
@@ -91,7 +91,7 @@ Using Pulp you can:
 - Promote content through different repos in an organized way
 
 Pulp is completely free and open-source!
-- License: GPLv2+
+- License: GPL-2.0-or-later
 - Documentation: https://pulpproject.org/
 - Source: https://github.com/pulp/pulpcore/
 - Bugs: https://github.com/pulp/pulpcore/issues

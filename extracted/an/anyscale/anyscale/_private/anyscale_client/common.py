@@ -429,7 +429,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_services(
+    def list_services(  # noqa: PLR0913
         self,
         *,
         name: Optional[str],
@@ -542,7 +542,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_job_queues(
+    def list_job_queues(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -559,7 +559,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list_jobs(
+    def list_jobs(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -570,6 +570,8 @@ class AnyscaleClientInterface(ABC):
         tags_filter: Optional[List[str]] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> DecoratedproductionjobListResponse:
         """List jobs with filtering and pagination."""
         raise NotImplementedError
@@ -1059,6 +1061,16 @@ class AnyscaleClientInterface(ABC):
         Args:
             user_id: Optional user ID to filter. If provided, only that user's permissions
                      are returned.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def scim_migration_preview(self) -> Dict:
+        """Preview permission changes from users' perspective before SCIM enforcement.
+
+        This compares current effective permissions (direct + user group)
+        with post-migration permissions (user group only) and returns only
+        the actual changes users will experience.
         """
         raise NotImplementedError
 

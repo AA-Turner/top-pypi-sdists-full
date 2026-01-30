@@ -142,6 +142,9 @@ class QueueClient(object):
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request, please provide the request ID.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
 
@@ -162,7 +165,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/delete_message.py.html>`__ to see an example of how to use delete_message API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/delete_message.py.html>`__ to see an example of how to use delete_message API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId', 'messageReceipt']
@@ -176,7 +179,8 @@ class QueueClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
-            "opc_request_id"
+            "opc_request_id",
+            "consumer_group_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
@@ -193,6 +197,11 @@ class QueueClient(object):
         for (k, v) in six.iteritems(path_params):
             if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
         header_params = {
             "accept": "application/json",
@@ -217,6 +226,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
@@ -228,6 +238,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 allow_control_chars=kwargs.get('allow_control_chars'),
                 enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
@@ -249,6 +260,9 @@ class QueueClient(object):
 
         :param oci.queue.models.DeleteMessagesDetails delete_messages_details: (required)
             Details for the messages to delete.
+
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
 
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request, please provide the request ID.
@@ -273,7 +287,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/delete_messages.py.html>`__ to see an example of how to use delete_messages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/delete_messages.py.html>`__ to see an example of how to use delete_messages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -287,6 +301,7 @@ class QueueClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "consumer_group_id",
             "opc_request_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
@@ -303,6 +318,11 @@ class QueueClient(object):
         for (k, v) in six.iteritems(path_params):
             if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
         header_params = {
             "accept": "application/json",
@@ -327,6 +347,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=delete_messages_details,
                 response_type="DeleteMessagesResult",
@@ -340,6 +361,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=delete_messages_details,
                 response_type="DeleteMessagesResult",
@@ -386,6 +408,9 @@ class QueueClient(object):
         :param str channel_filter: (optional)
             Optional parameter to filter the channels.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
 
@@ -406,7 +431,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/get_messages.py.html>`__ to see an example of how to use get_messages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/get_messages.py.html>`__ to see an example of how to use get_messages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -424,7 +449,8 @@ class QueueClient(object):
             "timeout_in_seconds",
             "limit",
             "opc_request_id",
-            "channel_filter"
+            "channel_filter",
+            "consumer_group_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
@@ -445,7 +471,8 @@ class QueueClient(object):
             "visibilityInSeconds": kwargs.get("visibility_in_seconds", missing),
             "timeoutInSeconds": kwargs.get("timeout_in_seconds", missing),
             "limit": kwargs.get("limit", missing),
-            "channelFilter": kwargs.get("channel_filter", missing)
+            "channelFilter": kwargs.get("channel_filter", missing),
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
         }
         query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
@@ -510,6 +537,9 @@ class QueueClient(object):
         :param str channel_id: (optional)
             Id to specify channel.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
 
@@ -530,7 +560,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/get_stats.py.html>`__ to see an example of how to use get_stats API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/get_stats.py.html>`__ to see an example of how to use get_stats API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -545,7 +575,8 @@ class QueueClient(object):
             "enable_strict_url_encoding",
             "retry_strategy",
             "opc_request_id",
-            "channel_id"
+            "channel_id",
+            "consumer_group_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
@@ -563,7 +594,8 @@ class QueueClient(object):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
 
         query_params = {
-            "channelId": kwargs.get("channel_id", missing)
+            "channelId": kwargs.get("channel_id", missing),
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
         }
         query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
@@ -623,6 +655,9 @@ class QueueClient(object):
         :param str queue_id: (required)
             The unique queue identifier.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request, please provide the request ID.
 
@@ -659,7 +694,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/list_channels.py.html>`__ to see an example of how to use list_channels API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/list_channels.py.html>`__ to see an example of how to use list_channels API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -673,6 +708,7 @@ class QueueClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "consumer_group_id",
             "opc_request_id",
             "limit",
             "page",
@@ -694,6 +730,7 @@ class QueueClient(object):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
 
         query_params = {
+            "consumerGroupId": kwargs.get("consumer_group_id", missing),
             "limit": kwargs.get("limit", missing),
             "page": kwargs.get("page", missing),
             "channelFilter": kwargs.get("channel_filter", missing)
@@ -783,7 +820,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/put_messages.py.html>`__ to see an example of how to use put_messages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/put_messages.py.html>`__ to see an example of how to use put_messages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -878,6 +915,9 @@ class QueueClient(object):
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request, please provide the request ID.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
 
@@ -898,7 +938,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/update_message.py.html>`__ to see an example of how to use update_message API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/update_message.py.html>`__ to see an example of how to use update_message API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId', 'messageReceipt']
@@ -912,7 +952,8 @@ class QueueClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
-            "opc_request_id"
+            "opc_request_id",
+            "consumer_group_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
         if extra_kwargs:
@@ -929,6 +970,11 @@ class QueueClient(object):
         for (k, v) in six.iteritems(path_params):
             if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
         header_params = {
             "accept": "application/json",
@@ -953,6 +999,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=update_message_details,
                 response_type="UpdatedMessage",
@@ -966,6 +1013,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=update_message_details,
                 response_type="UpdatedMessage",
@@ -990,6 +1038,9 @@ class QueueClient(object):
         :param oci.queue.models.UpdateMessagesDetails update_messages_details: (required)
             Details for the messages to update.
 
+        :param str consumer_group_id: (optional)
+            Optional parameter to specify a consumer group.
+
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request, please provide the request ID.
 
@@ -1013,7 +1064,7 @@ class QueueClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/queue/update_messages.py.html>`__ to see an example of how to use update_messages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/queue/update_messages.py.html>`__ to see an example of how to use update_messages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['queueId']
@@ -1027,6 +1078,7 @@ class QueueClient(object):
             "allow_control_chars",
             "enable_strict_url_encoding",
             "retry_strategy",
+            "consumer_group_id",
             "opc_request_id"
         ]
         extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
@@ -1043,6 +1095,11 @@ class QueueClient(object):
         for (k, v) in six.iteritems(path_params):
             if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
                 raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "consumerGroupId": kwargs.get("consumer_group_id", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
 
         header_params = {
             "accept": "application/json",
@@ -1067,6 +1124,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=update_messages_details,
                 response_type="UpdateMessagesResult",
@@ -1080,6 +1138,7 @@ class QueueClient(object):
                 resource_path=resource_path,
                 method=method,
                 path_params=path_params,
+                query_params=query_params,
                 header_params=header_params,
                 body=update_messages_details,
                 response_type="UpdateMessagesResult",

@@ -1,8 +1,7 @@
-"""
-Tests for `doccmd`.
-"""
+"""Tests for `doccmd`."""
 
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -43,7 +42,8 @@ def test_help(file_regression: FileRegressionFixture) -> None:
 
 def test_run_command(tmp_path: Path) -> None:
     """
-    It is possible to run a command against a code block in a document.
+    It is possible to run a command against a code block in a
+    document.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -86,9 +86,7 @@ def test_run_command(tmp_path: Path) -> None:
 
 
 def test_double_language(tmp_path: Path) -> None:
-    """
-    Giving the same language twice does not run the command twice.
-    """
+    """Giving the same language twice does not run the command twice."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -132,9 +130,7 @@ def test_double_language(tmp_path: Path) -> None:
 
 
 def test_file_does_not_exist() -> None:
-    """
-    An error is shown when a file does not exist.
-    """
+    """An error is shown when a file does not exist."""
     runner = CliRunner()
     arguments = [
         "--language",
@@ -154,9 +150,7 @@ def test_file_does_not_exist() -> None:
 
 
 def test_not_utf_8_file_given(tmp_path: Path) -> None:
-    """
-    No error is given if a file is passed in which is not UTF-8.
-    """
+    """No error is given if a file is passed in which is not UTF-8."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -199,9 +193,7 @@ def test_unknown_encoding(
     fail_on_parse_error_options: Sequence[str],
     expected_exit_code: int,
 ) -> None:
-    """
-    An error is shown when a file cannot be decoded.
-    """
+    """An error is shown when a file cannot be decoded."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     rst_file.write_bytes(data=Path(sys.executable).read_bytes())
@@ -229,7 +221,8 @@ def test_unknown_encoding(
 
 def test_multiple_code_blocks(tmp_path: Path) -> None:
     """
-    It is possible to run a command against multiple code blocks in a document.
+    It is possible to run a command against multiple code blocks in a
+    document.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -284,9 +277,7 @@ def test_multiple_code_blocks(tmp_path: Path) -> None:
 
 
 def test_language_filters(tmp_path: Path) -> None:
-    """
-    Languages not specified are not run.
-    """
+    """Languages not specified are not run."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -331,9 +322,7 @@ def test_language_filters(tmp_path: Path) -> None:
 
 
 def test_run_command_no_pad_file(tmp_path: Path) -> None:
-    """
-    It is possible to not pad the file.
-    """
+    """It is possible to not pad the file."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -372,9 +361,7 @@ def test_run_command_no_pad_file(tmp_path: Path) -> None:
 
 
 def test_multiple_files(tmp_path: Path) -> None:
-    """
-    It is possible to run a command against multiple files.
-    """
+    """It is possible to run a command against multiple files."""
     runner = CliRunner()
     rst_file1 = tmp_path / "example1.rst"
     rst_file2 = tmp_path / "example2.rst"
@@ -426,7 +413,8 @@ def test_multiple_files(tmp_path: Path) -> None:
 
 def test_multiple_files_multiple_types(tmp_path: Path) -> None:
     """
-    It is possible to run a command against multiple files of multiple types
+    It is possible to run a command against multiple files of multiple
+    types
     (Markdown and rST).
     """
     runner = CliRunner()
@@ -527,9 +515,7 @@ def test_modify_file(
     write_to_file_options: Sequence[str],
     expected_content: str,
 ) -> None:
-    """
-    Commands (outside of groups) can modify files when allowed.
-    """
+    """Commands (outside of groups) can modify files when allowed."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -573,9 +559,7 @@ def test_modify_file(
 
 
 def test_exit_code(tmp_path: Path) -> None:
-    """
-    The exit code of the first failure is propagated.
-    """
+    """The exit code of the first failure is propagated."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     exit_code = 25
@@ -619,7 +603,8 @@ def test_file_extension(
     expected_extension: str,
 ) -> None:
     """
-    The file extension of the temporary file is appropriate for the language.
+    The file extension of the temporary file is appropriate for the
+    language.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -653,7 +638,8 @@ def test_file_extension(
 
 def test_given_temporary_file_extension(tmp_path: Path) -> None:
     """
-    It is possible to specify the file extension for created temporary files.
+    It is possible to specify the file extension for created temporary
+    files.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -691,7 +677,8 @@ def test_given_temporary_file_extension_no_leading_period(
     tmp_path: Path,
 ) -> None:
     """
-    An error is shown when a given temporary file extension is given with no
+    An error is shown when a given temporary file extension is given
+    with no
     leading period.
     """
     runner = CliRunner()
@@ -734,9 +721,7 @@ def test_given_temporary_file_extension_no_leading_period(
 
 
 def test_given_prefix(tmp_path: Path) -> None:
-    """
-    It is possible to specify a prefix for the temporary file.
-    """
+    """It is possible to specify a prefix for the temporary file."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -767,6 +752,231 @@ def test_given_prefix(tmp_path: Path) -> None:
     output = result.stdout
     output_path = Path(output.strip())
     assert output_path.name.startswith("myprefix_")
+
+
+@pytest.mark.parametrize(
+    argnames=("template", "expected_pattern"),
+    argvalues=[
+        pytest.param(
+            "{prefix}_{unique}{suffix}",
+            r"^doccmd_[a-f0-9]{4}\.py$",
+            id="minimal-template",
+        ),
+        pytest.param(
+            "test_{prefix}_{source}_line{line}_{unique}{suffix}",
+            r"^test_doccmd_example_rst_line1_[a-f0-9]{4}\.py$",
+            id="all-placeholders",
+        ),
+    ],
+)
+def test_custom_template(
+    tmp_path: Path,
+    template: str,
+    expected_pattern: str,
+) -> None:
+    """Custom templates produce file names matching expected patterns."""
+    runner = CliRunner()
+    rst_file = tmp_path / "example.rst"
+    content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            x = 2 + 2
+            assert x == 4
+        """,
+    )
+    rst_file.write_text(data=content, encoding="utf-8")
+    arguments = [
+        "--language",
+        "python",
+        "--temporary-file-name-template",
+        template,
+        "--command",
+        "echo",
+        str(object=rst_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, (result.stdout, result.stderr)
+    output = result.stdout
+    output_path = Path(output.strip())
+    assert re.match(pattern=expected_pattern, string=output_path.name)
+
+
+def test_invalid_template_placeholder(tmp_path: Path) -> None:
+    """An error is raised for invalid placeholders in the template."""
+    runner = CliRunner()
+    rst_file = tmp_path / "example.rst"
+    content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            x = 2 + 2
+        """,
+    )
+    rst_file.write_text(data=content, encoding="utf-8")
+    arguments = [
+        "--language",
+        "python",
+        "--temporary-file-name-template",
+        "{prefix}_{invalid}{suffix}",
+        "--command",
+        "echo",
+        str(object=rst_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    expected_output = (
+        "Usage: doccmd [OPTIONS] [DOCUMENT_PATHS]...\n"
+        "Try 'doccmd --help' for help.\n"
+        "\n"
+        "Error: Invalid value for '--temporary-file-name-template': "
+        "Invalid placeholder in template: 'invalid'. "
+        "Valid placeholders are: {line, prefix, source, suffix, unique}.\n"
+    )
+    assert result.output == expected_output
+
+
+@pytest.mark.parametrize(
+    argnames="template",
+    argvalues=[
+        pytest.param("{prefix}_{unique}", id="missing-suffix"),
+        pytest.param("{prefix}_{{suffix}}", id="escaped-suffix"),
+        pytest.param("{prefix}_{unique}.txt", id="literal-extension"),
+    ],
+)
+def test_template_requires_suffix_placeholder(
+    tmp_path: Path,
+    template: str,
+) -> None:
+    """An error is raised if the template does not use {suffix}."""
+    runner = CliRunner()
+    rst_file = tmp_path / "example.rst"
+    content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            x = 2 + 2
+        """,
+    )
+    rst_file.write_text(data=content, encoding="utf-8")
+    arguments = [
+        "--language",
+        "python",
+        "--temporary-file-name-template",
+        template,
+        "--command",
+        "echo",
+        str(object=rst_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    expected_output = (
+        "Usage: doccmd [OPTIONS] [DOCUMENT_PATHS]...\n"
+        "Try 'doccmd --help' for help.\n"
+        "\n"
+        "Error: Invalid value for '--temporary-file-name-template': "
+        "Template must contain '{suffix}' placeholder "
+        "for the file extension.\n"
+    )
+    assert result.output == expected_output
+
+
+@pytest.mark.parametrize(
+    argnames="template",
+    argvalues=[
+        pytest.param("{prefix}_{suffix", id="unclosed-brace"),
+        pytest.param("{prefix.foo}{suffix}", id="attribute-access"),
+        pytest.param("{line[0]}{suffix}", id="item-access"),
+    ],
+)
+def test_template_malformed_raises_error(
+    tmp_path: Path,
+    template: str,
+) -> None:
+    """An error is raised for malformed templates."""
+    runner = CliRunner()
+    rst_file = tmp_path / "example.rst"
+    content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            x = 2 + 2
+        """,
+    )
+    rst_file.write_text(data=content, encoding="utf-8")
+    arguments = [
+        "--language",
+        "python",
+        "--temporary-file-name-template",
+        template,
+        "--command",
+        "echo",
+        str(object=rst_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    # The exact Python error message varies, so check for the prefix
+    expected_prefix = (
+        "Usage: doccmd [OPTIONS] [DOCUMENT_PATHS]...\n"
+        "Try 'doccmd --help' for help.\n"
+        "\n"
+        "Error: Invalid value for '--temporary-file-name-template': "
+        "Malformed template:"
+    )
+    assert result.output.startswith(expected_prefix)
+
+
+def test_temporary_file_includes_source_name(tmp_path: Path) -> None:
+    """The temporary file name includes the sanitized source file name."""
+    runner = CliRunner()
+    # Use a filename with characters that get sanitized (dots and dashes)
+    rst_file = tmp_path / "my-example.test.rst"
+    content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            x = 2 + 2
+            assert x == 4
+        """,
+    )
+    rst_file.write_text(data=content, encoding="utf-8")
+    arguments = [
+        "--language",
+        "python",
+        "--command",
+        "echo",
+        str(object=rst_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, (result.stdout, result.stderr)
+    output = result.stdout
+    output_path = Path(output.strip())
+    # "my-example.test.rst" becomes "my_example_test_rst" in the filename,
+    # along with the line number (code block at line 1)
+    assert "my_example_test_rst" in output_path.name
+    assert "_l1__" in output_path.name
 
 
 def test_file_extension_unknown_language(tmp_path: Path) -> None:
@@ -805,9 +1015,7 @@ def test_file_extension_unknown_language(tmp_path: Path) -> None:
 
 
 def test_file_given_multiple_times(tmp_path: Path) -> None:
-    """
-    Files given multiple times are de-duplicated.
-    """
+    """Files given multiple times are de-duplicated."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     other_rst_file = tmp_path / "other_example.rst"
@@ -866,9 +1074,7 @@ def test_workers_requires_no_write_to_file(
     tmp_path: Path,
     worker_flag: str,
 ) -> None:
-    """
-    Using workers>1 without --no-write-to-file is rejected.
-    """
+    """Using workers>1 without --no-write-to-file is rejected."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -905,7 +1111,8 @@ def test_workers_runs_commands(
     worker_flag: str,
 ) -> None:
     """
-    Commands run successfully when workers>1 and --no-write-to-file is given.
+    Commands run successfully when workers>1 and --no-write-to-file is
+    given.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -951,7 +1158,8 @@ def test_workers_zero_requires_no_write_when_auto_parallel(
     worker_flag: str,
 ) -> None:
     """
-    Workers=0 auto-detects CPUs and still requires --no-write-to-file when >1.
+    Workers=0 auto-detects CPUs and still requires --no-write-to-file
+    when >1.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -991,7 +1199,8 @@ def test_workers_zero_allows_running_when_cpu_is_single(
     worker_flag: str,
 ) -> None:
     """
-    Workers=0 falls back to sequential execution when only one CPU is detected.
+    Workers=0 falls back to sequential execution when only one CPU is
+    detected.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -1025,9 +1234,7 @@ def test_cpu_count_returns_none(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """
-    When os.cpu_count() returns None, workers default to 1.
-    """
+    """When os.cpu_count() returns None, workers default to 1."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1064,9 +1271,7 @@ def test_parallel_execution_error(
     tmp_path: Path,
     worker_flag: str,
 ) -> None:
-    """
-    Errors during parallel execution are handled correctly.
-    """
+    """Errors during parallel execution are handled correctly."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1106,9 +1311,7 @@ def test_parallel_execution_error(
 
 
 def test_document_with_no_examples(tmp_path: Path) -> None:
-    """
-    Documents with no matching code blocks are handled correctly.
-    """
+    """Documents with no matching code blocks are handled correctly."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1159,9 +1362,7 @@ def test_execution_error_handling(
     worker_options: list[str],
     num_blocks: int,
 ) -> None:
-    """
-    Errors are handled correctly across different execution modes.
-    """
+    """Errors are handled correctly across different execution modes."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
 
@@ -1211,7 +1412,8 @@ def test_single_example_with_parallel_workers(
     expected_stderr: str,
 ) -> None:
     """
-    Single example with example_workers>1 falls back to sequential execution.
+    Single example with example_workers>1 falls back to sequential
+    execution.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -1246,9 +1448,7 @@ def test_single_example_with_parallel_workers(
 
 
 def test_verbose_running(tmp_path: Path) -> None:
-    """
-    ``--verbose`` shows what is running.
-    """
+    """``--verbose`` shows what is running."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1305,9 +1505,7 @@ def test_verbose_running(tmp_path: Path) -> None:
 
 
 def test_verbose_running_with_stderr(tmp_path: Path) -> None:
-    """
-    ``--verbose`` shows what is running before any stderr output.
-    """
+    """``--verbose`` shows what is running before any stderr output."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     # We include a group as well to ensure that the verbose output is shown
@@ -1374,9 +1572,7 @@ def test_verbose_running_with_stderr(tmp_path: Path) -> None:
 
 
 def test_main_entry_point() -> None:
-    """
-    It is possible to run the main entry point.
-    """
+    """It is possible to run the main entry point."""
     result = subprocess.run(
         args=[sys.executable, "-m", "doccmd"],
         capture_output=True,
@@ -1387,9 +1583,7 @@ def test_main_entry_point() -> None:
 
 
 def test_command_not_found(tmp_path: Path) -> None:
-    """
-    An error is shown when the command is not found.
-    """
+    """An error is shown when the command is not found."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     non_existent_command = uuid.uuid4().hex
@@ -1425,9 +1619,7 @@ def test_command_not_found(tmp_path: Path) -> None:
 
 
 def test_not_executable(tmp_path: Path) -> None:
-    """
-    An error is shown when the command is a non-executable file.
-    """
+    """An error is shown when the command is a non-executable file."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     not_executable_command = tmp_path / "non_executable"
@@ -1466,7 +1658,8 @@ def test_not_executable(tmp_path: Path) -> None:
 
 def test_multiple_languages(tmp_path: Path) -> None:
     """
-    It is possible to run a command against multiple code blocks in a document
+    It is possible to run a command against multiple code blocks in a
+    document
     with different languages.
     """
     runner = CliRunner()
@@ -1517,7 +1710,8 @@ def test_multiple_languages(tmp_path: Path) -> None:
 
 def test_default_skip_rst(tmp_path: Path) -> None:
     """
-    By default, the next code block after a 'skip doccmd: next' comment in a
+    By default, the next code block after a 'skip doccmd: next' comment
+    in a
     rST document is not run.
     """
     runner = CliRunner()
@@ -1578,9 +1772,7 @@ def test_skip_no_arguments(
     fail_on_parse_error_options: Sequence[str],
     expected_exit_code: int,
 ) -> None:
-    """
-    An error is shown if a skip is given with no arguments.
-    """
+    """An error is shown if a skip is given with no arguments."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1634,9 +1826,7 @@ def test_skip_bad_arguments(
     fail_on_parse_error_options: Sequence[str],
     expected_exit_code: int,
 ) -> None:
-    """
-    An error is shown if a skip is given with bad arguments.
-    """
+    """An error is shown if a skip is given with bad arguments."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -1680,7 +1870,8 @@ def test_skip_bad_arguments(
 
 def test_custom_skip_markers_rst(tmp_path: Path) -> None:
     """
-    The next code block after a custom skip marker comment in a rST document is
+    The next code block after a custom skip marker comment in a rST
+    document is
     not run.
     """
     runner = CliRunner()
@@ -1734,7 +1925,8 @@ def test_custom_skip_markers_rst(tmp_path: Path) -> None:
 
 def test_default_skip_myst(tmp_path: Path) -> None:
     """
-    By default, the next code block after a 'skip doccmd: next' comment in a
+    By default, the next code block after a 'skip doccmd: next' comment
+    in a
     MyST document is not run.
     """
     runner = CliRunner()
@@ -1793,7 +1985,8 @@ def test_default_skip_myst(tmp_path: Path) -> None:
 
 def test_custom_skip_markers_myst(tmp_path: Path) -> None:
     """
-    The next code block after a custom skip marker comment in a MyST document
+    The next code block after a custom skip marker comment in a MyST
+    document
     is not run.
     """
     runner = CliRunner()
@@ -1855,7 +2048,8 @@ def test_custom_skip_markers_myst(tmp_path: Path) -> None:
 
 def test_multiple_skip_markers(tmp_path: Path) -> None:
     """
-    All given skip markers, including the default one, are respected.
+    All given skip markers, including the default one, are
+    respected.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -1917,9 +2111,7 @@ def test_multiple_skip_markers(tmp_path: Path) -> None:
 
 
 def test_skip_start_end(tmp_path: Path) -> None:
-    """
-    Skip start and end markers are respected.
-    """
+    """Skip start and end markers are respected."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     skip_marker_1 = uuid.uuid4().hex
@@ -1979,9 +2171,7 @@ def test_skip_start_end(tmp_path: Path) -> None:
 
 
 def test_duplicate_skip_marker(tmp_path: Path) -> None:
-    """
-    Duplicate skip markers are respected.
-    """
+    """Duplicate skip markers are respected."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     skip_marker = uuid.uuid4().hex
@@ -2035,9 +2225,7 @@ def test_duplicate_skip_marker(tmp_path: Path) -> None:
 
 
 def test_default_skip_marker_given(tmp_path: Path) -> None:
-    """
-    No error is shown when the default skip marker is given.
-    """
+    """No error is shown when the default skip marker is given."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     skip_marker = "all"
@@ -2090,7 +2278,8 @@ def test_default_skip_marker_given(tmp_path: Path) -> None:
 
 def test_skip_multiple(tmp_path: Path) -> None:
     """
-    It is possible to mark a code block as to be skipped by multiple markers.
+    It is possible to mark a code block as to be skipped by multiple
+    markers.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -2165,9 +2354,7 @@ def test_skip_multiple(tmp_path: Path) -> None:
 
 
 def test_bad_skips(tmp_path: Path) -> None:
-    """
-    Bad skip orders are flagged.
-    """
+    """Bad skip orders are flagged."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     skip_marker_1 = uuid.uuid4().hex
@@ -2209,9 +2396,7 @@ def test_bad_skips(tmp_path: Path) -> None:
 
 
 def test_empty_file(tmp_path: Path) -> None:
-    """
-    No error is shown when an empty file is given.
-    """
+    """No error is shown when an empty file is given."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     rst_file.touch()
@@ -2250,9 +2435,7 @@ def test_detect_line_endings(
     expect_cr: bool,
     expect_lf: bool,
 ) -> None:
-    """
-    The line endings of the original file are used in the new file.
-    """
+    """The line endings of the original file are used in the new file."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -2286,7 +2469,8 @@ def test_detect_line_endings(
 
 def test_one_supported_markup_in_another_extension(tmp_path: Path) -> None:
     """
-    Code blocks in a supported markup language in a file with an extension
+    Code blocks in a supported markup language in a file with an
+    extension
     which matches another extension are not run.
     """
     runner = CliRunner()
@@ -2325,9 +2509,7 @@ def test_one_supported_markup_in_another_extension(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(argnames="extension", argvalues=[".unknown", ""])
 def test_unknown_file_suffix(extension: str, tmp_path: Path) -> None:
-    """
-    An error is shown when the file suffix is not known.
-    """
+    """An error is shown when the file suffix is not known."""
     runner = CliRunner()
     document_file = tmp_path / ("example" + extension)
     content = textwrap.dedent(
@@ -2367,9 +2549,7 @@ def test_unknown_file_suffix(extension: str, tmp_path: Path) -> None:
 
 
 def test_custom_rst_file_suffixes(tmp_path: Path) -> None:
-    """
-    ReStructuredText files with custom suffixes are recognized.
-    """
+    """ReStructuredText files with custom suffixes are recognized."""
     runner = CliRunner()
     rst_file = tmp_path / "example.customrst"
     content = textwrap.dedent(
@@ -2473,9 +2653,7 @@ def test_markdown_code_block_line_number(tmp_path: Path) -> None:
 
 
 def test_norg(tmp_path: Path) -> None:
-    """
-    It is possible to run a command against a Norg file.
-    """
+    """It is possible to run a command against a Norg file."""
     runner = CliRunner()
     source_file = tmp_path / "example.norg"
     content = textwrap.dedent(
@@ -2523,9 +2701,7 @@ def test_norg(tmp_path: Path) -> None:
 
 
 def test_norg_in_directory(tmp_path: Path) -> None:
-    """
-    Norg files in a directory are discovered and processed.
-    """
+    """Norg files in a directory are discovered and processed."""
     runner = CliRunner()
     norg_file = tmp_path / "example.norg"
     norg_content = textwrap.dedent(
@@ -2556,9 +2732,7 @@ def test_norg_in_directory(tmp_path: Path) -> None:
 
 
 def test_custom_norg_extension(tmp_path: Path) -> None:
-    """
-    It is possible to use a custom extension for Norg files.
-    """
+    """It is possible to use a custom extension for Norg files."""
     runner = CliRunner()
     source_file = tmp_path / "example.custom_norg"
     content = textwrap.dedent(
@@ -2713,7 +2887,8 @@ def test_group_mdx_by_attribute_no_matches(
     *,
     tmp_path: Path,
 ) -> None:
-    """Code blocks without the grouping attribute are processed individually.
+    """Code blocks without the grouping attribute are processed
+    individually.
 
     This ensures the grouping feature degrades gracefully when blocks
     don't have the specified attribute.
@@ -3209,9 +3384,7 @@ def test_group_start_without_end(
     fail_on_parse_error_options: Sequence[str],
     expected_exit_code: int,
 ) -> None:
-    """
-    Error if a group is started but not ended.
-    """
+    """Error if a group is started but not ended."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -3252,9 +3425,7 @@ def test_group_start_without_end(
 
 
 def test_group_nested_start_without_end(tmp_path: Path) -> None:
-    """
-    Error if nested group start directives are not properly closed.
-    """
+    """Error if nested group start directives are not properly closed."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -3459,9 +3630,7 @@ def test_group_file_with_sphinx_jinja2_no_language(
 
 
 def test_custom_myst_file_suffixes(tmp_path: Path) -> None:
-    """
-    MyST files with custom suffixes are recognized.
-    """
+    """MyST files with custom suffixes are recognized."""
     runner = CliRunner()
     myst_file = tmp_path / "example.custommyst"
     content = textwrap.dedent(
@@ -3526,9 +3695,7 @@ def test_pty(
     options: Sequence[str],
     expected_output: str,
 ) -> None:
-    """
-    Test options for using pseudo-terminal.
-    """
+    """Test options for using pseudo-terminal."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     tty_test = textwrap.dedent(
@@ -3587,7 +3754,8 @@ def test_source_given_extension_no_leading_period(
     option: str,
 ) -> None:
     """
-    An error is shown when a given source file extension is given with no
+    An error is shown when a given source file extension is given with
+    no
     leading period.
     """
     runner = CliRunner()
@@ -3673,7 +3841,8 @@ def test_overlapping_extensions(tmp_path: Path) -> None:
 
 def test_overlapping_markdown_mdx_extensions(tmp_path: Path) -> None:
     """
-    An error is shown if there are overlapping extensions for Markdown and MDX.
+    An error is shown if there are overlapping extensions for Markdown
+    and MDX.
     """
     runner = CliRunner()
     source_file = tmp_path / "example.shared"
@@ -3717,7 +3886,8 @@ def test_overlapping_markdown_mdx_extensions(tmp_path: Path) -> None:
 
 def test_overlapping_markdown_djot_extensions(tmp_path: Path) -> None:
     """
-    An error is shown if there are overlapping extensions for Markdown and
+    An error is shown if there are overlapping extensions for Markdown
+    and
     Djot.
     """
     runner = CliRunner()
@@ -3761,9 +3931,7 @@ def test_overlapping_markdown_djot_extensions(tmp_path: Path) -> None:
 
 
 def test_overlapping_extensions_dot(tmp_path: Path) -> None:
-    """
-    No error is shown if multiple extension types are '.'.
-    """
+    """No error is shown if multiple extension types are '.'."""
     runner = CliRunner()
     source_file = tmp_path / "example.custom"
     content = textwrap.dedent(
@@ -3805,9 +3973,7 @@ def test_overlapping_extensions_dot(tmp_path: Path) -> None:
 
 
 def test_markdown(tmp_path: Path) -> None:
-    """
-    It is possible to run a command against a Markdown file.
-    """
+    """It is possible to run a command against a Markdown file."""
     runner = CliRunner()
     source_file = tmp_path / "example.md"
     content = textwrap.dedent(
@@ -3870,9 +4036,7 @@ def test_markdown(tmp_path: Path) -> None:
 
 
 def test_djot(tmp_path: Path) -> None:
-    """
-    It is possible to run a command against a Djot file.
-    """
+    """It is possible to run a command against a Djot file."""
     runner = CliRunner()
     source_file = tmp_path / "example.djot"
     content = textwrap.dedent(
@@ -3920,9 +4084,7 @@ def test_djot(tmp_path: Path) -> None:
 
 
 def test_djot_implicit_code_block_closure(tmp_path: Path) -> None:
-    """
-    Djot code blocks are correctly parsed when implicitly closed.
-    """
+    """Djot code blocks are correctly parsed when implicitly closed."""
     runner = CliRunner()
     source_file = tmp_path / "example.djot"
     # Code block inside a blockquote without an explicit closing fence
@@ -3964,9 +4126,7 @@ def test_djot_implicit_code_block_closure(tmp_path: Path) -> None:
 
 
 def test_mdx(tmp_path: Path) -> None:
-    """
-    It is possible to run a command against an MDX file.
-    """
+    """It is possible to run a command against an MDX file."""
     runner = CliRunner()
     source_file = tmp_path / "example.mdx"
     content = textwrap.dedent(
@@ -4009,7 +4169,8 @@ def test_mdx(tmp_path: Path) -> None:
 
 def test_mdx_parametrized_code_blocks(tmp_path: Path) -> None:
     """
-    MDX code blocks with parameters (like title) are correctly parsed.
+    MDX code blocks with parameters (like title) are correctly
+    parsed.
     """
     runner = CliRunner()
     source_file = tmp_path / "example.mdx"
@@ -4050,9 +4211,7 @@ def test_mdx_parametrized_code_blocks(tmp_path: Path) -> None:
 
 
 def test_directory(tmp_path: Path) -> None:
-    """
-    All source files in a given directory are worked on.
-    """
+    """All source files in a given directory are worked on."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     rst_content = textwrap.dedent(
@@ -4119,7 +4278,8 @@ def test_directory(tmp_path: Path) -> None:
 
 def test_de_duplication_source_files_and_dirs(tmp_path: Path) -> None:
     """
-    If a file is given which is within a directory that is also given, the file
+    If a file is given which is within a directory that is also given,
+    the file
     is de-duplicated.
     """
     runner = CliRunner()
@@ -4177,7 +4337,8 @@ def test_de_duplication_source_files_and_dirs(tmp_path: Path) -> None:
 
 def test_max_depth(tmp_path: Path) -> None:
     """
-    The --max-depth option limits the depth of directories to search for files.
+    The --max-depth option limits the depth of directories to search for
+    files.
     """
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
@@ -4373,7 +4534,8 @@ def test_exclude_files_from_recursed_directories(tmp_path: Path) -> None:
 
 def test_multiple_exclude_patterns(tmp_path: Path) -> None:
     """
-    Files matching any of the exclude patterns are not processed when recursing
+    Files matching any of the exclude patterns are not processed when
+    recursing
     directories.
     """
     runner = CliRunner()
@@ -4461,7 +4623,8 @@ def test_lexing_exception(
     expected_exit_code: int,
 ) -> None:
     """
-    Lexing exceptions are handled when an invalid source file is given.
+    Lexing exceptions are handled when an invalid source file is
+    given.
     """
     runner = CliRunner()
     source_file = tmp_path / "invalid_example.md"
@@ -4645,9 +4808,7 @@ def test_modify_file_single_group_block(
     expected_exit_code: int,
     message_colour: Graphic,
 ) -> None:
-    """
-    Commands in groups cannot modify files in single grouped blocks.
-    """
+    """Commands in groups cannot modify files in single grouped blocks."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -4740,9 +4901,7 @@ def test_modify_file_multiple_group_blocks(
     expected_exit_code: int,
     message_colour: Graphic,
 ) -> None:
-    """
-    Commands in groups cannot modify files in multiple grouped commands.
-    """
+    """Commands in groups cannot modify files in multiple grouped commands."""
     runner = CliRunner()
     rst_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -4823,9 +4982,7 @@ def test_modify_file_multiple_group_blocks(
 
 
 def test_jinja2(*, tmp_path: Path) -> None:
-    """
-    It is possible to run commands against sphinx-jinja2 blocks.
-    """
+    """It is possible to run commands against sphinx-jinja2 blocks."""
     runner = CliRunner()
     source_file = tmp_path / "example.rst"
     content = textwrap.dedent(
@@ -4877,9 +5034,7 @@ def test_jinja2(*, tmp_path: Path) -> None:
 
 
 def test_empty_language_given(*, tmp_path: Path) -> None:
-    """
-    An error is shown when an empty language is given.
-    """
+    """An error is shown when an empty language is given."""
     runner = CliRunner()
     source_file = tmp_path / "example.rst"
     content = ""
@@ -4911,7 +5066,8 @@ def test_empty_language_given(*, tmp_path: Path) -> None:
 
 
 def test_continue_on_error_multiple_files(tmp_path: Path) -> None:
-    """With --continue-on-error, execution continues across files when errors
+    """With --continue-on-error, execution continues across files when
+    errors
     occur.
 
     The tool collects all errors and exits with the highest error code.
@@ -4977,7 +5133,8 @@ def test_continue_on_error_multiple_files(tmp_path: Path) -> None:
 
 def test_continue_on_error_encoding_error(tmp_path: Path) -> None:
     """
-    With --continue-on-error and --fail-on-parse-error, encoding errors are
+    With --continue-on-error and --fail-on-parse-error, encoding errors
+    are
     collected and execution continues.
     """
     runner = CliRunner()
@@ -5071,7 +5228,8 @@ def test_continue_on_error_parse_error(tmp_path: Path) -> None:
 
 def test_continue_on_error_group_write_error(tmp_path: Path) -> None:
     """
-    With --continue-on-error and --fail-on-group-write, group write errors are
+    With --continue-on-error and --fail-on-group-write, group write
+    errors are
     collected and execution continues.
     """
     runner = CliRunner()
@@ -5133,7 +5291,8 @@ def test_continue_on_error_group_write_error(tmp_path: Path) -> None:
 
 
 def test_continue_on_error_command_not_found(tmp_path: Path) -> None:
-    """With --continue-on-error, OSError (command not found) is collected and
+    """With --continue-on-error, OSError (command not found) is collected
+    and
     execution continues.
 
     This covers the case where _EvaluateError is raised with a reason.
@@ -5371,3 +5530,415 @@ def test_group_file(
 
     assert result.exit_code == 0, (result.stdout, result.stderr)
     assert result.stdout == expected_output
+
+
+def test_respect_gitignore_default(tmp_path: Path) -> None:
+    """
+    By default, files matching .gitignore patterns are not processed
+    when
+    recursively discovering files in directories.
+    """
+    runner = CliRunner()
+
+    # Initialize a git repository
+    subprocess.run(
+        args=["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a .gitignore file
+    gitignore_file = tmp_path / ".gitignore"
+    gitignore_file.write_text(data="ignored/\n", encoding="utf-8")
+
+    # Create a non-ignored file
+    included_file = tmp_path / "included.rst"
+    included_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            included_block
+        """,
+    )
+    included_file.write_text(data=included_content, encoding="utf-8")
+
+    # Create an ignored directory with a file
+    ignored_dir = tmp_path / "ignored"
+    ignored_dir.mkdir()
+    ignored_file = ignored_dir / "ignored.rst"
+    ignored_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            ignored_block
+        """,
+    )
+    ignored_file.write_text(data=ignored_content, encoding="utf-8")
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=tmp_path),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # Only the included file should be processed
+    expected_output = "included_block\n"
+    assert result.stdout == expected_output
+    assert result.stderr == ""
+
+
+def test_no_respect_gitignore(tmp_path: Path) -> None:
+    """
+    When --no-respect-gitignore is given, files matching .gitignore
+    patterns
+    are processed when recursively discovering files in directories.
+    """
+    runner = CliRunner()
+
+    # Initialize a git repository
+    subprocess.run(
+        args=["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a .gitignore file
+    gitignore_file = tmp_path / ".gitignore"
+    gitignore_file.write_text(data="ignored/\n", encoding="utf-8")
+
+    # Create a non-ignored file
+    included_file = tmp_path / "included.rst"
+    included_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            included_block
+        """,
+    )
+    included_file.write_text(data=included_content, encoding="utf-8")
+
+    # Create an ignored directory with a file
+    ignored_dir = tmp_path / "ignored"
+    ignored_dir.mkdir()
+    ignored_file = ignored_dir / "ignored.rst"
+    ignored_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            ignored_block
+        """,
+    )
+    ignored_file.write_text(data=ignored_content, encoding="utf-8")
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--no-respect-gitignore",
+        "--command",
+        "cat",
+        str(object=tmp_path),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # Both files should be processed (order may vary)
+    assert "included_block" in result.stdout
+    assert "ignored_block" in result.stdout
+    assert result.stderr == ""
+
+
+def test_respect_gitignore_direct_file_not_affected(tmp_path: Path) -> None:
+    """
+    Files passed directly are not affected by .gitignore filtering,
+    even when --respect-gitignore is enabled.
+    """
+    runner = CliRunner()
+
+    # Initialize a git repository
+    subprocess.run(
+        args=["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a .gitignore file
+    gitignore_file = tmp_path / ".gitignore"
+    gitignore_file.write_text(data="ignored/\n", encoding="utf-8")
+
+    # Create an ignored directory with a file
+    ignored_dir = tmp_path / "ignored"
+    ignored_dir.mkdir()
+    ignored_file = ignored_dir / "ignored.rst"
+    ignored_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            ignored_but_direct_block
+        """,
+    )
+    ignored_file.write_text(data=ignored_content, encoding="utf-8")
+
+    # Pass the ignored file directly
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=ignored_file),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # The directly passed file should be processed
+    expected_output = "ignored_but_direct_block\n"
+    assert result.stdout == expected_output
+    assert result.stderr == ""
+
+
+def test_respect_gitignore_no_git_repo(tmp_path: Path) -> None:
+    """When no git repository is found, all files are processed."""
+    runner = CliRunner()
+
+    # Create a file (no git repo)
+    rst_file = tmp_path / "example.rst"
+    rst_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            block_in_non_git
+        """,
+    )
+    rst_file.write_text(data=rst_content, encoding="utf-8")
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=tmp_path),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    expected_output = "block_in_non_git\n"
+    assert result.stdout == expected_output
+    assert result.stderr == ""
+
+
+def test_respect_gitignore_nested_gitignore(tmp_path: Path) -> None:
+    """Nested .gitignore files are respected."""
+    runner = CliRunner()
+
+    # Initialize a git repository
+    subprocess.run(
+        args=["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a root file
+    root_file = tmp_path / "root.rst"
+    root_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            root_block
+        """,
+    )
+    root_file.write_text(data=root_content, encoding="utf-8")
+
+    # Create a subdirectory with its own .gitignore
+    sub_dir = tmp_path / "subdir"
+    sub_dir.mkdir()
+
+    sub_gitignore = sub_dir / ".gitignore"
+    # Include a comment and empty line to exercise those code paths
+    sub_gitignore.write_text(
+        data="# This is a comment\n\nlocal_ignored.rst\n",
+        encoding="utf-8",
+    )
+
+    # Create a file that should be ignored by the nested .gitignore
+    ignored_file = sub_dir / "local_ignored.rst"
+    ignored_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            locally_ignored_block
+        """,
+    )
+    ignored_file.write_text(data=ignored_content, encoding="utf-8")
+
+    # Create a file that should not be ignored
+    included_file = sub_dir / "included.rst"
+    included_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            subdir_included_block
+        """,
+    )
+    included_file.write_text(data=included_content, encoding="utf-8")
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=tmp_path),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # The locally ignored file should not be processed
+    assert "locally_ignored_block" not in result.stdout
+    # The other files should be processed
+    assert "root_block" in result.stdout
+    assert "subdir_included_block" in result.stdout
+    assert result.stderr == ""
+
+
+def test_respect_gitignore_caching(tmp_path: Path) -> None:
+    """
+    When the same directory is passed via different paths that resolve
+    to the same location, the gitignore spec is cached and reused.
+    """
+    runner = CliRunner()
+
+    # Initialize a git repository
+    subprocess.run(
+        args=["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a .gitignore file
+    gitignore_file = tmp_path / ".gitignore"
+    gitignore_file.write_text(data="ignored/\n", encoding="utf-8")
+
+    # Create a file to process
+    rst_file = tmp_path / "example.rst"
+    rst_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            cached_test_block
+        """,
+    )
+    rst_file.write_text(data=rst_content, encoding="utf-8")
+
+    # Create a symlink to the same directory to exercise the caching code path
+    symlink_path = tmp_path.parent / "symlink_to_dir"
+    symlink_path.symlink_to(target=tmp_path)
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=tmp_path),
+        str(object=symlink_path),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # The file should be processed (de-duplicated at the file level)
+    assert "cached_test_block" in result.stdout
+    assert result.stderr == ""
+
+
+def test_respect_gitignore_symlink_outside_repo(tmp_path: Path) -> None:
+    """
+    Symlinks pointing outside the git repository are processed normally,
+    even when --respect-gitignore is enabled.
+    """
+    runner = CliRunner()
+
+    # Create a git repository
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    subprocess.run(
+        args=["git", "init"],
+        cwd=repo_dir,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create a .gitignore file
+    gitignore_file = repo_dir / ".gitignore"
+    gitignore_file.write_text(data="ignored/\n", encoding="utf-8")
+
+    # Create a directory outside the repo with a file
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_file = outside_dir / "outside.rst"
+    outside_content = textwrap.dedent(
+        text="""\
+        .. code-block:: python
+
+            outside_block
+        """,
+    )
+    outside_file.write_text(data=outside_content, encoding="utf-8")
+
+    # Create a symlink inside the repo pointing to the file outside
+    symlink_in_repo = repo_dir / "link_to_outside.rst"
+    symlink_in_repo.symlink_to(target=outside_file)
+
+    arguments = [
+        "--language",
+        "python",
+        "--no-pad-file",
+        "--command",
+        "cat",
+        str(object=repo_dir),
+    ]
+    result = runner.invoke(
+        cli=main,
+        args=arguments,
+        catch_exceptions=False,
+        color=True,
+    )
+    assert result.exit_code == 0, result.stderr
+    # The symlinked file outside the repo should be processed
+    assert "outside_block" in result.stdout
+    assert result.stderr == ""

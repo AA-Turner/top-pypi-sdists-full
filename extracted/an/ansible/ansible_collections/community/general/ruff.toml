@@ -4,13 +4,10 @@
 
 line-length = 120
 
-# Include only the files:
-include = ["plugins/**/*.py", "tests/unit/**/*.py", "noxfile.py"]
-
 [lint]
 # https://docs.astral.sh/ruff/rules/
 
-select = ["A", "B", "E", "F", "FA", "FLY", "UP", "SIM"]
+select = ["A", "B", "E", "F", "FA", "FLY", "UP", "SIM", "I", "RUF022"]
 ignore = [
     # Better keep ignored (for now)
     "F811",  # Redefinition of unused `xxx` (happens a lot for fixtures in unit tests)
@@ -24,8 +21,6 @@ ignore = [
     "B905",  # zip-without-explicit-strict - needs Python 3.10+
     "UP045",  # Use `X | None` for type annotations - needs Python 3.10+
     # To fix:
-    "UP024",  # Replace aliased errors with `OSError`
-    "UP041",  # Replace aliased errors with `TimeoutError`
     "B026",  # star-arg-unpacking-after-keyword-arg
     "SIM102",  # collapsible-if
     "SIM114",  # if-with-same-arms
@@ -67,3 +62,11 @@ line-ending = "lf"
 # Disable auto-formatting of code examples in docstrings. Markdown,
 # reStructuredText code/literal blocks and doctests are all supported.
 docstring-code-format = false
+
+[lint.isort]
+known-first-party = [
+    "ansible_collections.community.general",
+]
+known-third-party = [
+    "ansible_collections.community.internal_test_tools",
+]

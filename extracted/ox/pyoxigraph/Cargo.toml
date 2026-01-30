@@ -3,7 +3,7 @@ members = ["oxrocksdb-sys", "python"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Tpt <thomas@pellissier-tanon.fr>"]
 license = "MIT OR Apache-2.0"
 edition = "2024"
@@ -62,19 +62,19 @@ wasm-bindgen = "0.2.100"
 wkt = "0.14"
 
 # Internal dependencies
-oxigraph = { version = "=0.5.3", path = "lib/oxigraph" }
-oxjsonld = { version = "=0.2.1", path = "lib/oxjsonld" }
-oxrdf = { version = "=0.3.1", path = "lib/oxrdf" }
-oxrdfio = { version = "=0.2.1", path = "lib/oxrdfio" }
-oxrdfxml = { version = "=0.2.1", path = "lib/oxrdfxml" }
-oxrocksdb-sys = { version = "=0.5.3", path = "./oxrocksdb-sys" }
+oxigraph = { version = "=0.5.4", path = "lib/oxigraph", default-features = false }
+oxjsonld = { version = "=0.2.2", path = "lib/oxjsonld" }
+oxrdf = { version = "=0.3.2", path = "lib/oxrdf" }
+oxrdfio = { version = "=0.2.2", path = "lib/oxrdfio" }
+oxrdfxml = { version = "=0.2.2", path = "lib/oxrdfxml" }
+oxrocksdb-sys = { version = "=0.5.4", path = "./oxrocksdb-sys" }
 oxsdatatypes = { version = "=0.2.2", path = "lib/oxsdatatypes" }
-oxttl = { version = "=0.2.1", path = "lib/oxttl" }
-spargebra = { version = "=0.4.3", path = "lib/spargebra" }
-spargeo = { version = "=0.5.2", path = "lib/spargeo" }
-sparesults = { version = "=0.3.1", path = "lib/sparesults" }
-sparopt = { version = "=0.3.3", path = "lib/sparopt" }
-spareval = { version = "=0.2.3", path = "lib/spareval" }
+oxttl = { version = "=0.2.2", path = "lib/oxttl" }
+spargebra = { version = "=0.4.4", path = "lib/spargebra" }
+spargeo = { version = "=0.5.3", path = "lib/spargeo" }
+sparesults = { version = "=0.3.2", path = "lib/sparesults" }
+sparopt = { version = "=0.3.4", path = "lib/sparopt" }
+spareval = { version = "=0.2.4", path = "lib/spareval" }
 
 [workspace.lints.rust]
 absolute_paths_not_starting_with_crate = "warn"
@@ -119,7 +119,7 @@ deref_by_slicing = "warn"
 disallowed_script_idents = "warn"
 doc_link_with_quotes = "warn"
 empty_drop = "warn"
-empty_enum = "warn"
+empty_enums = "warn"
 empty_enum_variants_with_brackets = "warn"
 empty_structs_with_brackets = "warn"
 enum_glob_use = "warn"
@@ -249,7 +249,7 @@ todo = "warn"
 transmute_ptr_to_ptr = "warn"
 trivially_copy_pass_by_ref = "warn"
 try_err = "warn"
-unchecked_duration_subtraction = "warn"
+unchecked_time_subtraction = "warn"
 undocumented_unsafe_blocks = "warn"
 unicode_not_nfc = "warn"
 unimplemented = "warn"

@@ -4,16 +4,19 @@
 """Input loading module."""
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
+from graphrag_chunking.chunker_factory import create_chunker
+from graphrag_input import create_input_reader
+from graphrag_llm.embedding import create_embedding
+from graphrag_storage import create_storage
 
-from graphrag.cache.noop_pipeline_cache import NoopPipelineCache
 from graphrag.callbacks.noop_workflow_callbacks import NoopWorkflowCallbacks
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.index.input.factory import create_input
-from graphrag.index.operations.embed_text.strategies.openai import (
-    run as run_embed_text,
+from graphrag.index.operations.embed_text.run_embed_text import (
+    run_embed_text,
 )
 from graphrag.index.workflows.create_base_text_units import create_base_text_units
 from graphrag.prompt_tune.defaults import (
@@ -22,12 +25,11 @@ from graphrag.prompt_tune.defaults import (
     K,
 )
 from graphrag.prompt_tune.types import DocSelectionType
-from graphrag.utils.api import create_storage_from_config
 
 
 def _sample_chunks_from_embeddings(
     text_chunks: pd.DataFrame,
-    embeddings: np.ndarray[float, np.dtype[np.float_]],
+    embeddings: np.ndarray[Any, np.dtype[np.float64]],
     k: int = K,
 ) -> pd.DataFrame:
     """Sample text chunks from embeddings."""
@@ -43,28 +45,24 @@ async def load_docs_in_chunks(
     select_method: DocSelectionType,
     limit: int,
     logger: logging.Logger,
-    chunk_size: int,
-    overlap: int,
     n_subset_max: int = N_SUBSET_MAX,
     k: int = K,
 ) -> list[str]:
     """Load docs into chunks for generating prompts."""
-    embeddings_llm_settings = config.get_language_model_config(
-        config.embed_text.model_id
+    embeddings_llm_settings = config.get_embedding_model_config(
+        config.embed_text.embedding_model_id
     )
-    input_storage = create_storage_from_config(config.input.storage)
-    dataset = await create_input(config.input, input_storage)
-    chunk_config = config.chunks
+    model = create_embedding(embeddings_llm_settings)
+    tokenizer = model.tokenizer
+    chunker = create_chunker(config.chunking, tokenizer.encode, tokenizer.decode)
+    input_storage = create_storage(config.input_storage)
+    input_reader = create_input_reader(config.input, input_storage)
+    dataset = await input_reader.read_files()
     chunks_df = create_base_text_units(
-        documents=dataset,
+        documents=pd.DataFrame(dataset),
         callbacks=NoopWorkflowCallbacks(),
-        group_by_columns=chunk_config.group_by_columns,
-        size=chunk_size,
-        overlap=overlap,
-        encoding_model=chunk_config.encoding_model,
-        strategy=chunk_config.strategy,
-        prepend_metadata=chunk_config.prepend_metadata,
-        chunk_size_includes_metadata=chunk_config.chunk_size_includes_metadata,
+        tokenizer=tokenizer,
+        chunker=chunker,
     )
 
     # Depending on the select method, build the dataset
@@ -89,13 +87,11 @@ async def load_docs_in_chunks(
         embedding_results = await run_embed_text(
             sampled_text_chunks,
             callbacks=NoopWorkflowCallbacks(),
-            cache=NoopPipelineCache(),
-            args={
-                "llm": embeddings_llm_settings.model_dump(),
-                "num_threads": embeddings_llm_settings.concurrent_requests,
-                "batch_size": config.embed_text.batch_size,
-                "batch_max_tokens": config.embed_text.batch_max_tokens,
-            },
+            model=model,
+            tokenizer=tokenizer,
+            batch_size=config.embed_text.batch_size,
+            batch_max_tokens=config.embed_text.batch_max_tokens,
+            num_threads=config.concurrent_requests,
         )
         embeddings = np.array(embedding_results.embeddings)
         chunks_df = _sample_chunks_from_embeddings(chunks_df, embeddings, k=k)

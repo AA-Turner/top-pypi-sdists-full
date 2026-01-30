@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: nnunetv2
-Version: 2.6.2
+Version: 2.6.3
 Summary: nnU-Net is a framework for out-of-the box image segmentation.
 Author: Helmholtz Imaging Applied Computer Vision Lab
 Author-email: Fabian Isensee <f.isensee@dkfz-heidelberg.de>
@@ -220,7 +220,7 @@ Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch>=2.1.2
+Requires-Dist: torch<2.9.0,>=2.1.2
 Requires-Dist: acvl-utils<0.3,>=0.2.3
 Requires-Dist: dynamic-network-architectures<0.5,>=0.4.1
 Requires-Dist: tqdm
@@ -246,13 +246,15 @@ Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Dynamic: license-file
 
 # Welcome to the new nnU-Net!
 
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looking for the old one instead.
 
 Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
+
+## **2025-10-23 There seems to be a [severe performance regression with torch 2.9.0 and 3D convs](https://github.com/pytorch/pytorch/issues/166122) (when using AMP). Please use torch 2.8.0 or lower with nnU-Net!**
+
 
 ## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
 Residual encoder UNet presets substantially improve segmentation performance.

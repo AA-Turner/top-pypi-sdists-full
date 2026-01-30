@@ -509,7 +509,7 @@ class TestEvalShape(absltest.TestCase):
     self.assertIsInstance(abs_model.kernel.get_value(), jax.ShapeDtypeStruct)
 
   def test_eval_shape_mutable_array(self):
-    with nnx.use_hijax(True):
+    with nnx.var_defaults(hijax=True):
       abs_model = nnx.eval_shape(lambda: nnx.Linear(1, 2, rngs=nnx.Rngs(0)))
     self.assertIsInstance(abs_model, nnx.Linear)
     self.assertIsInstance(abs_model.kernel.get_value(), jax.ShapeDtypeStruct)
@@ -3155,6 +3155,17 @@ class TestWhileLoop(absltest.TestCase):
       body_fn,
       (0, m, m),
     )
+
+  def test_immut_fori_loop(self):
+    def immut_fn(i, carry):
+        g_accum = carry
+        grads = jax.tree.map(jnp.ones_like, g_accum)
+        g_accum = jax.tree.map(lambda gm, g: gm + g, g_accum, grads)
+        return g_accum
+
+    model = nnx.Linear(10, 10, rngs=nnx.Rngs(0), use_bias=False)
+    g_accum = jax.tree.map(jnp.zeros_like, nnx.state(model))
+    nnx.fori_loop(0, 2, immut_fn, g_accum)
 
   def test_fori_loop_basic(self):
     def fwd_fn(i, input):

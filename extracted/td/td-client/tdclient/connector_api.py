@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
 import json
+from contextlib import AbstractContextManager
+from typing import Any
 
-from .util import create_url, normalize_connector_config
+import urllib3
+
+from tdclient.types import BytesOrStream
+from tdclient.util import create_url, normalize_connector_config
 
 
 class ConnectorAPI:
@@ -11,7 +16,42 @@ class ConnectorAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    def connector_guess(self, job):
+    # Methods from API class
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def put(
+        self,
+        path: str,
+        bytes_or_stream: BytesOrStream,
+        size: int,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def delete(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+
+    def connector_guess(self, job: dict[str, Any] | bytes) -> dict[str, Any]:
         """Guess the Data Connector configuration
 
         Args:
@@ -85,7 +125,7 @@ class ConnectorAPI:
                 self.raise_error("DataConnector configuration guess failed", res, body)
             return self.checked_json(body, [])
 
-    def connector_preview(self, job):
+    def connector_preview(self, job: dict[str, Any]) -> dict[str, Any]:
         """Show the preview of the Data Connector job.
 
         Args:
@@ -95,14 +135,14 @@ class ConnectorAPI:
              :class:`dict`
         """
         headers = {"content-type": "application/json; charset=utf-8"}
-        payload = json.dumps(job).encode("utf-8") if isinstance(job, dict) else job
+        payload = json.dumps(job).encode("utf-8")
         with self.post("/v3/bulk_loads/preview", payload, headers=headers) as res:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error("DataConnector job preview failed", res, body)
             return self.checked_json(body, [])
 
-    def connector_issue(self, db, table, job):
+    def connector_issue(self, db: str, table: str, job: dict[str, Any]) -> str:
         """Create a Data Connector job.
 
         Args:
@@ -127,7 +167,7 @@ class ConnectorAPI:
             js = self.checked_json(body, ["job_id"])
             return str(js["job_id"])
 
-    def connector_list(self):
+    def connector_list(self) -> list[dict[str, Any]]:
         """Show the list of available Data Connector sessions.
 
         Returns:
@@ -140,7 +180,14 @@ class ConnectorAPI:
             # cannot use `checked_json` since `GET /v3/bulk_loads` returns an array
             return json.loads(body.decode("utf-8"))
 
-    def connector_create(self, name, database, table, job, params=None):
+    def connector_create(
+        self,
+        name: str,
+        database: str,
+        table: str,
+        job: dict[str, Any],
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a Data Connector session.
 
         Args:
@@ -156,7 +203,7 @@ class ConnectorAPI:
                 - cron (str, optional):
                      Schedule of the query.
                      {``"@daily"``, ``"@hourly"``, ``"10 * * * *"`` (custom cron)}
-                     See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084633/Scheduling+Jobs+Using+TD+Console
+                     See also: https://docs.treasuredata.com/articles/#!pd/Scheduling-Jobs-Using-TD-Console
                 - delay (int, optional):
                      A delay ensures all buffered events are imported
                      before running the query. Default: 0
@@ -186,11 +233,11 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "DataConnectorSession: %s created failed" % (name,), res, body
+                    f"DataConnectorSession: {name} created failed", res, body
                 )
             return self.checked_json(body, [])
 
-    def connector_show(self, name):
+    def connector_show(self, name: str) -> dict[str, Any]:
         """Show a specific Data Connector session information.
 
         Args:
@@ -203,11 +250,11 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "DataConnectorSession: %s retrieve failed" % (name,), res, body
+                    f"DataConnectorSession: {name} retrieve failed", res, body
                 )
             return self.checked_json(body, [])
 
-    def connector_update(self, name, job):
+    def connector_update(self, name: str, job: dict[str, Any]) -> dict[str, Any]:
         """Update a specific Data Connector session.
 
         Args:
@@ -229,11 +276,11 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "DataConnectorSession: %s update failed" % (name,), res, body
+                    f"DataConnectorSession: {name} update failed", res, body
                 )
             return self.checked_json(body, [])
 
-    def connector_delete(self, name):
+    def connector_delete(self, name: str) -> dict[str, Any]:
         """Delete a Data Connector session.
 
         Args:
@@ -246,11 +293,11 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "DataConnectorSession: %s delete failed" % (name,), res, body
+                    f"DataConnectorSession: {name} delete failed", res, body
                 )
             return self.checked_json(body, [])
 
-    def connector_history(self, name):
+    def connector_history(self, name: str) -> list[dict[str, Any]]:
         """Show the list of the executed jobs information for the Data Connector job.
 
         Args:
@@ -263,13 +310,13 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "history of DataConnectorSession: %s retrieve failed" % (name,),
+                    f"history of DataConnectorSession: {name} retrieve failed",
                     res,
                     body,
                 )
             return json.loads(body.decode("utf-8"))
 
-    def connector_run(self, name, **kwargs):
+    def connector_run(self, name: str, **kwargs: Any) -> dict[str, Any]:
         """Create a job to execute Data Connector session.
 
         Args:
@@ -295,6 +342,6 @@ class ConnectorAPI:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error(
-                    "DataConnectorSession: %s job create failed" % (name,), res, body
+                    f"DataConnectorSession: {name} job create failed", res, body
                 )
             return self.checked_json(body, [])

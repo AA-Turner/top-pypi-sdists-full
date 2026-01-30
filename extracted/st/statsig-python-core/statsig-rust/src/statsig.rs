@@ -3,6 +3,7 @@ use crate::console_capture::console_capture_instances::{
     ConsoleCaptureInstance, CONSOLE_CAPTURE_REGISTRY,
 };
 use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
+use crate::data_store_interface::{get_data_store_key, CompressFormat, RequestPath};
 use crate::evaluation::cmab_evaluator::{get_cmab_ranked_list, CMABRankedGroup};
 use crate::evaluation::country_lookup::CountryLookup;
 use crate::evaluation::dynamic_value::DynamicValue;
@@ -44,6 +45,7 @@ use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker};
 use crate::sdk_event_emitter::SdkEventEmitter;
 use crate::spec_store::{SpecStore, SpecStoreData};
 use crate::specs_adapter::{StatsigCustomizedSpecsAdapter, StatsigHttpSpecsAdapter};
+use crate::specs_response::param_store_types::Parameter;
 use crate::specs_response::spec_types::Rule;
 use crate::specs_response::specs_hash_map::SpecPointer;
 use crate::statsig_err::StatsigErr;
@@ -157,7 +159,15 @@ impl Statsig {
 
         let hashing = Arc::new(HashUtil::new());
 
-        let specs_adapter = initialize_specs_adapter(sdk_key, &options, &hashing);
+        let data_store_key = get_data_store_key(
+            RequestPath::RulesetsV2,
+            CompressFormat::PlainText,
+            sdk_key,
+            &hashing,
+            &options,
+        );
+
+        let specs_adapter = initialize_specs_adapter(sdk_key, &data_store_key, &options);
         let id_lists_adapter = initialize_id_lists_adapter(sdk_key, &options);
         let event_logging_adapter = initialize_event_logging_adapter(sdk_key, &options);
         let override_adapter = match options.override_adapter.as_ref() {
@@ -190,7 +200,7 @@ impl Statsig {
 
         let spec_store = Arc::new(SpecStore::new(
             sdk_key,
-            hashing.sha256(sdk_key),
+            data_store_key,
             statsig_runtime.clone(),
             event_emitter.clone(),
             Some(&options),
@@ -576,6 +586,44 @@ impl Statsig {
         });
     }
 
+    pub fn log_event_with_typed_metadata(
+        &self,
+        user: &StatsigUser,
+        event_name: &str,
+        value: Option<String>,
+        metadata: Option<HashMap<String, Value>>,
+    ) {
+        let user_internal = self.internalize_user(user);
+
+        self.event_logger.enqueue(EnqueuePassthroughOp {
+            event: StatsigEventInternal::new_custom_event_with_typed_metadata(
+                user_internal.to_loggable(),
+                event_name.to_string(),
+                value.map(|v| json!(v)),
+                metadata,
+            ),
+        });
+    }
+
+    pub fn log_event_with_number_and_typed_metadata(
+        &self,
+        user: &StatsigUser,
+        event_name: &str,
+        value: Option<f64>,
+        metadata: Option<HashMap<String, Value>>,
+    ) {
+        let user_internal = self.internalize_user(user);
+
+        self.event_logger.enqueue(EnqueuePassthroughOp {
+            event: StatsigEventInternal::new_custom_event_with_typed_metadata(
+                user_internal.to_loggable(),
+                event_name.to_string(),
+                value.map(|v| json!(v)),
+                metadata,
+            ),
+        });
+    }
+
     pub fn forward_log_line_event(
         &self,
         user: &StatsigUser,
@@ -748,8 +796,11 @@ impl Statsig {
         fallback: Option<T>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<T> {
-        let store = self
-            .get_parameter_store_with_options(parameter_store_name, options.unwrap_or_default());
+        let store = self.get_parameter_store_with_user_and_options(
+            Some(user),
+            parameter_store_name,
+            options.unwrap_or_default(),
+        );
         match fallback {
             Some(fallback) => Some(store.get(user, parameter_name, fallback)),
             None => store.get_opt(user, parameter_name),
@@ -765,6 +816,15 @@ impl Statsig {
 
     pub fn get_parameter_store_with_options(
         &self,
+        parameter_store_name: &str,
+        options: ParameterStoreEvaluationOptions,
+    ) -> ParameterStore<'_> {
+        self.get_parameter_store_with_user_and_options(None, parameter_store_name, options)
+    }
+
+    fn get_parameter_store_with_user_and_options(
+        &self,
+        user: Option<&StatsigUser>,
         parameter_store_name: &str,
         options: ParameterStoreEvaluationOptions,
     ) -> ParameterStore<'_> {
@@ -789,6 +849,27 @@ impl Statsig {
                 _statsig_ref: self,
             };
         });
+
+        if let Some(user) = user {
+            if let Some((override_result, parameters)) =
+                self.get_parameter_store_override(user, parameter_store_name)
+            {
+                let details = EvaluationDetails::recognized_but_overridden(
+                    data.values.time,
+                    data.time_received_at,
+                    override_result.override_reason.unwrap_or("Override"),
+                    override_result.version,
+                );
+
+                return ParameterStore {
+                    name: parameter_store_name.to_string(),
+                    parameters,
+                    details,
+                    options,
+                    _statsig_ref: self,
+                };
+            }
+        }
 
         let stores = &data.values.param_stores;
         let store = match stores {
@@ -832,6 +913,32 @@ impl Statsig {
                 _statsig_ref: self,
             },
         }
+    }
+
+    pub(crate) fn get_parameter_store_override(
+        &self,
+        user: &StatsigUser,
+        parameter_store_name: &str,
+    ) -> Option<(EvaluatorResult, HashMap<String, Parameter>)> {
+        let adapter = self.override_adapter.as_ref()?;
+
+        let mut result = EvaluatorResult::default();
+        if !adapter.get_parameter_store_override(user, parameter_store_name, &mut result) {
+            return None;
+        }
+
+        let mut parameters = HashMap::new();
+        if let Some(json_value) = &result.json_value {
+            if let Some(map) = json_value.get_json() {
+                for (param_name, param_value) in map {
+                    if let Ok(parameter) = serde_json::from_value::<Parameter>(param_value) {
+                        parameters.insert(param_name, parameter);
+                    }
+                }
+            }
+        }
+
+        Some((result, parameters))
     }
 }
 
@@ -934,6 +1041,17 @@ impl Statsig {
         }
     }
 
+    pub fn override_parameter_store(
+        &self,
+        param_name: &str,
+        value: HashMap<String, serde_json::Value>,
+        id: Option<&str>,
+    ) {
+        if let Some(adapter) = &self.override_adapter {
+            adapter.override_parameter_store(param_name, value, id);
+        }
+    }
+
     pub fn override_experiment(
         &self,
         experiment_name: &str,
@@ -977,6 +1095,12 @@ impl Statsig {
     pub fn remove_layer_override(&self, layer_name: &str, id: Option<&str>) {
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_layer_override(layer_name, id);
+        }
+    }
+
+    pub fn remove_parameter_store_override(&self, parameter_store_name: &str, id: Option<&str>) {
+        if let Some(adapter) = &self.override_adapter {
+            adapter.remove_parameter_store_override(parameter_store_name, id);
         }
     }
 
@@ -1131,41 +1255,6 @@ impl Statsig {
         self.spec_store
             .get_fields_used_for_entity(gate_name, SpecType::Gate)
     }
-
-    #[cfg(feature = "ffi-support")]
-    pub fn get_raw_feature_gate_with_options(
-        &self,
-        user: &StatsigUser,
-        gate_name: &str,
-        options: FeatureGateEvaluationOptions,
-    ) -> String {
-        use crate::evaluation::evaluator_result::result_to_gate_raw;
-
-        let interned_gate_name = InternedString::from_str_ref(gate_name);
-        let user_internal = self.internalize_user(user);
-
-        let (details, evaluation) =
-            self.evaluate_spec_raw(&user_internal, gate_name, &SpecType::Gate, None);
-
-        let raw = result_to_gate_raw(gate_name, &details, evaluation.as_ref());
-
-        self.emit_gate_evaluated_parts(gate_name, details.reason.as_str(), evaluation.as_ref());
-
-        if options.disable_exposure_logging {
-            log_d!(TAG, "Exposure logging is disabled for gate {}", gate_name);
-            self.event_logger.increment_non_exposure_checks(gate_name);
-        } else {
-            self.event_logger.enqueue(EnqueueExposureOp::gate_exposure(
-                &user_internal,
-                &interned_gate_name,
-                ExposureTrigger::Auto,
-                details,
-                evaluation,
-            ));
-        }
-
-        raw
-    }
 }
 
 // ------------------------------------------------------------------------------- [ Dynamic Config ]
@@ -1247,56 +1336,6 @@ impl Statsig {
     pub fn get_fields_needed_for_dynamic_config(&self, config_name: &str) -> Vec<String> {
         self.spec_store
             .get_fields_used_for_entity(config_name, SpecType::DynamicConfig)
-    }
-
-    #[cfg(feature = "ffi-support")]
-    pub fn get_raw_dynamic_config_with_options(
-        &self,
-        user: &StatsigUser,
-        dynamic_config_name: &str,
-        options: DynamicConfigEvaluationOptions,
-    ) -> String {
-        use crate::evaluation::evaluator_result::result_to_dynamic_config_raw;
-
-        let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
-        let user_internal = self.internalize_user(user);
-        let disable_exposure_logging: bool = options.disable_exposure_logging;
-
-        let (details, evaluation) = self.evaluate_spec_raw(
-            &user_internal,
-            dynamic_config_name,
-            &SpecType::DynamicConfig,
-            Some(disable_exposure_logging),
-        );
-
-        let raw = result_to_dynamic_config_raw(dynamic_config_name, &details, evaluation.as_ref());
-
-        self.emit_dynamic_config_evaluated_parts(
-            dynamic_config_name,
-            details.reason.as_str(),
-            evaluation.as_ref(),
-        );
-
-        if disable_exposure_logging {
-            log_d!(
-                TAG,
-                "Exposure logging is disabled for Dynamic Config {}",
-                dynamic_config_name
-            );
-            self.event_logger
-                .increment_non_exposure_checks(dynamic_config_name);
-        } else {
-            self.event_logger
-                .enqueue(EnqueueExposureOp::dynamic_config_exposure(
-                    &user_internal,
-                    &interned_dynamic_config_name,
-                    ExposureTrigger::Auto,
-                    details,
-                    evaluation,
-                ));
-        }
-
-        raw
     }
 }
 
@@ -1439,81 +1478,6 @@ impl Statsig {
         )
     }
 
-    #[cfg(feature = "ffi-support")]
-    pub fn get_raw_experiment_by_group_name(
-        &self,
-        experiment_name: &str,
-        group_name: &str,
-    ) -> String {
-        use crate::evaluation::evaluator_result::rule_to_experiment_raw;
-
-        self.get_experiment_by_group_name_impl(
-            experiment_name,
-            group_name,
-            |spec_pointer, rule, details| {
-                rule_to_experiment_raw(experiment_name, spec_pointer, rule, details)
-            },
-        )
-    }
-
-    #[cfg(feature = "ffi-support")]
-    pub fn get_raw_experiment_with_options(
-        &self,
-        user: &StatsigUser,
-        experiment_name: &str,
-        options: ExperimentEvaluationOptions,
-    ) -> String {
-        use crate::evaluation::evaluator_result::result_to_experiment_raw;
-
-        let interned_experiment_name = InternedString::from_str_ref(experiment_name);
-        let user_internal = self.internalize_user(user);
-        let disable_exposure_logging: bool = options.disable_exposure_logging;
-
-        let (details, result) = self.evaluate_spec_raw(
-            &user_internal,
-            experiment_name,
-            &SpecType::Experiment,
-            Some(disable_exposure_logging),
-        );
-
-        let (result, details) = PersistentValuesManager::try_apply_sticky_value_to_raw_experiment(
-            &self.persistent_values_manager,
-            &user_internal,
-            &options,
-            details,
-            result,
-        );
-
-        let raw = result_to_experiment_raw(experiment_name, &details, result.as_ref());
-
-        self.emit_experiment_evaluated_parts(
-            experiment_name,
-            details.reason.as_str(),
-            result.as_ref(),
-        );
-
-        if disable_exposure_logging {
-            log_d!(
-                TAG,
-                "Exposure logging is disabled for Experiment {}",
-                experiment_name
-            );
-            self.event_logger
-                .increment_non_exposure_checks(experiment_name);
-        } else {
-            self.event_logger
-                .enqueue(EnqueueExposureOp::dynamic_config_exposure(
-                    &user_internal,
-                    &interned_experiment_name,
-                    ExposureTrigger::Auto,
-                    details,
-                    result,
-                ));
-        }
-
-        raw
-    }
-
     fn get_experiment_by_group_name_impl<T>(
         &self,
         experiment_name: &str,
@@ -1643,8 +1607,168 @@ impl Statsig {
         self.spec_store
             .get_fields_used_for_entity(layer_name, SpecType::Layer)
     }
+}
 
-    #[cfg(feature = "ffi-support")]
+// ------------------------------------------------------------------------------- [ Feat: ffi-support ]
+
+#[cfg(feature = "ffi-support")]
+impl Statsig {
+    pub fn get_raw_feature_gate_with_options(
+        &self,
+        user: &StatsigUser,
+        gate_name: &str,
+        options: FeatureGateEvaluationOptions,
+    ) -> String {
+        use crate::evaluation::evaluator_result::result_to_gate_raw;
+
+        let interned_gate_name = InternedString::from_str_ref(gate_name);
+        let user_internal = self.internalize_user(user);
+
+        let (details, evaluation) =
+            self.evaluate_spec_raw(&user_internal, gate_name, &SpecType::Gate, None);
+
+        let raw = result_to_gate_raw(gate_name, &details, evaluation.as_ref());
+
+        self.emit_gate_evaluated_parts(gate_name, details.reason.as_str(), evaluation.as_ref());
+
+        if options.disable_exposure_logging {
+            log_d!(TAG, "Exposure logging is disabled for gate {}", gate_name);
+            self.event_logger.increment_non_exposure_checks(gate_name);
+        } else {
+            self.event_logger.enqueue(EnqueueExposureOp::gate_exposure(
+                &user_internal,
+                &interned_gate_name,
+                ExposureTrigger::Auto,
+                details,
+                evaluation,
+            ));
+        }
+
+        raw
+    }
+
+    pub fn get_raw_dynamic_config_with_options(
+        &self,
+        user: &StatsigUser,
+        dynamic_config_name: &str,
+        options: DynamicConfigEvaluationOptions,
+    ) -> String {
+        use crate::evaluation::evaluator_result::result_to_dynamic_config_raw;
+
+        let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
+        let user_internal = self.internalize_user(user);
+        let disable_exposure_logging: bool = options.disable_exposure_logging;
+
+        let (details, evaluation) = self.evaluate_spec_raw(
+            &user_internal,
+            dynamic_config_name,
+            &SpecType::DynamicConfig,
+            Some(disable_exposure_logging),
+        );
+
+        let raw = result_to_dynamic_config_raw(dynamic_config_name, &details, evaluation.as_ref());
+
+        self.emit_dynamic_config_evaluated_parts(
+            dynamic_config_name,
+            details.reason.as_str(),
+            evaluation.as_ref(),
+        );
+
+        if disable_exposure_logging {
+            log_d!(
+                TAG,
+                "Exposure logging is disabled for Dynamic Config {}",
+                dynamic_config_name
+            );
+            self.event_logger
+                .increment_non_exposure_checks(dynamic_config_name);
+        } else {
+            self.event_logger
+                .enqueue(EnqueueExposureOp::dynamic_config_exposure(
+                    &user_internal,
+                    &interned_dynamic_config_name,
+                    ExposureTrigger::Auto,
+                    details,
+                    evaluation,
+                ));
+        }
+
+        raw
+    }
+
+    pub fn get_raw_experiment_by_group_name(
+        &self,
+        experiment_name: &str,
+        group_name: &str,
+    ) -> String {
+        use crate::evaluation::evaluator_result::rule_to_experiment_raw;
+
+        self.get_experiment_by_group_name_impl(
+            experiment_name,
+            group_name,
+            |spec_pointer, rule, details| {
+                rule_to_experiment_raw(experiment_name, spec_pointer, rule, details)
+            },
+        )
+    }
+
+    pub fn get_raw_experiment_with_options(
+        &self,
+        user: &StatsigUser,
+        experiment_name: &str,
+        options: ExperimentEvaluationOptions,
+    ) -> String {
+        use crate::evaluation::evaluator_result::result_to_experiment_raw;
+
+        let interned_experiment_name = InternedString::from_str_ref(experiment_name);
+        let user_internal = self.internalize_user(user);
+        let disable_exposure_logging: bool = options.disable_exposure_logging;
+
+        let (details, result) = self.evaluate_spec_raw(
+            &user_internal,
+            experiment_name,
+            &SpecType::Experiment,
+            Some(disable_exposure_logging),
+        );
+
+        let (result, details) = PersistentValuesManager::try_apply_sticky_value_to_raw_experiment(
+            &self.persistent_values_manager,
+            &user_internal,
+            &options,
+            details,
+            result,
+        );
+
+        let raw = result_to_experiment_raw(experiment_name, &details, result.as_ref());
+
+        self.emit_experiment_evaluated_parts(
+            experiment_name,
+            details.reason.as_str(),
+            result.as_ref(),
+        );
+
+        if disable_exposure_logging {
+            log_d!(
+                TAG,
+                "Exposure logging is disabled for Experiment {}",
+                experiment_name
+            );
+            self.event_logger
+                .increment_non_exposure_checks(experiment_name);
+        } else {
+            self.event_logger
+                .enqueue(EnqueueExposureOp::dynamic_config_exposure(
+                    &user_internal,
+                    &interned_experiment_name,
+                    ExposureTrigger::Auto,
+                    details,
+                    result,
+                ));
+        }
+
+        raw
+    }
+
     pub fn get_raw_layer_with_options(
         &self,
         user: &StatsigUser,
@@ -1691,7 +1815,6 @@ impl Statsig {
         raw
     }
 
-    #[cfg(feature = "ffi-support")]
     pub fn log_layer_param_exposure_from_raw(&self, raw: String, param_name: String) {
         use crate::statsig_types_raw::PartialLayerRaw;
 
@@ -2400,8 +2523,8 @@ fn initialize_event_logging_adapter(
 
 fn initialize_specs_adapter(
     sdk_key: &str,
+    data_store_key: &str,
     options: &StatsigOptions,
-    hashing: &HashUtil,
 ) -> SpecsAdapterHousing {
     if let Some(adapter) = options.specs_adapter.clone() {
         log_d!(TAG, "Using provided SpecsAdapter: {}", sdk_key);
@@ -2414,9 +2537,9 @@ fn initialize_specs_adapter(
     if let Some(adapter_config) = options.spec_adapters_config.clone() {
         let adapter = Arc::new(StatsigCustomizedSpecsAdapter::new_from_config(
             sdk_key,
+            data_store_key,
             adapter_config,
             options,
-            hashing,
         ));
 
         return SpecsAdapterHousing {
@@ -2425,12 +2548,12 @@ fn initialize_specs_adapter(
         };
     }
 
-    if let Some(data_adapter) = options.data_store.clone() {
+    if let Some(data_store) = options.data_store.clone() {
         let adapter = Arc::new(StatsigCustomizedSpecsAdapter::new_from_data_store(
             sdk_key,
-            data_adapter,
+            data_store_key,
+            data_store,
             options,
-            hashing,
         ));
 
         return SpecsAdapterHousing {

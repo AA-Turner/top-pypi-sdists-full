@@ -6,7 +6,12 @@ __all__ = ["NumpySafetensorsShardLoader", "TorchSafetensorsShardLoader"]
 
 from typing import Any
 
-from coola.utils import check_numpy, check_torch, is_numpy_available, is_torch_available
+from coola.utils.imports import (
+    check_numpy,
+    check_torch,
+    is_numpy_available,
+    is_torch_available,
+)
 
 from iden.shard.loader.base import BaseShardLoader
 from iden.shard.safetensors import NumpySafetensorsShard, TorchSafetensorsShard

@@ -1,6 +1,6 @@
 import dataclasses
 
-from qwak_services_mock.mocks import workspace_manager_service_mock
+from qwak_services_mock.mocks.workspace_manager_service_mock import WorkspaceManagerServiceMock
 from qwak_services_mock.mocks.alert_manager_service_api import (
     AlertManagerServiceApiMock,
 )
@@ -24,11 +24,14 @@ from qwak_services_mock.mocks.build_orchestrator_build_settings_api import (
 from qwak_services_mock.mocks.build_orchestrator_service_api import (
     BuildOrchestratorServiceApiMock,
 )
+from qwak_services_mock.mocks.cluster_v2_service import ClusterV2ServiceMock
 from qwak_services_mock.mocks.data_versioning_service import DataVersioningServiceMock
 from qwak_services_mock.mocks.deployment_management_service import (
     DeploymentManagementServiceMock,
 )
 from qwak_services_mock.mocks.ecosystem_service_api import EcoSystemServiceMock
+from qwak_services_mock.mocks.environment_v0_service import EnvironmentV0ServiceMock
+from qwak_services_mock.mocks.environment_v1_service import EnvironmentV1ServiceMock
 from qwak_services_mock.mocks.execution_management_service import (
     ExecutionManagementServiceMock,
 )
@@ -76,10 +79,6 @@ from qwak_services_mock.mocks.system_secret_service import SystemSecretServiceMo
 from qwak_services_mock.mocks.user_application_instance_service_api import (
     UserApplicationInstanceServiceApiMock,
 )
-from qwak_services_mock.mocks.vector_serving_api import VectorServingServiceMock
-from qwak_services_mock.mocks.vectors_management_api import (
-    VectorCollectionManagementServiceMock,
-)
 
 
 @dataclasses.dataclass
@@ -115,11 +114,12 @@ class QwakMocks:
     fs_feature_sets_service: FeatureSetServiceMock
     instance_templates_service: InstanceTemplateManagementServiceMock
     alerts_registry_service: AlertsRegistryServiceApiMock
-    workspace_manager_service: workspace_manager_service_mock
-    vector_serving_service: VectorServingServiceMock
-    vector_collection_service: VectorCollectionManagementServiceMock
+    workspace_manager_service: WorkspaceManagerServiceMock
     execution_management_service: ExecutionManagementServiceMock
     system_secret_service: SystemSecretServiceMock
     integration_management_service: IntegrationManagementServiceMock
     prompt_manager_service: PromptManagerServiceMock
     location_discovery_service: LocationDiscoveryServiceApiMock
+    cluster_v2_service_mock: ClusterV2ServiceMock
+    environment_v0_service_mock: EnvironmentV0ServiceMock
+    environment_v1_service_mock: EnvironmentV1ServiceMock

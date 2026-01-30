@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """This module contains the build information for this project."""
-import setuptools
+
+import setuptools  # type: ignore[import-untyped]
 
 # open readme
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -10,12 +11,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 # requirements
 required = [
-    "setuptools>=51.1.1",       # standard
+    "setuptools>=51.1.1",  # standard
 ]
 
 setuptools.setup(
     name="borb",
-    version="3.0.4",
+    version="3.0.5",
     author="Joris Schellekens",
     author_email="joris.schellekens.1989@gmail.com",
     description="borb is a library for reading, creating and manipulating PDF files in python.",

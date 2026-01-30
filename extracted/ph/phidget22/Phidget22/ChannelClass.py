@@ -9,6 +9,8 @@ class ChannelClass:
 	PHIDCHCLASS_CAPACITIVETOUCH = 14
 	# Current input channel
 	PHIDCHCLASS_CURRENTINPUT = 2
+	# Data adapter channel
+	PHIDCHCLASS_DATAADAPTER = 3
 	# DC motor channel
 	PHIDCHCLASS_DCMOTOR = 4
 	# Dictionary
@@ -35,6 +37,8 @@ class ChannelClass:
 	PHIDCHCLASS_IR = 16
 	# LCD channel
 	PHIDCHCLASS_LCD = 11
+	# LED array channel
+	PHIDCHCLASS_LEDARRAY = 19
 	# Light sensor channel
 	PHIDCHCLASS_LIGHTSENSOR = 17
 	# Magnetometer channel
@@ -80,6 +84,8 @@ class ChannelClass:
 			return "PHIDCHCLASS_CAPACITIVETOUCH"
 		if val == self.PHIDCHCLASS_CURRENTINPUT:
 			return "PHIDCHCLASS_CURRENTINPUT"
+		if val == self.PHIDCHCLASS_DATAADAPTER:
+			return "PHIDCHCLASS_DATAADAPTER"
 		if val == self.PHIDCHCLASS_DCMOTOR:
 			return "PHIDCHCLASS_DCMOTOR"
 		if val == self.PHIDCHCLASS_DICTIONARY:
@@ -106,6 +112,8 @@ class ChannelClass:
 			return "PHIDCHCLASS_IR"
 		if val == self.PHIDCHCLASS_LCD:
 			return "PHIDCHCLASS_LCD"
+		if val == self.PHIDCHCLASS_LEDARRAY:
+			return "PHIDCHCLASS_LEDARRAY"
 		if val == self.PHIDCHCLASS_LIGHTSENSOR:
 			return "PHIDCHCLASS_LIGHTSENSOR"
 		if val == self.PHIDCHCLASS_MAGNETOMETER:

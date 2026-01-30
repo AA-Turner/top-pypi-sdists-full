@@ -38,7 +38,7 @@ jobs:
       matrix:
         variant:
         - {os: ubuntu-24.04, cmake-preset: ci-linux}
-        - {os: macos-14, cmake-preset: ci-macos}
+        - {os: macos-15, cmake-preset: ci-macos}
         - {os: windows-2022, cmake-preset: ci-windows}
         python-version: ["3.11"]
 
@@ -53,7 +53,7 @@ jobs:
       - name: Setup conda environment
         uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: 1.5.6-0
+          micromamba-version: 2.5.0-1
           environment-file: .buildconfig/${{ matrix.variant.cmake-preset }}.yml
           cache-environment: true
           create-args: python=${{ matrix.python-version }}

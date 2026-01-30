@@ -1115,16 +1115,10 @@ def create_code_cell(code: str = "", where: str = "below") -> None:
     #     pass
 
     encoded_code = (base64.b64encode(str.encode(code))).decode()
-    display(
-        Javascript(
-            """
+    display(Javascript("""
         var code = IPython.notebook.insert_cell_{0}('code');
         code.set_text(atob("{1}"));
-    """.format(
-                where, encoded_code
-            )
-        )
-    )
+    """.format(where, encoded_code)))
 
 
 def local_tile_pixel_value(
@@ -2769,6 +2763,273 @@ def get_wms_layers(url):
     return layers
 
 
+def wms_to_geotiff(
+    url: str,
+    layers: str,
+    bbox: List[float],
+    output: str,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    scale: Optional[float] = None,
+    bbox_crs: str = "EPSG:4326",
+    output_crs: Optional[str] = None,
+    format: str = "image/tiff",
+    version: str = "1.1.1",
+    styles: str = "",
+    transparent: bool = True,
+    quiet: bool = False,
+    **kwargs: Any,
+) -> str:
+    """Export a GeoTIFF from a WMS service within a specified bounding box and scale.
+
+    Args:
+        url (str): The URL of the WMS service.
+        layers (str): Comma-separated list of WMS layers to request.
+        bbox (List[float]): Bounding box in the format [minx, miny, maxx, maxy].
+            The coordinates should be in the CRS specified by 'bbox_crs'.
+        output (str): The output file path for the GeoTIFF.
+        width (int, optional): Width of the output image in pixels. If not provided,
+            will be calculated from scale. Either width/height or scale must be provided.
+        height (int, optional): Height of the output image in pixels. If not provided,
+            will be calculated from scale. Either width/height or scale must be provided.
+        scale (float, optional): The scale (resolution) in units of the output CRS per pixel.
+            For EPSG:4326, this is degrees per pixel. For projected CRS like EPSG:3857,
+            this is meters per pixel. Either width/height or scale must be provided.
+        bbox_crs (str, optional): The coordinate reference system of the input bbox.
+            Defaults to "EPSG:4326".
+        output_crs (str, optional): The coordinate reference system for the output GeoTIFF
+            and WMS request. If None, uses the same CRS as bbox_crs. Defaults to None.
+        format (str, optional): The image format to request from WMS. Defaults to "image/tiff".
+            Some WMS servers may support "image/geotiff" or only "image/png".
+        version (str, optional): WMS version. Defaults to "1.1.1".
+        styles (str, optional): WMS styles parameter. Defaults to "".
+        transparent (bool, optional): Request transparent background. Defaults to True.
+        quiet (bool, optional): Suppress output messages. Defaults to False.
+        **kwargs: Additional keyword arguments to pass to the WMS GetMap request.
+
+    Returns:
+        str: The output file path.
+
+    Raises:
+        ValueError: If neither width/height nor scale is provided.
+        ImportError: If required packages are not installed.
+        Exception: If the WMS request fails.
+
+    Example:
+        >>> url = "https://img.nj.gov/imagerywms/Natural2015"
+        >>> layers = "Natural2015"
+        >>> bbox = [-74.6, 40.5, -74.4, 40.7]  # [minx, miny, maxx, maxy] in EPSG:4326
+        >>> wms_to_geotiff(url, layers, bbox, "output.tif", scale=0.0001)
+        >>> # Export with different output CRS
+        >>> wms_to_geotiff(url, layers, bbox, "output_3857.tif", scale=10, output_crs="EPSG:3857")
+    """
+    import io
+
+    try:
+        from owslib.wms import WebMapService
+    except ImportError:
+        raise ImportError("Please install owslib using 'pip install owslib'.")
+
+    try:
+        import rasterio
+        from rasterio.transform import from_bounds
+    except ImportError:
+        raise ImportError("Please install rasterio using 'pip install rasterio'.")
+
+    try:
+        from PIL import Image
+    except ImportError:
+        raise ImportError("Please install Pillow using 'pip install Pillow'.")
+
+    # Set output_crs to bbox_crs if not provided
+    if output_crs is None:
+        output_crs = bbox_crs
+
+    # Validate inputs
+    if len(bbox) != 4:
+        raise ValueError("bbox must be a list of 4 values: [minx, miny, maxx, maxy]")
+
+    # Ensure bbox values are numeric and ordered correctly: minx < maxx, miny < maxy
+    try:
+        minx, miny, maxx, maxy = map(float, bbox)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "bbox coordinates must be numeric values: [minx, miny, maxx, maxy]"
+        ) from exc
+
+    if not (minx < maxx and miny < maxy):
+        raise ValueError(
+            "bbox coordinates must be in order: minx < maxx and miny < maxy"
+        )
+    # Transform bbox if bbox_crs differs from output_crs
+    if bbox_crs.upper() != output_crs.upper():
+        try:
+            from pyproj import Transformer
+        except ImportError:
+            raise ImportError(
+                "Please install pyproj using 'pip install pyproj' for CRS transformation."
+            )
+
+        transformer = Transformer.from_crs(bbox_crs, output_crs, always_xy=True)
+        minx, miny = transformer.transform(minx, miny)
+        maxx, maxy = transformer.transform(maxx, maxy)
+
+        if not quiet:
+            print(
+                f"Transformed bbox from {bbox_crs} to {output_crs}: [{minx}, {miny}, {maxx}, {maxy}]"
+            )
+
+    bbox_width = maxx - minx
+    bbox_height = maxy - miny
+
+    if width is None and height is None and scale is None:
+        raise ValueError(
+            "Either width/height or scale must be provided to determine output size."
+        )
+
+    # Calculate width/height from scale if not provided
+    if scale is not None:
+        if width is None:
+            width = int(bbox_width / scale)
+        if height is None:
+            height = int(bbox_height / scale)
+
+    # Ensure minimum size
+    width = max(1, width)
+    height = max(1, height)
+
+    # Some servers have maximum size limits, cap at reasonable values
+    max_size = 8192
+    if width > max_size or height > max_size:
+        ratio = min(max_size / width, max_size / height)
+        width = int(width * ratio)
+        height = int(height * ratio)
+        if not quiet:
+            print(f"Image size capped to {width}x{height} due to server limits.")
+
+    if not quiet:
+        print(f"Requesting WMS image: {width}x{height} pixels")
+        print(f"Bounding box ({output_crs}): [{minx}, {miny}, {maxx}, {maxy}]")
+        print(f"Scale: {scale if scale else 'calculated from dimensions'}")
+
+    # Connect to WMS service
+    wms = WebMapService(url, version=version)
+
+    # Determine correct coordinate reference system parameter name based on WMS version
+    crs_param = "srs"
+    if version is not None:
+        try:
+            version_parts = tuple(int(part) for part in str(version).split("."))
+            if version_parts >= (1, 3, 0):
+                crs_param = "crs"
+        except Exception:
+            # Fallback: simple string prefix check if parsing fails
+            if str(version).startswith("1.3"):
+                crs_param = "crs"
+
+    # Build GetMap request parameters
+    request_params = {
+        "layers": [layers] if "," not in layers else layers.split(","),
+        crs_param: output_crs,
+        "bbox": (minx, miny, maxx, maxy),
+        "size": (width, height),
+        "format": format,
+        "styles": [styles] if styles else [""],
+        "transparent": transparent,
+    }
+    request_params.update(kwargs)
+
+    # Make the WMS GetMap request
+    try:
+        response = wms.getmap(**request_params)
+    except Exception as e:
+        raise Exception(f"WMS GetMap request failed: {str(e)}")
+
+    # Read the response
+    img_data = response.read()
+
+    # Check if the response is a valid image
+    if b"ServiceException" in img_data or b"Exception" in img_data[:1000]:
+        raise Exception(
+            f"WMS service returned an exception: {img_data[:500].decode('utf-8', errors='ignore')}"
+        )
+
+    output = check_file_path(output)
+
+    # Determine if response is already a GeoTIFF or needs conversion
+    is_geotiff = format.lower() in ["image/tiff", "image/geotiff", "image/tif"]
+
+    if is_geotiff:
+        # Try to save directly as GeoTIFF
+        try:
+            # First, check if it's a valid GeoTIFF with georeferencing
+            with rasterio.open(io.BytesIO(img_data)) as src:
+                if src.crs is not None:
+                    # Valid GeoTIFF with CRS, write it directly
+                    output_temp = temp_file_path(extension=".tif")
+                    with open(output_temp, "wb") as f:
+                        f.write(img_data)
+                    image_to_cog(output_temp, output, nodata=None)
+                    try:
+                        os.remove(output_temp)
+                    except Exception:
+                        pass
+                    if not quiet:
+                        print(f"GeoTIFF saved to {output}")
+                    return output
+        except Exception:
+            pass  # Fall through to manual georeferencing
+
+    # Convert image to GeoTIFF with georeferencing
+    try:
+        # Open as PIL Image
+        img = Image.open(io.BytesIO(img_data))
+        img_array = np.array(img)
+    except Exception as e:
+        raise Exception(f"Failed to process image data: {str(e)}")
+
+    # Handle different image modes
+    if img_array.ndim == 2:
+        # Grayscale
+        count = 1
+        img_array = img_array.reshape((1, img_array.shape[0], img_array.shape[1]))
+    elif img_array.ndim == 3:
+        # RGB or RGBA
+        count = 3
+        img_array = np.transpose(img_array, (2, 0, 1))
+    else:
+        raise ValueError(f"Unexpected image array dimensions: {img_array.ndim}")
+
+    # Create the transform
+    transform = from_bounds(minx, miny, maxx, maxy, width, height)
+
+    # Write the GeoTIFF
+    profile = {
+        "driver": "GTiff",
+        "dtype": img_array.dtype,
+        "width": width,
+        "height": height,
+        "count": count,
+        "crs": output_crs,
+        "transform": transform,
+        "compress": "deflate",
+    }
+
+    output_temp = temp_file_path(extension=".tif")
+    with rasterio.open(output_temp, "w", **profile) as dst:
+        dst.write(img_array)
+
+    image_to_cog(output_temp, output, nodata=None)
+    try:
+        os.remove(output_temp)
+    except Exception:
+        pass
+    if not quiet:
+        print(f"GeoTIFF saved to {output}")
+
+    return output
+
+
 def streamlit_legend(html, width=None, height=None, scrolling=True):
     """Streamlit function to display a legend.
 
@@ -4017,7 +4278,9 @@ def image_to_geotiff(image, dst_path, dtype=None, to_cog=True, **kwargs) -> None
         image_to_cog(dst_path, dst_path)
 
 
-def image_to_cog(source, dst_path=None, profile="deflate", BIGTIFF=None, **kwargs: Any):
+def image_to_cog(
+    source, dst_path=None, profile="deflate", BIGTIFF=None, nodata=None, **kwargs: Any
+):
     """Converts an image to a COG file.
 
     Args:
@@ -4025,6 +4288,9 @@ def image_to_cog(source, dst_path=None, profile="deflate", BIGTIFF=None, **kwarg
         dst_path (str, optional): An output dataset path or or PathLike object. Defaults to None.
         profile (str, optional): COG profile. More at https://cogeotiff.github.io/rio-cogeo/profile. Defaults to "deflate".
         BIGTIFF (str, optional): Create a BigTIFF file. Can be "IF_SAFER" or "YES". Defaults to None.
+        nodata (int, float, or None, optional): NoData value for the output COG. Set to None
+            to prevent any value from being treated as NoData (avoids 255 being changed to 254
+            in uint8 images). Defaults to None.
 
     Raises:
         ImportError: If rio-cogeo is not installed.
@@ -4059,7 +4325,7 @@ def image_to_cog(source, dst_path=None, profile="deflate", BIGTIFF=None, **kwarg
 
     if BIGTIFF is not None:
         dst_profile.update({"BIGTIFF": BIGTIFF})
-    cog_translate(source, dst_path, dst_profile, **kwargs)
+    cog_translate(source, dst_path, dst_profile, nodata=nodata, **kwargs)
 
 
 def cog_validate(source, verbose=False) -> Tuple[bool, List[str], List[str]]:
@@ -6035,7 +6301,7 @@ class The_national_map_USGS:
             file_name = os.path.basename(link)
             out_name = os.path.join(out_dir, file_name)
             if i < 5 or (i < 50 and not (i % 5)) or not (i % 20):
-                print(f"Downloading {i+1} of {T}: {file_name}")
+                print(f"Downloading {i + 1} of {T}: {file_name}")
             try:
                 download_file(link, out_name, **download_args)
                 done += 1
@@ -6044,7 +6310,7 @@ class The_national_map_USGS:
                 break
             except Exception:
                 errors += 1
-                print(f"Failed to download {i+1} of {T}: {file_name}")
+                print(f"Failed to download {i + 1} of {T}: {file_name}")
 
         print(
             f"{done} Downloads completed, {errors} downloads failed, {T} files available"
@@ -6294,7 +6560,7 @@ def mosaic(
 
     for index, p in enumerate(raster_files):
         if verbose:
-            print(f"Reading {index+1}/{len(raster_files)}: {os.path.basename(p)}")
+            print(f"Reading {index + 1}/{len(raster_files)}: {os.path.basename(p)}")
         raster = rio.open(p, **kwargs)
         raster_to_mosiac.append(raster)
 
@@ -6721,7 +6987,6 @@ def sort_files(
         The sorted or filtered list of files.
     """
     if names is None:
-
         return sorted(files)
     else:
         filenames = []
@@ -7942,8 +8207,9 @@ def add_image_to_gif(
         logo_raw_size[1] / image_size[1],
     )
     image_resize = (int(logo_raw_size[0] / ratio), int(logo_raw_size[1] / ratio))
-    image_size = min(logo_raw_size[0], image_size[0]), min(
-        logo_raw_size[1], image_size[1]
+    image_size = (
+        min(logo_raw_size[0], image_size[0]),
+        min(logo_raw_size[1], image_size[1]),
     )
 
     logo_image = logo_raw_image.convert("RGBA")
@@ -8214,7 +8480,7 @@ def create_timelapse(
             else:
                 basename = os.path.basename(image).replace(ext, out_ext)
             if not quiet:
-                print(f"Processing {index+1}/{len(images)}: {basename} ...")
+                print(f"Processing {index + 1}/{len(images)}: {basename} ...")
 
             # ignore GDAL warnings
             with output:
@@ -8435,13 +8701,13 @@ def gif_fading(in_gif, out_gif, duration=1, verbose=True):
             )
         else:
             filters.append(
-                f"[{i}:v][{i-1}:v]blend=all_expr='A*(if(gte(T,3),1,T/3))+B*(1-(if(gte(T,3),1,T/3)))'[v{i-1}];"
+                f"[{i}:v][{i - 1}:v]blend=all_expr='A*(if(gte(T,3),1,T/3))+B*(1-(if(gte(T,3),1,T/3)))'[v{i - 1}];"
             )
 
     last_filter = ""
     for i in range(count - 1):
         last_filter += f"[v{i}]"
-    last_filter += f'concat=n={count-1}:v=1:a=0[v]" -map "[v]"'
+    last_filter += f'concat=n={count - 1}:v=1:a=0[v]" -map "[v]"'
     filters.append(last_filter)
     filters = " ".join(filters)
 
@@ -8590,7 +8856,7 @@ def vector_to_gif(
 
     for index, v in enumerate(options):
         if verbose:
-            print(f"Processing {index+1}/{len(options)}: {v}...")
+            print(f"Processing {index + 1}/{len(options)}: {v}...")
         yrdf = gdf[gdf[colname] <= v]
         fig, ax = plt.subplots()
         ax = yrdf.plot(facecolor=facecolor, figsize=figsize, **plot_args)
@@ -8842,6 +9108,31 @@ def arc_add_layer(url, name=None, shown=True, opacity=1.0):
                     layer.name = name
                     layer.visible = shown
                     layer.transparency = 100 - (opacity * 100)
+
+
+def is_global_bounds(bounds, tolerance=1.0):
+    """Check if bounds represent global extent.
+
+    Args:
+        bounds (list): Bounding box as [minx, miny, maxx, maxy].
+        tolerance (float): Tolerance for comparing bounds to global extent.
+            Defaults to 1.0 degree.
+
+    Returns:
+        bool: True if bounds are approximately global [-180, -90, 180, 90].
+    """
+    if bounds is None or len(bounds) != 4:
+        return False
+
+    minx, miny, maxx, maxy = bounds
+    global_bounds = [-180.0, -90.0, 180.0, 90.0]
+
+    return (
+        abs(minx - global_bounds[0]) <= tolerance
+        and abs(miny - global_bounds[1]) <= tolerance
+        and abs(maxx - global_bounds[2]) <= tolerance
+        and abs(maxy - global_bounds[3]) <= tolerance
+    )
 
 
 def arc_zoom_to_extent(xmin, ymin, xmax, ymax):
@@ -9453,7 +9744,7 @@ def s3_download_files(
             outfile = key.split("/")[-1]
 
         if not quiet:
-            print(f"Downloading {index+1} of {len(keys)}: {outfile}")
+            print(f"Downloading {index + 1} of {len(keys)}: {outfile}")
         s3_download_file(bucket=bucket, key=key, outfile=outfile, **kwargs)
 
 
@@ -9568,7 +9859,7 @@ def s3_get_objects(
         )
 
     for index, key in enumerate(keys):
-        print(f"Downloading {index+1} of {len(keys)}: {key}")
+        print(f"Downloading {index + 1} of {len(keys)}: {key}")
         output = os.path.join(out_dir, key.split("/")[-1])
         s3_get_object(
             bucket, key, output, chunk_size, request_payer, quiet, client_args, **kwargs
@@ -10705,7 +10996,7 @@ def image_comparison(
         <style>body {{ margin: unset; }}</style>
         {css_block}
         {js_block}
-        <div id="foo" style="height: {height}; width: {width or '100%'};"></div>
+        <div id="foo" style="height: {height}; width: {width or "100%"};"></div>
         <script>
         slider = new juxtapose.JXSlider('#foo',
             [
@@ -10720,10 +11011,10 @@ def image_comparison(
             ],
             {{
                 animate: true,
-                showLabels: {'true' if show_labels else 'false'},
+                showLabels: {"true" if show_labels else "false"},
                 showCredits: true,
                 startingPosition: "{starting_position}%",
-                makeResponsive: {'true' if make_responsive else 'false'},
+                makeResponsive: {"true" if make_responsive else "false"},
             }});
         </script>
         </head>
@@ -11569,7 +11860,6 @@ def array_to_image(
             and (array.rio.crs is not None)
             and (array.rio.transform() is not None)
         ):
-
             if "latitude" in array.dims and "longitude" in array.dims:
                 array = array.rename({"latitude": "y", "longitude": "x"})
             elif "lat" in array.dims and "lon" in array.dims:
@@ -11837,7 +12127,7 @@ def get_solar_data(
         if isinstance(links[link], list):
             for i, url in enumerate(links[link]):
                 filename = (
-                    f"{basename}_{link.replace('Urls', '')}_{str(i+1).zfill(2)}.tif"
+                    f"{basename}_{link.replace('Urls', '')}_{str(i + 1).zfill(2)}.tif"
                 )
                 if out_dir is not None:
                     filename = os.path.join(out_dir, filename)
@@ -11897,7 +12187,7 @@ def merge_vector(
     gdfs = []
     for index, filename in enumerate(files):
         if not quiet:
-            print(f"Reading {index+1} of {len(files)}: {filename}")
+            print(f"Reading {index + 1} of {len(files)}: {filename}")
         gdf = gpd.read_file(filename, **kwargs)
         if crs is None:
             crs = gdf.crs
@@ -12391,8 +12681,7 @@ def init_duckdb_tiles(
         import duckdb
     except ImportError:
         raise ImportError(
-            "duckdb is required for this function. "
-            "Install it with: pip install duckdb"
+            "duckdb is required for this function. Install it with: pip install duckdb"
         )
 
     # Handle different input types
@@ -12643,13 +12932,11 @@ def init_duckdb_tiles(
                     # Data is already in Web Mercator, don't transform
                     # Use VIEW for Parquet files only if user requested it
                     table_or_view = "VIEW" if (is_parquet and use_view) else "TABLE"
-                    con.execute(
-                        f"""
+                    con.execute(f"""
                         CREATE {table_or_view} IF NOT EXISTS {table_name} AS
                         SELECT {select_clause}{geom_col_source} as {geom_column}
                         FROM {source_table};
-                    """
-                    )
+                    """)
                     if not quiet:
                         view_note = " (using view)" if (is_parquet and use_view) else ""
                         print(
@@ -12659,15 +12946,13 @@ def init_duckdb_tiles(
                     # Data needs transformation to Web Mercator
                     # Use VIEW for Parquet files only if user requested it
                     table_or_view = "VIEW" if (is_parquet and use_view) else "TABLE"
-                    con.execute(
-                        f"""
+                    con.execute(f"""
                         CREATE {table_or_view} IF NOT EXISTS {table_name} AS
                         SELECT
                             {select_clause}
                             ST_Transform(ST_GeomFromWKB(ST_AsWKB({geom_col_source})), '{transform_from_crs}', 'EPSG:{srid}', true) as {geom_column}
                         FROM {source_table};
-                    """
-                    )
+                    """)
                     if not quiet:
                         view_note = " (using view)" if (is_parquet and use_view) else ""
                         print(
@@ -12683,13 +12968,11 @@ def init_duckdb_tiles(
                 )
             # Use VIEW for Parquet files only if user requested it
             table_or_view = "VIEW" if (is_parquet and use_view) else "TABLE"
-            con.execute(
-                f"""
+            con.execute(f"""
                 CREATE {table_or_view} IF NOT EXISTS {table_name} AS
                 SELECT {select_clause}{geom_col_source} as {geom_column}
                 FROM {source_table};
-            """
-            )
+            """)
             if not quiet:
                 view_note = " (using view)" if (is_parquet and use_view) else ""
                 print(
@@ -12713,13 +12996,11 @@ def init_duckdb_tiles(
                 # For Parquet, we already have the source_table and geom_col_source from above
                 # Use VIEW for Parquet files only if user requested it
                 table_or_view = "VIEW" if use_view else "TABLE"
-                con.execute(
-                    f"""
+                con.execute(f"""
                     CREATE {table_or_view} IF NOT EXISTS {table_name} AS
                     SELECT {select_clause}{geom_col_source} as {geom_column}
                     FROM {source_table};
-                """
-                )
+                """)
             else:
                 # First, get column names and types to exclude geometry and complex types
                 temp_result = con.execute(
@@ -12769,13 +13050,11 @@ def init_duckdb_tiles(
                 else:
                     select_clause = ""
 
-                con.execute(
-                    f"""
+                con.execute(f"""
                     CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT {select_clause}"{geom_col_source}" as {geom_column}
                     FROM ST_Read('{input_path}');
-                """
-                )
+                """)
             con.commit()
             if not quiet:
                 view_or_table = "view" if (is_parquet and use_view) else "table"
@@ -13014,8 +13293,7 @@ def start_duckdb_tile_server(
                     if properties is None:
                         # Get column names and types, filtering for MVT-compatible types
                         # ST_AsMVT only supports: VARCHAR, FLOAT, DOUBLE, INTEGER, BIGINT, BOOLEAN
-                        columns = con.execute(
-                            f"""
+                        columns = con.execute(f"""
                             SELECT column_name, data_type
                             FROM information_schema.columns
                             WHERE table_name = '{table_name}'
@@ -13023,8 +13301,7 @@ def start_duckdb_tile_server(
                             AND data_type IN ('VARCHAR', 'FLOAT', 'DOUBLE', 'INTEGER', 'BIGINT', 'BOOLEAN',
                                              'SMALLINT', 'TINYINT', 'UBIGINT', 'UINTEGER', 'USMALLINT', 'UTINYINT',
                                              'HUGEINT', 'REAL', 'TEXT')
-                            """
-                        ).fetchall()
+                            """).fetchall()
                         prop_list = [col[0] for col in columns]
                     else:
                         prop_list = properties
@@ -14248,13 +14525,11 @@ def vector_to_parquet_batch(
 
         try:
             # Execute the conversion
-            conn.execute(
-                f"""
+            conn.execute(f"""
                 COPY (
                     SELECT * FROM ST_Read('{file}')
                 ) TO '{parquet_file}' (FORMAT PARQUET)
-            """
-            )
+            """)
         except Exception as e:
             print(f"Error converting {base_name}: {str(e)}")
 
@@ -14316,13 +14591,11 @@ def vector_to_gpkg_batch(
 
         try:
             # Execute the conversion
-            conn.execute(
-                f"""
+            conn.execute(f"""
                 COPY (
                     SELECT * FROM ST_Read('{file}')
                 ) TO '{gpkg_file}' (FORMAT GDAL, DRIVER 'GPKG')
-            """
-            )
+            """)
         except Exception as e:
             print(f"Error converting {base_name}: {str(e)}")
 
@@ -14382,13 +14655,11 @@ def vector_to_geojson_batch(input_dir, output_dir=None, file_ext=".shp", **kwarg
 
         try:
             # Execute the conversion
-            conn.execute(
-                f"""
+            conn.execute(f"""
                 COPY (
                     SELECT * FROM ST_Read('{file}')
                 ) TO '{gpkg_file}' (FORMAT GDAL, DRIVER 'GeoJSON')
-            """
-            )
+            """)
         except Exception as e:
             print(f"Error converting {base_name}: {str(e)}")
 
@@ -14453,11 +14724,11 @@ def geojsonl_to_parquet_batch(
 
     # Process files in batches
     for batch_num in range(num_batches):
-        print(f"\nProcessing batch {batch_num+1}/{num_batches}")
+        print(f"\nProcessing batch {batch_num + 1}/{num_batches}")
 
         # Generate output filename
         output_file = os.path.join(
-            output_dir, f"{filename_predix}{batch_num+1:04d}.parquet"
+            output_dir, f"{filename_predix}{batch_num + 1:04d}.parquet"
         )
         if os.path.exists(output_file):
             print(f"Output file already exists: {output_file}")
@@ -14517,7 +14788,7 @@ def geojsonl_to_parquet_batch(
                 failed_files += 1
 
         if not records:
-            print(f"No valid records found in batch {batch_num+1}")
+            print(f"No valid records found in batch {batch_num + 1}")
             continue
 
         # Create a GeoDataFrame with the correct CRS
@@ -14528,7 +14799,7 @@ def geojsonl_to_parquet_batch(
         successful_parquets += 1
 
         # Print summary for this batch
-        print(f"Created GeoParquet file {batch_num+1}/{num_batches}: {output_file}")
+        print(f"Created GeoParquet file {batch_num + 1}/{num_batches}: {output_file}")
         print(f"  - Number of features: {len(gdf)}")
         print(f"  - Columns: {list(gdf.columns)}")
         if len(gdf) > 0:
@@ -14791,11 +15062,9 @@ def split_parquet_by_geometries(
         read_str = f"ST_Read('{input_vector}')"
 
     # Get all state IDs from the parquet file
-    state_ids = con.execute(
-        f"""
+    state_ids = con.execute(f"""
         SELECT {column} FROM {read_str}
-        """
-    ).fetchall()
+        """).fetchall()
 
     state_ids.sort()
 
@@ -14849,7 +15118,6 @@ def parquet_to_gdf(
     limit=None,
     **kwargs: Any,
 ):
-
     import duckdb
 
     if db_con is None:
@@ -14869,7 +15137,6 @@ def parquet_to_gdf(
         columns = ", ".join([f'"{col}"' for col in columns])
         sql = f"SELECT {columns}, {geom_sql} FROM '{input_parquet}'"
     else:
-
         sql = f"SELECT {columns} EXCLUDE {geometry}, {geom_sql} FROM '{input_parquet}'"
     if limit is not None:
         sql += f" LIMIT {limit}"
@@ -15603,7 +15870,7 @@ def gedi_download_files(
         os.makedirs(outdir)
 
     for index, url in enumerate(urls):
-        print(f"Downloading file {index+1} of {len(urls)}...")
+        print(f"Downloading file {index + 1} of {len(urls)}...")
 
         if url is None:
             continue
@@ -15973,12 +16240,10 @@ def nasa_data_download(
         return
 
     if keywords is None:
-
         earthaccess.download(
             granules, local_path=out_dir, provider=provider, threads=threads
         )
     else:
-
         # Collect file URLs that match any keyword
         filtered_links = []
         for granule in granules:
@@ -16425,9 +16690,7 @@ def generate_index_html(directory: str, output: str = "index.html") -> None:
 <body>
     <h1>Index of {directory}</h1>
     <ul>
-""".format(
-        directory=directory
-    )
+""".format(directory=directory)
 
     # Add each file to the HTML list
     for file in files:
@@ -18143,7 +18406,6 @@ def download_mapillary_image(
         image_id, resolution=resolution, access_token=access_token
     )
     if output is None:
-
         output = f"{image_id}.jpg"
     download_file(image_url, output, quiet=quiet, **kwargs)
 
@@ -19523,7 +19785,6 @@ def get_ee_tile_url(
     """
 
     if isinstance(endpoint, str):
-
         if endpoint == "default":
             endpoint = "https://giswqs-ee-tile-request.hf.space/tile"
 
@@ -19534,7 +19795,6 @@ def get_ee_tile_url(
         return response.json()["tile_url"]
 
     try:
-
         import ee
         from geemap.ee_tile_layers import _get_tile_url_format, _validate_palette
 

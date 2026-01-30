@@ -510,7 +510,7 @@ def nowrap(fun: _CallableT) -> _CallableT:
 
   This is needed in several concrete instances:
    - if you're subclassing a method like Module.param and don't want this
-     overriden core function decorated with the state management wrapper.
+     overridden core function decorated with the state management wrapper.
    - If you want a method to be callable from an unbound Module (e.g.: a
      function of construction of arguments that doesn't depend on params/RNGs).
      If you want to learn more about how Flax Modules manage their state read the
@@ -1061,7 +1061,10 @@ class Module(ModuleBase):
     3. Generate a hash function (if not provided by cls).
     """
     # Check reserved attributes have expected type annotations.
-    annotations = dict(cls.__dict__.get('__annotations__', {}))
+    if sys.version_info < (3, 14):
+      annotations = dict(cls.__dict__.get('__annotations__', {}))
+    else:
+      annotations = inspect.get_annotations(cls)
     if annotations.get('parent', _ParentType) != _ParentType:
       raise errors.ReservedModuleAttributeError(annotations)
     if annotations.get('name', str) not in ('str', str, Optional[str]):

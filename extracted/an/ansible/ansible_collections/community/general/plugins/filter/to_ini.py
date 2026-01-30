@@ -16,6 +16,12 @@ options:
     description: The dictionary that should be converted to the INI format.
     type: dictionary
     required: true
+seealso:
+  - plugin: ansible.builtin.ini
+    plugin_type: lookup
+  - module: community.general.ini_file
+  - plugin: community.general.from_ini
+    plugin_type: filter
 """
 
 EXAMPLES = r"""
@@ -50,6 +56,7 @@ _value:
 from collections.abc import Mapping
 from configparser import ConfigParser
 from io import StringIO
+
 from ansible.errors import AnsibleFilterError
 
 

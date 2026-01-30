@@ -165,7 +165,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_activate_attribute.py.html>`__ to see an example of how to use bulk_activate_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_activate_attribute.py.html>`__ to see an example of how to use bulk_activate_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -276,7 +276,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_de_activate_attribute.py.html>`__ to see an example of how to use bulk_de_activate_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_de_activate_attribute.py.html>`__ to see an example of how to use bulk_de_activate_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -381,7 +381,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_pin_attribute.py.html>`__ to see an example of how to use bulk_pin_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_pin_attribute.py.html>`__ to see an example of how to use bulk_pin_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -485,7 +485,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_unpin_attribute.py.html>`__ to see an example of how to use bulk_unpin_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_unpin_attribute.py.html>`__ to see an example of how to use bulk_unpin_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -589,7 +589,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_update_attribute.py.html>`__ to see an example of how to use bulk_update_attribute API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_update_attribute.py.html>`__ to see an example of how to use bulk_update_attribute API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -695,7 +695,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/bulk_update_attribute_notes.py.html>`__ to see an example of how to use bulk_update_attribute_notes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/bulk_update_attribute_notes.py.html>`__ to see an example of how to use bulk_update_attribute_notes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -801,7 +801,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/get_status_auto_activate.py.html>`__ to see an example of how to use get_status_auto_activate API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/get_status_auto_activate.py.html>`__ to see an example of how to use get_status_auto_activate API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId', 'dataKeyType']
@@ -915,7 +915,7 @@ class AttributesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apmtraces/put_toggle_auto_activate.py.html>`__ to see an example of how to use put_toggle_auto_activate API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apmtraces/put_toggle_auto_activate.py.html>`__ to see an example of how to use put_toggle_auto_activate API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId', 'isAutoActivateOn', 'dataKeyType']

@@ -1,23 +1,23 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 0.13.12
+Version: 0.14.15
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: pydantic
+Requires-Dist: pydantic>=2.10.0
 Requires-Dist: rich
-Requires-Dist: openai
+Requires-Dist: openai>=2.0.0
 Requires-Dist: posthog>=3.0.0
 Requires-Dist: aiohttp>=3.8.0
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.6.0; extra == "mcp"
+Requires-Dist: mcp>=1.20.0; extra == "mcp"
 Requires-Dist: fastapi>=0.115.0; extra == "mcp"
 Requires-Dist: uvicorn>=0.34.0; extra == "mcp"
 Requires-Dist: websockets>=12.0; extra == "mcp"
 Provides-Extra: memory
 Requires-Dist: chromadb>=1.0.0; extra == "memory"
-Requires-Dist: litellm>=1.72.6; extra == "memory"
+Requires-Dist: litellm>=1.81.0; extra == "memory"
 Provides-Extra: knowledge
 Requires-Dist: mem0ai>=0.1.0; extra == "knowledge"
 Requires-Dist: chromadb>=1.0.0; extra == "knowledge"
@@ -27,8 +27,8 @@ Provides-Extra: graph
 Requires-Dist: mem0ai[graph]>=0.1.0; extra == "graph"
 Requires-Dist: chromadb>=1.0.0; extra == "graph"
 Provides-Extra: llm
-Requires-Dist: litellm>=1.72.6; extra == "llm"
-Requires-Dist: pydantic>=2.4.2; extra == "llm"
+Requires-Dist: litellm>=1.81.0; extra == "llm"
+Requires-Dist: pydantic>=2.10.0; extra == "llm"
 Provides-Extra: api
 Requires-Dist: fastapi>=0.115.0; extra == "api"
 Requires-Dist: uvicorn>=0.34.0; extra == "api"
@@ -192,7 +192,6 @@ PraisonAI Agents is the **fastest AI agent framework** for agent instantiation.
 | PraisonAI (LiteLLM) | 7.56 | 2.00x |
 | PydanticAI | 226.94 | 60.16x |
 | LangGraph | 4,558.71 | 1,209x |
-| CrewAI | 15,607.92 | 4,138x |
 
 <details>
 <summary>Run benchmarks yourself</summary>

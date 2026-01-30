@@ -6,7 +6,6 @@ __docformat__ = "epytext en"
 
 from datetime import datetime
 import asyncio
-import six
 import logging
 import random
 
@@ -92,12 +91,10 @@ class DatagramProtocolClient(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         socket = transport.get_extra_info('socket')
-        self.logger.info(
-            '[%s:%d] Transport created with binding in %s:%d',
-                self.server, self.port,
-                socket.getsockname()[0],
-                socket.getsockname()[1]
-        )
+        self.logger.info('[%s:%d] Transport created with binding in %s:%d',
+                         self.server, self.port,
+                         socket.getsockname()[0],
+                         socket.getsockname()[1])
 
         pre_loop = asyncio.get_event_loop()
         asyncio.set_event_loop(loop=self.client.loop)
@@ -121,19 +118,19 @@ class DatagramProtocolClient(asyncio.Protocol):
         try:
             reply = Packet(packet=data, dict=self.client.dict)
 
-            if reply and reply.id in self.pending_requests:
+            if reply.code and reply.id in self.pending_requests:
                 req = self.pending_requests[reply.id]
                 packet = req['packet']
 
                 reply.dict = packet.dict
                 reply.secret = packet.secret
 
-                if packet.VerifyReply(reply, data):
+                if packet.VerifyReply(reply, data, enforce_ma=self.client.enforce_ma):
                     req['future'].set_result(reply)
                     # Remove request for map
                     del self.pending_requests[reply.id]
                 else:
-                    self.logger.warn('[%s:%d] Ignore invalid reply for id %d. %s', self.server, self.port, reply.id)
+                    self.logger.warn('[%s:%d] Ignore invalid reply for id %d: %s', self.server, self.port, reply.id, data)
             else:
                 self.logger.warn('[%s:%d] Ignore invalid reply: %s', self.server, self.port, data)
 
@@ -175,9 +172,9 @@ class ClientAsync:
     """
     # noinspection PyShadowingBuiltins
     def __init__(self, server, auth_port=1812, acct_port=1813,
-                 coa_port=3799, secret=six.b(''), dict=None,
+                 coa_port=3799, secret=b'', dict=None,
                  loop=None, retries=3, timeout=30,
-                 logger_name='pyrad'):
+                 logger_name='pyrad', enforce_ma=False):
 
         """Constructor.
 
@@ -216,6 +213,7 @@ class ClientAsync:
 
         self.protocol_coa = None
         self.coa_port = coa_port
+        self.enforce_ma = enforce_ma
 
     async def initialize_transports(self, enable_acct=False,
                                     enable_auth=False, enable_coa=False,
@@ -325,6 +323,11 @@ class ClientAsync:
         """
         if not self.protocol_auth:
             raise Exception('Transport not initialized')
+        if self.enforce_ma:
+            return AuthPacket(dict=self.dict,
+                              id=self.protocol_auth.create_id(),
+                              secret=self.secret,
+                              message_authenticator=True, **args)
 
         return AuthPacket(dict=self.dict,
                           id=self.protocol_auth.create_id(),
@@ -360,7 +363,7 @@ class ClientAsync:
         :rtype:  pyrad.packet.Packet
         """
 
-        if not self.protocol_acct:
+        if not self.protocol_coa:
             raise Exception('Transport not initialized')
 
         return CoAPacket(id=self.protocol_coa.create_id(),

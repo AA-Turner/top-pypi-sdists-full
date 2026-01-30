@@ -272,6 +272,8 @@ EXAMPLES = r"""
   delegate_to: localhost
 """
 
+import random
+import string
 import time
 import traceback
 
@@ -284,7 +286,7 @@ except ImportError:
     LINODE_IMP_ERR = traceback.format_exc()
     HAS_LINODE = False
 
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib, env_fallback
+from ansible.module_utils.basic import AnsibleModule, env_fallback, missing_required_lib
 
 
 def randompass():
@@ -295,8 +297,6 @@ def randompass():
     # It must contain at least two of these four character classes:
     # lower case letters - upper case letters - numbers - punctuation
     # we play it safe :)
-    import random
-    import string
 
     # as of python 2.4, this reseeds the PRNG from urandom
     random.seed()

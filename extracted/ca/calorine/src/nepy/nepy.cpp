@@ -1,12 +1,16 @@
 #include "nepy.h"
+#include "nep_utilities.h"
 #include "nep.cpp"
 #include "nep.h"
+#include "neighbor.cpp"
+#include "neighbor.h"
+#include "ewald.cpp"
+#include "ewald.h"
 #include <cmath>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <unistd.h>
 
 using namespace std;
 namespace py = pybind11;
@@ -408,8 +412,8 @@ std::vector<double> NEPY::getPolarizabilityGradient(double displacement, std::ve
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
 NEPY::getPotentialForcesAndVirials() {
   /**
-   @brief Calculate potential, forces and virials.
-   @details Calculates potential energy, forces and virials for a given
+   @brief Calculate potential, forces, and virials.
+   @details Calculates potential energy, forces, and virials for a given
    structure and NEP model.
   */
   std::vector<double> potential(atom.N);
@@ -417,6 +421,22 @@ NEPY::getPotentialForcesAndVirials() {
   std::vector<double> virial(atom.N * 9);
   nep.compute(atom.type, atom.cell, atom.position, potential, force, virial);
   return std::make_tuple(potential, force, virial);
+}
+
+std::tuple<std::vector<double>, std::vector<double>, std::vector<double>, std::vector<double>, std::vector<double>>
+NEPY::getPotentialForcesVirialsAndCharges() {
+  /**
+   @brief Calculate potential, forces, virials, and charges.
+   @details Calculates potential energy, forces, virials, and charges for a given
+   structure and qNEP model.
+  */
+  std::vector<double> potential(atom.N);
+  std::vector<double> force(atom.N * 3);
+  std::vector<double> virial(atom.N * 9);
+  std::vector<double> charge(atom.N);
+  std::vector<double> bec(atom.N * 9);
+  nep.compute(atom.type, atom.cell, atom.position, potential, force, virial, charge, bec);
+  return std::make_tuple(potential, force, virial, charge, bec);
 }
 
 std::vector<std::string> NEPY::_getAtomSymbols(std::string model_filename) {
@@ -545,5 +565,8 @@ PYBIND11_MODULE(_nepy, m) {
       .def("get_latent_space", &NEPY::getLatentSpace, "Get latent space")
       .def("get_potential_forces_and_virials",
            &NEPY::getPotentialForcesAndVirials,
-           "Get potential, forces and virials");
+           "Get potential, forces, and virials")
+      .def("get_potential_forces_virials_and_charges",
+           &NEPY::getPotentialForcesVirialsAndCharges,
+           "Get potential, forces, virials, and charges");
 }

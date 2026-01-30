@@ -48,7 +48,10 @@ class ModelDiagnostics:
 
   def __init__(self, meridian: model.Meridian, use_kpi: bool = False):
     self._meridian = meridian
-    self._analyzer = analyzer.Analyzer(meridian)
+    self._analyzer = analyzer.Analyzer(
+        model_context=meridian.model_context,
+        inference_data=meridian.inference_data,
+    )
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
 
   @functools.lru_cache(maxsize=128)
@@ -271,11 +274,15 @@ class ModelDiagnostics:
           x=c.INDEPENDENT
       )
 
-    return plot.properties(
-        title=formatter.custom_title_params(
-            summary_text.PRIOR_POSTERIOR_DIST_CHART_TITLE
+    return (
+        plot.properties(
+            title=formatter.custom_title_params(
+                summary_text.PRIOR_POSTERIOR_DIST_CHART_TITLE
+            )
         )
-    ).configure_axis(**formatter.TEXT_CONFIG).interactive()
+        .configure_axis(**formatter.TEXT_CONFIG)
+        .interactive()
+    )
 
   def plot_rhat_boxplot(self) -> alt.Chart:
     """Plots the R-hat box plot.
@@ -387,7 +394,10 @@ class ModelFit:
         represented as a value between zero and one. Default is `0.9`.
     """
     self._meridian = meridian
-    self._analyzer = analyzer.Analyzer(meridian)
+    self._analyzer = analyzer.Analyzer(
+        model_context=meridian.model_context,
+        inference_data=meridian.inference_data,
+    )
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
     self._model_fit_data = self._analyzer.expected_vs_actual_data(
         use_kpi=self._use_kpi, confidence_level=confidence_level
@@ -657,7 +667,10 @@ class ReachAndFrequency:
       use_kpi: If `True`, KPI is used instead of revenue.
     """
     self._meridian = meridian
-    self._analyzer = analyzer.Analyzer(meridian)
+    self._analyzer = analyzer.Analyzer(
+        model_context=meridian.model_context,
+        inference_data=meridian.inference_data,
+    )
     self._selected_times = selected_times
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
     self._optimal_frequency_data = self._analyzer.optimal_freq(
@@ -857,7 +870,10 @@ class MediaEffects:
         the incremental revenue using the revenue per KPI (if available).
     """
     self._meridian = meridian
-    self._analyzer = analyzer.Analyzer(meridian)
+    self._analyzer = analyzer.Analyzer(
+        model_context=meridian.model_context,
+        inference_data=meridian.inference_data,
+    )
     self._by_reach = by_reach
     self._use_kpi = self._analyzer._use_kpi(use_kpi)
 
@@ -1431,7 +1447,10 @@ class MediaSummary:
       use_kpi: If `True`, use KPI instead of revenue.
     """
     self._meridian = meridian
-    self._analyzer = analyzer.Analyzer(meridian)
+    self._analyzer = analyzer.Analyzer(
+        model_context=meridian.model_context,
+        inference_data=meridian.inference_data,
+    )
     self._confidence_level = confidence_level
     self._selected_times = selected_times
     self._marginal_roi_by_reach = marginal_roi_by_reach

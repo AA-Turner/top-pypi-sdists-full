@@ -7,6 +7,7 @@ from adam.commands.export.utils_export import ExportTableStatus, csv_dir, fs_exe
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import log2, log_to_pods, tabulize, log, parallelize
+from adam.utils_context import Context
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
@@ -59,20 +60,20 @@ class ExportSessions:
 
         return sessions
 
-    def clean_up_all_sessions(sts: str, pod: str, namespace: str):
+    def clean_up_all_sessions(sts: str, pod: str, namespace: str, ctx: Context = Context.NULL):
         if not sts or not namespace:
             return False
 
         if not pod:
             pod = StatefulSets.pod_names(sts, namespace)[0]
 
-        CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/*', show_out=Config().is_debug(), shell='bash')
+        CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/*', ctx=ctx)
         cmd = f'rm -rf {table_log_dir(pod, namespace)}/*.log*'
-        fs_exec(pod, namespace, cmd, show_out=Config().is_debug())
+        fs_exec(pod, namespace, cmd, ctx=ctx)
 
         return True
 
-    def clean_up_sessions(sts: str, pod: str, namespace: str, sessions: list[str], max_workers = 0):
+    def clean_up_sessions(sts: str, pod: str, namespace: str, sessions: list[str], max_workers = 0, ctx: Context = Context.NULL):
         if not sessions:
             return []
 
@@ -82,7 +83,7 @@ class ExportSessions:
         with parallelize(sessions,
                          max_workers,
                          msg='Cleaning|Cleaned up {size} export sessions') as exec:
-            cnt_tuples = exec.map(lambda session: ExportSessions.clean_up_session(sts, pod, namespace, session, True))
+            cnt_tuples = exec.map(lambda session: ExportSessions.clean_up_session(sts, pod, namespace, session, ctx=ctx.copy(show_out=False)))
             csv_cnt = 0
             log_cnt = 0
             for (csv, log) in cnt_tuples:
@@ -91,7 +92,7 @@ class ExportSessions:
 
             return csv_cnt, log_cnt
 
-    def clean_up_session(sts: str, pod: str, namespace: str, session: str, multi_tables = True):
+    def clean_up_session(sts: str, pod: str, namespace: str, session: str, multi_tables = True, ctx: Context = Context.NULL):
         if not sts or not namespace:
             return 0, 0
 
@@ -111,11 +112,11 @@ class ExportSessions:
             if m:
                 table = m.group(2)
 
-                CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/{session}_{table}', show_out=not multi_tables, shell='bash')
+                CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/{session}_{table}', shell='bash', ctx=ctx)
                 csv_cnt += 1
 
                 cmd = f'rm -rf {log_file}'
-                fs_exec(pod, namespace, cmd, show_out=not multi_tables)
+                fs_exec(pod, namespace, cmd, ctx=ctx)
                 log_cnt += 1
 
         return csv_cnt, log_cnt
@@ -169,10 +170,10 @@ class ExportSessionService:
 
         ExportSessions.clear_export_session_cache()
 
-    def clean_up_all(self):
+    def clean_up_all(self, ctx: Context = Context.NULL):
         state = self.handler.state
 
-        if ExportSessions.clean_up_all_sessions(state.sts, self.pod(), state.namespace):
+        if ExportSessions.clean_up_all_sessions(state.sts, self.pod(), state.namespace, ctx=ctx):
             ExportSessions.clear_export_session_cache()
 
     def show_all_sessions(self):

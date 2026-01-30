@@ -217,6 +217,10 @@ class EsxiHost(object):
             The value to assign to the datastore_attachments property of this EsxiHost.
         :type datastore_attachments: list[oci.ocvp.models.DatastoreAttachment]
 
+        :param primary_vnic_mac_address:
+            The value to assign to the primary_vnic_mac_address property of this EsxiHost.
+        :type primary_vnic_mac_address: str
+
         """
         self.swagger_types = {
             'id': 'str',
@@ -250,7 +254,8 @@ class EsxiHost(object):
             'defined_tags': 'dict(str, dict(str, object))',
             'system_tags': 'dict(str, dict(str, object))',
             'datastore_cluster_ids': 'list[str]',
-            'datastore_attachments': 'list[DatastoreAttachment]'
+            'datastore_attachments': 'list[DatastoreAttachment]',
+            'primary_vnic_mac_address': 'str'
         }
         self.attribute_map = {
             'id': 'id',
@@ -284,7 +289,8 @@ class EsxiHost(object):
             'defined_tags': 'definedTags',
             'system_tags': 'systemTags',
             'datastore_cluster_ids': 'datastoreClusterIds',
-            'datastore_attachments': 'datastoreAttachments'
+            'datastore_attachments': 'datastoreAttachments',
+            'primary_vnic_mac_address': 'primaryVnicMacAddress'
         }
         self._id = None
         self._display_name = None
@@ -318,6 +324,7 @@ class EsxiHost(object):
         self._system_tags = None
         self._datastore_cluster_ids = None
         self._datastore_attachments = None
+        self._primary_vnic_mac_address = None
 
     @property
     def id(self):
@@ -1228,6 +1235,30 @@ class EsxiHost(object):
         :type: list[oci.ocvp.models.DatastoreAttachment]
         """
         self._datastore_attachments = datastore_attachments
+
+    @property
+    def primary_vnic_mac_address(self):
+        """
+        Gets the primary_vnic_mac_address of this EsxiHost.
+        MAC address of ESXi host's compute instance primary VNIC.
+
+
+        :return: The primary_vnic_mac_address of this EsxiHost.
+        :rtype: str
+        """
+        return self._primary_vnic_mac_address
+
+    @primary_vnic_mac_address.setter
+    def primary_vnic_mac_address(self, primary_vnic_mac_address):
+        """
+        Sets the primary_vnic_mac_address of this EsxiHost.
+        MAC address of ESXi host's compute instance primary VNIC.
+
+
+        :param primary_vnic_mac_address: The primary_vnic_mac_address of this EsxiHost.
+        :type: str
+        """
+        self._primary_vnic_mac_address = primary_vnic_mac_address
 
     def __repr__(self):
         return formatted_flat_dict(self)

@@ -531,8 +531,11 @@ impl PerformanceClientCore {
         ClientError,
     > {
         // Create and validate config from preference
-        let config = preference
-            .pair_with_request_validate_and_convert(self.base_url.to_string(), texts.len())?;
+        let config = preference.pair_with_request_validate_and_convert(
+            self.base_url.to_string(),
+            texts.len(),
+            self.api_key.clone(),
+        )?;
         // Create batches
         let batches = self.create_batches_with_config(texts, &config);
 
@@ -586,8 +589,11 @@ impl PerformanceClientCore {
         preference: &RequestProcessingPreference,
     ) -> Result<(CoreRerankResponse, Vec<Duration>, Vec<HeaderMap>, Duration), ClientError> {
         // Create and validate config from preference
-        let config = preference
-            .pair_with_request_validate_and_convert(self.base_url.to_string(), texts.len())?;
+        let config = preference.pair_with_request_validate_and_convert(
+            self.base_url.to_string(),
+            texts.len(),
+            self.api_key.clone(),
+        )?;
 
         // Create batches
         let batches = self.create_batches_with_config(texts, &config);
@@ -652,8 +658,11 @@ impl PerformanceClientCore {
         ClientError,
     > {
         // Create and validate config from preference
-        let config = preference
-            .pair_with_request_validate_and_convert(self.base_url.to_string(), inputs.len())?;
+        let config = preference.pair_with_request_validate_and_convert(
+            self.base_url.to_string(),
+            inputs.len(),
+            self.api_key.clone(),
+        )?;
 
         // Create batches
         let batches = self.create_batches_with_config(inputs, &config);
@@ -705,15 +714,17 @@ impl PerformanceClientCore {
         url_path: String,
         payloads_json: Vec<serde_json::Value>,
         preference: &RequestProcessingPreference,
-        custom_headers: Option<HeaderMap>,
         method: crate::http::HttpMethod,
     ) -> Result<(Vec<(serde_json::Value, HeaderMap, Duration)>, Duration), ClientError> {
         let start_time = std::time::Instant::now();
         let total_payloads = payloads_json.len();
 
         // Create and validate config from preference
-        let config = preference
-            .pair_with_request_validate_and_convert(self.base_url.to_string(), total_payloads)?;
+        let config = preference.pair_with_request_validate_and_convert(
+            self.base_url.to_string(),
+            total_payloads,
+            self.api_key.clone(),
+        )?;
 
         let total_timeout = config.total_timeout_duration();
         let request_timeout_duration = config.timeout_duration();
@@ -726,8 +737,6 @@ impl PerformanceClientCore {
         let mut indexed_results: Vec<(usize, serde_json::Value, HeaderMap, Duration)> =
             Vec::with_capacity(total_payloads);
 
-        let custom_headers = custom_headers.map(Arc::new);
-
         for (index, payload_item_json) in payloads_json.into_iter().enumerate() {
             // Clone config for this iteration
             let config_clone = config.clone();
@@ -737,7 +746,6 @@ impl PerformanceClientCore {
             let url_path = url_path.clone();
             let semaphore: Arc<Semaphore> = Arc::clone(&semaphore);
             let individual_request_timeout = request_timeout_duration;
-            let custom_headers = custom_headers.clone();
             let method = method;
 
             // Generate individual request ID for this batch
@@ -765,7 +773,6 @@ impl PerformanceClientCore {
                     individual_request_timeout,
                     &config_clone,
                     request_customer_id,
-                    custom_headers.as_deref(),
                     method,
                 )
                 .await;

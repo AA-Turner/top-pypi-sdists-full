@@ -2,9 +2,9 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
+
 import os
 import shutil
 
@@ -919,3 +919,18 @@ def test_key_normalization():
         assert "/group/data2" in tstore
 
     os.remove("test_key_normalization.b2z")
+
+
+def test_open_context_manager(populated_tree_store):
+    """Test opening via blosc2.open as a context manager."""
+    tstore_fixture, path = populated_tree_store
+    if ".b2d" in path:
+        pytest.skip("This test is only for b2z storage")
+    # Close the fixture store to ensure data is written to disk
+    tstore_fixture.close()
+
+    # Test opening via blosc2.open as a context manager
+    with blosc2.open(path, mode="r") as tstore:
+        assert isinstance(tstore, TreeStore)
+        assert "/child0/data" in tstore
+        assert np.array_equal(tstore["/child0/data"][:], np.array([1, 2, 3]))

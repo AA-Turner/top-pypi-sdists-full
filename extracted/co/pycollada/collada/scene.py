@@ -36,6 +36,10 @@ from collada.common import tag
 from collada.util import toUnitVec
 from collada.xmlutil import etree as ElementTree
 
+# Pre-allocated identity matrix for reuse (read-only, never modify directly)
+_IDENTITY_MATRIX = numpy.identity(4, dtype=numpy.float32)
+_IDENTITY_MATRIX.flags.writeable = False
+
 
 class DaeInstanceNotLoadedError(Exception):
     """Raised when an instance_node refers to a node that isn't loaded yet. Will always be caught"""
@@ -363,13 +367,19 @@ class Node(SceneNode):
             self.transforms = transforms
         """A list of transformations effecting the node. This can
           contain any object that inherits from :class:`collada.scene.Transform`"""
-        self.matrix = numpy.identity(4, dtype=numpy.float32)
+
+        # Use cached identity matrix when no transforms, otherwise compute the combined matrix
+        if len(self.transforms) == 0:
+            self.matrix = _IDENTITY_MATRIX
+        elif len(self.transforms) == 1:
+            self.matrix = self.transforms[0].matrix.copy()
+        else:
+            self.matrix = numpy.identity(4, dtype=numpy.float32)
+            for t in self.transforms:
+                self.matrix = numpy.dot(self.matrix, t.matrix)
         """A numpy.array of size 4x4 containing a transformation matrix that
         combines all the transformations in :attr:`transforms`. This will only
         be updated after calling :meth:`save`."""
-
-        for t in self.transforms:
-            self.matrix = numpy.dot(self.matrix, t.matrix)
 
         if xmlnode is not None:
             self.xmlnode = xmlnode
@@ -405,9 +415,12 @@ class Node(SceneNode):
     def save(self):
         """Saves the geometry back to :attr:`xmlnode`. Also updates
         :attr:`matrix` if :attr:`transforms` has been modified."""
-        self.matrix = numpy.identity(4, dtype=numpy.float32)
-        for t in self.transforms:
-            self.matrix = numpy.dot(self.matrix, t.matrix)
+        if len(self.transforms) == 0:
+            self.matrix = _IDENTITY_MATRIX
+        else:
+            self.matrix = numpy.identity(4, dtype=numpy.float32)
+            for t in self.transforms:
+                self.matrix = numpy.dot(self.matrix, t.matrix)
 
         for child in self.children:
             child.save()
@@ -436,13 +449,31 @@ class Node(SceneNode):
         children = []
         transforms = []
 
+        dispatch = getattr(collada, '_node_dispatch', None)
+        if dispatch is None:
+            dispatch = _build_node_dispatch(collada)
+
         for subnode in node:
+            entry = dispatch.get(subnode.tag)
+            if entry is None:
+                collada.handleError(DaeUnsupportedError('Unknown scene node %s' % str(subnode.tag)))
+                continue
+
+            load_type, loader_class, is_transform = entry
+            if load_type == 'none':
+                continue
+
             try:
-                n = loadNode(collada, subnode, localscope)
-                if isinstance(n, Transform):
-                    transforms.append(n)
-                elif n is not None:
-                    children.append(n)
+                if load_type == 'node':
+                    n = loader_class.load(collada, subnode, localscope)
+                else:
+                    n = loader_class.load(collada, subnode)
+
+                if n is not None:
+                    if is_transform:
+                        transforms.append(n)
+                    else:
+                        children.append(n)
             except DaeError as ex:
                 collada.handleError(ex)
 
@@ -547,10 +578,8 @@ class GeometryNode(SceneNode):
         """Yields a :class:`collada.geometry.BoundGeometry` if ``tipo=='geometry'``"""
         if tipo == 'geometry':
             if matrix is None:
-                matrix = numpy.identity(4, dtype=numpy.float32)
-            materialnodesbysymbol = {}
-            for mat in self.materials:
-                materialnodesbysymbol[mat.symbol] = mat
+                matrix = _IDENTITY_MATRIX
+            materialnodesbysymbol = {mat.symbol: mat for mat in self.materials}
             yield self.geometry.bind(matrix, materialnodesbysymbol)
 
     @staticmethod
@@ -561,10 +590,13 @@ class GeometryNode(SceneNode):
         geometry = collada.geometries.get(url[1:])
         if not geometry:
             raise DaeBrokenRefError('Geometry %s not found in library' % url)
-        matnodes = node.findall('%s/%s/%s' % (collada.tag('bind_material'), collada.tag('technique_common'), collada.tag('instance_material')))
-        materials = []
-        for matnode in matnodes:
-            materials.append(MaterialNode.load(collada, matnode))
+        # Use cached xpath or build and cache it
+        mat_xpath = getattr(collada, '_geomnode_mat_xpath', None)
+        if mat_xpath is None:
+            mat_xpath = f"{collada.tag('bind_material')}/{collada.tag('technique_common')}/{collada.tag('instance_material')}"
+            collada._geomnode_mat_xpath = mat_xpath
+        matnodes = node.findall(mat_xpath)
+        materials = [MaterialNode.load(collada, matnode) for matnode in matnodes]
         return GeometryNode(geometry, materials, xmlnode=node)
 
     def save(self):
@@ -574,7 +606,7 @@ class GeometryNode(SceneNode):
         for m in self.materials:
             m.save()
 
-        matparent = self.xmlnode.find('%s/%s' % (tag('bind_material'), tag('technique_common')))
+        matparent = self.xmlnode.find(f"{tag('bind_material')}/{tag('technique_common')}")
         if matparent is None and len(self.materials) == 0:
             return
         elif matparent is None:
@@ -639,10 +671,8 @@ class ControllerNode(SceneNode):
         """Yields a :class:`collada.controller.BoundController` if ``tipo=='controller'``"""
         if tipo == 'controller':
             if matrix is None:
-                matrix = numpy.identity(4, dtype=numpy.float32)
-            materialnodesbysymbol = {}
-            for mat in self.materials:
-                materialnodesbysymbol[mat.symbol] = mat
+                matrix = _IDENTITY_MATRIX
+            materialnodesbysymbol = {mat.symbol: mat for mat in self.materials}
             yield self.controller.bind(matrix, materialnodesbysymbol)
 
     @staticmethod
@@ -653,10 +683,13 @@ class ControllerNode(SceneNode):
         controller = collada.controllers.get(url[1:])
         if not controller:
             raise DaeBrokenRefError('Controller %s not found in library' % url)
-        matnodes = node.findall('%s/%s/%s' % (collada.tag('bind_material'), collada.tag('technique_common'), collada.tag('instance_material')))
-        materials = []
-        for matnode in matnodes:
-            materials.append(MaterialNode.load(collada, matnode))
+        # Use cached xpath (same as GeometryNode) or build and cache it
+        mat_xpath = getattr(collada, '_geomnode_mat_xpath', None)
+        if mat_xpath is None:
+            mat_xpath = f"{collada.tag('bind_material')}/{collada.tag('technique_common')}/{collada.tag('instance_material')}"
+            collada._geomnode_mat_xpath = mat_xpath
+        matnodes = node.findall(mat_xpath)
+        materials = [MaterialNode.load(collada, matnode) for matnode in matnodes]
         return ControllerNode(controller, materials, xmlnode=node)
 
     def save(self):
@@ -773,7 +806,7 @@ class CameraNode(SceneNode):
         """Yields a :class:`collada.camera.BoundCamera` if ``tipo=='camera'``"""
         if tipo == 'camera':
             if matrix is None:
-                matrix = numpy.identity(4, dtype=numpy.float32)
+                matrix = _IDENTITY_MATRIX
             yield self.camera.bind(matrix)
 
     @staticmethod
@@ -821,7 +854,7 @@ class LightNode(SceneNode):
         """Yields a :class:`collada.light.BoundLight` if ``tipo=='light'``"""
         if tipo == 'light':
             if matrix is None:
-                matrix = numpy.identity(4, dtype=numpy.float32)
+                matrix = _IDENTITY_MATRIX
             yield self.light.bind(matrix)
 
     @staticmethod
@@ -874,6 +907,27 @@ class ExtraNode(SceneNode):
         pass
 
 
+def _build_node_dispatch(collada):
+    """Build the node dispatch table and cache it on the collada object."""
+    dispatch = {
+        collada.tag('node'): ('node', Node, False),
+        collada.tag('translate'): ('simple', TranslateTransform, True),
+        collada.tag('rotate'): ('simple', RotateTransform, True),
+        collada.tag('scale'): ('simple', ScaleTransform, True),
+        collada.tag('matrix'): ('simple', MatrixTransform, True),
+        collada.tag('lookat'): ('simple', LookAtTransform, True),
+        collada.tag('instance_geometry'): ('simple', GeometryNode, False),
+        collada.tag('instance_camera'): ('simple', CameraNode, False),
+        collada.tag('instance_light'): ('simple', LightNode, False),
+        collada.tag('instance_controller'): ('simple', ControllerNode, False),
+        collada.tag('instance_node'): ('node', NodeNode, False),
+        collada.tag('extra'): ('simple', ExtraNode, False),
+        collada.tag('asset'): ('none', None, False),
+    }
+    collada._node_dispatch = dispatch
+    return dispatch
+
+
 def loadNode(collada, node, localscope):
     """Generic scene node loading from an xml `node` and a `collada` object.
 
@@ -881,34 +935,21 @@ def loadNode(collada, node, localscope):
     and return it.
 
     """
-    if node.tag == collada.tag('node'):
-        return Node.load(collada, node, localscope)
-    elif node.tag == collada.tag('translate'):
-        return TranslateTransform.load(collada, node)
-    elif node.tag == collada.tag('rotate'):
-        return RotateTransform.load(collada, node)
-    elif node.tag == collada.tag('scale'):
-        return ScaleTransform.load(collada, node)
-    elif node.tag == collada.tag('matrix'):
-        return MatrixTransform.load(collada, node)
-    elif node.tag == collada.tag('lookat'):
-        return LookAtTransform.load(collada, node)
-    elif node.tag == collada.tag('instance_geometry'):
-        return GeometryNode.load(collada, node)
-    elif node.tag == collada.tag('instance_camera'):
-        return CameraNode.load(collada, node)
-    elif node.tag == collada.tag('instance_light'):
-        return LightNode.load(collada, node)
-    elif node.tag == collada.tag('instance_controller'):
-        return ControllerNode.load(collada, node)
-    elif node.tag == collada.tag('instance_node'):
-        return NodeNode.load(collada, node, localscope)
-    elif node.tag == collada.tag('extra'):
-        return ExtraNode.load(collada, node)
-    elif node.tag == collada.tag('asset'):
-        return None
-    else:
+    # Inline check, call builder only if needed
+    dispatch = getattr(collada, '_node_dispatch', None)
+    if dispatch is None:
+        dispatch = _build_node_dispatch(collada)
+
+    entry = dispatch.get(node.tag)
+    if entry is None:
         raise DaeUnsupportedError('Unknown scene node %s' % str(node.tag))
+    load_type, loader_class, _ = entry
+    if load_type == 'node':
+        return loader_class.load(collada, node, localscope)
+    elif load_type == 'simple':
+        return loader_class.load(collada, node)
+    else:  # 'none'
+        return None
 
 
 class Scene(DaeObject):

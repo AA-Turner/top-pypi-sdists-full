@@ -1,17 +1,31 @@
+from __future__ import annotations
+
+from devpi_server.keyfs import KeyFS
+from devpi_server.keyfs import Transaction
+from devpi_server.keyfs_types import FilePathInfo
+from devpi_server.keyfs_types import RelPath
+from devpi_server.mythread import ThreadPool
+from devpi_server.readonly import is_deeply_readonly
+from functools import partial
+from typing import TYPE_CHECKING
+from typing import cast
 import contextlib
 import py
 import pytest
-from devpi_server.mythread import ThreadPool
 
-from devpi_server.keyfs import KeyFS, Transaction
-from devpi_server.readonly import is_deeply_readonly
+
+if TYPE_CHECKING:
+    from devpi_server.keyfs import KeyChangeEvent
+    from devpi_server.keyfs_types import PTypedKey
+    from devpi_server.keyfs_types import TypedKey
+
 
 notransaction = pytest.mark.notransaction
 
 
 @pytest.fixture
-def keyfs(gen_path, pool, storage):
-    keyfs = KeyFS(gen_path(), storage)
+def keyfs(gen_path, pool, storage, storage_io_file_factory):
+    keyfs = KeyFS(gen_path(), storage, io_file_factory=storage_io_file_factory)
     pool.register(keyfs.notifier)
     return keyfs
 
@@ -49,8 +63,10 @@ class TestKeyFS:
             assert conn.last_changelog_serial == -1
 
     @notransaction
-    def test_keyfs_readonly(self, storage, tmpdir):
-        keyfs = KeyFS(tmpdir, storage, readonly=True)
+    def test_keyfs_readonly(self, storage, storage_io_file_factory, tmpdir):
+        keyfs = KeyFS(
+            tmpdir, storage, io_file_factory=storage_io_file_factory, readonly=True
+        )
         with pytest.raises(keyfs.ReadOnly):
             with keyfs.write_transaction():
                 pass
@@ -452,7 +468,7 @@ class TestTransactionIsolation:
         assert serial == 2
         # load entries into new keyfs instance
         new_keyfs = KeyFS(tmpdir.join("newkeyfs"), storage)
-        D2 = new_keyfs.add_key("NAME", "hello", dict)
+        D2 = cast("TypedKey[dict]", new_keyfs.add_key("NAME", "hello", dict))
         for serial in range(3):
             with keyfs.read_transaction() as tx:
                 changes = tx.conn.get_changes(serial)
@@ -466,7 +482,7 @@ class TestTransactionIsolation:
     def test_get_value_at_modify_inplace_is_safe(self, keyfs):
         from copy import deepcopy
         D = keyfs.add_key("NAME", "hello", dict)
-        d = {1: set(), 2: dict(), 3: []}
+        d: dict[int, object] = {1: set(), 2: dict(), 3: []}
         d_orig = deepcopy(d)
         with keyfs.write_transaction():
             D.set(d)
@@ -527,15 +543,21 @@ class TestTransactionIsolation:
         new_keyfs.import_changes(0, changes)
         ((serial, changes),) = l
         assert serial == 0
-        assert changes == {new_keyfs.NAME(name="world"): ({1: 1}, -1)}
+        assert changes == {
+            cast("PTypedKey", new_keyfs.NAME)(name="world"): ({1: 1}, -1)
+        }
 
-    def test_import_changes_subscriber_error(self, keyfs, storage, tmpdir):
+    def test_import_changes_subscriber_error(
+        self, keyfs, storage, storage_io_file_factory, tmpdir
+    ):
         pkey = keyfs.add_key("NAME", "hello/{name}", dict)
         D = pkey(name="world")
         with keyfs.write_transaction():
             D.set({1: 1})
         keyfs_serial = keyfs.get_current_serial()
-        new_keyfs = KeyFS(tmpdir.join("newkeyfs"), storage)
+        new_keyfs = KeyFS(
+            tmpdir.join("newkeyfs"), storage, io_file_factory=storage_io_file_factory
+        )
         pkey = new_keyfs.add_key("NAME", "hello/{name}", dict)
         new_keyfs.subscribe_on_import(lambda *args: 0 / 0)
         serial = new_keyfs.get_current_serial()
@@ -552,17 +574,19 @@ class TestTransactionIsolation:
         with keyfs.read_transaction() as tx:
             assert tx.conn.get_raw_changelog_entry(10000) is None
 
-    def test_cache_interference(self, storage, tmpdir):
+    def test_cache_interference(self, storage, storage_io_file_factory, tmpdir):
         # because the transaction for the import subscriber was opened during
         # the transaction of the import itself and keys were fetched and placed
         # in the relpath cache, there was a value mismatch when a key from
         # the currently being written serial was places in the cache during
         # the import subscriber run
-        keyfs1 = KeyFS(tmpdir.join("keyfs1"), storage)
+        keyfs1 = KeyFS(
+            tmpdir.join("keyfs1"), storage, io_file_factory=storage_io_file_factory
+        )
         pkey1 = keyfs1.add_key("NAME1", "hello1/{name}", dict)
         pkey2 = keyfs1.add_key("NAME2", "hello2/{name}", dict)
-        D1 = pkey1(name="world1")
-        D2 = pkey2(name="world2")
+        D1 = cast("PTypedKey", pkey1)(name="world1")
+        D2 = cast("PTypedKey", pkey2)(name="world2")
         for i in range(2):
             with keyfs1.write_transaction():
                 assert D1.get() == {}
@@ -596,8 +620,8 @@ class TestTransactionIsolation:
         keyfs2 = KeyFS(tmpdir.join("newkeyfs"), storage)
         pkey1 = keyfs2.add_key("NAME1", "hello1/{name}", dict)
         pkey2 = keyfs2.add_key("NAME2", "hello2/{name}", dict)
-        D1 = pkey1(name="world1")
-        D2 = pkey2(name="world2")
+        D1 = cast("PTypedKey", pkey1)(name="world1")
+        D2 = cast("PTypedKey", pkey2)(name="world2")
 
         # add a subscriber to get into that branch in keyfs2.import_changes
 
@@ -731,13 +755,18 @@ class TestSubscriber:
         event = queue.get()
         assert event.typedkey == key1
 
-    @pytest.mark.xfail(reason="test monkeypatching wrong thing after refactoring")
-    def test_persistent(self, tmpdir, queue, monkeypatch, storage):
+    def test_notifications_retried_after_exception(
+        self, tmpdir, queue, monkeypatch, storage, storage_io_file_factory
+    ):
         @contextlib.contextmanager
         def make_keyfs():
-            keyfs = KeyFS(tmpdir, storage)
+            keyfs = KeyFS(tmpdir, storage, io_file_factory=storage_io_file_factory)
             key1 = keyfs.add_key("NAME1", "hello", int)
-            keyfs.notifier.on_key_change(key1, queue.put)
+
+            def subscriber(ev: KeyChangeEvent) -> None:
+                queue.put(ev)
+
+            keyfs.notifier.on_key_change(key1, subscriber)
             pool = ThreadPool()
             pool.register(keyfs.notifier)
             pool.start()
@@ -746,16 +775,13 @@ class TestSubscriber:
             finally:
                 pool.kill()
 
-        with make_keyfs() as key1:
-            monkeypatch.setattr(key1.keyfs._storage, "_notify_on_commit",
-                                lambda x: 0/0)
+        with make_keyfs() as key1, monkeypatch.context() as m:
+            m.setattr(key1.keyfs._storage, "_notify_on_commit", lambda _x: 0 / 0)
             # we prevent the hooks from getting called
-            with pytest.raises(ZeroDivisionError):
-                with key1.keyfs.write_transaction():
-                    key1.set(1)
+            with pytest.raises(ZeroDivisionError), key1.keyfs.write_transaction():
+                key1.set(1)
             assert key1.keyfs.get_next_serial() == 1
             assert key1.keyfs.notifier.read_event_serial() == -1
-            monkeypatch.undo()
 
         # and then we restart keyfs and see if the hook still gets called
         with make_keyfs() as key1:
@@ -875,19 +901,25 @@ class TestSubscriber:
 
 
 @notransaction
-def test_crash_recovery(keyfs, storage_info):
+def test_crash_recovery(caplog, keyfs, storage_info):
+    from devpi_server.filestore import get_hashes
     from devpi_server.fileutil import loads
     from pathlib import Path
     if "storage_with_filesystem" not in storage_info.get("_test_markers", []):
         pytest.skip("The storage doesn't have marker 'storage_with_filesystem'.")
     content = b'foo'
+    hashes = get_hashes(content)
+    key = keyfs.add_key("STAGEFILE", "+f/{path}", dict)
+    file_path_info = FilePathInfo(RelPath("+f/foo"), hashes.get_default_value())
     with keyfs.write_transaction() as tx:
-        tx.conn.io_file_set('foo', content)
+        key(path="foo").set(dict(hash_spec=hashes.get_default_spec()))
+        tx.io_file.set_content(file_path_info, content)
     with keyfs.read_transaction() as tx:
-        path = Path(tx.conn.io_file_os_path('foo'))
+        path = Path(tx.io_file.os_path(file_path_info))
         raw_changelog_entry = tx.conn.get_raw_changelog_entry(tx.at_serial)
         changelog_entry = loads(raw_changelog_entry)
-        tmpname = changelog_entry[1][0]
+        (rel_rename,) = changelog_entry[1]
+        tmpname = Path(rel_rename).name
     tmppath = path.with_name(tmpname)
     assert path.exists()
     assert not tmppath.exists()
@@ -895,12 +927,14 @@ def test_crash_recovery(keyfs, storage_info):
     path.rename(tmppath)
     assert not path.exists()
     assert tmppath.exists()
+    caplog.clear()
     keyfs.finalize_init()
     # the rename should have been performed again
+    assert len(caplog.getrecords(".*completed.*file-commit.*")) == 1
     assert path.exists()
     assert not tmppath.exists()
     with keyfs.write_transaction() as tx:
-        tx.conn.io_file_delete('foo')
+        tx.io_file.delete(file_path_info)
     assert not path.exists()
     assert not tmppath.exists()
     # put file back in place
@@ -908,45 +942,85 @@ def test_crash_recovery(keyfs, storage_info):
         f.write(content)
     assert path.exists()
     assert not tmppath.exists()
+    caplog.clear()
     keyfs.finalize_init()
     # the deletion should have been performed again
+    assert len(caplog.getrecords(".*completed.*file-del.*")) == 1
     assert not path.exists()
     assert not tmppath.exists()
     with keyfs.write_transaction() as tx:
-        tx.conn.io_file_set('foo', content)
+        tx.io_file.set_content(file_path_info, content)
     path.unlink()
     # due to the remove file we get an unrecoverable error
     with pytest.raises(OSError, match="missing file"):
         keyfs.finalize_init()
 
 
-def test_keyfs_sqlite(gen_path, sorted_serverdir):
+def test_keyfs_sqlite(file_digest, gen_path, sorted_serverdir):
     from devpi_server import keyfs_sqlite
+    from devpi_server.filestore_db import DBIOFile
+
     tmp = gen_path()
-    keyfs = KeyFS(tmp, keyfs_sqlite.Storage)
+    storage = keyfs_sqlite.Storage
+    io_file_factory = partial(DBIOFile, settings={})
+    keyfs = KeyFS(tmp, storage, io_file_factory=io_file_factory)
+    content = b"bar"
+    file_path_info = FilePathInfo(RelPath("foo"), file_digest(content))
     with keyfs.write_transaction() as tx:
-        assert tx.conn.io_file_os_path('foo') is None
-        tx.conn.io_file_set('foo', b'bar')
+        assert tx.io_file.os_path(file_path_info) is None
+        tx.io_file.set_content(file_path_info, content)
         tx.conn._sqlconn.commit()
     with keyfs.read_transaction() as tx:
-        assert tx.conn.io_file_os_path('foo') is None
-        assert tx.conn.io_file_get('foo') == b'bar'
+        assert tx.io_file.os_path(file_path_info) is None
+        assert tx.io_file.get_content(file_path_info) == content
     assert sorted_serverdir(tmp) == [".sqlite_db"]
 
 
-def test_keyfs_sqlite_fs(gen_path, sorted_serverdir):
+def test_keyfs_sqlite_fs(file_digest, gen_path, sorted_serverdir):
     from devpi_server import keyfs_sqlite_fs
+    from devpi_server.filestore_fs import fsiofile_factory
+
     tmp = gen_path()
-    keyfs = KeyFS(tmp, keyfs_sqlite_fs.Storage)
+    storage = keyfs_sqlite_fs.Storage
+    io_file_factory = partial(fsiofile_factory, settings={})
+    keyfs = KeyFS(tmp, storage, io_file_factory=io_file_factory)
+    content = b"bar"
+    file_path_info = FilePathInfo(RelPath("foo"), file_digest(content))
     with keyfs.write_transaction() as tx:
-        assert tx.conn.io_file_os_path('foo') == str(tmp / 'foo')
-        tx.conn.io_file_set('foo', b'bar')
+        assert tx.io_file.os_path(file_path_info) == str(tmp / "+files" / "foo")
+        tx.io_file.set_content(file_path_info, content)
         tx.conn._sqlconn.commit()
     with keyfs.read_transaction() as tx:
-        assert tx.conn.io_file_get('foo') == b'bar'
-        with open(tx.conn.io_file_os_path('foo'), 'rb') as f:
-            assert f.read() == b'bar'
-    assert sorted_serverdir(tmp) == [".sqlite", "foo"]
+        assert tx.io_file.get_content(file_path_info) == content
+        with open(tx.io_file.os_path(file_path_info), "rb") as f:
+            assert f.read() == content
+    assert sorted_serverdir(tmp) == ["+files", ".sqlite"]
+    assert sorted_serverdir(tmp / "+files") == ["foo"]
+
+
+def test_keyfs_sqlite_hash_hl(file_digest, gen_path, sorted_serverdir):
+    from devpi_server import keyfs_sqlite_fs
+    from devpi_server.filestore_hash_hl import fsiofile_factory
+
+    tmp = gen_path()
+    storage = keyfs_sqlite_fs.Storage
+    io_file_factory = partial(fsiofile_factory, settings={})
+    keyfs = KeyFS(tmp, storage, io_file_factory=io_file_factory)
+    content = b"bar"
+    content_hash = file_digest(content)
+    file_path_info = FilePathInfo(RelPath("foo"), content_hash)
+    with keyfs.write_transaction() as tx:
+        assert tx.io_file.os_path(file_path_info) == str(tmp / "+files" / "foo")
+        tx.io_file.set_content(file_path_info, content)
+        tx.conn._sqlconn.commit()
+    with keyfs.read_transaction() as tx:
+        assert tx.io_file.get_content(file_path_info) == content
+        with open(tx.io_file.os_path(file_path_info), "rb") as f:
+            assert f.read() == content
+    assert sorted_serverdir(tmp) == ["+files", "+h", ".sqlite"]
+    assert sorted_serverdir(tmp / "+files") == ["foo"]
+    assert sorted_serverdir(tmp / "+h") == [content_hash[:3]]
+    assert sorted_serverdir(tmp / "+h" / content_hash[:3]) == [content_hash[3:]]
 
 
 @notransaction

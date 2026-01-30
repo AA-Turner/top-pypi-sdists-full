@@ -3,7 +3,7 @@ Output Style Decorator Module - Defines Base Class and Interface for Output Styl
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 from abc import ABC, abstractmethod
 
 from ...config.config_schema import RepomixConfig
@@ -79,11 +79,16 @@ class OutputStyle(ABC):
         """Get summary notes"""
         remove_comments_tip = "\n- Code comments have been removed." if self.config.output.remove_comments else ""
         show_line_numbers_tip = "\n- Line numbers have been added to the beginning of each line." if self.config.output.show_line_numbers else ""
-        parsable_style_tip = f"\n- Content has been formatted for parsing in {self.config.output.style_enum.value} style." if self.config.output.parsable_style else ""
-        return SUMMARY_NOTES.format(
-            remove_comments_tip=remove_comments_tip,
-            show_line_numbers_tip=show_line_numbers_tip,
-        ) + parsable_style_tip
+        parsable_style_tip = (
+            f"\n- Content has been formatted for parsing in {self.config.output.style_enum.value} style." if self.config.output.parsable_style else ""
+        )
+        return (
+            SUMMARY_NOTES.format(
+                remove_comments_tip=remove_comments_tip,
+                show_line_numbers_tip=show_line_numbers_tip,
+            )
+            + parsable_style_tip
+        )
 
     @property
     def summary_additional_info(self) -> str:
@@ -168,6 +173,31 @@ class OutputStyle(ABC):
     def generate_file_tree_section(self, file_tree: Dict) -> str:
         """Generates the file tree section."""
         pass
+
+    def generate_git_diff_section(self, work_tree_diff: str, staged_diff: str) -> str:
+        """Generate git diff section
+
+        Args:
+            work_tree_diff: Unstaged changes diff
+            staged_diff: Staged changes diff
+
+        Returns:
+            Git diff section content
+        """
+        # Default implementation - can be overridden by subclasses
+        return ""
+
+    def generate_git_log_section(self, commits: List[Any]) -> str:
+        """Generate git log section
+
+        Args:
+            commits: List of GitLogCommit objects
+
+        Returns:
+            Git log section content
+        """
+        # Default implementation - can be overridden by subclasses
+        return ""
 
 
 def format_file_size(size: float | int) -> str:

@@ -71,6 +71,18 @@ class OpTest(TestBase):
             'ALTER TABLE "some.schema".somename ADD COLUMN colname VARCHAR'
         )
 
+    def test_add_column_primary_key(self):
+        context = op_fixture("postgresql")
+        op.add_column(
+            "somename",
+            Column("colname", String, primary_key=True),
+        )
+
+        context.assert_(
+            "ALTER TABLE somename ADD COLUMN colname "
+            "VARCHAR NOT NULL PRIMARY KEY"
+        )
+
     def test_rename_table_schema_hard_quoting(self):
         context = op_fixture("postgresql")
         op.rename_table(
@@ -188,6 +200,17 @@ class OpTest(TestBase):
             "ALTER TABLE t1 ADD FOREIGN KEY(c1) REFERENCES c2 (id)",
         )
 
+    def test_add_column_fk_inline_references(self):
+        context = op_fixture()
+        op.add_column(
+            "t1",
+            Column("c1", Integer, ForeignKey("c2.id"), nullable=False),
+            inline_references=True,
+        )
+        context.assert_(
+            "ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL REFERENCES c2 (id)"
+        )
+
     def test_add_column_schema_fk(self):
         context = op_fixture()
         op.add_column(
@@ -198,6 +221,19 @@ class OpTest(TestBase):
         context.assert_(
             "ALTER TABLE foo.t1 ADD COLUMN c1 INTEGER NOT NULL",
             "ALTER TABLE foo.t1 ADD FOREIGN KEY(c1) REFERENCES c2 (id)",
+        )
+
+    def test_add_column_schema_fk_inline_references(self):
+        context = op_fixture()
+        op.add_column(
+            "t1",
+            Column("c1", Integer, ForeignKey("c2.id"), nullable=False),
+            schema="foo",
+            inline_references=True,
+        )
+        context.assert_(
+            "ALTER TABLE foo.t1 ADD COLUMN c1 INTEGER NOT NULL "
+            "REFERENCES c2 (id)"
         )
 
     def test_add_column_schema_type(self):
@@ -243,6 +279,17 @@ class OpTest(TestBase):
             "ALTER TABLE t1 ADD FOREIGN KEY(c1) REFERENCES t1 (c2)",
         )
 
+    def test_add_column_fk_self_referential_inline_references(self):
+        context = op_fixture()
+        op.add_column(
+            "t1",
+            Column("c1", Integer, ForeignKey("t1.c2"), nullable=False),
+            inline_references=True,
+        )
+        context.assert_(
+            "ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL REFERENCES t1 (c2)"
+        )
+
     def test_add_column_schema_fk_self_referential(self):
         context = op_fixture()
         op.add_column(
@@ -264,6 +311,72 @@ class OpTest(TestBase):
         context.assert_(
             "ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL",
             "ALTER TABLE t1 ADD FOREIGN KEY(c1) REFERENCES remote.t2 (c2)",
+        )
+
+    def test_add_column_fk_schema_inline_references(self):
+        context = op_fixture()
+        op.add_column(
+            "t1",
+            Column("c1", Integer, ForeignKey("remote.t2.c2"), nullable=False),
+            inline_references=True,
+        )
+        context.assert_(
+            "ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL "
+            "REFERENCES remote.t2 (c2)"
+        )
+
+    @combinations(
+        ("MixedCase.id", 'REFERENCES "MixedCase" (id)'),
+        ("t2.MixedCase", 'REFERENCES t2 ("MixedCase")'),
+        (
+            "MixedCaseTable.MixedCaseColumn",
+            'REFERENCES "MixedCaseTable" ("MixedCaseColumn")',
+        ),
+        ("MixedSchema.t2.id", 'REFERENCES "MixedSchema".t2 (id)'),
+        (
+            "MixedSchema.MixedTable.MixedCol",
+            'REFERENCES "MixedSchema"."MixedTable" ("MixedCol")',
+        ),
+        argnames="fk_ref,expected_ref",
+    )
+    def test_add_column_fk_inline_references_quoting(
+        self, fk_ref, expected_ref
+    ):
+        context = op_fixture()
+        op.add_column(
+            "t1",
+            Column("c1", Integer, ForeignKey(fk_ref), nullable=False),
+            inline_references=True,
+        )
+        context.assert_(
+            f"ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL {expected_ref}"
+        )
+
+    def test_add_column_multiple_fk_inline_references(self):
+        """Test that inline_references is ignored when a column has multiple
+        ForeignKey objects to avoid non-deterministic behavior."""
+        context = op_fixture()
+        # A column with two ForeignKey objects
+        col = Column(
+            "c1",
+            Integer,
+            ForeignKey("t2.id"),
+            ForeignKey("t3.id"),
+            nullable=False,
+        )
+        op.add_column("t1", col, inline_references=True)
+
+        # Should NOT render inline REFERENCES because there are 2 FKs
+        # Falls back to separate ADD CONSTRAINT statements
+        # Order of FK constraints is non-deterministic due to set ordering
+        context.assert_contains(
+            "ALTER TABLE t1 ADD COLUMN c1 INTEGER NOT NULL"
+        )
+        context.assert_contains(
+            "ALTER TABLE t1 ADD FOREIGN KEY(c1) REFERENCES t2 (id)"
+        )
+        context.assert_contains(
+            "ALTER TABLE t1 ADD FOREIGN KEY(c1) REFERENCES t3 (id)"
         )
 
     def test_add_column_schema_fk_schema(self):

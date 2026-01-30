@@ -30,7 +30,7 @@ class ReaperService:
         with logging(self, 'POST', path) as (url, headers):
             return requests.post(url, headers=headers, params=params)
 
-class ReaperLogginHandler:
+class ReaperLoggingHandler:
     def __init__(self, svc: ReaperService, method: str, path: str):
         self.svc = svc
         self.method = method
@@ -54,7 +54,7 @@ class ReaperLogginHandler:
         return False
 
 def logging(svc: ReaperService, method: str, path: str):
-    return ReaperLogginHandler(svc, method, path)
+    return ReaperLoggingHandler(svc, method, path)
 
 class ReaperHandler:
     def __init__(self, state: ReplState, show_out = True):
@@ -101,7 +101,7 @@ class Reapers:
         if not filter:
             Reapers.schedules_ids_by_cluster[state.sts] = [schedule['id'] for schedule in schedules]
 
-        tabulize(schedules, lambda s: f"{s['id']} {s['state']} {s['cluster_name']} {s['keyspace_name']}", header='ID STATE CLUSTER KEYSPACE', to=2)
+        tabulize(schedules, lambda s: f"{s['id']} {s['state']} {s['cluster_name']} {s['keyspace_name']}", header='ID STATE CLUSTER KEYSPACE', err=True)
 
     def schedule_ids(state: ReplState, show_output = True, filter: Callable[[list[dict]], dict] = None):
         schedules = Reapers.list_schedules(state, show_output=show_output, filter=filter)

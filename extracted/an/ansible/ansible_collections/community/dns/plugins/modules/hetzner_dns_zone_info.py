@@ -7,7 +7,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -70,6 +69,7 @@ zone_info:
   type: dict
   returned: success
   contains:
+    # TODO: adjust to new API!
     created:
       description:
         - The time when the zone was created.
@@ -170,6 +170,7 @@ zone_info:
 """
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.dns.plugins.module_utils.argspec import (
     ModuleOptionProvider,
 )
@@ -190,7 +191,12 @@ def main():
     argument_spec = create_hetzner_argument_spec()
     argument_spec.merge(create_module_argument_spec(provider_information=provider_information))
     module = AnsibleModule(supports_check_mode=True, **argument_spec.to_kwargs())
-    run_module(module, lambda: create_hetzner_api(ModuleOptionProvider(module), ModuleHTTPHelper(module)), provider_information=provider_information)
+    option_provider = ModuleOptionProvider(module)
+    run_module(
+        module,
+        lambda: create_hetzner_api(option_provider, ModuleHTTPHelper(module)),
+        provider_information=create_hetzner_provider_information(option_provider=option_provider),
+    )
 
 
 if __name__ == '__main__':

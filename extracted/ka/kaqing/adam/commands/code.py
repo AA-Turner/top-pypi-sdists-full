@@ -5,6 +5,7 @@ from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra_table_names, run_cql
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import tabulize
+from adam.utils_context import Context
 from adam.utils_k8s.statefulsets import StatefulSets
 
 class Code(Command):
@@ -34,7 +35,7 @@ class Code(Command):
             pod = state.pod
             pods = StatefulSets.pod_names(state.sts, state.namespace)
             tables = cassandra_table_names(state)
-            cql = partial(run_cql, state, show_out=True)
+            cql = partial(run_cql, state, Context.new(show_out=True))
 
             my_local = globals() | locals()
             # my_local = globals() | {'StatefulSets': StatefulSets} | locals()

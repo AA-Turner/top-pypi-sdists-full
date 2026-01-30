@@ -4,22 +4,21 @@ import contextlib
 import csv
 import email.utils
 import gzip
-import http
+import http.client
 import io
 import json
 import logging
 import os
-import socket
 import ssl
-import sys
 import tempfile
 import time
 import urllib.parse as urlparse
 from array import array
+from collections.abc import Iterator
+from typing import IO, Any, cast
 
 import msgpack
 import urllib3
-import urllib3.util
 
 from tdclient import errors, version
 from tdclient.bulk_import_api import BulkImportAPI
@@ -32,6 +31,7 @@ from tdclient.result_api import ResultAPI
 from tdclient.schedule_api import ScheduleAPI
 from tdclient.server_status_api import ServerStatusAPI
 from tdclient.table_api import TableAPI
+from tdclient.types import BytesOrStream, DataFormat, FileLike, StreamBody
 from tdclient.user_api import UserAPI
 from tdclient.util import (
     csv_dict_record_reader,
@@ -42,7 +42,7 @@ from tdclient.util import (
 )
 
 try:
-    import certifi
+    import certifi  # type: ignore[reportMissingImports]
 except ImportError:
     certifi = None
 
@@ -85,15 +85,15 @@ class API(
 
     def __init__(
         self,
-        apikey=None,
-        user_agent=None,
-        endpoint=None,
-        headers=None,
-        retry_post_requests=False,
-        max_cumul_retry_delay=600,
-        http_proxy=None,
-        **kwargs,
-    ):
+        apikey: str | None = None,
+        user_agent: str | None = None,
+        endpoint: str | None = None,
+        headers: dict[str, str] | None = None,
+        retry_post_requests: bool = False,
+        max_cumul_retry_delay: int = 600,
+        http_proxy: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         headers = {} if headers is None else headers
         if apikey is not None:
             self._apikey = apikey
@@ -105,11 +105,11 @@ class API(
         if user_agent is not None:
             self._user_agent = user_agent
         else:
-            self._user_agent = "TD-Client-Python/%s" % (version.__version__)
+            self._user_agent = f"TD-Client-Python/{version.__version__}"
 
         if endpoint is not None:
             if not urlparse.urlparse(endpoint).scheme:
-                endpoint = "https://{}".format(endpoint)
+                endpoint = f"https://{endpoint}"
             self._endpoint = endpoint
         elif os.getenv("TD_API_SERVER"):
             self._endpoint = os.getenv("TD_API_SERVER")
@@ -134,23 +134,26 @@ class API(
         self._headers = {key.lower(): value for (key, value) in headers.items()}
 
     @property
-    def apikey(self):
+    def apikey(self) -> str | None:
         return self._apikey
 
     @property
-    def endpoint(self):
+    def endpoint(self) -> str:
+        assert self._endpoint is not None  # Always set in __init__
         return self._endpoint
 
-    def _init_http(self, http_proxy=None, **kwargs):
+    def _init_http(
+        self, http_proxy: str | None = None, **kwargs: Any
+    ) -> urllib3.PoolManager | urllib3.ProxyManager:
         if http_proxy is None:
             return urllib3.PoolManager(**kwargs)
         else:
             if http_proxy.startswith("http://"):
                 return self._init_http_proxy(http_proxy, **kwargs)
             else:
-                return self._init_http_proxy("http://%s" % (http_proxy,), **kwargs)
+                return self._init_http_proxy(f"http://{http_proxy}", **kwargs)
 
-    def _init_http_proxy(self, http_proxy, **kwargs):
+    def _init_http_proxy(self, http_proxy: str, **kwargs: Any) -> urllib3.ProxyManager:
         pool_options = dict(kwargs)
         p = urlparse.urlparse(http_proxy)
         scheme = p.scheme
@@ -158,9 +161,15 @@ class API(
         if "@" in netloc:
             auth, netloc = netloc.split("@", 2)
             pool_options["proxy_headers"] = urllib3.make_headers(proxy_basic_auth=auth)
-        return urllib3.ProxyManager("%s://%s" % (scheme, netloc), **pool_options)
+        return urllib3.ProxyManager(f"{scheme}://{netloc}", **pool_options)
 
-    def get(self, path, params=None, headers=None, **kwargs):
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> contextlib.AbstractContextManager[urllib3.BaseHTTPResponse]:
         headers = {} if headers is None else dict(headers)
         headers["accept-encoding"] = "deflate, gzip"
         url, headers = self.build_request(path=path, headers=headers, **kwargs)
@@ -202,12 +211,12 @@ class API(
                         self._max_cumul_retry_delay,
                     )
             except (
+                OSError,
                 urllib3.exceptions.TimeoutStateError,
                 urllib3.exceptions.TimeoutError,
                 urllib3.exceptions.PoolError,
                 http.client.IncompleteRead,
                 TimeoutError,
-                socket.error,
             ):
                 pass
 
@@ -223,12 +232,7 @@ class API(
                 retry_delay *= 2
             else:
                 raise APIError(
-                    "Retrying stopped after %d seconds. (cumulative: %d/%d)"
-                    % (
-                        self._max_cumul_retry_delay,
-                        cumul_retry_delay,
-                        self._max_cumul_retry_delay,
-                    )
+                    f"Retrying stopped after {self._max_cumul_retry_delay} seconds. (cumulative: {cumul_retry_delay}/{self._max_cumul_retry_delay})"
                 )
 
         log.debug(
@@ -239,7 +243,13 @@ class API(
 
         return contextlib.closing(response)
 
-    def post(self, path, params=None, headers=None, **kwargs):
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> contextlib.AbstractContextManager[urllib3.BaseHTTPResponse]:
         headers = {} if headers is None else dict(headers)
         url, headers = self.build_request(path=path, headers=headers, **kwargs)
 
@@ -296,13 +306,15 @@ class API(
                         self._max_cumul_retry_delay,
                     )
             except (
+                OSError,
                 urllib3.exceptions.TimeoutStateError,
                 urllib3.exceptions.TimeoutError,
                 urllib3.exceptions.PoolError,
-                socket.error,
             ):
                 if not self._retry_post_requests:
-                    raise APIError("Retrying stopped by retry_post_requests == False")
+                    raise APIError(
+                        "Retrying stopped by retry_post_requests == False"
+                    ) from None
 
             if cumul_retry_delay <= self._max_cumul_retry_delay:
                 log.warning(
@@ -316,12 +328,7 @@ class API(
                 retry_delay *= 2
             else:
                 raise APIError(
-                    "Retrying stopped after %d seconds. (cumulative: %d/%d)"
-                    % (
-                        self._max_cumul_retry_delay,
-                        cumul_retry_delay,
-                        self._max_cumul_retry_delay,
-                    )
+                    f"Retrying stopped after {self._max_cumul_retry_delay} seconds. (cumulative: {cumul_retry_delay}/{self._max_cumul_retry_delay})"
                 )
 
         log.debug(
@@ -332,7 +339,14 @@ class API(
 
         return contextlib.closing(response)
 
-    def put(self, path, bytes_or_stream, size, headers=None, **kwargs):
+    def put(
+        self,
+        path: str,
+        bytes_or_stream: BytesOrStream,
+        size: int,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> contextlib.AbstractContextManager[urllib3.BaseHTTPResponse]:
         headers = {} if headers is None else dict(headers)
         headers["content-length"] = str(size)
         if "content-type" not in headers:
@@ -345,23 +359,28 @@ class API(
             repr(path),
         )
 
+        stream: array[int] | IO[bytes]
         if hasattr(bytes_or_stream, "read"):
             # file-like must support `read` and `fileno` to work with `httplib`
-            fileno_supported = hasattr(bytes_or_stream, "fileno")
+            # Type guard: if it has 'read', it's IO[bytes]
+            file_like = cast(IO[bytes], bytes_or_stream)
+            fileno_supported = hasattr(file_like, "fileno")
             if fileno_supported:
                 try:
-                    bytes_or_stream.fileno()
+                    file_like.fileno()
                 except io.UnsupportedOperation:
                     # `io.BytesIO` doesn't support `fileno`
                     fileno_supported = False
             if fileno_supported:
-                stream = bytes_or_stream
+                stream = file_like
             else:
-                stream = array("b", bytes_or_stream.read())
+                stream = array("b", file_like.read())
 
         else:
             # send request body as an `array.array` since `httplib` requires the request body to be a unicode string
-            stream = array("b", bytes_or_stream)
+            # Type guard: if it doesn't have 'read', it's bytes | bytearray
+            byte_data = cast("bytes | bytearray", bytes_or_stream)
+            stream = array("b", byte_data)
 
         response = None
         try:
@@ -378,12 +397,12 @@ class API(
             else:
                 raise APIError("Error %d: %s", response.status, response.data)
         except (
+            OSError,
             urllib3.exceptions.TimeoutStateError,
             urllib3.exceptions.TimeoutError,
             urllib3.exceptions.PoolError,
-            socket.error,
         ):
-            raise APIError("Error: %s" % (repr(response)))
+            raise APIError(f"Error: {repr(response)}") from None
 
         log.debug(
             "REST PUT response:\n  headers: %s\n  status: %d\n  body: <omitted>",
@@ -393,7 +412,13 @@ class API(
 
         return contextlib.closing(response)
 
-    def delete(self, path, params=None, headers=None, **kwargs):
+    def delete(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> contextlib.AbstractContextManager[urllib3.BaseHTTPResponse]:
         headers = {} if headers is None else dict(headers)
         url, headers = self.build_request(path=path, headers=headers, **kwargs)
 
@@ -434,10 +459,10 @@ class API(
                         self._max_cumul_retry_delay,
                     )
             except (
+                OSError,
                 urllib3.exceptions.TimeoutStateError,
                 urllib3.exceptions.TimeoutError,
                 urllib3.exceptions.PoolError,
-                socket.error,
             ):
                 pass
 
@@ -453,12 +478,7 @@ class API(
                 retry_delay *= 2
             else:
                 raise APIError(
-                    "Retrying stopped after %d seconds. (cumulative: %d/%d)"
-                    % (
-                        self._max_cumul_retry_delay,
-                        cumul_retry_delay,
-                        self._max_cumul_retry_delay,
-                    )
+                    f"Retrying stopped after {self._max_cumul_retry_delay} seconds. (cumulative: {cumul_retry_delay}/{self._max_cumul_retry_delay})"
                 )
 
         log.debug(
@@ -469,79 +489,96 @@ class API(
 
         return contextlib.closing(response)
 
-    def build_request(self, path=None, headers=None, endpoint=None):
+    def build_request(
+        self,
+        path: str | None = None,
+        headers: dict[str, str] | None = None,
+        endpoint: str | None = None,
+    ) -> tuple[str, dict[str, str]]:
         headers = {} if headers is None else headers
         if endpoint is None:
             endpoint = self._endpoint
+        assert endpoint is not None  # endpoint is always set in __init__
         if path is None:
-            url = endpoint
+            url: str = endpoint
         else:
             p = urlparse.urlparse(endpoint)
             # should not use `os.path.join` since it returns path string like "/foo\\bar"
-            request_path = path if p.path == "/" else "/".join([p.path, path])
+            # Type assertion: urlparse components are str not bytes for str input
+            p_path = str(p.path)
+            p_scheme = str(p.scheme)
+            p_netloc = str(p.netloc)
+            p_params = str(p.params)
+            p_query = str(p.query)
+            p_fragment = str(p.fragment)
+            request_path = path if p_path == "/" else "/".join([p_path, path])
             url = urlparse.urlunparse(
                 urlparse.ParseResult(
-                    p.scheme, p.netloc, request_path, p.params, p.query, p.fragment
+                    p_scheme, p_netloc, request_path, p_params, p_query, p_fragment
                 )
             )
         # use default headers first
         _headers = dict(self._headers)
         # add default headers
-        _headers["authorization"] = "TD1 %s" % (self._apikey,)
+        _headers["authorization"] = f"TD1 {self._apikey}"
         _headers["date"] = email.utils.formatdate(time.time())
         _headers["user-agent"] = self._user_agent
         # override given headers
         _headers.update({key.lower(): value for (key, value) in headers.items()})
         return (url, _headers)
 
-    def send_request(self, method, url, fields=None, body=None, headers=None, **kwargs):
+    def send_request(
+        self,
+        method: str,
+        url: str,
+        fields: dict[str, Any] | None = None,
+        body: StreamBody = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> urllib3.BaseHTTPResponse:
         if body is None:
             return self.http.request(
                 method, url, fields=fields, headers=headers, **kwargs
             )
 
-        if urllib3.util.IS_PYOPENSSL and isinstance(body, bytearray):
-            # workaround for https://github.com/pyca/pyopenssl/issues/621
-            body = memoryview(body)
-        if urllib3.util.IS_PYOPENSSL and isinstance(body, array):
-            # workaround for https://github.com/pyca/pyopenssl/issues/621
-            body = body.tobytes()
         return self.http.urlopen(method, url, body=body, headers=headers, **kwargs)
 
-    def raise_error(self, msg, res, body):
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes | str
+    ) -> None:
         status_code = res.status
         s = body if isinstance(body, str) else body.decode("utf-8")
         if status_code == 404:
-            raise errors.NotFoundError("%s: %s" % (msg, s))
+            raise errors.NotFoundError(f"{msg}: {s}")
         elif status_code == 409:
-            raise errors.AlreadyExistsError("%s: %s" % (msg, s))
+            raise errors.AlreadyExistsError(f"{msg}: {s}")
         elif status_code == 401:
-            raise errors.AuthError("%s: %s" % (msg, s))
+            raise errors.AuthError(f"{msg}: {s}")
         elif status_code == 403:
-            raise errors.ForbiddenError("%s: %s" % (msg, s))
+            raise errors.ForbiddenError(f"{msg}: {s}")
         else:
-            raise errors.APIError("%d: %s: %s" % (status_code, msg, s))
+            raise errors.APIError(f"{status_code}: {msg}: {s}")
 
-    def checked_json(self, body, required):
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]:
         js = None
         try:
             js = json.loads(body.decode("utf-8"))
         except ValueError as error:
-            raise APIError("Unexpected API response: %s: %s" % (error, repr(body)))
+            raise APIError(f"Unexpected API response: {error}: {repr(body)}") from error
         js = dict(js)
         if 0 < [k in js for k in required].count(False):
             missing = [k for k in required if k not in js]
-            raise APIError(
-                "Unexpected API response: %s: %s" % (repr(missing), repr(body))
-            )
+            raise APIError(f"Unexpected API response: {repr(missing)}: {repr(body)}")
         return js
 
-    def close(self):
+    def close(self) -> None:
         # urllib3 doesn't allow to close all connections immediately.
         # all connections in pool will be closed eventually during gc.
         self.http.clear()
 
-    def _prepare_file(self, file_like, fmt, **kwargs):
+    def _prepare_file(
+        self, file_like: FileLike, fmt: DataFormat, **kwargs: Any
+    ) -> IO[bytes]:
         fp = tempfile.TemporaryFile()
         with contextlib.closing(gzip.GzipFile(mode="wb", fileobj=fp)) as gz:
             packer = msgpack.Packer()
@@ -556,34 +593,41 @@ class API(
         fp.seek(0)
         return fp
 
-    def _read_file(self, file_like, fmt, **kwargs):
+    def _read_file(self, file_like: FileLike, fmt: DataFormat, **kwargs: Any) -> Any:
         compressed = fmt.endswith(".gz")
+        fmt_str = str(fmt)
         if compressed:
-            fmt = fmt[0 : len(fmt) - len(".gz")]
-        reader_name = "_read_%s_file" % (fmt,)
+            fmt_str = fmt_str[0 : len(fmt_str) - len(".gz")]
+        reader_name = f"_read_{fmt_str}_file"
         if hasattr(self, reader_name):
             reader = getattr(self, reader_name)
         else:
-            raise TypeError("unknown format: %s" % (fmt,))
+            raise TypeError(f"unknown format: {fmt}")
         if hasattr(file_like, "read"):
             if compressed:
-                file_like = gzip.GzipFile(fileobj=file_like)
+                file_like = gzip.GzipFile(fileobj=file_like)  # type: ignore[arg-type]
             return reader(file_like, **kwargs)
         else:
+            # At this point, file_like must be str or bytes (not IO[bytes])
+            file_path = cast("str | bytes", file_like)
             if compressed:
-                file_like = gzip.GzipFile(fileobj=open(file_like, "rb"))
+                file_like = gzip.GzipFile(fileobj=open(file_path, "rb"))  # type: ignore[arg-type]
             else:
-                file_like = open(file_like, "rb")
+                file_like = open(file_path, "rb")
             return reader(file_like, **kwargs)
 
-    def _read_msgpack_file(self, file_like, **kwargs):
+    def _read_msgpack_file(
+        self, file_like: IO[bytes], **kwargs: Any
+    ) -> Iterator[dict[str, Any]]:
         # current impl doesn't tolerate any unpack error
-        unpacker = msgpack.Unpacker(file_like, raw=False)
+        unpacker = msgpack.Unpacker(file_like, raw=False)  # type: ignore[arg-type]
         for record in unpacker:
             validate_record(record)
             yield record
 
-    def _read_json_file(self, file_like, **kwargs):
+    def _read_json_file(
+        self, file_like: IO[bytes], **kwargs: Any
+    ) -> Iterator[dict[str, Any]]:
         # current impl doesn't tolerate any JSON parse error
         for s in file_like:
             record = json.loads(s.decode("utf-8"))
@@ -592,20 +636,22 @@ class API(
 
     def _read_csv_file(
         self,
-        file_like,
-        dialect=csv.excel,
-        columns=None,
-        encoding="utf-8",
-        dtypes=None,
-        converters=None,
-        **kwargs,
-    ):
+        file_like: IO[bytes],
+        dialect: type[csv.Dialect] = csv.excel,
+        columns: list[str] | None = None,
+        encoding: str = "utf-8",
+        dtypes: dict[str, Any] | None = None,
+        converters: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Iterator[dict[str, Any]]:
         if columns is None:
-            reader = csv_dict_record_reader(file_like, encoding, dialect)
+            reader = csv_dict_record_reader(file_like, encoding, dialect)  # type: ignore[arg-type]
         else:
-            reader = csv_text_record_reader(file_like, encoding, dialect, columns)
+            reader = csv_text_record_reader(file_like, encoding, dialect, columns)  # type: ignore[arg-type]
 
         return read_csv_records(reader, dtypes, converters, **kwargs)
 
-    def _read_tsv_file(self, file_like, **kwargs):
+    def _read_tsv_file(
+        self, file_like: IO[bytes], **kwargs: Any
+    ) -> Iterator[dict[str, Any]]:
         return self._read_csv_file(file_like, dialect=csv.excel_tab, **kwargs)

@@ -1,0 +1,143 @@
+name: Plugins CI
+on:
+  push:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.github/workflows/ansible-test-plugins.yml'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.github/workflows/ansible-test-plugins.yml'
+  schedule:
+    - cron: '0 6 * * *'
+
+env:
+  clickhouse_version_file: "./ansible_collections/community/clickhouse/tests/integration/targets/setup_clickhouse/vars/main.yml"
+  clickhouse_test_info_file: "./ansible_collections/community/clickhouse/tests/integration/targets/clickhouse_info/tasks/initial.yml"
+
+jobs:
+  sanity:
+    name: "Sanity (Python: ${{ matrix.python }}, Ansible: ${{ matrix.ansible }})"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ansible:
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
+          - devel
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          path: ansible_collections/community/clickhouse
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+      - name: Run sanity tests
+        run: ansible-test sanity --docker -v --color
+        working-directory: ./ansible_collections/community/clickhouse
+
+  units:
+    runs-on: ubuntu-latest
+    name: Units (Ⓐ${{ matrix.ansible }})
+    strategy:
+      # As soon as the first unit test fails,
+      # cancel the others to free up the CI queue
+      fail-fast: true
+      matrix:
+        ansible:
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
+          - devel
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          path: ./ansible_collections/community/clickhouse
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+      - name: Instal clickhouse-driver
+        run: pip install clickhouse-driver
+
+      # Run the unit tests
+      - name: Run unit test
+        run: ansible-test units -v --color --python 3.10 --docker --coverage
+        working-directory: ./ansible_collections/community/clickhouse
+
+      # ansible-test support producing code coverage date
+      - name: Generate coverage report
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+        working-directory: ./ansible_collections/community/clickhouse
+
+      # See the reports at https://codecov.io/gh/GITHUBORG/REPONAME
+      - uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+
+  integration:
+    name: "Integration (Python: ${{ matrix.python }}, Ansible: ${{ matrix.ansible }}, ClickHouse: ${{ matrix.clickhouse }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible:
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
+          - devel
+        clickhouse:
+          - 23.8.16.40
+          - 24.8.14.39
+          - 25.3.3.42
+        python:
+          - "3.12"
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          path: ansible_collections/community/clickhouse
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+      - name: Set Clickhouse version (${{ matrix.clickhouse }})
+        run: "sed -i 's/^clickhouse_version:.*/clickhouse_version: \"${{ matrix.clickhouse }}\"/g' ${{ env.clickhouse_version_file }}"
+
+      - name: Run integration tests
+        run: ansible-test integration --docker ubuntu2404 -v --color --retry-on-error --continue-on-error --python ${{ matrix.python }} --diff --coverage
+        working-directory: ./ansible_collections/community/clickhouse
+
+      - name: Generate coverage report.
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+        working-directory: ./ansible_collections/community/clickhouse
+
+      - uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false

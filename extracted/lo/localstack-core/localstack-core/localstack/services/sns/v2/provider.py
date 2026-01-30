@@ -10,6 +10,7 @@ from rolo import Request, Router, route
 
 from localstack.aws.api import CommonServiceException, RequestContext
 from localstack.aws.api.sns import (
+    ActionsList,
     AmazonResourceName,
     BatchEntryIdsNotDistinctException,
     CheckIfPhoneNumberIsOptedOutResponse,
@@ -17,13 +18,16 @@ from localstack.aws.api.sns import (
     CreateEndpointResponse,
     CreatePlatformApplicationResponse,
     CreateTopicResponse,
+    DelegatesList,
     Endpoint,
     EndpointDisabledException,
+    GetDataProtectionPolicyResponse,
     GetEndpointAttributesResponse,
     GetPlatformApplicationAttributesResponse,
     GetSMSAttributesResponse,
     GetSubscriptionAttributesResponse,
     GetTopicAttributesResponse,
+    InvalidBatchEntryIdException,
     InvalidParameterException,
     InvalidParameterValueException,
     ListEndpointsByPlatformApplicationResponse,
@@ -60,6 +64,7 @@ from localstack.aws.api.sns import (
     attributeValue,
     authenticateOnUnsubscribe,
     endpoint,
+    label,
     message,
     messageStructure,
     nextToken,
@@ -78,16 +83,20 @@ from localstack.services.sns.analytics import internal_api_calls
 from localstack.services.sns.certificate import SNS_SERVER_CERT
 from localstack.services.sns.constants import (
     ATTR_TYPE_REGEX,
+    BATCH_ENTRY_ID_REGEX,
     DUMMY_SUBSCRIPTION_PRINCIPAL,
+    E164_REGEX,
     MAXIMUM_MESSAGE_LENGTH,
     MSG_ATTR_NAME_REGEX,
     PLATFORM_ENDPOINT_MSGS_ENDPOINT,
     SMS_MSGS_ENDPOINT,
+    SMS_PHONE_NUMBER_OPT_OUT_ENDPOINT,
     SNS_CERT_ENDPOINT,
     SNS_PROTOCOLS,
     SUBSCRIPTION_TOKENS_ENDPOINT,
     VALID_APPLICATION_PLATFORMS,
     VALID_MSG_ATTR_NAME_CHARS,
+    VALID_POLICY_ACTIONS,
     VALID_SUBSCRIPTION_ATTR_NAME,
 )
 from localstack.services.sns.filter import FilterPolicyValidator
@@ -210,6 +219,8 @@ class SnsProvider(SnsApi, ServiceLifecycleHook):
             if not name_match:
                 raise InvalidParameterException("Invalid parameter: Topic Name")
 
+        attributes["EffectiveDeliveryPolicy"] = _create_default_effective_delivery_policy()
+
         topic = _create_topic(name=name, attributes=attributes, context=context)
         if tags:
             self.tag_resource(context=context, resource_arn=topic_arn, tags=tags)
@@ -229,6 +240,11 @@ class SnsProvider(SnsApi, ServiceLifecycleHook):
             raise NotFoundException("Topic does not exist")
 
     def delete_topic(self, context: RequestContext, topic_arn: topicARN, **kwargs) -> None:
+        # This also deletes all subscriptions for the topic. In AWS, this is not immediately the case;
+        # the subs still exist for a certain period of time (~48h), detached, after which they are garbage collected
+        arn_data = parse_and_validate_topic_arn(topic_arn)
+        if context.region != arn_data["region"]:
+            raise InvalidParameterException("Invalid parameter: TopicArn")
         store = self.get_store(context.account_id, context.region)
 
         store.topics.pop(topic_arn, None)
@@ -766,6 +782,17 @@ class SnsProvider(SnsApi, ServiceLifecycleHook):
                 "Two or more batch entries in the request have the same Id."
             )
 
+        # Validate each entry ID
+        for entry_id in ids:
+            if len(entry_id) > 80:
+                raise InvalidBatchEntryIdException(
+                    f"The Id of a batch entry in the batch request is too long: {entry_id}"
+                )
+            if not BATCH_ENTRY_ID_REGEX.match(entry_id):
+                raise InvalidBatchEntryIdException(
+                    f"The Id of a batch entry in the batch request contains an impermissible character: {entry_id}"
+                )
+
         response: PublishBatchResponse = {"Successful": [], "Failed": []}
 
         # TODO: write AWS validated tests with FilterPolicy and batching
@@ -1109,10 +1136,88 @@ class SnsProvider(SnsApi, ServiceLifecycleHook):
     def opt_in_phone_number(
         self, context: RequestContext, phone_number: PhoneNumber, **kwargs
     ) -> OptInPhoneNumberResponse:
+        _validate_phone_number(phone_number)
         store = self.get_store(context.account_id, context.region)
         if phone_number in store.PHONE_NUMBERS_OPTED_OUT:
             store.PHONE_NUMBERS_OPTED_OUT.remove(phone_number)
         return OptInPhoneNumberResponse()
+
+    #
+    # Permission operations
+    #
+
+    def add_permission(
+        self,
+        context: RequestContext,
+        topic_arn: topicARN,
+        label: label,
+        aws_account_id: DelegatesList,
+        action_name: ActionsList,
+        **kwargs,
+    ) -> None:
+        topic: Topic = self._get_topic(topic_arn, context)
+        policy = json.loads(topic["attributes"]["Policy"])
+        statement = next(
+            (statement for statement in policy["Statement"] if statement["Sid"] == label),
+            None,
+        )
+
+        if statement:
+            raise InvalidParameterException("Invalid parameter: Statement already exists")
+
+        if any(action not in VALID_POLICY_ACTIONS for action in action_name):
+            raise InvalidParameterException(
+                "Invalid parameter: Policy statement action out of service scope!"
+            )
+
+        principals = [
+            f"arn:{get_partition(context.region)}:iam::{account_id}:root"
+            for account_id in aws_account_id
+        ]
+        actions = [f"SNS:{action}" for action in action_name]
+
+        statement = {
+            "Sid": label,
+            "Effect": "Allow",
+            "Principal": {"AWS": principals[0] if len(principals) == 1 else principals},
+            "Action": actions[0] if len(actions) == 1 else actions,
+            "Resource": topic_arn,
+        }
+
+        policy["Statement"].append(statement)
+        topic["attributes"]["Policy"] = json.dumps(policy)
+
+    def remove_permission(
+        self, context: RequestContext, topic_arn: topicARN, label: label, **kwargs
+    ) -> None:
+        topic = self._get_topic(topic_arn, context)
+        policy = json.loads(topic["attributes"]["Policy"])
+        statements = policy["Statement"]
+        statements = [statement for statement in statements if statement["Sid"] != label]
+        policy["Statement"] = statements
+        topic["attributes"]["Policy"] = json.dumps(policy)
+
+    #
+    # Data Protection Policy operations
+    #
+
+    def get_data_protection_policy(
+        self, context: RequestContext, resource_arn: topicARN, **kwargs
+    ) -> GetDataProtectionPolicyResponse:
+        topic = self._get_topic(resource_arn, context)
+        return GetDataProtectionPolicyResponse(
+            DataProtectionPolicy=topic.get("data_protection_policy")
+        )
+
+    def put_data_protection_policy(
+        self,
+        context: RequestContext,
+        resource_arn: topicARN,
+        data_protection_policy: attributeValue,
+        **kwargs,
+    ) -> None:
+        topic = self._get_topic(resource_arn, context)
+        topic["data_protection_policy"] = data_protection_policy
 
     def list_tags_for_resource(
         self, context: RequestContext, resource_arn: AmazonResourceName, **kwargs
@@ -1157,7 +1262,7 @@ class SnsProvider(SnsApi, ServiceLifecycleHook):
         if not multi_region and context.region != arn_data["region"]:
             raise InvalidParameterException("Invalid parameter: TopicArn")
         try:
-            store = SnsProvider.get_store(context.account_id, context.region)
+            store = SnsProvider.get_store(arn_data["account"], arn_data["region"])
             return store.topics[arn]
         except KeyError:
             raise NotFoundException("Topic does not exist")
@@ -1209,6 +1314,26 @@ def _default_attributes(topic: Topic, context: RequestContext) -> TopicAttribute
             }
         )
     return default_attributes
+
+
+def _create_default_effective_delivery_policy():
+    return json.dumps(
+        {
+            "http": {
+                "defaultHealthyRetryPolicy": {
+                    "minDelayTarget": 20,
+                    "maxDelayTarget": 20,
+                    "numRetries": 3,
+                    "numMaxDelayRetries": 0,
+                    "numNoDelayRetries": 0,
+                    "numMinDelayRetries": 0,
+                    "backoffFunction": "linear",
+                },
+                "disableSubscriptionOverrides": False,
+                "defaultRequestPolicy": {"headerContentType": "text/plain; charset=UTF-8"},
+            }
+        }
+    )
 
 
 def _create_default_topic_policy(topic: Topic, context: RequestContext) -> str:
@@ -1384,6 +1509,13 @@ def _set_sms_attribute_default(store: SnsStore) -> None:
     store.sms_attributes.setdefault("MonthlySpendLimit", "1")
 
 
+def _validate_phone_number(phone_number: str):
+    if not re.match(E164_REGEX, phone_number):
+        raise InvalidParameterException(
+            "Invalid parameter: PhoneNumber Reason: input incorrectly formatted"
+        )
+
+
 def _check_matching_tags(topic_arn: str, tags: TagList | None, store: SnsStore) -> bool:
     """
     Checks if a topic to be created doesn't already exist with different tags
@@ -1537,6 +1669,7 @@ def register_sns_api_resource(router: Router):
     router.add(SNSServicePlatformEndpointMessagesApiResource())
     router.add(SNSServiceSMSMessagesApiResource())
     router.add(SNSServiceSubscriptionTokenApiResource())
+    router.add(SNSServiceSMSPhoneOptOutResource())
 
 
 def _format_messages(sent_messages: list[dict[str, str]], validated_keys: list[str]):
@@ -1669,3 +1802,27 @@ class SNSServiceSubscriptionTokenApiResource(SNSInternalResource):
             }
         )
         return response
+
+
+class SNSServiceSMSPhoneOptOutResource(SNSInternalResource):
+    resource_type = "phone-number-opt-out"
+    """Provides a REST API for adding phone numbers to the opt out list for testing purposes.
+    In AWS this seems to be handled by pin-point, which is scheduled for deprecation.
+
+    This is registered as a LocalStack internal HTTP resource.
+
+    This endpoint accepts:
+    - POST data `phoneNumber`: phone number to be opted out in SNS
+    - POST data `accountId`: account ID
+    """
+
+    @route(SMS_PHONE_NUMBER_OPT_OUT_ENDPOINT, methods=["POST"])
+    @count_usage
+    def on_post(self, request: Request):
+        data = json.loads(request.data) or {}
+        account_id = data.get("accountId", DEFAULT_AWS_ACCOUNT_ID)
+        region = AWS_REGION_US_EAST_1  # opt-out list is account-wide
+        opt_out_phone_number = data.get("phoneNumber")
+        store: SnsStore = sns_stores[account_id][region]
+        if opt_out_phone_number:
+            store.PHONE_NUMBERS_OPTED_OUT.add(opt_out_phone_number)

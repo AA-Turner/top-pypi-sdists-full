@@ -2442,6 +2442,8 @@ class Client(OpenApiClient):
             request.entity_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.entity_types, 'EntityTypes', 'json')
         if not DaraCore.is_null(tmp_req.relationship_types):
             request.relationship_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.relationship_types, 'RelationshipTypes', 'json')
+        if not DaraCore.is_null(tmp_req.sparse_vector_index_config):
+            request.sparse_vector_index_config_shrink = Utils.array_to_string_with_specified_style(tmp_req.sparse_vector_index_config, 'SparseVectorIndexConfig', 'json')
         query = {}
         if not DaraCore.is_null(request.collection):
             query['Collection'] = request.collection
@@ -2489,6 +2491,12 @@ class Client(OpenApiClient):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.relationship_types_shrink):
             query['RelationshipTypes'] = request.relationship_types_shrink
+        if not DaraCore.is_null(request.sparse_retrieval_fields):
+            query['SparseRetrievalFields'] = request.sparse_retrieval_fields
+        if not DaraCore.is_null(request.sparse_vector_index_config_shrink):
+            query['SparseVectorIndexConfig'] = request.sparse_vector_index_config_shrink
+        if not DaraCore.is_null(request.support_sparse):
+            query['SupportSparse'] = request.support_sparse
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -2520,6 +2528,8 @@ class Client(OpenApiClient):
             request.entity_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.entity_types, 'EntityTypes', 'json')
         if not DaraCore.is_null(tmp_req.relationship_types):
             request.relationship_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.relationship_types, 'RelationshipTypes', 'json')
+        if not DaraCore.is_null(tmp_req.sparse_vector_index_config):
+            request.sparse_vector_index_config_shrink = Utils.array_to_string_with_specified_style(tmp_req.sparse_vector_index_config, 'SparseVectorIndexConfig', 'json')
         query = {}
         if not DaraCore.is_null(request.collection):
             query['Collection'] = request.collection
@@ -2567,6 +2577,12 @@ class Client(OpenApiClient):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.relationship_types_shrink):
             query['RelationshipTypes'] = request.relationship_types_shrink
+        if not DaraCore.is_null(request.sparse_retrieval_fields):
+            query['SparseRetrievalFields'] = request.sparse_retrieval_fields
+        if not DaraCore.is_null(request.sparse_vector_index_config_shrink):
+            query['SparseVectorIndexConfig'] = request.sparse_vector_index_config_shrink
+        if not DaraCore.is_null(request.support_sparse):
+            query['SupportSparse'] = request.support_sparse
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )

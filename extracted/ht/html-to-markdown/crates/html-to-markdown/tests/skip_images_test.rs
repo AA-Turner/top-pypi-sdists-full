@@ -39,6 +39,27 @@ fn test_skip_images_enabled() {
 }
 
 #[test]
+fn test_skip_images_skips_svg_output() {
+    let html = r#"<svg width="10" height="10"><title>Logo</title><rect width="10" height="10"/></svg>"#;
+
+    let options = ConversionOptions {
+        skip_images: true,
+        ..Default::default()
+    };
+
+    let result = convert(html, Some(options)).unwrap();
+
+    assert!(
+        !result.contains("data:image/svg+xml"),
+        "Should not include SVG data URIs when skip_images is enabled"
+    );
+    assert!(
+        !result.contains("SVG Image"),
+        "Should not include SVG alt text when skip_images is enabled"
+    );
+}
+
+#[test]
 fn test_skip_images_disabled() {
     // Verify that when skip_images: false (default), images are converted to markdown
     let html = r#"<p>Here is an image:</p>

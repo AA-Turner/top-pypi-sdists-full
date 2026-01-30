@@ -14,14 +14,14 @@ class PhidgetServer(ctypes.Structure):
 		("_port", ctypes.c_int),
 	]
 
-	def __init__(self):
-		self.name = ""
-		self.stype = ""
-		self.type = 0
-		self.flags = 0
-		self.addr = ""
-		self.host = ""
-		self.port = 0
+	def __init__(self, name = "", stype = "", type = 0, flags = 0, addr = "", host = "", port = 0):
+		self.name = name
+		self.stype = stype
+		self.type = type
+		self.flags = flags
+		self.addr = addr
+		self.host = host
+		self.port = port
 
 	def fromPython(self):
 		self._name = self.name.encode('utf-8')

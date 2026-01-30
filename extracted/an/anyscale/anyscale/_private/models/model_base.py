@@ -170,13 +170,22 @@ class ModelBase(metaclass=ModelBaseType):
         """
         # First, manually convert any nested ModelBase objects to dicts
         # because asdict() would convert them to dicts using raw field values
-        converted_fields = {}
+        converted_fields: Dict[str, Any] = {}
         for field in fields(self):
             value = getattr(self, field.name)
 
             if isinstance(value, ModelBase):
                 # Convert nested ModelBase objects using their to_dict method
                 converted_fields[field.name] = value.to_dict(exclude_none=exclude_none)
+            elif isinstance(value, list):
+                # Handle lists of ModelBase objects
+                converted_list = []
+                for item in value:
+                    if isinstance(item, ModelBase):
+                        converted_list.append(item.to_dict(exclude_none=exclude_none))
+                    else:
+                        converted_list.append(item)
+                converted_fields[field.name] = converted_list
             else:
                 converted_fields[field.name] = value
 
@@ -191,7 +200,9 @@ class ModelBase(metaclass=ModelBaseType):
                 final_v = v
                 if isinstance(v, ModelEnum):
                     final_v = v.value
-                elif k in converted_fields and isinstance(converted_fields[k], dict):
+                elif k in converted_fields and isinstance(
+                    converted_fields[k], (dict, list)
+                ):
                     final_v = converted_fields[k]
                 d[k] = final_v
 

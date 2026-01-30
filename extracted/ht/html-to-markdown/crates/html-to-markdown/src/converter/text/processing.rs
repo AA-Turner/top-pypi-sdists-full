@@ -24,13 +24,7 @@ pub fn dedent_code_block(content: &str) -> String {
     let min_indent = lines
         .iter()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            line.char_indices()
-                .take_while(|(_, c)| c.is_whitespace())
-                .map(|(idx, c)| idx + c.len_utf8())
-                .last()
-                .unwrap_or(0)
-        })
+        .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
         .min()
         .unwrap_or(0);
 
@@ -40,7 +34,20 @@ pub fn dedent_code_block(content: &str) -> String {
             if line.trim().is_empty() {
                 *line
             } else {
-                &line[min_indent.min(line.len())..]
+                let mut remaining = min_indent;
+                let mut cut = 0;
+                for (idx, ch) in line.char_indices() {
+                    if remaining == 0 {
+                        break;
+                    }
+                    if ch.is_whitespace() {
+                        remaining -= 1;
+                        cut = idx + ch.len_utf8();
+                    } else {
+                        break;
+                    }
+                }
+                &line[cut..]
             }
         })
         .collect::<Vec<_>>()

@@ -256,6 +256,7 @@ class AutomatedReasoningPolicyBuildResultAssetType(StrEnum):
     QUALITY_REPORT = "QUALITY_REPORT"
     POLICY_DEFINITION = "POLICY_DEFINITION"
     GENERATED_TEST_CASES = "GENERATED_TEST_CASES"
+    POLICY_SCENARIOS = "POLICY_SCENARIOS"
 
 
 class AutomatedReasoningPolicyBuildWorkflowStatus(StrEnum):
@@ -1461,6 +1462,29 @@ class AutomatedReasoningPolicyBuildLog(TypedDict, total=False):
     entries: AutomatedReasoningPolicyBuildLogEntryList
 
 
+class AutomatedReasoningPolicyScenario(TypedDict, total=False):
+    """Represents a test scenario used to validate an Automated Reasoning
+    policy, including the test conditions and expected outcomes.
+    """
+
+    expression: AutomatedReasoningPolicyScenarioExpression
+    alternateExpression: AutomatedReasoningPolicyScenarioAlternateExpression
+    expectedResult: AutomatedReasoningCheckResult
+    ruleIds: AutomatedReasoningPolicyDefinitionRuleIdList
+
+
+AutomatedReasoningPolicyScenarioList = list[AutomatedReasoningPolicyScenario]
+
+
+class AutomatedReasoningPolicyScenarios(TypedDict, total=False):
+    """Contains a comprehensive entity encompassing all the scenarios generated
+    by the build workflow, which can be used to validate an Automated
+    Reasoning policy.
+    """
+
+    policyScenarios: AutomatedReasoningPolicyScenarioList
+
+
 class AutomatedReasoningPolicyGeneratedTestCase(TypedDict, total=False):
     """Represents a generated test case, consisting of query content, guard
     content, and expected results.
@@ -1560,6 +1584,7 @@ class AutomatedReasoningPolicyBuildResultAssets(TypedDict, total=False):
     qualityReport: AutomatedReasoningPolicyDefinitionQualityReport | None
     buildLog: AutomatedReasoningPolicyBuildLog | None
     generatedTestCases: AutomatedReasoningPolicyGeneratedTestCases | None
+    policyScenarios: AutomatedReasoningPolicyScenarios | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowDocument(TypedDict, total=False):
@@ -1618,17 +1643,6 @@ class AutomatedReasoningPolicyBuildWorkflowSummary(TypedDict, total=False):
 
 
 AutomatedReasoningPolicyBuildWorkflowSummaries = list[AutomatedReasoningPolicyBuildWorkflowSummary]
-
-
-class AutomatedReasoningPolicyScenario(TypedDict, total=False):
-    """Represents a test scenario used to validate an Automated Reasoning
-    policy, including the test conditions and expected outcomes.
-    """
-
-    expression: AutomatedReasoningPolicyScenarioExpression
-    alternateExpression: AutomatedReasoningPolicyScenarioAlternateExpression
-    ruleIds: AutomatedReasoningPolicyDefinitionRuleIdList
-    expectedResult: AutomatedReasoningCheckResult
 
 
 class AutomatedReasoningPolicySummary(TypedDict, total=False):

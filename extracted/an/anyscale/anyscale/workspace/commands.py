@@ -315,6 +315,7 @@ _PULL_ARG_DOCSTRINGS = {
     "pull_git_state": "Whether to pull the git state of the workspace.",
     "rsync_args": "Additional arguments to pass to rsync.",
     "delete": "Whether to delete files in the local directory that are not in the workspace. Excluded files (e.g., .git or custom exclusions) are preserved and not deleted.",
+    "direct_ssh": "Whether to use direct SSH connection (port 22) instead of SSH-over-HTTPS tunnel.",
 }
 
 
@@ -324,7 +325,7 @@ _PULL_ARG_DOCSTRINGS = {
     doc_py_example=_PULL_EXAMPLE,
     arg_docstrings=_PULL_ARG_DOCSTRINGS,
 )
-def pull(
+def pull(  # noqa: PLR0913
     *,
     name: Optional[str] = None,
     id: Optional[str] = None,  # noqa: A002
@@ -334,6 +335,7 @@ def pull(
     pull_git_state: bool = False,
     rsync_args: Optional[List[str]] = None,
     delete: bool = False,
+    direct_ssh: bool = False,
     _private_sdk: Optional[PrivateWorkspaceSDK] = None,
 ) -> None:
     """Pull a workspace to a local directory.
@@ -353,6 +355,7 @@ def pull(
         pull_git_state=pull_git_state,
         rsync_args=rsync_args,
         delete=delete,
+        direct_ssh=direct_ssh,
     )
 
 
@@ -374,6 +377,7 @@ _PUSH_ARG_DOCSTRINGS = {
     "push_git_state": "Whether to push the git state of the workspace.",
     "rsync_args": "Additional arguments to pass to rsync.",
     "delete": "Whether to delete files in the workspace that are not in the local directory. Excluded files (e.g., .git or custom exclusions) are preserved and not deleted.",
+    "direct_ssh": "Whether to use direct SSH connection (port 22) instead of SSH-over-HTTPS tunnel.",
 }
 
 
@@ -383,7 +387,7 @@ _PUSH_ARG_DOCSTRINGS = {
     doc_py_example=_PUSH_EXAMPLE,
     arg_docstrings=_PUSH_ARG_DOCSTRINGS,
 )
-def push(
+def push(  # noqa: PLR0913
     *,
     name: Optional[str] = None,
     id: Optional[str] = None,  # noqa: A002
@@ -393,6 +397,7 @@ def push(
     push_git_state: bool = False,
     rsync_args: Optional[List[str]] = None,
     delete: bool = False,
+    direct_ssh: bool = False,
     _private_sdk: Optional[PrivateWorkspaceSDK] = None,
 ) -> None:
     """Push a local directory to a workspace.
@@ -412,6 +417,7 @@ def push(
         push_git_state=push_git_state,
         rsync_args=rsync_args,
         delete=delete,
+        direct_ssh=direct_ssh,
     )
 
 

@@ -3,6 +3,7 @@ import logging
 import os
 from sys import path
 from typing import Any, Dict, List, Optional
+import warnings
 
 import click
 
@@ -58,7 +59,6 @@ from anyscale.policy import PolicySDK
 from anyscale.project import ProjectSDK
 from anyscale.resource_quota import ResourceQuotaSDK
 from anyscale.schedule import ScheduleSDK
-from anyscale.sdk.anyscale_client.sdk import AnyscaleSDK as AnyscaleSDK
 from anyscale.service import ServiceSDK
 from anyscale.service_account import ServiceAccountSDK
 from anyscale.user import UserSDK
@@ -98,6 +98,28 @@ for attr, _ in inspect.getmembers(ClientBuilder, inspect.isfunction):
 __version__ = version.__version__
 
 ANYSCALE_ENV = os.environ.copy()
+
+# Remove this code once AnyscaleSDK is removed
+# Keep the old import for backwards compatibility but warn
+def __getattr__(name):
+    if name == "AnyscaleSDK":
+        warnings.warn(
+            "Anyscale has deprecated the legacy AnyscaleSDK class. "
+            "Anyscale will remove this and its methods on February 28, 2026.\n\n"
+            "The Anyscale SDK remains fully supported but uses a new pattern. "
+            "Migrate to the maintained SDK by using `import anyscale` and calling "
+            "`anyscale.<module>.<function>()`.\n\n"
+            "See https://docs.anyscale.com/reference#sdk",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # Lazy import to avoid binding at module import time, ensuring the warning is shown on import.
+        from anyscale.sdk.anyscale_client.sdk import (  # noqa: PLC0415 - deprecated import; will be removed in a future version
+            AnyscaleSDK,
+        )
+
+        return AnyscaleSDK
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Anyscale:

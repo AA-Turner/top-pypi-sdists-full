@@ -56,6 +56,7 @@ __all__ = (
     "Av1SceneChangeDetectType",
     "Av1SpatialAqType",
     "Av1TemporalAqType",
+    "Av1TimecodeInsertionBehaviorType",
     "AvailBlankingStateType",
     "BandwidthReductionFilterStrengthType",
     "BandwidthReductionPostFilterSharpeningType",
@@ -484,6 +485,7 @@ Av1RateControlModeType = Literal["CBR", "QVBR"]
 Av1SceneChangeDetectType = Literal["DISABLED", "ENABLED"]
 Av1SpatialAqType = Literal["DISABLED", "ENABLED"]
 Av1TemporalAqType = Literal["DISABLED", "ENABLED"]
+Av1TimecodeInsertionBehaviorType = Literal["DISABLED", "METADATA_OBU"]
 AvailBlankingStateType = Literal["DISABLED", "ENABLED"]
 BandwidthReductionFilterStrengthType = Literal[
     "AUTO", "STRENGTH_1", "STRENGTH_2", "STRENGTH_3", "STRENGTH_4"

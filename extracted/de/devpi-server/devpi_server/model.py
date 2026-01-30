@@ -1,39 +1,82 @@
-import functools
-import getpass
-import posixpath
-import re
-import json
-import warnings
-from devpi_common.metadata import get_latest_version
-from devpi_common.metadata import splitbasename, parse_version
-from devpi_common.url import URL
-from devpi_common.validation import validate_metadata, normalize_name
-from devpi_common.types import ensure_unicode, cached_property, parse_hash_spec
-from functools import total_ordering
-from itertools import zip_longest
-from pyramid.authorization import Allow, Authenticated, Everyone
-from time import gmtime, strftime
-from .auth import hash_password, verify_and_update_password_hash
+from __future__ import annotations
+
+from .auth import hash_password
+from .auth import verify_and_update_password_hash
+from .compat import StrEnum
 from .config import hookimpl
 from .filestore import Digests
 from .filestore import FileEntry
 from .filestore import get_hash_spec
 from .log import threadlog
 from .markers import unknown
+from .normalized import normalize_name
 from .readonly import get_mutable_deepcopy
+from devpi_common.metadata import get_latest_version
+from devpi_common.metadata import parse_version
+from devpi_common.metadata import splitbasename
+from devpi_common.types import cached_property
+from devpi_common.types import ensure_unicode
+from devpi_common.types import parse_hash_spec
+from devpi_common.url import URL
+from devpi_common.validation import validate_metadata
+from functools import total_ordering
+from itertools import zip_longest
 from operator import iconcat
+from pathlib import Path
+from pyramid.authorization import Allow
+from pyramid.authorization import Authenticated
+from pyramid.authorization import Everyone
+from time import gmtime
+from time import strftime
+from typing import TYPE_CHECKING
+from typing import cast
+import functools
+import getpass
+import json
+import re
+import warnings
+
+
+if TYPE_CHECKING:
+    from .filestore import FileStore
+    from .keyfs import KeyFS
+    from .keyfs_types import PTypedKey
+    from .keyfs_types import TypedKey
+    from .main import XOM
+    from .normalized import NormalizedName
+    from collections.abc import Sequence
+    from typing import Any
+    from typing import Literal
+    from typing import Union
+
+    LinksList = list[tuple[str, str]]
+    RequiresPython = Union[str, None]
+    RequiresPythonList = list[RequiresPython]
+    Yanked = Union[Literal[True], str, None]
+    YankedList = list[Yanked]
+    JoinedLink = tuple[str, str, RequiresPython, Yanked]
+    JoinedLinkList = list[JoinedLink]
 
 
 notset = object()
 
 
-def join_links_data(links, requires_python, yanked):
+class Rel(StrEnum):
+    DocZip = "doczip"
+    ReleaseFile = "releasefile"
+    ToxResult = "toxresult"
+
+
+def join_links_data(
+    links: LinksList, requires_python: RequiresPythonList, yanked: YankedList
+) -> JoinedLinkList:
     # build list of (key, href, require_python, yanked) tuples
     result = []
-    links = zip_longest(links, requires_python, yanked, fillvalue=None)
-    for link, require_python, link_yanked in links:
-        key, href = link
-        result.append((key, href, require_python, link_yanked))
+    for link, require_python, link_yanked in zip_longest(
+        links, requires_python, yanked, fillvalue=None
+    ):
+        assert link is not None
+        result.append((*link, require_python, link_yanked))
     return result
 
 
@@ -47,7 +90,7 @@ def run_passwd(root, username):
     user = root.get_user(username)
     log = threadlog
     if user is None:
-        log.error("user %r not found" % username)
+        log.error("user %r not found", username)
         return 1
     for i in range(3):
         pwd = getpass.getpass("enter password for %s: " % user.name)
@@ -116,17 +159,19 @@ class MissesVersion(ModelException):
 
 class NonVolatile(ModelException):
     """ A release is overwritten on a non volatile index. """
-    link = None  # the conflicting link
+
+    link: ELink | None = None  # the conflicting link
 
 
 class RootModel:
     """ per-process root model object. """
-    def __init__(self, xom):
+
+    def __init__(self, xom: XOM):
         self.xom = xom
         self.keyfs = xom.keyfs
 
     def create_user(self, username, password, **kwargs):
-        userlist = self.keyfs.USERLIST.get_mutable()
+        userlist = cast("TypedKey[set]", self.keyfs.USERLIST).get_mutable()
         if username in userlist:
             raise InvalidUser("username '%s' already exists" % username)
         if not is_valid_name(username):
@@ -137,7 +182,7 @@ class RootModel:
         kwargs.update(created=strftime("%Y-%m-%dT%H:%M:%SZ", gmtime()))
         user._modify(password=password, **kwargs)
         userlist.add(username)
-        self.keyfs.USERLIST.set(userlist)
+        cast("TypedKey[set]", self.keyfs.USERLIST).set(userlist)
         if "email" in kwargs:
             threadlog.info("created user %r with email %r" % (username, kwargs["email"]))
         else:
@@ -165,26 +210,33 @@ class RootModel:
         return stage
 
     def delete_user(self, username):
-        with self.keyfs.USERLIST.update() as userlist:
+        with cast("TypedKey[set]", self.keyfs.USERLIST).update() as userlist:
             userlist.remove(username)
 
     def delete_stage(self, username, index):
         user = self.get_user(username)
+        if user is None:
+            threadlog.info("user %s does not exist", username)
+            return
         with user.key.update() as userconfig:
             indexes = userconfig.get("indexes", {})
             if index not in indexes:
-                threadlog.info("index %s not exists" % self.index)
-                return False
+                threadlog.info("index %s/%s does not exist", username, index)
+                return
             del indexes[index]
             self.xom.del_singletons(f"{username}/{index}")
 
-    def get_user(self, name):
+    def get_user(self, name: str) -> User | None:
         user = User(self, name)
         if user.key.exists():
             return user
+        return None
 
     def get_userlist(self):
-        return [User(self, name) for name in self.keyfs.USERLIST.get()]
+        return [
+            User(self, name)
+            for name in cast("TypedKey[set]", self.keyfs.USERLIST).get()
+        ]
 
     def get_usernames(self):
         return set(user.name for user in self.get_userlist())
@@ -199,7 +251,7 @@ class RootModel:
             assert isinstance(index, str)
         return user, index
 
-    def getstage(self, user, index=None):
+    def getstage(self, user: str, index: str | None = None) -> BaseStage | None:
         (username, indexname) = self._get_user_and_index(user, index)
         _user = self.get_user(username)
         if _user is None:
@@ -251,10 +303,9 @@ def normalize_whitelist_name(name):
 
 
 def get_stage_customizer_classes(xom):
-    customizer_classes = functools.reduce(
-        iconcat,
-        xom.config.hook.devpiserver_get_stage_customizer_classes(),
-        [])
+    customizer_classes: list[tuple[str, type]] = functools.reduce(
+        iconcat, xom.config.hook.devpiserver_get_stage_customizer_classes(), []
+    )
     return dict(customizer_classes)
 
 
@@ -295,6 +346,8 @@ class InvalidUserconfig(Exception):
 
 
 class User:
+    keyfs: KeyFS
+
     # ignored_keys are skipped on create and modify
     ignored_keys = frozenset(('indexes', 'username'))
     # info keys are updated on create and modify and input is ignored
@@ -319,8 +372,8 @@ class User:
         self.name = name
 
     @property
-    def key(self):
-        return self.keyfs.USER(user=self.name)
+    def key(self) -> TypedKey[dict]:
+        return cast("PTypedKey[dict]", self.keyfs.USER)(user=self.name)
 
     def get_cleaned_config(self, **kwargs):
         result = {}
@@ -343,7 +396,7 @@ class User:
 
     def _modify(self, password=None, pwhash=None, **kwargs):
         self.validate_config(**kwargs)
-        modified = {}
+        modified: dict[str, object] = {}
         with self.key.update() as userconfig:
             if password is not None or pwhash:
                 self._setpassword(userconfig, password, pwhash=pwhash)
@@ -388,7 +441,9 @@ class User:
         # delete all projects on the index
         userconfig = self.get()
         for name in list(userconfig.get("indexes", {})):
-            self.getstage(name).delete()
+            stage = self.getstage(name)
+            assert stage is not None
+            stage.delete()
         # delete the user information itself
         self.key.delete()
         self.parent.delete_user(self.name)
@@ -439,13 +494,15 @@ class User:
             ixconfig=ixconfig,
             customizer_cls=customizer_cls)
 
-    def getstage(self, indexname):
+    def getstage(self, indexname: str) -> BaseStage | None:
         return self.parent.getstage(self.name, indexname)
 
-    def getstages(self):
+    def getstages(self) -> list[BaseStage]:
         stages = []
         for index in self.get()["indexes"]:
-            stages.append(self.getstage(index))
+            stage = self.getstage(index)
+            assert stage is not None
+            stages.append(stage)
         return stages
 
 
@@ -468,7 +525,7 @@ def get_principals(value):
     return principals
 
 
-class BaseStageCustomizer(object):
+class BaseStageCustomizer:
     readonly = False
 
     def __init__(self, stage):
@@ -601,8 +658,12 @@ class UnknownCustomizer(BaseStageCustomizer):
 @total_ordering
 class SimpleLinks:
     __slots__ = ('_links', 'stale')
+    _links: list[SimplelinkMeta]
+    stale: bool
 
-    def __init__(self, links, stale=False):
+    def __init__(
+        self, links: Sequence[JoinedLink] | SimpleLinks, *, stale: bool = False
+    ) -> None:
         assert links is not None
         if isinstance(links, SimpleLinks):
             self._links = links._links
@@ -642,18 +703,8 @@ class SimpleLinks:
         return f"<{clsname} stale={self.stale!r} [{content}]>"
 
 
-class BaseStage(object):
-    InvalidIndex = InvalidIndex
-    InvalidIndexconfig = InvalidIndexconfig
-    InvalidUser = InvalidUser
-    NotFound = NotFound
-    UpstreamError = UpstreamError
-    UpstreamNotFoundError = UpstreamNotFoundError
-    UpstreamNotModified = UpstreamNotModified
-    MissesRegistration = MissesRegistration
-    MissesVersion = MissesVersion
-    NonVolatile = NonVolatile
-    SimpleLinks = SimpleLinks
+class BaseStage:
+    keyfs: KeyFS
 
     def __init__(self, xom, username, index, ixconfig, customizer_cls):
         self.xom = xom
@@ -665,6 +716,9 @@ class BaseStage(object):
         # the following attributes are per-xom singletons
         self.keyfs = xom.keyfs
         self.filestore = xom.filestore
+        self.key_projects = cast("PTypedKey[set[str]]", self.keyfs.PROJNAMES)(
+            user=username, index=index
+        )
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name}>"
@@ -754,6 +808,15 @@ class BaseStage(object):
         ixconfig["type"] = index_type
         return (ixconfig, kwargs)
 
+    def get_default_config_items(self) -> Sequence[tuple[str, Any]]:
+        raise NotImplementedError
+
+    def get_possible_indexconfig_keys(self) -> Sequence:
+        raise NotImplementedError
+
+    def normalize_indexconfig_value(self, key: str, value: Any) -> Any:
+        raise NotImplementedError
+
     @cached_property
     def user(self):
         # only few methods need the user object.
@@ -766,9 +829,10 @@ class BaseStage(object):
     def delete(self):
         self.model.delete_stage(self.username, self.index)
 
-    def key_projsimplelinks(self, project):
-        return self.keyfs.PROJSIMPLELINKS(user=self.username,
-            index=self.index, project=normalize_name(project))
+    def key_projsimplelinks(self, project: str) -> TypedKey[dict]:
+        return cast("PTypedKey[dict]", self.keyfs.PROJSIMPLELINKS)(
+            user=self.username, index=self.index, project=normalize_name(project)
+        )
 
     def get_releaselinks(self, project):
         # compatibility access method used by devpi-web and tests
@@ -779,7 +843,7 @@ class BaseStage(object):
         except self.UpstreamNotFoundError:
             return []
 
-    def get_releaselinks_perstage(self, project):
+    def get_releaselinks_perstage(self, project: NormalizedName | str) -> list[ELink]:
         # compatibility access method for devpi-findlinks and possibly other plugins
         project = normalize_name(project)
         return [self._make_elink(project, link_info)
@@ -787,12 +851,17 @@ class BaseStage(object):
 
     def _make_elink(self, project, link_meta):
         return ELink(
-            self.filestore, dict(
+            self.filestore,
+            dict(
                 entrypath=link_meta.path,
                 hash_spec=link_meta.hash_spec,
+                hashes=link_meta.hashes,
                 require_python=link_meta.require_python,
-                yanked=link_meta.yanked),
-            project, link_meta.version)
+                yanked=link_meta.yanked,
+            ),
+            project,
+            link_meta.version,
+        )
 
     def get_linkstore_perstage(self, name, version, readonly=None):
         if readonly is None:
@@ -801,6 +870,7 @@ class BaseStage(object):
             warnings.warn(
                 "The 'readonly' argument is deprecated. "
                 "Use 'get_mutable_linkstore_perstage' instead.",
+                DeprecationWarning,
                 stacklevel=2,
             )
         if self.customizer.readonly and not readonly:
@@ -825,30 +895,29 @@ class BaseStage(object):
         assert len(links) < 2
         return links[0] if links else None
 
-    def store_toxresult(self, link, toxresultdata,
-                        *, filename=None, hashes=None, last_modified=None):
+    def get_simplelinks_perstage(self, project: NormalizedName | str) -> SimpleLinks:
+        raise NotImplementedError
+
+    def store_toxresult(
+        self, link, content_or_file, *, filename=None, hashes=None, last_modified=None
+    ):
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
+        assert not isinstance(content_or_file, dict)
         linkstore = self.get_mutable_linkstore_perstage(link.project, link.version)
-        if isinstance(toxresultdata, dict):
-            warnings.warn(
-                "The 'store_toxresult' method will only accept binary "
-                "content or files in the future, no dictionaries.",
-                DeprecationWarning,
-                stacklevel=2)
-            toxresultdata = json.dumps(toxresultdata).encode("utf-8")
         return linkstore.new_reflink(
-            rel="toxresult",
-            content_or_file=toxresultdata,
+            rel=Rel.ToxResult,
+            content_or_file=content_or_file,
             for_entrypath=link,
             filename=filename,
             hashes=hashes,
-            last_modified=last_modified)
+            last_modified=last_modified,
+        )
 
     def get_toxresults(self, link):
         l = []
         linkstore = self.get_linkstore_perstage(link.project, link.version)
-        for reflink in linkstore.get_links(rel="toxresult", for_entrypath=link):
+        for reflink in linkstore.get_links(rel=Rel.ToxResult, for_entrypath=link):
             with reflink.entry.file_open_read() as f:
                 l.append(json.load(f))
         return l
@@ -867,6 +936,9 @@ class BaseStage(object):
             versions.update(res)
         return self.filter_versions(project, versions)
 
+    def list_versions_perstage(self, project: str) -> set:
+        raise NotImplementedError
+
     def get_latest_version(self, name, stable=False):
         return get_latest_version(
             self.filter_versions(
@@ -879,47 +951,9 @@ class BaseStage(object):
                 name, self.list_versions_perstage(name)),
             stable=stable)
 
-    def get_last_project_change_serial_perstage(self, project, at_serial=None):
-        project = normalize_name(project)
-        tx = self.keyfs.tx
-        if at_serial is None:
-            at_serial = tx.at_serial
-        info = tx.get_last_serial_and_value_at(
-            self.key_projects,
-            at_serial, raise_on_error=False)
-        if info is None:
-            # never existed
-            return -1
-        (last_serial, projects) = info
-        if projects is None:
-            # the whole index was deleted
-            return -1
-        info = tx.get_last_serial_and_value_at(
-            self.key_projversions(project),
-            at_serial, raise_on_error=False)
-        if info is None:
-            if project in projects:
-                # no versions ever existed, but the project is known
-                return last_serial
-            # the project never existed or was deleted and didn't have versions
-            return -1
-        (last_serial, versions) = info
-        if versions is None:
-            # was deleted
-            return last_serial
-        version = get_latest_version(versions)
-        info = tx.get_last_serial_and_value_at(
-            self.key_projversion(project, version),
-            at_serial, raise_on_error=False)
-        if info is None:
-            # never existed
-            return -1
-        (version_serial, version) = info
-        return max(last_serial, version_serial)
-
     def get_versiondata(self, project, version):
         assert isinstance(project, str), "project %r not text" % project
-        result = {}
+        result: dict[str, Any] = {}
         if not self.filter_versions(project, [version]):
             return result
         for stage, res in self.op_sro_check_mirror_whitelist(
@@ -1082,7 +1116,8 @@ class BaseStage(object):
         project = normalize_name(kw["project"])
         if not self.filter_projects([project]):
             return
-        whitelisted = private_hit = False
+        whitelisted: BaseStage | Literal[False] = False
+        private_hit: BaseStage | bool = whitelisted
         # the default value if the setting is missing is the old behaviour,
         # so existing indexes work as before
         whitelist_inheritance = self.get_whitelist_inheritance()
@@ -1186,7 +1221,9 @@ class BaseStage(object):
                         "The 'get_principals_for_pypi_submit' method is deprecated, "
                         "you should use 'get_principals_for_upload'. "
                         "If you want to support older devpi-server versions, add an alias.",
-                        stacklevel=1)
+                        DeprecationWarning,
+                        stacklevel=1,
+                    )
             if not callable(method):
                 msg = f"The attribute {method_name} with value {method!r} of {self.customizer!r} is not callable."
                 raise AttributeError(msg)  # noqa: TRY004
@@ -1196,6 +1233,18 @@ class BaseStage(object):
                     # add pypi_submit alias for BBB
                     acl.append((Allow, principal, 'pypi_submit'))
         return acl
+
+    InvalidIndex = InvalidIndex
+    InvalidIndexconfig = InvalidIndexconfig
+    InvalidUser = InvalidUser
+    NotFound = NotFound
+    UpstreamError = UpstreamError
+    UpstreamNotFoundError = UpstreamNotFoundError
+    UpstreamNotModified = UpstreamNotModified
+    MissesRegistration = MissesRegistration
+    MissesVersion = MissesVersion
+    NonVolatile = NonVolatile
+    SimpleLinks = SimpleLinks
 
 
 class PrivateStage(BaseStage):
@@ -1264,7 +1313,6 @@ class PrivateStage(BaseStage):
 
     def __init__(self, xom, username, index, ixconfig, customizer_cls):
         super().__init__(xom, username, index, ixconfig, customizer_cls)
-        self.key_projects = self.keyfs.PROJNAMES(user=username, index=index)
         self.httpget = xom.httpget
         self.async_httpget = xom.async_httpget
         self.http = xom.http
@@ -1325,14 +1373,22 @@ class PrivateStage(BaseStage):
         validate_metadata(dict(metadata))
         self._set_versiondata(metadata)
 
-    def key_projversions(self, project):
-        return self.keyfs.PROJVERSIONS(user=self.username,
-            index=self.index, project=normalize_name(project))
+    def key_projversions(self, project: NormalizedName | str) -> TypedKey[set]:
+        return cast("PTypedKey[set]", self.keyfs.PROJVERSIONS)(
+            user=self.username,
+            index=self.index,
+            project=normalize_name(project),
+        )
 
-    def key_projversion(self, project, version):
-        return self.keyfs.PROJVERSION(
-            user=self.username, index=self.index,
-            project=normalize_name(project), version=version)
+    def key_projversion(
+        self, project: NormalizedName | str, version: str
+    ) -> TypedKey[dict]:
+        return cast("PTypedKey[dict]", self.keyfs.PROJVERSION)(
+            user=self.username,
+            index=self.index,
+            project=normalize_name(project),
+            version=version,
+        )
 
     def _set_versiondata(self, metadata):
         project = normalize_name(metadata["name"])
@@ -1365,6 +1421,7 @@ class PrivateStage(BaseStage):
             projects.remove(project)
         threadlog.info("deleting project %s", project)
         self.key_projversions(project).delete()
+        self.key_projsimplelinks(project).delete()
 
     def del_versiondata(self, project, version, cleanup=True):
         project = normalize_name(project)
@@ -1381,9 +1438,9 @@ class PrivateStage(BaseStage):
         self.key_projversion(project, version).delete()
         self.key_projversions(project).set(versions)
         if cleanup:
+            self._regen_simplelinks(project)
             if not versions:
                 self.del_project(project)
-            self._regen_simplelinks(project)
 
     def del_entry(self, entry, cleanup=True):
         # we need to store project and version for use in cleanup part below
@@ -1400,6 +1457,50 @@ class PrivateStage(BaseStage):
     def list_versions_perstage(self, project):
         return self.key_projversions(project).get()
 
+    def get_last_project_change_serial_perstage(self, project, at_serial=None):  # noqa: PLR0911
+        project = normalize_name(project)
+        tx = self.keyfs.tx
+        if at_serial is None:
+            at_serial = tx.at_serial
+        info = tx.get_last_serial_and_value_at(
+            self.key_projects,
+            at_serial,
+            raise_on_error=False,
+        )
+        if info is None:
+            # never existed
+            return -1
+        (last_serial, projects) = info
+        if projects is None:
+            # the whole index was deleted
+            return -1
+        info = tx.get_last_serial_and_value_at(
+            self.key_projversions(project),
+            at_serial,
+            raise_on_error=False,
+        )
+        if info is None:
+            if project in projects:
+                # no versions ever existed, but the project is known
+                return last_serial
+            # the project never existed or was deleted and didn't have versions
+            return -1
+        (last_serial, versions) = info
+        if versions is None:
+            # was deleted
+            return last_serial
+        version = get_latest_version(versions)
+        info = tx.get_last_serial_and_value_at(
+            self.key_projversion(project, version),
+            at_serial,
+            raise_on_error=False,
+        )
+        if info is None:
+            # never existed
+            return -1
+        (version_serial, version) = info
+        return max(last_serial, version_serial)
+
     def get_versiondata_perstage(self, project, version, readonly=None):
         if readonly is None:
             readonly = True
@@ -1407,6 +1508,7 @@ class PrivateStage(BaseStage):
             warnings.warn(
                 "The 'readonly' argument is deprecated. "
                 "Use the 'get_mutable_deepcopy' function on the result instead.",
+                DeprecationWarning,
                 stacklevel=2,
             )
         project = normalize_name(project)
@@ -1415,21 +1517,21 @@ class PrivateStage(BaseStage):
             return get_mutable_deepcopy(result)
         return result
 
-    def get_simplelinks_perstage(self, project):
+    def get_simplelinks_perstage(self, project: NormalizedName | str) -> SimpleLinks:
         data = self.key_projsimplelinks(project).get()
-        links = data.get("links", [])
-        requires_python = data.get("requires_python", [])
-        yanked = []  # PEP 592 isn't supported for private stages yet
+        links = cast("LinksList", data.get("links", []))
+        requires_python = cast("RequiresPythonList", data.get("requires_python", []))
+        yanked: YankedList = []  # PEP 592 isn't supported for private stages yet
         return self.SimpleLinks(
             join_links_data(links, requires_python, yanked))
 
     def _regen_simplelinks(self, project_input):
         project = normalize_name(project_input)
-        links = []
+        links: list = []
         requires_python = []
         for version in self.list_versions_perstage(project):
             linkstore = self.get_linkstore_perstage(project, version)
-            releases = linkstore.get_links("releasefile")
+            releases = linkstore.get_links(Rel.ReleaseFile)
             links.extend(map(make_key_and_href, releases))
             require_python = self.get_versiondata_perstage(project,
                     version).get('requires_python')
@@ -1460,11 +1562,12 @@ class PrivateStage(BaseStage):
                 raise MissesRegistration("%s-%s", project, version)
         linkstore = self.get_mutable_linkstore_perstage(project, version)
         link = linkstore.create_linked_entry(
-            rel="releasefile",
+            rel=Rel.ReleaseFile,
             basename=filename,
             content_or_file=content_or_file,
             hashes=hashes,
-            last_modified=last_modified)
+            last_modified=last_modified,
+        )
         self._regen_simplelinks(project)
         return link
 
@@ -1486,16 +1589,17 @@ class PrivateStage(BaseStage):
             self.set_versiondata({'name': project, 'version': version})
         linkstore = self.get_mutable_linkstore_perstage(project, version)
         return linkstore.create_linked_entry(
-            rel="doczip",
+            rel=Rel.DocZip,
             basename=basename,
             content_or_file=content_or_file,
             hashes=hashes,
-            last_modified=last_modified)
+            last_modified=last_modified,
+        )
 
     def get_doczip_link(self, project, version):
         """ get link of documentation zip or None if no docs exists. """
         linkstore = self.get_linkstore_perstage(project, version)
-        links = linkstore.get_links(rel="doczip")
+        links = linkstore.get_links(rel=Rel.DocZip)
         if len(links) > 1:
             threadlog.warning(
                 "Multiple documentation files for %s-%s, returning newest",
@@ -1602,6 +1706,7 @@ class ELink:
     relpath = linkdictprop("entrypath")
     for_entrypath = linkdictprop("for_entrypath", default=None)
     _hash_spec = linkdictprop("hash_spec", default="")
+    _hashes = linkdictprop("hashes", default=None)
     rel = linkdictprop("rel", default=None)
     require_python = linkdictprop("require_python")
     yanked = linkdictprop("yanked")
@@ -1637,7 +1742,16 @@ class ELink:
 
     @property
     def hashes(self):
-        return Digests.from_spec(self._hash_spec)
+        digests = Digests() if self._hashes is None else Digests(self._hashes)
+        if hash_spec := self._hash_spec:
+            (hash_algo, hash_value) = parse_hash_spec(hash_spec)
+            hash_type = hash_algo().name
+            if digests.get(hash_type, notset) != hash_value:
+                # the stored hash_spec takes precedence,
+                # because there may have been a downgrade with content change
+                # we also need to get rid of other hash types in that case
+                return Digests.from_spec(self._hash_spec)
+        return digests
 
     @property
     def hash_spec(self):
@@ -1646,7 +1760,7 @@ class ELink:
             "use best_available_hash_spec instead",
             DeprecationWarning,
             stacklevel=2)
-        return self._hash_spec
+        return self.hashes.best_available_spec
 
     @property
     def hash_value(self):
@@ -1655,7 +1769,7 @@ class ELink:
             "use best_available_hash_value instead",
             DeprecationWarning,
             stacklevel=2)
-        return self._hash_spec.split("=")[1]
+        return self.hashes.best_available_value
 
     @property
     def hash_type(self):
@@ -1664,13 +1778,13 @@ class ELink:
             "use best_available_hash_type instead",
             DeprecationWarning,
             stacklevel=2)
-        return self._hash_spec.split("=")[0]
+        return self.hashes.best_available_type
 
     @property
     def basename(self):
         _basename = getattr(self, "_basename", None)
         if _basename is None:
-            _basename = self._basename = posixpath.basename(self.relpath)
+            _basename = self._basename = Path(self.relpath).name
         return _basename
 
     @property
@@ -1682,11 +1796,20 @@ class ELink:
         return entrypath
 
     def matches_checksum(self, content_or_file):
+        warnings.warn(
+            "The 'matches_checksum' method is deprecated. "
+            "Use 'matches_hashes' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         hash_algo, hash_value = parse_hash_spec(self._hash_spec)
         if not hash_algo:
             return True
         return get_hash_spec(
             content_or_file, hash_algo().name) == self._hash_spec
+
+    def matches_hashes(self, hashes):
+        return self.hashes == hashes
 
     def __repr__(self):
         return "<ELink rel=%r entrypath=%r>" % (self.rel, self.entrypath)
@@ -1710,6 +1833,8 @@ class ELink:
 
 
 class LinkStore:
+    filestore: FileStore
+
     def __init__(self, stage, project, version):
         self.stage = stage
         self.filestore = stage.filestore
@@ -1792,8 +1917,13 @@ class LinkStore:
         if was_deleted:
             self._mark_dirty()
 
-    def get_links(self, rel=None, basename=None, entrypath=None,
-                  for_entrypath=None):
+    def get_links(
+        self,
+        rel: Rel | None = None,
+        basename: str | None = None,
+        entrypath: str | None = None,
+        for_entrypath: ELink | str | None = None,
+    ) -> list[ELink]:
         if isinstance(for_entrypath, ELink):
             for_entrypath = for_entrypath.relpath
         elif for_entrypath is not None:
@@ -1832,16 +1962,20 @@ class LinkStore:
             for_entrypath = for_entrypath.relpath
         elif for_entrypath is not None:
             assert "#" not in for_entrypath
-        new_linkdict = {"rel": rel, "entrypath": file_entry.relpath,
-                        "hash_spec": file_entry._hash_spec, "_log": []}
+        new_linkdict = {
+            "rel": str(rel),
+            "entrypath": file_entry.relpath,
+            "hash_spec": file_entry._hash_spec,
+            "hashes": file_entry.hashes,
+            "_log": [],
+        }
         if for_entrypath:
             new_linkdict["for_entrypath"] = for_entrypath
         linkdicts = self._get_inplace_linkdicts()
         linkdicts.append(new_linkdict)
         threadlog.info("added %r link %s", rel, file_entry.relpath)
         self._mark_dirty()
-        return ELink(self.filestore, new_linkdict, self.project,
-                     self.version)
+        return ELink(self.filestore, new_linkdict, self.project, self.version)
 
 
 class MutableLinkStore(LinkStore):
@@ -1855,16 +1989,27 @@ class SimplelinkMeta:
     """ helper class to provide information for items from get_simplelinks() """
 
     __slots__ = (
-        '__basename', '__cmpval', '__ext', '__hash_spec',
-        '__name', '__path', '__url', '__version',
-        'href', 'key', 'require_python', 'yanked',
+        "__basename",
+        "__cmpval",
+        "__ext",
+        "__hash_spec",
+        "__hashes",
+        "__name",
+        "__path",
+        "__url",
+        "__version",
+        "href",
+        "key",
+        "require_python",
+        "yanked",
     )
 
-    def __init__(self, link_info):
+    def __init__(self, link_info: tuple[str, str, RequiresPython, Yanked]) -> None:
         self.__basename = notset
         self.__cmpval = notset
         self.__ext = notset
         self.__hash_spec = notset
+        self.__hashes = notset
         self.__name = notset
         self.__path = notset
         self.__url = notset
@@ -1878,6 +2023,7 @@ class SimplelinkMeta:
                 self.__cmpval,
                 self.__ext,
                 self.__hash_spec,
+                self.__hashes,
                 self.__name,
                 self.__path,
                 self.__url,
@@ -1923,6 +2069,9 @@ class SimplelinkMeta:
         url = URL(self.href)
         self.__basename = url.basename
         self.__hash_spec = url.hash_spec
+        self.__hashes = Digests()
+        if hash_type := url.hash_type:
+            self.__hashes[hash_type] = url.hash_value
         self.__path = url.path
 
     @property
@@ -1936,6 +2085,12 @@ class SimplelinkMeta:
         if self.__hash_spec is notset:
             self.__parse_url()
         return self.__hash_spec
+
+    @property
+    def hashes(self):
+        if self.__hashes is notset:
+            self.__parse_url()
+        return self.__hashes
 
     @property
     def path(self):
@@ -2008,7 +2163,7 @@ def normalize_bases(model, bases):
     return tuple(newbases)
 
 
-def add_keys(xom, keyfs):
+def add_keys(xom: XOM, keyfs: KeyFS) -> None:
     # users and index configuration
     keyfs.add_key("USER", "{user}/.config", dict)
     keyfs.add_key("USERLIST", ".config", set)
@@ -2026,10 +2181,10 @@ def add_keys(xom, keyfs):
                   "{user}/{index}/+f/{hashdir_a}/{hashdir_b}/{filename}", dict)
 
     sub = EventSubscribers(xom)
-    keyfs.PROJVERSION.on_key_change(sub.on_changed_version_config)
-    keyfs.STAGEFILE.on_key_change(sub.on_changed_file_entry)
-    keyfs.MIRRORNAMESINIT.on_key_change(sub.on_mirror_initialnames)
-    keyfs.USER.on_key_change(sub.on_userchange)
+    cast("PTypedKey", keyfs.PROJVERSION).on_key_change(sub.on_changed_version_config)
+    cast("PTypedKey", keyfs.STAGEFILE).on_key_change(sub.on_changed_file_entry)
+    cast("PTypedKey", keyfs.MIRRORNAMESINIT).on_key_change(sub.on_mirror_initialnames)
+    cast("PTypedKey", keyfs.USER).on_key_change(sub.on_userchange)
 
 
 class EventSubscribers:

@@ -178,7 +178,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/create_redeemable_user.py.html>`__ to see an example of how to use create_redeemable_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/create_redeemable_user.py.html>`__ to see an example of how to use create_redeemable_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'tenancyId']
@@ -310,7 +310,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/delete_redeemable_user.py.html>`__ to see an example of how to use delete_redeemable_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/delete_redeemable_user.py.html>`__ to see an example of how to use delete_redeemable_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'emailId', 'tenancyId']
@@ -448,7 +448,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/list_products.py.html>`__ to see an example of how to use list_products API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/list_products.py.html>`__ to see an example of how to use list_products API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'tenancyId', 'usagePeriodKey']
@@ -609,7 +609,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/list_redeemable_users.py.html>`__ to see an example of how to use list_redeemable_users API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/list_redeemable_users.py.html>`__ to see an example of how to use list_redeemable_users API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'tenancyId']
@@ -766,7 +766,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/list_redemptions.py.html>`__ to see an example of how to use list_redemptions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/list_redemptions.py.html>`__ to see an example of how to use list_redemptions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'tenancyId']
@@ -905,7 +905,7 @@ class RewardsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/usage/list_rewards.py.html>`__ to see an example of how to use list_rewards API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/usage/list_rewards.py.html>`__ to see an example of how to use list_rewards API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'tenancyId']

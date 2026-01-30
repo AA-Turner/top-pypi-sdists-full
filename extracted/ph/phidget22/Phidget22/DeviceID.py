@@ -107,6 +107,10 @@ class DeviceID:
 	PHIDID_1215__1218 = 47
 	# PhidgetTextLCD 20x2 with PhidgetInterfaceKit 0/8/8 (1219, 1220, 1221, 1222)
 	PHIDID_1219__1222 = 48
+	# I2C Adapter Phidget
+	PHIDID_ADP0001 = 134
+	# SPI Adapter Phidget
+	PHIDID_ADP0002 = 160
 	# pH Adapter Phidget (ADP1000)
 	PHIDID_ADP1000 = 49
 	# 8x Voltage Input Phidget (DAQ1000)
@@ -175,6 +179,8 @@ class DeviceID:
 	PHIDID_HUM1100 = 136
 	# Graphic LCD Phidget (LCD1100)
 	PHIDID_LCD1100 = 70
+	# Addressable LED Phidget
+	PHIDID_LED0100 = 161
 	# 32x Isolated LED Phidget (LED1000)
 	PHIDID_LED1000 = 71
 	# Light Phidget (LUX1000)
@@ -350,6 +356,10 @@ class DeviceID:
 			return "PHIDID_1215__1218"
 		if val == self.PHIDID_1219__1222:
 			return "PHIDID_1219__1222"
+		if val == self.PHIDID_ADP0001:
+			return "PHIDID_ADP0001"
+		if val == self.PHIDID_ADP0002:
+			return "PHIDID_ADP0002"
 		if val == self.PHIDID_ADP1000:
 			return "PHIDID_ADP1000"
 		if val == self.PHIDID_DAQ1000:
@@ -418,6 +428,8 @@ class DeviceID:
 			return "PHIDID_HUM1100"
 		if val == self.PHIDID_LCD1100:
 			return "PHIDID_LCD1100"
+		if val == self.PHIDID_LED0100:
+			return "PHIDID_LED0100"
 		if val == self.PHIDID_LED1000:
 			return "PHIDID_LED1000"
 		if val == self.PHIDID_LUX1000:

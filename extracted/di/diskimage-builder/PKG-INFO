@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: diskimage-builder
-Version: 3.40.1
+Version: 3.40.2
 Summary: Golden Disk Image builder.
 Home-page: https://docs.openstack.org/diskimage-builder/latest/
 Author: OpenStack

@@ -33,12 +33,18 @@ _LIST_ARG_DOCSTRINGS = {
 _STATUS_EXAMPLE = """
 import anyscale
 
+# Get status by ID
 status = anyscale.job_queue.status(job_queue_id=\"jobq_abc123\")
+print(status)
+
+# Get status by name
+status = anyscale.job_queue.status(name=\"my-queue\")
 print(status)
 """
 
 _STATUS_ARG_DOCSTRINGS = {
     "job_queue_id": "The unique ID of the job queue.",
+    "name": "The name of the job queue (alternative to job_queue_id).",
 }
 
 _UPDATE_EXAMPLE = """
@@ -86,7 +92,7 @@ _TAGS_REMOVE_ARG_DOCSTRINGS = {
     doc_py_example=_LIST_EXAMPLE,
     arg_docstrings=_LIST_ARG_DOCSTRINGS,
 )
-def list(  # noqa: A001
+def list(  # noqa: A001, PLR0913
     *,
     job_queue_id: Optional[str] = None,
     name: Optional[str] = None,
@@ -122,11 +128,14 @@ def list(  # noqa: A001
     arg_docstrings=_STATUS_ARG_DOCSTRINGS,
 )
 def status(
-    job_queue_id: str, _private_sdk: Optional[PrivateJobQueueSDK] = None
+    job_queue_id: Optional[str] = None,
+    *,
+    name: Optional[str] = None,
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> JobQueueStatus:
     """Get the status and details for a specific job queue."""
     return _private_sdk.status(  # type: ignore
-        job_queue_id=job_queue_id
+        job_queue_id=job_queue_id, name=name
     )
 
 
@@ -213,3 +222,74 @@ def list_tags(
 ) -> Dict[str, str]:
     """List tags for a job queue as a key/value mapping."""
     return _private_sdk.list_tags(job_queue_id=job_queue_id, name=name)  # type: ignore
+
+
+_ARCHIVE_EXAMPLE = """
+import anyscale
+
+# Archive by ID
+anyscale.job_queue.archive(job_queue_id="jq_abc123")
+
+# Archive by name (requires project and cloud)
+anyscale.job_queue.archive(name="my-queue", project="my-project", cloud="my-cloud")
+"""
+
+_ARCHIVE_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to archive (alternative to name).",
+    "name": "Name of the job queue to archive (alternative to ID).",
+    "project": "Project name (required when using name).",
+    "cloud": "Cloud name (required when using name).",
+}
+
+_TERMINATE_EXAMPLE = """
+import anyscale
+
+# Terminate by ID
+anyscale.job_queue.terminate(job_queue_id="jq_abc123")
+
+# Terminate by name (requires project and cloud)
+anyscale.job_queue.terminate(name="my-queue", project="my-project", cloud="my-cloud")
+"""
+
+_TERMINATE_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to terminate (alternative to name).",
+    "name": "Name of the job queue to terminate (alternative to ID).",
+    "project": "Project name (required when using name).",
+    "cloud": "Cloud name (required when using name).",
+}
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_ARCHIVE_EXAMPLE,
+    arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+)
+def archive(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+) -> str:
+    """Archive (seal) a job queue. No new jobs can be submitted."""
+    return _private_sdk.archive(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud)  # type: ignore
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_TERMINATE_EXAMPLE,
+    arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
+)
+def terminate(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+) -> str:
+    """Terminate a job queue and all its pending/running jobs."""
+    return _private_sdk.terminate(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud)  # type: ignore

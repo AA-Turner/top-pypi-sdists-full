@@ -12,7 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class UpdateSubordinateCaIssuedByInternalCaConfigDetails(UpdateCertificateAuthorityConfigDetails):
     """
-    The details for updating a private subordinate certificate authority (CA) which is issued by a private CA.
+    The configuration details for updating a private subordinate certificate authority (CA) which is issued by a private, internal CA.
     Note: This operation automatically rotates the private key.
     """
 
@@ -24,7 +24,7 @@ class UpdateSubordinateCaIssuedByInternalCaConfigDetails(UpdateCertificateAuthor
 
         :param config_type:
             The value to assign to the config_type property of this UpdateSubordinateCaIssuedByInternalCaConfigDetails.
-            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
+            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA", "ROOT_CA_MANAGED_EXTERNALLY", "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
         :type config_type: str
 
         :param version_name:

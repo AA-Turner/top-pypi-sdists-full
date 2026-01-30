@@ -9,10 +9,10 @@ class GPSDate(ctypes.Structure):
 		("_tm_year", ctypes.c_int16),
 	]
 
-	def __init__(self):
-		self.tm_mday = 0
-		self.tm_mon = 0
-		self.tm_year = 0
+	def __init__(self, tm_mday = 0, tm_mon = 0, tm_year = 0):
+		self.tm_mday = tm_mday
+		self.tm_mon = tm_mon
+		self.tm_year = tm_year
 
 	def fromPython(self):
 		self._tm_mday = self.tm_mday

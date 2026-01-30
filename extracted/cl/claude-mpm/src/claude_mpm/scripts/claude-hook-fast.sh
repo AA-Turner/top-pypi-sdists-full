@@ -125,7 +125,7 @@ PORT="${CLAUDE_MPM_SOCKETIO_PORT:-8765}"
             \"data\": {
                 \"type\": \"hook\",
                 \"subtype\": \"$SUBTYPE\",
-                \"hook_event_type\": \"$EVENT\",
+                \"hook_event_name\": \"$EVENT\",
                 \"tool_name\": \"$TOOL_NAME\",
                 \"session_id\": \"$SESSION_ID\",
                 \"correlation_id\": \"$CORRELATION_ID\",
@@ -138,7 +138,9 @@ PORT="${CLAUDE_MPM_SOCKETIO_PORT:-8765}"
 } &
 
 # =============================================================================
-# Return continue response immediately
+# Return async response immediately
+# async: true tells Claude Code this hook runs in background (non-blocking)
+# asyncTimeout: 60000ms (60s) - maximum time for background operations
 # This is the critical path - must be fast to not block Claude Code
 # =============================================================================
-echo '{"continue": true}'
+echo '{"async": true, "asyncTimeout": 60000}'

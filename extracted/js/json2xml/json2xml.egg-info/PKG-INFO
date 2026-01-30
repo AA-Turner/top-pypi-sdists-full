@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json2xml
-Version: 6.0.2
+Version: 6.0.3
 Summary: Simple Python Library to convert JSON to XML
 Author-email: Vinit Kumar <mail@vinitkumar.me>
 License: Apache Software License 2.0
@@ -25,12 +25,11 @@ License-File: AUTHORS.rst
 Requires-Dist: defusedxml
 Requires-Dist: urllib3
 Requires-Dist: xmltodict>=0.12.0
-Requires-Dist: pytest
-Requires-Dist: pytest-cov
-Requires-Dist: coverage
-Requires-Dist: setuptools
-Provides-Extra: test
-Requires-Dist: pytest>=8.4.1; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.4.1; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
 Provides-Extra: fast
 Requires-Dist: json2xml-rs>=0.1.0; extra == "fast"
 Dynamic: license-file

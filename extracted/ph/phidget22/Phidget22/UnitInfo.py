@@ -10,10 +10,10 @@ class UnitInfo(ctypes.Structure):
 		("_symbol", ctypes.c_char_p),
 	]
 
-	def __init__(self):
-		self.unit = 0
-		self.name = ""
-		self.symbol = ""
+	def __init__(self, unit = 0, name = "", symbol = ""):
+		self.unit = unit
+		self.name = name
+		self.symbol = symbol
 
 	def fromPython(self):
 		self._unit = self.unit

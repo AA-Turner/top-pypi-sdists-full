@@ -15,7 +15,6 @@ use crate::options::ConversionOptions;
 use crate::types::{MetadataConfig, extended_metadata_to_py};
 #[cfg(feature = "visitor")]
 use crate::visitor;
-use html_to_markdown_bindings_common::{parse_conversion_options, parse_metadata_config};
 use html_to_markdown_rs::metadata::DEFAULT_MAX_STRUCTURED_DATA_SIZE;
 #[cfg(feature = "visitor")]
 use html_to_markdown_rs::visitor::HtmlVisitor;
@@ -249,31 +248,6 @@ pub fn convert_with_metadata<'py>(
     let cfg = metadata_config
         .unwrap_or_else(|| MetadataConfig::new(true, true, true, true, true, DEFAULT_MAX_STRUCTURED_DATA_SIZE));
     let rust_cfg = cfg.to_rust();
-    let result = py
-        .detach(move || {
-            run_with_guard_and_profile(|| {
-                html_to_markdown_rs::convert_with_metadata(&html, rust_options.clone(), rust_cfg.clone(), None)
-            })
-        })
-        .map_err(to_py_err)?;
-
-    let (markdown, metadata) = result;
-    let metadata_dict = extended_metadata_to_py(py, metadata)?;
-    Ok((markdown, metadata_dict))
-}
-
-#[pyfunction]
-#[pyo3(signature = (html, options_json=None, metadata_config_json=None))]
-pub fn convert_with_metadata_json(
-    py: Python<'_>,
-    html: &str,
-    options_json: Option<&str>,
-    metadata_config_json: Option<&str>,
-) -> PyResult<(String, Py<PyAny>)> {
-    let html = html.to_owned();
-    let rust_options = parse_conversion_options(options_json).map_err(to_py_err)?;
-    let rust_cfg = parse_metadata_config(metadata_config_json).map_err(to_py_err)?;
-
     let result = py
         .detach(move || {
             run_with_guard_and_profile(|| {

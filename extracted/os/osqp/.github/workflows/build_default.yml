@@ -27,7 +27,7 @@ jobs:
         python -m build --sdist --outdir=wheelhouse
 
     - name: Upload sdist to github
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wheels-sdist
         path: wheelhouse/*.tar.gz
@@ -46,8 +46,8 @@ jobs:
             cibw_archs: "auto"
           - os: windows-2022
             cibw_archs: "auto64"
-          # Include macos-13 to get Intel x86_64 macs and maos-latest to get the Aaarch64 macs
-          - os: macos-13
+          # Include macos-15-intel to get Intel x86_64 macs and macos-latest to get the Aaarch64 macs
+          - os: macos-15-intel
             cibw_archs: "x86_64"
           - os: macos-latest
             cibw_archs: "arm64"
@@ -64,7 +64,7 @@ jobs:
         CIBW_ENVIRONMENT_MACOS: CMAKE_OSX_ARCHITECTURES=${{ matrix.cibw_archs }}
 
     - name: Upload artifacts to github
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wheels-${{ runner.os }}-${{ matrix.cibw_archs }}
         path: ./wheelhouse/*.whl
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: wheels-*
           path: dist

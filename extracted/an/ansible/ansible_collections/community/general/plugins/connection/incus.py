@@ -79,9 +79,9 @@ options:
 
 import os
 import re
-from subprocess import call, Popen, PIPE
+from subprocess import PIPE, Popen, call
 
-from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
+from ansible.errors import AnsibleConnectionFailure, AnsibleError, AnsibleFileNotFound
 from ansible.module_utils.common.process import get_bin_path
 from ansible.module_utils.common.text.converters import to_bytes, to_text
 from ansible.plugins.connection import ConnectionBase
@@ -104,11 +104,11 @@ class Connection(ConnectionBase):
         if getattr(self._shell, "_IS_WINDOWS", False):
             # Initializing regular expression patterns to match on a PowerShell or cmd command line.
             self.powershell_regex_pattern = re.compile(
-                r"^(?P<executable>(\"?([a-z]:)?[a-z0-9 ()\\.]+)?powershell(\.exe)?\"?|(([a-z]:)?[a-z0-9()\\.]+)?powershell(\.exe)?)\s+.*(?P<command>-c(ommand)?)\s+",  # noqa: E501
+                r'^"?(?P<executable>(?:[a-z]:\\)?[a-z0-9 ()\\.]*powershell(?:\.exe)?)"?\s+(?P<args>.*)(?P<command>-c(?:ommand)?)\s+(?P<post_args>.*(\n.*)*)',
                 re.IGNORECASE,
             )
             self.cmd_regex_pattern = re.compile(
-                r"^(?P<executable>(\"?([a-z]:)?[a-z0-9 ()\\.]+)?cmd(\.exe)?\"?|(([a-z]:)?[a-z0-9()\\.]+)?cmd(\.exe)?)\s+.*(?P<command>/c)\s+",
+                r'^"?(?P<executable>(?:[a-z]:\\)?[a-z0-9 ()\\.]*cmd(?:\.exe)?)"?\s+(?P<args>.*)(?P<command>/c)\s+(?P<post_args>.*)',
                 re.IGNORECASE,
             )
 
@@ -142,30 +142,25 @@ class Connection(ConnectionBase):
         ]
 
         if getattr(self._shell, "_IS_WINDOWS", False):
-            if (
-                (regex_match := self.powershell_regex_pattern.match(cmd))
-                and (regex_pattern := self.powershell_regex_pattern)
-            ) or ((regex_match := self.cmd_regex_pattern.match(cmd)) and (regex_pattern := self.cmd_regex_pattern)):
+            if regex_match := self.powershell_regex_pattern.match(cmd):
+                regex_pattern = self.powershell_regex_pattern
+            elif regex_match := self.cmd_regex_pattern.match(cmd):
+                regex_pattern = self.cmd_regex_pattern
+
+            if regex_match:
                 self._display.vvvvvv(
                     f'Found keyword: "{regex_match.group("command")}" based on regex: {regex_pattern.pattern}',
                     host=self._instance(),
                 )
 
-                # Split the command on the argument -c(ommand) for PowerShell or /c for cmd.
-                before_command_argument, after_command_argument = cmd.split(regex_match.group("command"), 1)
-
-                exec_cmd.extend(
-                    [
-                        # To avoid splitting on a space contained in the path, set the executable as the first argument.
-                        regex_match.group("executable").strip('"'),
-                        # Remove the executable path and split the rest by space.
-                        *(before_command_argument[len(regex_match.group("executable")) :].lstrip().split(" ")),
-                        # Set the command argument depending on cmd or powershell.
-                        regex_match.group("command"),
-                        # Add the rest of the command at the end.
-                        after_command_argument,
-                    ]
-                )
+                # To avoid splitting on a space contained in the path, set the executable as the first argument.
+                exec_cmd.append(regex_match.group("executable"))
+                if args := regex_match.group("args"):
+                    exec_cmd.extend(args.strip().split(" "))
+                # Set the command argument depending on cmd or powershell and the rest of it
+                exec_cmd.append(regex_match.group("command"))
+                if post_args := regex_match.group("post_args"):
+                    exec_cmd.append(post_args.strip())
             else:
                 # For anything else using -EncodedCommand or else, just split on space.
                 exec_cmd.extend(cmd.split(" "))

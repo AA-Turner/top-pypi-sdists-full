@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import datetime
 import functools
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import (
+    Generator as ABCGenerator,
+    AsyncGenerator as ABCAsyncGenerator,
+)
 from contextlib import contextmanager
+from types import TracebackType
 from typing import (
     Any,
     Callable,
+    Coroutine,
     Dict,
     Iterator,
     Optional,
@@ -49,6 +57,7 @@ from judgeval.v1.tracer.processors._lifecycles import (
     SESSION_ID_KEY,
     AGENT_CLASS_NAME_KEY,
     AGENT_INSTANCE_NAME_KEY,
+    PROJECT_ID_OVERRIDE_KEY,
 )
 from judgeval.v1.tracer.isolated.tracer import JudgmentIsolatedTracer
 
@@ -73,6 +82,7 @@ class BaseTracer(ABC):
     def __init__(
         self,
         project_name: str,
+        project_id: str,
         enable_evaluation: bool,
         enable_monitoring: bool,
         api_client: JudgmentSyncClient,
@@ -80,21 +90,14 @@ class BaseTracer(ABC):
         tracer_provider: TracerProvider,
     ):
         self.project_name = project_name
+        self.project_id = project_id
         self.enable_evaluation = enable_evaluation
         self.enable_monitoring = enable_monitoring
         self.api_client = api_client
         self.serializer = serializer
-        self.project_id = resolve_project_id(api_client, project_name)
         self._tracer_provider = tracer_provider
 
         BaseTracer._tracers.append(self)
-
-        if self.project_id is None:
-            judgeval_logger.error(
-                f"Failed to resolve project {project_name}, "
-                f"please create it first at https://app.judgmentlabs.ai/org/{self.api_client.organization_id}/projects. "
-                "Skipping Judgment export."
-            )
 
     @abstractmethod
     def force_flush(self, timeout_millis: int) -> bool:
@@ -105,36 +108,18 @@ class BaseTracer(ABC):
         pass
 
     def get_span_exporter(self) -> SpanExporter:
-        if self.project_id is not None:
-            return JudgmentSpanExporter(
-                endpoint=self._build_endpoint(self.api_client.base_url),
-                api_key=self.api_client.api_key,
-                organization_id=self.api_client.organization_id,
-                project_id=self.project_id,
-            )
-        else:
-            judgeval_logger.error(
-                "Project not resolved; cannot create exporter, returning NoOpSpanExporter"
-            )
-            from judgeval.v1.tracer.exporters.noop_span_exporter import NoOpSpanExporter
-
-            return NoOpSpanExporter()
+        return JudgmentSpanExporter(
+            endpoint=self._build_endpoint(self.api_client.base_url),
+            api_key=self.api_client.api_key,
+            organization_id=self.api_client.organization_id,
+            project_id=self.project_id,
+        )
 
     def get_span_processor(self) -> JudgmentSpanProcessor:
-        if self.project_id is not None:
-            return JudgmentSpanProcessor(
-                self,
-                self.get_span_exporter(),
-            )
-        else:
-            judgeval_logger.error(
-                "Project not resolved; cannot create processor, returning NoOpSpanProcessor"
-            )
-            from judgeval.v1.tracer.processors.noop_span_processor import (
-                NoOpJudgmentSpanProcessor,
-            )
-
-            return NoOpJudgmentSpanProcessor()
+        return JudgmentSpanProcessor(
+            self,
+            self.get_span_exporter(),
+        )
 
     def get_tracer(self) -> trace.Tracer:
         return self._tracer_provider.get_tracer(self.TRACER_NAME)
@@ -188,6 +173,25 @@ class BaseTracer(ABC):
             return tracer.get_current_span()
         return trace.get_current_span()
 
+    def _attach_context(self, ctx: Context) -> object:
+        from judgeval.v1.tracer.judgment_tracer_provider import JudgmentTracerProvider
+
+        if self._is_isolated() and isinstance(
+            self._tracer_provider, JudgmentTracerProvider
+        ):
+            return self._tracer_provider._runtime_context.attach(ctx)
+        return attach(ctx)
+
+    def _detach_context(self, token: Any) -> None:
+        from judgeval.v1.tracer.judgment_tracer_provider import JudgmentTracerProvider
+
+        if self._is_isolated() and isinstance(
+            self._tracer_provider, JudgmentTracerProvider
+        ):
+            self._tracer_provider._runtime_context.detach(cast(Any, token))
+        else:
+            detach(cast(Any, token))
+
     def set_span_kind(self, kind: str) -> None:
         if kind is None:
             return
@@ -221,8 +225,49 @@ class BaseTracer(ABC):
         if current_span is None:
             return
         current_span.set_attribute(AttributeKeys.JUDGMENT_CUSTOMER_ID, customer_id)
-        ctx = set_value(CUSTOMER_ID_KEY, customer_id)
-        attach(ctx)
+        ctx = set_value(CUSTOMER_ID_KEY, customer_id, self.get_context())
+        self._attach_context(ctx)
+
+    def set_session_id(self, session_id: str) -> None:
+        current_span = self._get_sampled_span()
+        if current_span is None:
+            return
+        current_span.set_attribute(AttributeKeys.JUDGMENT_SESSION_ID, session_id)
+        ctx = set_value(SESSION_ID_KEY, session_id, self.get_context())
+        self._attach_context(ctx)
+
+    def override_project(self, project_name: str) -> None:
+        current_span = self._get_current_span()
+        if current_span is None or not current_span.is_recording():
+            judgeval_logger.error(
+                "override_project() called outside of a span context. Ignoring."
+            )
+            return
+        is_root = getattr(current_span, "parent", None) is None
+        if not is_root:
+            judgeval_logger.error(
+                f"override_project('{project_name}') called on non-root span. "
+                "Project override only allowed on root spans. Ignoring."
+            )
+            return
+        resolved_id = resolve_project_id(self.api_client, project_name)
+        if resolved_id is None:
+            judgeval_logger.error(
+                f"Failed to resolve project '{project_name}' for override. Using default."
+            )
+            return
+        current_span.set_attribute(
+            AttributeKeys.JUDGMENT_PROJECT_ID_OVERRIDE, resolved_id
+        )
+        ctx = set_value(PROJECT_ID_OVERRIDE_KEY, resolved_id, self.get_context())
+        self._attach_context(ctx)
+
+    def get_effective_project_id(self) -> Optional[str]:
+        """Get the current effective project_id, respecting any override set on the span."""
+        override = get_value(PROJECT_ID_OVERRIDE_KEY, context=self.get_context())
+        if override is not None:
+            return str(override)
+        return self.project_id
 
     def set_llm_span(self) -> None:
         self.set_span_kind("llm")
@@ -254,6 +299,19 @@ class BaseTracer(ABC):
         tracer = self.get_tracer()
         return tracer.start_span(span_name)
 
+    def _check_scorer_project(self, scorer: BaseScorer) -> bool:
+        """Check if scorer belongs to this tracer's project. Returns True if valid."""
+        scorer_project_id = getattr(scorer, "_project_id", None)
+        effective_project_id = self.get_effective_project_id()
+        if scorer_project_id is not None and scorer_project_id != effective_project_id:
+            judgeval_logger.warning(
+                f"Scorer '{scorer.get_name()}' belongs to project '{scorer_project_id}', "
+                f"but the current effective project is '{effective_project_id}'. "
+                "Skipping evaluation."
+            )
+            return False
+        return True
+
     @dont_throw
     def async_evaluate(
         self,
@@ -265,6 +323,9 @@ class BaseTracer(ABC):
             return
 
         if not self.enable_evaluation:
+            return
+
+        if not self._check_scorer_project(scorer):
             return
 
         span_context = self._get_sampled_span_context()
@@ -283,7 +344,8 @@ class BaseTracer(ABC):
         evaluation_run = self._create_evaluation_run(
             scorer, example, trace_id_hex, span_id_hex
         )
-        self._enqueue_evaluation(evaluation_run)
+        if evaluation_run is not None:
+            self._enqueue_evaluation(evaluation_run)
 
     @dont_throw
     def async_trace_evaluate(
@@ -295,6 +357,9 @@ class BaseTracer(ABC):
             return
 
         if not self.enable_evaluation:
+            return
+
+        if not self._check_scorer_project(scorer):
             return
 
         current_span = self._get_sampled_span()
@@ -314,6 +379,8 @@ class BaseTracer(ABC):
         evaluation_run = self._create_trace_evaluation_run(
             scorer, trace_id_hex, span_id_hex
         )
+        if evaluation_run is None:
+            return
         try:
             trace_eval_json = self.serializer(evaluation_run)
             current_span.set_attribute(
@@ -322,13 +389,24 @@ class BaseTracer(ABC):
         except Exception as e:
             judgeval_logger.error(f"Failed to serialize trace evaluation: {e}")
 
-    def set_session_id(self, session_id: str) -> None:
-        current_span = self._get_sampled_span()
-        if current_span is None:
+    @dont_throw
+    def tag(self, tags: str | list[str]) -> None:
+        if not tags or (isinstance(tags, list) and len(tags) == 0):
             return
-        current_span.set_attribute(AttributeKeys.JUDGMENT_SESSION_ID, session_id)
-        ctx = set_value(SESSION_ID_KEY, session_id)
-        attach(ctx)
+        project_id = self.get_effective_project_id()
+        if project_id is None:
+            return
+        span_context = self._get_sampled_span_context()
+        if span_context is None:
+            return
+        trace_id = format(span_context.trace_id, "032x")
+        self.api_client.post_projects_traces_by_trace_id_tags(
+            project_id=project_id,
+            trace_id=trace_id,
+            payload={
+                "tags": tags if isinstance(tags, list) else [tags],
+            },
+        )
 
     def _build_endpoint(self, base_url: str) -> str:
         return (
@@ -346,7 +424,11 @@ class BaseTracer(ABC):
         example: Example,
         trace_id: str,
         span_id: str,
-    ) -> ExampleEvaluationRun:
+    ) -> Optional[ExampleEvaluationRun]:
+        project_id = self.get_effective_project_id()
+        if project_id is None:
+            return None
+
         run_id = self._generate_run_id("async_evaluate_", span_id)
 
         judgment_scorers = (
@@ -355,7 +437,7 @@ class BaseTracer(ABC):
         custom_scorers = [scorer.to_dict()] if isinstance(scorer, CustomScorer) else []
 
         return ExampleEvaluationRun(
-            project_name=self.project_name,
+            project_id=project_id,
             eval_name=run_id,
             trace_id=trace_id,
             trace_span_id=span_id,
@@ -370,7 +452,11 @@ class BaseTracer(ABC):
         scorer: BaseScorer,
         trace_id: str,
         span_id: str,
-    ) -> TraceEvaluationRun:
+    ) -> Optional[TraceEvaluationRun]:
+        project_id = self.get_effective_project_id()
+        if project_id is None:
+            return None
+
         eval_name = self._generate_run_id("async_trace_evaluate_", span_id)
 
         judgment_scorers = (
@@ -379,19 +465,22 @@ class BaseTracer(ABC):
         custom_scorers = [scorer.to_dict()] if isinstance(scorer, CustomScorer) else []
 
         return TraceEvaluationRun(
-            project_name=self.project_name,
+            project_id=project_id,
             eval_name=eval_name,
             trace_and_span_ids=[[trace_id, span_id]],
             judgment_scorers=judgment_scorers,
             custom_scorers=custom_scorers,
             is_offline=False,
-            is_bucket_run=False,
+            is_behavior=False,
             created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )
 
     def _enqueue_evaluation(self, evaluation_run: ExampleEvaluationRun) -> None:
         try:
-            self.api_client.add_to_run_eval_queue_examples(evaluation_run)
+            self.api_client.post_projects_eval_queue_examples(
+                project_id=evaluation_run["project_id"],
+                payload=evaluation_run,
+            )
         except Exception as e:
             judgeval_logger.error(f"Failed to enqueue evaluation run: {e}")
 
@@ -432,6 +521,7 @@ class BaseTracer(ABC):
         span_name: Optional[str] = None,
         record_input: bool = True,
         record_output: bool = True,
+        disable_generator_yield_span: bool = False,
     ) -> C: ...
 
     @overload
@@ -442,6 +532,7 @@ class BaseTracer(ABC):
         span_name: Optional[str] = None,
         record_input: bool = True,
         record_output: bool = True,
+        disable_generator_yield_span: bool = False,
     ) -> Callable[[C], C]: ...
 
     def observe(
@@ -451,10 +542,16 @@ class BaseTracer(ABC):
         span_name: Optional[str] = None,
         record_input: bool = True,
         record_output: bool = True,
+        disable_generator_yield_span: bool = False,
     ) -> C | Callable[[C], C]:
         if func is None:
             return lambda f: self.observe(
-                f, span_type, span_name, record_input, record_output
+                f,
+                span_type,
+                span_name,
+                record_input,
+                record_output,
+                disable_generator_yield_span,
             )  # type: ignore[return-value]
 
         if not self.enable_monitoring:
@@ -473,20 +570,19 @@ class BaseTracer(ABC):
                 with tracer.start_as_current_span(name) as span:
                     if span_type:
                         span.set_attribute(AttributeKeys.JUDGMENT_SPAN_KIND, span_type)
-
                     try:
                         if record_input:
-                            input_data = _format_inputs(func, args, kwargs)
                             span.set_attribute(
                                 AttributeKeys.JUDGMENT_INPUT,
-                                self.serializer(input_data),
+                                _serialize(
+                                    self.serializer, _format_inputs(func, args, kwargs)
+                                ),
                             )
-
                         result = await func(*args, **kwargs)
-
                         if record_output:
                             span.set_attribute(
-                                AttributeKeys.JUDGMENT_OUTPUT, self.serializer(result)
+                                AttributeKeys.JUDGMENT_OUTPUT,
+                                _serialize(self.serializer, result),
                             )
                         return result
                     except Exception as e:
@@ -494,36 +590,64 @@ class BaseTracer(ABC):
                         span.set_status(Status(StatusCode.ERROR, str(e)))
                         raise
 
-            return async_wrapper  # type: ignore[return-value]
+            return cast(C, async_wrapper)
         else:
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with tracer.start_as_current_span(name) as span:
+                with tracer.start_as_current_span(name, end_on_exit=False) as span:
                     if span_type:
                         span.set_attribute(AttributeKeys.JUDGMENT_SPAN_KIND, span_type)
-
                     try:
                         if record_input:
-                            input_data = _format_inputs(func, args, kwargs)
                             span.set_attribute(
                                 AttributeKeys.JUDGMENT_INPUT,
-                                self.serializer(input_data),
+                                _serialize(
+                                    self.serializer, _format_inputs(func, args, kwargs)
+                                ),
                             )
-
                         result = func(*args, **kwargs)
-
-                        if record_output:
-                            span.set_attribute(
-                                AttributeKeys.JUDGMENT_OUTPUT, self.serializer(result)
-                            )
-                        return result
                     except Exception as e:
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, str(e)))
+                        span.end()
                         raise
 
-            return sync_wrapper  # type: ignore[return-value]
+                    if inspect.isgenerator(result):
+                        if record_output:
+                            span.set_attribute(
+                                AttributeKeys.JUDGMENT_OUTPUT, "<generator>"
+                            )
+                        return _ObservedSyncGenerator(
+                            result,
+                            span,
+                            self.serializer,
+                            tracer,
+                            contextvars.copy_context(),
+                            disable_generator_yield_span or not record_output,
+                        )
+                    if inspect.isasyncgen(result):
+                        if record_output:
+                            span.set_attribute(
+                                AttributeKeys.JUDGMENT_OUTPUT, "<async_generator>"
+                            )
+                        return _ObservedAsyncGenerator(
+                            result,
+                            span,
+                            self.serializer,
+                            tracer,
+                            contextvars.copy_context(),
+                            disable_generator_yield_span or not record_output,
+                        )
+                    if record_output:
+                        span.set_attribute(
+                            AttributeKeys.JUDGMENT_OUTPUT,
+                            _serialize(self.serializer, result),
+                        )
+                    span.end()
+                    return result
+
+            return cast(C, sync_wrapper)
 
     @overload
     def agent(self, func: C, /, *, identifier: Optional[str] = None) -> C: ...
@@ -550,8 +674,8 @@ class BaseTracer(ABC):
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 agent_id = str(uuid4())
-                parent_agent_id = get_value(AGENT_ID_KEY)
-                ctx = set_value(AGENT_ID_KEY, agent_id)
+                parent_agent_id = get_value(AGENT_ID_KEY, context=self.get_context())
+                ctx = set_value(AGENT_ID_KEY, agent_id, self.get_context())
                 if parent_agent_id:
                     ctx = set_value(PARENT_AGENT_ID_KEY, parent_agent_id, context=ctx)
                 if class_name:
@@ -563,11 +687,11 @@ class BaseTracer(ABC):
                         ctx = set_value(
                             AGENT_INSTANCE_NAME_KEY, instance_name, context=ctx
                         )
-                token = attach(ctx)
+                token = self._attach_context(ctx)
                 try:
                     return await func(*args, **kwargs)
                 finally:
-                    detach(token)
+                    self._detach_context(token)
 
             return async_wrapper  # type: ignore[return-value]
         else:
@@ -575,8 +699,8 @@ class BaseTracer(ABC):
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 agent_id = str(uuid4())
-                parent_agent_id = get_value(AGENT_ID_KEY)
-                ctx = set_value(AGENT_ID_KEY, agent_id)
+                parent_agent_id = get_value(AGENT_ID_KEY, context=self.get_context())
+                ctx = set_value(AGENT_ID_KEY, agent_id, self.get_context())
                 if parent_agent_id:
                     ctx = set_value(PARENT_AGENT_ID_KEY, parent_agent_id, context=ctx)
                 if class_name:
@@ -588,11 +712,11 @@ class BaseTracer(ABC):
                         ctx = set_value(
                             AGENT_INSTANCE_NAME_KEY, instance_name, context=ctx
                         )
-                token = attach(ctx)
+                token = self._attach_context(ctx)
                 try:
                     return func(*args, **kwargs)
                 finally:
-                    detach(token)
+                    self._detach_context(token)
 
             return sync_wrapper  # type: ignore[return-value]
 
@@ -622,3 +746,222 @@ def _format_inputs(
         return inputs
     except Exception:
         return {}
+
+
+def _serialize(serializer: Callable[[Any], str], value: Any) -> Any:
+    return value if isinstance(value, (str, int, float, bool)) else serializer(value)
+
+
+R = TypeVar("R")
+
+
+class _ObservedGeneratorBase:
+    __slots__ = (
+        "_generator",
+        "_span",
+        "_serializer",
+        "_tracer",
+        "_context",
+        "_closed",
+        "_disable_generator_yield_span",
+    )
+
+    _generator: Any
+    _span: Span
+    _serializer: Callable[[Any], str]
+    _tracer: trace.Tracer
+    _context: contextvars.Context
+    _closed: bool
+    _disable_generator_yield_span: bool
+
+    def __init__(
+        self,
+        generator: Any,
+        span: Span,
+        serializer: Callable[[Any], str],
+        tracer: trace.Tracer,
+        context: contextvars.Context,
+        disable_generator_yield_span: bool = False,
+    ) -> None:
+        self._generator = generator
+        self._span = span
+        self._serializer = serializer
+        self._tracer = tracer
+        self._context = context
+        self._closed = False
+        self._disable_generator_yield_span = disable_generator_yield_span
+
+    def _emit_yield_span(self, item: Any) -> None:
+        if self._disable_generator_yield_span:
+            return
+        with trace.use_span(self._span):
+            span_name = str(getattr(self._span, "name", "generator_item"))
+            with self._tracer.start_as_current_span(
+                span_name,
+                attributes={AttributeKeys.JUDGMENT_SPAN_KIND: "generator_item"},
+            ) as child_span:
+                child_span.set_attribute(
+                    AttributeKeys.JUDGMENT_OUTPUT,
+                    _serialize(self._serializer, item),
+                )
+
+    def _record_error(self, exc: BaseException) -> None:
+        self._span.record_exception(exc)
+        self._span.set_status(Status(StatusCode.ERROR, str(exc)))
+        self._finish()
+
+    def _finish(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._span.set_attribute(AttributeKeys.JUDGMENT_SPAN_KIND, "generator")
+        self._span.end()
+
+    def __del__(self) -> None:
+        self._finish()
+
+
+class _ObservedSyncGenerator(_ObservedGeneratorBase, ABCGenerator[Any, Any, Any]):
+    __slots__ = ()
+
+    def __iter__(self) -> _ObservedSyncGenerator:
+        return self
+
+    def __next__(self) -> Any:
+        return self.send(None)
+
+    def send(self, value: Any) -> Any:
+        if self._closed:
+            raise StopIteration
+        try:
+            item = self._context.run(self._generator.send, value)
+            self._emit_yield_span(item)
+            return item
+        except StopIteration:
+            self._finish()
+            raise
+        except Exception as e:
+            self._record_error(e)
+            raise
+
+    @overload
+    def throw(
+        self,
+        __typ: type[BaseException],
+        __val: object = ...,
+        __tb: Optional[TracebackType] = ...,
+    ) -> Any: ...
+
+    @overload
+    def throw(
+        self,
+        __typ: BaseException,
+        __val: None = ...,
+        __tb: Optional[TracebackType] = ...,
+    ) -> Any: ...
+
+    def throw(
+        self,
+        __typ: type[BaseException] | BaseException,
+        __val: object = None,
+        __tb: Optional[TracebackType] = None,
+    ) -> Any:
+        if self._closed:
+            raise StopIteration
+        try:
+            if isinstance(__typ, type):
+                item = self._context.run(self._generator.throw, __typ, __val, __tb)
+            else:
+                item = self._context.run(self._generator.throw, __typ, None, __tb)
+            self._emit_yield_span(item)
+            return item
+        except StopIteration:
+            self._finish()
+            raise
+        except Exception as e:
+            self._record_error(e)
+            raise
+
+    def close(self) -> None:
+        try:
+            self._generator.close()
+        finally:
+            self._finish()
+
+
+class _ObservedAsyncGenerator(_ObservedGeneratorBase, ABCAsyncGenerator[Any, Any]):
+    __slots__ = ()
+
+    def _create_task(self, coro: Coroutine[Any, Any, R]) -> asyncio.Task[R]:
+        try:
+            return asyncio.create_task(coro, context=self._context)
+        except TypeError:
+            return self._context.run(lambda: asyncio.create_task(coro))
+
+    def __aiter__(self) -> _ObservedAsyncGenerator:
+        return self
+
+    async def __anext__(self) -> Any:
+        return await self.asend(None)
+
+    async def asend(self, value: Any) -> Any:
+        if self._closed:
+            raise StopAsyncIteration
+        try:
+            item = await self._create_task(self._generator.asend(value))
+            self._emit_yield_span(item)
+            return item
+        except StopAsyncIteration:
+            self._finish()
+            raise
+        except Exception as e:
+            self._record_error(e)
+            raise
+
+    @overload
+    async def athrow(
+        self,
+        __typ: type[BaseException],
+        __val: object = ...,
+        __tb: Optional[TracebackType] = ...,
+    ) -> Any: ...
+
+    @overload
+    async def athrow(
+        self,
+        __typ: BaseException,
+        __val: None = ...,
+        __tb: Optional[TracebackType] = ...,
+    ) -> Any: ...
+
+    async def athrow(
+        self,
+        __typ: type[BaseException] | BaseException,
+        __val: object = None,
+        __tb: Optional[TracebackType] = None,
+    ) -> Any:
+        if self._closed:
+            raise StopAsyncIteration
+        try:
+            if isinstance(__typ, type):
+                item = await self._create_task(
+                    self._generator.athrow(__typ, __val, __tb)
+                )
+            else:
+                item = await self._create_task(
+                    self._generator.athrow(__typ, None, __tb)
+                )
+            self._emit_yield_span(item)
+            return item
+        except StopAsyncIteration:
+            self._finish()
+            raise
+        except Exception as e:
+            self._record_error(e)
+            raise
+
+    async def aclose(self) -> None:
+        try:
+            await self._generator.aclose()
+        finally:
+            self._finish()

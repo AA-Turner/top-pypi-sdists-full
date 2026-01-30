@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
+from abstra_internals.logger import AbstraLogger
+
 
 @dataclass
 class Node:
@@ -30,6 +32,21 @@ class Graph:
             cache[node.id] = NodeAdjency(points_to=[], is_pointed_by=[])
 
         for edge in edges:
+            # Skip orphan edges (referencing non-existent nodes)
+            # This is a defensive check - orphan edges should be filtered
+            # before reaching here, but we handle them gracefully just in case
+            if edge.source_id not in cache:
+                AbstraLogger.warning(
+                    f"Skipping orphan edge: source node '{edge.source_id}' does not exist"
+                )
+                continue
+            if edge.target_id not in cache:
+                AbstraLogger.warning(
+                    f"Skipping orphan edge: target node '{edge.target_id}' does not exist "
+                    f"(source: '{edge.source_id}')"
+                )
+                continue
+
             cache[edge.source_id].points_to.append(Node(id=edge.target_id))
             cache[edge.target_id].is_pointed_by.append(Node(id=edge.source_id))
 

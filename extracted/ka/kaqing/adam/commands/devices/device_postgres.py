@@ -5,6 +5,7 @@ from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_names, postgres
 from adam.repl_state import ReplState
 from adam.utils import tabulize, log2, wait_log
+from adam.utils_context import Context
 
 class DevicePostgres(Command, Device):
     COMMAND = f'{ReplState.P}:'
@@ -136,25 +137,25 @@ class DevicePostgres(Command, Device):
     def show_tables(self, state: ReplState):
         tabulize(PostgresDatabases.tables(state, default_schema=True), lambda d: d['name'], separator=',')
 
-    def show_table_preview(self, state: ReplState, table: str, rows: int):
-        PostgresDatabases.run_sql(state, f'select * from {table} limit {rows}')
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+        PostgresDatabases.run_sql(state, f'select * from {table} limit {rows}', ctx=ctx)
 
-    def bash(self, s0: ReplState, s1: ReplState, args: list[str]):
-        pod, container = PostgresDatabases.pod_and_container(s1.namespace)
-        log2(f'Running on {pod}(container:{container})...')
+    # def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx: Context = Context.NULL):
+        # pod, container = PostgresDatabases.pod_and_container(s1.namespace)
+        # log2(f'Running on {pod}(container:{container})...')
 
-        return super().bash(s0, s1, args)
+        # return super().bash(s0, s1, args, ctx=ctx)
 
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.pg_path != s1.pg_path
 
-    def exec_no_dir(self, command: str, state: ReplState, text_color: str = None):
+    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         with postgres(state) as pod:
-            return pod.exec(command, show_out=True, text_color=text_color)
+            return pod.exec(command, ctx.copy(show_out=True, show_verbose=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, text_color: str = None):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         with postgres(state) as pod:
-            return pod.exec(command, show_out=not session_just_created, text_color=text_color)
+            return pod.exec(command, ctx=ctx.copy(show_out=not session_just_created, show_verbose=not session_just_created))
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return {cmd: BashCompleter(lambda: [])}

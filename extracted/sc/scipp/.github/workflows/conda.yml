@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       os:
-        description: "Operating system: ubuntu-24.04, macos-14-large, or windows-2022"
+        description: "Operating system, e.g., ubuntu-24.04, macos-15-intel, or windows-2022"
         required: true
         type: string
       target:
@@ -30,7 +30,7 @@ jobs:
           submodules: true
           fetch-depth: 0 # history required so cmake can determine version
 
-      - uses: conda-incubator/setup-miniconda@d398943fa11a5a1bb09f7cf3907142cf0a600d37 # Use the main branch to get auto-activate
+      - uses: conda-incubator/setup-miniconda@fc2d68f6413eb2d87b895e92f8584b5b94a10167 # Use the main branch to get auto-activate
         with:
           miniforge-version: latest
           conda-remove-defaults: true

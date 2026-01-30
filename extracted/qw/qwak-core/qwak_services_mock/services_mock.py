@@ -4,8 +4,17 @@ from typing import Any, Generator, List, Tuple
 import grpc
 import pytest
 
+from _qwak_proto.qwak.administration.cluster.v2.cluster_service_pb2_grpc import (
+    add_ClusterServiceServicer_to_server,
+)
 from _qwak_proto.qwak.administration.v0.authentication.authentication_service_pb2_grpc import (
     add_AuthenticationServiceServicer_to_server,
+)
+from _qwak_proto.qwak.administration.v0.environments.environment_service_pb2_grpc import (
+    add_EnvironmentServiceServicer_to_server as add_EnvironmentV0ServiceServicer_to_server,
+)
+from _qwak_proto.qwak.administration.v1.environments.environment_service_pb2_grpc import (
+    add_EnvironmentServiceServicer_to_server as add_EnvironmentV1ServiceServicer_to_server,
 )
 from _qwak_proto.qwak.admiral.secret.v0.system_secret_service_pb2_grpc import (
     add_SystemSecretServiceServicer_to_server,
@@ -107,12 +116,6 @@ from _qwak_proto.qwak.self_service.user.v1.user_service_pb2_grpc import (
 from _qwak_proto.qwak.service_discovery.service_discovery_location_service_pb2_grpc import (
     add_LocationDiscoveryServiceServicer_to_server,
 )
-from _qwak_proto.qwak.vectors.v1.collection.collection_service_pb2_grpc import (
-    add_VectorCollectionServiceServicer_to_server,
-)
-from _qwak_proto.qwak.vectors.v1.vector_service_pb2_grpc import (
-    add_VectorServiceServicer_to_server,
-)
 from _qwak_proto.qwak.workspace.workspace_service_pb2_grpc import (
     add_WorkspaceManagementServiceServicer_to_server,
 )
@@ -140,11 +143,14 @@ from qwak_services_mock.mocks.build_orchestrator_build_settings_api import (
 from qwak_services_mock.mocks.build_orchestrator_service_api import (
     BuildOrchestratorServiceApiMock,
 )
+from qwak_services_mock.mocks.cluster_v2_service import ClusterV2ServiceMock
 from qwak_services_mock.mocks.data_versioning_service import DataVersioningServiceMock
 from qwak_services_mock.mocks.deployment_management_service import (
     DeploymentManagementServiceMock,
 )
 from qwak_services_mock.mocks.ecosystem_service_api import EcoSystemServiceMock
+from qwak_services_mock.mocks.environment_v0_service import EnvironmentV0ServiceMock
+from qwak_services_mock.mocks.environment_v1_service import EnvironmentV1ServiceMock
 from qwak_services_mock.mocks.execution_management_service import (
     ExecutionManagementServiceMock,
 )
@@ -193,10 +199,6 @@ from qwak_services_mock.mocks.system_secret_service import SystemSecretServiceMo
 from qwak_services_mock.mocks.user_application_instance_service_api import (
     UserApplicationInstanceServiceApiMock,
 )
-from qwak_services_mock.mocks.vector_serving_api import VectorServingServiceMock
-from qwak_services_mock.mocks.vectors_management_api import (
-    VectorCollectionManagementServiceMock,
-)
 from qwak_services_mock.mocks.workspace_manager_service_mock import (
     WorkspaceManagerServiceMock,
 )
@@ -243,14 +245,19 @@ def qwak_container():
         project,
         secret_service,
         user_application_instance,
-        vector_store,
         workspace_manager,
     )
-    from qwak.clients.administration import authentication, eco_system, self_service
+    from qwak.clients.administration import (
+        authentication,
+        cluster_v2,
+        eco_system,
+        environment,
+        environment_v1,
+        self_service,
+    )
     from qwak.clients.integration_management import integration_manager_client
     from qwak.clients.prompt_manager import prompt_manager_client
     from qwak.clients.system_secret import system_secret_client
-    from qwak.vector_store.utils import upsert_utils
 
     container.wire(
         packages=[
@@ -262,8 +269,11 @@ def qwak_container():
             analytics,
             batch_job_management,
             build_orchestrator,
+            cluster_v2,
             data_versioning,
             deployment,
+            environment,
+            environment_v1,
             instance_template,
             feature_store,
             file_versioning,
@@ -277,8 +287,6 @@ def qwak_container():
             secret_service,
             alerts_registry,
             workspace_manager,
-            vector_store,
-            upsert_utils,
             integration_manager_client,
             system_secret_client,
             prompt_manager_client,
@@ -471,16 +479,6 @@ def attach_servicers(free_port, server):
                 add_WorkspaceManagementServiceServicer_to_server,
             ),
             (
-                "vector_serving_service",
-                VectorServingServiceMock,
-                add_VectorServiceServicer_to_server,
-            ),
-            (
-                "vector_collection_service",
-                VectorCollectionManagementServiceMock,
-                add_VectorCollectionServiceServicer_to_server,
-            ),
-            (
                 "execution_management_service",
                 ExecutionManagementServiceMock,
                 add_FeatureStoreExecutionServiceServicer_to_server,
@@ -494,6 +492,21 @@ def attach_servicers(free_port, server):
                 "location_discovery_service",
                 LocationDiscoveryServiceApiMock,
                 add_LocationDiscoveryServiceServicer_to_server,
+            ),
+            (
+                "cluster_v2_service_mock",
+                ClusterV2ServiceMock,
+                add_ClusterServiceServicer_to_server,
+            ),
+            (
+                "environment_v0_service_mock",
+                EnvironmentV0ServiceMock,
+                add_EnvironmentV0ServiceServicer_to_server,
+            ),
+            (
+                "environment_v1_service_mock",
+                EnvironmentV1ServiceMock,
+                add_EnvironmentV1ServiceServicer_to_server,
             ),
             ("port", free_port, None),
         ],

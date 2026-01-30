@@ -15,10 +15,12 @@ from .datastore_cluster_client import DatastoreClusterClient
 from .datastore_cluster_client_composite_operations import DatastoreClusterClientCompositeOperations
 from .esxi_host_client import EsxiHostClient
 from .esxi_host_client_composite_operations import EsxiHostClientCompositeOperations
+from .management_appliance_client import ManagementApplianceClient
+from .management_appliance_client_composite_operations import ManagementApplianceClientCompositeOperations
 from .sddc_client import SddcClient
 from .sddc_client_composite_operations import SddcClientCompositeOperations
 from .work_request_client import WorkRequestClient
 from .work_request_client_composite_operations import WorkRequestClientCompositeOperations
 from . import models
 
-__all__ = ["ClusterClient", "ClusterClientCompositeOperations", "DatastoreClient", "DatastoreClientCompositeOperations", "DatastoreClusterClient", "DatastoreClusterClientCompositeOperations", "EsxiHostClient", "EsxiHostClientCompositeOperations", "SddcClient", "SddcClientCompositeOperations", "WorkRequestClient", "WorkRequestClientCompositeOperations", "models"]
+__all__ = ["ClusterClient", "ClusterClientCompositeOperations", "DatastoreClient", "DatastoreClientCompositeOperations", "DatastoreClusterClient", "DatastoreClusterClientCompositeOperations", "EsxiHostClient", "EsxiHostClientCompositeOperations", "ManagementApplianceClient", "ManagementApplianceClientCompositeOperations", "SddcClient", "SddcClientCompositeOperations", "WorkRequestClient", "WorkRequestClientCompositeOperations", "models"]

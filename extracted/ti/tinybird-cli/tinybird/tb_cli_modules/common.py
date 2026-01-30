@@ -16,9 +16,9 @@ from contextlib import closing
 from copy import deepcopy
 from enum import Enum
 from functools import wraps
-from os import chmod, environ, getcwd, getenv
+from os import chmod, getcwd, getenv
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Literal, Optional, Set, Tuple, TypedDict, Union
+from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Set, Tuple, TypedDict, Union
 from urllib.parse import urlparse
 
 import aiofiles
@@ -35,7 +35,6 @@ from packaging.version import Version
 from tinybird.client import (
     AuthException,
     AuthNoTokenException,
-    ConnectorNothingToLoad,
     DoesNotExistException,
     JobException,
     OperationCanNotBePerformed,
@@ -46,17 +45,11 @@ from tinybird.config import (
     DEFAULT_UI_HOST,
     DEPRECATED_PROJECT_PATHS,
     PROJECT_PATHS,
-    SUPPORTED_CONNECTORS,
     VERSION,
     FeatureFlags,
     get_config,
     get_display_host,
-    write_config,
 )
-
-if TYPE_CHECKING:
-    from tinybird.connectors import Connector
-
 from tinybird.feedback_manager import FeedbackManager, warning_message
 from tinybird.git_settings import DEFAULT_TINYENV_FILE
 from tinybird.syncasync import async_to_sync
@@ -78,6 +71,9 @@ from tinybird.tb_cli_modules.telemetry import (
     is_ci_environment,
 )
 
+# Pre-compiled regex pattern for name normalization
+_PATTERN_NORMALIZE_NAME = re.compile(r"[^0-9a-zA-Z_]")
+
 SUPPORTED_FORMATS = ["csv", "ndjson", "json", "parquet"]
 OLDEST_ROLLBACK = "oldest_rollback"
 MAIN_BRANCH = "main"
@@ -87,16 +83,6 @@ def obfuscate_token(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
     return f"{value[:4]}...{value[-8:]}"
-
-
-def create_connector(connector: str, options: Dict[str, Any]):
-    # Imported here to improve startup time when the connectors aren't used
-    from tinybird.connectors import UNINSTALLED_CONNECTORS
-    from tinybird.connectors import create_connector as _create_connector
-
-    if connector in UNINSTALLED_CONNECTORS:
-        raise CLIException(FeedbackManager.error_connector_not_installed(connector=connector))
-    return _create_connector(connector, options)
 
 
 def coro(f):
@@ -135,7 +121,7 @@ def echo_safe_humanfriendly_tables_format_smart_table(data: Iterable[Any], colum
 
 
 def normalize_datasource_name(s: str) -> str:
-    s = re.sub(r"[^0-9a-zA-Z_]", "_", s)
+    s = _PATTERN_NORMALIZE_NAME.sub("_", s)
     if s[0] in "0123456789":
         return "c_" + s
     return s
@@ -269,24 +255,6 @@ variable to '1' or 'true'."""
         sys.exit(exit_code)
 
 
-def load_connector_config(ctx: Context, connector_name: str, debug: bool, check_uninstalled: bool = False):
-    config_file = Path(getcwd()) / f".tinyb_{connector_name}"
-    try:
-        if connector_name not in ctx.ensure_object(dict):
-            with open(config_file) as file:
-                config = json.loads(file.read())
-            from tinybird.connectors import UNINSTALLED_CONNECTORS
-
-            if check_uninstalled and connector_name in UNINSTALLED_CONNECTORS:
-                click.echo(FeedbackManager.warning_connector_not_installed(connector=connector_name))
-                return
-            ctx.ensure_object(dict)[connector_name] = create_connector(connector_name, config)
-    except OSError:
-        if debug:
-            click.echo(f"** {connector_name} connector not configured")
-        pass
-
-
 def getenv_bool(key: str, default: bool) -> bool:
     v: Optional[str] = getenv(key)
     if v is None:
@@ -306,31 +274,26 @@ def create_tb_client(ctx: Context) -> TinyB:
     return _get_tb_client(token, host, semver=semver)
 
 
-async def _analyze(filename: str, client: TinyB, format: str, connector: Optional["Connector"] = None):
+async def _analyze(filename: str, client: TinyB, format: str):
     data: Optional[bytes] = None
-    if not connector:
-        parsed = urlparse(filename)
-        if parsed.scheme in ("http", "https"):
-            meta = await client.datasource_analyze(filename)
-        else:
-            async with aiofiles.open(filename, "rb") as file:
-                # We need to read the whole file in binary for Parquet, while for the
-                # others we just read 1KiB
-                if format == "parquet":
-                    data = await file.read()
-                else:
-                    data = await file.read(1024 * 1024)
-
-            meta = await client.datasource_analyze_file(data)
+    parsed = urlparse(filename)
+    if parsed.scheme in ("http", "https"):
+        meta = await client.datasource_analyze(filename)
     else:
-        meta = connector.datasource_analyze(filename)
+        async with aiofiles.open(filename, "rb") as file:
+            # We need to read the whole file in binary for Parquet, while for the
+            # others we just read 1KiB
+            if format == "parquet":
+                data = await file.read()
+            else:
+                data = await file.read(1024 * 1024)
+
+        meta = await client.datasource_analyze_file(data)
     return meta, data
 
 
-async def _generate_datafile(
-    filename: str, client: TinyB, format: str, connector: Optional["Connector"] = None, force: Optional[bool] = False
-):
-    meta, data = await _analyze(filename, client, format, connector=connector)
+async def _generate_datafile(filename: str, client: TinyB, format: str, force: Optional[bool] = False):
+    meta, data = await _analyze(filename, client, format)
     schema = meta["analysis"]["schema"]
     schema = schema.replace(", ", ",\n    ")
     datafile = f"""DESCRIPTION >\n    Generated from {filename}\n\nSCHEMA >\n    {schema}"""
@@ -465,77 +428,12 @@ async def folder_init(
                 )
 
 
-async def configure_connector(connector):
-    if connector not in SUPPORTED_CONNECTORS:
-        raise CLIException(FeedbackManager.error_invalid_connector(connectors=", ".join(SUPPORTED_CONNECTORS)))
-
-    file_name = f".tinyb_{connector}"
-    config_file = Path(getcwd()) / file_name
-    if connector == "bigquery":
-        project = click.prompt("BigQuery project ID")
-        service_account = click.prompt(
-            "Path to a JSON service account file with permissions to export from BigQuery, write in Storage and sign URLs (leave empty to use GOOGLE_APPLICATION_CREDENTIALS environment variable)",
-            default=environ.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
-        )
-        bucket_name = click.prompt("Name of a Google Cloud Storage bucket to store temporary exported files")
-
-        try:
-            config = {"project_id": project, "service_account": service_account, "bucket_name": bucket_name}
-            await write_config(config, file_name)
-        except Exception:
-            raise CLIException(FeedbackManager.error_file_config(config_file=config_file))
-    elif connector == "snowflake":
-        sf_account = click.prompt("Snowflake Account (e.g. your-domain.west-europe.azure)")
-        sf_warehouse = click.prompt("Snowflake warehouse name")
-        sf_database = click.prompt("Snowflake database name")
-        sf_schema = click.prompt("Snowflake schema name")
-        sf_role = click.prompt("Snowflake role name")
-        sf_user = click.prompt("Snowflake user name")
-        sf_password = click.prompt("Snowflake password")
-        sf_storage_integration = click.prompt(
-            "Snowflake GCS storage integration name (leave empty to auto-generate one)", default=""
-        )
-        sf_stage = click.prompt("Snowflake GCS stage name (leave empty to auto-generate one)", default="")
-        project = click.prompt("Google Cloud project ID to store temporary files")
-        service_account = click.prompt(
-            "Path to a JSON service account file with permissions to write in Storagem, sign URLs and IAM (leave empty to use GOOGLE_APPLICATION_CREDENTIALS environment variable)",
-            default=environ.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
-        )
-        bucket_name = click.prompt("Name of a Google Cloud Storage bucket to store temporary exported files")
-
-        if not service_account:
-            service_account = getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-        try:
-            config = {
-                "account": sf_account,
-                "warehouse": sf_warehouse,
-                "database": sf_database,
-                "schema": sf_schema,
-                "role": sf_role,
-                "user": sf_user,
-                "password": sf_password,
-                "storage_integration": sf_storage_integration,
-                "stage": sf_stage,
-                "service_account": service_account,
-                "bucket_name": bucket_name,
-                "project_id": project,
-            }
-            await write_config(config, file_name)
-        except Exception:
-            raise CLIException(FeedbackManager.error_file_config(config_file=config_file))
-
-        click.echo(FeedbackManager.success_connector_config(connector=connector, file_name=file_name))
-
-
 def _compare_region_host(region_name_or_host: str, region: Dict[str, Any]) -> bool:
     if region["name"].lower() == region_name_or_host:
         return True
     if region["host"] == region_name_or_host:
         return True
-    if region["api_host"] == region_name_or_host:
-        return True
-    return False
+    return region["api_host"] == region_name_or_host
 
 
 def ask_for_region_interactively(regions):
@@ -1071,33 +969,17 @@ async def push_data(
     ctx: Context,
     datasource_name: str,
     url,
-    connector: Optional[str],
-    sql: Optional[str],
     mode: str = "append",
     sql_condition: Optional[str] = None,
     replace_options=None,
-    ignore_empty: bool = False,
     concurrency: int = 1,
 ):
     if url and type(url) is tuple:
         url = url[0]
     client: TinyB = ctx.obj["client"]
 
-    if connector and sql:
-        load_connector_config(ctx, connector, False, check_uninstalled=False)
-        if connector not in ctx.obj:
-            raise CLIException(FeedbackManager.error_connector_not_configured(connector=connector))
-        else:
-            _connector: Connector = ctx.obj[connector]
-            click.echo(FeedbackManager.info_starting_export_process(connector=connector))
-            try:
-                url = _connector.export_to_gcs(sql, datasource_name, mode)
-            except ConnectorNothingToLoad as e:
-                if ignore_empty:
-                    click.echo(str(e))
-                    return
-                else:
-                    raise e
+    if not url:
+        raise CLIException(FeedbackManager.error_missing_url(datasource=datasource_name))
 
     def cb(res):
         if cb.First:  # type: ignore[attr-defined]
@@ -1199,19 +1081,13 @@ async def push_data(
         else:
             click.echo(FeedbackManager.success_appended_datasource(datasource=datasource_name))
         click.echo(FeedbackManager.info_data_pushed(datasource=datasource_name))
-    finally:
-        try:
-            for url in urls:
-                _connector.clean(urlparse(url).path.split("/")[-1])
-        except Exception:
-            pass
 
 
 async def sync_data(ctx, datasource_name: str, yes: bool):
     client: TinyB = ctx.obj["client"]
     datasource = await client.get_datasource(datasource_name)
 
-    VALID_DATASOURCES = ["bigquery", "snowflake", "s3", "s3_iamrole", "gcs"]
+    VALID_DATASOURCES = ["s3", "s3_iamrole", "gcs"]
     if datasource["type"] not in VALID_DATASOURCES:
         raise CLIException(FeedbackManager.error_sync_not_supported(valid_datasources=VALID_DATASOURCES))
 
@@ -1296,7 +1172,7 @@ def validate_kafka_bootstrap_servers(bootstrap_servers):
             try:
                 sock.settimeout(3)
                 sock.connect((host, port))
-            except socket.timeout:
+            except TimeoutError:
                 raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn_timeout())
             except Exception:
                 raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn())
@@ -2022,7 +1898,7 @@ async def validate_aws_iamrole_connection_name(
     client: TinyB, connection_name: Optional[str], no_validate: Optional[bool] = False
 ) -> str:
     if connection_name and no_validate is False:
-        if await client.get_connector(connection_name, skip_bigquery=True) is not None:
+        if await client.get_connector(connection_name) is not None:
             raise CLIConnectionException(FeedbackManager.info_connection_already_exists(name=connection_name))
     else:
         while not connection_name:
@@ -2039,8 +1915,6 @@ async def validate_aws_iamrole_connection_name(
 class DataConnectorType(str, Enum):
     KAFKA = "kafka"
     GCLOUD_SCHEDULER = "gcscheduler"
-    SNOWFLAKE = "snowflake"
-    BIGQUERY = "bigquery"
     GCLOUD_STORAGE = "gcs"
     GCLOUD_STORAGE_HMAC = "gcs_hmac"
     GCLOUD_STORAGE_SA = "gcs_service_account"

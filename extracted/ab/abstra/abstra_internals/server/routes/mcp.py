@@ -33,8 +33,6 @@ def get_editor_bp(main_controller: MainController):
             main_controller.create_job,
             main_controller.create_tasklet,
             requires_approval(main_controller.delete_stage),
-            requires_approval(main_controller.replace_code_context),
-            requires_approval(main_controller.replace_file_content),
             main_controller.get_execution_logs,
             main_controller.get_execution_tasks,
             main_controller.list_all_stages,

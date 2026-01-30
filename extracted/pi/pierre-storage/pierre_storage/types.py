@@ -41,13 +41,24 @@ class GitStorageOptions(TypedDict, total=False):
     default_ttl: Optional[int]
 
 
-class BaseRepo(TypedDict, total=False):
+class GitHubBaseRepo(TypedDict, total=False):
     """Base repository configuration for GitHub sync."""
 
     provider: Literal["github"]  # required
     owner: str  # required
     name: str  # required
     default_branch: Optional[str]
+
+
+class ForkBaseRepo(TypedDict, total=False):
+    """Base repository configuration for code storage forks."""
+
+    id: str  # required
+    ref: Optional[str]
+    sha: Optional[str]
+
+
+BaseRepo = Union[GitHubBaseRepo, ForkBaseRepo]
 
 
 class DeleteRepoResult(TypedDict):

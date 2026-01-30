@@ -26,6 +26,7 @@ options:
   replica_set:
     description:
       - Replica set to connect to (automatically connects to primary for writes).
+      - Leave empty if you need the localhost exception, e.g. to create the initial user
     type: str
   database:
     description:
@@ -192,7 +193,7 @@ import traceback
 
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from ansible.module_utils.six import binary_type, text_type
+from ansible.module_utils.six import binary_type, text_type  # pylint: disable=ansible-bad-import-from
 from ansible.module_utils._text import to_native, to_bytes
 from ansible_collections.community.mongodb.plugins.module_utils.mongodb_common import (
     missing_required_lib,

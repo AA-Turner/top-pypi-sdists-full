@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict, namedtuple
+from decimal import Decimal
 from io import TextIOWrapper
 import logging
 import os
@@ -19,7 +20,7 @@ from datetime import datetime
 from importlib import resources
 import itertools
 from random import choice
-from time import time
+from time import sleep, time
 from urllib.parse import parse_qs, unquote, urlparse
 
 from cli_helpers.tabular_output import TabularOutputFormatter, preprocessors
@@ -160,6 +161,7 @@ class MyCli:
         self.login_path_as_host = c["main"].as_bool("login_path_as_host")
         self.post_redirect_command = c['main'].get('post_redirect_command')
         self.null_string = c['main'].get('null_string')
+        self.numeric_alignment = c['main'].get('numeric_alignment', 'right')
 
         # set ssl_mode if a valid option is provided in a config file, otherwise None
         ssl_mode = c["main"].get("ssl_mode", None)
@@ -831,6 +833,7 @@ class MyCli:
                     special.is_expanded_output(),
                     special.is_redirected(),
                     self.null_string,
+                    self.numeric_alignment,
                     max_width,
                 )
 
@@ -868,6 +871,7 @@ class MyCli:
                             special.is_expanded_output(),
                             special.is_redirected(),
                             self.null_string,
+                            self.numeric_alignment,
                             max_width,
                         )
                         self.echo("")
@@ -1322,7 +1326,12 @@ class MyCli:
         string = string.replace("\\_", " ")
         return string
 
-    def run_query(self, query: str, new_line: bool = True) -> None:
+    def run_query(
+        self,
+        query: str,
+        checkpoint: TextIOWrapper | None = None,
+        new_line: bool = True,
+    ) -> None:
         """Runs *query*."""
         assert self.sqlexecute is not None
         self.log_query(query)
@@ -1340,6 +1349,7 @@ class MyCli:
                 special.is_expanded_output(),
                 special.is_redirected(),
                 self.null_string,
+                self.numeric_alignment,
             )
             for line in output:
                 self.log_output(line)
@@ -1359,9 +1369,13 @@ class MyCli:
                         special.is_expanded_output(),
                         special.is_redirected(),
                         self.null_string,
+                        self.numeric_alignment,
                     )
                     for line in output:
                         click.echo(line, nl=new_line)
+        if checkpoint:
+            checkpoint.write(query.rstrip('\n') + '\n')
+            checkpoint.flush()
 
     def format_output(
         self,
@@ -1371,6 +1385,7 @@ class MyCli:
         expanded: bool = False,
         is_redirected: bool = False,
         null_string: str | None = None,
+        numeric_alignment: str = 'right',
         max_width: int | None = None,
     ) -> itertools.chain[str]:
         if is_redirected:
@@ -1393,20 +1408,29 @@ class MyCli:
             output_kwargs['missing_value'] = null_string
 
         if use_formatter.format_name not in sql_format.supported_formats:
-            output_kwargs["preprocessors"] = (preprocessors.align_decimals,)
+            # will run before preprocessors defined as part of the format in cli_helpers
+            output_kwargs["preprocessors"] = (
+                preprocessors.convert_to_undecoded_string,
+                preprocessors.align_decimals,
+            )
 
         if title:  # Only print the title if it's not None.
             output = itertools.chain(output, [title])
 
         if headers or (cur and title):
             column_types = None
+            colalign = None
             if isinstance(cur, Cursor):
 
                 def get_col_type(col) -> type:
                     col_type = FIELD_TYPES.get(col[1], str)
                     return col_type if type(col_type) is type else str
 
-                column_types = [get_col_type(tup) for tup in cur.description]
+                if cur.rowcount > 0:
+                    column_types = [get_col_type(tup) for tup in cur.description]
+                    colalign = [numeric_alignment if x in (int, float, Decimal) else 'left' for x in column_types]
+                else:
+                    column_types, colalign = [], []
 
             if max_width is not None and isinstance(cur, Cursor):
                 cur = list(cur)
@@ -1416,6 +1440,7 @@ class MyCli:
                 headers,
                 format_name="vertical" if expanded else None,
                 column_types=column_types,
+                colalign=colalign,
                 **output_kwargs,
             )
 
@@ -1507,6 +1532,9 @@ class MyCli:
 @click.option("--ssh-warning-off", is_flag=True, help="Suppress the SSH deprecation notice.")
 @click.option("-R", "--prompt", "prompt", help=f'Prompt format (Default: "{MyCli.default_prompt}").')
 @click.option("-l", "--logfile", type=click.File(mode="a", encoding="utf-8"), help="Log every query and its results to a file.")
+@click.option(
+    "--checkpoint", type=click.File(mode="a", encoding="utf-8"), help="In batch or --execute mode, log successful queries to a file."
+)
 @click.option("--defaults-group-suffix", type=str, help="Read MySQL config groups with the specified suffix.")
 @click.option("--defaults-file", type=click.Path(), help="Only read MySQL options from the given file.")
 @click.option("--myclirc", type=click.Path(), default="~/.myclirc", help="Location of myclirc file.")
@@ -1537,6 +1565,7 @@ class MyCli:
 @click.option(
     '--format', 'batch_format', type=click.Choice(['default', 'csv', 'tsv', 'table']), help='Format for batch or --execute output.'
 )
+@click.option('--throttle', type=float, default=0.0, help='Pause in seconds between queries in batch mode.')
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1550,6 +1579,7 @@ def cli(
     verbose: bool,
     prompt: str | None,
     logfile: TextIOWrapper | None,
+    checkpoint: TextIOWrapper | None,
     defaults_group_suffix: str | None,
     defaults_file: str | None,
     login_path: str | None,
@@ -1587,6 +1617,7 @@ def cli(
     password_file: str | None,
     noninteractive: bool,
     batch_format: str | None,
+    throttle: float,
 ) -> None:
     """A MySQL terminal client with auto-completion and syntax highlighting.
 
@@ -1876,7 +1907,7 @@ def cli(
             else:
                 mycli.main_formatter.format_name = 'tsv'
 
-            mycli.run_query(execute)
+            mycli.run_query(execute, checkpoint=checkpoint)
             sys.exit(0)
         except Exception as e:
             click.secho(str(e), err=True, fg="red")
@@ -1919,7 +1950,9 @@ def cli(
                     sys.exit(1)
             try:
                 if warn_confirmed:
-                    mycli.run_query(stdin_text, new_line=True)
+                    if throttle and counter > 1:
+                        sleep(throttle)
+                    mycli.run_query(stdin_text, checkpoint=checkpoint, new_line=True)
             except Exception as e:
                 click.secho(str(e), err=True, fg="red")
                 sys.exit(1)

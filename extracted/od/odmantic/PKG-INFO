@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: odmantic
-Version: 1.0.3
+Version: 1.1.0
 Summary: ODMantic, an AsyncIO MongoDB Object Document Mapper for Python using type hints 
 Keywords: mongodb,asyncio,types,pydantic,motor
 Author-email: Arthur Pastel <arthur.pastel@gmail.com>

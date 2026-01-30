@@ -115,6 +115,18 @@ class MissingParameterValueException(ServiceException):
     type: string | None
 
 
+class NoLongerSupportedException(ServiceException):
+    """Returned if the request was made by a customer with no Amazon Glacier
+    storage. The request is denied as the API is no longer supported for new
+    customers. Please use Amazon S3 Glacier storage classes instead.
+    """
+
+    code: str = "NoLongerSupportedException"
+    sender_fault: bool = False
+    status_code: int = 400
+    type: string | None
+
+
 class PolicyEnforcedException(ServiceException):
     """Returned if a retrieval job would exceed the current data policy's
     retrieval rate limit. For more information about data retrieval
@@ -128,8 +140,8 @@ class PolicyEnforcedException(ServiceException):
 
 
 class RequestTimeoutException(ServiceException):
-    """Returned if, when uploading an archive, Amazon S3 Glacier times out
-    while receiving the upload.
+    """Returned if, when uploading an archive, Amazon Glacier times out while
+    receiving the upload.
     """
 
     code: str = "RequestTimeoutException"
@@ -164,7 +176,7 @@ class AbortMultipartUploadInput(ServiceRequest):
 
     For information about the underlying REST API, see `Abort Multipart
     Upload <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-abort-upload.html>`__.
-    For conceptual information, see `Working with Archives in Amazon S3
+    For conceptual information, see `Working with Archives in Amazon
     Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__.
     """
 
@@ -210,11 +222,11 @@ class AddTagsToVaultInput(ServiceRequest):
 
 
 class ArchiveCreationOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request.
+    """Contains the Amazon Glacier response to your request.
 
     For information about the underlying REST API, see `Upload
     Archive <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-archive-post.html>`__.
-    For conceptual information, see `Working with Archives in Amazon S3
+    For conceptual information, see `Working with Archives in Amazon
     Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__.
     """
 
@@ -251,9 +263,9 @@ class CSVOutput(TypedDict, total=False):
 class CompleteMultipartUploadInput(ServiceRequest):
     """Provides options to complete a multipart upload operation. This informs
     Amazon Glacier that all the archive parts have been uploaded and Amazon
-    S3 Glacier (Glacier) can now assemble the archive from the uploaded
-    parts. After assembling and saving the archive to the vault, Glacier
-    returns the URI path of the newly created archive resource.
+    Glacier (Glacier) can now assemble the archive from the uploaded parts.
+    After assembling and saving the archive to the vault, Glacier returns
+    the URI path of the newly created archive resource.
     """
 
     accountId: string
@@ -279,7 +291,7 @@ class CreateVaultInput(ServiceRequest):
 
 
 class CreateVaultOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     location: string | None
 
@@ -304,9 +316,7 @@ class DataRetrievalPolicy(TypedDict, total=False):
 
 
 class DeleteArchiveInput(ServiceRequest):
-    """Provides options for deleting an archive from an Amazon S3 Glacier
-    vault.
-    """
+    """Provides options for deleting an archive from an Amazon Glacier vault."""
 
     accountId: string
     vaultName: string
@@ -321,7 +331,7 @@ class DeleteVaultAccessPolicyInput(ServiceRequest):
 
 
 class DeleteVaultInput(ServiceRequest):
-    """Provides options for deleting a vault from Amazon S3 Glacier."""
+    """Provides options for deleting a vault from Amazon Glacier."""
 
     accountId: string
     vaultName: string
@@ -357,7 +367,7 @@ long = int
 
 
 class DescribeVaultOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     VaultARN: string | None
     VaultName: string | None
@@ -384,15 +394,15 @@ class GetDataRetrievalPolicyInput(ServiceRequest):
 
 
 class GetDataRetrievalPolicyOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to the
-    ``GetDataRetrievalPolicy`` request.
+    """Contains the Amazon Glacier response to the ``GetDataRetrievalPolicy``
+    request.
     """
 
     Policy: DataRetrievalPolicy | None
 
 
 class GetJobOutputInput(ServiceRequest):
-    """Provides options for downloading output of an Amazon S3 Glacier job."""
+    """Provides options for downloading output of an Amazon Glacier job."""
 
     accountId: string
     vaultName: string
@@ -404,7 +414,7 @@ Stream = bytes
 
 
 class GetJobOutputOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     body: Stream | IO[Stream] | Iterable[Stream] | None
     checksum: string | None
@@ -442,7 +452,7 @@ class GetVaultLockInput(ServiceRequest):
 
 
 class GetVaultLockOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     Policy: string | None
     State: string | None
@@ -470,7 +480,7 @@ class VaultNotificationConfig(TypedDict, total=False):
 
 
 class GetVaultNotificationsOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     vaultNotificationConfig: VaultNotificationConfig | None
 
@@ -586,7 +596,7 @@ class JobParameters(TypedDict, total=False):
 
 
 class InitiateJobInput(ServiceRequest):
-    """Provides options for initiating an Amazon S3 Glacier job."""
+    """Provides options for initiating an Amazon Glacier job."""
 
     accountId: string
     vaultName: string
@@ -594,7 +604,7 @@ class InitiateJobInput(ServiceRequest):
 
 
 class InitiateJobOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     location: string | None
     jobId: string | None
@@ -602,8 +612,8 @@ class InitiateJobOutput(TypedDict, total=False):
 
 
 class InitiateMultipartUploadInput(ServiceRequest):
-    """Provides options for initiating a multipart upload to an Amazon S3
-    Glacier vault.
+    """Provides options for initiating a multipart upload to an Amazon Glacier
+    vault.
     """
 
     accountId: string
@@ -613,7 +623,7 @@ class InitiateMultipartUploadInput(ServiceRequest):
 
 
 class InitiateMultipartUploadOutput(TypedDict, total=False):
-    """The Amazon S3 Glacier response to your request."""
+    """The Amazon Glacier response to your request."""
 
     location: string | None
     uploadId: string | None
@@ -634,7 +644,7 @@ class InitiateVaultLockInput(ServiceRequest):
 
 
 class InitiateVaultLockOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     lockId: string | None
 
@@ -643,9 +653,7 @@ JobList = list[GlacierJobDescription]
 
 
 class ListJobsInput(ServiceRequest):
-    """Provides options for retrieving a job list for an Amazon S3 Glacier
-    vault.
-    """
+    """Provides options for retrieving a job list for an Amazon Glacier vault."""
 
     accountId: string
     vaultName: string
@@ -656,7 +664,7 @@ class ListJobsInput(ServiceRequest):
 
 
 class ListJobsOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     JobList: JobList | None
     Marker: string | None
@@ -687,7 +695,7 @@ UploadsList = list[UploadListElement]
 
 
 class ListMultipartUploadsOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     UploadsList: UploadsList | None
     Marker: string | None
@@ -716,7 +724,7 @@ PartList = list[PartListElement]
 
 
 class ListPartsOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     MultipartUploadId: string | None
     VaultARN: string | None
@@ -754,7 +762,7 @@ class ListTagsForVaultInput(ServiceRequest):
 
 
 class ListTagsForVaultOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     Tags: TagMap | None
 
@@ -773,7 +781,7 @@ VaultList = list[DescribeVaultOutput]
 
 
 class ListVaultsOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     VaultList: VaultList | None
     Marker: string | None
@@ -847,7 +855,7 @@ class UploadMultipartPartInput(ServiceRequest):
 
 
 class UploadMultipartPartOutput(TypedDict, total=False):
-    """Contains the Amazon S3 Glacier response to your request."""
+    """Contains the Amazon Glacier response to your request."""
 
     checksum: string | None
 
@@ -884,7 +892,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Working with
-        Archives in Amazon S3
+        Archives in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__
         and `Abort Multipart
         Upload <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-abort-upload.html>`__
@@ -898,6 +906,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -931,6 +940,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -948,7 +958,7 @@ class GlacierApi:
         would cause the tag limit for the vault to be exceeded, the operation
         throws the ``LimitExceededException`` error. If a tag already exists on
         the vault under a specified key, the existing key value will be
-        overwritten. For more information about tags, see `Tagging Amazon S3
+        overwritten. For more information about tags, see `Tagging Amazon
         Glacier
         Resources <https://docs.aws.amazon.com/amazonglacier/latest/dev/tagging.html>`__.
 
@@ -961,6 +971,7 @@ class GlacierApi:
         :raises ResourceNotFoundException:
         :raises LimitExceededException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -975,15 +986,15 @@ class GlacierApi:
         checksum: string | None = None,
         **kwargs,
     ) -> ArchiveCreationOutput:
-        """You call this operation to inform Amazon S3 Glacier (Glacier) that all
-        the archive parts have been uploaded and that Glacier can now assemble
-        the archive from the uploaded parts. After assembling and saving the
-        archive to the vault, Glacier returns the URI path of the newly created
-        archive resource. Using the URI path, you can then access the archive.
-        After you upload an archive, you should save the archive ID returned to
-        retrieve the archive at a later point. You can also get the vault
-        inventory to obtain a list of archive IDs in a vault. For more
-        information, see InitiateJob.
+        """You call this operation to inform Amazon Glacier (Glacier) that all the
+        archive parts have been uploaded and that Glacier can now assemble the
+        archive from the uploaded parts. After assembling and saving the archive
+        to the vault, Glacier returns the URI path of the newly created archive
+        resource. Using the URI path, you can then access the archive. After you
+        upload an archive, you should save the archive ID returned to retrieve
+        the archive at a later point. You can also get the vault inventory to
+        obtain a list of archive IDs in a vault. For more information, see
+        InitiateJob.
 
         In the request, you must include the computed SHA256 tree hash of the
         entire archive you have uploaded. For information about computing a
@@ -1036,6 +1047,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1074,6 +1086,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1084,7 +1097,7 @@ class GlacierApi:
         """This operation creates a new vault with the specified name. The name of
         the vault must be unique within a region for an AWS account. You can
         create up to 1,000 vaults per account. If you need to create more
-        vaults, contact Amazon S3 Glacier.
+        vaults, contact Amazon Glacier.
 
         You must use the following guidelines when naming a vault.
 
@@ -1115,6 +1128,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         :raises LimitExceededException:
         """
         raise NotImplementedError
@@ -1134,12 +1148,12 @@ class GlacierApi:
         the following scenarios:
 
         -  If the archive retrieval job is actively preparing the data for
-           download when Amazon S3 Glacier receives the delete archive request,
-           the archival retrieval operation might fail.
+           download when Amazon Glacier receives the delete archive request, the
+           archival retrieval operation might fail.
 
         -  If the archive retrieval job has successfully prepared the archive
-           for download when Amazon S3 Glacier receives the delete archive
-           request, you will be able to download the output.
+           for download when Amazon Glacier receives the delete archive request,
+           you will be able to download the output.
 
         This operation is idempotent. Attempting to delete an already-deleted
         archive does not result in an error.
@@ -1166,6 +1180,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1173,13 +1188,13 @@ class GlacierApi:
     def delete_vault(
         self, context: RequestContext, account_id: string, vault_name: string, **kwargs
     ) -> None:
-        """This operation deletes a vault. Amazon S3 Glacier will delete a vault
-        only if there are no archives in the vault as of the last inventory and
-        there have been no writes to the vault since the last inventory. If
-        either of these conditions is not satisfied, the vault deletion fails
-        (that is, the vault is not removed) and Amazon S3 Glacier returns an
-        error. You can use DescribeVault to return the number of archives in a
-        vault, and you can use `Initiate a Job (POST
+        """This operation deletes a vault. Amazon Glacier will delete a vault only
+        if there are no archives in the vault as of the last inventory and there
+        have been no writes to the vault since the last inventory. If either of
+        these conditions is not satisfied, the vault deletion fails (that is,
+        the vault is not removed) and Amazon Glacier returns an error. You can
+        use DescribeVault to return the number of archives in a vault, and you
+        can use `Initiate a Job (POST
         jobs) <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-initiate-job-post.html>`__
         to initiate a new inventory retrieval for a vault. The inventory
         contains the archive IDs you use to delete archives using `Delete
@@ -1200,7 +1215,7 @@ class GlacierApi:
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/deleting-vaults.html>`__
         and `Delete
         Vault <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-delete.html>`__
-        in the *Amazon S3 Glacier Developer Guide*.
+        in the *Amazon Glacier Developer Guide*.
 
         :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
         the vault.
@@ -1209,6 +1224,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1218,9 +1234,9 @@ class GlacierApi:
     ) -> None:
         """This operation deletes the access policy associated with the specified
         vault. The operation is eventually consistent; that is, it might take
-        some time for Amazon S3 Glacier to completely remove the access policy,
-        and you might still see the effect of the policy for a short time after
-        you send the delete request.
+        some time for Amazon Glacier to completely remove the access policy, and
+        you might still see the effect of the policy for a short time after you
+        send the delete request.
 
         This operation is idempotent. You can invoke delete multiple times, even
         if there is no policy associated with the vault. For more information
@@ -1235,6 +1251,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1244,9 +1261,9 @@ class GlacierApi:
     ) -> None:
         """This operation deletes the notification configuration set for a vault.
         The operation is eventually consistent; that is, it might take some time
-        for Amazon S3 Glacier to completely disable the notifications and you
-        might still receive some notifications for a short time after you send
-        the delete request.
+        for Amazon Glacier to completely disable the notifications and you might
+        still receive some notifications for a short time after you send the
+        delete request.
 
         An AWS account has full permission to perform all operations (actions).
         However, AWS Identity and Access Management (IAM) users don't have any
@@ -1256,11 +1273,11 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Configuring
-        Vault Notifications in Amazon S3
+        Vault Notifications in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/configuring-notifications.html>`__
         and `Delete Vault Notification
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-delete.html>`__
-        in the Amazon S3 Glacier Developer Guide.
+        in the Amazon Glacier Developer Guide.
 
         :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
         the vault.
@@ -1269,6 +1286,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1284,7 +1302,7 @@ class GlacierApi:
         """This operation returns information about a job you previously initiated,
         including the job initiation date, the user who initiated the job, the
         job status code/message and the Amazon SNS topic to notify after Amazon
-        S3 Glacier (Glacier) completes the job. For more information about
+        Glacier (Glacier) completes the job. For more information about
         initiating a job, see InitiateJob.
 
         This operation enables you to check the status of your job. However, it
@@ -1316,6 +1334,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1330,9 +1349,9 @@ class GlacierApi:
         inventory generation. This means that if you add or remove an archive
         from a vault, and then immediately use Describe Vault, the change in
         contents will not be immediately reflected. If you want to retrieve the
-        latest inventory of the vault, use InitiateJob. Amazon S3 Glacier
-        generates vault inventories approximately daily. For more information,
-        see `Downloading a Vault Inventory in Amazon S3
+        latest inventory of the vault, use InitiateJob. Amazon Glacier generates
+        vault inventories approximately daily. For more information, see
+        `Downloading a Vault Inventory in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/vault-inventory.html>`__.
 
         An AWS account has full permission to perform all operations (actions).
@@ -1343,7 +1362,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Retrieving
-        Vault Metadata in Amazon S3
+        Vault Metadata in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/retrieving-vault-info.html>`__
         and `Describe
         Vault <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-get.html>`__
@@ -1357,6 +1376,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1374,6 +1394,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1394,7 +1415,7 @@ class GlacierApi:
 
         You can download all the job output or download a portion of the output
         by specifying a byte range. In the case of an archive retrieval job,
-        depending on the byte range you specify, Amazon S3 Glacier (Glacier)
+        depending on the byte range you specify, Amazon Glacier (Glacier)
         returns the checksum for the portion of the data. You can compute the
         checksum on the client and verify that the values match to ensure the
         portion you downloaded is the correct data.
@@ -1409,9 +1430,9 @@ class GlacierApi:
         is based on the range of bytes you specified. For example, if you
         specify a range of ``bytes=0-1048575``, you should verify your download
         size is 1,048,576 bytes. If you download an entire archive, the expected
-        size is the size of the archive when you uploaded it to Amazon S3
-        Glacier The expected size is also returned in the headers from the **Get
-        Job Output** response.
+        size is the size of the archive when you uploaded it to Amazon Glacier
+        The expected size is also returned in the headers from the **Get Job
+        Output** response.
 
         In the case of an archive retrieval job, depending on the byte range you
         specify, Glacier returns the checksum for the portion of the data. To
@@ -1448,6 +1469,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1472,6 +1494,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1513,6 +1536,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1527,7 +1551,7 @@ class GlacierApi:
         see SetVaultNotifications. If a notification configuration for a vault
         is not set, the operation returns a ``404 Not Found`` error. For more
         information about vault notifications, see `Configuring Vault
-        Notifications in Amazon S3
+        Notifications in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/configuring-notifications.html>`__.
 
         An AWS account has full permission to perform all operations (actions).
@@ -1538,7 +1562,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Configuring
-        Vault Notifications in Amazon S3
+        Vault Notifications in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/configuring-notifications.html>`__
         and `Get Vault Notification
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-get.html>`__
@@ -1552,6 +1576,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1581,6 +1606,7 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises InsufficientCapacityException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1594,7 +1620,7 @@ class GlacierApi:
         part_size: string | None = None,
         **kwargs,
     ) -> InitiateMultipartUploadOutput:
-        """This operation initiates a multipart upload. Amazon S3 Glacier creates a
+        """This operation initiates a multipart upload. Amazon Glacier creates a
         multipart upload resource and returns its ID in the response. The
         multipart upload ID is used in subsequent requests to upload parts of an
         archive (see UploadMultipartPart).
@@ -1612,10 +1638,10 @@ class GlacierApi:
         upload four parts of 4 MB each and one part of 0.2 MB.
 
         You don't need to know the size of the archive when you start a
-        multipart upload because Amazon S3 Glacier does not require you to
-        specify the overall archive size.
+        multipart upload because Amazon Glacier does not require you to specify
+        the overall archive size.
 
-        After you complete the multipart upload, Amazon S3 Glacier (Glacier)
+        After you complete the multipart upload, Amazon Glacier (Glacier)
         removes the multipart upload resource referenced by the ID. Glacier also
         removes the multipart upload resource if you cancel the multipart upload
         or it may be removed if there is no activity for a period of 24 hours.
@@ -1644,6 +1670,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1700,6 +1727,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1767,6 +1795,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1810,7 +1839,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and the underlying REST API, see `Working
-        with Archives in Amazon S3
+        with Archives in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__
         and `List Multipart
         Uploads <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-list-uploads.html>`__
@@ -1826,6 +1855,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1864,7 +1894,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and the underlying REST API, see `Working
-        with Archives in Amazon S3
+        with Archives in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__
         and `List
         Parts <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-multipart-list-parts.html>`__
@@ -1881,6 +1911,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1896,6 +1927,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1905,7 +1937,7 @@ class GlacierApi:
     ) -> ListTagsForVaultOutput:
         """This operation lists all the tags attached to a vault. The operation
         returns an empty map if there are no tags. For more information about
-        tags, see `Tagging Amazon S3 Glacier
+        tags, see `Tagging Amazon Glacier
         Resources <https://docs.aws.amazon.com/amazonglacier/latest/dev/tagging.html>`__.
 
         :param account_id: The ``AccountId`` value is the AWS account ID of the account that owns
@@ -1916,6 +1948,7 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1948,7 +1981,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Retrieving
-        Vault Metadata in Amazon S3
+        Vault Metadata in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/retrieving-vault-info.html>`__
         and `List
         Vaults <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vaults-get.html>`__
@@ -1962,6 +1995,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1977,6 +2011,7 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises LimitExceededException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -1990,7 +2025,7 @@ class GlacierApi:
         **kwargs,
     ) -> None:
         """This operation removes one or more tags from the set of tags attached to
-        a vault. For more information about tags, see `Tagging Amazon S3 Glacier
+        a vault. For more information about tags, see `Tagging Amazon Glacier
         Resources <https://docs.aws.amazon.com/amazonglacier/latest/dev/tagging.html>`__.
         This operation is idempotent. The operation will be successful, even if
         there are no tags attached to the vault.
@@ -2003,6 +2038,7 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -2029,6 +2065,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -2058,6 +2095,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -2076,8 +2114,8 @@ class GlacierApi:
         To configure vault notifications, send a PUT request to the
         ``notification-configuration`` subresource of the vault. The request
         should include a JSON document that provides an Amazon SNS topic and
-        specific events for which you want Amazon S3 Glacier to send
-        notifications to the topic.
+        specific events for which you want Amazon Glacier to send notifications
+        to the topic.
 
         Amazon SNS topics must grant permission to the vault to be allowed to
         publish notifications to the topic. You can configure a vault to publish
@@ -2103,7 +2141,7 @@ class GlacierApi:
         (IAM) <https://docs.aws.amazon.com/amazonglacier/latest/dev/using-iam-with-amazon-glacier.html>`__.
 
         For conceptual information and underlying REST API, see `Configuring
-        Vault Notifications in Amazon S3
+        Vault Notifications in Amazon
         Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/configuring-notifications.html>`__
         and `Set Vault Notification
         Configuration <https://docs.aws.amazon.com/amazonglacier/latest/dev/api-vault-notifications-put.html>`__
@@ -2117,6 +2155,7 @@ class GlacierApi:
         :raises InvalidParameterValueException:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -2133,14 +2172,14 @@ class GlacierApi:
     ) -> ArchiveCreationOutput:
         """This operation adds an archive to a vault. This is a synchronous
         operation, and for a successful upload, your data is durably persisted.
-        Amazon S3 Glacier returns the archive ID in the ``x-amz-archive-id``
-        header of the response.
+        Amazon Glacier returns the archive ID in the ``x-amz-archive-id`` header
+        of the response.
 
-        You must use the archive ID to access your data in Amazon S3 Glacier.
-        After you upload an archive, you should save the archive ID returned so
-        that you can retrieve or delete the archive later. Besides saving the
-        archive ID, you can also index it and give it a friendly name to allow
-        for better searching. You can also use the optional archive description
+        You must use the archive ID to access your data in Amazon Glacier. After
+        you upload an archive, you should save the archive ID returned so that
+        you can retrieve or delete the archive later. Besides saving the archive
+        ID, you can also index it and give it a friendly name to allow for
+        better searching. You can also use the optional archive description
         field to specify how the archive is referred to in an external index of
         archives, such as you might create in Amazon DynamoDB. You can also get
         the vault inventory to obtain a list of archive IDs in a vault. For more
@@ -2187,6 +2226,7 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises RequestTimeoutException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError
 
@@ -2212,9 +2252,9 @@ class GlacierApi:
         -  **SHA256 tree hash does not match** To ensure that part data is not
            corrupted in transmission, you compute a SHA256 tree hash of the part
            and include it in your request. Upon receiving the part data, Amazon
-           S3 Glacier also computes a SHA256 tree hash. If these hash values
-           don't match, the operation fails. For information about computing a
-           SHA256 tree hash, see `Computing
+           Glacier also computes a SHA256 tree hash. If these hash values don't
+           match, the operation fails. For information about computing a SHA256
+           tree hash, see `Computing
            Checksums <https://docs.aws.amazon.com/amazonglacier/latest/dev/checksum-calculations.html>`__.
 
         -  **Part size does not match** The size of each part except the last
@@ -2267,5 +2307,6 @@ class GlacierApi:
         :raises MissingParameterValueException:
         :raises RequestTimeoutException:
         :raises ServiceUnavailableException:
+        :raises NoLongerSupportedException:
         """
         raise NotImplementedError

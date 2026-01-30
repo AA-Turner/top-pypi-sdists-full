@@ -574,6 +574,8 @@ __all__ = [
     'MonitorSchedulingOptionEvaluationWindow',
     'MonitorVariables',
     'MonitorVariablesCloudCostQuery',
+    'MonitorVariablesDataQualityQuery',
+    'MonitorVariablesDataQualityQueryMonitorOptions',
     'MonitorVariablesEventQuery',
     'MonitorVariablesEventQueryCompute',
     'MonitorVariablesEventQueryGroupBy',
@@ -594,17 +596,18 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression',
     'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls',
     'ObservabilityPipelineConfigDestinationDatadogLog',
+    'ObservabilityPipelineConfigDestinationDatadogLogRoute',
     'ObservabilityPipelineConfigDestinationDatadogMetric',
     'ObservabilityPipelineConfigDestinationElasticsearch',
     'ObservabilityPipelineConfigDestinationElasticsearchDataStream',
-    'ObservabilityPipelineConfigDestinationGoogleChronicle',
-    'ObservabilityPipelineConfigDestinationGoogleChronicleAuth',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorage',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata',
     'ObservabilityPipelineConfigDestinationGooglePubsub',
     'ObservabilityPipelineConfigDestinationGooglePubsubAuth',
     'ObservabilityPipelineConfigDestinationGooglePubsubTls',
+    'ObservabilityPipelineConfigDestinationGoogleSecop',
+    'ObservabilityPipelineConfigDestinationGoogleSecopAuth',
     'ObservabilityPipelineConfigDestinationHttpClient',
     'ObservabilityPipelineConfigDestinationHttpClientCompression',
     'ObservabilityPipelineConfigDestinationHttpClientTls',
@@ -1414,6 +1417,8 @@ __all__ = [
     'SyntheticsGlobalVariableParseTestOptions',
     'SyntheticsGlobalVariableParseTestOptionsParser',
     'SyntheticsPrivateLocationMetadata',
+    'SyntheticsSuiteOption',
+    'SyntheticsSuiteTest',
     'SyntheticsTestApiStep',
     'SyntheticsTestApiStepAssertion',
     'SyntheticsTestApiStepAssertionTargetjsonpath',
@@ -1545,6 +1550,7 @@ __all__ = [
     'GetRoleUsersRoleUserResult',
     'GetRolesRoleResult',
     'GetRumRetentionFiltersRetentionFilterResult',
+    'GetSecurityMonitoringCriticalAssetsCriticalAssetResult',
     'GetSecurityMonitoringFiltersFilterResult',
     'GetSecurityMonitoringFiltersFilterExclusionFilterResult',
     'GetSecurityMonitoringRulesRuleResult',
@@ -43048,6 +43054,8 @@ class MonitorVariables(dict):
         suggest = None
         if key == "cloudCostQueries":
             suggest = "cloud_cost_queries"
+        elif key == "dataQualityQueries":
+            suggest = "data_quality_queries"
         elif key == "eventQueries":
             suggest = "event_queries"
 
@@ -43064,13 +43072,17 @@ class MonitorVariables(dict):
 
     def __init__(__self__, *,
                  cloud_cost_queries: Optional[Sequence['outputs.MonitorVariablesCloudCostQuery']] = None,
+                 data_quality_queries: Optional[Sequence['outputs.MonitorVariablesDataQualityQuery']] = None,
                  event_queries: Optional[Sequence['outputs.MonitorVariablesEventQuery']] = None):
         """
         :param Sequence['MonitorVariablesCloudCostQueryArgs'] cloud_cost_queries: The Cloud Cost query using formulas and functions.
+        :param Sequence['MonitorVariablesDataQualityQueryArgs'] data_quality_queries: The Data Quality query using formulas and functions.
         :param Sequence['MonitorVariablesEventQueryArgs'] event_queries: A timeseries formula and functions events query.
         """
         if cloud_cost_queries is not None:
             pulumi.set(__self__, "cloud_cost_queries", cloud_cost_queries)
+        if data_quality_queries is not None:
+            pulumi.set(__self__, "data_quality_queries", data_quality_queries)
         if event_queries is not None:
             pulumi.set(__self__, "event_queries", event_queries)
 
@@ -43081,6 +43093,14 @@ class MonitorVariables(dict):
         The Cloud Cost query using formulas and functions.
         """
         return pulumi.get(self, "cloud_cost_queries")
+
+    @_builtins.property
+    @pulumi.getter(name="dataQualityQueries")
+    def data_quality_queries(self) -> Optional[Sequence['outputs.MonitorVariablesDataQualityQuery']]:
+        """
+        The Data Quality query using formulas and functions.
+        """
+        return pulumi.get(self, "data_quality_queries")
 
     @_builtins.property
     @pulumi.getter(name="eventQueries")
@@ -43160,6 +43180,220 @@ class MonitorVariablesCloudCostQuery(dict):
 
 
 @pulumi.output_type
+class MonitorVariablesDataQualityQuery(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataSource":
+            suggest = "data_source"
+        elif key == "groupBies":
+            suggest = "group_bies"
+        elif key == "monitorOptions":
+            suggest = "monitor_options"
+        elif key == "schemaVersion":
+            suggest = "schema_version"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MonitorVariablesDataQualityQuery. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MonitorVariablesDataQualityQuery.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MonitorVariablesDataQualityQuery.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 data_source: _builtins.str,
+                 filter: _builtins.str,
+                 measure: _builtins.str,
+                 name: _builtins.str,
+                 group_bies: Optional[Sequence[_builtins.str]] = None,
+                 monitor_options: Optional['outputs.MonitorVariablesDataQualityQueryMonitorOptions'] = None,
+                 schema_version: Optional[_builtins.str] = None,
+                 scope: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str data_source: The data source for data quality queries. Valid value is `data_quality_metrics`. Valid values are `data_quality_metrics`.
+        :param _builtins.str filter: Filter expression used to match on data entities. Uses AAstra query syntax.
+        :param _builtins.str measure: The measure to query. Common values include `bytes`, `cardinality`, `custom`, `freshness`, `max`, `mean`, `min`, `nullness`, `percent_negative`, `percent_zero`, `row_count`, `stddev`, `sum`, `uniqueness`. Additional values may be supported.
+        :param _builtins.str name: The name of the query for use in formulas.
+        :param Sequence[_builtins.str] group_bies: Optional grouping fields for aggregation.
+        :param 'MonitorVariablesDataQualityQueryMonitorOptionsArgs' monitor_options: Monitor configuration options for data quality queries.
+        :param _builtins.str schema_version: Schema version for the data quality query.
+        :param _builtins.str scope: Optional scoping expression to further filter metrics.
+        """
+        pulumi.set(__self__, "data_source", data_source)
+        pulumi.set(__self__, "filter", filter)
+        pulumi.set(__self__, "measure", measure)
+        pulumi.set(__self__, "name", name)
+        if group_bies is not None:
+            pulumi.set(__self__, "group_bies", group_bies)
+        if monitor_options is not None:
+            pulumi.set(__self__, "monitor_options", monitor_options)
+        if schema_version is not None:
+            pulumi.set(__self__, "schema_version", schema_version)
+        if scope is not None:
+            pulumi.set(__self__, "scope", scope)
+
+    @_builtins.property
+    @pulumi.getter(name="dataSource")
+    def data_source(self) -> _builtins.str:
+        """
+        The data source for data quality queries. Valid value is `data_quality_metrics`. Valid values are `data_quality_metrics`.
+        """
+        return pulumi.get(self, "data_source")
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> _builtins.str:
+        """
+        Filter expression used to match on data entities. Uses AAstra query syntax.
+        """
+        return pulumi.get(self, "filter")
+
+    @_builtins.property
+    @pulumi.getter
+    def measure(self) -> _builtins.str:
+        """
+        The measure to query. Common values include `bytes`, `cardinality`, `custom`, `freshness`, `max`, `mean`, `min`, `nullness`, `percent_negative`, `percent_zero`, `row_count`, `stddev`, `sum`, `uniqueness`. Additional values may be supported.
+        """
+        return pulumi.get(self, "measure")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the query for use in formulas.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="groupBies")
+    def group_bies(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Optional grouping fields for aggregation.
+        """
+        return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="monitorOptions")
+    def monitor_options(self) -> Optional['outputs.MonitorVariablesDataQualityQueryMonitorOptions']:
+        """
+        Monitor configuration options for data quality queries.
+        """
+        return pulumi.get(self, "monitor_options")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaVersion")
+    def schema_version(self) -> Optional[_builtins.str]:
+        """
+        Schema version for the data quality query.
+        """
+        return pulumi.get(self, "schema_version")
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> Optional[_builtins.str]:
+        """
+        Optional scoping expression to further filter metrics.
+        """
+        return pulumi.get(self, "scope")
+
+
+@pulumi.output_type
+class MonitorVariablesDataQualityQueryMonitorOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "crontabOverride":
+            suggest = "crontab_override"
+        elif key == "customSql":
+            suggest = "custom_sql"
+        elif key == "customWhere":
+            suggest = "custom_where"
+        elif key == "groupByColumns":
+            suggest = "group_by_columns"
+        elif key == "modelTypeOverride":
+            suggest = "model_type_override"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MonitorVariablesDataQualityQueryMonitorOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MonitorVariablesDataQualityQueryMonitorOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MonitorVariablesDataQualityQueryMonitorOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 crontab_override: Optional[_builtins.str] = None,
+                 custom_sql: Optional[_builtins.str] = None,
+                 custom_where: Optional[_builtins.str] = None,
+                 group_by_columns: Optional[Sequence[_builtins.str]] = None,
+                 model_type_override: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str crontab_override: Crontab expression to override the default schedule.
+        :param _builtins.str custom_sql: Custom SQL query for the monitor.
+        :param _builtins.str custom_where: Custom WHERE clause for the query.
+        :param Sequence[_builtins.str] group_by_columns: Columns to group results by.
+        :param _builtins.str model_type_override: Override for the model type. Valid values are `freshness`, `percentage`, `any`.
+        """
+        if crontab_override is not None:
+            pulumi.set(__self__, "crontab_override", crontab_override)
+        if custom_sql is not None:
+            pulumi.set(__self__, "custom_sql", custom_sql)
+        if custom_where is not None:
+            pulumi.set(__self__, "custom_where", custom_where)
+        if group_by_columns is not None:
+            pulumi.set(__self__, "group_by_columns", group_by_columns)
+        if model_type_override is not None:
+            pulumi.set(__self__, "model_type_override", model_type_override)
+
+    @_builtins.property
+    @pulumi.getter(name="crontabOverride")
+    def crontab_override(self) -> Optional[_builtins.str]:
+        """
+        Crontab expression to override the default schedule.
+        """
+        return pulumi.get(self, "crontab_override")
+
+    @_builtins.property
+    @pulumi.getter(name="customSql")
+    def custom_sql(self) -> Optional[_builtins.str]:
+        """
+        Custom SQL query for the monitor.
+        """
+        return pulumi.get(self, "custom_sql")
+
+    @_builtins.property
+    @pulumi.getter(name="customWhere")
+    def custom_where(self) -> Optional[_builtins.str]:
+        """
+        Custom WHERE clause for the query.
+        """
+        return pulumi.get(self, "custom_where")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByColumns")
+    def group_by_columns(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Columns to group results by.
+        """
+        return pulumi.get(self, "group_by_columns")
+
+    @_builtins.property
+    @pulumi.getter(name="modelTypeOverride")
+    def model_type_override(self) -> Optional[_builtins.str]:
+        """
+        Override for the model type. Valid values are `freshness`, `percentage`, `any`.
+        """
+        return pulumi.get(self, "model_type_override")
+
+
+@pulumi.output_type
 class MonitorVariablesEventQuery(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -43189,7 +43423,7 @@ class MonitorVariablesEventQuery(dict):
                  indexes: Optional[Sequence[_builtins.str]] = None):
         """
         :param Sequence['MonitorVariablesEventQueryComputeArgs'] computes: The compute options.
-        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `rum`, `ci_pipelines`, `ci_tests`, `audit`, `events`, `logs`, `spans`, `database_queries`, `network`.
+        :param _builtins.str data_source: The data source for event platform-based queries. Valid values are `rum`, `ci_pipelines`, `ci_tests`, `audit`, `events`, `logs`, `spans`, `database_queries`, `network`, `network_path`.
         :param _builtins.str name: The name of query for use in formulas.
         :param 'MonitorVariablesEventQuerySearchArgs' search: The search options.
         :param Sequence['MonitorVariablesEventQueryGroupByArgs'] group_bies: Group by options.
@@ -43216,7 +43450,7 @@ class MonitorVariablesEventQuery(dict):
     @pulumi.getter(name="dataSource")
     def data_source(self) -> _builtins.str:
         """
-        The data source for event platform-based queries. Valid values are `rum`, `ci_pipelines`, `ci_tests`, `audit`, `events`, `logs`, `spans`, `database_queries`, `network`.
+        The data source for event platform-based queries. Valid values are `rum`, `ci_pipelines`, `ci_tests`, `audit`, `events`, `logs`, `spans`, `database_queries`, `network`, `network_path`.
         """
         return pulumi.get(self, "data_source")
 
@@ -43406,6 +43640,8 @@ class ObservabilityPipelineConfig(dict):
             suggest = "pipeline_type"
         elif key == "processorGroups":
             suggest = "processor_groups"
+        elif key == "useLegacySearchSyntax":
+            suggest = "use_legacy_search_syntax"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfig. Access the value via the '{suggest}' property getter instead.")
@@ -43422,12 +43658,14 @@ class ObservabilityPipelineConfig(dict):
                  destinations: Optional[Sequence['outputs.ObservabilityPipelineConfigDestination']] = None,
                  pipeline_type: Optional[_builtins.str] = None,
                  processor_groups: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroup']] = None,
-                 sources: Optional[Sequence['outputs.ObservabilityPipelineConfigSource']] = None):
+                 sources: Optional[Sequence['outputs.ObservabilityPipelineConfigSource']] = None,
+                 use_legacy_search_syntax: Optional[_builtins.bool] = None):
         """
         :param Sequence['ObservabilityPipelineConfigDestinationArgs'] destinations: List of destinations.
         :param _builtins.str pipeline_type: The type of data being ingested. Defaults to `logs` if not specified. Valid values are `logs`, `metrics`.
         :param Sequence['ObservabilityPipelineConfigProcessorGroupArgs'] processor_groups: A processor group containing common configuration and nested processors.
         :param Sequence['ObservabilityPipelineConfigSourceArgs'] sources: List of sources.
+        :param _builtins.bool use_legacy_search_syntax: Set to `true` to continue using the legacy search syntax while migrating filter queries. After migrating all queries to the new syntax, set to `false`. The legacy syntax is deprecated and will eventually be removed. Requires Observability Pipelines Worker 2.11 or later. See https://docs.datadoghq.com/observability*pipelines/guide/upgrade*your*filter*queries*to*the*new*search_syntax/ for more information.
         """
         if destinations is not None:
             pulumi.set(__self__, "destinations", destinations)
@@ -43437,6 +43675,8 @@ class ObservabilityPipelineConfig(dict):
             pulumi.set(__self__, "processor_groups", processor_groups)
         if sources is not None:
             pulumi.set(__self__, "sources", sources)
+        if use_legacy_search_syntax is not None:
+            pulumi.set(__self__, "use_legacy_search_syntax", use_legacy_search_syntax)
 
     @_builtins.property
     @pulumi.getter
@@ -43470,6 +43710,14 @@ class ObservabilityPipelineConfig(dict):
         """
         return pulumi.get(self, "sources")
 
+    @_builtins.property
+    @pulumi.getter(name="useLegacySearchSyntax")
+    def use_legacy_search_syntax(self) -> Optional[_builtins.bool]:
+        """
+        Set to `true` to continue using the legacy search syntax while migrating filter queries. After migrating all queries to the new syntax, set to `false`. The legacy syntax is deprecated and will eventually be removed. Requires Observability Pipelines Worker 2.11 or later. See https://docs.datadoghq.com/observability*pipelines/guide/upgrade*your*filter*queries*to*the*new*search_syntax/ for more information.
+        """
+        return pulumi.get(self, "use_legacy_search_syntax")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestination(dict):
@@ -43492,12 +43740,12 @@ class ObservabilityPipelineConfigDestination(dict):
             suggest = "datadog_logs"
         elif key == "datadogMetrics":
             suggest = "datadog_metrics"
-        elif key == "googleChronicles":
-            suggest = "google_chronicles"
         elif key == "googleCloudStorages":
             suggest = "google_cloud_storages"
         elif key == "googlePubsubs":
             suggest = "google_pubsubs"
+        elif key == "googleSecops":
+            suggest = "google_secops"
         elif key == "httpClients":
             suggest = "http_clients"
         elif key == "microsoftSentinels":
@@ -43536,9 +43784,9 @@ class ObservabilityPipelineConfigDestination(dict):
                  datadog_logs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLog']] = None,
                  datadog_metrics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogMetric']] = None,
                  elasticsearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationElasticsearch']] = None,
-                 google_chronicles: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleChronicle']] = None,
                  google_cloud_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorage']] = None,
                  google_pubsubs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGooglePubsub']] = None,
+                 google_secops: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleSecop']] = None,
                  http_clients: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationHttpClient']] = None,
                  kafka: Optional['outputs.ObservabilityPipelineConfigDestinationKafka'] = None,
                  microsoft_sentinels: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinel']] = None,
@@ -43562,9 +43810,9 @@ class ObservabilityPipelineConfigDestination(dict):
         :param Sequence['ObservabilityPipelineConfigDestinationDatadogLogArgs'] datadog_logs: The `datadog_logs` destination forwards logs to Datadog Log Management.
         :param Sequence['ObservabilityPipelineConfigDestinationDatadogMetricArgs'] datadog_metrics: The `get_metrics` destination forwards metrics to Datadog.
         :param Sequence['ObservabilityPipelineConfigDestinationElasticsearchArgs'] elasticsearches: The `elasticsearch` destination writes logs to an Elasticsearch cluster.
-        :param Sequence['ObservabilityPipelineConfigDestinationGoogleChronicleArgs'] google_chronicles: The `google_chronicle` destination sends logs to Google Chronicle.
         :param Sequence['ObservabilityPipelineConfigDestinationGoogleCloudStorageArgs'] google_cloud_storages: The `google_cloud_storage` destination stores logs in a Google Cloud Storage (GCS) bucket.
         :param Sequence['ObservabilityPipelineConfigDestinationGooglePubsubArgs'] google_pubsubs: The `google_pubsub` destination publishes logs to a Google Cloud Pub/Sub topic.
+        :param Sequence['ObservabilityPipelineConfigDestinationGoogleSecopArgs'] google_secops: The `google_chronicle` destination sends logs to Google SecOps.
         :param Sequence['ObservabilityPipelineConfigDestinationHttpClientArgs'] http_clients: The `http_client` destination sends data to an HTTP endpoint.
         :param 'ObservabilityPipelineConfigDestinationKafkaArgs' kafka: The `kafka` destination sends logs to Apache Kafka topics.
         :param Sequence['ObservabilityPipelineConfigDestinationMicrosoftSentinelArgs'] microsoft_sentinels: The `microsoft_sentinel` destination forwards logs to Microsoft Sentinel.
@@ -43597,12 +43845,12 @@ class ObservabilityPipelineConfigDestination(dict):
             pulumi.set(__self__, "datadog_metrics", datadog_metrics)
         if elasticsearches is not None:
             pulumi.set(__self__, "elasticsearches", elasticsearches)
-        if google_chronicles is not None:
-            pulumi.set(__self__, "google_chronicles", google_chronicles)
         if google_cloud_storages is not None:
             pulumi.set(__self__, "google_cloud_storages", google_cloud_storages)
         if google_pubsubs is not None:
             pulumi.set(__self__, "google_pubsubs", google_pubsubs)
+        if google_secops is not None:
+            pulumi.set(__self__, "google_secops", google_secops)
         if http_clients is not None:
             pulumi.set(__self__, "http_clients", http_clients)
         if kafka is not None:
@@ -43715,14 +43963,6 @@ class ObservabilityPipelineConfigDestination(dict):
         return pulumi.get(self, "elasticsearches")
 
     @_builtins.property
-    @pulumi.getter(name="googleChronicles")
-    def google_chronicles(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleChronicle']]:
-        """
-        The `google_chronicle` destination sends logs to Google Chronicle.
-        """
-        return pulumi.get(self, "google_chronicles")
-
-    @_builtins.property
     @pulumi.getter(name="googleCloudStorages")
     def google_cloud_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorage']]:
         """
@@ -43737,6 +43977,14 @@ class ObservabilityPipelineConfigDestination(dict):
         The `google_pubsub` destination publishes logs to a Google Cloud Pub/Sub topic.
         """
         return pulumi.get(self, "google_pubsubs")
+
+    @_builtins.property
+    @pulumi.getter(name="googleSecops")
+    def google_secops(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleSecop']]:
+        """
+        The `google_chronicle` destination sends logs to Google SecOps.
+        """
+        return pulumi.get(self, "google_secops")
 
     @_builtins.property
     @pulumi.getter(name="httpClients")
@@ -44506,8 +44754,91 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationDatadogLog(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 routes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLogRoute']] = None):
+        """
+        :param Sequence['ObservabilityPipelineConfigDestinationDatadogLogRouteArgs'] routes: A list of routing rules that forward matching logs to Datadog using dedicated API keys.
+        """
+        if routes is not None:
+            pulumi.set(__self__, "routes", routes)
+
+    @_builtins.property
+    @pulumi.getter
+    def routes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLogRoute']]:
+        """
+        A list of routing rules that forward matching logs to Datadog using dedicated API keys.
+        """
+        return pulumi.get(self, "routes")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogRoute(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "apiKeyKey":
+            suggest = "api_key_key"
+        elif key == "routeId":
+            suggest = "route_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationDatadogLogRoute. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRoute.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRoute.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 api_key_key: _builtins.str,
+                 include: _builtins.str,
+                 route_id: _builtins.str,
+                 site: _builtins.str):
+        """
+        :param _builtins.str api_key_key: Name of the environment variable or secret that stores the Datadog API key used by this route.
+        :param _builtins.str include: A Datadog search query that determines which logs are forwarded using this route.
+        :param _builtins.str route_id: Unique identifier for this route within the destination.
+        :param _builtins.str site: Datadog site where matching logs are sent (for example, `us1`).
+        """
+        pulumi.set(__self__, "api_key_key", api_key_key)
+        pulumi.set(__self__, "include", include)
+        pulumi.set(__self__, "route_id", route_id)
+        pulumi.set(__self__, "site", site)
+
+    @_builtins.property
+    @pulumi.getter(name="apiKeyKey")
+    def api_key_key(self) -> _builtins.str:
+        """
+        Name of the environment variable or secret that stores the Datadog API key used by this route.
+        """
+        return pulumi.get(self, "api_key_key")
+
+    @_builtins.property
+    @pulumi.getter
+    def include(self) -> _builtins.str:
+        """
+        A Datadog search query that determines which logs are forwarded using this route.
+        """
+        return pulumi.get(self, "include")
+
+    @_builtins.property
+    @pulumi.getter(name="routeId")
+    def route_id(self) -> _builtins.str:
+        """
+        Unique identifier for this route within the destination.
+        """
+        return pulumi.get(self, "route_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def site(self) -> _builtins.str:
+        """
+        Datadog site where matching logs are sent (for example, `us1`).
+        """
+        return pulumi.get(self, "site")
 
 
 @pulumi.output_type
@@ -44621,115 +44952,6 @@ class ObservabilityPipelineConfigDestinationElasticsearchDataStream(dict):
         The data stream namespace for your logs. This separates logs into different environments or domains.
         """
         return pulumi.get(self, "namespace")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigDestinationGoogleChronicle(dict):
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "customerId":
-            suggest = "customer_id"
-        elif key == "logType":
-            suggest = "log_type"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleChronicle. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationGoogleChronicle.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationGoogleChronicle.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleChronicleAuth'] = None,
-                 customer_id: Optional[_builtins.str] = None,
-                 encoding: Optional[_builtins.str] = None,
-                 log_type: Optional[_builtins.str] = None):
-        """
-        :param 'ObservabilityPipelineConfigDestinationGoogleChronicleAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
-        :param _builtins.str customer_id: The Google Chronicle customer ID.
-        :param _builtins.str encoding: The encoding format for the logs sent to Chronicle.
-        :param _builtins.str log_type: The log type metadata associated with the Chronicle destination.
-        """
-        if auth is not None:
-            pulumi.set(__self__, "auth", auth)
-        if customer_id is not None:
-            pulumi.set(__self__, "customer_id", customer_id)
-        if encoding is not None:
-            pulumi.set(__self__, "encoding", encoding)
-        if log_type is not None:
-            pulumi.set(__self__, "log_type", log_type)
-
-    @_builtins.property
-    @pulumi.getter
-    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleChronicleAuth']:
-        """
-        GCP credentials used to authenticate with Google Cloud services.
-        """
-        return pulumi.get(self, "auth")
-
-    @_builtins.property
-    @pulumi.getter(name="customerId")
-    def customer_id(self) -> Optional[_builtins.str]:
-        """
-        The Google Chronicle customer ID.
-        """
-        return pulumi.get(self, "customer_id")
-
-    @_builtins.property
-    @pulumi.getter
-    def encoding(self) -> Optional[_builtins.str]:
-        """
-        The encoding format for the logs sent to Chronicle.
-        """
-        return pulumi.get(self, "encoding")
-
-    @_builtins.property
-    @pulumi.getter(name="logType")
-    def log_type(self) -> Optional[_builtins.str]:
-        """
-        The log type metadata associated with the Chronicle destination.
-        """
-        return pulumi.get(self, "log_type")
-
-
-@pulumi.output_type
-class ObservabilityPipelineConfigDestinationGoogleChronicleAuth(dict):
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "credentialsFile":
-            suggest = "credentials_file"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleChronicleAuth. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        ObservabilityPipelineConfigDestinationGoogleChronicleAuth.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        ObservabilityPipelineConfigDestinationGoogleChronicleAuth.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 credentials_file: _builtins.str):
-        """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
-        """
-        pulumi.set(__self__, "credentials_file", credentials_file)
-
-    @_builtins.property
-    @pulumi.getter(name="credentialsFile")
-    def credentials_file(self) -> _builtins.str:
-        """
-        Path to the GCP service account key file.
-        """
-        return pulumi.get(self, "credentials_file")
 
 
 @pulumi.output_type
@@ -45053,6 +45275,112 @@ class ObservabilityPipelineConfigDestinationGooglePubsubTls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customerId":
+            suggest = "customer_id"
+        elif key == "logType":
+            suggest = "log_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleSecop. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecop.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecop.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 customer_id: _builtins.str,
+                 encoding: _builtins.str,
+                 log_type: _builtins.str,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth'] = None):
+        """
+        :param _builtins.str customer_id: The Google SecOps customer ID.
+        :param _builtins.str encoding: The encoding format for the logs sent to Google SecOps. Valid values are `json`, `raw_message`.
+        :param _builtins.str log_type: The log type metadata associated with the Google SecOps destination.
+        :param 'ObservabilityPipelineConfigDestinationGoogleSecopAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        """
+        pulumi.set(__self__, "customer_id", customer_id)
+        pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "log_type", log_type)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+
+    @_builtins.property
+    @pulumi.getter(name="customerId")
+    def customer_id(self) -> _builtins.str:
+        """
+        The Google SecOps customer ID.
+        """
+        return pulumi.get(self, "customer_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        The encoding format for the logs sent to Google SecOps. Valid values are `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter(name="logType")
+    def log_type(self) -> _builtins.str:
+        """
+        The log type metadata associated with the Google SecOps destination.
+        """
+        return pulumi.get(self, "log_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth']:
+        """
+        GCP credentials used to authenticate with Google Cloud services.
+        """
+        return pulumi.get(self, "auth")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleSecopAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "credentialsFile":
+            suggest = "credentials_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleSecopAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 credentials_file: _builtins.str):
+        """
+        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        """
+        pulumi.set(__self__, "credentials_file", credentials_file)
+
+    @_builtins.property
+    @pulumi.getter(name="credentialsFile")
+    def credentials_file(self) -> _builtins.str:
+        """
+        Path to the GCP service account key file.
+        """
+        return pulumi.get(self, "credentials_file")
 
 
 @pulumi.output_type
@@ -51223,7 +51551,7 @@ class OnCallScheduleLayer(dict):
         :param _builtins.str effective_date: The date/time when this layer should become active (in ISO 8601).
         :param _builtins.str name: The name of this layer. Should be unique within the schedule.
         :param _builtins.str rotation_start: The date/time when the rotation for this layer starts (in ISO 8601).
-        :param Sequence[_builtins.str] users: List of user IDs for the layer. Can either be a valid user id or null
+        :param Sequence[_builtins.str] users: List of user IDs for the layer. Can either be a valid user id or `null` to represent No-one.
         :param _builtins.str end_date: The date/time after which this layer no longer applies (in ISO 8601).
         :param _builtins.str id: The ID of this layer.
         :param 'OnCallScheduleLayerIntervalArgs' interval: Rotation interval for this layer.
@@ -51273,7 +51601,7 @@ class OnCallScheduleLayer(dict):
     @pulumi.getter
     def users(self) -> Sequence[_builtins.str]:
         """
-        List of user IDs for the layer. Can either be a valid user id or null
+        List of user IDs for the layer. Can either be a valid user id or `null` to represent No-one.
         """
         return pulumi.get(self, "users")
 
@@ -98347,6 +98675,90 @@ class SyntheticsPrivateLocationMetadata(dict):
 
 
 @pulumi.output_type
+class SyntheticsSuiteOption(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "alertingThreshold":
+            suggest = "alerting_threshold"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SyntheticsSuiteOption. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SyntheticsSuiteOption.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SyntheticsSuiteOption.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 alerting_threshold: _builtins.float):
+        """
+        :param _builtins.float alerting_threshold: Alerting threshold for the suite. Value must be between 0.000000 and 1.000000.
+        """
+        pulumi.set(__self__, "alerting_threshold", alerting_threshold)
+
+    @_builtins.property
+    @pulumi.getter(name="alertingThreshold")
+    def alerting_threshold(self) -> _builtins.float:
+        """
+        Alerting threshold for the suite. Value must be between 0.000000 and 1.000000.
+        """
+        return pulumi.get(self, "alerting_threshold")
+
+
+@pulumi.output_type
+class SyntheticsSuiteTest(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "publicId":
+            suggest = "public_id"
+        elif key == "alertingCriticality":
+            suggest = "alerting_criticality"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SyntheticsSuiteTest. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SyntheticsSuiteTest.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SyntheticsSuiteTest.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 public_id: _builtins.str,
+                 alerting_criticality: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str public_id: Public ID of the test.
+        :param _builtins.str alerting_criticality: Alerting criticality for the test. Valid values are `ignore`, `critical`.
+        """
+        pulumi.set(__self__, "public_id", public_id)
+        if alerting_criticality is not None:
+            pulumi.set(__self__, "alerting_criticality", alerting_criticality)
+
+    @_builtins.property
+    @pulumi.getter(name="publicId")
+    def public_id(self) -> _builtins.str:
+        """
+        Public ID of the test.
+        """
+        return pulumi.get(self, "public_id")
+
+    @_builtins.property
+    @pulumi.getter(name="alertingCriticality")
+    def alerting_criticality(self) -> Optional[_builtins.str]:
+        """
+        Alerting criticality for the test. Valid values are `ignore`, `critical`.
+        """
+        return pulumi.get(self, "alerting_criticality")
+
+
+@pulumi.output_type
 class SyntheticsTestApiStep(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -101240,7 +101652,7 @@ class SyntheticsTestMobileOptionsListMonitorOptions(dict):
                  renotify_occurrences: Optional[_builtins.int] = None):
         """
         :param _builtins.str escalation_message: A message to include with a re-notification.
-        :param _builtins.str notification_preset_name: The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`.
+        :param _builtins.str notification_preset_name: The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`, `hide_query_and_handles`, `show_only_snapshot`, `hide_handles_and_footer`.
         :param _builtins.int renotify_interval: Specify a renotification frequency in minutes. Values available by default are `0`, `10`, `20`, `30`, `40`, `50`, `60`, `90`, `120`, `180`, `240`, `300`, `360`, `720`, `1440`. Defaults to `0`.
         :param _builtins.int renotify_occurrences: The number of times a monitor renotifies. It can only be set if `renotify_interval` is set.
         """
@@ -101265,7 +101677,7 @@ class SyntheticsTestMobileOptionsListMonitorOptions(dict):
     @pulumi.getter(name="notificationPresetName")
     def notification_preset_name(self) -> Optional[_builtins.str]:
         """
-        The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`.
+        The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`, `hide_query_and_handles`, `show_only_snapshot`, `hide_handles_and_footer`.
         """
         return pulumi.get(self, "notification_preset_name")
 
@@ -102343,7 +102755,7 @@ class SyntheticsTestOptionsListMonitorOptions(dict):
                  renotify_occurrences: Optional[_builtins.int] = None):
         """
         :param _builtins.str escalation_message: A message to include with a re-notification.
-        :param _builtins.str notification_preset_name: The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`.
+        :param _builtins.str notification_preset_name: The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`, `hide_query_and_handles`, `show_only_snapshot`, `hide_handles_and_footer`.
         :param _builtins.int renotify_interval: Specify a renotification frequency in minutes. Values available by default are `0`, `10`, `20`, `30`, `40`, `50`, `60`, `90`, `120`, `180`, `240`, `300`, `360`, `720`, `1440`. Defaults to `0`.
         :param _builtins.int renotify_occurrences: The number of times a monitor renotifies. It can only be set if `renotify_interval` is set.
         """
@@ -102368,7 +102780,7 @@ class SyntheticsTestOptionsListMonitorOptions(dict):
     @pulumi.getter(name="notificationPresetName")
     def notification_preset_name(self) -> Optional[_builtins.str]:
         """
-        The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`.
+        The name of the preset for the notification for the monitor. Valid values are `show_all`, `hide_all`, `hide_query`, `hide_handles`, `hide_query_and_handles`, `show_only_snapshot`, `hide_handles_and_footer`.
         """
         return pulumi.get(self, "notification_preset_name")
 
@@ -106458,7 +106870,7 @@ class GetRumRetentionFiltersRetentionFilterResult(dict):
                  id: _builtins.str,
                  name: _builtins.str,
                  query: _builtins.str,
-                 sample_rate: _builtins.int):
+                 sample_rate: _builtins.float):
         pulumi.set(__self__, "enabled", enabled)
         pulumi.set(__self__, "event_type", event_type)
         pulumi.set(__self__, "id", id)
@@ -106493,8 +106905,55 @@ class GetRumRetentionFiltersRetentionFilterResult(dict):
 
     @_builtins.property
     @pulumi.getter(name="sampleRate")
-    def sample_rate(self) -> _builtins.int:
+    def sample_rate(self) -> _builtins.float:
         return pulumi.get(self, "sample_rate")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringCriticalAssetsCriticalAssetResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 id: _builtins.str,
+                 query: _builtins.str,
+                 rule_query: _builtins.str,
+                 severity: _builtins.str,
+                 tags: Sequence[_builtins.str]):
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "query", query)
+        pulumi.set(__self__, "rule_query", rule_query)
+        pulumi.set(__self__, "severity", severity)
+        pulumi.set(__self__, "tags", tags)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> _builtins.str:
+        return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="ruleQuery")
+    def rule_query(self) -> _builtins.str:
+        return pulumi.get(self, "rule_query")
+
+    @_builtins.property
+    @pulumi.getter
+    def severity(self) -> _builtins.str:
+        return pulumi.get(self, "severity")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "tags")
 
 
 @pulumi.output_type

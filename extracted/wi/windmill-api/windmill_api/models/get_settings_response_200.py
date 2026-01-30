@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -7,20 +7,16 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
-    from ..models.get_settings_response_200_auto_add_instance_groups_roles import (
-        GetSettingsResponse200AutoAddInstanceGroupsRoles,
-    )
+    from ..models.get_settings_response_200_auto_invite import GetSettingsResponse200AutoInvite
     from ..models.get_settings_response_200_datatable import GetSettingsResponse200Datatable
     from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
     from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
     from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
-    from ..models.get_settings_response_200_error_handler_extra_args import GetSettingsResponse200ErrorHandlerExtraArgs
+    from ..models.get_settings_response_200_error_handler import GetSettingsResponse200ErrorHandler
     from ..models.get_settings_response_200_git_sync import GetSettingsResponse200GitSync
     from ..models.get_settings_response_200_large_file_storage import GetSettingsResponse200LargeFileStorage
     from ..models.get_settings_response_200_operator_settings import GetSettingsResponse200OperatorSettings
-    from ..models.get_settings_response_200_success_handler_extra_args import (
-        GetSettingsResponse200SuccessHandlerExtraArgs,
-    )
+    from ..models.get_settings_response_200_success_handler import GetSettingsResponse200SuccessHandler
 
 
 T = TypeVar("T", bound="GetSettingsResponse200")
@@ -30,7 +26,6 @@ T = TypeVar("T", bound="GetSettingsResponse200")
 class GetSettingsResponse200:
     """
     Attributes:
-        error_handler_muted_on_cancel (bool):
         workspace_id (Union[Unset, str]):
         slack_name (Union[Unset, str]):
         slack_team_id (Union[Unset, str]):
@@ -41,22 +36,16 @@ class GetSettingsResponse200:
         teams_command_script (Union[Unset, str]):
         teams_team_name (Union[Unset, str]):
         teams_team_guid (Union[Unset, str]):
-        auto_invite_domain (Union[Unset, str]):
-        auto_invite_operator (Union[Unset, bool]):
-        auto_add (Union[Unset, bool]):
-        auto_add_instance_groups (Union[Unset, List[str]]):
-        auto_add_instance_groups_roles (Union[Unset, GetSettingsResponse200AutoAddInstanceGroupsRoles]):
+        auto_invite (Union[Unset, GetSettingsResponse200AutoInvite]): Configuration for auto-inviting users to the
+            workspace
         plan (Union[Unset, str]):
         customer_id (Union[Unset, str]):
         webhook (Union[Unset, str]):
         deploy_to (Union[Unset, str]):
         ai_config (Union[Unset, GetSettingsResponse200AiConfig]):
-        error_handler (Union[Unset, str]):
-        error_handler_extra_args (Union[Unset, GetSettingsResponse200ErrorHandlerExtraArgs]): The arguments to pass to
-            the script or flow
-        success_handler (Union[Unset, str]):
-        success_handler_extra_args (Union[Unset, GetSettingsResponse200SuccessHandlerExtraArgs]): The arguments to pass
-            to the script or flow
+        error_handler (Union[Unset, GetSettingsResponse200ErrorHandler]): Configuration for the workspace error handler
+        success_handler (Union[Unset, GetSettingsResponse200SuccessHandler]): Configuration for the workspace success
+            handler
         large_file_storage (Union[Unset, GetSettingsResponse200LargeFileStorage]):
         ducklake (Union[Unset, GetSettingsResponse200Ducklake]):
         datatable (Union[Unset, GetSettingsResponse200Datatable]):
@@ -69,7 +58,6 @@ class GetSettingsResponse200:
         operator_settings (Union[Unset, None, GetSettingsResponse200OperatorSettings]):
     """
 
-    error_handler_muted_on_cancel: bool
     workspace_id: Union[Unset, str] = UNSET
     slack_name: Union[Unset, str] = UNSET
     slack_team_id: Union[Unset, str] = UNSET
@@ -80,20 +68,14 @@ class GetSettingsResponse200:
     teams_command_script: Union[Unset, str] = UNSET
     teams_team_name: Union[Unset, str] = UNSET
     teams_team_guid: Union[Unset, str] = UNSET
-    auto_invite_domain: Union[Unset, str] = UNSET
-    auto_invite_operator: Union[Unset, bool] = UNSET
-    auto_add: Union[Unset, bool] = UNSET
-    auto_add_instance_groups: Union[Unset, List[str]] = UNSET
-    auto_add_instance_groups_roles: Union[Unset, "GetSettingsResponse200AutoAddInstanceGroupsRoles"] = UNSET
+    auto_invite: Union[Unset, "GetSettingsResponse200AutoInvite"] = UNSET
     plan: Union[Unset, str] = UNSET
     customer_id: Union[Unset, str] = UNSET
     webhook: Union[Unset, str] = UNSET
     deploy_to: Union[Unset, str] = UNSET
     ai_config: Union[Unset, "GetSettingsResponse200AiConfig"] = UNSET
-    error_handler: Union[Unset, str] = UNSET
-    error_handler_extra_args: Union[Unset, "GetSettingsResponse200ErrorHandlerExtraArgs"] = UNSET
-    success_handler: Union[Unset, str] = UNSET
-    success_handler_extra_args: Union[Unset, "GetSettingsResponse200SuccessHandlerExtraArgs"] = UNSET
+    error_handler: Union[Unset, "GetSettingsResponse200ErrorHandler"] = UNSET
+    success_handler: Union[Unset, "GetSettingsResponse200SuccessHandler"] = UNSET
     large_file_storage: Union[Unset, "GetSettingsResponse200LargeFileStorage"] = UNSET
     ducklake: Union[Unset, "GetSettingsResponse200Ducklake"] = UNSET
     datatable: Union[Unset, "GetSettingsResponse200Datatable"] = UNSET
@@ -107,7 +89,6 @@ class GetSettingsResponse200:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        error_handler_muted_on_cancel = self.error_handler_muted_on_cancel
         workspace_id = self.workspace_id
         slack_name = self.slack_name
         slack_team_id = self.slack_team_id
@@ -118,16 +99,9 @@ class GetSettingsResponse200:
         teams_command_script = self.teams_command_script
         teams_team_name = self.teams_team_name
         teams_team_guid = self.teams_team_guid
-        auto_invite_domain = self.auto_invite_domain
-        auto_invite_operator = self.auto_invite_operator
-        auto_add = self.auto_add
-        auto_add_instance_groups: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.auto_add_instance_groups, Unset):
-            auto_add_instance_groups = self.auto_add_instance_groups
-
-        auto_add_instance_groups_roles: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.auto_add_instance_groups_roles, Unset):
-            auto_add_instance_groups_roles = self.auto_add_instance_groups_roles.to_dict()
+        auto_invite: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.auto_invite, Unset):
+            auto_invite = self.auto_invite.to_dict()
 
         plan = self.plan
         customer_id = self.customer_id
@@ -137,15 +111,13 @@ class GetSettingsResponse200:
         if not isinstance(self.ai_config, Unset):
             ai_config = self.ai_config.to_dict()
 
-        error_handler = self.error_handler
-        error_handler_extra_args: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.error_handler_extra_args, Unset):
-            error_handler_extra_args = self.error_handler_extra_args.to_dict()
+        error_handler: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.error_handler, Unset):
+            error_handler = self.error_handler.to_dict()
 
-        success_handler = self.success_handler
-        success_handler_extra_args: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.success_handler_extra_args, Unset):
-            success_handler_extra_args = self.success_handler_extra_args.to_dict()
+        success_handler: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.success_handler, Unset):
+            success_handler = self.success_handler.to_dict()
 
         large_file_storage: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.large_file_storage, Unset):
@@ -180,11 +152,7 @@ class GetSettingsResponse200:
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "error_handler_muted_on_cancel": error_handler_muted_on_cancel,
-            }
-        )
+        field_dict.update({})
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
         if slack_name is not UNSET:
@@ -205,16 +173,8 @@ class GetSettingsResponse200:
             field_dict["teams_team_name"] = teams_team_name
         if teams_team_guid is not UNSET:
             field_dict["teams_team_guid"] = teams_team_guid
-        if auto_invite_domain is not UNSET:
-            field_dict["auto_invite_domain"] = auto_invite_domain
-        if auto_invite_operator is not UNSET:
-            field_dict["auto_invite_operator"] = auto_invite_operator
-        if auto_add is not UNSET:
-            field_dict["auto_add"] = auto_add
-        if auto_add_instance_groups is not UNSET:
-            field_dict["auto_add_instance_groups"] = auto_add_instance_groups
-        if auto_add_instance_groups_roles is not UNSET:
-            field_dict["auto_add_instance_groups_roles"] = auto_add_instance_groups_roles
+        if auto_invite is not UNSET:
+            field_dict["auto_invite"] = auto_invite
         if plan is not UNSET:
             field_dict["plan"] = plan
         if customer_id is not UNSET:
@@ -227,12 +187,8 @@ class GetSettingsResponse200:
             field_dict["ai_config"] = ai_config
         if error_handler is not UNSET:
             field_dict["error_handler"] = error_handler
-        if error_handler_extra_args is not UNSET:
-            field_dict["error_handler_extra_args"] = error_handler_extra_args
         if success_handler is not UNSET:
             field_dict["success_handler"] = success_handler
-        if success_handler_extra_args is not UNSET:
-            field_dict["success_handler_extra_args"] = success_handler_extra_args
         if large_file_storage is not UNSET:
             field_dict["large_file_storage"] = large_file_storage
         if ducklake is not UNSET:
@@ -259,26 +215,18 @@ class GetSettingsResponse200:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
-        from ..models.get_settings_response_200_auto_add_instance_groups_roles import (
-            GetSettingsResponse200AutoAddInstanceGroupsRoles,
-        )
+        from ..models.get_settings_response_200_auto_invite import GetSettingsResponse200AutoInvite
         from ..models.get_settings_response_200_datatable import GetSettingsResponse200Datatable
         from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
         from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
         from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
-        from ..models.get_settings_response_200_error_handler_extra_args import (
-            GetSettingsResponse200ErrorHandlerExtraArgs,
-        )
+        from ..models.get_settings_response_200_error_handler import GetSettingsResponse200ErrorHandler
         from ..models.get_settings_response_200_git_sync import GetSettingsResponse200GitSync
         from ..models.get_settings_response_200_large_file_storage import GetSettingsResponse200LargeFileStorage
         from ..models.get_settings_response_200_operator_settings import GetSettingsResponse200OperatorSettings
-        from ..models.get_settings_response_200_success_handler_extra_args import (
-            GetSettingsResponse200SuccessHandlerExtraArgs,
-        )
+        from ..models.get_settings_response_200_success_handler import GetSettingsResponse200SuccessHandler
 
         d = src_dict.copy()
-        error_handler_muted_on_cancel = d.pop("error_handler_muted_on_cancel")
-
         workspace_id = d.pop("workspace_id", UNSET)
 
         slack_name = d.pop("slack_name", UNSET)
@@ -299,22 +247,12 @@ class GetSettingsResponse200:
 
         teams_team_guid = d.pop("teams_team_guid", UNSET)
 
-        auto_invite_domain = d.pop("auto_invite_domain", UNSET)
-
-        auto_invite_operator = d.pop("auto_invite_operator", UNSET)
-
-        auto_add = d.pop("auto_add", UNSET)
-
-        auto_add_instance_groups = cast(List[str], d.pop("auto_add_instance_groups", UNSET))
-
-        _auto_add_instance_groups_roles = d.pop("auto_add_instance_groups_roles", UNSET)
-        auto_add_instance_groups_roles: Union[Unset, GetSettingsResponse200AutoAddInstanceGroupsRoles]
-        if isinstance(_auto_add_instance_groups_roles, Unset):
-            auto_add_instance_groups_roles = UNSET
+        _auto_invite = d.pop("auto_invite", UNSET)
+        auto_invite: Union[Unset, GetSettingsResponse200AutoInvite]
+        if isinstance(_auto_invite, Unset):
+            auto_invite = UNSET
         else:
-            auto_add_instance_groups_roles = GetSettingsResponse200AutoAddInstanceGroupsRoles.from_dict(
-                _auto_add_instance_groups_roles
-            )
+            auto_invite = GetSettingsResponse200AutoInvite.from_dict(_auto_invite)
 
         plan = d.pop("plan", UNSET)
 
@@ -331,25 +269,19 @@ class GetSettingsResponse200:
         else:
             ai_config = GetSettingsResponse200AiConfig.from_dict(_ai_config)
 
-        error_handler = d.pop("error_handler", UNSET)
-
-        _error_handler_extra_args = d.pop("error_handler_extra_args", UNSET)
-        error_handler_extra_args: Union[Unset, GetSettingsResponse200ErrorHandlerExtraArgs]
-        if isinstance(_error_handler_extra_args, Unset):
-            error_handler_extra_args = UNSET
+        _error_handler = d.pop("error_handler", UNSET)
+        error_handler: Union[Unset, GetSettingsResponse200ErrorHandler]
+        if isinstance(_error_handler, Unset):
+            error_handler = UNSET
         else:
-            error_handler_extra_args = GetSettingsResponse200ErrorHandlerExtraArgs.from_dict(_error_handler_extra_args)
+            error_handler = GetSettingsResponse200ErrorHandler.from_dict(_error_handler)
 
-        success_handler = d.pop("success_handler", UNSET)
-
-        _success_handler_extra_args = d.pop("success_handler_extra_args", UNSET)
-        success_handler_extra_args: Union[Unset, GetSettingsResponse200SuccessHandlerExtraArgs]
-        if isinstance(_success_handler_extra_args, Unset):
-            success_handler_extra_args = UNSET
+        _success_handler = d.pop("success_handler", UNSET)
+        success_handler: Union[Unset, GetSettingsResponse200SuccessHandler]
+        if isinstance(_success_handler, Unset):
+            success_handler = UNSET
         else:
-            success_handler_extra_args = GetSettingsResponse200SuccessHandlerExtraArgs.from_dict(
-                _success_handler_extra_args
-            )
+            success_handler = GetSettingsResponse200SuccessHandler.from_dict(_success_handler)
 
         _large_file_storage = d.pop("large_file_storage", UNSET)
         large_file_storage: Union[Unset, GetSettingsResponse200LargeFileStorage]
@@ -409,7 +341,6 @@ class GetSettingsResponse200:
             operator_settings = GetSettingsResponse200OperatorSettings.from_dict(_operator_settings)
 
         get_settings_response_200 = cls(
-            error_handler_muted_on_cancel=error_handler_muted_on_cancel,
             workspace_id=workspace_id,
             slack_name=slack_name,
             slack_team_id=slack_team_id,
@@ -420,20 +351,14 @@ class GetSettingsResponse200:
             teams_command_script=teams_command_script,
             teams_team_name=teams_team_name,
             teams_team_guid=teams_team_guid,
-            auto_invite_domain=auto_invite_domain,
-            auto_invite_operator=auto_invite_operator,
-            auto_add=auto_add,
-            auto_add_instance_groups=auto_add_instance_groups,
-            auto_add_instance_groups_roles=auto_add_instance_groups_roles,
+            auto_invite=auto_invite,
             plan=plan,
             customer_id=customer_id,
             webhook=webhook,
             deploy_to=deploy_to,
             ai_config=ai_config,
             error_handler=error_handler,
-            error_handler_extra_args=error_handler_extra_args,
             success_handler=success_handler,
-            success_handler_extra_args=success_handler_extra_args,
             large_file_storage=large_file_storage,
             ducklake=ducklake,
             datatable=datatable,

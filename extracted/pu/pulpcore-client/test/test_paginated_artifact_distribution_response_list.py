@@ -41,19 +41,19 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                 previous = 'http://api.example.org/accounts/?offset=200&limit=100',
                 results = [
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
-                        hidden = True, 
-                        no_content_change_since = '', 
-                        prn = '', 
+                        content_guard = '', 
+                        base_path = '', 
+                        pulp_href = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        base_path = '', 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        content_guard = '', 
+                        hidden = True, 
                         name = '', 
-                        pulp_href = '', 
-                        base_url = '', )
+                        no_content_change_since = '', 
+                        base_url = '', 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        prn = '', )
                     ]
             )
         else:
@@ -61,19 +61,19 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                 count = 123,
                 results = [
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
-                        hidden = True, 
-                        no_content_change_since = '', 
-                        prn = '', 
+                        content_guard = '', 
+                        base_path = '', 
+                        pulp_href = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        base_path = '', 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        content_guard = '', 
+                        hidden = True, 
                         name = '', 
-                        pulp_href = '', 
-                        base_url = '', )
+                        no_content_change_since = '', 
+                        base_url = '', 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        prn = '', )
                     ],
         )
         """

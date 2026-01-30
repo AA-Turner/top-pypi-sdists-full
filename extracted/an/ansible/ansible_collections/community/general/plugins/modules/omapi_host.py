@@ -129,15 +129,23 @@ lease:
 """
 
 import binascii
-import socket
 import struct
 import traceback
 
 PUREOMAPI_IMP_ERR = None
 try:
-    from pypureomapi import Omapi, OmapiMessage, OmapiError, OmapiErrorNotFound
-    from pypureomapi import pack_ip, unpack_ip, pack_mac, unpack_mac
-    from pypureomapi import OMAPI_OP_STATUS, OMAPI_OP_UPDATE
+    from pypureomapi import (
+        OMAPI_OP_STATUS,
+        OMAPI_OP_UPDATE,
+        Omapi,
+        OmapiError,
+        OmapiErrorNotFound,
+        OmapiMessage,
+        pack_ip,
+        pack_mac,
+        unpack_ip,
+        unpack_mac,
+    )
 
     pureomapi_found = True
 except ImportError:
@@ -168,7 +176,7 @@ class OmapiHostManager:
             self.module.fail_json(
                 msg=f"Unable to open OMAPI connection. Ensure 'host', 'port', 'key' and 'key_name' are valid. Exception was: {e}"
             )
-        except socket.error as e:
+        except OSError as e:
             self.module.fail_json(msg=f"Unable to connect to OMAPI server: {e}")
 
     def get_host(self, macaddr):

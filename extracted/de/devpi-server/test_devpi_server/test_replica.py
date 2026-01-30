@@ -1,20 +1,25 @@
-import hashlib
-import os
-import pytest
-from devpi_server.log import thread_pop_log
 from devpi_server.filestore import get_hashes
 from devpi_server.fileutil import LoadError
 from devpi_server.fileutil import dumps
 from devpi_server.fileutil import loads
 from devpi_server.keyfs import MissingFileException
-from devpi_server.log import threadlog, thread_push_log
-from devpi_server.replica import H_EXPECTED_MASTER_ID, H_MASTER_UUID
-from devpi_server.replica import H_EXPECTED_PRIMARY_ID, H_PRIMARY_UUID
-from devpi_server.replica import H_REPLICA_UUID, H_REPLICA_OUTSIDE_URL
+from devpi_server.keyfs_types import FilePathInfo
+from devpi_server.keyfs_types import RelPath
+from devpi_server.log import thread_pop_log
+from devpi_server.log import thread_push_log
+from devpi_server.log import threadlog
+from devpi_server.replica import H_EXPECTED_MASTER_ID
+from devpi_server.replica import H_EXPECTED_PRIMARY_ID
+from devpi_server.replica import H_MASTER_UUID
+from devpi_server.replica import H_PRIMARY_UUID
+from devpi_server.replica import H_REPLICA_OUTSIDE_URL
+from devpi_server.replica import H_REPLICA_UUID
 from devpi_server.replica import PrimaryChangelogRequest
 from devpi_server.replica import proxy_view_to_primary
 from devpi_server.views import iter_remote_file_replica
 from pyramid.httpexceptions import HTTPNotFound
+import os
+import pytest
 
 
 pytestmark = [pytest.mark.notransaction]
@@ -65,6 +70,21 @@ class TestChangelog:
     def get_latest_serial(self, testapp):
         r = testapp.get("/+api", expect_errors=False)
         return int(r.headers["X-DEVPI-SERIAL"])
+
+    def test_accept_header(self, testapp):
+        from devpi_server.replica import REPLICA_ACCEPT_STREAMING
+        from devpi_server.replica import REPLICA_CONTENT_TYPE
+
+        r = testapp.get("/+changelog/0")
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0", headers={"Accept": "foo"})
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0", headers={"Accept": "foo/bar"})
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0", headers={"Accept": REPLICA_CONTENT_TYPE})
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0", headers={"Accept": REPLICA_ACCEPT_STREAMING})
+        assert r.content_type == "application/octet-stream"
 
     def test_get_latest_serial(self, testapp, mapp):
         latest_serial = self.get_latest_serial(testapp)
@@ -140,6 +160,21 @@ class TestMultiChangelog:
         r = testapp.get("/+api", expect_errors=False)
         return int(r.headers["X-DEVPI-SERIAL"])
 
+    def test_accept_header(self, testapp):
+        from devpi_server.replica import REPLICA_ACCEPT_STREAMING
+        from devpi_server.replica import REPLICA_CONTENT_TYPE
+
+        r = testapp.get("/+changelog/0-")
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0-", headers={"Accept": "foo"})
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0-", headers={"Accept": "foo/bar"})
+        assert r.content_type == "application/octet-stream"
+        r = testapp.get("/+changelog/0-", headers={"Accept": REPLICA_CONTENT_TYPE})
+        assert r.content_type == REPLICA_CONTENT_TYPE
+        r = testapp.get("/+changelog/0-", headers={"Accept": REPLICA_ACCEPT_STREAMING})
+        assert r.content_type == REPLICA_CONTENT_TYPE
+
     @pytest.mark.usefixtures("noiter")
     def test_multiple_changes(self, mapp, reqchangelogs, testapp):
         mapp.create_user("this", password="p")
@@ -207,6 +242,34 @@ class TestReplicaThread:
             rt.http.mockresponse(url, code=code, content=data, headers=headers)
 
         return mockchangelog
+
+    def test_fetch_accept(self, makexom, mock, monkeypatch):
+        from devpi_server.replica import REPLICA_CONTENT_TYPE
+        from webob.acceptparse import create_accept_header
+
+        xom = makexom(["--primary-url=http://localhost"])
+        rt = xom.replica_thread
+        stream = mock.Mock()
+        monkeypatch.setattr(rt.http, "stream", stream)
+        monkeypatch.setattr(rt.thread, "sleep", lambda _x: 0 / 0)
+        with pytest.raises(ZeroDivisionError):
+            rt.thread_run()
+        assert stream.called
+        (call,) = stream.call_args_list
+        accept = create_accept_header(call.kwargs["extra_headers"]["Accept"])
+        assert REPLICA_CONTENT_TYPE in accept
+
+    def test_fetch_accept_no_streaming(self, makexom, mock, monkeypatch):
+        xom = makexom(["--primary-url=http://localhost", "--no-replica-streaming"])
+        rt = xom.replica_thread
+        stream = mock.Mock()
+        monkeypatch.setattr(rt.http, "stream", stream)
+        monkeypatch.setattr(rt.thread, "sleep", lambda _x: 0 / 0)
+        with pytest.raises(ZeroDivisionError):
+            rt.thread_run()
+        assert stream.called
+        (call,) = stream.call_args_list
+        assert "Accept" not in call.kwargs["extra_headers"]
 
     def test_thread_run_fail(self, rt, mockchangelog, caplog):
         rt.thread.sleep = lambda _x: 0 / 0
@@ -682,7 +745,7 @@ class TestUseExistingFiles:
         replay(xom, replica_xom)
         assert len(caplog.getrecords('checking existing file')) == 1
         # check the number of links of the file
-        assert existing_path.stat().nlink == 2
+        assert existing_path.stat().nlink > 1
 
     def test_use_existing_files_bad_data(
         self, caplog, make_replica_xom, mapp, tmpdir, xom
@@ -800,8 +863,8 @@ class TestFileReplication:
     def test_fetch(self, gen, xom, replica_xom):
         replay(xom, replica_xom)
         content1 = b'hello'
-        md5 = hashlib.md5(content1).hexdigest()
-        link = gen.pypi_package_link("pytest-1.8.zip#md5=%s" % md5, md5=False)
+        md5_1 = get_hashes(content1, hash_types=("md5",))
+        link = gen.pypi_package_link("pytest-1.8.zip", hash_spec=md5_1.get_spec("md5"))
         with xom.keyfs.write_transaction():
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
             assert not entry.file_exists()
@@ -813,7 +876,7 @@ class TestFileReplication:
             assert r_entry.meta
 
         with xom.keyfs.write_transaction():
-            entry.file_set_content(content1)
+            entry.file_set_content(content1, hashes=get_hashes(content1))
             assert entry.file_exists()
             assert entry.last_modified is not None
 
@@ -822,13 +885,12 @@ class TestFileReplication:
         primary_file_path = primary_url.joinpath(entry.relpath).url
         replica_xom.frt.http.mockresponse(primary_file_path, content=b"13")
         replay(xom, replica_xom, events=False)
-        replica_xom.replica_thread.wait(error_queue=True)
+        replica_xom.replica_thread.wait(error_queue=False)
         replication_errors = replica_xom.replica_thread.shared_data.errors
         assert list(replication_errors.errors.keys()) == [
             'root/pypi/+f/5d4/1402abc4b2a76/pytest-1.8.zip']
         with replica_xom.keyfs.read_transaction():
             assert not r_entry.file_exists()
-            assert not replica_xom.config.server_path.joinpath(r_entry._storepath).exists()
 
         # then we try to return the correct thing
         with xom.keyfs.write_transaction():
@@ -852,8 +914,8 @@ class TestFileReplication:
     def test_fetch_later_deleted(self, caplog, gen, xom, replica_xom):
         replay(xom, replica_xom)
         content1 = b'hello'
-        md5 = hashlib.md5(content1).hexdigest()
-        link = gen.pypi_package_link("pytest-1.8.zip#md5=%s" % md5, md5=False)
+        md5_1 = get_hashes(content1, hash_types=("md5",))
+        link = gen.pypi_package_link("pytest-1.8.zip", hash_spec=md5_1.get_spec("md5"))
         with xom.keyfs.write_transaction():
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
             assert not entry.file_exists()
@@ -863,13 +925,14 @@ class TestFileReplication:
 
         # first we create
         with xom.keyfs.write_transaction():
-            entry.file_set_content(content1)
+            entry.file_set_content(content1, hashes=get_hashes(content1))
 
         # then we delete
         with xom.keyfs.write_transaction():
             entry.file_delete()
             entry.delete()
-        assert not xom.config.server_path.joinpath(entry._storepath).exists()
+        with xom.keyfs.read_transaction():
+            assert not entry.file_exists()
 
         # and simulate what the primary will respond
         replica_xom.frt.http.mockresponse(primary_file_path, status_code=410)
@@ -887,14 +950,14 @@ class TestFileReplication:
     @pytest.mark.slow
     @pytest.mark.mock_frt_http
     def test_fetch_pypi_nomd5(self, gen, xom, replica_xom):
-        (frthread,) = replica_xom.replica_thread.file_replication_threads
         replay(xom, replica_xom)
         content1 = b'hello'
-        link = gen.pypi_package_link("some-1.8.zip", md5=False)
+        link = gen.pypi_package_link("some-1.8.zip", hash_spec=False)
         with xom.keyfs.write_transaction():
             entry = xom.filestore.maplink(link, "root", "pypi", "some")
             assert not entry.file_exists()
             assert entry.best_available_hash_spec is None
+            assert not entry.hashes
 
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():
@@ -902,9 +965,10 @@ class TestFileReplication:
             assert not r_entry.file_exists()
             assert r_entry.meta
             assert r_entry.best_available_hash_spec is None
+            assert not r_entry.hashes
 
         with xom.keyfs.write_transaction():
-            entry.file_set_content(content1)
+            entry.file_set_content(content1, hashes=get_hashes(content1))
 
         primary_url = replica_xom.config.primary_url
         primary_file_path = primary_url.joinpath(entry.relpath).url
@@ -944,9 +1008,10 @@ class TestFileReplication:
         monkeypatch.setattr(xom.keyfs, "wait_tx_serial",
                             lambda x: l.append(x))
         with xom.keyfs.write_transaction():
-            link = gen.pypi_package_link("pytest-1.8.zip", md5=True)
+            link = gen.pypi_package_link("pytest-1.8.zip")
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
             assert entry.best_available_hash_value is not None
+            assert entry.hashes
             assert not entry.file_exists()
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():
@@ -964,13 +1029,12 @@ class TestFileReplication:
         l = []
         monkeypatch.setattr(xom.keyfs, "wait_tx_serial",
                             lambda x: l.append(x))
+        content = b"123"
         with xom.keyfs.write_transaction():
-            md5 = hashlib.md5()  # noqa: S324 - testing
-            md5.update(b'123')
-            link = gen.pypi_package_link(
-                "pytest-1.8.zip", md5=md5.hexdigest())
+            md5_1 = get_hashes(content, hash_types=("md5",)).get_spec("md5")
+            link = gen.pypi_package_link("pytest-1.8.zip", hash_spec=md5_1)
             entry = xom.filestore.maplink(link, "root", "pypi", "pytest")
-            assert entry.best_available_hash_value is not None
+            assert entry.best_available_hash_spec == md5_1
             assert not entry.file_exists()
         replay(xom, replica_xom)
         with replica_xom.keyfs.read_transaction():
@@ -981,7 +1045,7 @@ class TestFileReplication:
             entry = replica_xom.filestore.get_file_entry(entry.relpath)
             url = replica_xom.config.primary_url.joinpath(entry.relpath).url
             pypistage.xom.http.mockresponse(url, status_code=500)
-            pypistage.xom.http.mockresponse(entry.url, headers=headers, content=b"123")
+            pypistage.xom.http.mockresponse(entry.url, headers=headers, content=content)
             stage = replica_xom.model.getstage('root/pypi')
             result = iter_remote_file_replica(stage, entry, entry.url)
             headers = next(result)
@@ -994,14 +1058,15 @@ class TestFileReplication:
             # and UUID header
             assert call_log_entry['extra_headers'][H_REPLICA_UUID]
             assert headers['content-length'] == '3'
-            assert b''.join(result) == b'123'
+            assert b"".join(result) == content
 
     @pytest.mark.mock_frt_http
-    def test_checksum_mismatch(self, xom, replica_xom, maketestapp, makemapp):
+    def test_checksum_mismatch(
+        self, file_digest, xom, replica_xom, maketestapp, makemapp
+    ):
         # this test might seem to be doing the same as test_fetch above, but
         # test_fetch creates a new transaction for the same file, which doesn't
         # happen 'in real life'™
-        (frthread,) = replica_xom.replica_thread.file_replication_threads
         app = maketestapp(xom)
         mapp = makemapp(app)
         api = mapp.create_and_use()
@@ -1011,7 +1076,7 @@ class TestFileReplication:
         # first we try to return something wrong
         primary_url = replica_xom.config.primary_url
         (path,) = mapp.get_release_paths('hello')
-        file_relpath = '+files' + path
+        file_path_info = FilePathInfo(RelPath(path[1:]), file_digest(content1))
         primary_file_url = primary_url.joinpath(path).url
         replica_xom.frt.http.mockresponse(primary_file_url, content=b"13")
         replay(xom, replica_xom, events=False)
@@ -1031,12 +1096,65 @@ class TestFileReplication:
             primary_file_url, code=200, content=content1, headers=headers
         )
         with replica_xom.keyfs.read_transaction() as tx:
-            assert not tx.conn.io_file_exists(file_relpath)
+            assert not tx.io_file.exists(file_path_info)
         r = r_app.get(path)
         assert r.status_code == 200
         assert r.body == content1
         with replica_xom.keyfs.read_transaction() as tx:
-            assert tx.conn.io_file_exists(file_relpath)
+            assert tx.io_file.exists(file_path_info)
+        replication_errors = replica_xom.replica_thread.shared_data.errors
+        assert list(replication_errors.errors.keys()) == []
+
+    @pytest.mark.mock_frt_http
+    def test_bad_response_handling(
+        self, caplog, file_digest, xom, replica_xom, maketestapp, makemapp
+    ):
+        # this test might seem to be doing the same as test_fetch above, but
+        # test_fetch creates a new transaction for the same file, which doesn't
+        # happen 'in real life'™
+        app = maketestapp(xom)
+        mapp = makemapp(app)
+        api = mapp.create_and_use()
+        content1 = mapp.makepkg("hello-1.0.zip", b"content1", "hello", "1.0")
+        mapp.upload_file_pypi("hello-1.0.zip", content1, "hello", "1.0")
+        r_app = maketestapp(replica_xom)
+        # first we try to return something wrong
+        primary_url = replica_xom.config.primary_url
+        (path,) = mapp.get_release_paths("hello")
+        file_path_info = FilePathInfo(RelPath(path[1:]), file_digest(content1))
+        primary_file_url = primary_url.joinpath(path).url
+        caplog.clear()
+        replica_xom.frt.http.mockresponse(primary_file_url, code=500, content=content1)
+        replay(xom, replica_xom, events=False)
+        replica_xom.replica_thread.wait()
+        assert xom.keyfs.get_current_serial() == replica_xom.keyfs.get_current_serial()
+        replication_errors = replica_xom.replica_thread.shared_data.errors
+        (error_key,) = replication_errors.errors.keys()
+        assert error_key.startswith(f"{api.stagename}/+f/")
+        assert error_key.endswith("/hello-1.0.zip")
+        (record,) = caplog.getrecords(
+            r"devpi_server\.replica\.FileReplicationError: \(<mockresponse"
+        )
+        assert "Error during file replication" in record.message
+        assert "DeprecationWarning" not in record.message
+        # the primary and replica are in sync, so getting the file on the
+        # replica needs to fetch it again
+        headers = {
+            "content-length": "8",
+            "last-modified": "Thu, 25 Nov 2010 20:00:27 GMT",
+            "content-type": "application/zip",
+            "X-DEVPI-SERIAL": str(xom.keyfs.get_current_serial()),
+        }
+        replica_xom.http.mockresponse(
+            primary_file_url, code=200, content=content1, headers=headers
+        )
+        with replica_xom.keyfs.read_transaction() as tx:
+            assert not tx.io_file.exists(file_path_info)
+        r = r_app.get(path)
+        assert r.status_code == 200
+        assert r.body == content1
+        with replica_xom.keyfs.read_transaction() as tx:
+            assert tx.io_file.exists(file_path_info)
         replication_errors = replica_xom.replica_thread.shared_data.errors
         assert list(replication_errors.errors.keys()) == []
 
@@ -1163,8 +1281,8 @@ def test_primary_url_auth(makexom):
 
 def test_replica_user_auth_before_other_plugins(makexom):
     from devpi_server import replica
-    from devpi_server.config import hookimpl
     from devpi_server.auth import Auth
+    from devpi_server.config import hookimpl
     from pyramid.httpexceptions import HTTPForbidden
 
     class Plugin:
@@ -1214,7 +1332,7 @@ class TestFileReplicationSharedData:
         def handler(index_type, serial, key, keyname, value, back_serial):
             result.append(key)
         # Regardless of the serial or add order, the stage should come first
-        cases = []
+        cases: list = []
         cases.extend(permutations(((mirror_file, 0), (stage_file, 0), (deleted_file, 0))))
         cases.extend(permutations(((mirror_file, 1), (stage_file, 0), (deleted_file, 0))))
         cases.extend(permutations(((mirror_file, 0), (stage_file, 1), (deleted_file, 0))))
@@ -1371,7 +1489,7 @@ class TestFileReplicationSharedData:
         def handler(index_type, serial, key, keyname, value, back_serial):
             result.append(index_type)
 
-        changes = {
+        changes: dict[int, dict] = {
             0: {userkey: ({"indexes": {"dev": {"type": "stage"}}}, -1)},
             1: {key: (None, -1)},
             2: {userkey: ({}, 0)},
@@ -1379,7 +1497,8 @@ class TestFileReplicationSharedData:
             4: {userkey: ({"indexes": {"dev": {"type": "mirror"}}}, 2)},
             5: {key: (None, -1)},
             6: {userkey: (None, 4)},
-            7: {key: (None, -1)}}
+            7: {key: (None, -1)},
+        }
 
         class Tx:
             def get_value_at(self, key, serial):

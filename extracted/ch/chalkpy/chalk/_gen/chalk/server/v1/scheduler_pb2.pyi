@@ -200,34 +200,44 @@ class GetScheduledResolverRunResponse(_message.Message):
     def __init__(self, run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
 
 class ListScheduledResolverRunsRequest(_message.Message):
-    __slots__ = ("cursor", "resolver_filter", "limit", "start", "end", "status_filter")
+    __slots__ = ("cursor", "limit", "page_token", "resolver_filter", "resolver_fqn", "status_filter", "start", "end")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
-    RESOLVER_FILTER_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FILTER_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FILTER_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     END_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FILTER_FIELD_NUMBER: _ClassVar[int]
     cursor: _timestamp_pb2.Timestamp
-    resolver_filter: str
     limit: int
+    page_token: str
+    resolver_filter: str
+    resolver_fqn: str
+    status_filter: _batch_pb2.OperationStatus
     start: _timestamp_pb2.Timestamp
     end: _timestamp_pb2.Timestamp
-    status_filter: _batch_pb2.OperationStatus
     def __init__(
         self,
         cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        resolver_filter: _Optional[str] = ...,
         limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+        resolver_filter: _Optional[str] = ...,
+        resolver_fqn: _Optional[str] = ...,
+        status_filter: _Optional[_Union[_batch_pb2.OperationStatus, str]] = ...,
         start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        status_filter: _Optional[_Union[_batch_pb2.OperationStatus, str]] = ...,
     ) -> None: ...
 
 class ListScheduledResolverRunsResponse(_message.Message):
-    __slots__ = ("runs",)
+    __slots__ = ("runs", "next_page_token")
     RUNS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     runs: _containers.RepeatedCompositeFieldContainer[CronResolverRun]
-    def __init__(self, runs: _Optional[_Iterable[_Union[CronResolverRun, _Mapping]]] = ...) -> None: ...
+    next_page_token: str
+    def __init__(
+        self, runs: _Optional[_Iterable[_Union[CronResolverRun, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
 
 class CancelScheduledResolverRunRequest(_message.Message):
     __slots__ = ("run_id",)

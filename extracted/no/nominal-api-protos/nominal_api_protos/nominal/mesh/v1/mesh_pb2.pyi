@@ -1,5 +1,6 @@
 from nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as _direct_nominal_channel_writer_pb2
 from nominal.mesh.v1 import links_pb2 as _links_pb2
+from nominal.mesh.v1 import remote_connections_pb2 as _remote_connections_pb2
 from nominal.types.time import time_pb2 as _time_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -81,3 +82,11 @@ class FileMetadata(_message.Message):
     file_size: int
     metadata: _containers.ScalarMap[str, str]
     def __init__(self, uuid: _Optional[str] = ..., dataset_uuid: _Optional[str] = ..., s3_path: _Optional[str] = ..., file_name: _Optional[str] = ..., origin_metadata: _Optional[_Mapping[str, str]] = ..., bounds: _Optional[_Union[_time_pb2.Range, _Mapping]] = ..., uploaded_at: _Optional[_Union[_time_pb2.Timestamp, _Mapping]] = ..., ingested_at_nanos: _Optional[int] = ..., tag_columns: _Optional[_Iterable[str]] = ..., additional_file_tags: _Optional[_Mapping[str, str]] = ..., file_size: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class HealthCheckRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class HealthCheckResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

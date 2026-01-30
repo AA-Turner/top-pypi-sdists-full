@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import imgviz
 
 
-def tile():
+def tile() -> None:
     data = imgviz.data.arc2017()
 
     rgb = data["rgb"]
@@ -17,7 +17,7 @@ def tile():
         rgb_crop = rgb[slice_]
         mask_crop = mask[slice_]
         crops.append(rgb_crop * mask_crop[:, :, None])
-    tiled = imgviz.tile(imgs=crops, border=(255, 255, 255))
+    tiled = imgviz.tile(images=crops, row=2, col=4, border=(255, 255, 255))
 
     # -------------------------------------------------------------------------
 
@@ -33,13 +33,8 @@ def tile():
     plt.imshow(tiled)
     plt.axis("off")
 
-    img = imgviz.io.pyplot_to_numpy()
-    plt.close()
-
-    return img
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(tile)

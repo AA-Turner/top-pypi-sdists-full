@@ -1,0 +1,100 @@
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+- name: Create roles
+  community.clickhouse.clickhouse_client:
+    execute: "CREATE ROLE IF NOT EXISTS {{ item }}"
+  loop:
+  - accountant
+  - sales
+
+- name: Create user bob
+  community.clickhouse.clickhouse_user:
+    name: bob
+
+- name: Create user eva
+  community.clickhouse.clickhouse_user:
+    name: eva
+    settings:
+      - max_memory_usage = 15000 MIN 15000 MAX 16000 READONLY
+
+- name: Grant to INSERT for user eva
+  community.clickhouse.clickhouse_client:
+    execute: "GRANT INSERT ON system.users TO eva"
+
+- name: Grant role
+  community.clickhouse.clickhouse_client:
+    execute: "GRANT accountant, sales TO bob"
+
+- name: Grant role
+  community.clickhouse.clickhouse_client:
+    execute: "GRANT sales TO accountant"
+
+- name: Get info
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["default"] != {}
+    - result["users"]["bob"]["roles"] == ["accountant", "sales"] or result["users"]["bob"]["roles"] == ["sales", "accountant"]
+    - result["users"]["bob"]["grants"] == ["GRANT accountant, sales TO bob"]
+    - result["roles"]["accountant"] != {}
+    - result["roles"]["accountant"]["grants"] == ["GRANT sales TO accountant"]
+    - result["databases"]["default"]["engine"] == "Atomic"
+    - result["version"] != {}
+    - result["driver"]["version"] != {}
+    - result["settings"]["add_http_cors_header"] != {}
+    - result["clusters"]["test_cluster"]["shards"]["1"]["replicas"]["1"]["is_local"] == 1
+    - result["clusters"]["test_cluster"]["shards"]["1"]["replicas"]["1"]["host_name"] == "127.0.0.1"
+    - result["merge_tree_settings"]["merge_max_block_size"] != {}
+    - result["tables"] != {}
+    - result["dictionaries"] != {}
+    - result["quotas"]["default"] != {}
+    - result["settings_profiles"]["default"] != {}
+    - result["storage_policies"] != {}
+    - result["grants"]["users"]["eva"][0]["access_type"] == "INSERT"
+    - result["settings_profile_elements"]["users"]["eva"][0]["setting_name"] == "max_memory_usage"
+    - result["settings_profile_elements"]["users"]["eva"][0]["value"] == "15000"
+
+# - name: Debug
+#   ansible.builtin.debug:
+#     var: result
+
+- name: Create user
+  community.clickhouse.clickhouse_client:
+    execute: "CREATE USER IF NOT EXISTS alice IDENTIFIED WITH sha256_password BY 'my_password'"
+
+- name: Query DB using non-default connect params
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    login_user: alice
+    login_password: my_password
+
+- name: Check it returned something
+  ansible.builtin.assert:
+    that:
+    - result["users"]["497"] == "Not enough privileges"
+
+- name: Limit gathered values, one value does not exist
+  register: result
+  community.clickhouse.clickhouse_info:
+    limit:
+    - driver
+    - version
+    - warning_will_appear
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["version"] != {}
+    - result["driver"]["version"] != {}

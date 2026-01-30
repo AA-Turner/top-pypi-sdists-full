@@ -2,10 +2,12 @@ from io import StringIO
 from json import dumps as json_dumps
 import pathlib
 from subprocess import list2cmdline
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 from rich.console import Console
+from rich.table import Table
+import tabulate
 import yaml
 
 import anyscale
@@ -13,6 +15,12 @@ from anyscale._private.models.image_uri import ImageURI
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
 from anyscale.commands import command_examples
+from anyscale.commands.list_util import (
+    create_table,
+    display_list,
+    NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    validate_page_size,
+)
 from anyscale.commands.util import (
     AnyscaleCommand,
     build_kv_table,
@@ -22,8 +30,12 @@ from anyscale.commands.util import (
     parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.job_controller import JobController
-from anyscale.job.models import JobConfig, JobLogMode, JobState, JobStatus
-from anyscale.util import validate_list_jobs_state_filter, validate_non_negative_arg
+from anyscale.job.models import JobConfig, JobLogMode, JobSortField, JobState, JobStatus
+from anyscale.util import (
+    AnyscaleJSONEncoder,
+    get_endpoint,
+    validate_non_negative_arg,
+)
 
 
 log = BlockLogger()  # CLI Logger
@@ -35,6 +47,40 @@ def _validate_job_name_and_id(name: Optional[str], id: Optional[str]):  # noqa: 
 
     if name is not None and id is not None:
         raise click.ClickException("Only one of '--name' and '--id' can be provided.")
+
+
+def _print_job_list_diagnostics(  # noqa: PLR0913
+    stderr: Console,
+    name: Optional[str],
+    job_id: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
+    include_all_users: bool,
+    include_archived: bool,
+    states: Tuple[str, ...],
+    tags: List[str],
+    sort: str,
+    interactive: bool,
+    page_size: int,
+    effective_max: Optional[int],
+) -> None:
+    """Prints diagnostic information for the list command."""
+    stderr.print("[bold]Listing jobs with:[/]")
+    stderr.print(f"• name            = {name or '<any>'}")
+    stderr.print(f"• id              = {job_id or '<any>'}")
+    stderr.print(f"• project         = {project or '<any>'}")
+    stderr.print(f"• cloud           = {cloud or '<any>'}")
+    stderr.print(f"• include_all     = {include_all_users}")
+    stderr.print(f"• include_archived= {include_archived}")
+    stderr.print(
+        f"• states          = {', '.join(str(s) for s in states) if states else '<all>'}"
+    )
+    stderr.print(f"• tags            = {', '.join(tags) if tags else '<none>'}")
+    stderr.print(f"• sort            = {sort or '<none>'}")
+    stderr.print(f"• mode            = {'interactive' if interactive else 'batch'}")
+    stderr.print(f"• per-page limit  = {page_size}")
+    stderr.print(f"• max-items total = {effective_max if effective_max else 'all'}")
+    stderr.print(f"\nView your Jobs in the UI at {get_endpoint('/jobs')}\n")
 
 
 def _check_for_new_format_fields(config_file: str) -> None:
@@ -412,19 +458,153 @@ and override the entrypoint with `python main.py`.
         log.info("Use `--wait` to wait for the job to run and stream logs.")
 
 
-# TODO(mowen): Add cloud support for this when we refactor to new SDK method
+def _parse_sort_option(sort_str: Optional[str]) -> Tuple[Optional[str], str]:
+    """Parse sort string like '-created_at' into (field, order).
+
+    Args:
+        sort_str: Sort option string. Prefix with '-' for descending order.
+
+    Returns:
+        Tuple of (sort_field, sort_order) where sort_order is "ASC" or "DESC".
+
+    Raises:
+        click.BadParameter: If the sort field is not valid.
+    """
+    if not sort_str:
+        return None, "ASC"
+
+    # Build case-insensitive map of allowed fields
+    allowed = {f.value.lower(): f.value for f in JobSortField.__members__.values()}
+
+    # Detect leading '-' for descending
+    if sort_str.startswith("-"):
+        raw = sort_str[1:]
+        order = "DESC"
+    else:
+        raw = sort_str
+        order = "ASC"
+
+    key = raw.lower()
+    if key not in allowed:
+        allowed_names = ", ".join(sorted(allowed.values()))
+        raise click.BadParameter(
+            f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}"
+        )
+
+    return allowed[key], order
+
+
+def _create_jobs_table_v2(is_first: bool) -> Table:
+    """Create a Rich Table for displaying jobs in v2 mode.
+
+    Args:
+        is_first: Whether this is the first page (controls header display).
+
+    Returns:
+        Rich Table configured for job display.
+    """
+    columns = [
+        ("ID", "cyan", True),
+        ("Name", None, False),
+        ("State", "green", False),
+        ("Created At", None, False),
+        ("Project", None, False),
+        ("Entrypoint", None, False),
+    ]
+    table = create_table(columns, is_first)
+    # Set max_width for Entrypoint column after creation
+    table.columns[5].max_width = 50
+    return table
+
+
+def _format_job_row_v2(job: JobStatus) -> Dict[str, Any]:
+    """Format a JobStatus for table row or JSON output.
+
+    Args:
+        job: The JobStatus object to format.
+
+    Returns:
+        Dictionary with formatted job data.
+    """
+    entrypoint = ""
+    if job.config and job.config.entrypoint:
+        entrypoint = (
+            job.config.entrypoint[:47] + "..."
+            if len(job.config.entrypoint) > 50
+            else job.config.entrypoint
+        )
+
+    return {
+        "id": job.id or "",
+        "name": job.name or "",
+        "state": str(job.state) if job.state else "",
+        "created_at": job.created_at.isoformat() if job.created_at else "",
+        "project": job.config.project if job.config else "",
+        "entrypoint": entrypoint,
+    }
+
+
+def _display_jobs_table(jobs: List[JobStatus]) -> None:
+    """Display jobs in a tabulated format."""
+    if not jobs:
+        print("No jobs found.")
+        return
+
+    jobs_table = [
+        [
+            job.name,
+            job.id,
+            job.config.project if job.config else None,
+            str(job.state) if job.state else None,
+            job.creator_id,
+            job.config.entrypoint[:50] + "..."
+            if job.config and job.config.entrypoint and len(job.config.entrypoint) > 50
+            else (job.config.entrypoint if job.config else None),
+        ]
+        for job in jobs
+    ]
+
+    table = tabulate.tabulate(
+        jobs_table,
+        headers=["NAME", "ID", "PROJECT", "STATE", "CREATOR", "ENTRYPOINT"],
+        tablefmt="plain",
+    )
+    print(f"JOBS:\n{table}")
+
+
 @job_cli.command(
     name="list",
     help="Display information about existing jobs.",
     cls=AnyscaleCommand,
     example=command_examples.JOB_LIST_EXAMPLE,
 )
+@click.option(
+    "--v2",
+    is_flag=True,
+    default=False,
+    help="[RECOMMENDED] Enable extended filtering options. Needs migration to match return values.",
+)
 @click.option("--name", "-n", required=False, default=None, help="Filter by job name.")
 @click.option(
     "--id", "--job-id", required=False, default=None, help="Filter by job id."
 )
 @click.option(
-    "--project-id", required=False, default=None, help="Filter by project id."
+    "--project-id",
+    required=False,
+    default=None,
+    help="Filter by project ID. Use --project instead.",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    help="Filter by project name. Only with --v2 flag.",
+)
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    help="Filter by cloud name. Only with --v2 flag.",
 )
 @click.option(
     "--include-all-users",
@@ -454,11 +634,9 @@ and override the entrypoint with `python main.py`.
 )
 @click.option(
     "--max-items",
-    required=False,
-    default=10,
     type=int,
-    help="Max items to show in list.",
     callback=validate_non_negative_arg,
+    help="Max total items (only with --no-interactive).",
 )
 @click.option(
     "--state",
@@ -466,30 +644,192 @@ and override the entrypoint with `python main.py`.
     "states",
     required=False,
     multiple=True,
-    help=f"Filter jobs by state. Accepts one or more states. Allowed states: {', '.join(HaJobStates.allowable_values)}",
-    callback=validate_list_jobs_state_filter,
+    help=(
+        "Filter jobs by state. Accepts one or more states. "
+        "With --v2, use: STARTING, RUNNING, SUCCEEDED, FAILED. "
+        f"Without --v2, use: {', '.join(HaJobStates.allowable_values)}."
+    ),
 )
-def list(  # noqa: A001 PLR0913
+@click.option(
+    "--page-size",
+    required=False,
+    default=None,
+    type=int,
+    help="Number of items per page (1-50). Defaults to 10. Only with --v2.",
+    callback=validate_page_size,
+)
+@click.option(
+    "--sort",
+    required=False,
+    default=None,
+    help=(
+        "Sort by field. Prefix with '-' for descending order. Defaults to -created_at. "
+        f"Allowed: {', '.join(f.value for f in JobSortField.__members__.values())}. "
+        "Only with --v2."
+    ),
+)
+@click.option(
+    "--json",
+    "-j",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output results as JSON. Only with --v2.",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    default=True,
+    show_default=True,
+    help="Enable interactive pagination. Only with --v2.",
+)
+def list(  # noqa: A001 PLR0913 PLR0912
+    v2: bool,
     name: Optional[str],
     id: Optional[str],  # noqa: A002
     project_id: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
     include_all_users: bool,
     include_archived: bool,
-    max_items: int,
-    states: List[HaJobStates],
+    max_items: Optional[int],
+    states: Tuple[str, ...],
     tags: List[str],
+    page_size: Optional[int],
+    sort: Optional[str],
+    json_output: bool,
+    interactive: bool,
 ) -> None:
-    job_controller = JobController()
-    job_controller.list(
-        name=name,
-        job_id=id,
-        project_id=project_id,
-        include_all_users=include_all_users,
-        include_archived=include_archived,
-        max_items=max_items,
-        states=states,
-        tags=parse_repeatable_tags_to_dict(tags) if tags else None,
-    )
+    # Validate states based on v2 flag
+    if states:
+        if v2:
+            # V2 path: Only accept SDK states
+            allowed = {"STARTING", "RUNNING", "SUCCEEDED", "FAILED"}
+            for state in states:
+                state_upper = state.upper()
+                if state_upper not in allowed:
+                    raise click.UsageError(
+                        f"Invalid state '{state}' with --v2. "
+                        f"Allowed: {', '.join(sorted(allowed))}"
+                    )
+        else:
+            # Legacy path: Only accept backend HaJobStates
+            for state in states:
+                state_upper = state.upper()
+                if state_upper not in HaJobStates.allowable_values:
+                    raise click.UsageError(
+                        f"Invalid state '{state}'. "
+                        f"Allowed: {', '.join(HaJobStates.allowable_values)}"
+                    )
+
+    # Extract common tag processing
+    tag_dict = parse_repeatable_tags_to_dict(tags) if tags else None
+
+    if v2:
+        # New SDK path with pagination, sorting, and output options
+
+        # Validate max_items only allowed with --no-interactive (v2 only)
+        if max_items is not None and interactive:
+            raise click.UsageError("--max-items only allowed with --no-interactive")
+
+        # Apply defaults for v2-only options
+        effective_page_size = page_size if page_size is not None else 10
+        effective_sort = sort if sort is not None else "-created_at"
+
+        # Convert to list of uppercase strings for SDK
+        state_list = [s.upper() for s in states] if states else None
+
+        # Parse sort option
+        sort_field, sort_order = _parse_sort_option(effective_sort)
+
+        # Compute effective max_items for non-interactive mode
+        effective_max = max_items
+        if not interactive and effective_max is None:
+            effective_max = NON_INTERACTIVE_DEFAULT_MAX_ITEMS
+
+        # Print diagnostics header (not in JSON mode)
+        if not json_output:
+            stderr = Console(stderr=True)
+            _print_job_list_diagnostics(
+                stderr=stderr,
+                name=name,
+                job_id=id,
+                project=project or project_id,
+                cloud=cloud,
+                include_all_users=include_all_users,
+                include_archived=include_archived,
+                states=states,
+                tags=tags,
+                sort=effective_sort,
+                interactive=interactive,
+                page_size=effective_page_size,
+                effective_max=effective_max if not interactive else None,
+            )
+
+        iterator = anyscale.job.list(
+            name=name,
+            job_id=id,
+            project=project or project_id,
+            cloud=cloud,
+            include_all_users=include_all_users,
+            include_archived=include_archived,
+            state_filter=state_list,
+            tags_filter=tag_dict,
+            page_size=effective_page_size,
+            max_items=effective_max if not interactive else None,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+
+        console = Console()
+        total = display_list(
+            iterator=iterator,
+            item_formatter=_format_job_row_v2,
+            table_creator=_create_jobs_table_v2,
+            json_output=json_output,
+            page_size=effective_page_size,
+            interactive=interactive,
+            max_items=effective_max if not interactive else None,
+            console=console,
+        )
+        if not json_output:
+            if total:
+                stderr.print(f"\nFetched {total} job(s).")
+            else:
+                stderr.print("\nNo jobs found.")
+    else:
+        # Legacy path with deprecation warning
+        # Check if v2-only options are being used without --v2
+        if any(
+            [
+                project,
+                cloud,
+                page_size is not None,
+                sort is not None,
+                json_output,
+                not interactive,
+            ]
+        ):
+            click.echo(
+                "ERROR: Options --project, --cloud, --page-size, --sort, --json, and "
+                "--no-interactive require --v2 flag.\n"
+                "Use: anyscale job list --v2 [options]",
+                err=True,
+            )
+            raise click.exceptions.Exit(1)
+
+        # Legacy path: default max_items to 10 if not specified
+        legacy_max_items = max_items if max_items is not None else 10
+        job_controller = JobController()
+        job_controller.list(
+            name=name,
+            job_id=id,
+            project_id=project_id,
+            include_all_users=include_all_users,
+            include_archived=include_archived,
+            max_items=legacy_max_items,
+            states=states,
+            tags=tag_dict,
+        )
 
 
 @job_cli.command(
@@ -578,7 +918,6 @@ status will be terminated.
         )
 
 
-# TODO(mowen): Add project and cloud support when updating this.
 @job_cli.command(
     name="logs", cls=AnyscaleCommand, example=command_examples.JOB_LOGS_EXAMPLE
 )
@@ -635,7 +974,7 @@ status will be terminated.
     "--all-attempts",
     is_flag=True,
     default=False,
-    help="DEPRECATED: Listing logs from all attempts no longer supported, instead list jobs by run name.",
+    help="Listing logs from all attempts no longer supported, instead list jobs by run name.",
 )
 def logs(  # noqa: PLR0913
     id: Optional[str],  # noqa: A002
@@ -658,6 +997,8 @@ def logs(  # noqa: PLR0913
             "Listing logs from all attempts no longer supported, instead list jobs by run name."
         )
     if follow:
+        # TODO(praneethkaturi): Implement anyscale.job.stream_logs() in SDK
+        # and expose it in the public API. Currently using legacy JobController.
         job_controller = JobController(raise_structured_exception=True)
         job_controller.logs(
             job_id=id, job_name=name, should_follow=True, all_attempts=all_attempts,
@@ -676,7 +1017,7 @@ def logs(  # noqa: PLR0913
         if head:
             mode = JobLogMode.HEAD
 
-        logs = anyscale.job.get_logs(
+        job_logs = anyscale.job.get_logs(
             id=id,
             name=name,
             run=run,
@@ -685,7 +1026,7 @@ def logs(  # noqa: PLR0913
             mode=mode,
             max_lines=max_lines,
         )
-        print(logs)
+        print(job_logs)
 
 
 @job_cli.command(
@@ -828,7 +1169,9 @@ status will be returned.
         status_dict.pop("config", None)
 
     if json:
-        print(json_dumps(status_dict, indent=4, sort_keys=False))
+        print(
+            json_dumps(status_dict, indent=4, sort_keys=False, cls=AnyscaleJSONEncoder)
+        )
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)

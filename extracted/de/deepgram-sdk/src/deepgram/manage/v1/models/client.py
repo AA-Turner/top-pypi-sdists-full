@@ -50,9 +50,7 @@ class ModelsClient:
         client = DeepgramClient(
             api_key="YOUR_API_KEY",
         )
-        client.manage.v1.models.list(
-            include_outdated=True,
-        )
+        client.manage.v1.models.list()
         """
         _response = self._raw_client.list(include_outdated=include_outdated, request_options=request_options)
         return _response.data
@@ -135,9 +133,7 @@ class AsyncModelsClient:
 
 
         async def main() -> None:
-            await client.manage.v1.models.list(
-                include_outdated=True,
-            )
+            await client.manage.v1.models.list()
 
 
         asyncio.run(main())

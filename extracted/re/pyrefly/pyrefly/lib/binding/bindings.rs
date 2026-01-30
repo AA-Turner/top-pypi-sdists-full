@@ -134,6 +134,9 @@ pub enum InitializedInFlow {
     Yes,
     Conditionally,
     No,
+    /// Initialization depends on whether these termination keys have Never type.
+    /// If ALL termination keys are Never, the variable is initialized; otherwise it may be uninitialized.
+    DeferredCheck(Vec<Idx<Key>>),
 }
 
 impl InitializedInFlow {
@@ -142,6 +145,14 @@ impl InitializedInFlow {
             InitializedInFlow::Yes => None,
             InitializedInFlow::Conditionally => Some(format!("`{name}` may be uninitialized")),
             InitializedInFlow::No => Some(format!("`{name}` is uninitialized")),
+            InitializedInFlow::DeferredCheck(_) => None, // Checked at solve time
+        }
+    }
+
+    pub fn deferred_termination_keys(&self) -> Option<&[Idx<Key>]> {
+        match self {
+            InitializedInFlow::DeferredCheck(keys) => Some(keys),
+            _ => None,
         }
     }
 }
@@ -454,6 +465,10 @@ impl Bindings {
             );
         }
 
+        if let Some(exported_names) = exports.get_explicit_dunder_all_names_iter() {
+            builder.record_used_imports_from_dunder_all_names(exported_names);
+        }
+
         let unused_imports = builder.scopes.collect_module_unused_imports();
         builder.record_unused_imports(unused_imports);
         let scope_trace = builder.scopes.finish();
@@ -708,6 +723,17 @@ impl<'a> BindingsBuilder<'a> {
         self.unused_variables.extend(unused);
     }
 
+    pub fn record_used_imports_from_dunder_all_names<T>(&mut self, dunder_all_names: T)
+    where
+        T: Iterator<Item = &'a Name>,
+    {
+        for name in dunder_all_names {
+            if self.scopes.has_import_name(name) {
+                self.scopes.mark_import_used(name);
+            }
+        }
+    }
+
     pub(crate) fn with_await_context<R>(
         &mut self,
         ctx: AwaitContext,
@@ -737,6 +763,7 @@ impl<'a> BindingsBuilder<'a> {
         self.table.types.0.insert(match last {
             LastStmt::Expr => Key::StmtExpr(x.range()),
             LastStmt::With(_) => Key::ContextExpr(x.range()),
+            LastStmt::Match(match_range) => Key::MatchExhaustive(match_range),
         })
     }
 
@@ -959,12 +986,7 @@ impl<'a> BindingsBuilder<'a> {
     /// First-use detection happens later in `process_deferred_bound_names`
     /// when all phi nodes are populated.
     pub fn lookup_name(&mut self, name: Hashed<&Name>, usage: &mut Usage) -> NameLookupResult {
-        let name_read_info = if matches!(usage, Usage::StaticTypeInformation) {
-            self.scopes
-                .look_up_name_for_read_in_static_type_context(name)
-        } else {
-            self.scopes.look_up_name_for_read(name)
-        };
+        let name_read_info = self.scopes.look_up_name_for_read(name, usage);
         match name_read_info {
             NameReadInfo::Flow { idx, initialized } => {
                 // Mark as used (this must happen during traversal for unused-variable detection)
@@ -1366,11 +1388,11 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         narrow_ops: &NarrowOps,
         use_location: NarrowUseLocation,
-        _usage: &Usage,
+        usage: &Usage,
     ) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
             // Narrowing operations should not pin partial types
-            let mut narrowing_usage = Usage::narrowing_from(_usage);
+            let mut narrowing_usage = Usage::narrowing_from(usage);
             if let Some(initial_idx) = self.lookup_name(name, &mut narrowing_usage).found() {
                 self.mark_does_not_pin_if_first_use(initial_idx);
                 let narrowed_idx = self.insert_binding(

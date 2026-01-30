@@ -22,15 +22,16 @@ def patch_setup_ssl_cert():
 	def A(setup_community_ssl_cert:Callable[[],None]):
 		B=setup_community_ssl_cert;A=get_cert_pem_file_path()
 		if os.path.exists(A):
-			E=86400;F=os.path.getmtime(A)
-			if F>now()-E:LOG.debug('Using cached TLS certificate (less than 24 hrs since last update).');return
-		G=get_licensed_environment()
-		if isinstance(G,DevLocalstackEnvironment):LOG.debug('Developer credentials detected, falling back to fetching the community certificate');B();return
-		LOG.debug('Attempting to download pro TLS certificate file');H=get_platform_auth_headers();C=requests.Session();D=get_proxies()
+			F=86400;G=os.path.getmtime(A)
+			if G>now()-F:LOG.debug('Using cached TLS certificate (less than 24 hrs since last update).');return
+		H=get_licensed_environment()
+		if isinstance(H,DevLocalstackEnvironment):LOG.debug('Developer credentials detected, falling back to fetching the community certificate');B();return
+		LOG.debug('Attempting to download pro TLS certificate file');I=get_platform_auth_headers();C=requests.Session();D=get_proxies()
 		if D:C.proxies.update(D)
-		def I():
-			A=C.get(PLATFORM_CERTIFICATE_ENDPOINT_URL,timeout=PLATFORM_CERTIFICATE_ENDPOINT_TIMEOUT,verify=not config.is_env_true('SSL_NO_VERIFY'),headers=H)
+		E=not config.is_env_true('SSL_NO_VERIFY')
+		def J():
+			A=C.get(PLATFORM_CERTIFICATE_ENDPOINT_URL,timeout=PLATFORM_CERTIFICATE_ENDPOINT_TIMEOUT,verify=E,headers=I)
 			if not A.ok:raise Exception(f"Failed to download certificate, response code: {A.status_code}")
 			return A.json()['url']
-		try:J=retry(I,**PLATFORM_RETRY_CONFIG);retry(download,url=J,path=A,timeout=CERTIFICATE_DOWNLOAD_TIMEOUT,quiet=True,**CERTIFICATE_DOWNLOAD_RETRY_CONFIG);LOG.debug('TLS certificate downloaded successfully to %s',A)
+		try:K=retry(J,**PLATFORM_RETRY_CONFIG);retry(download,url=K,path=A,timeout=CERTIFICATE_DOWNLOAD_TIMEOUT,verify_ssl=E,quiet=True,**CERTIFICATE_DOWNLOAD_RETRY_CONFIG);LOG.debug('TLS certificate downloaded successfully to %s',A)
 		except Exception:LOG.warning('Could not download custom per-organisation certificate, falling back to public certificate',exc_info=config.is_trace_logging_enabled());B()

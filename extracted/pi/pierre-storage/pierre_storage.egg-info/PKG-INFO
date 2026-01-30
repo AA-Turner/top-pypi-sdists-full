@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 0.11.0
+Version: 0.12.1
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT
@@ -83,6 +83,15 @@ github_repo = await storage.create_repo(
     }
 )
 # This repository will sync with github.com/octocat/Hello-World
+
+# Create a repository by forking an existing repo
+forked_repo = await storage.create_repo(
+    id="my-fork",
+    base_repo={
+        "id": "my-template-id",
+        "ref": "main",  # optional
+    },
+)
 ```
 
 ### Finding a Repository
@@ -472,6 +481,23 @@ commits = await repo.list_commits()
 3. You can then use all Pierre SDK features (diffs, commits, file access) on the synced content
 4. The provider is automatically set to `"github"` when using `base_repo`
 
+### Forking Repositories
+
+You can fork an existing repository within the same Pierre org:
+
+```python
+forked_repo = await storage.create_repo(
+    id="my-fork",
+    base_repo={
+        "id": "my-template-id",
+        "ref": "main",  # optional (branch/tag)
+        # "sha": "abc123..."  # optional commit SHA (overrides ref)
+    },
+)
+```
+
+When `default_branch` is omitted, the SDK returns `"main"`.
+
 ### Restoring Commits
 
 You can restore a repository to a previous commit:
@@ -500,7 +526,7 @@ class GitStorage:
         self,
         *,
         id: Optional[str] = None,
-        default_branch: str = "main",
+        default_branch: Optional[str] = None,  # defaults to "main"
         base_repo: Optional[BaseRepo] = None,
         ttl: Optional[int] = None,
     ) -> Repo: ...
@@ -639,6 +665,8 @@ Key types are provided via TypedDict for better IDE support:
 from pierre_storage.types import (
     GitStorageOptions,
     BaseRepo,
+    GitHubBaseRepo,
+    ForkBaseRepo,
     CommitSignature,
     CreateCommitOptions,
     ListFilesResult,
@@ -652,12 +680,19 @@ from pierre_storage.types import (
     # ... and more
 )
 
-# BaseRepo type for GitHub sync
-class BaseRepo(TypedDict, total=False):
-    provider: Literal["github"]  # Always "github"
+# BaseRepo type for GitHub sync or forks
+class GitHubBaseRepo(TypedDict, total=False):
+    provider: Literal["github"]   # Always "github"
     owner: str                    # GitHub organization or user
     name: str                     # Repository name
     default_branch: Optional[str] # Default branch (optional)
+
+class ForkBaseRepo(TypedDict, total=False):
+    id: str                       # Source repo ID
+    ref: Optional[str]            # Optional ref name
+    sha: Optional[str]            # Optional commit SHA
+
+BaseRepo = Union[GitHubBaseRepo, ForkBaseRepo]
 ```
 
 ## Webhook Validation

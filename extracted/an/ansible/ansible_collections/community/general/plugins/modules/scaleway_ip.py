@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: scaleway_ip
 short_description: Scaleway IP management module
@@ -42,7 +41,14 @@ options:
     type: str
     description:
       - Scaleway organization identifier.
-    required: true
+      - Exactly one of O(project) and O(organization) must be specified.
+
+  project:
+    type: str
+    description:
+      - Project identifier.
+      - Exactly one of O(project) and O(organization) must be specified.
+    version_added: 12.3.0
 
   region:
     type: str
@@ -80,9 +86,9 @@ options:
 """
 
 EXAMPLES = r"""
-- name: Create an IP
+- name: Create an IP with a project ID
   community.general.scaleway_ip:
-    organization: '{{ scw_org }}'
+    project: '{{ project_id }}'
     state: present
     region: par1
   register: ip_creation_task
@@ -92,6 +98,13 @@ EXAMPLES = r"""
     id: '{{ ip_creation_task.scaleway_ip.id }}'
     state: absent
     region: par1
+
+- name: Create an IP in the default project with an organization ID (deprecated)
+  community.general.scaleway_ip:
+    organization: '{{ scw_org }}'
+    state: present
+    region: par1
+  register: ip_creation_task
 """
 
 RETURN = r"""
@@ -116,12 +129,13 @@ data:
     }
 """
 
+from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.general.plugins.module_utils.scaleway import (
     SCALEWAY_LOCATION,
-    scaleway_argument_spec,
     Scaleway,
+    scaleway_argument_spec,
 )
-from ansible.module_utils.basic import AnsibleModule
 
 
 def ip_attributes_should_be_changed(api, target_ip, wished_ip):
@@ -227,6 +241,7 @@ def absent_strategy(api, wished_ip):
 def core(module):
     wished_ip = {
         "organization": module.params["organization"],
+        "project": module.params["project"],
         "reverse": module.params["reverse"],
         "id": module.params["id"],
         "server": module.params["server"],
@@ -248,7 +263,8 @@ def main():
     argument_spec.update(
         dict(
             state=dict(default="present", choices=["absent", "present"]),
-            organization=dict(required=True),
+            organization=dict(),
+            project=dict(),
             server=dict(),
             reverse=dict(),
             region=dict(required=True, choices=list(SCALEWAY_LOCATION.keys())),
@@ -258,6 +274,12 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        mutually_exclusive=[
+            ("organization", "project"),
+        ],
+        required_one_of=[
+            ("organization", "project"),
+        ],
     )
 
     core(module)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import asdict
 from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 import html_to_markdown._html_to_markdown as _rust
@@ -17,8 +15,6 @@ from html_to_markdown._html_to_markdown import (
 from html_to_markdown.options import ConversionOptions, PreprocessingOptions
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from html_to_markdown._html_to_markdown import ExtendedMetadata  # pragma: no cover
 else:
     ExtendedMetadata = dict[str, object]  # type: ignore[assignment]
@@ -43,60 +39,116 @@ class InlineImageWarning(TypedDict):
     message: str
 
 
-def _to_camel_case(name: str) -> str:
-    parts = name.split("_")
-    return parts[0] + "".join(part.capitalize() for part in parts[1:])
+def _as_list(value: set[str] | None) -> list[str]:
+    return sorted(value) if value else []
 
 
-def _normalize_value(value: object) -> object:
-    if isinstance(value, set):
-        return list(value)
-    if isinstance(value, dict):
-        return {_to_camel_case(k): _normalize_value(v) for k, v in value.items() if v is not None}
-    if isinstance(value, list):
-        return [_normalize_value(v) for v in value]
-    return value
+def _rust_preprocessing(preprocessing: PreprocessingOptions) -> _rust.PreprocessingOptions:
+    return _rust.PreprocessingOptions(
+        enabled=preprocessing.enabled,
+        preset=preprocessing.preset,
+        remove_navigation=preprocessing.remove_navigation,
+        remove_forms=preprocessing.remove_forms,
+    )
 
 
-def _normalize_payload(payload: Mapping[str, object]) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for key, value in payload.items():
-        if value is None:
-            continue
-        result[_to_camel_case(key)] = _normalize_value(value)
-    return result
+def _rust_options(
+    options: ConversionOptions | None,
+    preprocessing: PreprocessingOptions | None,
+) -> _rust.ConversionOptions | None:
+    if options is None and preprocessing is None:
+        return None
+
+    if options is None:
+        options = ConversionOptions()
+    if preprocessing is None:
+        preprocessing = PreprocessingOptions()
+
+    return _rust.ConversionOptions(
+        heading_style=options.heading_style,
+        list_indent_type=options.list_indent_type,
+        list_indent_width=options.list_indent_width,
+        bullets=options.bullets,
+        strong_em_symbol=options.strong_em_symbol,
+        escape_asterisks=options.escape_asterisks,
+        escape_underscores=options.escape_underscores,
+        escape_misc=options.escape_misc,
+        escape_ascii=options.escape_ascii,
+        code_language=options.code_language,
+        autolinks=options.autolinks,
+        default_title=options.default_title,
+        br_in_tables=options.br_in_tables,
+        hocr_spatial_tables=options.hocr_spatial_tables,
+        highlight_style=options.highlight_style,
+        extract_metadata=options.extract_metadata,
+        whitespace_mode=options.whitespace_mode,
+        strip_newlines=options.strip_newlines,
+        wrap=options.wrap,
+        wrap_width=options.wrap_width,
+        convert_as_inline=options.convert_as_inline,
+        sub_symbol=options.sub_symbol,
+        sup_symbol=options.sup_symbol,
+        newline_style=options.newline_style,
+        code_block_style=options.code_block_style,
+        keep_inline_images_in=_as_list(options.keep_inline_images_in),
+        preprocessing=_rust_preprocessing(preprocessing),
+        debug=options.debug,
+        strip_tags=_as_list(options.strip_tags),
+        preserve_tags=_as_list(options.preserve_tags),
+        encoding=options.encoding,
+        skip_images=options.skip_images,
+        output_format=options.output_format,
+    )
 
 
-def _options_payload(options: ConversionOptions, preprocessing: PreprocessingOptions) -> dict[str, object]:
-    payload = cast("dict[str, object]", asdict(options))
-    payload["preprocessing"] = cast("dict[str, object]", asdict(preprocessing))
-    return _normalize_payload(payload)
+def _build_inline_image_config(config: InlineImageConfig | dict[str, object] | None) -> InlineImageConfig:
+    if config is None or isinstance(config, InlineImageConfig):
+        return config or InlineImageConfig()
+
+    max_decoded_size_bytes = config.get("max_decoded_size_bytes", config.get("maxDecodedSizeBytes"))
+    filename_prefix = config.get("filename_prefix", config.get("filenamePrefix"))
+    capture_svg = config.get("capture_svg", config.get("captureSvg"))
+    infer_dimensions = config.get("infer_dimensions", config.get("inferDimensions"))
+
+    defaults = InlineImageConfig()
+    return InlineImageConfig(
+        max_decoded_size_bytes=cast(
+            "int", max_decoded_size_bytes if max_decoded_size_bytes is not None else defaults.max_decoded_size_bytes
+        ),
+        filename_prefix=cast(
+            "str | None", filename_prefix if filename_prefix is not None else defaults.filename_prefix
+        ),
+        capture_svg=cast("bool", capture_svg if capture_svg is not None else defaults.capture_svg),
+        infer_dimensions=cast("bool", infer_dimensions if infer_dimensions is not None else defaults.infer_dimensions),
+    )
 
 
-def _inline_image_config_payload(config: InlineImageConfig | dict[str, object]) -> dict[str, object]:
-    if isinstance(config, dict):
-        return _normalize_payload(config)
-    payload = {
-        "max_decoded_size_bytes": config.max_decoded_size_bytes,
-        "filename_prefix": config.filename_prefix,
-        "capture_svg": config.capture_svg,
-        "infer_dimensions": config.infer_dimensions,
-    }
-    return _normalize_payload(payload)
+def _build_metadata_config(config: MetadataConfig | dict[str, object] | None) -> MetadataConfig:
+    if config is None or isinstance(config, MetadataConfig):
+        return config or MetadataConfig()
 
+    extract_document = config.get("extract_document", config.get("extractDocument"))
+    extract_headers = config.get("extract_headers", config.get("extractHeaders"))
+    extract_links = config.get("extract_links", config.get("extractLinks"))
+    extract_images = config.get("extract_images", config.get("extractImages"))
+    extract_structured_data = config.get("extract_structured_data", config.get("extractStructuredData"))
+    max_structured_data_size = config.get("max_structured_data_size", config.get("maxStructuredDataSize"))
 
-def _metadata_config_payload(config: MetadataConfig | dict[str, object]) -> dict[str, object]:
-    if isinstance(config, dict):
-        return _normalize_payload(config)
-    payload = {
-        "extract_document": config.extract_document,
-        "extract_headers": config.extract_headers,
-        "extract_links": config.extract_links,
-        "extract_images": config.extract_images,
-        "extract_structured_data": config.extract_structured_data,
-        "max_structured_data_size": config.max_structured_data_size,
-    }
-    return _normalize_payload(payload)
+    defaults = MetadataConfig()
+    return MetadataConfig(
+        extract_document=cast("bool", extract_document if extract_document is not None else defaults.extract_document),
+        extract_headers=cast("bool", extract_headers if extract_headers is not None else defaults.extract_headers),
+        extract_links=cast("bool", extract_links if extract_links is not None else defaults.extract_links),
+        extract_images=cast("bool", extract_images if extract_images is not None else defaults.extract_images),
+        extract_structured_data=cast(
+            "bool",
+            extract_structured_data if extract_structured_data is not None else defaults.extract_structured_data,
+        ),
+        max_structured_data_size=cast(
+            "int",
+            max_structured_data_size if max_structured_data_size is not None else defaults.max_structured_data_size,
+        ),
+    )
 
 
 def convert(
@@ -105,16 +157,10 @@ def convert(
     preprocessing: PreprocessingOptions | None = None,
 ) -> str:
     """Convert HTML to Markdown using the Rust backend."""
-    if options is None and preprocessing is None:
+    rust_options = _rust_options(options, preprocessing)
+    if rust_options is None:
         return _rust.convert(html, None)
-
-    if options is None:
-        options = ConversionOptions()
-    if preprocessing is None:
-        preprocessing = PreprocessingOptions()
-
-    payload = _options_payload(options, preprocessing)
-    return _rust.convert_json(html, json.dumps(payload))
+    return _rust.convert(html, rust_options)
 
 
 def convert_with_inline_images(
@@ -124,20 +170,9 @@ def convert_with_inline_images(
     image_config: InlineImageConfig | None = None,
 ) -> tuple[str, list[InlineImage], list[InlineImageWarning]]:
     """Convert HTML and extract inline images."""
-    if options is None:
-        options = ConversionOptions()
-    if preprocessing is None:
-        preprocessing = PreprocessingOptions()
-    if image_config is None:
-        image_config = InlineImageConfig()
-
-    payload = _options_payload(options, preprocessing)
-    config_payload = _inline_image_config_payload(image_config)
-    markdown, images, warnings = _rust.convert_with_inline_images_json(
-        html,
-        json.dumps(payload),
-        json.dumps(config_payload),
-    )
+    rust_options = _rust_options(options, preprocessing)
+    image_config = _build_inline_image_config(image_config)
+    markdown, images, warnings = _rust.convert_with_inline_images(html, rust_options, image_config)
     return markdown, list(images), list(warnings)
 
 
@@ -163,8 +198,8 @@ def create_options_handle(
         options = ConversionOptions()
     if preprocessing is None:
         preprocessing = PreprocessingOptions()
-    payload = _options_payload(options, preprocessing)
-    return _rust.create_options_handle_json(json.dumps(payload))
+    rust_options = _rust_options(options, preprocessing)
+    return _rust.create_options_handle(rust_options)
 
 
 def start_profiling(output_path: str, frequency: int | None = None) -> None:
@@ -204,20 +239,9 @@ def convert_with_metadata(
         - images: List of extracted images with metadata
         - structured_data: List of JSON-LD, Microdata, or RDFa blocks
     """
-    if options is None:
-        options = ConversionOptions()
-    if preprocessing is None:
-        preprocessing = PreprocessingOptions()
-    if metadata_config is None:
-        metadata_config = MetadataConfig()
-
-    payload = _options_payload(options, preprocessing)
-    metadata_payload = _metadata_config_payload(metadata_config)
-    markdown, metadata = _rust.convert_with_metadata_json(
-        html,
-        json.dumps(payload),
-        json.dumps(metadata_payload),
-    )
+    rust_options = _rust_options(options, preprocessing)
+    metadata_config = _build_metadata_config(metadata_config)
+    markdown, metadata = _rust.convert_with_metadata(html, rust_options, metadata_config)
     return markdown, metadata
 
 
@@ -277,12 +301,14 @@ def convert_with_visitor(
     if visitor is None:
         return convert(html, options, preprocessing)
 
-    return _rust.convert_with_visitor(html, None, visitor)
+    rust_options = _rust_options(options, preprocessing)
+    return _rust.convert_with_visitor(html, rust_options, visitor)
 
 
 def convert_with_async_visitor(
     html: str,
     options: ConversionOptions | None = None,
+    preprocessing: PreprocessingOptions | None = None,
     visitor: object | None = None,
 ) -> str:
     """Convert HTML with an async visitor pattern.
@@ -294,6 +320,7 @@ def convert_with_async_visitor(
     Args:
         html: HTML string to convert
         options: Optional conversion configuration
+        preprocessing: Optional preprocessing configuration
         visitor: Optional visitor object with async methods (on_element, on_text, etc.)
                  Methods should be coroutines that return a result dict with 'type' key
 
@@ -308,14 +335,11 @@ def convert_with_async_visitor(
         >>> visitor = MyVisitor()
         >>> markdown = convert_with_async_visitor("<h1>Test</h1>", visitor=visitor)
     """
-    if options is None:
-        options = ConversionOptions()
-
     if visitor is None:
-        return _rust.convert(html, None)
+        return convert(html, options, preprocessing)
 
-    _options_payload(options, PreprocessingOptions())
-    return _rust.convert_with_async_visitor(html, None, visitor)
+    rust_options = _rust_options(options, preprocessing)
+    return _rust.convert_with_async_visitor(html, rust_options, visitor)
 
 
 __all__ = [

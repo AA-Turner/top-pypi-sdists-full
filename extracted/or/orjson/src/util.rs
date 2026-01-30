@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2019-2025), Marc Mueller (2023)
+// Copyright ijl (2019-2026), Marc Mueller (2023)
 
 pub(crate) const INVALID_STR: &str = "str is not valid UTF-8: surrogates not allowed";
 
@@ -174,13 +174,6 @@ macro_rules! call_method {
     };
 }
 
-#[cfg(CPython)]
-macro_rules! str_hash {
-    ($op:expr) => {
-        unsafe { (*$op.cast::<crate::ffi::PyASCIIObject>()).hash }
-    };
-}
-
 #[cfg(all(CPython, Py_3_13))]
 macro_rules! pydict_contains {
     ($obj1:expr, $obj2:expr) => {
@@ -192,7 +185,7 @@ macro_rules! pydict_contains {
 macro_rules! pydict_contains {
     ($obj1:expr, $obj2:expr) => {
         unsafe {
-            debug_assert!(str_hash!($obj2) != -1);
+            debug_assert!((*$obj2.cast::<crate::ffi::PyASCIIObject>()).hash != -1);
             crate::ffi::_PyDict_Contains_KnownHash(
                 crate::ffi::PyType_GetDict($obj1),
                 $obj2,
@@ -202,24 +195,17 @@ macro_rules! pydict_contains {
     };
 }
 
-#[cfg(all(CPython, Py_3_10, not(Py_3_12)))]
+#[cfg(all(CPython, not(Py_3_12)))]
 macro_rules! pydict_contains {
     ($obj1:expr, $obj2:expr) => {
         unsafe {
-            debug_assert!(str_hash!($obj2) != -1);
+            debug_assert!((*$obj2.cast::<crate::ffi::PyASCIIObject>()).hash != -1);
             crate::ffi::_PyDict_Contains_KnownHash(
                 (*$obj1).tp_dict,
                 $obj2,
                 (*$obj2.cast::<crate::ffi::PyASCIIObject>()).hash,
             ) == 1
         }
-    };
-}
-
-#[cfg(all(CPython, not(Py_3_10)))]
-macro_rules! pydict_contains {
-    ($obj1:expr, $obj2:expr) => {
-        unsafe { crate::ffi::PyDict_Contains((*$obj1).tp_dict, $obj2) == 1 }
     };
 }
 
@@ -268,43 +254,6 @@ macro_rules! pydict_next {
     };
 }
 
-#[cfg(CPython)]
-macro_rules! pydict_setitem {
-    ($dict:expr, $pykey:expr, $pyval:expr) => {
-        debug_assert!(ffi!(Py_REFCNT($dict)) == 1);
-        debug_assert!(str_hash!($pykey) != -1);
-        #[cfg(not(Py_3_13))]
-        unsafe {
-            let _ = crate::ffi::_PyDict_SetItem_KnownHash($dict, $pykey, $pyval, str_hash!($pykey));
-        }
-        #[cfg(Py_3_13)]
-        unsafe {
-            let _ = crate::ffi::_PyDict_SetItem_KnownHash_LockHeld(
-                $dict.cast::<crate::ffi::PyDictObject>(),
-                $pykey,
-                $pyval,
-                str_hash!($pykey),
-            );
-        }
-        #[cfg(not(Py_GIL_DISABLED))]
-        reverse_pydict_incref!($pykey);
-        reverse_pydict_incref!($pyval);
-    };
-}
-
-#[cfg(not(CPython))]
-macro_rules! pydict_setitem {
-    ($dict:expr, $pykey:expr, $pyval:expr) => {
-        debug_assert!(ffi!(Py_REFCNT($dict)) == 1);
-        unsafe {
-            let _ = crate::ffi::PyDict_SetItem($dict, $pykey, $pyval);
-        }
-        #[cfg(not(Py_GIL_DISABLED))]
-        reverse_pydict_incref!($pykey);
-        reverse_pydict_incref!($pyval);
-    };
-}
-
 macro_rules! reserve_minimum {
     ($writer:expr) => {
         $writer.reserve(128);
@@ -340,8 +289,7 @@ pub(crate) fn usize_to_isize(val: usize) -> isize {
 }
 
 #[inline(always)]
-#[allow(clippy::cast_sign_loss)]
 pub(crate) fn isize_to_usize(val: isize) -> usize {
     debug_assert!(val >= 0);
-    val as usize
+    val.cast_unsigned()
 }

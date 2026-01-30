@@ -495,6 +495,9 @@ LEGACY_DOCKER_CLIENT = is_env_true("LEGACY_DOCKER_CLIENT")
 # Docker image to use when starting up containers for port checks
 PORTS_CHECK_DOCKER_IMAGE = os.environ.get("PORTS_CHECK_DOCKER_IMAGE", "").strip()
 
+# global prefix to prepend to Docker image names (e.g., for using a custom registry mirror)
+DOCKER_GLOBAL_IMAGE_PREFIX = os.environ.get("DOCKER_GLOBAL_IMAGE_PREFIX", "").strip()
+
 
 def is_trace_logging_enabled():
     if LS_LOG:
@@ -1215,6 +1218,15 @@ CFN_PER_RESOURCE_TIMEOUT = int(os.environ.get("CFN_PER_RESOURCE_TIMEOUT") or 300
 # By default unsupported resource types will be ignored.
 # EXPERIMENTAL
 CFN_IGNORE_UNSUPPORTED_RESOURCE_TYPES = is_env_not_false("CFN_IGNORE_UNSUPPORTED_RESOURCE_TYPES")
+
+# Comma-separated list of resource type names that CloudFormation will ignore on stack creation
+CFN_IGNORE_UNSUPPORTED_TYPE_CREATE = parse_comma_separated_list(
+    "CFN_IGNORE_UNSUPPORTED_TYPE_CREATE"
+)
+# Comma-separated list of resource type names that CloudFormation will ignore on stack update
+CFN_IGNORE_UNSUPPORTED_TYPE_UPDATE = parse_comma_separated_list(
+    "CFN_IGNORE_UNSUPPORTED_TYPE_UPDATE"
+)
 
 # Decrease the waiting time for resource deployment
 CFN_NO_WAIT_ITERATIONS: str | int | None = os.environ.get("CFN_NO_WAIT_ITERATIONS")

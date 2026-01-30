@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystack
-Version: 1.5.1
+Version: 1.6.0
 Summary: Analysis of the stack of remote python processes
 Home-page: https://github.com/bloomberg/pystack
 Author: Pablo Galindo Salgado
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Debuggers
 Requires-Python: >=3.7.0

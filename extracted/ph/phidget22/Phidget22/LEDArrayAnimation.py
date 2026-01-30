@@ -11,11 +11,11 @@ class LEDArrayAnimation(ctypes.Structure):
 		("_animationType", ctypes.c_int),
 	]
 
-	def __init__(self):
-		self.startAddress = 0
-		self.endAddress = 0
-		self.time = 0
-		self.animationType = 0
+	def __init__(self, startAddress = 0, endAddress = 0, time = 0, animationType = 0):
+		self.startAddress = startAddress
+		self.endAddress = endAddress
+		self.time = time
+		self.animationType = animationType
 
 	def fromPython(self):
 		self._startAddress = self.startAddress

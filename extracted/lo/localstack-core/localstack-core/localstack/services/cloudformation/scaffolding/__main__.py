@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import zipfile
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -10,6 +12,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Any, Literal, TypedDict, TypeVar
 
+import boto3
 import click
 from jinja2 import Environment, FileSystemLoader
 from yaml import safe_dump
@@ -140,14 +143,76 @@ class SchemaProvider:
             ) from e
 
 
+class LiveSchemaProvider:
+    """
+    Provides CloudFormation resource schemas by fetching them from the live AWS CloudFormation service, rather than
+    a local zip file.
+    """
+
+    def __init__(self, cfn_client):
+        self.cfn_client = cfn_client
+
+    def available_schemas(self, pattern: str) -> list[str]:
+        """
+        Return the names of available CloudFormation resource types. `pattern` should be something like
+        AWS::S3::Bucket or AWS::S3::*, depending on whether you want all resources for a service or a specific one.
+        The result is a list of matching resource type names (e.g. [AWS::S3::Bucket, AWS::S3::Object, ...])
+        """
+
+        is_wildcard = pattern.endswith("*")
+        pattern = pattern[:-1] if is_wildcard else pattern
+        matching_names = []
+
+        params = {
+            "Visibility": "PUBLIC",
+            "Type": "RESOURCE",
+            "DeprecatedStatus": "LIVE",
+            "Filters": {"Category": "AWS_TYPES", "TypeNamePrefix": pattern},
+        }
+        next_token: str | None = None
+
+        # Note: pagination is necessary since list_types requires multiple calls even to get a single result.
+        while True:
+            if next_token:
+                params["NextToken"] = next_token
+            response = self.cfn_client.list_types(**params)
+
+            # collect any matching type names (if wildcard, all; else exact match only)
+            matching_names.extend(
+                [
+                    type_summary["TypeName"]
+                    for type_summary in response.get("TypeSummaries", [])
+                    if (is_wildcard or type_summary["TypeName"] == pattern)
+                ]
+            )
+
+            next_token = response.get("NextToken")
+            if not next_token:
+                break
+
+        return matching_names
+
+    def schema(self, type_name: ResourceName) -> ResourceSchema:
+        """
+        Given a CloudFormation ResourceName (representing something like "AWS::S3::Bucket"), return the resource
+        schema as dict.
+        """
+        response = self.cfn_client.describe_type(
+            Type="RESOURCE",
+            TypeName=type_name.full_name,
+        )
+        schema_str = response.get("Schema")
+        if not schema_str:
+            raise click.ClickException(
+                f"Could not fetch schema for CloudFormation resource type: {type_name}"
+            )
+        return json.loads(schema_str)
+
+
 LOCALSTACK_ROOT_DIR = Path(__file__).parent.joinpath("../../../../..").resolve()
 LOCALSTACK_PRO_ROOT_DIR = LOCALSTACK_ROOT_DIR.joinpath("../localstack-pro").resolve()
-TESTS_ROOT_DIR = LOCALSTACK_ROOT_DIR.joinpath(
-    "tests/aws/services/cloudformation/resource_providers"
-)
-TESTS_PRO_ROOT_DIR = LOCALSTACK_PRO_ROOT_DIR.joinpath(
-    "localstack-pro-core/tests/aws/services/cloudformation/resource_providers"
-)
+TESTS_ROOT_DIR = LOCALSTACK_ROOT_DIR.joinpath("tests/aws/services")
+TESTS_PRO_ROOT_DIR = LOCALSTACK_PRO_ROOT_DIR.joinpath("localstack-pro-core/tests/aws/services")
 
 assert LOCALSTACK_ROOT_DIR.is_dir(), f"{LOCALSTACK_ROOT_DIR} does not exist"
 assert LOCALSTACK_PRO_ROOT_DIR.is_dir(), f"{LOCALSTACK_PRO_ROOT_DIR} does not exist"
@@ -193,7 +258,7 @@ def template_path(
     output_path = (
         tests_root_dir(pro)
         .joinpath(
-            f"{resource_name.python_compatible_service_name.lower()}/{resource_name.path_compatible_full_name()}/templates/{stub}"
+            f"{resource_name.python_compatible_service_name.lower()}/resource_providers/templates/{stub}"
         )
         .resolve()
     )
@@ -202,7 +267,7 @@ def template_path(
         test_path = (
             root_dir(pro)
             .joinpath(
-                f"tests/aws/cloudformation/resource_providers/{resource_name.python_compatible_service_name.lower()}/{resource_name.path_compatible_full_name()}"
+                f"tests/aws/{resource_name.python_compatible_service_name.lower()}/resource_providers/templates"
             )
             .resolve()
         )
@@ -217,6 +282,7 @@ class FileType(Enum):
     # service code
     plugin = auto()
     provider = auto()
+    provider_base = auto()
 
     # test files
     integration_test = auto()
@@ -262,6 +328,7 @@ class TemplateRenderer:
         template_mapping = {
             FileType.plugin: "plugin_template.py.j2",
             FileType.provider: "provider_template.py.j2",
+            FileType.provider_base: "provider_base_template.py.j2",
             FileType.getatt_test: "test_getatt_template.py.j2",
             FileType.integration_test: "test_integration_template.py.j2",
             # FileType.cloudcontrol_test: "test_cloudcontrol_template.py.j2",
@@ -276,7 +343,7 @@ class TemplateRenderer:
         # e.g. .../resource_providers/aws_iam_role/test_X.py vs. .../resource_providers/iam/test_X.py
         # add extra parameters
         tests_output_path = root_dir(self.pro).joinpath(
-            f"tests/aws/cloudformation/resource_providers/{resource_name.python_compatible_service_name.lower()}/{resource_name.full_name.lower()}"
+            f"tests/aws/{resource_name.python_compatible_service_name.lower()}/resource_providers/templates"
         )
         match file_type:
             case FileType.getatt_test:
@@ -284,9 +351,11 @@ class TemplateRenderer:
                 kwargs["service"] = resource_name.service.lower()
                 kwargs["resource"] = resource_name.resource.lower()
                 kwargs["template_path"] = str(
-                    template_path(resource_name, FileType.attribute_template, tests_output_path)
+                    template_path(
+                        resource_name, FileType.attribute_template, tests_output_path, pro=self.pro
+                    )
                 )
-            case FileType.provider:
+            case FileType.provider | FileType.provider_base:
                 property_ir = generate_ir_for_type(
                     [self.schema],
                     resource_name.full_name,
@@ -312,23 +381,34 @@ class TemplateRenderer:
                 kwargs["list_permissions"] = (
                     self.schema.get("handlers", {}).get("list", {}).get("permissions")
                 )
+                kwargs["service"] = resource_name.python_compatible_service_name.lower()
+                kwargs["lower_resource"] = resource_name.resource.lower()
+                kwargs["pro"] = self.pro
             case FileType.plugin:
                 kwargs["service"] = resource_name.python_compatible_service_name.lower()
                 kwargs["lower_resource"] = resource_name.resource.lower()
                 kwargs["pro"] = self.pro
             case FileType.integration_test:
                 kwargs["black_box_template_path"] = str(
-                    template_path(resource_name, FileType.minimal_template, tests_output_path)
+                    template_path(
+                        resource_name, FileType.minimal_template, tests_output_path, pro=self.pro
+                    )
                 )
                 kwargs["update_template_path"] = str(
                     template_path(
                         resource_name,
                         FileType.update_without_replacement_template,
                         tests_output_path,
+                        pro=self.pro,
                     )
                 )
                 kwargs["autogenerated_template_path"] = str(
-                    template_path(resource_name, FileType.autogenerated_template, tests_output_path)
+                    template_path(
+                        resource_name,
+                        FileType.autogenerated_template,
+                        tests_output_path,
+                        pro=self.pro,
+                    )
                 )
             # case FileType.cloudcontrol_test:
             case FileType.parity_test:
@@ -515,11 +595,20 @@ class FileWriter:
                 "resource_providers",
                 f"{self.resource_name.namespace.lower()}_{self.resource_name.service.lower()}_{self.resource_name.resource.lower()}.py",
             ),
+            FileType.provider_base: root_dir(self.pro).joinpath(
+                *base_path,
+                "services",
+                self.resource_name.python_compatible_service_name.lower(),
+                "resource_providers",
+                "generated",
+                f"{self.resource_name.namespace.lower()}_{self.resource_name.service.lower()}_{self.resource_name.resource.lower()}_base.py",
+            ),
             FileType.plugin: root_dir(self.pro).joinpath(
                 *base_path,
                 "services",
                 self.resource_name.python_compatible_service_name.lower(),
                 "resource_providers",
+                "generated",
                 f"{self.resource_name.namespace.lower()}_{self.resource_name.service.lower()}_{self.resource_name.resource.lower()}_plugin.py",
             ),
             FileType.schema: root_dir(self.pro).joinpath(
@@ -527,24 +616,29 @@ class FileWriter:
                 "services",
                 self.resource_name.python_compatible_service_name.lower(),
                 "resource_providers",
+                "generated",
                 f"aws_{self.resource_name.service.lower()}_{self.resource_name.resource.lower()}.schema.json",
             ),
             FileType.integration_test: tests_root_dir(self.pro).joinpath(
                 self.resource_name.python_compatible_service_name.lower(),
+                "resource_providers",
                 self.resource_name.path_compatible_full_name(),
                 "test_basic.py",
             ),
             FileType.getatt_test: tests_root_dir(self.pro).joinpath(
                 self.resource_name.python_compatible_service_name.lower(),
+                "resource_providers",
                 self.resource_name.path_compatible_full_name(),
                 "test_exploration.py",
             ),
             # FileType.cloudcontrol_test: tests_root_dir(self.pro).joinpath(
             #     self.resource_name.python_compatible_service_name.lower(),
+            #     "resource_providers",
             #     f"test_aws_{self.resource_name.service.lower()}_{self.resource_name.resource.lower()}_cloudcontrol.py",
             # ),
             FileType.parity_test: tests_root_dir(self.pro).joinpath(
                 self.resource_name.python_compatible_service_name.lower(),
+                "resource_providers",
                 self.resource_name.path_compatible_full_name(),
                 "test_parity.py",
             ),
@@ -558,7 +652,9 @@ class FileWriter:
             FileType.autogenerated_template,
         ]
         for template_type in templates:
-            self.destination_files[template_type] = template_path(self.resource_name, template_type)
+            self.destination_files[template_type] = template_path(
+                self.resource_name, template_type, pro=self.pro
+            )
 
     def write(self, file_type: FileType, contents: str):
         file_destination = self.destination_files[file_type]
@@ -577,6 +673,10 @@ class FileWriter:
                 self.ensure_python_init_files(destination_path)
                 self.write_text(contents, file_destination)
                 self.console.print(f"Written provider to {file_destination}")
+            case FileType.provider_base:
+                self.ensure_python_init_files(destination_path)
+                self.write_text(contents, file_destination)
+                self.console.print(f"Written provider base to {file_destination}")
             case FileType.plugin:
                 self.ensure_python_init_files(destination_path)
                 self.write_text(contents, file_destination)
@@ -628,12 +728,24 @@ class FileWriter:
 
         :return True if file should be (over-)written, False otherwise
         """
-        return self.overwrite or click.confirm("Destination files already exist, overwrite?")
+        return self.overwrite or click.confirm(
+            f"Destination file {destination_file} already exists, overwrite?"
+        )
 
     @staticmethod
     def write_text(contents: str, destination: Path):
         with destination.open("wt") as outfile:
             print(contents, file=outfile)
+
+        # for Python files, use ruff to clean up formatting errors introduced by scaffolding
+        if destination.suffix == ".py":
+            command = [sys.executable, "-m", "ruff", "format", destination]
+            try:
+                subprocess.run(command, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                print(
+                    f"Ruff fix command failed (exit code {e.returncode}):\n{e.stdout}\n{e.stderr}"
+                )
 
     @staticmethod
     def ensure_python_init_files(path: Path):
@@ -697,6 +809,9 @@ class Output:
             # service code
             case FileType.provider:
                 self.printer.print("\n[underline]Provider template[/underline]\n")
+                self.printer.print(Syntax(self.contents, "python"))
+            case FileType.provider_base:
+                self.printer.print("\n[underline]Provider base template[/underline]\n")
                 self.printer.print(Syntax(self.contents, "python"))
             case FileType.plugin:
                 self.printer.print("\n[underline]Plugin[/underline]\n")
@@ -763,21 +878,14 @@ def generate(
     console = Console()
     console.rule(title=resource_type)
 
-    schema_provider = SchemaProvider(
-        zipfile_path=Path(__file__).parent.joinpath("CloudformationSchema.zip")
-    )
+    schema_provider = LiveSchemaProvider(boto3.client("cloudformation"))
 
     template_root = Path(__file__).parent.joinpath("templates")
     env = Environment(
         loader=FileSystemLoader(template_root),
     )
 
-    parts = resource_type.rpartition("::")
-    if parts[-1] == "*":
-        # generate all resource types for that service
-        matching_resources = [x for x in schema_provider.schemas.keys() if x.startswith(parts[0])]
-    else:
-        matching_resources = [resource_type]
+    matching_resources = schema_provider.available_schemas(resource_type)
 
     for matching_resource in matching_resources:
         console.rule(title=matching_resource)

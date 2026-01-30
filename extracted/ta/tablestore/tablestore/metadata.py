@@ -987,6 +987,7 @@ class QueryType(IntEnum):
     GEO_POLYGON_QUERY = search_pb2.GEO_POLYGON_QUERY
     TERMS_QUERY = search_pb2.TERMS_QUERY
     KNN_VECTOR_QUERY = search_pb2.KNN_VECTOR_QUERY
+    DIS_MAX_QUERY = search_pb2.DIS_MAX_QUERY
 
 
 class QueryOperator(IntEnum):
@@ -1068,12 +1069,13 @@ class WildcardQuery(Query):
 class BoolQuery(Query):
 
     def __init__(self, must_queries=[], must_not_queries=[],
-                 filter_queries=[], should_queries=[], minimum_should_match=None):
+                 filter_queries=[], should_queries=[], minimum_should_match=None, weight=None):
         self.must_queries = must_queries
         self.must_not_queries = must_not_queries
         self.filter_queries = filter_queries
         self.should_queries = should_queries
         self.minimum_should_match = minimum_should_match
+        self.weight = weight
 
 
 class NestedQuery(Query):
@@ -1151,11 +1153,22 @@ class ExistsQuery(Query):
 
 class KnnVectorQuery(Query):
 
-    def __init__(self, field_name, top_k=None, float32_query_vector=None, filter=None, weight=None):
+    def __init__(self, field_name, top_k=None, float32_query_vector=None, filter=None, weight=None, min_score=None,
+                 num_candidates=None):
         self.field_name = field_name
         self.top_k = top_k
         self.float32_query_vector = float32_query_vector
         self.filter = filter
+        self.weight = weight
+        self.min_score = min_score
+        self.num_candidates = num_candidates
+
+
+class DisMaxQuery(Query):
+
+    def __init__(self, queries=None, tie_breaker=None, weight=None):
+        self.queries = [] if queries is None else queries
+        self.tie_breaker = tie_breaker
         self.weight = weight
 
 

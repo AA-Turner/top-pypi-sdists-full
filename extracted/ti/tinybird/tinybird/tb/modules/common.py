@@ -67,6 +67,10 @@ from tinybird.tb.modules.telemetry import (
     init_telemetry,
 )
 
+# Pre-compiled regex patterns
+_PATTERN_NORMALIZE_NAME = re.compile(r"[^0-9a-zA-Z_]")
+_PATTERN_AWS_ARN = re.compile(r"arn:aws:iam::(\d+):root")
+
 SUPPORTED_FORMATS = ["csv", "ndjson", "json", "parquet"]
 OLDEST_ROLLBACK = "oldest_rollback"
 MAIN_BRANCH = "main"
@@ -144,7 +148,7 @@ def echo_safe_format_table(data: Iterable[Any], columns) -> None:
 
 
 def normalize_datasource_name(s: str) -> str:
-    s = re.sub(r"[^0-9a-zA-Z_]", "_", s)
+    s = _PATTERN_NORMALIZE_NAME.sub("_", s)
     if s[0] in "0123456789":
         return "c_" + s
     return s
@@ -1075,7 +1079,7 @@ def validate_kafka_bootstrap_servers(host_and_port):
         try:
             sock.settimeout(3)
             sock.connect((host, port))
-        except socket.timeout:
+        except TimeoutError:
             raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn_timeout(host=host, port=port))
         except Exception:
             raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn(host=host, port=port))
@@ -1832,7 +1836,7 @@ def _merge_trust_policies(trust_policy_local: Dict[str, Any], trust_policy_cloud
 
     # Extract account IDs from ARNs (format: arn:aws:iam::ACCOUNT_ID:root)
     for principal in principals_to_process:
-        match = re.search(r"arn:aws:iam::(\d+):root", principal)
+        match = _PATTERN_AWS_ARN.search(principal)
         if match:
             account_id = match.group(1)
             if account_id not in seen_account_ids:

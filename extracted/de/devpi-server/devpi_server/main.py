@@ -5,37 +5,40 @@ recursive cache of pypi.org packages.
 """
 from __future__ import annotations
 
-import functools
-import os
-import os.path
-import asyncio
-import py
-import sys
-import threading
-import time
-import warnings
-
-from requests import Response, exceptions
-from devpi_common.types import cached_property
-from devpi_common.request import new_requests_session
+from . import __version__ as server_version
+from . import mythread
 from .config import MyArgumentParser
-from .config import parseoptions, get_pluginmanager
+from .config import get_pluginmanager
+from .config import parseoptions
 from .exceptions import lazy_format_exception_only
 from .httpclient import FatalResponse
 from .httpclient import HTTPClient
 from .httpclient import OfflineHTTPClient
 from .httpclient import get_caller_location
+from .keyfs import KeyFS
 from .log import configure_cli_logging
 from .log import configure_logging
-from .log import threadlog
 from .log import thread_push_log
+from .log import threadlog
 from .model import BaseStage
 from .model import RootModel
 from .views import apireturn
-from . import mythread
-from . import __version__ as server_version
+from collections import defaultdict
+from devpi_common.request import new_requests_session
+from devpi_common.terminal import TerminalWriter
+from devpi_common.types import cached_property
 from operator import iconcat
+from requests import Response
+from requests import exceptions
 from typing import TYPE_CHECKING
+import asyncio
+import functools
+import os
+import os.path
+import sys
+import threading
+import time
+import warnings
 
 
 if TYPE_CHECKING:
@@ -89,11 +92,11 @@ class CommandRunner:
 
     @cached_property
     def tw(self):
-        return py.io.TerminalWriter()
+        return TerminalWriter()
 
     @cached_property
     def tw_err(self):
-        return py.io.TerminalWriter(sys.stderr)
+        return TerminalWriter(sys.stderr)
 
 
 DATABASE_VERSION = "4"
@@ -135,7 +138,7 @@ def set_state_version(config, version=DATABASE_VERSION):
 def main(argv=None):
     """ devpi-server command line entry point. """
     with CommandRunner() as runner:
-        return _main(runner.pluginmanager, argv=argv)
+        runner.return_code = _main(runner.pluginmanager, argv=argv)
     return runner.return_code
 
 
@@ -283,8 +286,8 @@ class XOM:
             self.http = http
         if httpget is not None:
             # overwrite for testing
-            self.httpget = httpget
-            self.async_httpget = httpget.async_httpget
+            self.httpget = httpget  # type: ignore[method-assign]
+            self.async_httpget = httpget.async_httpget  # type: ignore[method-assign]
         self.log = threadlog
         self.polling_replicas = {}
         self._stagecache = {}
@@ -414,7 +417,7 @@ class XOM:
         app = xom.create_app()
         if xom.is_replica():
             # XXX ground restart_as_write_transaction better
-            xom.keyfs.restart_as_write_transaction = None
+            xom.keyfs.restart_as_write_transaction = None  # type: ignore[assignment, method-assign]
         return xom.thread_pool.run(wsgi_run, xom, app)
 
     def fatal(self, msg):
@@ -428,14 +431,15 @@ class XOM:
         return FileStore(self.keyfs)
 
     @cached_property
-    def keyfs(self):
-        from devpi_server.keyfs import KeyFS
+    def keyfs(self) -> KeyFS:
         from devpi_server.model import add_keys
         keyfs = KeyFS(
             self.config.server_path,
             self.config.storage,
+            io_file_factory=self.config.io_file_factory,
             readonly=self.is_replica(),
-            cache_size=self.config.args.keyfs_cache_size)
+            cache_size=self.config.args.keyfs_cache_size,
+        )
         add_keys(self, keyfs)
         try:
             keyfs.finalize_init()
@@ -559,7 +563,8 @@ class XOM:
         from devpi_server.middleware import OutsideURLMiddleware
         from devpi_server.view_auth import DevpiSecurityPolicy
         from devpi_server.views import ContentTypePredicate
-        from devpi_server.views import route_url, INSTALLER_USER_AGENT
+        from devpi_server.views import INSTALLER_USER_AGENT
+        from devpi_server.views import route_url
         from pyramid.config import Configurator
         from pyramid.viewderivers import INGRESS
         log = self.log
@@ -577,13 +582,12 @@ class XOM:
         version_info.sort()
         pyramid_config.registry['devpi_version_info'] = version_info
         pyramid_config.registry['xom'] = self
-        index_classes = {}
-        customizer_classes = functools.reduce(
-            iconcat,
-            self.config.hook.devpiserver_get_stage_customizer_classes(),
-            [])
+        index_classes: defaultdict[str, list] = defaultdict(list)
+        customizer_classes: list[tuple[str, type]] = functools.reduce(
+            iconcat, self.config.hook.devpiserver_get_stage_customizer_classes(), []
+        )
         for ixtype, ixclass in customizer_classes:
-            index_classes.setdefault(ixtype, []).append(ixclass)
+            index_classes[ixtype].append(ixclass)
         for ixtype, ixclasses in index_classes.items():
             if len(ixclasses) > 1:
                 raise Fatal(

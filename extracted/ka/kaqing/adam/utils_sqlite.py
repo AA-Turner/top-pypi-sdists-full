@@ -8,6 +8,7 @@ import pandas
 
 from adam.config import Config
 from adam.utils import creating_dir, tabulize, log, wait_log
+from adam.utils_context import Context
 
 class CursorHandler:
     def __init__(self, conn: sqlite3.Connection):
@@ -111,22 +112,18 @@ class SQLite:
     def column_names(tables: list[str] = [], database: str = None, function: str = 'audit', partition_cols_only = False):
         pass
 
-    def run_query(query: str, database: str = None, output: Callable[[str], str] = None) -> tuple[int, str]:
+    def run_query(query: str, database: str = None, ctx: Context = Context.NULL) -> int:
         with sqlite(database) as conn:
-            return SQLite.run_query_with_conn(conn, query, output=output)
+            return SQLite.run_query_with_conn(conn, query, ctx=ctx)
 
-    def run_query_with_conn(conn, query: str, output: Callable[[str], str] = None) -> tuple[int, str]:
-        log_file = None
+    def run_query_with_conn(conn, query: str, ctx: Context = Context.NULL) -> int:
+        # log_file = None
 
         df = SQLite.query(conn, query)
         lines = ['\t'.join(map(str, line)) for line in df.values.tolist()]
-        out = tabulize(lines, header='\t'.join(df.columns.tolist()), separator='\t', to=0)
-        if output:
-            log_file = output(out)
-        else:
-            log(out)
+        tabulize(lines, header='\t'.join(df.columns.tolist()), separator='\t', log_file=ctx.log_file)
 
-        return len(lines), log_file
+        return len(lines)
 
     def query(conn, sql: str) -> tuple[str, str, list]:
         return pandas.read_sql_query(sql, conn)

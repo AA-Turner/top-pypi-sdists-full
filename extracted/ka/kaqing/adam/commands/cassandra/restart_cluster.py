@@ -1,9 +1,13 @@
 from adam.commands import extract_options
 from adam.commands.command import Command
+from adam.utils_cassandra.cassandra import Cassandra
+from adam.utils_cassandra.node_restartable import NodeRestartable
+from adam.utils_cassandra.node_restarter import NodeRestarter
+from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+from adam.utils import Color, log2
 
 class RestartCluster(Command):
     COMMAND = 'restart cluster'
@@ -29,14 +33,23 @@ class RestartCluster(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, '--force') as (args, forced):
-                if not forced:
-                    log2('Please add --force for restarting all nodes in a cluster.')
-
-                    return 'force-needed'
+                ctx = Context.new(show_out=True)
 
                 log2(f'Restarting all pods from {state.sts}...')
                 for pod_name in StatefulSets.pod_names(state.sts, state.namespace):
+                    if forced:
+                        ctx.log(f'[{pod_name}] Restarting...')
+                    else:
+                        ctx.log(f'[{pod_name}] Checking...')
+                        node: NodeRestartable = Cassandra.restartable(state, pod_name, in_restartings=NodeRestarter.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                        if not node.restartable():
+                            node.log(ctx=ctx.copy(text_color=Color.gray))
+                            ctx.log2('Please add --force for restarting pod unsafely.')
+
+                            return 'force-needed'
+
                     Pods.delete(pod_name, state.namespace)
+                    ctx.log(f'[{pod_name}] OK')
 
                 return state
 

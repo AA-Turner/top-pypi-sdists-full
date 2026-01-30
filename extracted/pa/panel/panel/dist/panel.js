@@ -68,7 +68,7 @@
     __esExport("ButtonIcon", button_icon_1.ButtonIcon);
     var icon_1 = require("6c7fbea0ef") /* ./icon */;
     __esExport("ClickableIcon", icon_1.ClickableIcon);
-    var card_1 = require("d7035097d8") /* ./card */;
+    var card_1 = require("25fcfb521e") /* ./card */;
     __esExport("Card", card_1.Card);
     var checkbox_button_group_1 = require("51fbe9e2d0") /* ./checkbox_button_group */;
     __esExport("CheckboxButtonGroup", checkbox_button_group_1.CheckboxButtonGroup);
@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("d446ec1ed8") /* ./tabulator */;
+    var tabulator_1 = require("5bee7c9df6") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -94,11 +94,11 @@
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
     var echarts_1 = require("1da56f3c52") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
-    var feed_1 = require("4cfe0841a5") /* ./feed */;
+    var feed_1 = require("f9c84aaf3d") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
     var file_download_1 = require("84a13dddfb") /* ./file_download */;
     __esExport("FileDownload", file_download_1.FileDownload);
-    var file_dropper_1 = require("e8b7476f90") /* ./file_dropper */;
+    var file_dropper_1 = require("8531319d94") /* ./file_dropper */;
     __esExport("FileDropper", file_dropper_1.FileDropper);
     var html_1 = require("4c04683fdc") /* ./html */;
     __esExport("HTML", html_1.HTML);
@@ -130,7 +130,7 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("1170146660") /* ./react_component */;
+    var react_component_1 = require("d42fdf93ec") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
@@ -18839,7 +18839,7 @@ ${namesToRegister
         }));
     })();
 },
-"d7035097d8": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
+"25fcfb521e": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const tslib_1 = require("tslib");
@@ -18858,6 +18858,9 @@ ${namesToRegister
     class CardView extends column_1.ColumnView {
         constructor() {
             super(...arguments);
+            this.visible_child_views = new Map();
+            this._updating_child_visibility = new Set();
+            this._child_visible_callbacks = new Map();
             this.collapsed_style = new DOM.InlineStyleSheet();
         }
         connect_signals() {
@@ -18873,6 +18876,9 @@ ${namesToRegister
                 this.child_views[0].el.style.backgroundColor = header_background;
                 this.header_el.style.backgroundColor = header_background;
             });
+            for (const child_view of this.child_views.slice(1)) {
+                this._register_child_view(child_view);
+            }
         }
         stylesheets() {
             return [...super.stylesheets(), card_css_1.default];
@@ -18928,10 +18934,9 @@ ${namesToRegister
                 header.render();
                 header.r_after_render();
             }
-            if (this.model.collapsed) {
-                return;
-            }
             for (const child_view of this.child_views.slice(1)) {
+                this._register_child_view(child_view);
+                this._apply_child_visible(child_view);
                 this.shadow_el.appendChild(child_view.el);
                 child_view.render();
                 child_view.r_after_render();
@@ -18939,6 +18944,15 @@ ${namesToRegister
         }
         async update_children() {
             await this.build_child_views();
+            const child_views = new Set(this.child_views.slice(1));
+            for (const child_view of this.visible_child_views.keys()) {
+                if (!child_views.has(child_view)) {
+                    this._unregister_child_view(child_view);
+                }
+            }
+            for (const child_view of child_views) {
+                this._register_child_view(child_view);
+            }
             this.render();
             this.invalidate_layout();
         }
@@ -19020,15 +19034,16 @@ ${namesToRegister
         }
         _collapse() {
             for (const child_view of this.child_views.slice(1)) {
+                this._register_child_view(child_view);
                 if (this.model.collapsed) {
                     this.shadow_el.removeChild(child_view.el);
-                    child_view.model.visible = false;
+                    this._set_child_visible(child_view, false);
                 }
                 else {
                     child_view.render();
                     child_view.after_render();
                     this.shadow_el.appendChild(child_view.el);
-                    child_view.model.visible = true;
+                    this._apply_child_visible(child_view);
                 }
             }
             if (this.model.collapsed) {
@@ -19042,6 +19057,51 @@ ${namesToRegister
             }
             this.button_el.children[0].innerHTML = this.model.collapsed ? CHEVRON_RIGHT : CHEVRON_DOWN;
             this.invalidate_layout();
+        }
+        _set_child_visible(child_view, visible) {
+            if (child_view.model.visible == visible) {
+                return;
+            }
+            this._updating_child_visibility.add(child_view);
+            try {
+                child_view.model.visible = visible;
+            }
+            finally {
+                this._updating_child_visibility.delete(child_view);
+            }
+        }
+        _apply_child_visible(child_view) {
+            const desired_visible = this.visible_child_views.get(child_view) ?? child_view.model.visible;
+            this.visible_child_views.set(child_view, desired_visible);
+            this._set_child_visible(child_view, desired_visible && !this.model.collapsed);
+        }
+        _register_child_view(child_view) {
+            if (this.visible_child_views.has(child_view)) {
+                return;
+            }
+            this.visible_child_views.set(child_view, child_view.model.visible);
+            const { visible } = child_view.model.properties;
+            const callback = () => {
+                if (this._updating_child_visibility.has(child_view)) {
+                    return;
+                }
+                const desired_visible = child_view.model.visible;
+                this.visible_child_views.set(child_view, desired_visible);
+                if (this.model.collapsed && desired_visible) {
+                    this._set_child_visible(child_view, false);
+                }
+            };
+            this._child_visible_callbacks.set(child_view, callback);
+            this.on_change(visible, callback);
+        }
+        _unregister_child_view(child_view) {
+            const callback = this._child_visible_callbacks.get(child_view);
+            if (callback != null) {
+                child_view.model.properties.visible.change.disconnect(callback);
+                this._child_visible_callbacks.delete(child_view);
+            }
+            this.visible_child_views.delete(child_view);
+            this._updating_child_visibility.delete(child_view);
         }
         _create_element() {
             return DOM.create_element(this.model.tag, { class: this.css_classes() });
@@ -19808,7 +19868,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"d446ec1ed8": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"5bee7c9df6": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -20339,7 +20399,7 @@ ${namesToRegister
             }
             this.redraw(true, true);
             this.restore_scroll();
-            this.recompute_page_size();
+            requestAnimationFrame(() => this.recompute_page_size());
         }
         stylesheets() {
             return [...super.stylesheets(), tabulator_css_1.default];
@@ -20479,7 +20539,7 @@ ${namesToRegister
             }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
         }
         recompute_page_size() {
-            if (!this.model.pagination || this.model.page_size !== null || this._automatic_page_size) {
+            if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size)) {
                 return;
             }
             this._automatic_page_size = true;
@@ -20508,7 +20568,7 @@ ${namesToRegister
                     const remaining = table_height - height;
                     page_size += Math.floor(remaining / Math.min(...heights));
                     if (responsive) {
-                        page_size -= 2;
+                        page_size -= 1;
                     }
                 }
                 this._updating_page_size = true;
@@ -26501,7 +26561,7 @@ ${namesToRegister
         }));
     })();
 },
-"4cfe0841a5": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
+"f9c84aaf3d": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -26560,7 +26620,7 @@ ${namesToRegister
                 const visible = [...this.model.visible_children];
                 const nodes = this.node_map;
                 for (const entry of entries) {
-                    const id = nodes.get(entry.target).id;
+                    const id = nodes.get(entry.target)?.id;
                     if (entry.isIntersecting) {
                         if (!visible.includes(id)) {
                             visible.push(id);
@@ -26939,7 +26999,7 @@ ${namesToRegister
         });
     })();
 },
-"e8b7476f90": /* models/file_dropper.js */ function _(require, module, exports, __esModule, __esExport) {
+"8531319d94": /* models/file_dropper.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     const tslib_1 = require("tslib");
@@ -26979,11 +27039,148 @@ ${namesToRegister
     (() => {
         _b.prototype.event_name = "delete_event";
     })();
+    // Mapping of file extensions to browser-reported MIME types
+    // as it's not yet supported by filepond, see:
+    // https://github.com/pqina/filepond-plugin-file-validate-type/issues/13
+    const EXTENSION_TO_MIME_TYPE = {
+        // Images
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".ico": "image/x-icon",
+        ".tiff": "image/tiff",
+        ".tif": "image/tiff",
+        ".avif": "image/avif",
+        // Video
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mov": "video/quicktime",
+        ".mkv": "video/x-matroska",
+        ".avi": "video/x-msvideo",
+        ".wmv": "video/x-ms-wmv",
+        ".flv": "video/x-flv",
+        // Audio
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+        ".oga": "audio/ogg",
+        ".m4a": "audio/mp4",
+        ".aac": "audio/aac",
+        ".flac": "audio/flac",
+        // Text / documents
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+        ".rtf": "application/rtf",
+        ".pdf": "application/pdf",
+        // Structured data (browser-compatible)
+        ".json": "application/json",
+        ".xml": "text/xml",
+        ".csv": "text/csv",
+        ".tsv": "text/tab-separated-values",
+        ".yaml": "text/yaml",
+        ".yml": "text/yaml",
+        // Web / code
+        ".html": "text/html",
+        ".htm": "text/html",
+        ".css": "text/css",
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+        ".ts": "application/typescript",
+        ".jsx": "text/jsx",
+        ".tsx": "text/tsx",
+        ".wasm": "application/wasm",
+        // Office documents
+        ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xls": "application/vnd.ms-excel",
+        ".xlsb": "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".ppt": "application/vnd.ms-powerpoint",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".odt": "application/vnd.oasis.opendocument.text",
+        ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+        ".odp": "application/vnd.oasis.opendocument.presentation",
+        // Archives
+        ".zip": "application/zip",
+        ".tar": "application/x-tar",
+        ".gz": "application/gzip",
+        ".tgz": "application/gzip",
+        ".bz2": "application/x-bzip2",
+        ".xz": "application/x-xz",
+        ".7z": "application/x-7z-compressed",
+        ".rar": "application/vnd.rar",
+        // Fonts
+        ".ttf": "font/ttf",
+        ".otf": "font/otf",
+        ".woff": "font/woff",
+        ".woff2": "font/woff2",
+        // Executables / binaries
+        ".exe": "application/vnd.microsoft.portable-executable",
+        ".dll": "application/vnd.microsoft.portable-executable",
+        ".bin": "application/octet-stream",
+        ".dmg": "application/x-apple-diskimage",
+        ".pkg": "application/octet-stream",
+        ".deb": "application/vnd.debian.binary-package",
+        ".rpm": "application/x-rpm",
+        // Columnar / big data
+        ".parquet": "application/octet-stream", // browsers do NOT emit application/parquet
+        ".arrow": "application/octet-stream",
+        ".feather": "application/octet-stream",
+        ".orc": "application/octet-stream",
+        // Scientific / numerical
+        ".npy": "application/octet-stream",
+        ".npz": "application/octet-stream",
+        ".mat": "application/octet-stream",
+        ".h5": "application/octet-stream",
+        ".hdf5": "application/octet-stream",
+        ".zarr": "application/octet-stream",
+        // R ecosystem
+        ".rds": "application/octet-stream",
+        ".rda": "application/octet-stream",
+        ".rdata": "application/octet-stream",
+        // Notebooks
+        ".ipynb": "application/json",
+        // ML models / artifacts
+        ".pkl": "application/octet-stream",
+        ".pickle": "application/octet-stream",
+        ".joblib": "application/octet-stream",
+        ".onnx": "application/octet-stream",
+        ".pt": "application/octet-stream",
+        ".pth": "application/octet-stream",
+        ".h5model": "application/octet-stream",
+        // Vector
+        ".shp": "application/octet-stream",
+        ".shx": "application/octet-stream",
+        ".dbf": "application/octet-stream",
+        ".geojson": "application/geo+json",
+        ".gpkg": "application/octet-stream",
+        // Raster
+        ".geotiff": "image/tiff",
+        ".asc": "text/plain",
+    };
     class FileDropperView extends input_widget_1.InputWidgetView {
         constructor() {
             super(...arguments);
             this._file_pond = null;
             this._transfer_in_process = null;
+        }
+        extensionsToMimeTypes(types) {
+            return types.map(type => {
+                // MIME types, including wildcards like "image/*"
+                if (type.includes("/")) {
+                    return type;
+                }
+                // Guessing it's an extension
+                if (type.startsWith(".")) {
+                    const lowerType = type.toLowerCase();
+                    return EXTENSION_TO_MIME_TYPE[lowerType] || type;
+                }
+                return type;
+            });
         }
         initialize() {
             super.initialize();
@@ -27002,7 +27199,7 @@ ${namesToRegister
             const { disabled, layout, max_file_size, max_files, max_total_file_size, multiple } = this.model.properties;
             this.on_change([disabled, max_file_size, max_files, max_total_file_size, multiple, layout], () => {
                 this._file_pond?.setOptions({
-                    acceptedFileTypes: this.model.accepted_filetypes,
+                    acceptedFileTypes: this.extensionsToMimeTypes(this.model.accepted_filetypes),
                     allowMultiple: this.model.multiple,
                     disabled: this.model.disabled,
                     maxFiles: this.model.max_files,
@@ -27028,7 +27225,7 @@ ${namesToRegister
         render() {
             super.render();
             this._file_pond = window.FilePond.create(this.input_el, {
-                acceptedFileTypes: this.model.accepted_filetypes,
+                acceptedFileTypes: this.extensionsToMimeTypes(this.model.accepted_filetypes),
                 allowMultiple: this.model.multiple,
                 credits: false,
                 disabled: this.model.disabled,
@@ -29000,10 +29197,13 @@ ${namesToRegister
         }));
     })();
 },
-"1170146660": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"d42fdf93ec": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
+    const build_views_1 = require("@bokehjs/core/build_views");
     const dom_1 = require("@bokehjs/core/dom");
+    const array_1 = require("@bokehjs/core/util/array");
+    const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
     const reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
@@ -29027,6 +29227,39 @@ ${namesToRegister
     }
     exports.HostedStyleSheet = HostedStyleSheet;
     HostedStyleSheet.__name__ = "HostedStyleSheet";
+    async function _build_view(view_cls, model, options) {
+        (0, assert_1.assert)(view_cls != null, "model doesn't implement a view");
+        const view = new view_cls({ ...options, model });
+        view.initialize();
+        await view.lazy_initialize();
+        return view;
+    }
+    // Custom build_views implementation which does not eagerly destroy old views
+    async function build_views_no_remove(view_storage, models, options = { parent: null }, cls = (model) => model.default_view) {
+        const to_remove = (0, array_1.difference)([...view_storage.keys()], models);
+        const removed_views = [];
+        for (const model of to_remove) {
+            const view = view_storage.get(model);
+            if (view != null) {
+                view_storage.delete(model);
+                removed_views.push(view);
+            }
+        }
+        const created_views = [];
+        const new_models = models.filter((model) => !view_storage.has(model));
+        for (const model of new_models) {
+            const view = await _build_view(cls(model), model, options);
+            view_storage.set(model, view);
+            created_views.push(view);
+        }
+        for (const view of created_views) {
+            view.connect_signals();
+        }
+        return {
+            created: created_views,
+            removed: removed_views,
+        };
+    }
     class ReactComponentView extends reactive_esm_1.ReactiveESMView {
         constructor() {
             super(...arguments);
@@ -29034,6 +29267,7 @@ ${namesToRegister
             this.model_setter = reactive_esm_1.model_setter;
             this.react_root = null;
             this._force_update_callbacks = [];
+            this._scheduled_removals = [];
         }
         initialize() {
             super.initialize();
@@ -29081,6 +29315,10 @@ ${namesToRegister
             if (this.react_root && this.use_shadow_dom) {
                 super.remove();
                 this.react_root.then((root) => root && root.unmount());
+                for (const view of this._scheduled_removals) {
+                    view.remove();
+                }
+                this._scheduled_removals = [];
             }
             else {
                 this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
@@ -29145,9 +29383,28 @@ ${namesToRegister
                 cb();
             }
         }
+        async build_child_views() {
+            const build_fn = this.model.use_shadow_dom ? build_views_no_remove : build_views_1.build_views;
+            const { created, removed } = await build_fn(this._child_views, this.child_models, { parent: this });
+            for (const view of removed) {
+                this._resize_observer.unobserve(view.el);
+                if (this.model.use_shadow_dom) {
+                    this._child_rendered.delete(view);
+                    if (created.length) {
+                        this._scheduled_removals.push(view);
+                    }
+                    else {
+                        view.remove();
+                    }
+                }
+            }
+            for (const view of created) {
+                this._resize_observer.observe(view.el, { box: "border-box" });
+            }
+            return created;
+        }
         async update_children() {
             const created_children = new Set(await this.build_child_views());
-            const all_views = this.child_views;
             const new_views = new Map();
             for (const child_view of this.child_views) {
                 if (!created_children.has(child_view)) {
@@ -29162,14 +29419,6 @@ ${namesToRegister
                 }
                 else {
                     new_views.set(child, [child_view]);
-                }
-            }
-            if (this.use_shadow_dom) {
-                for (const view of this._child_rendered.keys()) {
-                    if (!all_views.includes(view)) {
-                        this._child_rendered.delete(view);
-                        view.el.remove();
-                    }
                 }
             }
             for (const child of this.model.children) {
@@ -29305,7 +29554,14 @@ async function render(id) {
     componentDidMount() {
       const view = this.view
       if (view == null) { return }
-      else if (!this.use_shadow_dom) {
+      for (const view of this.props.parent._scheduled_removals) { view.remove() }
+      this.props.parent._scheduled_removals = []
+      if (this.use_shadow_dom) {
+        this.updateElement()
+        this.props.parent.rerender_(view)
+        this.props.parent._child_rendered.set(view, true)
+        this.props.parent.notify_mount(this.props.name, view.model.id)
+      } else {
         view.patch_container(this.containerRef.current)
         view.model.render_module.then(async (mod) => {
           this.setState(
@@ -29317,10 +29573,7 @@ async function render(id) {
             }
           )
         })
-        return
       }
-      this.updateElement()
-      this.props.parent.rerender_(view)
       this.render_callback = (new_views) => {
         const view = this.view
         if (!view) {
@@ -29328,11 +29581,29 @@ async function render(id) {
         }
         this.updateElement()
         if (new_views.includes(view)) {
-          this.props.parent.rerender_(view)
+          if (this.use_shadow_dom) {
+            for (const view of this.props.parent._scheduled_removals) { view.remove() }
+            this.props.parent._scheduled_removals = []
+            this.props.parent.rerender_(view)
+            this.props.parent._child_rendered.set(view, true)
+          } else {
+            view.patch_container(this.containerRef.current)
+            view.model.render_module.then(async (mod) => {
+              for (const view of this.props.parent._scheduled_removals) { view.remove() }
+              this.props.parent._scheduled_removals = []
+              this.setState(
+                {rendered: await mod.default.render(view.model.id)},
+                () => {
+                  this.props.parent.notify_mount(this.props.name, view.model.id)
+                  this.view.r_after_render()
+                  this.view.after_rendered()
+                }
+              )
+            })
+          }
         }
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
-      this.props.parent.notify_mount(this.props.name, view.model.id)
     }
 
     componentWillUnmount() {
@@ -29559,8 +29830,8 @@ ${compiled}`;
 "d5752cda5a": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const preact_1 = require("bb986b9dd6") /* preact */;
-    const hooks_1 = require("0e62f95470") /* preact/hooks */;
+    const preact_1 = require("091628d34a") /* preact */;
+    const hooks_1 = require("9295b344df") /* preact/hooks */;
     const preact_2 = require("b3f51db71c") /* htm/preact */;
     const dom_1 = require("@bokehjs/core/dom");
     const assert_1 = require("@bokehjs/core/util/assert");
@@ -30089,7 +30360,7 @@ ${compiled}`;
         }));
     })();
 },
-"bb986b9dd6": /* preact/dist/preact.module.js */ function _(require, module, exports, __esModule, __esExport) {
+"091628d34a": /* preact/dist/preact.module.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.Component = x;
     exports.Fragment = k;
@@ -30101,8 +30372,8 @@ ${compiled}`;
     exports.hydrate = G;
     exports.render = E;
     exports.toChildArray = H;
-    var n, l, u, t, i, r, o, e, f, c, s, a, h, p = {}, y = [], v = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i, w = Array.isArray;
-    function d(n, l) {
+    var n, l, u, t, i, r, o, e, f, c, s, a, h, p = {}, v = [], y = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i, d = Array.isArray;
+    function w(n, l) {
         for (var u in l)
             n[u] = l[u];
         return n;
@@ -30114,7 +30385,7 @@ ${compiled}`;
             "key" == o ? i = u[o] : "ref" == o ? r = u[o] : e[o] = u[o];
         if (arguments.length > 2 && (e.children = arguments.length > 3 ? n.call(arguments, 2) : t), "function" == typeof l && null != l.defaultProps)
             for (o in l.defaultProps)
-                null == e[o] && (e[o] = l.defaultProps[o]);
+                void 0 === e[o] && (e[o] = l.defaultProps[o]);
         return m(l, e, i, r, null);
     }
     function m(n, t, i, r, o) { var e = { type: n, props: t, key: i, ref: r, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: null == o ? ++u : o, __i: -1, __u: 0 }; return null == o && null != l.vnode && l.vnode(e), e; }
@@ -30143,19 +30414,19 @@ ${compiled}`;
     function M(n) { (!n.__d && (n.__d = !0) && i.push(n) && !$.__r++ || r != l.debounceRendering) && ((r = l.debounceRendering) || o)($); }
     function $() {
         for (var n, u, t, r, o, f, c, s = 1; i.length;)
-            i.length > s && i.sort(e), n = i.shift(), s = i.length, n.__d && (t = void 0, o = (r = (u = n).__v).__e, f = [], c = [], u.__P && ((t = d({}, r)).__v = r.__v + 1, l.vnode && l.vnode(t), O(u.__P, t, r, u.__n, u.__P.namespaceURI, 32 & r.__u ? [o] : null, f, null == o ? S(r) : o, !!(32 & r.__u), c), t.__v = r.__v, t.__.__k[t.__i] = t, z(f, t, c), t.__e != o && C(t)));
+            i.length > s && i.sort(e), n = i.shift(), s = i.length, n.__d && (t = void 0, o = (r = (u = n).__v).__e, f = [], c = [], u.__P && ((t = w({}, r)).__v = r.__v + 1, l.vnode && l.vnode(t), O(u.__P, t, r, u.__n, u.__P.namespaceURI, 32 & r.__u ? [o] : null, f, null == o ? S(r) : o, !!(32 & r.__u), c), t.__v = r.__v, t.__.__k[t.__i] = t, z(f, t, c), t.__e != o && C(t)));
         $.__r = 0;
     }
     function I(n, l, u, t, i, r, o, e, f, c, s) {
-        var a, h, v, w, d, g, _ = t && t.__k || y, m = l.length;
+        var a, h, y, d, w, g, _ = t && t.__k || v, m = l.length;
         for (f = P(u, l, _, f, m), a = 0; a < m; a++)
-            null != (v = u.__k[a]) && (h = -1 == v.__i ? p : _[v.__i] || p, v.__i = a, g = O(n, v, h, i, r, o, e, f, c, s), w = v.__e, v.ref && h.ref != v.ref && (h.ref && q(h.ref, null, v), s.push(v.ref, v.__c || w, v)), null == d && null != w && (d = w), 4 & v.__u || h.__k === v.__k ? f = A(v, f, n) : "function" == typeof v.type && void 0 !== g ? f = g : w && (f = w.nextSibling), v.__u &= -7);
-        return u.__e = d, f;
+            null != (y = u.__k[a]) && (h = -1 == y.__i ? p : _[y.__i] || p, y.__i = a, g = O(n, y, h, i, r, o, e, f, c, s), d = y.__e, y.ref && h.ref != y.ref && (h.ref && q(h.ref, null, y), s.push(y.ref, y.__c || d, y)), null == w && null != d && (w = d), 4 & y.__u || h.__k === y.__k ? f = A(y, f, n) : "function" == typeof y.type && void 0 !== g ? f = g : d && (f = d.nextSibling), y.__u &= -7);
+        return u.__e = w, f;
     }
     function P(n, l, u, t, i) {
         var r, o, e, f, c, s = u.length, a = s, h = 0;
         for (n.__k = new Array(i), r = 0; r < i; r++)
-            null != (o = l[r]) && "boolean" != typeof o && "function" != typeof o ? (f = r + h, (o = n.__k[r] = "string" == typeof o || "number" == typeof o || "bigint" == typeof o || o.constructor == String ? m(null, o, null, null, null) : w(o) ? m(k, { children: o }, null, null, null) : null == o.constructor && o.__b > 0 ? m(o.type, o.props, o.key, o.ref ? o.ref : null, o.__v) : o).__ = n, o.__b = n.__b + 1, e = null, -1 != (c = o.__i = L(o, u, f, a)) && (a--, (e = u[c]) && (e.__u |= 2)), null == e || null == e.__v ? (-1 == c && (i > s ? h-- : i < s && h++), "function" != typeof o.type && (o.__u |= 4)) : c != f && (c == f - 1 ? h-- : c == f + 1 ? h++ : (c > f ? h-- : h++, o.__u |= 4))) : n.__k[r] = null;
+            null != (o = l[r]) && "boolean" != typeof o && "function" != typeof o ? (f = r + h, (o = n.__k[r] = "string" == typeof o || "number" == typeof o || "bigint" == typeof o || o.constructor == String ? m(null, o, null, null, null) : d(o) ? m(k, { children: o }, null, null, null) : void 0 === o.constructor && o.__b > 0 ? m(o.type, o.props, o.key, o.ref ? o.ref : null, o.__v) : o).__ = n, o.__b = n.__b + 1, e = null, -1 != (c = o.__i = L(o, u, f, a)) && (a--, (e = u[c]) && (e.__u |= 2)), null == e || null == e.__v ? (-1 == c && (i > s ? h-- : i < s && h++), "function" != typeof o.type && (o.__u |= 4)) : c != f && (c == f - 1 ? h-- : c == f + 1 ? h++ : (c > f ? h-- : h++, o.__u |= 4))) : n.__k[r] = null;
         if (a)
             for (r = 0; r < s; r++)
                 null != (e = u[r]) && 0 == (2 & e.__u) && (e.__e == t && (t = S(e)), B(e, e));
@@ -30174,7 +30445,7 @@ ${compiled}`;
         } while (null != l && 8 == l.nodeType);
         return l;
     }
-    function H(n, l) { return l = l || [], null == n || "boolean" == typeof n || (w(n) ? n.some(function (n) { H(n, l); }) : l.push(n)), l; }
+    function H(n, l) { return l = l || [], null == n || "boolean" == typeof n || (d(n) ? n.some(function (n) { H(n, l); }) : l.push(n)), l; }
     function L(n, l, u, t) {
         var i, r, o = n.key, e = n.type, f = l[u];
         if (null === f && null == n.key || f && o == f.key && e == f.type && 0 == (2 & f.__u))
@@ -30194,9 +30465,9 @@ ${compiled}`;
             }
         return -1;
     }
-    function T(n, l, u) { "-" == l[0] ? n.setProperty(l, null == u ? "" : u) : n[l] = null == u ? "" : "number" != typeof u || v.test(l) ? u : u + "px"; }
+    function T(n, l, u) { "-" == l[0] ? n.setProperty(l, null == u ? "" : u) : n[l] = null == u ? "" : "number" != typeof u || y.test(l) ? u : u + "px"; }
     function j(n, l, u, t, i) {
-        var r;
+        var r, o;
         n: if ("style" == l)
             if ("string" == typeof u)
                 n.style.cssText = u;
@@ -30209,7 +30480,7 @@ ${compiled}`;
                         t && u[l] == t[l] || T(n.style, l, u[l]);
             }
         else if ("o" == l[0] && "n" == l[1])
-            r = l != (l = l.replace(f, "$1")), l = l.toLowerCase() in n || "onFocusOut" == l || "onFocusIn" == l ? l.toLowerCase().slice(2) : l.slice(2), n.l || (n.l = {}), n.l[l + r] = u, u ? t ? u.u = t.u : (u.u = c, n.addEventListener(l, r ? a : s, r)) : n.removeEventListener(l, r ? a : s, r);
+            r = l != (l = l.replace(f, "$1")), o = l.toLowerCase(), l = o in n || "onFocusOut" == l || "onFocusIn" == l ? o.slice(2) : l.slice(2), n.l || (n.l = {}), n.l[l + r] = u, u ? t ? u.u = t.u : (u.u = c, n.addEventListener(l, r ? a : s, r)) : n.removeEventListener(l, r ? a : s, r);
         else {
             if ("http://www.w3.org/2000/svg" == i)
                 l = l.replace(/xlink(H|:h)/, "h").replace(/sName$/, "s");
@@ -30235,22 +30506,22 @@ ${compiled}`;
         };
     }
     function O(n, u, t, i, r, o, e, f, c, s) {
-        var a, h, p, y, v, _, m, b, S, C, M, $, P, A, H, L, T, j = u.type;
-        if (null != u.constructor)
+        var a, h, p, v, y, _, m, b, S, C, M, $, P, A, H, L, T, j = u.type;
+        if (void 0 !== u.constructor)
             return null;
         128 & t.__u && (c = !!(32 & t.__u), o = [f = u.__e = t.__e]), (a = l.__b) && a(u);
         n: if ("function" == typeof j)
             try {
-                if (b = u.props, S = "prototype" in j && j.prototype.render, C = (a = j.contextType) && i[a.__c], M = a ? C ? C.props.value : a.__ : i, t.__c ? m = (h = u.__c = t.__c).__ = h.__E : (S ? u.__c = h = new j(b, M) : (u.__c = h = new x(b, M), h.constructor = j, h.render = D), C && C.sub(h), h.props = b, h.state || (h.state = {}), h.context = M, h.__n = i, p = h.__d = !0, h.__h = [], h._sb = []), S && null == h.__s && (h.__s = h.state), S && null != j.getDerivedStateFromProps && (h.__s == h.state && (h.__s = d({}, h.__s)), d(h.__s, j.getDerivedStateFromProps(b, h.__s))), y = h.props, v = h.state, h.__v = u, p)
+                if (b = u.props, S = "prototype" in j && j.prototype.render, C = (a = j.contextType) && i[a.__c], M = a ? C ? C.props.value : a.__ : i, t.__c ? m = (h = u.__c = t.__c).__ = h.__E : (S ? u.__c = h = new j(b, M) : (u.__c = h = new x(b, M), h.constructor = j, h.render = D), C && C.sub(h), h.props = b, h.state || (h.state = {}), h.context = M, h.__n = i, p = h.__d = !0, h.__h = [], h._sb = []), S && null == h.__s && (h.__s = h.state), S && null != j.getDerivedStateFromProps && (h.__s == h.state && (h.__s = w({}, h.__s)), w(h.__s, j.getDerivedStateFromProps(b, h.__s))), v = h.props, y = h.state, h.__v = u, p)
                     S && null == j.getDerivedStateFromProps && null != h.componentWillMount && h.componentWillMount(), S && null != h.componentDidMount && h.__h.push(h.componentDidMount);
                 else {
-                    if (S && null == j.getDerivedStateFromProps && b !== y && null != h.componentWillReceiveProps && h.componentWillReceiveProps(b, M), !h.__e && null != h.shouldComponentUpdate && !1 === h.shouldComponentUpdate(b, h.__s, M) || u.__v == t.__v) {
+                    if (S && null == j.getDerivedStateFromProps && b !== v && null != h.componentWillReceiveProps && h.componentWillReceiveProps(b, M), !h.__e && null != h.shouldComponentUpdate && !1 === h.shouldComponentUpdate(b, h.__s, M) || u.__v == t.__v) {
                         for (u.__v != t.__v && (h.props = b, h.state = h.__s, h.__d = !1), u.__e = t.__e, u.__k = t.__k, u.__k.some(function (n) { n && (n.__ = u); }), $ = 0; $ < h._sb.length; $++)
                             h.__h.push(h._sb[$]);
                         h._sb = [], h.__h.length && e.push(h);
                         break n;
                     }
-                    null != h.componentWillUpdate && h.componentWillUpdate(b, h.__s, M), S && null != h.componentDidUpdate && h.__h.push(function () { h.componentDidUpdate(y, v, _); });
+                    null != h.componentWillUpdate && h.componentWillUpdate(b, h.__s, M), S && null != h.componentDidUpdate && h.__h.push(function () { h.componentDidUpdate(v, y, _); });
                 }
                 if (h.context = M, h.props = b, h.__P = n, h.__e = !1, P = l.__r, A = 0, S) {
                     for (h.state = h.__s, h.__d = !1, P && P(u), a = h.render(h.props, h.state, h.context), H = 0; H < h._sb.length; H++)
@@ -30261,7 +30532,7 @@ ${compiled}`;
                     do {
                         h.__d = !1, P && P(u), a = h.render(h.props, h.state, h.context), h.state = h.__s;
                     } while (h.__d && ++A < 25);
-                h.state = h.__s, null != h.getChildContext && (i = d(d({}, i), h.getChildContext())), S && !p && null != h.getSnapshotBeforeUpdate && (_ = h.getSnapshotBeforeUpdate(y, v)), L = a, null != a && a.type === k && null == a.key && (L = N(a.props.children)), f = I(n, w(L) ? L : [L], u, t, i, r, o, e, f, c, s), h.base = u.__e, u.__u &= -161, h.__h.length && e.push(h), m && (h.__E = h.__ = null);
+                h.state = h.__s, null != h.getChildContext && (i = w(w({}, i), h.getChildContext())), S && !p && null != h.getSnapshotBeforeUpdate && (_ = h.getSnapshotBeforeUpdate(v, y)), L = a, null != a && a.type === k && null == a.key && (L = N(a.props.children)), f = I(n, d(L) ? L : [L], u, t, i, r, o, e, f, c, s), h.base = u.__e, u.__u &= -161, h.__h.length && e.push(h), m && (h.__E = h.__ = null);
             }
             catch (n) {
                 if (u.__v = null, c || null != o)
@@ -30293,13 +30564,13 @@ ${compiled}`;
             }
         });
     }
-    function N(n) { return "object" != typeof n || null == n || n.__b && n.__b > 0 ? n : w(n) ? n.map(N) : d({}, n); }
+    function N(n) { return "object" != typeof n || null == n || n.__b && n.__b > 0 ? n : d(n) ? n.map(N) : w({}, n); }
     function V(u, t, i, r, o, e, f, c, s) {
-        var a, h, y, v, d, _, m, b = i.props, k = t.props, x = t.type;
+        var a, h, v, y, w, _, m, b = i.props, k = t.props, x = t.type;
         if ("svg" == x ? o = "http://www.w3.org/2000/svg" : "math" == x ? o = "http://www.w3.org/1998/Math/MathML" : o || (o = "http://www.w3.org/1999/xhtml"), null != e)
             for (a = 0; a < e.length; a++)
-                if ((d = e[a]) && "setAttribute" in d == !!x && (x ? d.localName == x : 3 == d.nodeType)) {
-                    u = d, e[a] = null;
+                if ((w = e[a]) && "setAttribute" in w == !!x && (x ? w.localName == x : 3 == w.nodeType)) {
+                    u = w, e[a] = null;
                     break;
                 }
         if (null == u) {
@@ -30312,22 +30583,22 @@ ${compiled}`;
         else {
             if (e = e && n.call(u.childNodes), b = i.props || p, !c && null != e)
                 for (b = {}, a = 0; a < u.attributes.length; a++)
-                    b[(d = u.attributes[a]).name] = d.value;
+                    b[(w = u.attributes[a]).name] = w.value;
             for (a in b)
-                if (d = b[a], "children" == a)
+                if (w = b[a], "children" == a)
                     ;
                 else if ("dangerouslySetInnerHTML" == a)
-                    y = d;
+                    v = w;
                 else if (!(a in k)) {
                     if ("value" == a && "defaultValue" in k || "checked" == a && "defaultChecked" in k)
                         continue;
-                    j(u, a, null, d, o);
+                    j(u, a, null, w, o);
                 }
             for (a in k)
-                d = k[a], "children" == a ? v = d : "dangerouslySetInnerHTML" == a ? h = d : "value" == a ? _ = d : "checked" == a ? m = d : c && "function" != typeof d || b[a] === d || j(u, a, d, b[a], o);
+                w = k[a], "children" == a ? y = w : "dangerouslySetInnerHTML" == a ? h = w : "value" == a ? _ = w : "checked" == a ? m = w : c && "function" != typeof w || b[a] === w || j(u, a, w, b[a], o);
             if (h)
-                c || y && (h.__html == y.__html || h.__html == u.innerHTML) || (u.innerHTML = h.__html), t.__k = [];
-            else if (y && (u.innerHTML = ""), I("template" == t.type ? u.content : u, w(v) ? v : [v], t, i, r, "foreignObject" == x ? "http://www.w3.org/1999/xhtml" : o, e, f, e ? e[0] : i.__k && S(i, 0), c, s), null != e)
+                c || v && (h.__html == v.__html || h.__html == u.innerHTML) || (u.innerHTML = h.__html), t.__k = [];
+            else if (v && (u.innerHTML = ""), I("template" == t.type ? u.content : u, d(y) ? y : [y], t, i, r, "foreignObject" == x ? "http://www.w3.org/1999/xhtml" : o, e, f, e ? e[0] : i.__k && S(i, 0), c, s), null != e)
                 for (a = e.length; a--;)
                     g(e[a]);
             c || (a = "value", "progress" == x && null == _ ? u.removeAttribute("value") : null != _ && (_ !== u[a] || "progress" == x && !_ || "option" == x && _ != b[a]) && j(u, a, _, b[a], o), a = "checked", null != m && m != u[a] && j(u, a, m, b[a], o));
@@ -30368,13 +30639,13 @@ ${compiled}`;
     function E(u, t, i) { var r, o, e, f; t == document && (t = document.documentElement), l.__ && l.__(u, t), o = (r = "function" == typeof i) ? null : i && i.__k || t.__k, e = [], f = [], O(t, u = (!r && i || t).__k = _(k, null, [u]), o || p, p, t.namespaceURI, !r && i ? [i] : o ? null : t.firstChild ? n.call(t.childNodes) : null, e, !r && i ? i : o ? o.__e : t.firstChild, r, f), z(e, u, f); }
     function G(n, l) { E(n, l, G); }
     function J(l, u, t) {
-        var i, r, o, e, f = d({}, l.props);
+        var i, r, o, e, f = w({}, l.props);
         for (o in l.type && l.type.defaultProps && (e = l.type.defaultProps), u)
-            "key" == o ? i = u[o] : "ref" == o ? r = u[o] : f[o] = null == u[o] && null != e ? e[o] : u[o];
+            "key" == o ? i = u[o] : "ref" == o ? r = u[o] : f[o] = void 0 === u[o] && null != e ? e[o] : u[o];
         return arguments.length > 2 && (f.children = arguments.length > 3 ? n.call(arguments, 2) : t), m(l.type, f, i || l.key, r || l.ref, null);
     }
     function K(n) { function l(n) { var u, t; return this.getChildContext || (u = new Set, (t = {})[l.__c] = this, this.getChildContext = function () { return t; }, this.componentWillUnmount = function () { u = null; }, this.shouldComponentUpdate = function (n) { this.props.value != n.value && u.forEach(function (n) { n.__e = !0, M(n); }); }, this.sub = function (n) { u.add(n); var l = n.componentWillUnmount; n.componentWillUnmount = function () { u && u.delete(n), l && l.call(n); }; }), n.children; } return l.__c = "__cC" + h++, l.__ = n, l.Provider = l.__l = (l.Consumer = function (n, l) { return n.children(l); }).contextType = l, l; }
-    n = y.slice, exports.options = l = { __e: function (n, l, u, t) {
+    n = v.slice, exports.options = l = { __e: function (n, l, u, t) {
             for (var i, r, o; l = l.__;)
                 if ((i = l.__c) && !i.__)
                     try {
@@ -30385,9 +30656,9 @@ ${compiled}`;
                         n = l;
                     }
             throw n;
-        } }, u = 0, exports.isValidElement = t = function (n) { return null != n && null == n.constructor; }, x.prototype.setState = function (n, l) { var u; u = null != this.__s && this.__s != this.state ? this.__s : this.__s = d({}, this.state), "function" == typeof n && (n = n(d({}, u), this.props)), n && d(u, n), null != n && this.__v && (l && this._sb.push(l), M(this)); }, x.prototype.forceUpdate = function (n) { this.__v && (this.__e = !0, n && this.__h.push(n), M(this)); }, x.prototype.render = k, i = [], o = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e = function (n, l) { return n.__v.__b - l.__v.__b; }, $.__r = 0, f = /(PointerCapture)$|Capture$/i, c = 0, s = F(!1), a = F(!0), h = 0;
+        } }, u = 0, exports.isValidElement = t = function (n) { return null != n && void 0 === n.constructor; }, x.prototype.setState = function (n, l) { var u; u = null != this.__s && this.__s != this.state ? this.__s : this.__s = w({}, this.state), "function" == typeof n && (n = n(w({}, u), this.props)), n && w(u, n), null != n && this.__v && (l && this._sb.push(l), M(this)); }, x.prototype.forceUpdate = function (n) { this.__v && (this.__e = !0, n && this.__h.push(n), M(this)); }, x.prototype.render = k, i = [], o = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e = function (n, l) { return n.__v.__b - l.__v.__b; }, $.__r = 0, f = /(PointerCapture)$|Capture$/i, c = 0, s = F(!1), a = F(!0), h = 0;
 },
-"0e62f95470": /* preact/hooks/dist/hooks.module.js */ function _(require, module, exports, __esModule, __esExport) {
+"9295b344df": /* preact/hooks/dist/hooks.module.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.useCallback = q;
     exports.useContext = x;
@@ -30401,7 +30672,7 @@ ${compiled}`;
     exports.useReducer = h;
     exports.useRef = A;
     exports.useState = d;
-    const preact_1 = require("bb986b9dd6") /* preact */;
+    const preact_1 = require("091628d34a") /* preact */;
     var t, r, u, i, o = 0, f = [], c = preact_1.options, e = c.__b, a = c.__r, v = c.diffed, l = c.__c, m = c.unmount, s = c.__;
     function p(n, t) { c.__h && c.__h(r, n, o || t), o = 0; var u = r.__H || (r.__H = { __: [], __h: [] }); return n >= u.__.length && u.__.push({}), u.__[n]; }
     function d(n) { return o = 1, h(D, n); }
@@ -30494,7 +30765,7 @@ ${compiled}`;
         }), r.__H = void 0, t && c.__e(t, r.__v));
     };
     var k = "function" == typeof requestAnimationFrame;
-    function w(n) { var t, r = function () { clearTimeout(u), k && cancelAnimationFrame(t), setTimeout(n); }, u = setTimeout(r, 100); k && (t = requestAnimationFrame(r)); }
+    function w(n) { var t, r = function () { clearTimeout(u), k && cancelAnimationFrame(t), setTimeout(n); }, u = setTimeout(r, 35); k && (t = requestAnimationFrame(r)); }
     function z(n) { var t = r, u = n.__c; "function" == typeof u && (n.__c = void 0, u()), r = t; }
     function B(n) { var t = r; n.__c = n.__(), r = t; }
     function C(n, t) { return !n || n.length !== t.length || t.some(function (t, r) { return t !== n[r]; }); }
@@ -30503,8 +30774,8 @@ ${compiled}`;
 "b3f51db71c": /* htm/preact/index.module.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require("tslib");
-    const preact_1 = require("bb986b9dd6") /* preact */;
-    var preact_2 = require("bb986b9dd6") /* preact */;
+    const preact_1 = require("091628d34a") /* preact */;
+    var preact_2 = require("091628d34a") /* preact */;
     __esExport("h", preact_2.h);
     __esExport("render", preact_2.render);
     __esExport("Component", preact_2.Component);
@@ -40757,5 +41028,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"d92390e7cb","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"d446ec1ed8","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"1170146660","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"d92390e7cb","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"25fcfb521e","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"5bee7c9df6","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"d42fdf93ec","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

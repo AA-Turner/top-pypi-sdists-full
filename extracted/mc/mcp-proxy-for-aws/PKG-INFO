@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-proxy-for-aws
-Version: 1.1.5
+Version: 1.1.6
 Summary: MCP Proxy for AWS
 Project-URL: documentation, https://github.com/aws/aws-mcp-proxy/blob/main/README.md
 Project-URL: repository, https://github.com/aws/mcp-proxy-for-aws.git
@@ -17,7 +17,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.10
 Requires-Dist: boto3>=1.41.0
 Requires-Dist: botocore[crt]>=1.41.0
 Requires-Dist: fastmcp<2.14.1,>=2.13.1
@@ -343,3 +344,5 @@ LLMs are non-deterministic and they make mistakes, we advise you to always thoro
 
 <!-- mcp-name: io.github.aws/mcp-proxy-for-aws -->
 <!-- mcp-name: io.github.aws/aws-mcp -->
+<!-- mcp-name: aws.api.us-east-1.eks-mcp/server -->
+<!-- mcp-name: aws.api.us-east-1.ecs-mcp/server -->

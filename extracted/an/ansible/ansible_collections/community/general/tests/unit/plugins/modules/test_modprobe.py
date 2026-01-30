@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch, Mock, mock_open
+from unittest.mock import Mock, mock_open, patch
+
 from ansible_collections.community.internal_test_tools.tests.unit.plugins.modules.utils import (
     ModuleTestCase,
     set_module_args,
 )
+
 from ansible_collections.community.general.plugins.modules.modprobe import Modprobe, build_module
 
 
@@ -245,9 +247,7 @@ class TestPermanentParams(ModuleTestCase):
                 with patch("ansible_collections.community.general.plugins.modules.modprobe.Modprobe.modprobe_files"):
                     modprobe.modprobe_files = ["/etc/modprobe.d/dummy1.conf", "/etc/modprobe.d/dummy2.conf"]
 
-                    assert modprobe.permanent_params == set(
-                        ["numdummies=4", "dummy_parameter1=6", "dummy_parameter2=5"]
-                    )
+                    assert modprobe.permanent_params == {"numdummies=4", "dummy_parameter1=6", "dummy_parameter2=5"}
 
     def test_module_permanent_params_empty(self):
         files_content = ["", ""]

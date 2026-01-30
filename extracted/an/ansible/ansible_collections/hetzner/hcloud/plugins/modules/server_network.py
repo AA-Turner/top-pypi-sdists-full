@@ -96,7 +96,7 @@ RETURN = """
 hcloud_server_network:
     description: The relationship between a server and a network
     returned: always
-    type: complex
+    type: dict
     contains:
         network:
             description: Name of the Network
@@ -125,10 +125,10 @@ from ipaddress import ip_address, ip_network
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import APIException, HCloudException
-from ..module_utils.vendor.hcloud.networks import BoundNetwork
-from ..module_utils.vendor.hcloud.servers import BoundServer, PrivateNet
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._vendor.hcloud import APIException, HCloudException
+from ..module_utils._vendor.hcloud.networks import BoundNetwork
+from ..module_utils._vendor.hcloud.servers import BoundServer, PrivateNet
 
 
 class AnsibleHCloudServerNetwork(AnsibleHCloud):

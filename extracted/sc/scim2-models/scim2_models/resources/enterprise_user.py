@@ -1,23 +1,28 @@
+from typing import TYPE_CHECKING
 from typing import Annotated
-from typing import Literal
 
 from pydantic import Field
 
+from ..annotations import CaseExact
 from ..annotations import Mutability
 from ..annotations import Required
 from ..attributes import ComplexAttribute
+from ..path import URN
 from ..reference import Reference
 from .resource import Extension
 
+if TYPE_CHECKING:
+    from .user import User
+
 
 class Manager(ComplexAttribute):
-    value: Annotated[str | None, Required.true] = None
+    value: Annotated[str | None, Required.true, CaseExact.true] = None
     """The id of the SCIM resource representing the User's manager."""
 
-    ref: Annotated[Reference[Literal["User"]] | None, Required.true] = Field(
-        None,
-        serialization_alias="$ref",
-    )
+    ref: Annotated[  # type: ignore[type-arg]
+        Reference["User"] | None,
+        Required.true,
+    ] = Field(None, serialization_alias="$ref")
     """The URI of the SCIM resource representing the User's manager."""
 
     display_name: Annotated[str | None, Mutability.read_only] = None
@@ -25,9 +30,7 @@ class Manager(ComplexAttribute):
 
 
 class EnterpriseUser(Extension):
-    schemas: Annotated[list[str], Required.true] = [
-        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-    ]
+    __schema__ = URN("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User")
 
     employee_number: str | None = None
     """Numeric or alphanumeric identifier assigned to a person, typically based

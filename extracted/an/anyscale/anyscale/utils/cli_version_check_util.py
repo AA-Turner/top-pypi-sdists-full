@@ -9,6 +9,7 @@ from anyscale.util import is_anyscale_cluster, is_anyscale_workspace
 
 
 ANYSCALE_PYPI_PACKAGE = "anyscale"
+VERSION_UPGRADE_THRESHOLD = 5
 
 
 def _get_latest_pypi_version(package_name: str) -> Optional[str]:
@@ -26,18 +27,38 @@ def _get_latest_pypi_version(package_name: str) -> Optional[str]:
 
 
 def _is_upgrade_needed(
-    local_anyscale_version: str, latest_version: Optional[str]
+    local_anyscale_version: str,
+    latest_version: Optional[str],
+    version_threshold: int = VERSION_UPGRADE_THRESHOLD,
 ) -> bool:
     """
-    This method checks the local Anyscale version against the latest version from pypi.
-    If the local version is not the latest, it prints a warning message.
+    Check if the local Anyscale version needs an upgrade.
+
+    Returns True if:
+    - The major or minor version is behind the latest version, OR
+    - The patch version is more than `version_threshold` versions behind.
+
+    This reduces noise from frequent patch releases while still warning users
+    about significant version differences.
     """
     if local_anyscale_version == "0.0.0-dev":
         # This is using anyscale CLI from source. No need to check for updates.
         return False
-    return latest_version is not None and version.parse(
-        local_anyscale_version
-    ) < version.parse(latest_version)
+    if latest_version is None:
+        return False
+
+    local_ver = version.parse(local_anyscale_version)
+    latest_ver = version.parse(latest_version)
+
+    if local_ver >= latest_ver:
+        return False
+
+    # Always warn if major or minor version is behind
+    if local_ver.major < latest_ver.major or local_ver.minor < latest_ver.minor:
+        return True
+
+    # Only warn if more than version_threshold patch versions behind
+    return latest_ver.micro - local_ver.micro > version_threshold
 
 
 def log_warning_if_version_needs_upgrade() -> None:

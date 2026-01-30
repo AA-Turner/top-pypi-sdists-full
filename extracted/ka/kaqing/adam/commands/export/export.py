@@ -3,6 +3,7 @@ from adam.commands.command import Command
 from adam.commands.export.exporter import export
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 
 class ExportTables(Command):
     COMMAND = 'export'
@@ -31,8 +32,7 @@ class ExportTables(Command):
             with extract_trailing_options(args, '&') as (args, _):
                 with extract_options(args, '--export-only') as (args, export_only):
                     with export(state) as exporter:
-                        if r := exporter.export(args, export_only=export_only):
-                            AsyncJobs.print_start(r)
+                        exporter.export(args, export_only=export_only, ctx=Context.new(cmd, backgrounded=False, history=Context.LOCAL))
 
                         return state
 

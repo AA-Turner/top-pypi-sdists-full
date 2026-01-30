@@ -42,6 +42,7 @@ from snowflake.snowpark_connect.expression.map_expression import (
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.relation.map_relation import map_relation
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
+    METADATA_FILENAME_COLUMN,
     without_internal_columns,
 )
 from snowflake.snowpark_connect.utils.identifiers import (
@@ -155,7 +156,7 @@ def map_dropna(
     """
     Drop NA values from the input DataFrame.
     """
-    input_container = without_internal_columns(map_relation(rel.drop_na.input))
+    input_container = map_relation(rel.drop_na.input)
     input_df = input_container.dataframe
 
     if rel.drop_na.HasField("min_non_nulls"):
@@ -230,6 +231,11 @@ def map_dropna(
                     result = result.filter(
                         snowpark_expr(f"NOT ({all_null_or_nan_condition})")
                     )
+    elif any([c.is_hidden for c in input_container.column_map.columns]):
+        columns = input_container.column_map.get_snowpark_columns()
+        result: snowpark.DataFrame = input_df.dropna(
+            how=how, subset=columns, thresh=thresh
+        )
     else:
         result: snowpark.DataFrame = input_df.dropna(how=how, thresh=thresh)
 
@@ -250,7 +256,7 @@ def map_fillna(
 
     The `fill_value` is a scalar value that will be used to replace NaN values.
     """
-    input_container = without_internal_columns(map_relation(rel.fill_na.input))
+    input_container = map_relation(rel.fill_na.input)
     input_df = input_container.dataframe
     schema_fields = {field.name: field for field in input_df.schema.fields}
 
@@ -315,15 +321,31 @@ def map_fillna(
         assert len(rel.fill_na.values) == 1
         proto_value: expressions_proto.Expression.Literal = rel.fill_na.values[0]
         fill_value = get_literal_field_and_name(proto_value)[0]
+
+        has_hidden_columns = any(
+            c.is_hidden for c in input_container.column_map.columns
+        )
+        visible_columns = [
+            c.snowpark_name
+            for c in input_container.column_map.columns
+            if not c.is_hidden and c.snowpark_name != METADATA_FILENAME_COLUMN
+        ]
+
         # Spark casts float fill values to int for integer columns; Snowpark doesn't
         if isinstance(fill_value, float):
+            visible_columns_set = set(visible_columns)
             fill_value_dict: dict[str, float | int] = {
                 field.name: int(fill_value)
                 if isinstance(field.datatype, _IntegralType)
                 else fill_value
                 for field in input_df.schema.fields
+                if field.name in visible_columns_set
             }
             result = input_df.fillna(fill_value_dict, include_decimal=True)
+        elif has_hidden_columns or METADATA_FILENAME_COLUMN in schema_fields:
+            result = input_df.fillna(
+                fill_value, subset=visible_columns, include_decimal=True
+            )
         else:
             result = input_df.fillna(fill_value, include_decimal=True)
 
@@ -344,6 +366,7 @@ def map_union(
 
     The two DataFrames must have the same schema.
     """
+    # todo: preserve metadata internal columns
     left_result = without_internal_columns(map_relation(rel.set_op.left_input))
     right_result = without_internal_columns(map_relation(rel.set_op.right_input))
     left_df = left_result.dataframe
@@ -846,9 +869,9 @@ def map_replace(
     values to replace. The values in the dictionary are the values to replace
     and the keys are the values to replace them with.
     """
-    result = without_internal_columns(map_relation(rel.replace.input))
+    result = map_relation(rel.replace.input)
     input_df = result.dataframe
-    ordered_columns = input_df.columns
+    ordered_columns = result.column_map.get_snowpark_columns(with_hidden=True)
     column_map = result.column_map
     table_name = result.table_name
     # note that seems like spark connect always send number values as double in rel.replace.replacements.
@@ -910,7 +933,9 @@ def map_replace(
             - Compared using IS NULL, not = NULL.
         """
         col_datatype = next(
-            field.datatype for field in input_df.schema.fields if field.name == col_name
+            field.datatype
+            for field in result.dataframe.schema.fields
+            if field.name == col_name
         )
         numeric_flag = isinstance(
             col_datatype,
@@ -987,8 +1012,13 @@ def map_replace(
         for c in columns:
             input_df = input_df.with_column(c, replace_case_expr(c, to_replace, values))
     else:
-        for c in input_df.columns:
-            input_df = input_df.with_column(c, replace_case_expr(c, to_replace, values))
+        for c in result.column_map.columns:
+            cn = c.snowpark_name
+            if c.is_hidden or cn == METADATA_FILENAME_COLUMN:
+                continue
+            input_df = input_df.with_column(
+                cn, replace_case_expr(cn, to_replace, values)
+            )
 
     result_df = input_df.select(*[col(c) for c in ordered_columns])
     original_schema = result.dataframe.schema

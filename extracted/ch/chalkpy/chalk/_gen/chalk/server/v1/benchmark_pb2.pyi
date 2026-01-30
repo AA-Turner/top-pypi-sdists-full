@@ -41,22 +41,33 @@ class InputFeatures(_message.Message):
     input_features: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, input_features: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class NamedQueryRequest(_message.Message):
+    __slots__ = ("query_name", "query_version")
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    query_name: str
+    query_version: str
+    def __init__(self, query_name: _Optional[str] = ..., query_version: _Optional[str] = ...) -> None: ...
+
 class SimpleOnlineQueryBulkRequest(_message.Message):
-    __slots__ = ("input_features", "input_features_list", "input_file", "output_features")
+    __slots__ = ("input_features", "input_features_list", "input_file", "output_features", "named_query_request")
     INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     INPUT_FEATURES_LIST_FIELD_NUMBER: _ClassVar[int]
     INPUT_FILE_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    NAMED_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
     input_features: _containers.RepeatedScalarFieldContainer[str]
     input_features_list: InputFeatures
     input_file: str
     output_features: _containers.RepeatedScalarFieldContainer[str]
+    named_query_request: NamedQueryRequest
     def __init__(
         self,
         input_features: _Optional[_Iterable[str]] = ...,
         input_features_list: _Optional[_Union[InputFeatures, _Mapping]] = ...,
         input_file: _Optional[str] = ...,
         output_features: _Optional[_Iterable[str]] = ...,
+        named_query_request: _Optional[_Union[NamedQueryRequest, _Mapping]] = ...,
     ) -> None: ...
 
 class ContainerSpec(_message.Message):

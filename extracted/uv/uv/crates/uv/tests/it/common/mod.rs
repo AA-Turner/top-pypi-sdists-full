@@ -1018,6 +1018,10 @@ impl TestContext {
             .env(EnvVars::APPDATA, self.home_dir.as_os_str())
             .env(EnvVars::USERPROFILE, self.home_dir.as_os_str())
             .env(
+                EnvVars::XDG_CONFIG_DIRS,
+                self.home_dir.join("config").as_os_str(),
+            )
+            .env(
                 EnvVars::XDG_DATA_HOME,
                 self.home_dir.join("data").as_os_str(),
             )
@@ -1034,9 +1038,6 @@ impl TestContext {
             // Since downloads, fetches and builds run in parallel, their message output order is
             // non-deterministic, so can't capture them in test output.
             .env(EnvVars::UV_TEST_NO_CLI_PROGRESS, "1")
-            .env_remove(EnvVars::UV_CACHE_DIR)
-            .env_remove(EnvVars::UV_TOOL_BIN_DIR)
-            .env_remove(EnvVars::XDG_CONFIG_HOME)
             // I believe the intent of all tests is that they are run outside the
             // context of an existing git repository. And when they aren't, state
             // from the parent git repository can bleed into the behavior of `uv
@@ -1154,11 +1155,10 @@ impl TestContext {
     }
 
     /// Create a `uv help` command with options shared across scenarios.
-    #[allow(clippy::unused_self)]
     pub fn help(&self) -> Command {
         let mut command = Self::new_command();
         command.arg("help");
-        command.env_remove(EnvVars::UV_CACHE_DIR);
+        self.add_shared_env(&mut command, false);
         command
     }
 
@@ -1257,10 +1257,10 @@ impl TestContext {
     }
 
     /// Create a `uv publish` command with options shared across scenarios.
-    #[allow(clippy::unused_self)]
     pub fn publish(&self) -> Command {
         let mut command = Self::new_command();
         command.arg("publish");
+        self.add_shared_options(&mut command, false);
         command
     }
 
@@ -1290,24 +1290,24 @@ impl TestContext {
     /// Create a `uv python install` command with options shared across scenarios.
     pub fn python_install(&self) -> Command {
         let mut command = Self::new_command();
-        self.add_shared_options(&mut command, true);
         command.arg("python").arg("install");
+        self.add_shared_options(&mut command, true);
         command
     }
 
     /// Create a `uv python uninstall` command with options shared across scenarios.
     pub fn python_uninstall(&self) -> Command {
         let mut command = Self::new_command();
-        self.add_shared_options(&mut command, true);
         command.arg("python").arg("uninstall");
+        self.add_shared_options(&mut command, true);
         command
     }
 
     /// Create a `uv python upgrade` command with options shared across scenarios.
     pub fn python_upgrade(&self) -> Command {
         let mut command = Self::new_command();
-        self.add_shared_options(&mut command, true);
         command.arg("python").arg("upgrade");
+        self.add_shared_options(&mut command, true);
         command
     }
 
@@ -1526,6 +1526,12 @@ impl TestContext {
             self.extra_env
                 .push((EnvVars::HOME.to_string().into(), home));
         }
+        // Use the test's isolated config directory to avoid reading user
+        // configuration files (like `.python-version`) that could interfere with tests.
+        self.extra_env.push((
+            EnvVars::XDG_CONFIG_HOME.into(),
+            self.user_config_dir.as_os_str().into(),
+        ));
         self
     }
 
@@ -1632,7 +1638,7 @@ impl TestContext {
     }
 
     /// For when we add pypy to the test suite.
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     pub fn python_kind(&self) -> &'static str {
         "python"
     }
@@ -1736,6 +1742,8 @@ impl TestContext {
         let mut command = Command::new(bin);
 
         let passthrough = [
+            // For linux distributions
+            EnvVars::PATH,
             // For debugging tests.
             EnvVars::RUST_LOG,
             EnvVars::RUST_BACKTRACE,
@@ -1933,7 +1941,7 @@ pub fn run_and_format<T: AsRef<str>>(
 /// Execute the command and format its output status, stdout and stderr into a snapshot string.
 ///
 /// This function is derived from `insta_cmd`s `spawn_with_info`.
-#[allow(clippy::print_stderr)]
+#[expect(clippy::print_stderr)]
 pub fn run_and_format_with_status<T: AsRef<str>>(
     mut command: impl BorrowMut<Command>,
     filters: impl AsRef<[(T, T)]>,
@@ -1949,10 +1957,14 @@ pub fn run_and_format_with_status<T: AsRef<str>>(
 
     // Support profiling test run commands with traces.
     if let Ok(root) = env::var(EnvVars::TRACING_DURATIONS_TEST_ROOT) {
-        assert!(
-            cfg!(feature = "tracing-durations-export"),
-            "You need to enable the tracing-durations-export feature to use `TRACING_DURATIONS_TEST_ROOT`"
-        );
+        // We only want to fail if the variable is set at runtime.
+        #[allow(clippy::assertions_on_constants)]
+        {
+            assert!(
+                cfg!(feature = "tracing-durations-export"),
+                "You need to enable the tracing-durations-export feature to use `TRACING_DURATIONS_TEST_ROOT`"
+            );
+        }
         command.borrow_mut().env(
             EnvVars::TRACING_DURATIONS_FILE,
             Path::new(&root).join(function_name).with_extension("jsonl"),

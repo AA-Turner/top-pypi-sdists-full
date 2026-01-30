@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rclone-python
-Version: 0.1.23
+Version: 0.1.24
 Summary: A python wrapper for rclone.
 Home-page: https://github.com/Johannes11833/rclone_python
 Author: Johannes Gundlach

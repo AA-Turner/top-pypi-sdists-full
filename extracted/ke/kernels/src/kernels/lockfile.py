@@ -1,7 +1,6 @@
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 from huggingface_hub import HfApi
 
@@ -19,17 +18,17 @@ class VariantLock:
 class KernelLock:
     repo_id: str
     sha: str
-    variants: Dict[str, VariantLock]
+    variants: dict[str, VariantLock]
 
     @classmethod
-    def from_json(cls, o: Dict):
+    def from_json(cls, o: dict):
         variants = {
             variant: VariantLock(**lock) for variant, lock in o["variants"].items()
         }
         return cls(repo_id=o["repo_id"], sha=o["sha"], variants=variants)
 
 
-def get_kernel_locks(repo_id: str, version_spec: str) -> KernelLock:
+def get_kernel_locks(repo_id: str, version_spec: int | str) -> KernelLock:
     """
     Get the locks for a kernel with the given version spec.
 
@@ -51,7 +50,7 @@ def get_kernel_locks(repo_id: str, version_spec: str) -> KernelLock:
             f"Cannot get sibling information for {repo_id} for tag {tag_for_newest.name}"
         )
 
-    variant_files: Dict[str, List[Tuple[bytes, str]]] = {}
+    variant_files: dict[str, list[tuple[bytes, str]]] = {}
     for sibling in r.siblings:
         if sibling.rfilename.startswith("build/torch"):
             if sibling.blob_id is None:

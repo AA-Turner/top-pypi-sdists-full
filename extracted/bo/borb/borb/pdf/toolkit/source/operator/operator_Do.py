@@ -17,6 +17,7 @@ The effect of the 'Do' operator depends on the `Subtype` of the XObject, as it d
 
 For more information about XObjects and how they are used, refer to section 7.8.3, "Resource Dictionaries," and the appropriate sections on XObject types (Image, Form, and PostScript).
 """
+
 import typing
 
 from borb.pdf.page import Page
@@ -93,7 +94,7 @@ class OperatorDo(Operator):
         xobject: typing.Optional[PDFType] = (
             page.get("Resources", {})
             .get("XObject", {})
-            .get(xobject_resource_name[1:], None)
+            .get(xobject_resource_name, None)
         )
 
         # /Image

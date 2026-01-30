@@ -7,13 +7,31 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
+import cvxpy as cp
 import cvxpy.settings as s
-from cvxpy.lin_ops.canon_backend import (
-    CanonBackend,
-    NumPyCanonBackend,
+from cvxpy.lin_ops.backends import (
+    CooCanonBackend,
+    CooTensor,
     PythonCanonBackend,
     SciPyCanonBackend,
     TensorRepresentation,
+    get_backend,
+)
+from cvxpy.lin_ops.backends.coo_backend import (
+    _build_interleaved_mul,
+    _build_interleaved_rmul,
+    _kron_eye_l,
+    _kron_eye_r,
+    _kron_nd_structure_mul,
+    _kron_nd_structure_rmul,
+)
+from cvxpy.lin_ops.backends.scipy_backend import (
+    _apply_nd_kron_structure_mul,
+    _apply_nd_kron_structure_rmul,
+    _build_interleaved_matrix_mul,
+    _build_interleaved_matrix_rmul,
+    _expand_parametric_slices_mul,
+    _expand_parametric_slices_rmul,
 )
 
 
@@ -47,21 +65,75 @@ def test_tensor_representation():
     assert np.all(flattened.toarray() == np.array([[0, 0], [0, 0], [10, 0], [0, 20]]))
 
 
+@pytest.mark.parametrize("backend_name", [s.SCIPY_CANON_BACKEND, s.COO_CANON_BACKEND])
+def test_build_matrix_order(backend_name):
+    """Test that build_matrix respects the order argument for both backends."""
+    kwargs = {
+        "id_to_col": {1: 0},
+        "param_to_size": {-1: 1},
+        "param_to_col": {-1: 0},
+        "param_size_plus_one": 1,
+        "var_length": 2,
+    }
+    backend = get_backend(backend_name, **kwargs)
+
+    # Simple variable linop of shape (2,) - creates a 2x2 identity in the variable columns
+    # Variable id=1 maps to column offset 0, so entries go in columns 0 and 1
+    lin_op = linOpHelper(shape=(2,), type="variable", data=1, args=[])
+
+    # Test F order (column-major)
+    f_result = backend.build_matrix([lin_op], order='F')
+
+    # Test C order (row-major)
+    c_result = backend.build_matrix([lin_op], order='C')
+
+    # Both results should have shape (total_rows * (var_length + 1), param_size_plus_one)
+    # total_rows = 2, var_length + 1 = 3, param_size_plus_one = 1
+    # So shape is (6, 1)
+    assert f_result.shape == (6, 1)
+    assert c_result.shape == (6, 1)
+
+    # The underlying tensor has entries at (row=0, col=0) and (row=1, col=1)
+    # with shape (2, 3).
+    #
+    # In F order (column-major): flat_row = col * num_rows + row
+    #   (0, 0) -> 0*2 + 0 = 0
+    #   (1, 1) -> 1*2 + 1 = 3
+    #
+    # In C order (row-major): flat_row = col + row * num_cols
+    #   (0, 0) -> 0 + 0*3 = 0
+    #   (1, 1) -> 1 + 1*3 = 4
+    f_dense = f_result.toarray().flatten()
+    c_dense = c_result.toarray().flatten()
+
+    # F order: entries at indices 0 and 3
+    expected_f = np.array([1., 0., 0., 1., 0., 0.])
+    np.testing.assert_array_equal(f_dense, expected_f)
+
+    # C order: entries at indices 0 and 4
+    expected_c = np.array([1., 0., 0., 0., 1., 0.])
+    np.testing.assert_array_equal(c_dense, expected_c)
+
+    # Test invalid order
+    with pytest.raises(ValueError, match="order must be 'F' or 'C'"):
+        backend.build_matrix([lin_op], order='INVALID')
+
+
 class TestBackendInstance:
     def test_get_backend(self):
         args = ({1: 0, 2: 2}, {-1: 1, 3: 1}, {3: 0, -1: 1}, 2, 4)
 
-        backend = CanonBackend.get_backend(s.SCIPY_CANON_BACKEND, *args)
+        backend = get_backend(s.SCIPY_CANON_BACKEND, *args)
         assert isinstance(backend, SciPyCanonBackend)
 
-        backend = CanonBackend.get_backend(s.NUMPY_CANON_BACKEND, *args)
-        assert isinstance(backend, NumPyCanonBackend)
+        backend = get_backend(s.COO_CANON_BACKEND, *args)
+        assert isinstance(backend, CooCanonBackend)
 
         with pytest.raises(KeyError):
-            CanonBackend.get_backend("notabackend")
+            get_backend("notabackend")
 
 
-backends = [s.SCIPY_CANON_BACKEND, s.NUMPY_CANON_BACKEND]
+backends = [s.SCIPY_CANON_BACKEND, s.COO_CANON_BACKEND]
 
 
 class TestBackends:
@@ -78,7 +150,7 @@ class TestBackends:
             "var_length": 4,
         }
 
-        backend = CanonBackend.get_backend(request.param, **kwargs)
+        backend = get_backend(request.param, **kwargs)
         assert isinstance(backend, PythonCanonBackend)
         return backend
 
@@ -1354,7 +1426,7 @@ class TestParametrizedBackends:
             "var_length": 2,
         }
 
-        backend = CanonBackend.get_backend(request.param, **kwargs)
+        backend = get_backend(request.param, **kwargs)
         assert isinstance(backend, PythonCanonBackend)
         return backend
 
@@ -2027,6 +2099,39 @@ class TestParametrizedBackends:
             0, 1
         )
 
+    @pytest.mark.parametrize("backend_name", backends)
+    def test_mul_1d_param_1d_var(self, backend_name):
+        """1D parameter @ 1D variable = scalar (dot product).
+
+        Bug regression test: 1D parameters must be treated as row vectors
+        (1, n) not column vectors (n, 1) for correct matrix dimensions.
+        """
+        n = 4
+        backend = get_backend(
+            backend_name,
+            id_to_col={1: 0},
+            param_to_size={-1: 1, 3: n},
+            param_to_col={-1: 0, 3: 1},
+            param_size_plus_one=n + 1,
+            var_length=n,
+        )
+        var = linOpHelper((n,), type="variable", data=1)
+        view = backend.process_constraint(var, backend.get_empty_view())
+
+        # param (n,) @ x (n,) -> scalar
+        param = linOpHelper((n,), type="param", data=3)
+        lin_op = linOpHelper(shape=(), data=param, args=[var])
+        out = backend.mul(lin_op, view)
+
+        # Result is 1 row (scalar output)
+        total_rows = 1
+        tr = out.get_tensor_representation(0, total_rows)
+
+        # Row indices must be within bounds
+        assert len(tr.row) > 0, "Should have non-zero entries"
+        assert tr.row.max() < total_rows, \
+            f"Row index {tr.row.max()} exceeds total_rows {total_rows}"
+
 
 class TestND_Backends:
     @staticmethod
@@ -2042,10 +2147,9 @@ class TestND_Backends:
             "var_length": 4,
         }
 
-        backend = CanonBackend.get_backend(request.param, **kwargs)
+        backend = get_backend(request.param, **kwargs)
         assert isinstance(backend, PythonCanonBackend)
         return backend
-
 
     def test_nd_sum_entries(self, backend):
         """
@@ -2320,6 +2424,165 @@ class TestND_Backends:
         # Note: view is edited in-place:
         assert out_view.get_tensor_representation(0, 1) == view.get_tensor_representation(0, 1)
 
+    def test_nd_mul_3d_var(self, backend):
+        """
+        Test mul linop with 3D variable: C (m,k) @ X (B,k,n).
+
+        For C @ X where C is 2D (m,k) and X is 3D (B,k,n):
+        - vec(C @ X) = (I_n ⊗ C ⊗ I_B) @ vec(X)
+
+        Example: X = Variable((2, 2, 2)) with shape (B=2, k=2, n=2)
+        X is represented as eye(8) in column-major (Fortran) order:
+
+        vec(X) index mapping:
+        - Index 0: X[0,0,0]
+        - Index 1: X[1,0,0]
+        - Index 2: X[0,1,0]
+        - Index 3: X[1,1,0]
+        - Index 4: X[0,0,1]
+        - Index 5: X[1,0,1]
+        - Index 6: X[0,1,1]
+        - Index 7: X[1,1,1]
+
+        For C = [[1, 2], [3, 4]], the result is (B=2, m=2, n=2).
+        Each output element is computed as:
+        - result[b, i, c] = sum_r C[i, r] * X[b, r, c]
+
+        The resulting A matrix is I_2 ⊗ C ⊗ I_2:
+
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [1    0    2    0    0    0    0    0  ]  # C[0,:]@X[0,:,0]
+        result[1]  [0    1    0    2    0    0    0    0  ]  # C[0,:]@X[1,:,0]
+        result[2]  [3    0    4    0    0    0    0    0  ]  # C[1,:]@X[0,:,0]
+        result[3]  [0    3    0    4    0    0    0    0  ]  # C[1,:]@X[1,:,0]
+        result[4]  [0    0    0    0    1    0    2    0  ]  # C[0,:]@X[0,:,1]
+        result[5]  [0    0    0    0    0    1    0    2  ]  # C[0,:]@X[1,:,1]
+        result[6]  [0    0    0    0    3    0    4    0  ]  # C[1,:]@X[0,:,1]
+        result[7]  [0    0    0    0    0    3    0    4  ]  # C[1,:]@X[1,:,1]
+        """
+        # Update backend for 3D variable
+        backend.var_length = 8
+        backend.id_to_col = {1: 0}
+
+        var = linOpHelper((2, 2, 2), type="variable", data=1)
+        view = backend.process_constraint(var, backend.get_empty_view())
+
+        # Verify initial view is identity
+        view_A = view.get_tensor_representation(0, 8)
+        view_A = sp.coo_matrix((view_A.data, (view_A.row, view_A.col)), shape=(8, 8)).toarray()
+        assert np.all(view_A == np.eye(8))
+
+        # Create constant C = [[1, 2], [3, 4]]
+        const_data = np.array([[1, 2], [3, 4]])
+        const = linOpHelper((2, 2), type="dense_const", data=const_data)
+
+        mul_op = linOpHelper(shape=(2, 2, 2), data=const, args=[var])
+        out_view = backend.mul(mul_op, view)
+        A = out_view.get_tensor_representation(0, 8)
+
+        # Cast to numpy
+        A = sp.coo_matrix((A.data, (A.row, A.col)), shape=(8, 8)).toarray()
+
+        # Expected: I_2 ⊗ C ⊗ I_2
+        # C ⊗ I_2 = [[1,0,2,0], [0,1,0,2], [3,0,4,0], [0,3,0,4]]
+        # I_2 ⊗ (C ⊗ I_2) = block_diag(C ⊗ I_2, C ⊗ I_2)
+        expected = np.array([
+            [1, 0, 2, 0, 0, 0, 0, 0],
+            [0, 1, 0, 2, 0, 0, 0, 0],
+            [3, 0, 4, 0, 0, 0, 0, 0],
+            [0, 3, 0, 4, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 2, 0],
+            [0, 0, 0, 0, 0, 1, 0, 2],
+            [0, 0, 0, 0, 3, 0, 4, 0],
+            [0, 0, 0, 0, 0, 3, 0, 4],
+        ])
+        assert np.all(A == expected)
+
+        # Note: view is edited in-place
+        assert out_view.get_tensor_representation(0, 8) == view.get_tensor_representation(0, 8)
+
+    def test_nd_mul_batch_varying_const(self, backend):
+        """
+        Test mul linop with batch-varying constant: C (B,m,k) @ X (B,k,n).
+
+        For C @ X where C is 3D (B,m,k) and X is 3D (B,k,n):
+        - Each batch b computes: result[b,:,:] = C[b,:,:] @ X[b,:,:]
+        - Uses interleaved matrix structure where batch indices alternate
+
+        Example: X = Variable((2, 2, 2)) with shape (B=2, k=2, n=2)
+        X is represented as eye(8) in column-major (Fortran) order:
+
+        vec(X) index mapping:
+        - Index 0: X[0,0,0]
+        - Index 1: X[1,0,0]
+        - Index 2: X[0,1,0]
+        - Index 3: X[1,1,0]
+        - Index 4: X[0,0,1]
+        - Index 5: X[1,0,1]
+        - Index 6: X[0,1,1]
+        - Index 7: X[1,1,1]
+
+        For C with shape (2, 2, 2):
+        - C[0] = [[1, 2], [3, 4]]
+        - C[1] = [[5, 6], [7, 8]]
+
+        The result shape is (B=2, m=2, n=2). Each output:
+        - result[b, i, c] = sum_r C[b, i, r] * X[b, r, c]
+
+        The resulting A matrix has interleaved batch structure:
+
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [1    0    2    0    0    0    0    0  ]  # C[0,0,:]@X[0,:,0]
+        result[1]  [0    5    0    6    0    0    0    0  ]  # C[1,0,:]@X[1,:,0]
+        result[2]  [3    0    4    0    0    0    0    0  ]  # C[0,1,:]@X[0,:,0]
+        result[3]  [0    7    0    8    0    0    0    0  ]  # C[1,1,:]@X[1,:,0]
+        result[4]  [0    0    0    0    1    0    2    0  ]  # C[0,0,:]@X[0,:,1]
+        result[5]  [0    0    0    0    0    5    0    6  ]  # C[1,0,:]@X[1,:,1]
+        result[6]  [0    0    0    0    3    0    4    0  ]  # C[0,1,:]@X[0,:,1]
+        result[7]  [0    0    0    0    0    7    0    8  ]  # C[1,1,:]@X[1,:,1]
+
+        Note how batch indices are interleaved: rows 0,2,4,6 use C[0], rows 1,3,5,7 use C[1].
+        """
+        backend.var_length = 8
+        backend.id_to_col = {1: 0}
+
+        var = linOpHelper((2, 2, 2), type="variable", data=1)
+        view = backend.process_constraint(var, backend.get_empty_view())
+
+        # Verify initial view is identity
+        view_A = view.get_tensor_representation(0, 8)
+        view_A = sp.coo_matrix((view_A.data, (view_A.row, view_A.col)), shape=(8, 8)).toarray()
+        assert np.all(view_A == np.eye(8))
+
+        # Create batch-varying constant C with shape (2, 2, 2)
+        # C[0] = [[1, 2], [3, 4]], C[1] = [[5, 6], [7, 8]]
+        const_data = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        const = linOpHelper((2, 2, 2), type="dense_const", data=const_data)
+
+        mul_op = linOpHelper(shape=(2, 2, 2), data=const, args=[var])
+        out_view = backend.mul(mul_op, view)
+        A = out_view.get_tensor_representation(0, 8)
+
+        # Cast to numpy
+        A = sp.coo_matrix((A.data, (A.row, A.col)), shape=(8, 8)).toarray()
+
+        # Expected: interleaved matrix structure
+        # Rows 0,2,4,6 use C[0], rows 1,3,5,7 use C[1]
+        expected = np.array([
+            [1, 0, 2, 0, 0, 0, 0, 0],
+            [0, 5, 0, 6, 0, 0, 0, 0],
+            [3, 0, 4, 0, 0, 0, 0, 0],
+            [0, 7, 0, 8, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 2, 0],
+            [0, 0, 0, 0, 0, 5, 0, 6],
+            [0, 0, 0, 0, 3, 0, 4, 0],
+            [0, 0, 0, 0, 0, 7, 0, 8],
+        ])
+        assert np.all(A == expected)
+
+        # Note: view is edited in-place
+        assert out_view.get_tensor_representation(0, 8) == view.get_tensor_representation(0, 8)
+
 
 class TestParametrizedND_Backends:
     @staticmethod
@@ -2333,7 +2596,7 @@ class TestParametrizedND_Backends:
             "var_length": 8,
         }
 
-        backend = CanonBackend.get_backend(request.param, **kwargs)
+        backend = get_backend(request.param, **kwargs)
         assert isinstance(backend, PythonCanonBackend)
         return backend
 
@@ -2407,72 +2670,146 @@ class TestParametrizedND_Backends:
             0, 4
         )
 
+    def test_parametrized_nd_mul(self, param_backend):
+        """
+        Test parametrized mul linop with 3D variable: C_param (m,k) @ X (B,k,n).
 
-class TestNumPyBackend:
-    @staticmethod
-    @pytest.fixture()
-    def numpy_backend():
-        kwargs = {
-            "id_to_col": {1: 0},
-            "param_to_size": {-1: 1, 2: 2},
-            "param_to_col": {2: 0, -1: 2},
-            "param_size_plus_one": 3,
-            "var_length": 2,
-        }
-        backend = CanonBackend.get_backend(s.NUMPY_CANON_BACKEND, **kwargs)
-        assert isinstance(backend, NumPyCanonBackend)
-        return backend
+        For parametrized C @ X where C is a 2D parameter (m,k) and X is 3D (B,k,n):
+        - Each element of C becomes a separate parameter slice
+        - vec(result) = (I_n ⊗ C ⊗ I_B) @ vec(X) with C parametrized
 
-    def test_get_variable_tensor(self, numpy_backend):
-        outer = numpy_backend.get_variable_tensor((2,), 1)
-        assert outer.keys() == {1}, "Should only be in variable with ID 1"
-        inner = outer[1]
-        assert inner.keys() == {-1}, "Should only be in parameter slice -1, i.e. non parametrized."
-        tensor = inner[-1]
-        assert isinstance(tensor, np.ndarray), "Should be a numpy array"
-        assert tensor.shape == (1, 2, 2), "Should be a 1x2x2 tensor"
-        assert np.all(tensor[0] == np.eye(2)), "Should be eye(2)"
+        Example: X = Variable((2, 2, 2)) with shape (B=2, k=2, n=2)
+        C = Parameter((2, 2)) with 4 elements in Fortran order:
+        - param_slice 0: C[0,0]
+        - param_slice 1: C[1,0]
+        - param_slice 2: C[0,1]
+        - param_slice 3: C[1,1]
 
-    @pytest.mark.parametrize("data", [np.array([[1, 2], [3, 4]]), sp.eye_array(2) * 4])
-    def test_get_data_tensor(self, numpy_backend, data):
-        outer = numpy_backend.get_data_tensor(data)
-        assert outer.keys() == {-1}, "Should only be constant variable ID."
-        inner = outer[-1]
-        assert inner.keys() == {-1}, "Should only be in parameter slice -1, i.e. non parametrized."
-        tensor = inner[-1]
-        assert isinstance(tensor, np.ndarray), "Should be a numpy array"
-        assert isinstance(tensor[0], np.ndarray), "Inner matrix should also be a numpy array"
-        assert tensor.shape == (1, 4, 1), "Should be a 1x4x1 tensor"
-        expected = numpy_backend._to_dense(data).reshape((-1, 1), order="F")
-        assert np.all(tensor[0] == expected)
+        Each output element: result[b, i, c] = sum_r C[i, r] * X[b, r, c]
 
-    def test_get_param_tensor(self, numpy_backend):
-        shape = (2, 2)
-        size = np.prod(shape)
-        outer = numpy_backend.get_param_tensor(shape, 3)
-        assert outer.keys() == {-1}, "Should only be constant variable ID."
-        inner = outer[-1]
-        assert inner.keys() == {3}, "Should only be the parameter slice of parameter with id 3."
-        tensor = inner[3]
-        assert isinstance(tensor, np.ndarray), "Should be a numpy array"
-        assert tensor.shape == (4, 4, 1), "Should be a 4x4x1 tensor"
-        assert np.all(tensor[:, :, 0] == np.eye(size)), "Should be eye(4) along axes 1 and 2"
+        For param_slice 0 (C[0,0]), contributes to result[b, 0, c] from X[b, 0, c]:
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [1    0    0    0    0    0    0    0  ]
+        result[1]  [0    1    0    0    0    0    0    0  ]
+        result[2]  [0    0    0    0    0    0    0    0  ]
+        result[3]  [0    0    0    0    0    0    0    0  ]
+        result[4]  [0    0    0    0    1    0    0    0  ]
+        result[5]  [0    0    0    0    0    1    0    0  ]
+        result[6]  [0    0    0    0    0    0    0    0  ]
+        result[7]  [0    0    0    0    0    0    0    0  ]
 
-    def test_tensor_view_add_dicts(self, numpy_backend):
-        view = numpy_backend.get_empty_view()
+        For param_slice 1 (C[1,0]), contributes to result[b, 1, c] from X[b, 0, c]:
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [0    0    0    0    0    0    0    0  ]
+        result[1]  [0    0    0    0    0    0    0    0  ]
+        result[2]  [1    0    0    0    0    0    0    0  ]
+        result[3]  [0    1    0    0    0    0    0    0  ]
+        result[4]  [0    0    0    0    0    0    0    0  ]
+        result[5]  [0    0    0    0    0    0    0    0  ]
+        result[6]  [0    0    0    0    1    0    0    0  ]
+        result[7]  [0    0    0    0    0    1    0    0  ]
 
-        one = np.array([1])
-        two = np.array([2])
-        three = np.array([3])
+        For param_slice 2 (C[0,1]), contributes to result[b, 0, c] from X[b, 1, c]:
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [0    0    1    0    0    0    0    0  ]
+        result[1]  [0    0    0    1    0    0    0    0  ]
+        result[2]  [0    0    0    0    0    0    0    0  ]
+        result[3]  [0    0    0    0    0    0    0    0  ]
+        result[4]  [0    0    0    0    0    0    1    0  ]
+        result[5]  [0    0    0    0    0    0    0    1  ]
+        result[6]  [0    0    0    0    0    0    0    0  ]
+        result[7]  [0    0    0    0    0    0    0    0  ]
 
-        assert view.add_dicts({}, {}) == {}
-        assert view.add_dicts({"a": one}, {"a": two}) == {"a": three}
-        assert view.add_dicts({"a": one}, {"b": two}) == {"a": one, "b": two}
-        assert view.add_dicts({"a": {"c": one}}, {"a": {"c": one}}) == {"a": {"c": two}}
-        with pytest.raises(
-            ValueError, match="Values must either be dicts or <class 'numpy.ndarray'>"
-        ):
-            view.add_dicts({"a": 1}, {"a": 2})
+        For param_slice 3 (C[1,1]), contributes to result[b, 1, c] from X[b, 1, c]:
+                   X000 X100 X010 X110 X001 X101 X011 X111
+        result[0]  [0    0    0    0    0    0    0    0  ]
+        result[1]  [0    0    0    0    0    0    0    0  ]
+        result[2]  [0    0    1    0    0    0    0    0  ]
+        result[3]  [0    0    0    1    0    0    0    0  ]
+        result[4]  [0    0    0    0    0    0    0    0  ]
+        result[5]  [0    0    0    0    0    0    0    0  ]
+        result[6]  [0    0    0    0    0    0    1    0  ]
+        result[7]  [0    0    0    0    0    0    0    1  ]
+        """
+        # Reconfigure backend for this test: 4 parameter slices (2x2 parameter)
+        param_backend.param_to_size = {-1: 1, 2: 4}
+        param_backend.param_to_col = {2: 0, -1: 4}
+        param_backend.param_size_plus_one = 5
+        param_backend.var_length = 8
+
+        variable_lin_op = linOpHelper((2, 2, 2), type="variable", data=1)
+        view = param_backend.process_constraint(variable_lin_op, param_backend.get_empty_view())
+
+        # Verify initial view is identity
+        view_A = view.get_tensor_representation(0, 8)
+        view_A = sp.coo_matrix((view_A.data, (view_A.row, view_A.col)), shape=(8, 8)).toarray()
+        assert np.all(view_A == np.eye(8))
+
+        # Create parametrized lhs C with shape (2, 2)
+        lhs_parameter = linOpHelper((2, 2), type="param", data=2)
+
+        mul_lin_op = linOpHelper(shape=(2, 2, 2), data=lhs_parameter, args=[variable_lin_op])
+        out_view = param_backend.mul(mul_lin_op, view)
+        out_repr = out_view.get_tensor_representation(0, 8)
+
+        # Verify param_slice 0 (C[0,0]): contributes to result[b,0,c] from X[b,0,c]
+        slice_idx_zero = out_repr.get_param_slice(0).toarray()[:, :-1]
+        expected_idx_zero = np.array([
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ])
+        assert np.all(slice_idx_zero == expected_idx_zero)
+
+        # Verify param_slice 1 (C[1,0]): contributes to result[b,1,c] from X[b,0,c]
+        slice_idx_one = out_repr.get_param_slice(1).toarray()[:, :-1]
+        expected_idx_one = np.array([
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0],
+        ])
+        assert np.all(slice_idx_one == expected_idx_one)
+
+        # Verify param_slice 2 (C[0,1]): contributes to result[b,0,c] from X[b,1,c]
+        slice_idx_two = out_repr.get_param_slice(2).toarray()[:, :-1]
+        expected_idx_two = np.array([
+            [0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ])
+        assert np.all(slice_idx_two == expected_idx_two)
+
+        # Verify param_slice 3 (C[1,1]): contributes to result[b,1,c] from X[b,1,c]
+        slice_idx_three = out_repr.get_param_slice(3).toarray()[:, :-1]
+        expected_idx_three = np.array([
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1],
+        ])
+        assert np.all(slice_idx_three == expected_idx_three)
+
+        # Note: view is edited in-place
+        assert out_view.get_tensor_representation(0, 8) == view.get_tensor_representation(0, 8)
 
 
 class TestSciPyBackend:
@@ -2486,7 +2823,7 @@ class TestSciPyBackend:
             "param_size_plus_one": 3,
             "var_length": 2,
         }
-        backend = CanonBackend.get_backend(s.SCIPY_CANON_BACKEND, **kwargs)
+        backend = get_backend(s.SCIPY_CANON_BACKEND, **kwargs)
         assert isinstance(backend, SciPyCanonBackend)
         return backend
 
@@ -2544,17 +2881,54 @@ class TestSciPyBackend:
             view.add_dicts({"a": 1}, {"a": 2})
 
     @staticmethod
-    @pytest.mark.parametrize("shape", [(1, 1), (2, 2), (3, 3), (4, 4)])
-    def test_stacked_kron_r(shape, scipy_backend):
-        p = 2
-        reps = 3
-        param_id = 2
-        matrices = [sp.random_array(shape, random_state=i, density=0.5) for i in range(p)]
-        stacked = sp.vstack(matrices)
-        repeated = scipy_backend._stacked_kron_r({param_id: stacked}, reps)
-        repeated = repeated[param_id]
-        expected = sp.vstack([sp.kron(sp.eye_array(reps), m) for m in matrices])
-        assert (expected != repeated).nnz == 0
+    @pytest.mark.parametrize("shape,batch_size,n", [
+        ((2, 2), 1, 3),   # 2D case: I_3 ⊗ C
+        ((2, 2), 2, 3),   # ND case: I_3 ⊗ C ⊗ I_2
+        ((3, 2), 1, 4),   # 2D case with non-square matrix
+        ((3, 2), 3, 2),   # ND case with non-square matrix
+    ])
+    def test_expand_parametric_slices(shape, batch_size, n):
+        """
+        Test expand_parametric_slices which applies I_n ⊗ C ⊗ I_batch to each param slice.
+
+        For batch_size=1, this reduces to I_n ⊗ C (the 2D case).
+        """
+        rng = np.random.default_rng(42)
+        p = 2  # number of parameter slices
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5).tocsc()
+                    for _ in range(p)]
+        stacked = sp.vstack(matrices, format="csc")
+        result = sp.vstack(list(_expand_parametric_slices_mul(stacked, p, batch_size, n)))
+
+        # Expected: apply I_n ⊗ C ⊗ I_batch to each slice, then vstack
+        expected = sp.vstack([_apply_nd_kron_structure_mul(m, batch_size, n) for m in matrices])
+        assert (expected != result).nnz == 0
+
+    @staticmethod
+    @pytest.mark.parametrize("shape,batch_size,m", [
+        ((2, 2), 1, 3),   # 2D case: C.T ⊗ I_m
+        ((2, 2), 2, 3),   # ND case: C.T ⊗ I_{batch*m}
+        ((3, 2), 1, 4),   # 2D case with non-square matrix
+        ((3, 2), 3, 2),   # ND case with non-square matrix
+    ])
+    def test_expand_parametric_slices_rmul(shape, batch_size, m):
+        """
+        Test expand_parametric_slices_rmul which applies C.T ⊗ I_{batch*m} to each param slice.
+
+        For batch_size=1, this reduces to C.T ⊗ I_m (the 2D case).
+        """
+        rng = np.random.default_rng(42)
+        p = 2  # number of parameter slices
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5).tocsc()
+                    for _ in range(p)]
+        stacked = sp.vstack(matrices, format="csc")
+        result = sp.vstack(list(_expand_parametric_slices_rmul(stacked, p, batch_size, m)))
+
+        # Expected: apply C.T ⊗ I_{batch*m} to each slice, then vstack
+        expected = sp.vstack([
+            _apply_nd_kron_structure_rmul(mat, batch_size, m) for mat in matrices
+        ])
+        assert (expected != result).nnz == 0
 
     @staticmethod
     @pytest.mark.parametrize("shape", [(1, 1), (2, 2), (3, 3), (4, 4)])
@@ -2572,7 +2946,8 @@ class TestSciPyBackend:
     @staticmethod
     def test_reshape_single_constant_tensor(scipy_backend):
         a = sp.csc_array(np.tile(np.arange(6), 3).reshape((-1, 1)))
-        reshaped = scipy_backend._reshape_single_constant_tensor(a, (3, 2))
+        # param_size=1 for non-parametric data
+        reshaped = scipy_backend._reshape_single_constant_tensor(a, (3, 2), param_size=1)
         expected = np.arange(6).reshape((3, 2), order="F")
         expected = sp.csc_array(np.tile(expected, (3, 1)))
         assert (reshaped != expected).nnz == 0
@@ -2587,3 +2962,360 @@ class TestSciPyBackend:
         transposed = scipy_backend._transpose_stacked(stacked, param_id)
         expected = sp.vstack([m.T for m in matrices])
         assert (expected != transposed).nnz == 0
+
+
+class TestCooBackend:
+    @staticmethod
+    @pytest.fixture()
+    def coo_backend():
+        kwargs = {
+            "id_to_col": {1: 0},
+            "param_to_size": {-1: 1, 2: 2},
+            "param_to_col": {2: 0, -1: 2},
+            "param_size_plus_one": 3,
+            "var_length": 2,
+        }
+        backend = get_backend(s.COO_CANON_BACKEND, **kwargs)
+        assert isinstance(backend, CooCanonBackend)
+        return backend
+
+    def test_coo_tensor_negation(self):
+        """Test CooTensor.__neg__ (unary negation)."""
+        tensor = CooTensor(
+            data=np.array([1.0, 2.0, 3.0]),
+            row=np.array([0, 1, 2]),
+            col=np.array([0, 1, 2]),
+            param_idx=np.array([0, 0, 0]),
+            m=3, n=3, param_size=1
+        )
+        negated = -tensor
+        assert np.all(negated.data == np.array([-1.0, -2.0, -3.0]))
+        assert np.all(negated.row == tensor.row)
+        assert np.all(negated.col == tensor.col)
+
+    def test_coo_tensor_addition(self):
+        """Test CooTensor.__add__ (tensor addition)."""
+        t1 = CooTensor(
+            data=np.array([1.0, 2.0]),
+            row=np.array([0, 1]),
+            col=np.array([0, 1]),
+            param_idx=np.array([0, 0]),
+            m=2, n=2, param_size=1
+        )
+        t2 = CooTensor(
+            data=np.array([3.0, 4.0]),
+            row=np.array([0, 1]),
+            col=np.array([1, 0]),
+            param_idx=np.array([0, 0]),
+            m=2, n=2, param_size=1
+        )
+        result = t1 + t2
+        assert result.nnz == 4
+        assert result.m == 2 and result.n == 2
+        # Convert to dense to verify values
+        dense = result.toarray()
+        expected = np.array([[1.0, 3.0], [4.0, 2.0]])
+        assert np.allclose(dense, expected)
+
+    def test_coo_tensor_select_rows(self):
+        """Test CooTensor.select_rows for row selection/reordering."""
+        # Diagonal matrix with values 1, 2, 3 at positions (0,0), (1,1), (2,2)
+        tensor = CooTensor(
+            data=np.array([1.0, 2.0, 3.0]),
+            row=np.array([0, 1, 2]),
+            col=np.array([0, 1, 2]),
+            param_idx=np.array([0, 0, 0]),
+            m=3, n=3, param_size=1
+        )
+        # Select rows [2, 0]: new row 0 <- old row 2, new row 1 <- old row 0
+        # Columns are preserved, so:
+        # - old (2,2)=3 -> new (0,2)=3
+        # - old (0,0)=1 -> new (1,0)=1
+        selected = tensor.select_rows(np.array([2, 0]))
+        assert selected.m == 2
+        dense = selected.toarray()
+        expected = np.array([[0.0, 0.0, 3.0], [1.0, 0.0, 0.0]])
+        assert np.allclose(dense, expected)
+
+    def test_get_variable_tensor(self, coo_backend):
+        """Test CooCanonBackend.get_variable_tensor."""
+        outer = coo_backend.get_variable_tensor((2,), 1)
+        assert outer.keys() == {1}, "Should only be in variable with ID 1"
+        inner = outer[1]
+        assert inner.keys() == {-1}, "Should only be in parameter slice -1"
+        tensor = inner[-1]
+        assert isinstance(tensor, CooTensor)
+        assert tensor.m == 2 and tensor.n == 2
+        assert np.all(tensor.toarray() == np.eye(2))
+
+    def test_get_data_tensor(self, coo_backend):
+        """Test CooCanonBackend.get_data_tensor."""
+        data = np.array([[1, 2], [3, 4]])
+        outer = coo_backend.get_data_tensor(data)
+        assert outer.keys() == {-1}, "Should only be constant variable ID"
+        inner = outer[-1]
+        assert inner.keys() == {-1}, "Should only be non-parametrized slice"
+        tensor = inner[-1]
+        assert isinstance(tensor, CooTensor)
+        assert tensor.m == 4 and tensor.n == 1
+        # Column vector in Fortran order: [1, 3, 2, 4]
+        expected = data.flatten(order='F').reshape(-1, 1)
+        assert np.allclose(tensor.toarray(), expected)
+
+    @staticmethod
+    @pytest.mark.parametrize("shape,reps", [
+        ((2, 2), 1),
+        ((2, 2), 3),
+        ((3, 2), 2),
+        ((2, 3), 4),
+    ])
+    def test_kron_eye_l(shape, reps):
+        """Test _kron_eye_l against scipy.sparse.kron(A, I)."""
+        rng = np.random.default_rng(42)
+        param_size = 2
+
+        # Create random sparse matrices for each param slice
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5)
+                    for _ in range(param_size)]
+
+        # Build CooTensor from stacked sparse
+        stacked = sp.vstack(matrices)
+        tensor = CooTensor.from_stacked_sparse(stacked, param_size)
+
+        # Apply _kron_eye_l
+        result = _kron_eye_l(tensor, reps)
+
+        # Expected: apply kron(M, I_reps) to each slice, then stack
+        expected = sp.vstack([sp.kron(m, sp.eye_array(reps)) for m in matrices])
+        assert (expected != result.to_stacked_sparse()).nnz == 0
+
+    @staticmethod
+    @pytest.mark.parametrize("shape,reps", [
+        ((2, 2), 1),
+        ((2, 2), 3),
+        ((3, 2), 2),
+        ((2, 3), 4),
+    ])
+    def test_kron_eye_r(shape, reps):
+        """Test _kron_eye_r against scipy.sparse.kron(I, A)."""
+        rng = np.random.default_rng(42)
+        param_size = 2
+
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5)
+                    for _ in range(param_size)]
+
+        stacked = sp.vstack(matrices)
+        tensor = CooTensor.from_stacked_sparse(stacked, param_size)
+
+        result = _kron_eye_r(tensor, reps)
+
+        # Expected: apply kron(I_reps, M) to each slice
+        expected = sp.vstack([sp.kron(sp.eye_array(reps), m) for m in matrices])
+        assert (expected != result.to_stacked_sparse()).nnz == 0
+
+    @staticmethod
+    @pytest.mark.parametrize("shape,batch_size,n", [
+        ((2, 2), 1, 1),   # No expansion
+        ((2, 2), 1, 3),   # 2D case: I_3 ⊗ C
+        ((2, 2), 2, 1),   # Only batch: C ⊗ I_2
+        ((2, 2), 2, 3),   # ND case: I_3 ⊗ C ⊗ I_2
+        ((3, 2), 1, 4),   # 2D non-square
+        ((3, 2), 3, 2),   # ND non-square
+    ])
+    def test_kron_nd_structure_mul(shape, batch_size, n):
+        """Test _kron_nd_structure_mul against scipy-based approach."""
+        rng = np.random.default_rng(42)
+        param_size = 2
+
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5)
+                    for _ in range(param_size)]
+
+        # Use CSR format because _expand_parametric_slices_mul slices the matrix,
+        # and COO arrays don't support __getitem__ slicing.
+        stacked = sp.vstack(matrices, format="csr")
+        tensor = CooTensor.from_stacked_sparse(stacked, param_size)
+
+        # Native COO implementation
+        result = _kron_nd_structure_mul(tensor, batch_size, n)
+
+        # Reference: scipy-based implementation
+        expected = sp.vstack(list(
+            _expand_parametric_slices_mul(stacked, param_size, batch_size, n)
+        ))
+
+        assert result.to_stacked_sparse().shape == expected.shape
+        assert (expected != result.to_stacked_sparse()).nnz == 0
+
+    @staticmethod
+    @pytest.mark.parametrize("const_shape,var_shape", [
+        ((2, 3, 4), (2, 4, 5)),     # B=2, m=3, k=4, n=5
+        ((3, 2, 2), (3, 2, 3)),     # B=3, m=2, k=2, n=3
+        ((2, 2, 3, 4), (2, 2, 4, 2)),  # B=4, m=3, k=4, n=2
+    ])
+    def test_build_interleaved_mul(const_shape, var_shape):
+        """Test _build_interleaved_mul against scipy-based _build_interleaved_matrix_mul."""
+        rng = np.random.default_rng(42)
+        const_data = rng.random(np.prod(const_shape))
+
+        # Native COO implementation
+        result = _build_interleaved_mul(const_data, const_shape, var_shape)
+
+        # Reference: scipy-based implementation
+        expected = _build_interleaved_matrix_mul(const_data, const_shape, var_shape)
+
+        assert result.to_stacked_sparse().shape == expected.shape
+        assert np.allclose(result.toarray(), expected.toarray())
+
+    @staticmethod
+    @pytest.mark.parametrize("shape, batch_size, m", [
+        ((2, 2), 1, 1),   # 2D square, no batch
+        ((2, 2), 1, 3),   # 2D square, m > 1
+        ((2, 2), 2, 1),   # 2D square, batch > 1
+        ((2, 2), 2, 3),   # 2D square, both > 1
+        ((3, 2), 1, 4),   # 2D non-square
+        ((3, 2), 3, 2),   # ND non-square
+    ])
+    def test_kron_nd_structure_rmul(shape, batch_size, m):
+        """Test _kron_nd_structure_rmul against scipy-based approach."""
+        rng = np.random.default_rng(42)
+        param_size = 2
+
+        matrices = [sp.random_array(shape, random_state=rng, density=0.5)
+                    for _ in range(param_size)]
+
+        # Use CSR format for slicing
+        stacked = sp.vstack(matrices, format="csr")
+        tensor = CooTensor.from_stacked_sparse(stacked, param_size)
+
+        # Native COO implementation
+        result = _kron_nd_structure_rmul(tensor, batch_size, m)
+
+        # Reference: scipy-based implementation
+        expected = sp.vstack(list(
+            _expand_parametric_slices_rmul(stacked, param_size, batch_size, m)
+        ))
+
+        assert result.to_stacked_sparse().shape == expected.shape
+        assert (expected != result.to_stacked_sparse()).nnz == 0
+
+    @staticmethod
+    @pytest.mark.parametrize("var_shape, const_shape", [
+        ((2, 3, 4), (2, 4, 5)),     # B=2, m=3, k=4, n=5
+        ((3, 2, 2), (3, 2, 3)),     # B=3, m=2, k=2, n=3
+        ((2, 2, 3, 4), (2, 2, 4, 2)),  # B=4, m=3, k=4, n=2
+    ])
+    def test_build_interleaved_rmul(var_shape, const_shape):
+        """Test _build_interleaved_rmul against scipy-based _build_interleaved_matrix_rmul."""
+        rng = np.random.default_rng(42)
+        const_data = rng.random(np.prod(const_shape))
+
+        # Native COO implementation
+        result = _build_interleaved_rmul(const_data, const_shape, var_shape)
+
+        # Reference: scipy-based implementation
+        expected = _build_interleaved_matrix_rmul(const_data, const_shape, var_shape)
+
+        assert result.to_stacked_sparse().shape == expected.shape
+        assert np.allclose(result.toarray(), expected.toarray())
+
+    @staticmethod
+    def test_coo_reshape_vs_reshape_parametric_constant():
+        """
+        Test that coo_reshape and reshape_parametric_constant behave differently.
+
+        - coo_reshape: Uses linear index reshaping, preserves all entries.
+          Used by the 'reshape' linop for general reshape operations.
+        - reshape_parametric_constant: Deduplicates based on param_idx for
+          parametric tensors. Used for reshaping constant data in matmul.
+
+        This is a regression test for an issue where using parametric reshape
+        logic in coo_reshape caused DGP tests to fail with index out of bounds
+        errors, because DGP generates tensors where param_idx doesn't map
+        directly to positions in the target matrix.
+        """
+        from cvxpy.lin_ops.backends.coo_backend import (
+            coo_reshape,
+            reshape_parametric_constant,
+        )
+
+        # Create a parametric tensor with duplicated param_idx entries
+        # (simulating what happens after broadcast_to)
+        tensor = CooTensor(
+            data=np.array([1.0, 1.0, 1.0, 1.0]),  # Duplicated entries
+            row=np.array([0, 1, 2, 3]),
+            col=np.array([0, 0, 0, 0]),
+            param_idx=np.array([0, 0, 1, 1]),  # param_idx 0 and 1 appear twice
+            m=4, n=1, param_size=2
+        )
+
+        # Reshape from column (4, 1) to (2, 2)
+        new_m, new_n = 2, 2
+
+        # coo_reshape: preserves all entries, uses linear index reshaping
+        result_linear = coo_reshape(tensor, new_m, new_n)
+        assert result_linear.nnz == 4, "coo_reshape should preserve all entries"
+        # Linear indices: col*m + row = 0*4+0=0, 0*4+1=1, 0*4+2=2, 0*4+3=3
+        # In (2,2): 0->(0,0), 1->(1,0), 2->(0,1), 3->(1,1)
+        assert np.array_equal(result_linear.row, np.array([0, 1, 0, 1]))
+        assert np.array_equal(result_linear.col, np.array([0, 0, 1, 1]))
+
+        # reshape_parametric_constant: deduplicates based on param_idx
+        result_param = reshape_parametric_constant(tensor, new_m, new_n)
+        assert result_param.nnz == 2, "reshape_parametric_constant should deduplicate"
+        # param_idx 0 -> position (0,0), param_idx 1 -> position (1,0)
+        assert np.array_equal(result_param.param_idx, np.array([0, 1]))
+
+    @staticmethod
+    def test_get_constant_data_shape_for_broadcast_param():
+        """
+        Test that get_constant_data returns correct matrix structure for broadcast parameter.
+
+        This is an intermediate check that catches reshape bugs in ND matmul.
+        """
+        np.random.seed(42)
+        B, m, k, n = 2, 3, 4, 5
+        P = cp.Parameter((m, k))
+        P.value = np.random.randn(m, k)
+        X = cp.Variable((B, k, n))
+        expr = P @ X
+
+        obj, _ = expr.canonical_form
+        const_linop = obj.data  # broadcast_to
+
+        # Set up backend
+        prob = cp.Problem(cp.Minimize(cp.sum_squares(expr)))
+        variables = prob.variables()
+        parameters = prob.parameters()
+
+        var_length = sum(int(np.prod(v.shape)) for v in variables)
+        id_to_col = {variables[0].id: 0}
+        param_to_size = {p.id: int(np.prod(p.shape)) for p in parameters}
+        param_to_col = {p.id: 0 for p in parameters}
+        param_size = sum(param_to_size.values())
+
+        backend = CooCanonBackend(
+            param_to_size=param_to_size,
+            param_to_col=param_to_col,
+            param_size_plus_one=param_size + 1,
+            var_length=var_length,
+            id_to_col=id_to_col
+        )
+
+        empty_view = backend.get_empty_view()
+        lhs_data, is_param_free = backend.get_constant_data(
+            const_linop,
+            empty_view,
+            target_shape=(m, k)
+        )
+
+        assert not is_param_free, "Parameter expression should not be param_free"
+
+        # Check that reshaped tensor has correct matrix structure
+        for param_id, tensor in lhs_data.items():
+            assert tensor.m == m, f"Expected m={m}, got {tensor.m}"
+            assert tensor.n == k, f"Expected n={k}, got {tensor.n}"
+            assert tensor.nnz == m * k, f"Expected nnz={m * k}, got {tensor.nnz}"
+            # Each param_idx should appear exactly once (no broadcast duplication)
+            unique_params = np.unique(tensor.param_idx)
+            assert len(unique_params) == param_to_size[param_id], \
+                f"Expected {param_to_size[param_id]} unique param_idx, got {len(unique_params)}"

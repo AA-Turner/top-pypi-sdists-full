@@ -96,8 +96,8 @@ examples: >-
 """
 
 import os
-import socket
 import random
+import socket
 import time
 import uuid
 
@@ -178,7 +178,7 @@ class PlainTextSocketAppender:
         while True:
             try:
                 self._conn.send(to_bytes(multiline, errors="surrogate_or_strict"))
-            except socket.error:
+            except OSError:
                 self.reopen_connection()
                 continue
             break

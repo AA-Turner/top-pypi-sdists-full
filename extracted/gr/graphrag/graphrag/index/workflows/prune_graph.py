@@ -58,6 +58,7 @@ def prune_graph(
     """Prune a full graph based on graph statistics."""
     # create a temporary graph to prune, then turn it back into dataframes
     graph = create_graph(relationships, edge_attr=["weight"], nodes=entities)
+
     pruned = prune_graph_operation(
         graph,
         min_node_freq=pruning_config.min_node_freq,
@@ -68,6 +69,16 @@ def prune_graph(
         remove_ego_nodes=pruning_config.remove_ego_nodes,
         lcc_only=pruning_config.lcc_only,
     )
+
+    if len(pruned.nodes) == 0:
+        error_msg = "Graph Pruning failed. No entities remain."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    if len(pruned.edges) == 0:
+        error_msg = "Graph Pruning failed. No relationships remain."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
     pruned_nodes, pruned_edges = graph_to_dataframes(
         pruned, node_columns=["title"], edge_columns=["source", "target"]

@@ -46,6 +46,7 @@ from .compat import (
     is_deque,
     is_dict,
     is_enum,
+    is_flatten_dict,
     is_generic,
     is_list,
     is_literal,
@@ -84,7 +85,6 @@ from .core import (
     fields,
     is_instance,
     logger,
-    raise_unsupported_type,
     union_func_name,
     GLOBAL_CLASS_SERIALIZER,
 )
@@ -263,7 +263,6 @@ def serialize(
         g["copy"] = copy
         g["serde_scope"] = scope
         g["SerdeError"] = SerdeError
-        g["raise_unsupported_type"] = raise_unsupported_type
         g["enum_value"] = enum_value
         g["is_dataclass"] = is_dataclass
         g["typename"] = typename  # used in union functions
@@ -601,18 +600,24 @@ def {{func}}(obj, reuse_instances = None, convert_sets = None, skip_none = False
 
   res = {}
   {% for f in fields -%}
-  subres = {{rvalue(f)}}
   {% if not f.skip -%}
-    {% if f.skip_if -%}
+  subres = {{rvalue(f)}}
+  {% if lvalue(f) == '__FLATTEN_DICT__' -%}
+  # Merge flattened dict into result (declared fields take precedence)
+  if subres:
+    for __k, __v in subres.items():
+      if __k not in res:
+        res[__k] = __v
+  {% elif f.skip_if -%}
   if not {{f.skip_if.name}}(subres):
     {{lvalue(f)}} = subres
-    {% else -%}
+  {% else -%}
   if skip_none:
     if subres is not None:
       {{lvalue(f)}} = subres
   else:
     {{lvalue(f)}} = subres
-    {% endif -%}
+  {% endif -%}
   {% endif %}
 
   {% endfor -%}
@@ -810,6 +815,9 @@ class LRenderer:
             inner = arg[0]
             if is_dataclass(inner.type):
                 return self.flatten(inner)
+        elif is_flatten_dict(arg.type) and arg.flatten:
+            # Special marker for flatten dict - handled by template
+            return "__FLATTEN_DICT__"
 
         return f'res["{arg.conv_name(self.case)}"]'
 
@@ -913,7 +921,7 @@ class Renderer:
         elif is_pep695_type_alias(arg.type):
             res = self.render(dataclasses.replace(arg, type=arg.type.__value__))
         else:
-            res = f"raise_unsupported_type({arg.varname})"
+            raise SerdeError(f"Unsupported type: {typename(arg.type)}")
 
         # Custom field serializer overrides custom class serializer.
         if self.legacy_class_serializer and not arg.serializer and not custom_serializer_available:

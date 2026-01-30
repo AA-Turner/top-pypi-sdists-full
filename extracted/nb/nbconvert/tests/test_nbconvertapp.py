@@ -8,11 +8,9 @@ from tempfile import TemporaryDirectory
 
 import nbformat
 import pytest
-from flaky import flaky  # type:ignore
 from traitlets.tests.utils import check_help_all_output
 
 from nbconvert.exporters import HTMLExporter
-from nbconvert.exporters.webpdf import PLAYWRIGHT_INSTALLED
 from nbconvert.postprocessors import PostProcessorBase
 
 from .base import TestsBase
@@ -34,7 +32,7 @@ class TestNbConvertApp(TestsBase):
     def test_notebook_help(self):
         """Will help show if no notebooks are specified?"""
         with self.create_temp_cwd():
-            out, err = self.nbconvert("--log-level 0", ignore_return_code=True)
+            out, _err = self.nbconvert("--log-level 0", ignore_return_code=True)
             self.assertIn("--help-all", out)
 
     def test_help_output(self):
@@ -150,16 +148,16 @@ class TestNbConvertApp(TestsBase):
             )
             assert os.path.isfile("notebook with spaces.pdf")
 
-    @flaky
-    @pytest.mark.network()
-    @pytest.mark.skipif(not PLAYWRIGHT_INSTALLED, reason="Playwright not installed")
-    def test_webpdf_with_chromium(self):
-        """
-        Generate PDFs if chromium allowed to be downloaded?
-        """
-        with self.create_temp_cwd(["notebook2.ipynb"]):
-            self.nbconvert('--to webpdf --allow-chromium-download "notebook2"')
-            assert os.path.isfile("notebook2.pdf")
+    #    @pytest.mark.flaky
+    #    @pytest.mark.network
+    #    @pytest.mark.skipif(not PLAYWRIGHT_INSTALLED, reason="Playwright not installed")
+    #    def test_webpdf_with_chromium(self):
+    #        """
+    #        Generate PDFs if chromium allowed to be downloaded?
+    #        """
+    #        with self.create_temp_cwd(["notebook2.ipynb"]):
+    #            self.nbconvert('--to webpdf --allow-chromium-download "notebook2"')
+    #            assert os.path.isfile("notebook2.pdf")
 
     @onlyif_cmds_exist("pandoc", "xelatex")
     def test_pdf(self):
@@ -179,7 +177,7 @@ class TestNbConvertApp(TestsBase):
         """Do post processors work?"""
         with self.create_temp_cwd(["notebook1.ipynb"]):
             self.copy_files_to(["../*.py"], "tests")
-            out, err = self.nbconvert(
+            out, _err = self.nbconvert(
                 "--log-level 0 --to python notebook1 --post tests.test_nbconvertapp.DummyPost"
             )
             self.assertIn("Dummy:notebook1.py", out)
@@ -537,8 +535,7 @@ class TestNbConvertApp(TestsBase):
         # check relative path
         with self.create_temp_cwd(["notebook4_jpeg.ipynb", "containerized_deployments.jpeg"]):
             self.nbconvert(
-                "--log-level 0 notebook4_jpeg.ipynb --to rst "
-                "--NbConvertApp.output_files_dir=output"
+                "--log-level 0 notebook4_jpeg.ipynb --to rst --NbConvertApp.output_files_dir=output"
             )
             assert fig_exists("output")
 

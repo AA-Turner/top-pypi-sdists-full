@@ -9,13 +9,13 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import os
 import sys
+from pathlib import Path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # -- General configuration -----------------------------------------------------
 
@@ -25,7 +25,6 @@ sys.path.insert(0, os.path.abspath(".."))
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
-    "hoverxref.extension",
     "notfound.extension",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
@@ -47,14 +46,14 @@ master_doc = "index"
 
 # General information about the project.
 project = "w3lib"
-copyright = "2014, w3lib developers"
+project_copyright = "2014, w3lib developers"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = "2.3.1"
+release = "2.4.0"
 # The short X.Y version.
 version = ".".join(release.split(".")[:2])
 
@@ -260,8 +259,3 @@ intersphinx_mapping = {
 # -- Nitpicking options -------------------------------------------------------
 
 nitpicky = True
-
-
-# -- sphinx-hoverxref options -------------------------------------------------
-
-hoverxref_auto_ref = True

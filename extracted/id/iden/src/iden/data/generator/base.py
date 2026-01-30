@@ -8,11 +8,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
-from coola.equality.testers import EqualityTester
+from coola.equality.tester import EqualNanEqualityTester, get_default_registry
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
-
-from iden.utils.comparator import ObjectEqualityComparator
 
 T = TypeVar("T")
 
@@ -137,5 +135,4 @@ def setup_data_generator(
     return data_generator
 
 
-if not EqualityTester.has_comparator(BaseDataGenerator):  # pragma: no cover
-    EqualityTester.add_comparator(BaseDataGenerator, ObjectEqualityComparator())
+get_default_registry().register(BaseDataGenerator, EqualNanEqualityTester(), exist_ok=True)

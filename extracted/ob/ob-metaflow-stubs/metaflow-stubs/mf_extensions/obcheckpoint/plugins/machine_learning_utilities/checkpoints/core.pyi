@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
-# Generated on 2026-01-22T21:50:04.925806                                                            #
+# MF version: 2.19.18.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-28T23:54:14.491797                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.core
-    import metaflow
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
+    import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.core
 
 from ......metaflow_current import current as current
 from ......exception import MetaflowException as MetaflowException

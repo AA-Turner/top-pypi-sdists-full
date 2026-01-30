@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping, MutableSet
 from functools import partial, reduce, singledispatch
 from itertools import repeat
 from operator import and_, or_, sub
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeVar, cast
 from warnings import warn
 
 import numpy as np
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
     from anndata._types import Join_T
 
-    from ..compat import XDataArray, XDataset
+    from ..compat import XDataArray
 
 T = TypeVar("T")
 
@@ -244,110 +244,89 @@ def as_cp_sparse(x) -> CupySparseMatrix:
 def unify_dtypes(
     dfs: Iterable[pd.DataFrame | Dataset2D],
 ) -> list[pd.DataFrame | Dataset2D]:
-    """
-    Attempts to unify datatypes from multiple dataframes.
+    """Attempt to unify datatypes from multiple dataframes.
 
     For catching cases where pandas would convert to object dtype.
     """
     dfs = list(dfs)
     # Get shared categorical columns
-    df_dtypes = [dict(df.dtypes) for df in dfs]
+    df_dtypes = [
+        cast("pd.Series[ExtensionDtype]", df.dtypes).to_dict()
+        if isinstance(df, pd.DataFrame)
+        else df.dtypes
+        for df in dfs
+    ]
     columns = reduce(lambda x, y: x.union(y), [df.columns for df in dfs])
-
-    dtypes: dict[str, list[np.dtype | ExtensionDtype]] = {col: [] for col in columns}
-    for col in columns:
-        for df in df_dtypes:
-            dtypes[col].append(df.get(col, None))
-
+    dtypes = {
+        col: (
+            [df[col] for df in df_dtypes if col in df],
+            any(col not in df for df in df_dtypes),
+        )
+        for col in columns
+    }
     if len(dtypes) == 0:
         return dfs
-    else:
-        dfs = [df.copy(deep=False) for df in dfs]
 
     new_dtypes = {
         col: target_dtype
-        for col, dtype in dtypes.items()
-        if (target_dtype := try_unifying_dtype(dtype)) is not None
+        for col, (dts, has_missing) in dtypes.items()
+        if (target_dtype := try_unifying_dtype(dts, has_missing=has_missing))
+        is not None
     }
 
+    dfs = [df.copy(deep=False) for df in dfs]
     for df in dfs:
         for col, dtype in new_dtypes.items():
             if col in df:
                 df[col] = df[col].astype(dtype)
-
     return dfs
 
 
-def try_unifying_dtype(  # noqa PLR0911, PLR0912
-    col: Sequence[np.dtype | ExtensionDtype],
-) -> pd.core.dtypes.base.ExtensionDtype | None:
-    """
-    If dtypes can be unified, returns the dtype they would be unified to.
+def try_unifying_dtype(
+    dtypes: Sequence[np.dtype | ExtensionDtype], *, has_missing: bool
+) -> ExtensionDtype | type[object] | None:
+    """Determine unified dtype if possible.
 
-    Returns None if they can't be unified, or if we can expect pandas to unify them for
-    us.
+    Returns None if they can’t be unified, or if we can expect pandas to unify them for us.
 
     Params
     ------
-    col:
-        A list of dtypes to unify. Can be numpy/ pandas dtypes, or None (which denotes
-        a missing value)
+    dtypes
+        A list of dtypes to unify. Can be numpy or pandas dtypes
+    has_missing
+        Whether the result needs to accommodate missing values
     """
-    dtypes: set[pd.CategoricalDtype] = set()
     # Categorical
-    if any(isinstance(dtype, pd.CategoricalDtype) for dtype in col):
-        ordered = False
-        for dtype in col:
-            if isinstance(dtype, pd.CategoricalDtype):
-                dtypes.add(dtype)
-                ordered = ordered | dtype.ordered
-            elif not pd.isnull(dtype):
-                return None
-        if len(dtypes) > 0:
-            categories = reduce(
-                lambda x, y: x.union(y),
-                (dtype.categories for dtype in dtypes if not pd.isnull(dtype)),
-            )
-
-            if not ordered:
-                return pd.CategoricalDtype(natsorted(categories), ordered=False)
-            else:  # for xarray Datasets, see https://github.com/pydata/xarray/issues/10247
-                categories_intersection = reduce(
-                    lambda x, y: x.intersection(y),
-                    (
-                        dtype.categories
-                        for dtype in dtypes
-                        if not pd.isnull(dtype) and len(dtype.categories) > 0
-                    ),
-                )
-                if len(categories_intersection) < len(categories):
-                    return object
-                else:
-                    same_orders = all(
-                        dtype.ordered
-                        for dtype in dtypes
-                        if not pd.isnull(dtype) and len(dtype.categories) > 0
-                    )
-                    same_orders &= all(
-                        np.all(categories == dtype.categories)
-                        for dtype in dtypes
-                        if not pd.isnull(dtype) and len(dtype.categories) > 0
-                    )
-                    if same_orders:
-                        return next(
-                            dtype
-                            for dtype in dtypes
-                            if not pd.isnull(dtype) and len(dtype.categories) > 0
-                        )
-                    return object
-    # Boolean
-    elif all(pd.api.types.is_bool_dtype(dtype) or dtype is None for dtype in col):
-        if any(dtype is None for dtype in col):
-            return pd.BooleanDtype()
-        else:
+    if any(isinstance(dtype, pd.CategoricalDtype) for dtype in dtypes):
+        if not all(isinstance(dtype, pd.CategoricalDtype) for dtype in dtypes):
             return None
-    else:
-        return None
+        if TYPE_CHECKING:
+            dtypes = cast("Sequence[pd.CategoricalDtype]", dtypes)
+
+        all_categories = reduce(
+            lambda x, y: x.union(y), (dtype.categories for dtype in dtypes)
+        )
+        if not any(dtype.ordered for dtype in dtypes):
+            return pd.CategoricalDtype(natsorted(all_categories), ordered=False)
+
+        dtypes_with_categories = [
+            dtype for dtype in dtypes if len(dtype.categories) > 0
+        ]
+        if dtypes_with_categories and all(
+            len(dtype.categories) == len(all_categories)
+            and dtype.ordered
+            and np.all(all_categories == dtype.categories)
+            for dtype in dtypes_with_categories
+        ):
+            return dtypes_with_categories[0]
+
+        return object
+
+    # Boolean
+    if all(pd.api.types.is_bool_dtype(dtype) for dtype in dtypes) and has_missing:
+        return pd.BooleanDtype()
+
+    return None
 
 
 def check_combinable_cols(cols: list[pd.Index], join: Join_T):
@@ -1207,15 +1186,13 @@ def make_dask_col_from_extension_dtype(
     A :class:`dask.Array`: representation of the column.
     """
     import dask.array as da
-    import xarray as xr
-    from xarray.core.indexing import LazilyIndexedArray
 
     from anndata._io.specs.lazy_methods import (
         compute_chunk_layout_for_axis_size,
         get_chunksize,
         maybe_open_h5,
     )
-    from anndata.compat import XDataArray
+    from anndata.compat import xarray as xr
     from anndata.experimental import read_elem_lazy
 
     base_path_or_zarr_group = col.attrs.get("base_path_or_zarr_group")
@@ -1224,7 +1201,6 @@ def make_dask_col_from_extension_dtype(
         base_path_or_zarr_group is not None and elem_name is not None
     ):  # lazy, backed by store
         dims = col.dims
-        coords = col.coords.copy()
         with maybe_open_h5(base_path_or_zarr_group, elem_name) as f:
             maybe_chunk_size = get_chunksize(read_elem_lazy(f))
             chunk_size = (
@@ -1238,17 +1214,14 @@ def make_dask_col_from_extension_dtype(
             # reopening is important to get around h5py's unserializable lock in processes
             with maybe_open_h5(base_path_or_zarr_group, elem_name) as f:
                 v = read_elem_lazy(f)
-                variable = xr.Variable(data=LazilyIndexedArray(v), dims=dims)
-                data_array = XDataArray(
-                    variable,
-                    coords=coords,
-                    dims=dims,
+                variable = xr.Variable(
+                    data=xr.core.indexing.LazilyIndexedArray(v), dims=dims
                 )
                 idx = tuple(
                     slice(start, stop)
                     for start, stop in block_info[None]["array-location"]
                 )
-                chunk = np.array(data_array.data[idx])
+                chunk = np.array(variable.data[idx])
             return chunk
 
         if col.dtype == "category" or col.dtype == "string" or use_only_object_dtype:  # noqa PLR1714
@@ -1268,7 +1241,7 @@ def make_dask_col_from_extension_dtype(
 
 def make_xarray_extension_dtypes_dask(
     annotations: Iterable[Dataset2D], *, use_only_object_dtype: bool = False
-) -> Generator[XDataset, None, None]:
+) -> Generator[Dataset2D, None, None]:
     """
     Creates a generator of Dataset2D objects with dask arrays in place of :class:`pandas.api.extensions.ExtensionArray` dtype columns.
 
@@ -1710,6 +1683,9 @@ def concat(  # noqa: PLR0912, PLR0913, PLR0915
                 alt_annotations, use_only_object_dtype=True
             )
         )
+        for a in annotations_with_only_dask:
+            if a.true_index_dim != a.index_dim:
+                a.index = a.true_index
         annotations_with_only_dask = [
             a.ds.rename({a.true_index_dim: "merge_index"})
             for a in annotations_with_only_dask
@@ -1717,7 +1693,6 @@ def concat(  # noqa: PLR0912, PLR0913, PLR0915
         alt_annot = Dataset2D(
             xr.merge(annotations_with_only_dask, join=join, compat="override")
         )
-        alt_annot.true_index_dim = "merge_index"
 
     X = concat_Xs(adatas, reindexers, axis=axis, fill_value=fill_value)
 

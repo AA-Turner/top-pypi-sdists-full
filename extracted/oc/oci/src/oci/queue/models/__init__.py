@@ -6,8 +6,14 @@
 
 from __future__ import absolute_import
 
+from .capability_details import CapabilityDetails
 from .change_queue_compartment_details import ChangeQueueCompartmentDetails
 from .channel_collection import ChannelCollection
+from .consumer_group import ConsumerGroup
+from .consumer_group_collection import ConsumerGroupCollection
+from .consumer_group_summary import ConsumerGroupSummary
+from .consumer_groups_capability_details import ConsumerGroupsCapabilityDetails
+from .create_consumer_group_details import CreateConsumerGroupDetails
 from .create_queue_details import CreateQueueDetails
 from .delete_messages_details import DeleteMessagesDetails
 from .delete_messages_details_entry import DeleteMessagesDetailsEntry
@@ -15,6 +21,7 @@ from .delete_messages_result import DeleteMessagesResult
 from .delete_messages_result_entry import DeleteMessagesResultEntry
 from .get_message import GetMessage
 from .get_messages import GetMessages
+from .large_messages_capability_details import LargeMessagesCapabilityDetails
 from .message_metadata import MessageMetadata
 from .purge_queue_details import PurgeQueueDetails
 from .put_message import PutMessage
@@ -26,6 +33,7 @@ from .queue_collection import QueueCollection
 from .queue_stats import QueueStats
 from .queue_summary import QueueSummary
 from .stats import Stats
+from .update_consumer_group_details import UpdateConsumerGroupDetails
 from .update_message_details import UpdateMessageDetails
 from .update_messages_details import UpdateMessagesDetails
 from .update_messages_details_entry import UpdateMessagesDetailsEntry
@@ -44,8 +52,14 @@ from .work_request_summary_collection import WorkRequestSummaryCollection
 
 # Maps type names to classes for queue services.
 queue_type_mapping = {
+    "CapabilityDetails": CapabilityDetails,
     "ChangeQueueCompartmentDetails": ChangeQueueCompartmentDetails,
     "ChannelCollection": ChannelCollection,
+    "ConsumerGroup": ConsumerGroup,
+    "ConsumerGroupCollection": ConsumerGroupCollection,
+    "ConsumerGroupSummary": ConsumerGroupSummary,
+    "ConsumerGroupsCapabilityDetails": ConsumerGroupsCapabilityDetails,
+    "CreateConsumerGroupDetails": CreateConsumerGroupDetails,
     "CreateQueueDetails": CreateQueueDetails,
     "DeleteMessagesDetails": DeleteMessagesDetails,
     "DeleteMessagesDetailsEntry": DeleteMessagesDetailsEntry,
@@ -53,6 +67,7 @@ queue_type_mapping = {
     "DeleteMessagesResultEntry": DeleteMessagesResultEntry,
     "GetMessage": GetMessage,
     "GetMessages": GetMessages,
+    "LargeMessagesCapabilityDetails": LargeMessagesCapabilityDetails,
     "MessageMetadata": MessageMetadata,
     "PurgeQueueDetails": PurgeQueueDetails,
     "PutMessage": PutMessage,
@@ -64,6 +79,7 @@ queue_type_mapping = {
     "QueueStats": QueueStats,
     "QueueSummary": QueueSummary,
     "Stats": Stats,
+    "UpdateConsumerGroupDetails": UpdateConsumerGroupDetails,
     "UpdateMessageDetails": UpdateMessageDetails,
     "UpdateMessagesDetails": UpdateMessagesDetails,
     "UpdateMessagesDetailsEntry": UpdateMessagesDetailsEntry,

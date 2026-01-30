@@ -472,7 +472,10 @@ impl Flow {
 /// Bound names can accumulate facet narrows from long assignment chains (e.g. huge
 /// literal dictionaries). Limiting how many consecutive narrows we remember keeps
 /// the flow graph shallow enough to avoid recursive explosions in the solver.
-const MAX_FLOW_NARROW_DEPTH: usize = 512;
+///
+/// When this limit is reached, lookups return the base value instead of the narrow
+/// chain, breaking the recursion. This is checked in `FlowInfo::idx()`.
+const MAX_FLOW_NARROW_DEPTH: usize = 100;
 
 /// Flow information about a name. At least one of `narrow` and `value` will always
 /// be non-None (although in some cases the value may have FlowStyle::Uninitialized,
@@ -504,6 +507,11 @@ struct FlowInfo {
 struct FlowValue {
     idx: Idx<Key>,
     style: FlowStyle,
+    /// Termination keys that need to be checked at solve time to determine
+    /// if this value is actually always initialized. If non-empty and the value
+    /// appears uninitialized, we defer the check to solve time instead of
+    /// emitting an error at binding time.
+    deferred_termination_keys: Vec<Idx<Key>>,
 }
 
 /// The most recent narrow for a name.
@@ -515,7 +523,11 @@ struct FlowNarrow {
 impl FlowInfo {
     fn new_value(idx: Idx<Key>, style: FlowStyle) -> Self {
         Self {
-            value: Some(FlowValue { idx, style }),
+            value: Some(FlowValue {
+                idx,
+                style,
+                deferred_termination_keys: Vec::new(),
+            }),
             narrow: None,
             narrow_depth: 0,
             loop_prior: idx,
@@ -533,7 +545,11 @@ impl FlowInfo {
 
     fn updated_value(&self, idx: Idx<Key>, style: FlowStyle, in_loop: bool) -> Self {
         Self {
-            value: Some(FlowValue { idx, style }),
+            value: Some(FlowValue {
+                idx,
+                style,
+                deferred_termination_keys: Vec::new(),
+            }),
             // Note that any existing narrow is wiped when a new value is bound.
             narrow: None,
             narrow_depth: 0,
@@ -550,12 +566,14 @@ impl FlowInfo {
         }
     }
 
-    fn clear_narrow(&mut self) {
-        self.narrow = None;
-        self.narrow_depth = 0;
-    }
-
     fn idx(&self) -> Idx<Key> {
+        // When the narrow depth limit is exceeded, return the base value instead
+        // of the narrow chain to break recursion in the solver.
+        if self.narrow_depth >= MAX_FLOW_NARROW_DEPTH
+            && let Some(FlowValue { idx, .. }) = &self.value
+        {
+            return *idx;
+        }
         match (&self.narrow, &self.value) {
             (Some(FlowNarrow { idx, .. }), _) => *idx,
             (None, Some(FlowValue { idx, .. })) => *idx,
@@ -572,15 +590,22 @@ impl FlowInfo {
     }
 
     fn initialized(&self) -> InitializedInFlow {
-        self.value()
-            .map_or(InitializedInFlow::Yes, |v| match v.style {
+        self.value().map_or(InitializedInFlow::Yes, |v| {
+            // If we have deferred termination keys, we need to check at solve time
+            // whether the branches with termination keys actually terminate (have Never type).
+            // Return DeferredCheck regardless of style - the deferred check takes precedence.
+            if !v.deferred_termination_keys.is_empty() {
+                return InitializedInFlow::DeferredCheck(v.deferred_termination_keys.clone());
+            }
+            match v.style {
                 FlowStyle::Uninitialized
                 | FlowStyle::ClassField {
                     initial_value: None,
                 } => InitializedInFlow::No,
                 FlowStyle::PossiblyUninitialized => InitializedInFlow::Conditionally,
                 _ => InitializedInFlow::Yes,
-            })
+            }
+        })
     }
 }
 
@@ -707,15 +732,17 @@ struct ScopeClass {
     indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
+    has_protocol_base: bool,
 }
 
 impl ScopeClass {
-    pub fn new(name: Identifier, indices: ClassIndices) -> Self {
+    pub fn new(name: Identifier, indices: ClassIndices, has_protocol_base: bool) -> Self {
         Self {
             name,
             indices,
             attributes_from_recognized_methods: SmallMap::new(),
             attributes_from_other_methods: SmallMap::new(),
+            has_protocol_base,
         }
     }
 
@@ -1024,11 +1051,16 @@ impl Scope {
         Self::new(range, FlowBarrier::AllowFlowChecked, ScopeKind::TypeAlias)
     }
 
-    pub fn class_body(range: TextRange, indices: ClassIndices, name: Identifier) -> Self {
+    pub fn class_body(
+        range: TextRange,
+        indices: ClassIndices,
+        name: Identifier,
+        has_protocol_base: bool,
+    ) -> Self {
         Self::new(
             range,
             FlowBarrier::AllowFlowChecked,
-            ScopeKind::Class(ScopeClass::new(name, indices)),
+            ScopeKind::Class(ScopeClass::new(name, indices, has_protocol_base)),
         )
     }
 
@@ -1240,6 +1272,16 @@ impl Scopes {
         None
     }
 
+    /// Check if we're currently in the body of a class with `Protocol` in its base class list
+    pub fn is_in_protocol_class(&self) -> bool {
+        for scope in self.iter_rev() {
+            if let ScopeKind::Class(class_scope) = &scope.kind {
+                return class_scope.has_protocol_base;
+            }
+        }
+        false
+    }
+
     /// Are we inside an async function or method?
     pub fn is_in_async_def(&self) -> bool {
         for scope in self.iter_rev() {
@@ -1294,6 +1336,15 @@ impl Scopes {
         let (a, b) = self.scopes.split_off_last();
         assert_eq!(a.len(), 0);
         ScopeTrace(b)
+    }
+
+    pub fn has_import_name(&self, name: &Name) -> bool {
+        let module_scope = self.scopes.first();
+
+        match module_scope.scope.kind {
+            ScopeKind::Module => module_scope.scope.imports.contains_key(name),
+            _ => false,
+        }
     }
 
     pub fn collect_module_unused_imports(&self) -> Vec<UnusedImport> {
@@ -1633,11 +1684,7 @@ impl Scopes {
                 e.insert(FlowInfo::new_narrow(idx));
             }
             Entry::Occupied(mut e) => {
-                let mut info = e.get().clone();
-                if info.narrow_depth >= MAX_FLOW_NARROW_DEPTH {
-                    info.clear_narrow();
-                }
-                *e.get_mut() = info.updated_narrow(idx, in_loop);
+                *e.get_mut() = e.get().updated_narrow(idx, in_loop);
             }
         }
     }
@@ -2122,10 +2169,27 @@ impl Scopes {
                     },
                     FlowStyle::ClassField {
                         initial_value: Some(e),
-                    } => ClassFieldDefinition::AssignedInBody {
-                        value: ExprOrBinding::Expr(e.clone()),
-                        annotation: static_info.annotation(),
-                    },
+                    } => {
+                        // Detect if this is an alias (value is a simple name referring to another field
+                        // that was defined before this one in source order).
+                        let mut alias_of = None;
+                        if let Expr::Name(name_expr) = &e {
+                            let target_name = &name_expr.id;
+                            // Check if this name is another field in the class defined before this one.
+                            // We use source order (target ends before this field starts) to ensure
+                            // deterministic behavior regardless of hash map iteration order.
+                            if let Some(target_info) = class_body.stat.0.get(target_name)
+                                && target_info.range.end() <= static_info.range.start()
+                            {
+                                alias_of = Some(target_name.clone());
+                            }
+                        }
+                        ClassFieldDefinition::AssignedInBody {
+                            value: ExprOrBinding::Expr(e.clone()),
+                            annotation: static_info.annotation(),
+                            alias_of,
+                        }
+                    }
                     FlowStyle::ClassField {
                         initial_value: None,
                     } => ClassFieldDefinition::DeclaredByAnnotation {
@@ -2233,7 +2297,11 @@ impl Scopes {
         mut visitor: impl FnMut(usize, &'a Scope, FlowBarrier) -> Option<T>,
     ) -> Option<T> {
         let mut flow_barrier = FlowBarrier::AllowFlowChecked;
-        let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
+        // Annotation scopes and type alias scopes (PEP 695) can see their enclosing class scope.
+        let is_current_scope_annotation_like = matches!(
+            self.current().kind,
+            ScopeKind::Annotation | ScopeKind::TypeAlias
+        );
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
             // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
@@ -2242,8 +2310,9 @@ impl Scopes {
             //   methods. This includes comprehensions and generator
             //   expressions, but it does not include annotation scopes, which
             //   have access to their enclosing class scopes.
+            // Type alias scopes (PEP 695) also have access to enclosing class scopes.
             if is_class
-                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
+                && !((lookup_depth == 0) || (is_current_scope_annotation_like && lookup_depth == 1))
             {
                 // Note: class body scopes have `flow_barrier = AllowFlowChecked`, so skipping the flow_barrier update is okay.
                 continue;
@@ -2288,41 +2357,30 @@ impl Scopes {
         best_suggestion(missing, candidates)
     }
 
-    /// Look up the information needed to create a `Usage` binding for a read of a name
+    /// Look up the information needed to create a binding for a read of a name
     /// in the current scope stack.
-    pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
-        self.look_up_name_for_read_impl(name, false)
-    }
-
-    /// Look up a name for a static type context (annotations, type aliases, etc).
     ///
-    /// Skips class-scope overload definitions so that annotations in overload signatures are not
-    /// accidentally resolved to other overloads. That is, in:
-    ///     class A: ...
-    ///     class B: ...
-    ///         @overload
-    ///         def A(self) -> A: ...
-    ///         @overload
-    ///         def A(self) -> A: ...
-    ///         def A(self): ...
-    /// we want the `A` return annotation in the second overload signature to resolve to class `A`,
-    /// not the first overload.
-    ///
-    /// Note that this is intentionally divergent from the runtime and different from how name
-    /// lookup usually works. In all other cases, if the name of a type is locally shadowed by a
-    /// non-type definition, we error if it is then used in an annotation.
-    pub fn look_up_name_for_read_in_static_type_context(
-        &self,
-        name: Hashed<&Name>,
-    ) -> NameReadInfo {
-        self.look_up_name_for_read_impl(name, true)
-    }
-
-    fn look_up_name_for_read_impl(
-        &self,
-        name: Hashed<&Name>,
-        skip_class_overload_function_definitions: bool,
-    ) -> NameReadInfo {
+    /// The `usage` parameter determines lookup behavior:
+    /// - For `Usage::StaticTypeInformation`: Skips class-scope overload definitions so that
+    ///   annotations in overload signatures are not accidentally resolved to other overloads.
+    ///   That is, in:
+    ///   ```python
+    ///   class A: ...
+    ///   class B: ...
+    ///       @overload
+    ///       def A(self) -> A: ...
+    ///       @overload
+    ///       def A(self) -> A: ...
+    ///       def A(self): ...
+    ///   ```
+    ///   we want the `A` return annotation in the second overload signature to resolve to class `A`,
+    ///   not the first overload. (Note that this is intentionally divergent from the runtime and
+    ///   different from how name lookup usually works.) In all other cases, if the name of a type
+    ///   is locally shadowed by a non-type definition, we error if it is then used in an annotation.
+    /// - For other usages: Normal lookup behavior.
+    pub fn look_up_name_for_read(&self, name: Hashed<&Name>, usage: &Usage) -> NameReadInfo {
+        let skip_class_overload_function_definitions =
+            matches!(usage, Usage::StaticTypeInformation);
         self.visit_scopes(|_, scope, flow_barrier| {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
 
@@ -2563,13 +2621,17 @@ struct MergeBranch {
     flow_info: FlowInfo,
     /// The last StmtExpr in the flow this branch came from, if any.
     /// Used for type-based termination checking at solve time.
-    #[expect(dead_code)]
     termination_key: Option<Idx<Key>>,
 }
 
 struct MergeItem {
     base: Option<FlowInfo>,
     branches: Vec<MergeBranch>,
+    /// Termination keys from branches that don't have this name in their flow info.
+    /// These need to be checked at solve time to verify the branches actually terminate.
+    missing_branch_termination_keys: Vec<Idx<Key>>,
+    /// Tracks which branch indices have been added (for computing missing branches).
+    seen_branch_indices: Vec<usize>,
 }
 
 struct MergeItems(SmallMap<Name, MergeItem>);
@@ -2585,6 +2647,8 @@ impl MergeItems {
             MergeItem {
                 base: Some(base),
                 branches: Vec::with_capacity(n_branches),
+                missing_branch_termination_keys: Vec::new(),
+                seen_branch_indices: Vec::with_capacity(n_branches),
             },
         );
     }
@@ -2595,6 +2659,7 @@ impl MergeItems {
         flow_info: FlowInfo,
         termination_key: Option<Idx<Key>>,
         n_branches: usize,
+        branch_index: usize,
     ) {
         let branch = MergeBranch {
             flow_info,
@@ -2604,12 +2669,36 @@ impl MergeItems {
             Entry::Vacant(e) => {
                 let mut branches = Vec::with_capacity(n_branches);
                 branches.push(branch);
+                let mut seen_branch_indices = Vec::with_capacity(n_branches);
+                seen_branch_indices.push(branch_index);
                 e.insert(MergeItem {
                     base: None,
                     branches,
+                    missing_branch_termination_keys: Vec::new(),
+                    seen_branch_indices,
                 });
             }
-            Entry::Occupied(mut e) => e.get_mut().branches.push(branch),
+            Entry::Occupied(mut e) => {
+                let item = e.get_mut();
+                item.branches.push(branch);
+                item.seen_branch_indices.push(branch_index);
+            }
+        }
+    }
+
+    /// Compute missing_branch_termination_keys for each name by comparing
+    /// seen_branch_indices to all branch indices.
+    pub fn finalize_missing_branches(&mut self, all_termination_keys: &[Option<Idx<Key>>]) {
+        for (_, merge_item) in self.0.iter_mut() {
+            // Find branches that are missing for this name
+            for (branch_index, termination_key) in all_termination_keys.iter().enumerate() {
+                if !merge_item.seen_branch_indices.contains(&branch_index) {
+                    // This branch doesn't have this name - record its termination key if any
+                    if let Some(key) = termination_key {
+                        merge_item.missing_branch_termination_keys.push(*key);
+                    }
+                }
+            }
         }
     }
 }
@@ -2659,16 +2748,18 @@ impl<'a> BindingsBuilder<'a> {
         phi_idx: Idx<Key>,
         merge_style: MergeStyle,
         n_branches: usize,
+        n_branches_with_termination_key: usize,
     ) -> FlowInfo {
         let base_idx = merge_item.base.as_ref().map(|base| base.idx());
         let mut merge_branches = merge_item.branches;
-        // Track the number of branch values before adding base (for LoopDefinitelyRuns)
-        let n_branch_flow_infos = merge_branches.len();
+        // Termination keys from branches that don't have this name in their flow info at all
+        let completely_missing_termination_keys = merge_item.missing_branch_termination_keys;
         // Track if base has a value for this name (for LoopDefinitelyRuns init check)
         let base_has_value = merge_item.base.as_ref().is_some_and(|b| b.value.is_some());
         // If this is a loop, we want to use the current default in any phis we produce,
         // and the base flow is part of the merge for type inference purposes.
-        let loop_prior = if merge_style.is_loop()
+        // Track whether we added base so we can correctly count total branches later.
+        let (loop_prior, added_base_to_merge) = if merge_style.is_loop()
             && let Some(base) = merge_item.base
         {
             let loop_prior = base.loop_prior;
@@ -2676,9 +2767,9 @@ impl<'a> BindingsBuilder<'a> {
                 flow_info: base,
                 termination_key: None,
             });
-            Some(loop_prior)
+            (Some(loop_prior), true)
         } else {
-            None
+            (None, false)
         };
         let merged_loop_prior = {
             let contained_in_loop = self.scopes.loop_depth() > 0;
@@ -2708,14 +2799,41 @@ impl<'a> BindingsBuilder<'a> {
         // a narrow only when all the value idxs are the same.
         let mut value_idxs = SmallSet::with_capacity(merge_branches.len());
         let mut branch_idxs = SmallSet::with_capacity(merge_branches.len());
+        let mut branch_infos = Vec::with_capacity(merge_branches.len());
         let mut styles = Vec::with_capacity(merge_branches.len());
         let mut n_values = 0;
+        // Collect termination keys from branches that don't define the variable.
+        // These will be used for deferred uninitialized checks at solve time.
+        let mut missing_branch_termination_keys = Vec::new();
         for merge_branch in merge_branches.into_iter() {
             let flow_info = merge_branch.flow_info;
             let branch_idx = flow_info.idx();
+
+            // The BranchInfo always sees the branch_idx, which will will be
+            // a narrow if one exists, otherwise the value. Each branch may have a
+            // termination key, which potentially causes us to ignore it in the Phi based
+            // on Never/NoReturn type information.
+            if branch_idx != phi_idx {
+                branch_infos.push(BranchInfo {
+                    value_key: branch_idx,
+                    termination_key: merge_branch.termination_key,
+                });
+            }
+
             if let Some(v) = flow_info.value {
-                n_values += 1;
+                // A branch with FlowStyle::Uninitialized (e.g., after exception variable
+                // unbinding via mark_as_deleted) should not count as defining the variable.
+                // We still track its idx for type inference but don't count it as a value.
+                let is_uninitialized = matches!(v.style, FlowStyle::Uninitialized);
+                if !is_uninitialized {
+                    n_values += 1;
+                }
                 if v.idx == phi_idx {
+                    // If uninitialized, still track termination key before continuing.
+                    if is_uninitialized && let Some(termination_key) = merge_branch.termination_key
+                    {
+                        missing_branch_termination_keys.push(termination_key);
+                    }
                     continue;
                 }
                 if value_idxs.insert(v.idx) {
@@ -2723,26 +2841,72 @@ impl<'a> BindingsBuilder<'a> {
                     // set a value, so duplicate value_idxs always have the same style.
                     styles.push(v.style);
                 }
+                // Treat uninitialized branches like missing branches for termination keys.
+                if is_uninitialized && let Some(termination_key) = merge_branch.termination_key {
+                    missing_branch_termination_keys.push(termination_key);
+                }
+            } else {
+                // This branch doesn't have a value for the variable.
+                // If it has a termination key, track it for deferred checking.
+                if let Some(termination_key) = merge_branch.termination_key {
+                    missing_branch_termination_keys.push(termination_key);
+                }
             }
             branch_idxs.insert(branch_idx);
         }
-        // Build branch_infos from branch_idxs (matching old behavior).
-        // For now, termination_key is always None - the next commit will
-        // wire this up properly once we're ready to use it.
-        let branch_infos: Vec<BranchInfo> = branch_idxs
-            .iter()
-            .map(|&value_key| BranchInfo {
-                value_key,
-                termination_key: None,
-            })
-            .collect();
+
+        // Combine termination keys from:
+        // 1. Branches in merge_branches that don't have a value (collected above)
+        // 2. Branches that don't have this name in their flow info at all (pre-computed)
+        missing_branch_termination_keys.extend(completely_missing_termination_keys);
+
         // For LoopDefinitelyRuns, a name is always defined if:
         // - It was defined before the loop (base_has_value), OR
         // - It's defined in all loop body branches (since the loop definitely runs at least once)
-        // For regular loops and other merges, a name is always defined if it's in all branches.
-        let this_name_always_defined = match merge_style {
-            MergeStyle::LoopDefinitelyRuns => base_has_value || n_branch_flow_infos == n_branches,
-            _ => n_values == n_branches,
+        //
+        // For regular loops and other merges, a name is always defined if it's in all
+        // non-terminating branches.
+        //
+        // If some branches don't define the variable but have termination keys, we
+        // defer the uninitialized check to solve time. At solve time, we'll verify
+        // that ALL termination keys have `Never` type - if any don't, the variable
+        // may be uninitialized.
+        //
+        // n_total_branches is the actual number of branches we iterated over, which includes
+        // the base flow for loops (since base is added to merge_branches for type inference).
+        let n_total_branches = if added_base_to_merge {
+            n_branches + 1
+        } else {
+            n_branches
+        };
+        let n_missing_branches = n_total_branches - n_values;
+        // Determine if variable is truly always defined, or if we need to defer the check.
+        // deferred_termination_keys is non-empty when we need to check at solve time.
+        let (this_name_always_defined, deferred_termination_keys) = match merge_style {
+            MergeStyle::LoopDefinitelyRuns if base_has_value => (true, Vec::new()),
+            MergeStyle::LoopDefinitelyRuns if n_values == n_branches => (true, Vec::new()),
+            MergeStyle::LoopDefinitelyRuns
+                if n_missing_branches <= n_branches_with_termination_key =>
+            {
+                if !missing_branch_termination_keys.is_empty() {
+                    // Defer the check to solve time
+                    (true, missing_branch_termination_keys)
+                } else {
+                    // Preserve original behavior: treat as always defined
+                    (true, Vec::new())
+                }
+            }
+            _ if n_values == n_branches => (true, Vec::new()),
+            _ if n_missing_branches <= n_branches_with_termination_key => {
+                if !missing_branch_termination_keys.is_empty() {
+                    // Defer the check to solve time
+                    (true, missing_branch_termination_keys)
+                } else {
+                    // Preserve original behavior: treat as always defined
+                    (true, Vec::new())
+                }
+            }
+            _ => (false, Vec::new()),
         };
         match value_idxs.len() {
             // If there are no values, then this name isn't assigned at all
@@ -2782,6 +2946,7 @@ impl<'a> BindingsBuilder<'a> {
                             styles.into_iter(),
                             merge_style,
                         ),
+                        deferred_termination_keys: deferred_termination_keys.clone(),
                     }),
                     narrow: Some(FlowNarrow { idx: merged_idx }),
                     narrow_depth: 1,
@@ -2807,6 +2972,7 @@ impl<'a> BindingsBuilder<'a> {
                             styles.into_iter(),
                             merge_style,
                         ),
+                        deferred_termination_keys,
                     }),
                     narrow: None,
                     narrow_depth: 0,
@@ -2872,17 +3038,34 @@ impl<'a> BindingsBuilder<'a> {
                 0
             };
 
+        // Count how many branches have a last_stmt_expr (potential type-based termination)
+        let n_branches_with_termination_key =
+            flows.iter().filter(|f| f.last_stmt_expr.is_some()).count();
+
+        // Collect all termination keys from flows (for computing missing branches later)
+        let all_termination_keys: Vec<Option<Idx<Key>>> =
+            flows.iter().map(|f| f.last_stmt_expr).collect();
+
         // Collect all the branches into a `MergeItem` per name we need to merge
         let mut merge_items = MergeItems::new(flows.first().unwrap_or(&base).info.len());
         for (name, info) in base.info.into_iter_hashed() {
             merge_items.add_base_flow_info(name, info, n_branches)
         }
-        for flow in flows {
+        for (branch_index, flow) in flows.into_iter().enumerate() {
             let termination_key = flow.last_stmt_expr;
             for (name, info) in flow.info.into_iter_hashed() {
-                merge_items.add_branch_flow_info(name, info, termination_key, n_branches)
+                merge_items.add_branch_flow_info(
+                    name,
+                    info,
+                    termination_key,
+                    n_branches,
+                    branch_index,
+                )
             }
         }
+
+        // Compute missing_branch_termination_keys for each name
+        merge_items.finalize_missing_branches(&all_termination_keys);
 
         // For each name and merge item, produce the merged FlowInfo for our new Flow
         let mut merged_flow_infos = SmallMap::with_capacity(merge_items.0.len());
@@ -2890,7 +3073,13 @@ impl<'a> BindingsBuilder<'a> {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_flow_infos.insert_hashed(
                 name,
-                self.merged_flow_info(merge_item, phi_idx, merge_style, n_branches),
+                self.merged_flow_info(
+                    merge_item,
+                    phi_idx,
+                    merge_style,
+                    n_branches,
+                    n_branches_with_termination_key,
+                ),
             );
         }
 
@@ -2927,6 +3116,7 @@ impl<'a> BindingsBuilder<'a> {
                     info.value = Some(FlowValue {
                         idx: phi_idx,
                         style: FlowStyle::LoopRecursion,
+                        deferred_termination_keys: Vec::new(),
                     });
                     info.narrow = None;
                 }

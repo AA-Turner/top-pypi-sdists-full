@@ -81,9 +81,9 @@ EXAMPLES = r"""
 
 import os.path
 import platform
+import re
 import shlex
 import traceback
-import re
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -258,7 +258,7 @@ class Modprobe:
                         if line.rstrip().endswith(module_file):
                             is_loaded = True
                             break
-        except (IOError, OSError) as e:
+        except OSError as e:
             self.module.fail_json(msg=f"{e}", exception=traceback.format_exc(), **self.result)
 
         return is_loaded

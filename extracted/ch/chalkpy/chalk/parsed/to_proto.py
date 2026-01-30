@@ -1337,7 +1337,9 @@ class ToProtoConverter:
         message_producer: pb.StreamResolverMessageProducerParsed | None = None
         if r.message_producer_parsed is not None:
             message_producer = pb.StreamResolverMessageProducerParsed(
-                send_to=ToProtoConverter.create_stream_source_reference(r.message_producer_parsed.send_to),
+                send_to=ToProtoConverter.create_stream_source_reference(r.message_producer_parsed.send_to)
+                if r.message_producer_parsed.send_to is not None
+                else None,
                 output_features=r.message_producer_parsed.output_features,
                 transformations={
                     str(k): pb.FeatureExpression(underscore_expr=cls.convert_underscore(v))

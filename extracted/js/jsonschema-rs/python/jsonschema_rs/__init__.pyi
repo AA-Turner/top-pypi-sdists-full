@@ -213,6 +213,14 @@ class ReferencingError:
     message: str
 
 class ValidationErrorKind:
+    @property
+    def name(self) -> str:
+        """The JSON Schema keyword that triggered this error."""
+        ...
+    @property
+    def value(self) -> Any: ...
+    def as_dict(self) -> dict[str, Any]: ...
+
     class AdditionalItems:
         limit: int
 
@@ -237,6 +245,7 @@ class ValidationErrorKind:
         content_media_type: str
 
     class Custom:
+        keyword: str
         message: str
 
     class Enum:

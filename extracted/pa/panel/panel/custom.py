@@ -259,7 +259,7 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
 
     def __init__(self, **params):
         super().__init__(**params)
-        self._watching_esm = False
+        self._watching_esm = None
         self._event__callbacks = defaultdict(list)
         self._msg__callbacks = []
 
@@ -377,7 +377,7 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
         if esm_path:
             if esm_path == cls._bundle_path and cls.__module__ in sys.modules and server:
                 # Generate relative path to handle apps served on subpaths
-                esm = (state.rel_path or './') + cls._component_resource_path(esm_path, compiled)
+                esm = ('' if state.rel_path else './') + cls._component_resource_path(esm_path, compiled)
                 if config.autoreload:
                     modified = hashlib.sha256(str(esm_path.stat().st_mtime).encode('utf-8')).hexdigest()
                     esm += f'?{modified}'
@@ -410,7 +410,7 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
             self._watching_esm.set()
             if self._watching_esm in state._watch_events:
                 state._watch_events.remove(self._watching_esm)
-            self._watching_esm = False
+            self._watching_esm = None
 
     async def _watch_esm(self):
         import watchfiles
@@ -446,9 +446,11 @@ class ReactiveESM(ReactiveCustomBase, metaclass=ReactiveESMMetaclass):
 
     @property
     def _linked_properties(self) -> tuple[str, ...]:
+        mapping = {v: k for k, v in self._property_mapping.items() if v is not None}
+        params = self.param.objects(instance=False)
         return tuple(
             p for p in self._data_model.properties()
-            if p not in _IGNORED_ESM_PROPERTIES and not isinstance(self.param[p], (Child, Children))
+            if p not in _IGNORED_ESM_PROPERTIES and not isinstance(params[mapping.get(p, p)], (Child, Children))
         )
 
     def _get_properties(self, doc: Document | None) -> dict[str, Any]:

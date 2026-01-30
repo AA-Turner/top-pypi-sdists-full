@@ -6,8 +6,8 @@ from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.cql.completions_c import completions_c
 from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log, log2
-from adam.utils_async_job import AsyncJobs
+from adam.utils import log
+from adam.utils_context import Context
 
 class Cqlsh(Command):
     COMMAND = 'cql'
@@ -34,7 +34,7 @@ class Cqlsh(Command):
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, backgrounded):
                 with cassandra(state) as pods:
-                    AsyncJobs.print_start(pods.cql(args, backgrounded=backgrounded))
+                    pods.cql(args, ctx=Context.new(cmd, show_out=True, backgrounded=backgrounded, history=Context.PODS))
 
     def completion(self, state: ReplState) -> dict[str, any]:
         if state.device != state.C:

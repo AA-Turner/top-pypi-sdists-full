@@ -3,7 +3,7 @@ Type annotations for cognito-idp service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -244,6 +244,7 @@ __all__ = (
     "GroupTypeTypeDef",
     "HttpHeaderTypeDef",
     "IdentityProviderTypeTypeDef",
+    "InboundFederationLambdaTypeTypeDef",
     "InitiateAuthRequestTypeDef",
     "InitiateAuthResponseTypeDef",
     "LambdaConfigTypeTypeDef",
@@ -887,6 +888,10 @@ class GetUserRequestTypeDef(TypedDict):
 
 class GlobalSignOutRequestTypeDef(TypedDict):
     AccessToken: str
+
+class InboundFederationLambdaTypeTypeDef(TypedDict):
+    LambdaVersion: Literal["V1_0"]
+    LambdaArn: str
 
 class PreTokenGenerationVersionConfigTypeTypeDef(TypedDict):
     LambdaVersion: PreTokenGenerationLambdaVersionTypeType
@@ -1663,6 +1668,7 @@ class LambdaConfigTypeTypeDef(TypedDict):
     CustomSMSSender: NotRequired[CustomSMSLambdaVersionConfigTypeTypeDef]
     CustomEmailSender: NotRequired[CustomEmailLambdaVersionConfigTypeTypeDef]
     KMSKeyID: NotRequired[str]
+    InboundFederation: NotRequired[InboundFederationLambdaTypeTypeDef]
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
     Providers: list[ProviderDescriptionTypeDef]

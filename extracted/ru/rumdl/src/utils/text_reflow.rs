@@ -6,7 +6,7 @@
 use crate::utils::element_cache::ElementCache;
 use crate::utils::is_definition_list_item;
 use crate::utils::regex_cache::{
-    DISPLAY_MATH_REGEX, EMOJI_SHORTCODE_REGEX, FOOTNOTE_REF_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN,
+    DISPLAY_MATH_REGEX, EMAIL_PATTERN, EMOJI_SHORTCODE_REGEX, FOOTNOTE_REF_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN,
     HUGO_SHORTCODE_REGEX, INLINE_IMAGE_FANCY_REGEX, INLINE_LINK_FANCY_REGEX, INLINE_MATH_REGEX,
     LINKED_IMAGE_INLINE_INLINE, LINKED_IMAGE_INLINE_REF, LINKED_IMAGE_REF_INLINE, LINKED_IMAGE_REF_REF,
     REF_IMAGE_REGEX, REF_LINK_REGEX, SHORTCUT_REF_REGEX, WIKI_LINK_REGEX,
@@ -285,8 +285,9 @@ fn is_numbered_list_item(line: &str) -> bool {
     // Can have more digits
     while let Some(c) = chars.next() {
         if c == '.' {
-            // After period, must have a space or be end of line
-            return chars.next().is_none_or(|c| c == ' ');
+            // After period, must have a space (consistent with list marker extraction)
+            // "2019." alone is NOT treated as a list item to avoid false positives
+            return chars.next() == Some(' ');
         }
         if !c.is_numeric() {
             return false;
@@ -805,19 +806,26 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
         }
 
         // Check for HTML tags - <tag> </tag> <tag/>
-        // But exclude autolinks like <https://...> or <mailto:...>
+        // But exclude autolinks like <https://...> or <mailto:...> or email autolinks <user@domain.com>
         if let Ok(Some(m)) = HTML_TAG_PATTERN.find(remaining)
             && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
         {
             // Check if this is an autolink (starts with protocol or mailto:)
             let matched_text = &remaining[m.start()..m.end()];
-            let is_autolink = matched_text.starts_with("<http://")
+            let is_url_autolink = matched_text.starts_with("<http://")
                 || matched_text.starts_with("<https://")
                 || matched_text.starts_with("<mailto:")
                 || matched_text.starts_with("<ftp://")
                 || matched_text.starts_with("<ftps://");
 
-            if !is_autolink {
+            // Check if this is an email autolink (per CommonMark spec: <local@domain.tld>)
+            // Use centralized EMAIL_PATTERN for consistency with MD034 and other rules
+            let is_email_autolink = {
+                let content = matched_text.trim_start_matches('<').trim_end_matches('>');
+                EMAIL_PATTERN.is_match(content)
+            };
+
+            if !is_url_autolink && !is_email_autolink {
                 earliest_match = Some((m.start(), "html_tag", m));
             }
         }
@@ -1069,18 +1077,18 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                     }
                 }
                 "html_entity" => {
-                    // HTML entities are captured whole
-                    elements.push(Element::HtmlEntity(remaining[..match_obj.end()].to_string()));
+                    // HTML entities are captured whole - use as_str() to get just the matched content
+                    elements.push(Element::HtmlEntity(match_obj.as_str().to_string()));
                     remaining = &remaining[match_obj.end()..];
                 }
                 "hugo_shortcode" => {
                     // Hugo shortcodes are atomic elements - preserve them exactly
-                    elements.push(Element::HugoShortcode(remaining[..match_obj.end()].to_string()));
+                    elements.push(Element::HugoShortcode(match_obj.as_str().to_string()));
                     remaining = &remaining[match_obj.end()..];
                 }
                 "html_tag" => {
-                    // HTML tags are captured whole
-                    elements.push(Element::HtmlTag(remaining[..match_obj.end()].to_string()));
+                    // HTML tags are captured whole - use as_str() to get just the matched content
+                    elements.push(Element::HtmlTag(match_obj.as_str().to_string()));
                     remaining = &remaining[match_obj.end()..];
                 }
                 _ => {

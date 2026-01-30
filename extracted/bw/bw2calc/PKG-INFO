@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bw2calc
-Version: 2.3
+Version: 2.3.2
 Summary: The calculation engine for the Brightway life cycle assessment framework.
 Author-email:  Chris Mutel <cmutel@gmail.com>
 Maintainer-email:  Chris Mutel <cmutel@gmail.com>

@@ -35,7 +35,7 @@ from shlex import quote as shlex_quote
 from ansible.errors import AnsibleError
 from ansible.module_utils.common.process import get_bin_path
 from ansible.module_utils.common.text.converters import to_bytes
-from ansible.plugins.connection import ConnectionBase, BUFSIZE
+from ansible.plugins.connection import BUFSIZE, ConnectionBase
 from ansible.utils.display import Display
 
 display = Display()
@@ -169,7 +169,7 @@ class Connection(ConnectionBase):
                     raise AnsibleError(f"failed to transfer file {in_path} to {out_path}") from e
                 if p.returncode != 0:
                     raise AnsibleError(f"failed to transfer file {in_path} to {out_path}:\n{stdout}\n{stderr}")
-        except IOError as e:
+        except OSError as e:
             raise AnsibleError(f"file or module does not exist at: {in_path}") from e
 
     def fetch_file(self, in_path, out_path):

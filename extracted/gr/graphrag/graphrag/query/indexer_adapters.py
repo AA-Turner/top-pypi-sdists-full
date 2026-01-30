@@ -7,19 +7,17 @@ Ideally this is just a straight read-through into the object model.
 """
 
 import logging
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
+from graphrag_vectors import VectorStore
 
-from graphrag.config.models.graph_rag_config import GraphRagConfig
 from graphrag.data_model.community import Community
 from graphrag.data_model.community_report import CommunityReport
 from graphrag.data_model.covariate import Covariate
 from graphrag.data_model.entity import Entity
 from graphrag.data_model.relationship import Relationship
 from graphrag.data_model.text_unit import TextUnit
-from graphrag.language_model.manager import ModelManager
-from graphrag.language_model.protocol.base import EmbeddingModel
 from graphrag.query.input.loaders.dfs import (
     read_communities,
     read_community_reports,
@@ -28,7 +26,9 @@ from graphrag.query.input.loaders.dfs import (
     read_relationships,
     read_text_units,
 )
-from graphrag.vector_stores.base import BaseVectorStore
+
+if TYPE_CHECKING:
+    from graphrag_llm.embedding import LLMEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,6 @@ def read_indexer_reports(
     final_communities: pd.DataFrame,
     community_level: int | None,
     dynamic_community_selection: bool = False,
-    content_embedding_col: str = "full_content_embedding",
-    config: GraphRagConfig | None = None,
 ) -> list[CommunityReport]:
     """Read in the Community Reports from the raw indexing outputs.
 
@@ -102,34 +100,12 @@ def read_indexer_reports(
             filtered_community_df, on="community", how="inner"
         )
 
-    if config and (
-        content_embedding_col not in reports_df.columns
-        or reports_df.loc[:, content_embedding_col].isna().any()
-    ):
-        # TODO: Find a way to retrieve the right embedding model id.
-        embedding_model_settings = config.get_language_model_config(
-            "default_embedding_model"
-        )
-        embedder = ModelManager().get_or_create_embedding_model(
-            name="default_embedding",
-            model_type=embedding_model_settings.type,
-            config=embedding_model_settings,
-        )
-        reports_df = embed_community_reports(
-            reports_df, embedder, embedding_col=content_embedding_col
-        )
-
-    return read_community_reports(
-        df=reports_df,
-        id_col="id",
-        short_id_col="community",
-        content_embedding_col=content_embedding_col,
-    )
+    return read_community_reports(df=reports_df, id_col="id", short_id_col="community")
 
 
 def read_indexer_report_embeddings(
     community_reports: list[CommunityReport],
-    embeddings_store: BaseVectorStore,
+    embeddings_store: VectorStore,
 ):
     """Read in the Community Reports from the raw indexing outputs."""
     for report in community_reports:
@@ -218,7 +194,7 @@ def read_indexer_communities(
 
 def embed_community_reports(
     reports_df: pd.DataFrame,
-    embedder: EmbeddingModel,
+    embedder: "LLMEmbedding",
     source_col: str = "full_content",
     embedding_col: str = "full_content_embedding",
 ) -> pd.DataFrame:
@@ -229,7 +205,7 @@ def embed_community_reports(
 
     if embedding_col not in reports_df.columns:
         reports_df[embedding_col] = reports_df.loc[:, source_col].apply(
-            lambda x: embedder.embed(x)
+            lambda x: embedder.embedding(input=[x]).first_embedding
         )
 
     return reports_df

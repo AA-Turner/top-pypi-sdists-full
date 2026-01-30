@@ -1,1 +1,0 @@
-import{i as e,n as t,r as n,t as r}from"./remoteConfig-CSGpkai8.js";t();export{n as loadRemoteConfig};

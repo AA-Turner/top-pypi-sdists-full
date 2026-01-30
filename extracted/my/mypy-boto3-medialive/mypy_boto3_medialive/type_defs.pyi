@@ -55,6 +55,7 @@ from .literals import (
     Av1SceneChangeDetectType,
     Av1SpatialAqType,
     Av1TemporalAqType,
+    Av1TimecodeInsertionBehaviorType,
     AvailBlankingStateType,
     BandwidthReductionFilterStrengthType,
     BandwidthReductionPostFilterSharpeningType,
@@ -581,6 +582,7 @@ __all__ = (
     "DescribeSdiSourceResponseTypeDef",
     "DescribeThumbnailsRequestTypeDef",
     "DescribeThumbnailsResponseTypeDef",
+    "DisabledLockingSettingsTypeDef",
     "DvbNitSettingsTypeDef",
     "DvbSdtSettingsTypeDef",
     "DvbSubDestinationSettingsTypeDef",
@@ -1718,6 +1720,9 @@ class DescribeThumbnailsRequestTypeDef(TypedDict):
     PipelineId: str
     ThumbnailType: str
 
+class DisabledLockingSettingsTypeDef(TypedDict):
+    CustomEpoch: NotRequired[str]
+
 class DvbNitSettingsTypeDef(TypedDict):
     NetworkId: int
     NetworkName: str
@@ -2299,6 +2304,7 @@ class RtmpGroupSettingsTypeDef(TypedDict):
 
 class PipelineLockingSettingsTypeDef(TypedDict):
     PipelineLockingMethod: NotRequired[PipelineLockingMethodType]
+    CustomEpoch: NotRequired[str]
 
 class PipelinePauseStateSettingsTypeDef(TypedDict):
     PipelineId: PipelineIdType
@@ -3788,6 +3794,7 @@ class OutputDestinationTypeDef(TypedDict):
 class OutputLockingSettingsTypeDef(TypedDict):
     EpochLockingSettings: NotRequired[EpochLockingSettingsTypeDef]
     PipelineLockingSettings: NotRequired[PipelineLockingSettingsTypeDef]
+    DisabledLockingSettings: NotRequired[DisabledLockingSettingsTypeDef]
 
 class PauseStateScheduleActionSettingsOutputTypeDef(TypedDict):
     Pipelines: NotRequired[list[PipelinePauseStateSettingsTypeDef]]
@@ -4008,6 +4015,7 @@ class Av1SettingsOutputTypeDef(TypedDict):
     MinBitrate: NotRequired[int]
     SpatialAq: NotRequired[Av1SpatialAqType]
     TemporalAq: NotRequired[Av1TemporalAqType]
+    TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
 
 class Av1SettingsTypeDef(TypedDict):
     FramerateDenominator: int
@@ -4032,6 +4040,7 @@ class Av1SettingsTypeDef(TypedDict):
     MinBitrate: NotRequired[int]
     SpatialAq: NotRequired[Av1SpatialAqType]
     TemporalAq: NotRequired[Av1TemporalAqType]
+    TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
 
 class AvailConfigurationTypeDef(TypedDict):
     AvailSettings: NotRequired[AvailSettingsTypeDef]

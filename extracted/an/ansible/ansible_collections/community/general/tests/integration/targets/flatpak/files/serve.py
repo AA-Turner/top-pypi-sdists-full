@@ -8,23 +8,16 @@ from __future__ import annotations
 import os
 import posixpath
 import sys
-
-try:
-    from http.server import SimpleHTTPRequestHandler, HTTPServer
-    from urllib.parse import unquote
-except ImportError:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
-    from urllib import unquote
-
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from urllib.parse import unquote
 
 # Argument parsing
 if len(sys.argv) != 4:
-    print("Syntax: {0} <bind> <port> <path>".format(sys.argv[0]))
+    print(f"Syntax: {sys.argv[0]} <bind> <port> <path>")
     sys.exit(-1)
 
-HOST, PORT, PATH = sys.argv[1:4]
-PORT = int(PORT)
+HOST, PORT_str, PATH = sys.argv[1:4]
+PORT = int(PORT_str)
 
 
 # The HTTP request handler
@@ -40,7 +33,7 @@ class Handler(SimpleHTTPRequestHandler):
         trailing_slash = path.rstrip().endswith("/")
         try:
             path = unquote(path, errors="surrogatepass")
-        except (UnicodeDecodeError, TypeError) as exc:
+        except (UnicodeDecodeError, TypeError):
             path = unquote(path)
         path = posixpath.normpath(path)
         words = path.split("/")

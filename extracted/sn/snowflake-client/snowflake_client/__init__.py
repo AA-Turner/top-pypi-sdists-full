@@ -16,7 +16,7 @@ from ._factory import (
     SnowflakeCursorFactory,
 )
 
-__version__ = "3.2.3"
+__version__ = "4.0.0"
 __all__ = [
     "ClientFactory",
     "ConnectionFactory",

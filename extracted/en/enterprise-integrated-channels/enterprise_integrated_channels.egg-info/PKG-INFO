@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.33
+Version: 0.1.35
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -17,6 +17,7 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE.txt
 Requires-Dist: Django>=4.2
@@ -44,6 +45,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
@@ -207,6 +209,23 @@ Change Log
 
 Unreleased
 **********
+
+0.1.35 – 2026-01-28
+*******************
+
+Changed
+=======
+
+* Add missing app_label to models
+
+
+0.1.34 – 2026-01-27
+*******************
+
+Changed
+=======
+
+* Switched from consuming events via the event bus to listening to in process Django signals directly.
 
 0.1.33 – 2026-01-20
 *******************

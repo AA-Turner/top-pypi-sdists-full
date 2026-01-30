@@ -214,6 +214,7 @@ ALL_MODULES = [
             anyscale.job.archive,
             anyscale.job.get_logs,
             anyscale.job.wait,
+            anyscale.job.list,
             anyscale.job.add_tags,
             anyscale.job.remove_tags,
             anyscale.job.list_tags,
@@ -291,6 +292,7 @@ ALL_MODULES = [
             anyscale.schedule.set_state,
             anyscale.schedule.status,
             anyscale.schedule.trigger,
+            anyscale.schedule.list,
         ],
         models=[ScheduleConfig, ScheduleState, ScheduleStatus],
         # The following commands are legacy

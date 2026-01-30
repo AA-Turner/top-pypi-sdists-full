@@ -81,6 +81,10 @@ from .tornado_template import UnClosedIfError
 os.environ["GIT_PYTHON_REFRESH"] = "quiet"
 from git import HEAD, Diff, GitCommandError, InvalidGitRepositoryError, Repo
 
+# Pre-compiled regex patterns
+_PATTERN_VERSION_NUMBER = re.compile(r"[0-9]+$")
+_PATTERN_VERSIONED_RESOURCE = re.compile(r"([^\s\.]*__v\d+)")
+
 INTERNAL_TABLES: Tuple[str, ...] = (
     "datasources_ops_log",
     "pipe_stats",
@@ -1412,15 +1416,6 @@ async def process_file(
 
         service: Optional[str] = node.get("import_service", None)
 
-        if service and service.lower() == "bigquery":
-            if not await tb_client.check_gcp_read_permissions():
-                raise click.ClickException(FeedbackManager.error_unknown_bq_connection(datasource=datasource["name"]))
-
-            # Bigquery doesn't have a datalink, so we can stop here
-            return params
-
-        # Rest of connectors
-
         connector_id: Optional[str] = node.get("import_connector", None)
         connector_name: Optional[str] = node.get("import_connection_name", None)
         if not connector_name and not connector_id:
@@ -1525,7 +1520,7 @@ async def process_file(
         params.update(get_engine_params(node))
 
         if "import_service" in node or "import_connection_name" in node:
-            VALID_SERVICES: Tuple[str, ...] = ("bigquery", "snowflake", "s3", "s3_iamrole", "gcs", "dynamodb")
+            VALID_SERVICES: Tuple[str, ...] = ("s3", "s3_iamrole", "gcs", "dynamodb")
 
             import_params = await get_import_params(params, node)
 
@@ -1823,7 +1818,10 @@ def find_file_by_name(
                     wk_path, name.replace(f"{wk_name}.", ""), verbose, is_raw, resource=resource
                 )
             if file:
-                return file, _resource
+                # Preserve workspace prefix in the returned filename to avoid conflicts
+                # with local files of the same name (e.g., vendored datasource "workspace.ds"
+                # vs local pipe with same base name)
+                return f"{wk_name}.{file}", _resource
 
     if not is_raw:
         f, raw = find_file_by_name(
@@ -3259,12 +3257,6 @@ async def new_ds(
     ):
         raise click.ClickException(FeedbackManager.error_dynamodb_engine_not_supported(engine=engine_param))
 
-    if engine_param.lower() == "join":
-        deprecation_notice = FeedbackManager.warning_deprecated(
-            warning="Data Sources with Join engine are deprecated and will be removed in the next major release of tinybird-cli. Use MergeTree instead."
-        )
-        click.echo(deprecation_notice)
-
     if not datasource_exists or fork_downstream or fork:
         params = ds["params"]
         params["branch_mode"] = "fork" if fork_downstream or fork else "None"
@@ -3434,19 +3426,15 @@ async def new_ds(
 
     ds_params = ds["params"]
     service = ds_params.get("service")
-    DATASOURCE_VALID_SERVICES_TO_UPDATE = ["bigquery", "snowflake"]
+    DATASOURCE_VALID_SERVICES_TO_UPDATE: List[str] = []
     if datasource_exists and service and service in [*DATASOURCE_VALID_SERVICES_TO_UPDATE, *PREVIEW_CONNECTOR_SERVICES]:
         connector_required_params = {
-            "bigquery": ["service", "cron"],
-            "snowflake": ["connector", "service", "cron", "external_data_source"],
             "s3": ["connector", "service", "cron", "bucket_uri"],
             "s3_iamrole": ["connector", "service", "cron", "bucket_uri"],
             "gcs": ["connector", "service", "cron", "bucket_uri"],
         }.get(service, [])
 
-        connector_at_least_one_required_param = {
-            "bigquery": ["external_data_source", "query"],
-        }.get(service, [])
+        connector_at_least_one_required_param: List[str] = []
 
         if connector_at_least_one_required_param and not any(
             key in ds_params for key in connector_at_least_one_required_param
@@ -3705,7 +3693,7 @@ def get_name_version(ds: str) -> Dict[str, Any]:
         return {"name": tk[0], "version": None}
     elif len(tk) == 2:
         if len(tk[1]):
-            if tk[1][0] == "v" and re.match("[0-9]+$", tk[1][1:]):
+            if tk[1][0] == "v" and _PATTERN_VERSION_NUMBER.match(tk[1][1:]):
                 return {"name": tk[0], "version": int(tk[1][1:])}
             else:
                 return {"name": tk[0] + "__" + tk[1], "version": None}
@@ -4363,9 +4351,7 @@ async def folder_push(
         )
         if resource_full_name not in existing_resources:
             return True
-        if force or run_tests:
-            return True
-        return False
+        return force or run_tests
 
     async def push(
         name: str,
@@ -5327,7 +5313,7 @@ async def folder_pull(
 
                             resource_to_write = f"VERSION {k['version']}\n" + resource_to_write
                         if resource_to_write:
-                            matches = re.findall(r"([^\s\.]*__v\d+)", resource_to_write)
+                            matches = _PATTERN_VERSIONED_RESOURCE.findall(resource_to_write)
                             for match in set(matches):
                                 m = match.split("__v")[0]
                                 if m in resources or m in resource_names:
@@ -5549,9 +5535,7 @@ async def diff_files(
 
 
 def is_endpoint(resource: Optional[Dict[str, Any]]) -> bool:
-    if resource and len(resource.get("tokens", [])) != 0 and resource.get("resource") == "pipes":
-        return True
-    return False
+    return bool(resource and len(resource.get("tokens", [])) != 0 and resource.get("resource") == "pipes")
 
 
 def is_materialized(resource: Optional[Dict[str, Any]]) -> bool:
@@ -5612,9 +5596,7 @@ def get_target_materialized_data_source_name(resource: Optional[Dict[str, Any]])
 
 
 def is_datasource(resource: Optional[Dict[str, Any]]) -> bool:
-    if resource and resource.get("resource") == "datasources":
-        return True
-    return False
+    return bool(resource and resource.get("resource") == "datasources")
 
 
 async def create_release(
@@ -5665,15 +5647,13 @@ def update_connector_params(service: str, ds_params: Dict[str, Any], connector_r
     """
     Update connector parameters for a given service, ensuring required parameters exist.
 
-    :param service: The name of the service (e.g., 'bigquery').
+    :param service: The name of the service (e.g., 's3').
     :param ds_params: The data source parameters to be checked.
     :param connector_required_params: The list of required parameters for the connector.
     :return: None
     """
 
-    connector_at_least_one_required_param: List[str] = {
-        "bigquery": ["external_data_source", "query"],
-    }.get(service, [])
+    connector_at_least_one_required_param: List[str] = []
 
     # Handle the "at least one param" requirement
     if connector_at_least_one_required_param and not any(

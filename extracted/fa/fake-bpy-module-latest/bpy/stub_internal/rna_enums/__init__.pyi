@@ -736,6 +736,7 @@ type ExrCodecItems = typing.Literal[
     "PIZ",  # PIZ.Lossless wavelet compression, effective for noisy/grainy images.
     "DWAA",  # DWAA (lossy).JPEG-like lossy compression on 32 row image blocks.
     "DWAB",  # DWAB (lossy).JPEG-like lossy compression on 256 row image blocks.
+    "HTJ2K",  # HTJ2K.Lossless compression based on high throughput JPEG 2000 encoding. It produces smaller files, but it is new and not widely supported by other software yet..
     "ZIPS",  # ZIPS.Lossless zip compression, each image row compressed separately.
     "RLE",  # RLE.Lossless run length encoding compression.
     "PXR24",  # Pxr24 (lossy).Lossy compression for 32 bit float images (stores 24 bits of each float).

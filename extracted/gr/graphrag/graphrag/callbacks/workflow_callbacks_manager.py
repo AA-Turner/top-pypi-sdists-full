@@ -1,7 +1,7 @@
 # Copyright (c) 2024 Microsoft Corporation.
 # Licensed under the MIT License
 
-"""A module containing the WorkflowCallbacks registry."""
+"""A module containing 'WorkflowCallbacksManager' model."""
 
 from graphrag.callbacks.workflow_callbacks import WorkflowCallbacks
 from graphrag.index.typing.pipeline_run_result import PipelineRunResult
@@ -50,3 +50,9 @@ class WorkflowCallbacksManager(WorkflowCallbacks):
         for callback in self._callbacks:
             if hasattr(callback, "progress"):
                 callback.progress(progress)
+
+    def pipeline_error(self, error: BaseException) -> None:
+        """Execute this callback when an error occurs in the pipeline."""
+        for callback in self._callbacks:
+            if hasattr(callback, "pipeline_error"):
+                callback.pipeline_error(error)

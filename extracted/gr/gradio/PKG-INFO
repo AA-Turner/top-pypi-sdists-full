@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gradio
-Version: 6.4.0
+Version: 6.5.1
 Summary: Python library for easily interacting with trained machine learning models
 Project-URL: Homepage, https://github.com/gradio-app/gradio
 Author-email: Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Ömer Faruk Özdemir <gradio-team@huggingface.co>, Freddy A Boulton <gradio-team@huggingface.co>, Hannah Blair <gradio-team@huggingface.co>
@@ -34,11 +34,12 @@ Requires-Dist: markupsafe<4.0,>=2.0
 Requires-Dist: numpy<3.0,>=1.0
 Requires-Dist: orjson~=3.0
 Requires-Dist: packaging
-Requires-Dist: pandas<3.0,>=1.0
+Requires-Dist: pandas<4.0,>=1.0
 Requires-Dist: pillow<13.0,>=8.0
 Requires-Dist: pydantic<=3.0,>=2.0
 Requires-Dist: pydub
 Requires-Dist: python-multipart>=0.0.18
+Requires-Dist: pytz>=2017.2
 Requires-Dist: pyyaml<7.0,>=5.0
 Requires-Dist: safehttpx<0.2.0,>=0.1.7
 Requires-Dist: semantic-version~=2.0

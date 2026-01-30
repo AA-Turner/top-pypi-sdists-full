@@ -16,7 +16,10 @@ from .cssl_types import (
     Parameter, DataStruct, Shuffled, Iterator, Combo,
     Stack, Vector, Array, DataSpace, OpenQuote, List, Dictionary, Map,
     Queue,  # v4.7: Thread-safe queue
-    CSSLClass, CSSLInstance, ByteArrayed
+    CSSLClass, CSSLInstance, ByteArrayed,
+    CSSLNamespace,  # v4.8: Custom namespace support
+    Bit, Byte, Address,  # v4.9.0: Binary types and address pointer
+    CSSLFuture, CSSLGenerator, CSSLAsyncFunction, AsyncModule  # v4.9.3: Async support
 )
 
 
@@ -200,11 +203,76 @@ class CSSLReturn(Exception):
         super().__init__()
 
 
+class CSSLYield(Exception):
+    """Yield statement - v4.9.3: Generator yield that pauses execution."""
+    def __init__(self, value: Any = None):
+        self.value = value
+        super().__init__()
+
+
 class CSSLThrow(Exception):
-    """Throw statement - v4.5.1: User-thrown exceptions that propagate to catch blocks"""
-    def __init__(self, message: Any = None):
+    """Throw statement - v4.5.1: User-thrown exceptions that propagate to catch blocks
+    v4.8: Extended to support Python exception types via raise statement.
+    """
+    def __init__(self, message: Any = None, underlying_exception: Exception = None):
         self.message = message
+        self.underlying_exception = underlying_exception
+        self.exception_type = type(underlying_exception).__name__ if underlying_exception else 'Error'
         super().__init__(str(message) if message else "")
+
+
+class SuperProxy:
+    """v4.8.8: Proxy for super->method() calls in child classes.
+
+    Provides access to parent class methods from within a child class method.
+
+    Usage in CSSL:
+        class Parent {
+            define greet() { println("Hello from Parent"); }
+        }
+        class Child extends Parent {
+            define greet() {
+                super->greet();  // Calls Parent.greet()
+                println("Hello from Child");
+            }
+        }
+    """
+    def __init__(self, instance: 'CSSLInstance', parent_class: 'CSSLClass', runtime: 'CSSLRuntime'):
+        self._instance = instance
+        self._parent_class = parent_class
+        self._runtime = runtime
+
+    def get_method(self, name: str):
+        """Get a method from the parent class."""
+        if self._parent_class is None:
+            return None
+
+        # Check parent class methods (methods is a dict with name -> AST node)
+        if hasattr(self._parent_class, 'methods') and isinstance(self._parent_class.methods, dict):
+            if name in self._parent_class.methods:
+                return self._parent_class.methods[name]
+
+        # Check if parent has its own parent (grandparent) - recursive lookup
+        if hasattr(self._parent_class, 'parent') and self._parent_class.parent:
+            grandparent_proxy = SuperProxy(self._instance, self._parent_class.parent, self._runtime)
+            return grandparent_proxy.get_method(name)
+
+        return None
+
+    def get_member(self, name: str):
+        """Get a member variable from parent class defaults."""
+        if self._parent_class is None:
+            return None
+
+        # Check parent class member defaults (members is a dict with name -> type/default)
+        if hasattr(self._parent_class, 'members') and isinstance(self._parent_class.members, dict):
+            if name in self._parent_class.members:
+                member_info = self._parent_class.members[name]
+                if isinstance(member_info, dict) and 'default' in member_info:
+                    return self._runtime._evaluate(member_info['default'])
+                return member_info
+
+        return None
 
 
 @dataclass
@@ -241,7 +309,11 @@ class Scope:
 
 @dataclass
 class ServiceDefinition:
-    """Parsed service definition"""
+    """Parsed service definition
+
+    v4.8.6: Added __getattr__ and get() for accessing exported functions/structs/classes.
+    This allows include() modules to be used like: mod.myFunc() or mod.get('myFunc')
+    """
     name: str = ""
     version: str = "1.0"
     author: str = ""
@@ -251,7 +323,56 @@ class ServiceDefinition:
     priority: int = 0
     structs: Dict[str, ASTNode] = field(default_factory=dict)
     functions: Dict[str, ASTNode] = field(default_factory=dict)
+    classes: Dict[str, Any] = field(default_factory=dict)  # v4.8.6: Class definitions
+    enums: Dict[str, Any] = field(default_factory=dict)    # v4.8.6: Enum definitions
+    namespaces: Dict[str, Any] = field(default_factory=dict)  # v4.8.6: Namespace definitions
     event_handlers: Dict[str, List[ASTNode]] = field(default_factory=dict)
+    _runtime: Any = field(default=None, repr=False)  # Reference to runtime for calling functions
+
+    def get(self, name: str, default: Any = None) -> Any:
+        """Get an exported function, struct, class, enum, or namespace by name."""
+        if name in self.functions:
+            return self.functions[name]
+        if name in self.classes:
+            return self.classes[name]
+        if name in self.structs:
+            return self.structs[name]
+        if name in self.enums:
+            return self.enums[name]
+        if name in self.namespaces:
+            return self.namespaces[name]
+        return default
+
+    def __getattr__(self, name: str) -> Any:
+        """Allow direct attribute access to functions, classes, structs, etc.
+
+        Usage: mod.myFunc (returns the function AST node)
+               mod.MyClass (returns the class definition)
+        """
+        # Avoid infinite recursion with dataclass fields
+        if name.startswith('_') or name in ('name', 'version', 'author', 'description',
+                                             'dependencies', 'autostart', 'priority',
+                                             'structs', 'functions', 'classes', 'enums',
+                                             'namespaces', 'event_handlers'):
+            raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+        # Check classes first (most common case after functions)
+        if hasattr(self, 'classes') and name in self.classes:
+            return self.classes[name]
+        # Check functions
+        if hasattr(self, 'functions') and name in self.functions:
+            return self.functions[name]
+        # Check structs
+        if hasattr(self, 'structs') and name in self.structs:
+            return self.structs[name]
+        # Check enums
+        if hasattr(self, 'enums') and name in self.enums:
+            return self.enums[name]
+        # Check namespaces
+        if hasattr(self, 'namespaces') and name in self.namespaces:
+            return self.namespaces[name]
+
+        raise AttributeError(f"Module '{self.name}' has no export '{name}'")
 
 
 class CSSLRuntime:
@@ -273,10 +394,13 @@ class CSSLRuntime:
         self._function_injections: Dict[str, List[tuple]] = {}  # List of (code_block, captured_values_dict)
         self._function_replaced: Dict[str, bool] = {}  # NEW: Track replaced functions (<<==)
         self._original_functions: Dict[str, Any] = {}  # Store originals before replacement
+        self._hook_executing: set = set()  # v4.9.2: Track currently executing hooks to prevent recursion
+        self._hook_locals: dict = {}  # v4.9.2: Local variables from hooked function for local:: access
         self._injection_captures: Dict[str, Dict[str, Any]] = {}  # Captured %vars per injection
         self._current_captured_values: Dict[str, Any] = {}  # Current captured values during injection execution
         self._promoted_globals: Dict[str, Any] = {}  # NEW: Variables promoted via global()
         self._current_instance: Optional[CSSLInstance] = None  # Current class instance for this-> access
+        self._var_meta: Dict[str, Dict[str, bool]] = {}  # v4.9.4: Track local/static/freezed modifiers
         self._running = False
         self._exit_code = 0
         self._output_callback = output_callback  # Callback for console output (text, level)
@@ -439,6 +563,40 @@ class CSSLRuntime:
             return self._source_lines[line - 1]
         return ""
 
+    def _get_empty_value_for_type(self, value: Any) -> Any:
+        """v4.8.6: Get an empty value of the same type for move operations.
+
+        Used by -<== operator to clear source after move without destroying it.
+        Returns empty container for containers, None for primitives.
+        """
+        from .cssl_types import Stack, Vector, Array, DataStruct, List, Dictionary, Map, Queue
+
+        if isinstance(value, Stack):
+            return Stack(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, Vector):
+            return Vector(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, Array):
+            return Array(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, DataStruct):
+            return DataStruct(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, List):
+            return List(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, Dictionary):
+            return Dictionary(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, Map):
+            return Map(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, Queue):
+            return Queue(getattr(value, '_element_type', 'dynamic'))
+        elif isinstance(value, list):
+            return []
+        elif isinstance(value, dict):
+            return {}
+        elif isinstance(value, str):
+            return ""
+        else:
+            # For other types (int, float, objects), return None
+            return None
+
     def execute(self, source: str) -> Any:
         """Execute CSSL service source code"""
         self._source_lines = source.splitlines()
@@ -469,6 +627,8 @@ class CSSLRuntime:
         """Execute a CSSL file (auto-detects service vs program format)"""
         import os
         self._current_file = os.path.basename(filepath)
+        # v4.8.8: Track full path for relative payload resolution
+        self._current_file_path = os.path.abspath(filepath)
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
 
@@ -484,6 +644,8 @@ class CSSLRuntime:
         """Execute a standalone CSSL program file"""
         import os
         self._current_file = os.path.basename(filepath)
+        # v4.8.8: Track full path for relative payload resolution
+        self._current_file_path = os.path.abspath(filepath)
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
         return self.execute_program(source)
@@ -492,7 +654,6 @@ class CSSLRuntime:
         """Execute an AST node"""
         if node is None:
             return None
-
         method_name = f'_exec_{node.type.replace("-", "_")}'
         method = getattr(self, method_name, None)
 
@@ -533,6 +694,28 @@ class CSSLRuntime:
                 func_name = func_info.get('name')
                 service.functions[func_name] = child
                 self.scope.set(func_name, child)
+            # v4.8.6: class at top level
+            elif child.type == 'class':
+                class_info = child.value
+                class_name = class_info.get('name') if isinstance(class_info, dict) else class_info
+                # Execute class definition to register it
+                class_def = self._exec_class(child)
+                if class_def:
+                    service.classes[class_name] = class_def
+            # v4.8.6: enum at top level
+            elif child.type == 'enum':
+                enum_info = child.value
+                enum_name = enum_info.get('name') if isinstance(enum_info, dict) else enum_info
+                enum_def = self._exec_enum(child)
+                if enum_def:
+                    service.enums[enum_name] = enum_def
+            # v4.8.6: namespace at top level
+            elif child.type == 'namespace':
+                ns_info = child.value
+                ns_name = ns_info.get('name') if isinstance(ns_info, dict) else ns_info
+                ns_def = self._exec_namespace(child)
+                if ns_def:
+                    service.namespaces[ns_name] = ns_def
 
         return service
 
@@ -558,6 +741,8 @@ class CSSLRuntime:
                 self._exec_class(child)
             elif child.type == 'enum':
                 self._exec_enum(child)
+            elif child.type == 'namespace':
+                self._exec_namespace(child)
             elif child.type == 'bytearrayed':
                 self._exec_bytearrayed(child)
             elif child.type == 'function':
@@ -979,8 +1164,9 @@ class CSSLRuntime:
         """
         case_blocks = []
         default_node = None
+        func_ref_stmts = []  # v4.8.8: Collect &func; statements before case/default
 
-        # Collect case and default blocks
+        # Collect case/default blocks and func_ref statements
         for child in func_node.children:
             if not self._running:
                 break
@@ -988,6 +1174,40 @@ class CSSLRuntime:
                 case_blocks.append(child)
             elif child.type == 'default':
                 default_node = child
+            elif child.type == 'func_ref':
+                # v4.8.8: Collect func_ref statements (&n; &b(100);)
+                func_ref_stmts.append(child)
+            elif child.type == 'expression' and hasattr(child, 'value'):
+                # Check if expression is a func_ref (ampersand expression)
+                expr_val = child.value
+                if hasattr(expr_val, 'type') and expr_val.type == 'func_ref':
+                    func_ref_stmts.append(expr_val)
+
+        # v4.8.8: Execute all func_ref statements and collect results
+        collected_results = []
+        for ref_stmt in func_ref_stmts:
+            ref_info = ref_stmt.value if hasattr(ref_stmt, 'value') else ref_stmt
+            if isinstance(ref_info, dict):
+                func_name = ref_info.get('name')
+                func_args = ref_info.get('args', [])
+            else:
+                func_name = str(ref_info)
+                func_args = []
+
+            eval_args = [self._evaluate(a) for a in func_args] if func_args else []
+
+            # Call the function
+            try:
+                result = None
+                func_def = self.scope.get(func_name) or self.global_scope.get(func_name)
+                if func_def and hasattr(func_def, 'type') and func_def.type == 'function':
+                    result = self._call_function(func_def, eval_args)
+                elif callable(func_def):
+                    result = func_def(*eval_args)
+            except Exception as e:
+                result = None
+
+            collected_results.append(result)
 
         # Process each case block
         for case_node in case_blocks:
@@ -998,47 +1218,70 @@ class CSSLRuntime:
             patterns = case_value.get('patterns', [])
             func_refs = case_value.get('func_refs', [])
             body = case_value.get('body', [])
+            is_except = case_value.get('except', False)  # v4.9.4: Inverted matching for except blocks
 
-            # Execute each func_ref and check if result matches pattern
-            all_match = True
-            for i, func_ref in enumerate(func_refs):
-                func_name = func_ref.get('name')
-                func_args = func_ref.get('args', [])
-                eval_args = [self._evaluate(a) for a in func_args]
-
-                # Call the function - check for method on current instance first
-                try:
-                    result = None
-                    # Check if it's a method on current instance
-                    if self._current_instance and hasattr(self._current_instance, 'get_method'):
-                        method = self._current_instance.get_method(func_name)
-                        if method:
-                            result = self._call_method(self._current_instance, method, eval_args)
-                        else:
-                            # Look up function by name in scope
-                            func_node = self.scope.get(func_name) or self.global_scope.get(func_name)
-                            if func_node and hasattr(func_node, 'type') and func_node.type == 'function':
-                                result = self._call_function(func_node, eval_args)
-                            elif callable(func_node):
-                                result = func_node(*eval_args)
+            # v4.8.8: If we have collected results from &func; statements,
+            # match patterns against those results (tuple pattern matching)
+            if collected_results and not func_refs:
+                # Match collected_results against patterns
+                all_match = True
+                if isinstance(patterns, list) and len(patterns) == 1 and isinstance(patterns[0], tuple):
+                    # Tuple pattern: case {0, 0}: -> patterns = [(0, 0)]
+                    expected = list(patterns[0])
+                    if len(expected) == len(collected_results):
+                        for i, (exp, got) in enumerate(zip(expected, collected_results)):
+                            if exp != got:
+                                all_match = False
+                                break
                     else:
-                        # Look up function by name in scope
-                        func_node = self.scope.get(func_name) or self.global_scope.get(func_name)
-                        if func_node and hasattr(func_node, 'type') and func_node.type == 'function':
-                            result = self._call_function(func_node, eval_args)
-                        elif callable(func_node):
-                            result = func_node(*eval_args)
-                except Exception as e:
-                    result = None
-
-                # Check if result matches the corresponding pattern
-                if i < len(patterns):
-                    pattern = patterns[i]
-                    if result != pattern:
                         all_match = False
-                        break
+                elif len(patterns) == len(collected_results):
+                    # Comma-separated patterns: case 0, 0: -> patterns = [0, 0]
+                    for i, (exp, got) in enumerate(zip(patterns, collected_results)):
+                        if exp != got:
+                            all_match = False
+                            break
+                else:
+                    all_match = False
+            else:
+                # Original behavior: execute func_refs from case and match
+                all_match = True
+                for i, func_ref in enumerate(func_refs):
+                    func_name = func_ref.get('name')
+                    func_args = func_ref.get('args', [])
+                    eval_args = [self._evaluate(a) for a in func_args]
 
-            if all_match:
+                    try:
+                        result = None
+                        if self._current_instance and hasattr(self._current_instance, 'get_method'):
+                            method = self._current_instance.get_method(func_name)
+                            if method:
+                                result = self._call_method(self._current_instance, method, eval_args)
+                            else:
+                                func_def = self.scope.get(func_name) or self.global_scope.get(func_name)
+                                if func_def and hasattr(func_def, 'type') and func_def.type == 'function':
+                                    result = self._call_function(func_def, eval_args)
+                                elif callable(func_def):
+                                    result = func_def(*eval_args)
+                        else:
+                            func_def = self.scope.get(func_name) or self.global_scope.get(func_name)
+                            if func_def and hasattr(func_def, 'type') and func_def.type == 'function':
+                                result = self._call_function(func_def, eval_args)
+                            elif callable(func_def):
+                                result = func_def(*eval_args)
+                    except Exception as e:
+                        result = None
+
+                    if i < len(patterns):
+                        pattern = patterns[i]
+                        if result != pattern:
+                            all_match = False
+                            break
+
+            # v4.9.4: For except blocks, invert the match logic
+            should_execute = (not all_match) if is_except else all_match
+
+            if should_execute:
                 # Execute the case body
                 for stmt in body:
                     try:
@@ -1110,6 +1353,26 @@ class CSSLRuntime:
         extends_is_python = class_info.get('extends_is_python', False)
         overwrites_class_name = class_info.get('overwrites')
         overwrites_is_python = class_info.get('overwrites_is_python', False)
+        uses_memory = class_info.get('uses_memory')  # v4.9.0
+
+        # v4.9.0: Handle ': uses memory(address)' - deferred execution binding
+        # Class constructor is hooked to the host's execution
+        if uses_memory:
+            host_obj = self._evaluate(uses_memory)
+            # Convert to hashable key - use name for functions, id() for others
+            if isinstance(host_obj, ASTNode):
+                host_key = host_obj.value.get('name') if isinstance(host_obj.value, dict) else str(id(host_obj))
+            elif isinstance(host_obj, str):
+                host_key = host_obj
+            else:
+                host_key = str(id(host_obj))
+            if not hasattr(self, '_memory_hooks'):
+                self._memory_hooks = {}
+            if host_key not in self._memory_hooks:
+                self._memory_hooks[host_key] = []
+            self._memory_hooks[host_key].append(('class', node))
+            # Continue to register the class normally so it can be referenced
+            # Hooks execute when the host is called
 
         # Resolve parent class if extends is specified
         parent_class = None
@@ -1176,10 +1439,16 @@ class CSSLRuntime:
             # Add transformed children to node's children
             node.children = transformed_children
 
+        destructors = []  # v4.8.8: Store destructors (constr ~Name())
+
         for child in node.children:
             if child.type == 'constructor':
-                # New-style constructor from 'constr' keyword
-                constructors.append(child)
+                # v4.8.8: Check if this is a destructor (~Name)
+                if child.value.get('is_destructor'):
+                    destructors.append(child)
+                else:
+                    # New-style constructor from 'constr' keyword
+                    constructors.append(child)
 
             elif child.type == 'function':
                 # This is a method or old-style constructor
@@ -1214,6 +1483,7 @@ class CSSLRuntime:
         )
         # Store additional constructor info
         class_def.constructors = constructors  # Multiple constructors from 'constr' keyword
+        class_def.destructors = destructors    # v4.8.8: Destructors (constr ~Name())
         class_def.class_params = class_params  # Class-level constructor parameters
         class_def.extends_args = extends_args  # Arguments to pass to parent constructor
 
@@ -1315,6 +1585,64 @@ class CSSLRuntime:
             finally:
                 self._current_instance = old_instance
         return wrapper
+
+    def _exec_namespace(self, node: ASTNode) -> 'CSSLNamespace':
+        """Execute namespace definition - registers namespace in scope.
+
+        Namespaces group functions, classes, and nested namespaces together,
+        accessible via the :: operator (e.g., mylib::myFunc()).
+
+        Syntax:
+            namespace mylib {
+                void myFunc() { ... }
+                class MyClass { ... }
+                namespace nested { ... }
+            }
+
+        Access: mylib::myFunc(), mylib::MyClass, mylib::nested::innerFunc()
+        """
+        ns_name = node.value.get('name') if isinstance(node.value, dict) else node.value
+
+        # Create namespace object
+        namespace = CSSLNamespace(ns_name)
+
+        # Process namespace members
+        for child in node.children:
+            if child.type == 'function':
+                # Register function in namespace
+                func_info = child.value
+                func_name = func_info.get('name')
+                namespace.functions[func_name] = child
+            elif child.type == 'class':
+                # Register class in namespace
+                class_info = child.value
+                class_name = class_info.get('name')
+                cssl_class = self._exec_class(child)
+                namespace.classes[class_name] = cssl_class
+            elif child.type == 'enum':
+                # Register enum in namespace
+                enum_info = child.value
+                enum_name = enum_info.get('name')
+                self._exec_enum(child)
+                namespace.enums[enum_name] = self.scope.get(enum_name)
+            elif child.type == 'struct':
+                # Register struct in namespace
+                struct_info = child.value
+                if isinstance(struct_info, dict):
+                    struct_name = struct_info.get('name', '')
+                else:
+                    struct_name = struct_info
+                namespace.structs[struct_name] = child
+            elif child.type == 'namespace':
+                # Nested namespace
+                nested_ns = self._exec_namespace(child)
+                namespace.namespaces[nested_ns.name] = nested_ns
+
+        # Register namespace in both local and global scope for :: access
+        self.scope.set(ns_name, namespace)
+        self.global_scope.set(ns_name, namespace)
+
+        return namespace
 
     def _transform_and_parse_class_body(self, raw_body: str, language: str, class_name: str) -> list:
         """Transform source code from another language to CSSL and parse as class body.
@@ -1446,6 +1774,48 @@ class CSSLRuntime:
         extends_is_python = func_info.get('extends_is_python', False)
         overwrites_func = func_info.get('overwrites')
         overwrites_is_python = func_info.get('overwrites_is_python', False)
+        uses_memory = func_info.get('uses_memory')  # v4.9.0
+
+        # v4.9.0: Handle ': uses memory(address)' - deferred execution binding
+        # Function is not executed immediately but deferred until the host is called
+        # Calling this function directly is a no-op - it only triggers when the host is called
+        if uses_memory:
+            # Evaluate the address expression (can be function ref, address string, etc.)
+            host_obj = self._evaluate(uses_memory)
+
+            # Resolve the actual target function to get its name for hook lookup
+            host_key = None
+            from .cssl_types import Address
+            if isinstance(host_obj, Address):
+                # Address type - reflect to get the original object
+                reflected = host_obj.reflect()
+                if isinstance(reflected, ASTNode) and reflected.type == 'function':
+                    host_key = reflected.value.get('name')
+                elif reflected is not None:
+                    host_key = str(id(reflected))
+            elif isinstance(host_obj, ASTNode):
+                # Direct function reference
+                host_key = host_obj.value.get('name') if isinstance(host_obj.value, dict) else str(id(host_obj))
+            elif isinstance(host_obj, str):
+                host_key = host_obj  # Address string like "0x..."
+            else:
+                host_key = str(id(host_obj))
+
+            if host_key:
+                # Store the function as a memory hook
+                if not hasattr(self, '_memory_hooks'):
+                    self._memory_hooks = {}  # key -> list of hooked functions
+                if host_key not in self._memory_hooks:
+                    self._memory_hooks[host_key] = []
+                self._memory_hooks[host_key].append(node)
+
+            # Mark function as a hook (calling it directly is a no-op)
+            node.value['_is_memory_hook'] = True
+            # Register the function by name for reference
+            self.scope.set(func_name, node)
+            if is_global:
+                self.global_scope.set(func_name, node)
+            return None
 
         # Get append/overwrite reference info (&Class::method syntax)
         append_mode = func_info.get('append_mode', False)
@@ -1491,12 +1861,62 @@ class CSSLRuntime:
                     self.scope.set(overwrites_func, node)
                     self.global_scope.set(overwrites_func, node)
 
+        # v4.9.3: Check for async modifier - wrap function in CSSLAsyncFunction
+        modifiers = func_info.get('modifiers', [])
+        if 'async' in modifiers:
+            # Create async wrapper that returns a Future when called
+            async_func = CSSLAsyncFunction(func_name, node, self)
+            self.scope.set(func_name, async_func)
+            if is_global:
+                self.global_scope.set(func_name, async_func)
+                self._promoted_globals[func_name] = async_func
+            return None
+
+        # v4.9.3: Check if function is a generator (contains yield statements)
+        # Return type 'generator' or body contains yield
+        return_type = func_info.get('return_type', '')
+        if return_type == 'generator' or self._contains_yield(node):
+            # Mark as generator function - will create CSSLGenerator on call
+            node.value['_is_generator'] = True
+
         # Register the function (local by default, global if marked)
         self.scope.set(func_name, node)
         if is_global:
             self.global_scope.set(func_name, node)
             self._promoted_globals[func_name] = node
         return None
+
+    def _contains_yield(self, node: ASTNode) -> bool:
+        """Check if a function node contains yield statements."""
+        if node is None:
+            return False
+
+        def _search_yield(n):
+            if n is None:
+                return False
+            if hasattr(n, 'type') and n.type in ('yield', 'yield_expr'):
+                return True
+            if hasattr(n, 'children'):
+                for child in n.children:
+                    if _search_yield(child):
+                        return True
+            if hasattr(n, 'value'):
+                # Check if value is an ASTNode (nested structure)
+                if isinstance(n.value, dict):
+                    for v in n.value.values():
+                        if isinstance(v, ASTNode) and _search_yield(v):
+                            return True
+                        if isinstance(v, list):
+                            for item in v:
+                                if isinstance(item, ASTNode) and _search_yield(item):
+                                    return True
+            return False
+
+        # Search in function body (children)
+        for child in node.children:
+            if _search_yield(child):
+                return True
+        return False
 
     def _resolve_function_target(self, name: str, is_python: bool) -> Any:
         """Resolve a function target for extends/overwrites."""
@@ -1544,6 +1964,357 @@ class CSSLRuntime:
                     del runtime.scope.variables['this']
 
         return wrapper
+
+    def _create_generator(self, func_node: ASTNode, args: List[Any], kwargs: Dict[str, Any] = None) -> CSSLGenerator:
+        """Create a CSSLGenerator for a generator function - v4.9.3
+
+        Generator functions are functions that contain yield statements.
+        When called, they return a CSSLGenerator object that can be iterated.
+
+        Example CSSL:
+            generator<int> define Range(int n) {
+                int i = 0;
+                while (i < n) {
+                    yield i;
+                    i = i + 1;
+                }
+            }
+
+            gen = Range(5);
+            while (gen.has_next()) {
+                printl(gen.next());
+            }
+        """
+        func_info = func_node.value
+        params = func_info.get('params', [])
+        kwargs = kwargs or {}
+        func_name = func_info.get('name', 'anonymous')
+
+        # Set up scope with parameters first (before creating generator)
+        old_scope = self.scope
+        gen_scope = Scope(parent=self.scope)
+
+        # Bind parameters
+        for i, param in enumerate(params):
+            if isinstance(param, dict):
+                param_name = param['name']
+                param_default = param.get('default')
+            else:
+                param_name = param
+                param_default = None
+
+            # Get value from kwargs, args, or default
+            if param_name in kwargs:
+                value = kwargs[param_name]
+            elif i < len(args):
+                value = args[i]
+            elif param_default is not None:
+                self.scope = gen_scope
+                value = self._evaluate(param_default)
+                self.scope = old_scope
+            else:
+                value = None
+
+            gen_scope.set(param_name, value)
+
+        # Generator execution using a Python generator with proper state management
+        runtime = self
+        # Shared container for sent values - accessible to both Python generator and CSSL
+        sent_container = {'value': None}
+
+        def cssl_generator_func():
+            # Execute generator body, properly managing scope around each yield
+            for child in func_node.children:
+                if not runtime._running:
+                    return
+
+                # Save caller's scope before entering generator scope
+                caller_scope = runtime.scope
+                runtime.scope = gen_scope
+
+                try:
+                    if child.type == 'yield':
+                        # Direct yield node
+                        value = runtime._evaluate(child.value) if child.value else None
+                        runtime.scope = caller_scope  # Restore before yield
+                        sent_container['value'] = yield value  # Capture sent value!
+                        runtime.scope = gen_scope
+                        gen_scope.set('__sent__', sent_container['value'])
+                    elif child.type == 'assignment' and _is_yield_assignment(child):
+                        # Handle: received = yield value
+                        yield_node = child.value.get('value')
+                        if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                            yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield yield_val  # Capture sent value!
+                            runtime.scope = gen_scope
+                            # Assign sent value to the target variable
+                            target_name = _get_target_name(child.value.get('target'))
+                            if target_name:
+                                gen_scope.set(target_name, sent_container['value'])
+                    elif child.type == 'while':
+                        # While loop - handle yield inside
+                        for val in _execute_generator_while(child, sent_container):
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield val
+                            runtime.scope = gen_scope
+                            gen_scope.set('__sent__', sent_container['value'])
+                    elif child.type in ('for', 'c_for'):
+                        for val in _execute_generator_for(child, sent_container):
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield val
+                            runtime.scope = gen_scope
+                            gen_scope.set('__sent__', sent_container['value'])
+                    elif child.type == 'foreach':
+                        for val in _execute_generator_foreach(child, sent_container):
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield val
+                            runtime.scope = gen_scope
+                            gen_scope.set('__sent__', sent_container['value'])
+                    elif child.type == 'if':
+                        for val in _execute_generator_if(child, sent_container):
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield val
+                            runtime.scope = gen_scope
+                            gen_scope.set('__sent__', sent_container['value'])
+                    elif child.type == 'return':
+                        runtime.scope = caller_scope
+                        return
+                    else:
+                        # Regular statement
+                        try:
+                            runtime._execute_node(child)
+                        except CSSLYield as y:
+                            runtime.scope = caller_scope
+                            sent_container['value'] = yield y.value
+                            runtime.scope = gen_scope
+                            gen_scope.set('__sent__', sent_container['value'])
+                        except CSSLReturn:
+                            runtime.scope = caller_scope
+                            return
+                finally:
+                    runtime.scope = caller_scope
+
+        def _is_yield_assignment(node):
+            """Check if node is an assignment with yield on RHS."""
+            if node.type != 'assignment':
+                return False
+            val = node.value.get('value')
+            return val and hasattr(val, 'type') and val.type in ('yield', 'yield_expr')
+
+        def _get_target_name(target):
+            """Extract variable name from assignment target ASTNode."""
+            if isinstance(target, str):
+                return target
+            if hasattr(target, 'type'):
+                if target.type == 'identifier':
+                    return target.value
+            return None
+
+        def _execute_generator_while(node, sent_container):
+            while runtime._running:
+                # Always restore gen_scope at start of each iteration (may have been changed by yield)
+                runtime.scope = gen_scope
+                if not runtime._evaluate(node.value.get('condition')):
+                    break
+                try:
+                    for child in node.children:
+                        runtime.scope = gen_scope  # Ensure gen_scope for all operations
+                        if child.type == 'yield':
+                            value = runtime._evaluate(child.value) if child.value else None
+                            yield value
+                        elif child.type == 'assignment' and _is_yield_assignment(child):
+                            # Handle: received = yield value inside while
+                            yield_node = child.value.get('value')
+                            if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                                yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                                yield yield_val
+                                # After yield, sent_container has the sent value
+                                target_name = _get_target_name(child.value.get('target'))
+                                if target_name:
+                                    gen_scope.set(target_name, sent_container['value'])
+                        else:
+                            try:
+                                runtime._execute_node(child)
+                            except CSSLYield as y:
+                                yield y.value
+                            except CSSLReturn:
+                                return
+                except CSSLBreak:
+                    break
+                except CSSLContinue:
+                    continue
+
+        def _execute_generator_for(node, sent_container):
+            if node.type == 'c_for':
+                init = node.value.get('init')
+                condition = node.value.get('condition')
+                update = node.value.get('update')
+
+                runtime.scope = gen_scope
+                if init:
+                    runtime._execute_node(init)
+
+                while runtime._running:
+                    # Restore gen_scope at start of each iteration
+                    runtime.scope = gen_scope
+                    if condition is not None and not runtime._evaluate(condition):
+                        break
+                    try:
+                        for child in node.children:
+                            runtime.scope = gen_scope
+                            if child.type == 'yield':
+                                value = runtime._evaluate(child.value) if child.value else None
+                                yield value
+                            elif child.type == 'assignment' and _is_yield_assignment(child):
+                                yield_node = child.value.get('value')
+                                if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                                    yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                                    yield yield_val
+                                    target = child.value.get('target')
+                                    if target:
+                                        gen_scope.set(target, sent_container['value'])
+                            else:
+                                try:
+                                    runtime._execute_node(child)
+                                except CSSLYield as y:
+                                    yield y.value
+                                except CSSLReturn:
+                                    return
+                    except CSSLBreak:
+                        break
+                    except CSSLContinue:
+                        pass
+
+                    runtime.scope = gen_scope
+                    if update:
+                        runtime._evaluate(update)
+            else:
+                runtime.scope = gen_scope
+                var_name = node.value.get('var')
+                start = int(runtime._evaluate(node.value.get('start')))
+                end = int(runtime._evaluate(node.value.get('end')))
+                step_node = node.value.get('step')
+                step = int(runtime._evaluate(step_node)) if step_node else 1
+
+                for i in range(start, end, step):
+                    if not runtime._running:
+                        break
+                    runtime.scope = gen_scope  # Restore at start of each iteration
+                    gen_scope.set(var_name, i)
+                    try:
+                        for child in node.children:
+                            runtime.scope = gen_scope
+                            if child.type == 'yield':
+                                value = runtime._evaluate(child.value) if child.value else None
+                                yield value
+                            elif child.type == 'assignment' and _is_yield_assignment(child):
+                                yield_node = child.value.get('value')
+                                if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                                    yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                                    yield yield_val
+                                    target = child.value.get('target')
+                                    if target:
+                                        gen_scope.set(target, sent_container['value'])
+                            else:
+                                try:
+                                    runtime._execute_node(child)
+                                except CSSLYield as y:
+                                    yield y.value
+                                except CSSLReturn:
+                                    return
+                    except CSSLBreak:
+                        break
+                    except CSSLContinue:
+                        continue
+
+        def _execute_generator_foreach(node, sent_container):
+            runtime.scope = gen_scope
+            var_name = node.value.get('var')
+            iterable = runtime._evaluate(node.value.get('iterable'))
+
+            if hasattr(iterable, '__iter__'):
+                for item in iterable:
+                    if not runtime._running:
+                        break
+                    runtime.scope = gen_scope  # Restore at start of each iteration
+                    gen_scope.set(var_name, item)
+                    try:
+                        for child in node.children:
+                            runtime.scope = gen_scope
+                            if child.type == 'yield':
+                                value = runtime._evaluate(child.value) if child.value else None
+                                yield value
+                            elif child.type == 'assignment' and _is_yield_assignment(child):
+                                yield_node = child.value.get('value')
+                                if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                                    yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                                    yield yield_val
+                                    target = child.value.get('target')
+                                    if target:
+                                        gen_scope.set(target, sent_container['value'])
+                            else:
+                                try:
+                                    runtime._execute_node(child)
+                                except CSSLYield as y:
+                                    yield y.value
+                                except CSSLReturn:
+                                    return
+                    except CSSLBreak:
+                        break
+                    except CSSLContinue:
+                        continue
+
+        def _execute_generator_if(node, sent_container):
+            runtime.scope = gen_scope
+            condition = runtime._evaluate(node.value.get('condition'))
+            if condition:
+                for child in node.children:
+                    runtime.scope = gen_scope
+                    if child.type == 'yield':
+                        value = runtime._evaluate(child.value) if child.value else None
+                        yield value
+                    elif child.type == 'assignment' and _is_yield_assignment(child):
+                        yield_node = child.value.get('value')
+                        if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                            yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                            yield yield_val
+                            target = child.value.get('target')
+                            if target:
+                                gen_scope.set(target, sent_container['value'])
+                    else:
+                        try:
+                            runtime._execute_node(child)
+                        except CSSLYield as y:
+                            yield y.value
+                        except CSSLReturn:
+                            return
+            else:
+                else_branch = node.value.get('else_branch')
+                if else_branch:
+                    branches = else_branch if isinstance(else_branch, list) else [else_branch]
+                    for child in branches:
+                        runtime.scope = gen_scope
+                        if hasattr(child, 'type') and child.type == 'yield':
+                            value = runtime._evaluate(child.value) if child.value else None
+                            yield value
+                        elif hasattr(child, 'type') and child.type == 'assignment' and _is_yield_assignment(child):
+                            yield_node = child.value.get('value')
+                            if yield_node and yield_node.type in ('yield', 'yield_expr'):
+                                yield_val = runtime._evaluate(yield_node.value) if yield_node.value else None
+                                yield yield_val
+                                target_name = _get_target_name(child.value.get('target'))
+                                if target_name:
+                                    gen_scope.set(target_name, sent_container['value'])
+                        elif hasattr(child, 'type'):
+                            try:
+                                runtime._execute_node(child)
+                            except CSSLYield as y:
+                                yield y.value
+                            except CSSLReturn:
+                                return
+
+        return CSSLGenerator(func_name, cssl_generator_func())
 
     def _overwrite_target(self, ref_class: str, ref_member: str, replacement_node: ASTNode):
         """Overwrite a class method or function with the replacement.
@@ -1622,6 +2393,13 @@ class CSSLRuntime:
 
         # Handle CSSL class method overwrite
         target_class = self.scope.get(ref_class) or self.global_scope.get(ref_class)
+
+        # v4.9.2: Handle &builtinName syntax (stored as __builtins__::builtinName)
+        if ref_class == '__builtins__' and ref_member:
+            # Treat as standalone builtin function overwrite
+            ref_class = ref_member
+            ref_member = None
+            target_class = self.scope.get(ref_class) or self.global_scope.get(ref_class)
 
         # v4.2.3: Handle standalone function reference (&functionName) including builtins
         if ref_member is None:
@@ -1755,15 +2533,106 @@ class CSSLRuntime:
 
         # Handle CSSL class method append
         target_class = self.scope.get(ref_class) or self.global_scope.get(ref_class)
-        if target_class is None:
-            # Standalone function append
+
+        # v4.9.2: Handle &builtinName ++ syntax (stored as __builtins__::builtinName)
+        is_builtin_hook = False
+        if ref_class == '__builtins__' and ref_member:
+            # Treat as standalone builtin function append
+            ref_class = ref_member
+            ref_member = None
+            is_builtin_hook = True
+            # For builtin hooks, force standalone path (don't use target_class lookup)
+            target_class = None
+        # v4.9.2: Also check if ref_class is a direct builtin name (not via __builtins__)
+        # This handles cases like &address ++ where address is a builtin
+        elif ref_member is None and hasattr(self, 'builtins') and self.builtins.has_function(ref_class):
+            is_builtin_hook = True
+            # Force standalone path for builtin hooks
+            target_class = None
+
+        if target_class is None or is_builtin_hook:
+            # Standalone function append (or builtin hook)
             if ref_member is None:
-                original_func = self.scope.get(ref_class) or self.global_scope.get(ref_class)
+                # v4.9.2: For builtin hooks, get from builtins._functions directly
+                if is_builtin_hook and hasattr(self, 'builtins') and self.builtins.has_function(ref_class):
+                    original_func = self.builtins._functions.get(ref_class)
+                    # Store original before we overwrite
+                    if original_func and ref_class not in self._original_functions:
+                        self._original_functions[ref_class] = original_func
+                else:
+                    original_func = self.scope.get(ref_class) or self.global_scope.get(ref_class)
+                    # For non-builtin, check _original_functions as fallback
+                    if original_func is None:
+                        if hasattr(self, '_original_functions'):
+                            original_func = self._original_functions.get(ref_class)
+                        if original_func is None and hasattr(self, 'builtins') and self.builtins.has_function(ref_class):
+                            original_func = self.builtins._functions.get(ref_class)
+                            if original_func and ref_class not in self._original_functions:
+                                self._original_functions[ref_class] = original_func
+
                 if original_func:
                     # Store original in append_node so it can run first
                     append_node.value['_original_func'] = original_func
                 self.scope.set(ref_class, append_node)
                 self.global_scope.set(ref_class, append_node)
+
+                # v4.9.2: Also update builtins._functions for builtin hooks
+                # For builtin hooks, DON'T store in scope - only use the wrapper in builtins._functions
+                # This ensures all calls go through the wrapper which has proper re-entry protection
+                if hasattr(self, 'builtins') and self.builtins.has_function(ref_class):
+                    # Remove from scope so all lookups go through builtins
+                    self.scope.set(ref_class, None)
+                    self.global_scope.set(ref_class, None)
+                    # v4.9.2: Also clear from _promoted_globals since @var=builtin stores there too
+                    if ref_class in self._promoted_globals:
+                        del self._promoted_globals[ref_class]
+
+                    def make_wrapper(node, runtime, builtin_name, orig_func):
+                        def wrapper(*args, **kwargs):
+                            # v4.9.2: Prevent infinite recursion - if hook is already executing,
+                            # call the original builtin directly instead of the hook
+                            if builtin_name in runtime._hook_executing:
+                                # Already in hook, call original directly
+                                if callable(orig_func):
+                                    return orig_func(*args, **kwargs)
+                                return None
+                            # Mark hook as executing
+                            runtime._hook_executing.add(builtin_name)
+                            try:
+                                # v4.9.2: Append mode - run ORIGINAL first, capture result
+                                original_result = None
+                                if callable(orig_func):
+                                    try:
+                                        original_result = orig_func(*args, **kwargs)
+                                    except Exception:
+                                        pass  # Continue to hook even if original fails
+                                # Store original result so hook can access it via %<name>_result or _result
+                                runtime._original_functions[f'{builtin_name}_result'] = original_result
+                                # Also set _result in scope for easy access inside hook
+                                runtime.scope.set('_result', original_result)
+                                # v4.9.2: Populate _hook_locals with args for local:: access
+                                old_hook_locals = runtime._hook_locals
+                                runtime._hook_locals = {'_result': original_result, '_args': args, '_kwargs': kwargs}
+                                # Add numbered args (local::0, local::1, etc.)
+                                for i, arg in enumerate(args):
+                                    runtime._hook_locals[str(i)] = arg
+                                # Run hook body with same args
+                                hook_result = runtime._call_function(node, list(args), kwargs)
+                                # Restore previous hook locals
+                                runtime._hook_locals = old_hook_locals
+                                # Clean up _result
+                                runtime.scope.set('_result', None)
+                                # Return original result unless hook explicitly returned something
+                                if hook_result is not None:
+                                    return hook_result
+                                return original_result
+                            finally:
+                                runtime._hook_executing.discard(builtin_name)
+                                # Clean up result
+                                runtime._original_functions.pop(f'{builtin_name}_result', None)
+                        return wrapper
+                    self.builtins._functions[ref_class] = make_wrapper(append_node, self, ref_class, original_func)
+                    return  # Don't store in scope for builtin hooks
             return
 
         if isinstance(target_class, CSSLClass) and ref_member:
@@ -1899,12 +2768,64 @@ class CSSLRuntime:
             # v4.7: Queue with optional size from element_type (queue<type, size>)
             queue_size = decl.get('size', 'dynamic')
             instance = Queue(element_type, queue_size)
+        elif type_name == 'bit':
+            # v4.9.0: Single bit value (0 or 1)
+            from .cssl_types import Bit
+            if value_node is None:
+                instance = Bit(0)
+            else:
+                val = self._evaluate(value_node)
+                if isinstance(val, Bit):
+                    # Already a Bit object (e.g., from .copy())
+                    instance = val
+                elif isinstance(val, int) and val in (0, 1):
+                    instance = Bit(val)
+                else:
+                    raise CSSLRuntimeError(f"Bit must be 0 or 1, got {val}", node.line)
+        elif type_name == 'byte':
+            # v4.9.0: Byte value (x^y notation where x=0/1, y=0-255)
+            from .cssl_types import Byte
+            if value_node is None:
+                instance = Byte(0, 0)
+            else:
+                val = self._evaluate(value_node)
+                if isinstance(val, Byte):
+                    instance = val
+                elif isinstance(val, tuple) and len(val) == 2:
+                    # Tuple from byte literal parsing (base, weight)
+                    instance = Byte(val[0], val[1])
+                elif isinstance(val, int):
+                    # Plain int - store as 1^val
+                    instance = Byte(1, val % 256)
+                else:
+                    raise CSSLRuntimeError(f"Invalid byte value: {val}", node.line)
+        elif type_name in ('address', 'ptr', 'pointer'):
+            # v4.9.0: Memory address/pointer type
+            # v4.9.3: Added 'ptr' and 'pointer' as aliases for 'address'
+            from .cssl_types import Address
+            if value_node is None:
+                instance = Address()  # Null address
+            else:
+                val = self._evaluate(value_node)
+                if isinstance(val, Address):
+                    # Already an Address object
+                    instance = val
+                elif isinstance(val, str):
+                    # Address string from memory().get("address")
+                    instance = Address(val)
+                else:
+                    # Create address from object
+                    instance = Address(obj=val)
         else:
             # Default: evaluate the value or set to None
             instance = self._evaluate(value_node) if value_node else None
 
         # If there's an explicit value, use it instead
-        if value_node and type_name not in ('int', 'integer', 'string', 'str', 'float', 'double', 'bool', 'dynamic', 'json', 'array'):
+        # v4.8.7: Removed 'array' from exclusion - arrays should also get init values
+        # v4.8.8: Added 'instance' to exclusion - instance type already evaluates value above
+        # v4.9.0: Added 'bit', 'byte', 'address' to exclusion - they already handle values above
+        # v4.9.2: Added 'ptr', 'pointer' to exclusion - they already evaluate value above
+        if value_node and type_name not in ('int', 'integer', 'string', 'str', 'float', 'double', 'bool', 'dynamic', 'json', 'instance', 'bit', 'byte', 'address', 'ptr', 'pointer'):
             # For container types, the value might be initialization data
             init_value = self._evaluate(value_node)
             if isinstance(init_value, (list, tuple)):
@@ -1912,6 +2833,13 @@ class CSSLRuntime:
                 if non_null:
                     init_value = [v for v in init_value if v is not None]
                 instance.extend(init_value)
+            elif isinstance(init_value, dict):
+                # v4.8.7: Handle dict initialization: dict d = {"key": "value"}
+                if hasattr(instance, 'update'):
+                    instance.update(init_value)
+                elif hasattr(instance, '__setitem__'):
+                    for k, v in init_value.items():
+                        instance[k] = v
             elif init_value is not None:
                 if hasattr(instance, 'append'):
                     instance.append(init_value)
@@ -1938,8 +2866,30 @@ class CSSLRuntime:
         modifiers = decl.get('modifiers', [])
         is_global = 'global' in modifiers
 
-        # Store in scope
-        self.scope.set(var_name, instance)
+        # v4.9.4: Check for local/static/freezed modifiers
+        is_local = decl.get('is_local', False)
+        is_static = decl.get('is_static', False)
+        is_freezed = decl.get('is_freezed', False)
+
+        # v4.9.4: Track variable metadata for local/static/freezed enforcement
+        if is_local or is_static or is_freezed:
+            self._var_meta[var_name] = {'is_local': is_local, 'is_static': is_static, 'is_freezed': is_freezed}
+
+        # v4.9.2: Check for this->member declaration
+        is_this_member = decl.get('is_this_member', False)
+
+        # Store in appropriate location
+        if is_this_member:
+            # this->member declaration - store on current instance
+            if self._current_instance is None:
+                raise CSSLRuntimeError("'this' used outside of class method context", node.line)
+            if hasattr(self._current_instance, 'set_member'):
+                self._current_instance.set_member(var_name, instance)
+            else:
+                setattr(self._current_instance, var_name, instance)
+        else:
+            # Normal variable - store in scope
+            self.scope.set(var_name, instance)
 
         # If global, also store in promoted_globals and global_scope
         if is_global:
@@ -2112,13 +3062,14 @@ class CSSLRuntime:
         # Fallback: execute normally
         return self._execute_node(inner)
 
-    def _call_function(self, func_node: ASTNode, args: List[Any], kwargs: Dict[str, Any] = None) -> Any:
+    def _call_function(self, func_node: ASTNode, args: List[Any], kwargs: Dict[str, Any] = None, _is_hook_trigger: bool = False) -> Any:
         """Call a function node with arguments (positional and named)
 
         Args:
             func_node: The function AST node
             args: List of positional arguments
             kwargs: Dict of named arguments (param_name -> value)
+            _is_hook_trigger: Internal flag - True when called as a hook trigger
 
         Supports:
             define func : extends otherFunc() { ... } - Inherit local vars from otherFunc
@@ -2127,6 +3078,33 @@ class CSSLRuntime:
         params = func_info.get('params', [])
         modifiers = func_info.get('modifiers', [])
         kwargs = kwargs or {}
+
+        # v4.9.3: If this is a generator function, return a CSSLGenerator instead of executing
+        if func_info.get('_is_generator'):
+            return self._create_generator(func_node, args, kwargs)
+
+        # v4.9.0: If this is a memory hook function and it's being called directly
+        # (not as a hook trigger), skip execution - it's just a hook registration
+        if func_info.get('_is_memory_hook') and not _is_hook_trigger:
+            return None  # Silent no-op for direct calls to hook functions
+
+        # v4.9.0: Execute memory-hooked functions first
+        # Functions with ': uses memory(address)' are executed when their host is called
+        if hasattr(self, '_memory_hooks'):
+            # Look up by function name (how hooks are stored)
+            func_name = func_info.get('name', '')
+            if func_name in self._memory_hooks:
+                for hooked_item in self._memory_hooks[func_name]:
+                    try:
+                        # hooked_item can be ASTNode or ('class', ASTNode) tuple
+                        if isinstance(hooked_item, tuple) and hooked_item[0] == 'class':
+                            # Class hook - instantiate the class
+                            pass  # Class instantiation happens separately
+                        elif isinstance(hooked_item, ASTNode) and hooked_item.type == 'function':
+                            # Call with _is_hook_trigger=True so hook body executes
+                            self._call_function(hooked_item, args, kwargs, _is_hook_trigger=True)
+                    except Exception:
+                        pass  # Continue with host even if hook fails
 
         # v4.2.5: Deferred &target replacement for non-embedded functions
         # If function has &target and hasn't been applied yet, apply now on first call
@@ -2223,11 +3201,14 @@ class CSSLRuntime:
 
         try:
             # Handle append mode (++) - execute referenced function first
+            # v4.9.2: Skip for builtin hooks - the wrapper handles original execution
             append_mode = func_info.get('append_mode', False)
             append_ref_class = func_info.get('append_ref_class')
             append_ref_member = func_info.get('append_ref_member')
 
-            if append_mode and append_ref_class:
+            # v4.9.2: Don't execute original for builtin hooks - wrapper already does that
+            is_builtin_hook = append_ref_class == '__builtins__'
+            if append_mode and append_ref_class and not is_builtin_hook:
                 self._execute_append_reference(
                     None, append_ref_class, append_ref_member,
                     args, kwargs, {}, is_constructor=False
@@ -2244,17 +3225,37 @@ class CSSLRuntime:
             if raw_body and supports_language:
                 # Transform and parse the raw body from the target language
                 body_children = self._transform_and_parse_function_body(raw_body, supports_language)
+                # v4.9.4: undefined/super modifiers - catch errors per-statement and continue
+                is_error_tolerant = is_undefined or 'super' in modifiers
                 for child in body_children:
                     if not self._running:
                         break
-                    self._execute_node(child)
+                    if is_error_tolerant:
+                        try:
+                            self._execute_node(child)
+                        except CSSLReturn:
+                            raise  # Let return statements through
+                        except Exception:
+                            pass  # Swallow error and continue to next statement
+                    else:
+                        self._execute_node(child)
             else:
                 # Normal CSSL function body
+                # v4.9.4: undefined/super modifiers - catch errors per-statement and continue
+                is_error_tolerant = is_undefined or 'super' in modifiers
                 for child in func_node.children:
                     # Check if exit() was called
                     if not self._running:
                         break
-                    self._execute_node(child)
+                    if is_error_tolerant:
+                        try:
+                            self._execute_node(child)
+                        except CSSLReturn:
+                            raise  # Let return statements through
+                        except Exception:
+                            pass  # Swallow error and continue to next statement
+                    else:
+                        self._execute_node(child)
         except CSSLReturn as ret:
             return_value = ret.value
 
@@ -2670,6 +3671,82 @@ class CSSLRuntime:
         value = self._evaluate(node.value)
         raise CSSLReturn(value)
 
+    def _exec_yield(self, node: ASTNode) -> Any:
+        """Execute yield statement - v4.9.3
+
+        Yields a value from a generator function, pausing execution.
+        The function resumes from here when next() is called on the generator.
+
+        Syntax:
+            yield value;     // Yield a value and pause
+            yield;           // Yield None and pause
+
+        Example:
+            generator<int> define Range(int n) {
+                int i = 0;
+                while (i < n) {
+                    yield i;
+                    i = i + 1;
+                }
+            }
+        """
+        if node.value is None:
+            raise CSSLYield(None)
+
+        value = self._evaluate(node.value)
+        raise CSSLYield(value)
+
+    def _exec_await(self, node: ASTNode) -> Any:
+        """Execute await expression - v4.9.3
+
+        Awaits a Future or async function result, blocking until complete.
+
+        Syntax:
+            await future;              // Wait for future to complete
+            await asyncFunc();         // Wait for async function
+            result = await future;     // Capture result
+
+        Example:
+            async define FetchData() {
+                return http::get("url");
+            }
+            data = await FetchData();
+        """
+        value = self._evaluate(node.value)
+
+        # If it's a CSSLFuture, wait for it
+        if isinstance(value, CSSLFuture):
+            # Block until the future completes
+            import time
+            while value.state in (CSSLFuture.PENDING, CSSLFuture.RUNNING):
+                time.sleep(0.001)  # Small sleep to avoid busy-waiting
+            if value.state == CSSLFuture.FAILED:
+                raise CSSLRuntimeError(f"Awaited future failed: {value._exception}")
+            if value.state == CSSLFuture.CANCELLED:
+                raise CSSLRuntimeError("Awaited future was cancelled")
+            return value.result()
+
+        # If it's an async function wrapper, execute it
+        if isinstance(value, CSSLAsyncFunction):
+            future = value.start()
+            # Wait for completion
+            import time
+            while future.state in (CSSLFuture.PENDING, CSSLFuture.RUNNING):
+                time.sleep(0.001)
+            if future.state == CSSLFuture.FAILED:
+                raise CSSLRuntimeError(f"Async function failed: {future._exception}")
+            return future.result()
+
+        # If it's a generator, exhaust it and return last value
+        if isinstance(value, CSSLGenerator):
+            result = None
+            while value.has_next():
+                result = value.next()
+            return result
+
+        # For regular values, just return them
+        return value
+
     def _exec_break(self, node: ASTNode) -> Any:
         """Execute break statement"""
         raise CSSLBreak()
@@ -2694,6 +3771,76 @@ class CSSLRuntime:
 
         message = self._evaluate(node.value)
         raise CSSLThrow(message)
+
+    def _exec_raise(self, node: ASTNode) -> Any:
+        """Execute raise statement - v4.8 (Python-style exceptions)
+
+        Raises a Python-style exception that propagates to the nearest catch block.
+
+        Syntax:
+            raise;                          # Re-raise current exception
+            raise "Error message";          # Simple error message
+            raise ValueError("message");    # Python exception type
+            raise CustomError("msg", 123);  # Custom exception with args
+        """
+        value = node.value
+
+        # Handle re-raise (raise;)
+        if value is None or (isinstance(value, dict) and value.get('type') is None):
+            raise CSSLThrow("Re-raised exception")
+
+        # Map of Python exception types
+        EXCEPTION_MAP = {
+            'ValueError': ValueError,
+            'TypeError': TypeError,
+            'KeyError': KeyError,
+            'IndexError': IndexError,
+            'AttributeError': AttributeError,
+            'RuntimeError': RuntimeError,
+            'IOError': IOError,
+            'OSError': OSError,
+            'FileNotFoundError': FileNotFoundError,
+            'NameError': NameError,
+            'ZeroDivisionError': ZeroDivisionError,
+            'OverflowError': OverflowError,
+            'StopIteration': StopIteration,
+            'AssertionError': AssertionError,
+            'NotImplementedError': NotImplementedError,
+            'PermissionError': PermissionError,
+            'TimeoutError': TimeoutError,
+            'ConnectionError': ConnectionError,
+            'ImportError': ImportError,
+            'ModuleNotFoundError': ModuleNotFoundError,
+            'RecursionError': RecursionError,
+            # Generic fallback
+            'Error': Exception,
+            'Exception': Exception,
+        }
+
+        if isinstance(value, dict):
+            exc_type_name = value.get('type', 'Error')
+            args = value.get('args', [])
+            message = value.get('message')
+
+            # Evaluate args if present
+            if args:
+                evaluated_args = [self._evaluate(arg) for arg in args]
+                message_str = evaluated_args[0] if evaluated_args else "Error"
+            elif message:
+                message_str = self._evaluate(message)
+            else:
+                message_str = f"{exc_type_name}: Unknown error"
+
+            # Get the exception class
+            exc_class = EXCEPTION_MAP.get(exc_type_name, Exception)
+
+            # Raise the Python exception
+            # Wrap in CSSLThrow so it can be caught by CSSL try/catch
+            raise CSSLThrow(f"{exc_type_name}: {message_str}", exc_class(message_str))
+        else:
+            # Simple message
+            message = self._evaluate(value)
+            raise CSSLThrow(str(message))
 
     def _exec_constructor(self, node: ASTNode) -> Any:
         """Execute constructor node - only called when encountered directly.
@@ -3113,6 +4260,39 @@ class CSSLRuntime:
                             result = result if result == filter_val else None
                         elif isinstance(result, list):
                             result = [item for item in result if isinstance(item, int) and item == filter_val]
+                    # v4.8.8: Integer comparison filters
+                    elif helper == 'gt':  # Greater than
+                        if isinstance(result, int):
+                            result = result if result > filter_val else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, int) and item > filter_val]
+                    elif helper == 'lt':  # Less than
+                        if isinstance(result, int):
+                            result = result if result < filter_val else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, int) and item < filter_val]
+                    elif helper == 'gte' or helper == 'ge':  # Greater than or equal
+                        if isinstance(result, int):
+                            result = result if result >= filter_val else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, int) and item >= filter_val]
+                    elif helper == 'lte' or helper == 'le':  # Less than or equal
+                        if isinstance(result, int):
+                            result = result if result <= filter_val else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, int) and item <= filter_val]
+                    elif helper == 'not':  # Not equal
+                        if isinstance(result, int):
+                            result = result if result != filter_val else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, int) and item != filter_val]
+                    elif helper == 'range':  # Range filter [min, max]
+                        if isinstance(filter_val, (list, tuple)) and len(filter_val) == 2:
+                            min_val, max_val = filter_val
+                            if isinstance(result, int):
+                                result = result if min_val <= result <= max_val else None
+                            elif isinstance(result, list):
+                                result = [item for item in result if isinstance(item, int) and min_val <= item <= max_val]
 
                 # === JSON HELPERS ===
                 elif filter_type == 'json':
@@ -3422,7 +4602,7 @@ class CSSLRuntime:
         Modes:
         - replace: target <== source (replace target with source)
         - add: target +<== source (copy & add to target)
-        - move: target -<== source (move from source, remove from source)
+        - remove: target -<== source (remove items in source from target) [v4.9.2]
         """
         target = node.value.get('target')
         source_node = node.value.get('source')
@@ -3525,8 +4705,15 @@ class CSSLRuntime:
             elif isinstance(current_value, str) and isinstance(source, str):
                 final_value = current_value + source
             # Handle CSSL container types (DataStruct, Vector, Stack, etc.)
-            elif hasattr(current_value, 'append') or hasattr(current_value, 'push') or hasattr(current_value, 'add'):
-                if hasattr(current_value, 'append'):
+            elif hasattr(current_value, 'append') or hasattr(current_value, 'push') or hasattr(current_value, 'add') or hasattr(current_value, 'update'):
+                # v4.9.2: Special handling for dict source into containers with update method
+                if isinstance(source, dict) and hasattr(current_value, 'update'):
+                    current_value.update(source)
+                elif isinstance(source, dict) and hasattr(current_value, '__setitem__'):
+                    # DataStruct, Map, etc. - merge dict key-value pairs
+                    for k, v in source.items():
+                        current_value[k] = v
+                elif hasattr(current_value, 'append'):
                     current_value.append(source)
                 elif hasattr(current_value, 'push'):
                     current_value.push(source)
@@ -3534,20 +4721,49 @@ class CSSLRuntime:
                     current_value.add(source)
                 final_value = current_value
             elif current_value is None:
-                final_value = [source] if not isinstance(source, list) else source
+                # v4.9.2: Handle None target - wrap source appropriately
+                if isinstance(source, dict):
+                    final_value = source  # Keep dict as-is
+                elif isinstance(source, list):
+                    final_value = source
+                else:
+                    final_value = source  # Keep single value as-is
             else:
                 final_value = [current_value, source]
         elif mode == 'move':
-            # Move & remove from source
-            final_value = source
-            # Clear the source - handle all node types
-            if isinstance(source_node, ASTNode):
-                if source_node.type == 'identifier':
-                    self.scope.set(source_node.value, None)
-                elif source_node.type == 'module_ref':
-                    self._set_module_value(source_node.value, None)
-                elif source_node.type == 'member_access':
-                    self._set_member(source_node, None)
+            # v4.9.2: Changed semantics - remove items from target (not move from source)
+            # target -<== source → remove items in source from target
+            if isinstance(current_value, list):
+                if isinstance(source, list):
+                    # Remove all items in source from current_value
+                    final_value = [item for item in current_value if item not in source]
+                else:
+                    # Remove single item
+                    final_value = [item for item in current_value if item != source]
+            elif isinstance(current_value, dict) and isinstance(source, (list, tuple)):
+                # Remove keys from dict
+                final_value = {k: v for k, v in current_value.items() if k not in source}
+            elif isinstance(current_value, dict) and isinstance(source, dict):
+                # Remove keys that exist in source dict
+                final_value = {k: v for k, v in current_value.items() if k not in source}
+            elif hasattr(current_value, 'remove') or hasattr(current_value, '__delitem__'):
+                # CSSL container types
+                if isinstance(source, (list, tuple)):
+                    for item in source:
+                        if hasattr(current_value, 'remove'):
+                            try:
+                                current_value.remove(item)
+                            except (ValueError, KeyError):
+                                pass
+                elif hasattr(current_value, 'remove'):
+                    try:
+                        current_value.remove(source)
+                    except (ValueError, KeyError):
+                        pass
+                final_value = current_value
+            else:
+                # Fallback - just return source (old behavior)
+                final_value = source
         else:
             final_value = source
 
@@ -3564,6 +4780,15 @@ class CSSLRuntime:
             self.global_scope.set(f'${name}', SharedObjectProxy(name, final_value))
         elif target.type == 'member_access':
             self._set_member(target, final_value)
+        elif target.type == 'this_access':
+            # v4.9.2: this->member <== value
+            if self._current_instance is None:
+                raise CSSLRuntimeError("'this' used outside of class method context")
+            member = target.value.get('member')
+            if hasattr(self._current_instance, 'set_member'):
+                self._current_instance.set_member(member, final_value)
+            else:
+                setattr(self._current_instance, member, final_value)
         elif target.type == 'call':
             callee = target.value.get('callee')
             if isinstance(callee, ASTNode) and callee.type == 'member_access':
@@ -3613,8 +4838,28 @@ class CSSLRuntime:
                 final_value = {**current_value, **source}
             elif isinstance(current_value, str) and isinstance(source, str):
                 final_value = current_value + source
+            # v4.9.2: Handle CSSL container types
+            elif hasattr(current_value, 'append') or hasattr(current_value, 'push') or hasattr(current_value, 'add') or hasattr(current_value, 'update'):
+                if isinstance(source, dict) and hasattr(current_value, 'update'):
+                    current_value.update(source)
+                elif isinstance(source, dict) and hasattr(current_value, '__setitem__'):
+                    for k, v in source.items():
+                        current_value[k] = v
+                elif hasattr(current_value, 'append'):
+                    current_value.append(source)
+                elif hasattr(current_value, 'push'):
+                    current_value.push(source)
+                elif hasattr(current_value, 'add'):
+                    current_value.add(source)
+                final_value = current_value
             elif current_value is None:
-                final_value = [source] if not isinstance(source, list) else source
+                # v4.9.2: Keep source type when target is None
+                if isinstance(source, dict):
+                    final_value = source
+                elif isinstance(source, list):
+                    final_value = source
+                else:
+                    final_value = source
             else:
                 final_value = [current_value, source]
         elif mode == 'move':
@@ -3671,6 +4916,15 @@ class CSSLRuntime:
             self.global_scope.set(f'${name}', SharedObjectProxy(name, final_value))
         elif target.type == 'member_access':
             self._set_member(target, final_value)
+        elif target.type == 'this_access':
+            # v4.9.2: source ==> this->member
+            if self._current_instance is None:
+                raise CSSLRuntimeError("'this' used outside of class method context")
+            member = target.value.get('member')
+            if hasattr(self._current_instance, 'set_member'):
+                self._current_instance.set_member(member, final_value)
+            else:
+                setattr(self._current_instance, member, final_value)
         elif target.type == 'typed_declaration':
             # Handle typed target: source ==> datastruct<dynamic> Output
             var_name = target.value.get('name')
@@ -3759,6 +5013,26 @@ class CSSLRuntime:
 
         if not func_name or code_block is None:
             return None
+
+        # v4.8.6: Check if target is actually a function or if it's just a variable
+        # If it's a variable (not a function), fall back to value assignment with capture
+        existing_func = self.scope.get(func_name)
+        if existing_func is None:
+            existing_func = self.global_scope.get(func_name)
+        is_function = (isinstance(existing_func, ASTNode) and existing_func.type == 'function') or callable(existing_func)
+
+        if not is_function and target.type == 'identifier':
+            # Target is a variable, not a function - do value capture assignment instead
+            # This handles: savedVersion <<== { %version; }
+            captured_values = self._scan_and_capture_refs(code_block)
+            old_captured = self._current_captured_values.copy()
+            self._current_captured_values = captured_values
+            try:
+                value = self._evaluate_action_block(code_block)
+            finally:
+                self._current_captured_values = old_captured
+            self.scope.set(func_name, value)
+            return value
 
         if mode == 'add':
             # +<<== : Add code to function (both injection + original execute)
@@ -3901,6 +5175,13 @@ class CSSLRuntime:
     def _exec_assignment(self, node: ASTNode) -> Any:
         """Execute assignment"""
         target = node.value.get('target')
+
+        # v4.9.4: Check if target variable is freezed (immutable) - return null if so
+        if isinstance(target, ASTNode) and target.type == 'identifier':
+            var_name = target.value
+            if var_name in self._var_meta and self._var_meta[var_name].get('is_freezed', False):
+                return None  # Cannot reassign freezed variable
+
         value = self._evaluate(node.value.get('value'))
 
         if isinstance(target, ASTNode):
@@ -3921,6 +5202,18 @@ class CSSLRuntime:
                 name = target.value
                 _live_objects[name] = value
                 self.global_scope.set(f'${name}', SharedObjectProxy(name, value))
+            elif target.type == 'captured_ref':
+                # v4.8.9: %name = value - assign to snapshot directly
+                # This allows: %xyz = othervar, %xyz = "hello", %xyz = (int number = 200)
+                name = target.value
+                self.builtins._snapshots[name] = value
+            elif target.type == 'pointer_ref':
+                # v4.9.0: ?name = value - create pointer to value
+                # The pointer stores an address to the object
+                name = target.value
+                from .cssl_types import Address
+                addr = Address(obj=value)
+                self.scope.set(f'?{name}', addr)
             elif target.type == 'module_ref':
                 # @Name = value - store in promoted globals (like global keyword)
                 self._promoted_globals[target.value] = value
@@ -3942,6 +5235,9 @@ class CSSLRuntime:
                     # Plain Python object - use setattr
                     setattr(instance, member, value)
         elif isinstance(target, str):
+            # v4.9.4: Check if string target is freezed - return null if so
+            if target in self._var_meta and self._var_meta[target].get('is_freezed', False):
+                return None
             self.scope.set(target, value)
 
         return value
@@ -3983,21 +5279,6 @@ class CSSLRuntime:
     def _exec_type_instantiation(self, node: ASTNode) -> Any:
         """Execute type instantiation as statement (e.g., vector<int>)"""
         return self._evaluate(node)
-
-    def _exec_await(self, node: ASTNode) -> Any:
-        """Execute await statement - waits for expression to complete"""
-        # Evaluate the awaited expression
-        # The expression is typically a call like wait_for_booted()
-        result = self._evaluate(node.value)
-
-        # If result is a callable (like a coroutine or future), wait for it
-        if hasattr(result, '__await__'):
-            import asyncio
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(result)
-
-        # If result is a boolean condition waiting function, it already handled the waiting
-        return result
 
     def _exec_then(self, node: ASTNode) -> Any:
         """Execute then block"""
@@ -4053,6 +5334,24 @@ class CSSLRuntime:
                 return {}
             return None
 
+        # v4.9.0: Byte literal (x^y notation)
+        if node.type == 'byte_literal':
+            from .cssl_types import Byte
+            base = node.value.get('base')
+            weight = node.value.get('weight')
+            return Byte(base, weight)
+
+        # v4.8.9: Typed expression (type name = value) - creates variable and returns value
+        # Used for snapshot assignment: %xyz = (int number = 200)
+        if node.type == 'typed_expression':
+            var_type = node.value.get('type')
+            var_name = node.value.get('name')
+            var_value = self._evaluate(node.value.get('value'))
+            # Create the typed variable in current scope
+            self.scope.set(var_name, var_value)
+            # Return the value so it can be used in assignment
+            return var_value
+
         if node.type == 'identifier':
             name = node.value
 
@@ -4062,16 +5361,34 @@ class CSSLRuntime:
                 container_name = parts[0]
                 member_name = parts[1]
 
-                # Look up the container (enum, class, or namespace)
+                # Look up the container (enum, class, namespace, or module)
                 container = self.scope.get(container_name)
                 if container is None:
                     container = self.global_scope.get(container_name)
                 if container is None:
                     container = self._promoted_globals.get(container_name)
+                # v4.8: Also check modules for :: access (fmt::green, etc.)
+                if container is None:
+                    container = self.get_module(container_name)
 
                 if container is not None:
+                    # v4.8: Handle CSSLNamespace - supports arbitrarily deep nested access
+                    if isinstance(container, CSSLNamespace):
+                        # Handle nested :: access (e.g., ns::inner::deep::func)
+                        current = container
+                        remaining = member_name
+                        while '::' in remaining and isinstance(current, CSSLNamespace):
+                            parts = remaining.split('::', 1)
+                            current = current.get(parts[0])
+                            remaining = parts[1]
+                            if current is None:
+                                break
+                        # Final lookup
+                        if isinstance(current, CSSLNamespace):
+                            return current.get(remaining)
+                        return current if current is not None else None
                     # If it's a dict-like object (enum or namespace), get the member
-                    if isinstance(container, dict):
+                    elif isinstance(container, dict):
                         return container.get(member_name)
                     # If it's an object with the member as an attribute
                     elif hasattr(container, member_name):
@@ -4083,6 +5400,11 @@ class CSSLRuntime:
 
                 # Fall through to normal lookup if container not found
                 return None
+
+            # v4.9.2: When inside a hook execution, return original builtin to prevent recursion
+            # This must be checked BEFORE scope lookup since the hook is stored in scope
+            if name in self._hook_executing and name in self._original_functions:
+                return self._original_functions[name]
 
             value = self.scope.get(name)
             # Check if it's a class member in current instance context
@@ -4122,10 +5444,14 @@ class CSSLRuntime:
 
         if node.type == 'global_ref':
             # r@<name> global variable reference
+            # v4.9.4: Check if variable is marked as 'local' - return null if so
+            var_name = node.value
+            if var_name in self._var_meta and self._var_meta[var_name].get('is_local', False):
+                return None  # local variables cannot be accessed via @
             # Check promoted globals first, then global scope
-            value = self._promoted_globals.get(node.value)
+            value = self._promoted_globals.get(var_name)
             if value is None:
-                value = self.global_scope.get(node.value)
+                value = self.global_scope.get(var_name)
             return value
 
         if node.type == 'shared_ref':
@@ -4160,6 +5486,10 @@ class CSSLRuntime:
             # Priority: The % prefix means "get the ORIGINAL value before any replacement"
             name = node.value
 
+            # v4.9.4: Check if variable is marked as 'static' - return null if so
+            if name in self._var_meta and self._var_meta[name].get('is_static', False):
+                return None  # static variables cannot be snapshotted/captured
+
             # 1. First check captured values from current injection context
             if name in self._current_captured_values:
                 captured_value = self._current_captured_values[name]
@@ -4172,26 +5502,139 @@ class CSSLRuntime:
             if value is not None:
                 return value
 
-            # 3. Fall back to scope/builtins if no original was captured
+            # 3. v4.8.8: Check snapshots - %name accesses snapshotted values (BEFORE scope!)
+            #    This ensures snapshot(var); var = "new"; %var returns the OLD value
+            if hasattr(self.builtins, '_snapshots') and name in self.builtins._snapshots:
+                return self.builtins._snapshots[name]
+
+            # 4. v4.9.2: Only fall back to scope if we're in an injection context
+            #    (i.e., _current_captured_values is populated). For direct %name usage
+            #    outside injections, return null if no snapshot exists.
+            if self._current_captured_values:
+                # We're in an injection context - fall back to scope/builtins
+                value = self.scope.get(name)
+                if value is None:
+                    value = self.global_scope.get(name)
+                if value is None:
+                    # For critical builtins like 'exit', create direct wrapper
+                    if name == 'exit':
+                        runtime = self
+                        value = lambda code=0, rt=runtime: rt.exit(code)
+                    else:
+                        value = getattr(self.builtins, f'builtin_{name}', None)
+                if value is not None:
+                    return value
+
+                # Build helpful error for captured reference in injection context
+                hint = f"Variable '{name}' must exist when the infusion is registered, or be snapshotted with snapshot({name}). Check that '%{name}' is defined before use."
+                raise self._format_error(
+                    node.line if hasattr(node, 'line') else 0,
+                    f"Captured reference '%{name}' not found (no snapshot or captured value)",
+                    hint
+                )
+            else:
+                # v4.9.2: Direct %name usage outside injection - no snapshot exists, return null
+                return None
+
+        # v4.9.2: Local reference - local::<name> accesses hooked function's local variables/params
+        if node.type == 'local_ref':
+            name = node.value
+            # Access the hook's local context (set by hook wrapper)
+            if hasattr(self, '_hook_locals') and self._hook_locals:
+                if name in self._hook_locals:
+                    return self._hook_locals[name]
+            # Also check _result which is set automatically for append hooks
+            if name == 'result' or name == '_result':
+                result = self.scope.get('_result')
+                if result is not None:
+                    return result
+            # Fall back to current scope
             value = self.scope.get(name)
-            if value is None:
-                value = self.global_scope.get(name)
-            if value is None:
-                # For critical builtins like 'exit', create direct wrapper
-                if name == 'exit':
-                    runtime = self
-                    value = lambda code=0, rt=runtime: rt.exit(code)
-                else:
-                    value = getattr(self.builtins, f'builtin_{name}', None)
             if value is not None:
                 return value
-            # Build helpful error for captured reference
-            hint = f"Variable '{name}' must exist when the infusion is registered. Check that '%{name}' is defined before the <<== operator."
+            return None
+
+        # v4.9.2: Local assignment - local::<name> = value
+        if node.type == 'local_assign':
+            name = node.value.get('name')
+            value_node = node.value.get('value')
+            value = self._evaluate(value_node)
+            # Set in hook locals if available, otherwise scope
+            if hasattr(self, '_hook_locals') and self._hook_locals is not None:
+                self._hook_locals[name] = value
+            else:
+                self.scope.set(name, value)
+            return value
+
+        # v4.9.2: Local injection - local::func -<<== {...} or local::func +<<== {...}
+        if node.type == 'local_injection':
+            local_name = node.value.get('local_name')
+            mode = node.value.get('mode')  # 'remove', 'add', 'replace'
+            filters = node.value.get('filters', [])
+            code_block = node.value.get('code')
+            # This modifies the local function at runtime - advanced feature
+            # For now, just store the injection intent
+            if not hasattr(self, '_local_injections'):
+                self._local_injections = {}
+            self._local_injections[local_name] = {
+                'mode': mode,
+                'filters': filters,
+                'code': code_block
+            }
+            return None
+
+        # v4.9.0: Pointer reference - ?name can either:
+        # 1. Dereference an existing pointer named ?name
+        # 2. Create an Address to a variable named 'name' (v4.9.2)
+        if node.type == 'pointer_ref':
+            name = node.value
+            # First check if ?name exists as a pointer in scope
+            addr = self.scope.get(f'?{name}')
+            if addr is None:
+                addr = self.global_scope.get(f'?{name}')
+
+            if addr is not None:
+                # Dereference the existing pointer
+                if isinstance(addr, Address):
+                    return addr.reflect()
+                # If it's a direct object (simple pointer), return it
+                return addr
+
+            # v4.9.2: No pointer exists - check if 'name' is a variable
+            # If so, create an Address pointing to it (like &name in C)
+            # v4.9.3: If the variable IS an Address, dereference it instead
+            var_value = self.scope.get(name)
+            if var_value is None:
+                var_value = self.global_scope.get(name)
+
+            if var_value is not None:
+                # v4.9.3: If var is already an Address, dereference it
+                if isinstance(var_value, Address):
+                    return var_value.reflect()
+                # Otherwise create an Address to this variable
+                return Address(obj=var_value)
+
+            # Neither pointer nor variable exists
             raise self._format_error(
                 node.line if hasattr(node, 'line') else 0,
-                f"Captured reference '%{name}' not found",
-                hint
+                f"Cannot resolve '?{name}': no pointer '?{name}' or variable '{name}' found",
+                f"Either create a pointer: ?{name} = someObject, or declare variable: {name} = value"
             )
+
+        # v4.9.4: Pointer-snapshot reference ?%name - get address of snapshotted value
+        if node.type == 'pointer_snapshot_ref':
+            from .cssl_types import Address as SnapshotAddress
+            name = node.value
+            # Get the snapshot value
+            snapshot_value = self.builtins._snapshots.get(name)
+            if snapshot_value is None:
+                raise self._format_error(
+                    node.line if hasattr(node, 'line') else 0,
+                    f"Snapshot '%{name}' does not exist",
+                    f"Create a snapshot first with: snapshot({name})"
+                )
+            # Return an Address pointing to the snapshot value
+            return SnapshotAddress(obj=snapshot_value)
 
         if node.type == 'instance_ref':
             # instance<"name"> - get shared instance by name
@@ -4362,6 +5805,15 @@ class CSSLRuntime:
         if node.type == 'unary':
             return self._eval_unary(node)
 
+        # v4.9.3: await expression
+        if node.type == 'await':
+            return self._exec_await(node)
+
+        # v4.9.3: yield expression (for use in assignments like: received = yield value)
+        if node.type == 'yield_expr':
+            value = self._evaluate(node.value) if node.value else None
+            raise CSSLYield(value)
+
         # Increment: ++i or i++
         if node.type == 'increment':
             return self._eval_increment(node)
@@ -4371,27 +5823,80 @@ class CSSLRuntime:
             return self._eval_decrement(node)
 
         if node.type == 'non_null_assert':
-            # *$var, *@module, *identifier - assert value is not null/None
+            # *$var, *@module, *identifier - safe access, returns 0 if null
+            # v4.9.3: Changed from error to safe default (0) for null values
             operand = node.value.get('operand')
             value = self._evaluate(operand)
             if value is None:
-                # Get name of the operand for better error message
-                operand_name = "unknown"
-                if isinstance(operand, ASTNode):
-                    if operand.type == 'identifier':
-                        operand_name = operand.value
-                    elif operand.type == 'shared_ref':
-                        operand_name = f"${operand.value}"
-                    elif operand.type == 'module_ref':
-                        operand_name = f"@{operand.value}"
-                    elif operand.type == 'global_ref':
-                        operand_name = f"r@{operand.value}"
-                raise self._format_error(
-                    node.line if hasattr(node, 'line') else 0,
-                    f"Non-null assertion failed: '{operand_name}' is null/None",
-                    f"The value accessed via '*{operand_name}' must not be null. Check that it is defined and initialized."
-                )
+                # Return 0 as safe default instead of throwing error
+                return 0
             return value
+
+        if node.type == 'non_null_assert_fallback':
+            # v4.9.4: *[fallback]variable - returns fallback if variable is null
+            # Supports:
+            #   *[3]x                              - returns 3 if x is null
+            #   *[vector<int> = {0, 2}]x           - returns vector if x is null
+            #   *[reflect(%NULLPTR)]x             - returns function result if x is null
+            operand = node.value.get('operand')
+            fallback_node = node.value.get('fallback')
+
+            # First evaluate the operand
+            value = self._evaluate(operand)
+
+            # If not null, return the value
+            if value is not None:
+                return value
+
+            # Value is null, evaluate and return the fallback
+            if fallback_node.type == 'typed_fallback':
+                # Handle typed fallback: vector<int> = {0, 2}
+                type_name = fallback_node.value.get('type')
+                element_type = fallback_node.value.get('element_type')
+                init_value = self._evaluate(fallback_node.value.get('init'))
+
+                # Create typed container if needed
+                if type_name in ('vector', 'list', 'array'):
+                    return list(init_value) if init_value else []
+                elif type_name in ('queue', 'stack'):
+                    from collections import deque
+                    return deque(init_value) if init_value else deque()
+                elif type_name in ('set',):
+                    return set(init_value) if init_value else set()
+                elif type_name in ('dict', 'map', 'json'):
+                    return dict(init_value) if init_value else {}
+                elif type_name == 'datastruct':
+                    # Return as-is for datastruct
+                    return init_value
+                else:
+                    # For other types, just return the init value
+                    return init_value
+            else:
+                # Simple fallback expression
+                return self._evaluate(fallback_node)
+
+        if node.type == 'conditional_assert':
+            # v4.9.4: [condition]*[fallback]variable - conditional pattern matching
+            # Examples:
+            #   [null]*[{0}]x              - if x is null, return {0}
+            #   [int 2]*[string "2"]x      - if x is int 2, return "2"
+            #   [vector<int>]*[{1,2}]x     - if x matches type, use fallback
+            condition_node = node.value.get('condition')
+            fallback_node = node.value.get('fallback')
+            operand = node.value.get('operand')
+
+            # First evaluate the operand
+            value = self._evaluate(operand)
+
+            # Check if condition matches
+            condition_matches = self._check_condition_pattern(condition_node, value)
+
+            if condition_matches:
+                # Condition matched, return fallback
+                return self._evaluate_fallback(fallback_node)
+            else:
+                # Condition didn't match, return original value
+                return value
 
         if node.type == 'type_exclude_assert':
             # *[type]expr - assert value is NOT of excluded type
@@ -4437,6 +5942,10 @@ class CSSLRuntime:
 
         if node.type == 'array':
             return [self._evaluate(elem) for elem in node.value]
+
+        # v4.9.2: Tuple literals (0, 10) or (a, b, c)
+        if node.type == 'tuple':
+            return tuple(self._evaluate(elem) for elem in node.value)
 
         if node.type == 'object':
             return {k: self._evaluate(v) for k, v in node.value.items()}
@@ -4837,6 +6346,93 @@ class CSSLRuntime:
 
         return None
 
+    def _check_condition_pattern(self, condition_node: ASTNode, value: Any) -> bool:
+        """Check if a value matches a condition pattern.
+
+        v4.9.4: Used by [condition]*[fallback] syntax.
+        """
+        if condition_node.type == 'condition_null':
+            # [null]*[fallback] - matches if value is None
+            return value is None
+
+        elif condition_node.type == 'condition_type':
+            # [vector<int>]*[fallback] - matches if value is of type
+            type_name = condition_node.value.get('type')
+            return self._value_matches_type(value, type_name)
+
+        elif condition_node.type == 'condition_type_value':
+            # [int 2]*[fallback] - matches if value is int AND equals 2
+            type_name = condition_node.value.get('type')
+            match_value = self._evaluate(condition_node.value.get('match_value'))
+
+            if not self._value_matches_type(value, type_name):
+                return False
+            return value == match_value
+
+        elif condition_node.type == 'condition_typed_pattern':
+            # [vector<int> = {1,2}]*[fallback] - matches exact pattern
+            type_name = condition_node.value.get('type')
+            pattern_value = self._evaluate(condition_node.value.get('pattern'))
+
+            if not self._value_matches_type(value, type_name):
+                return False
+            return value == pattern_value
+
+        else:
+            # Generic expression condition - evaluate and compare
+            condition_value = self._evaluate(condition_node)
+            return value == condition_value
+
+    def _value_matches_type(self, value: Any, type_name: str) -> bool:
+        """Check if a value matches a CSSL type name."""
+        type_map = {
+            'int': (int,),
+            'float': (float, int),
+            'string': (str,),
+            'bool': (bool,),
+            'list': (list,),
+            'array': (list,),
+            'vector': (list,),
+            'dict': (dict,),
+            'map': (dict,),
+            'json': (dict,),
+            'null': (type(None),),
+            'none': (type(None),),
+        }
+
+        py_types = type_map.get(type_name.lower())
+        if py_types:
+            return isinstance(value, py_types)
+
+        # For unknown types, check class name
+        if hasattr(value, '__class__'):
+            return value.__class__.__name__.lower() == type_name.lower()
+
+        return False
+
+    def _evaluate_fallback(self, fallback_node: ASTNode) -> Any:
+        """Evaluate a fallback value node."""
+        if fallback_node.type == 'typed_fallback':
+            # Handle typed fallback: vector<int> = {0, 2}
+            type_name = fallback_node.value.get('type')
+            init_value = self._evaluate(fallback_node.value.get('init'))
+
+            # Create typed container if needed
+            if type_name in ('vector', 'list', 'array'):
+                return list(init_value) if init_value else []
+            elif type_name in ('queue', 'stack'):
+                from collections import deque
+                return deque(init_value) if init_value else deque()
+            elif type_name in ('set',):
+                return set(init_value) if init_value else set()
+            elif type_name in ('dict', 'map', 'json'):
+                return dict(init_value) if init_value else {}
+            else:
+                return init_value
+        else:
+            # Simple fallback expression
+            return self._evaluate(fallback_node)
+
     def _eval_call(self, node: ASTNode) -> Any:
         """Evaluate function call with optional named arguments"""
         callee_node = node.value.get('callee')
@@ -4845,6 +6441,27 @@ class CSSLRuntime:
         # Evaluate named arguments (kwargs)
         kwargs_raw = node.value.get('kwargs', {})
         kwargs = {k: self._evaluate(v) for k, v in kwargs_raw.items()} if kwargs_raw else {}
+
+        # v4.9.3: Handle ?FuncName() - call function and handle pointer result
+        if isinstance(callee_node, ASTNode) and callee_node.type == 'pointer_ref':
+            from .cssl_types import Address
+            func_name = callee_node.value
+            # Check if this is a function (not a variable)
+            func = self.scope.get(func_name) or self.global_scope.get(func_name)
+            if func is None:
+                func = self.builtins.get(func_name)
+
+            # If it's a function, call it
+            if callable(func) or (isinstance(func, ASTNode) and func.type == 'function'):
+                if callable(func):
+                    result = func(*args, **kwargs) if kwargs else func(*args)
+                else:
+                    result = self._call_function(func, args, kwargs)
+                # If result is already an Address, dereference it
+                if isinstance(result, Address):
+                    return result.reflect()
+                # Otherwise return pointer to the result
+                return Address(obj=result)
 
         # Get function name for injection check FIRST (before evaluating callee)
         func_name = None
@@ -4986,6 +6603,50 @@ class CSSLRuntime:
 
             return None
 
+        # v4.9.2: Handle cast<type>(value) - type casting
+        if name == 'cast':
+            if not args:
+                raise CSSLRuntimeError(
+                    "cast<type>(value) requires a value argument",
+                    node.line,
+                    hint="Usage: cast<int>(3.14) or cast<string>(42)"
+                )
+            value = args[0]
+            target_type = type_param.lower()
+
+            try:
+                if target_type in ('int', 'integer'):
+                    return int(value)
+                elif target_type in ('float', 'double'):
+                    return float(value)
+                elif target_type in ('string', 'str'):
+                    return str(value)
+                elif target_type in ('bool', 'boolean'):
+                    if isinstance(value, str):
+                        return value.lower() not in ('', '0', 'false', 'no', 'null', 'none')
+                    return bool(value)
+                elif target_type in ('list', 'array'):
+                    if isinstance(value, (list, tuple)):
+                        return list(value)
+                    return [value]
+                elif target_type in ('dict', 'json'):
+                    if isinstance(value, dict):
+                        return value
+                    return {'value': value}
+                elif target_type == 'dynamic':
+                    return value  # No conversion
+                else:
+                    raise CSSLRuntimeError(
+                        f"Unknown cast type: {target_type}",
+                        node.line,
+                        hint="Supported types: int, float, string, bool, list, dict, dynamic"
+                    )
+            except (ValueError, TypeError) as e:
+                raise CSSLRuntimeError(
+                    f"Cannot cast {type(value).__name__} to {target_type}: {e}",
+                    node.line
+                )
+
         # Fallback: call as regular function with type hint
         func = self.builtins.get_function(name)
         if func and callable(func):
@@ -4994,8 +6655,8 @@ class CSSLRuntime:
         raise CSSLRuntimeError(
             f"Unknown typed function: {name}<{type_param}>",
             node.line,
-            context=f"Available typed functions: OpenFind<type>, OpenFind<type, \"name\">",
-            hint="Use OpenFind<type>(index) for positional or OpenFind<type, \"name\"> for named params"
+            context=f"Available typed functions: OpenFind<type>, cast<type>",
+            hint="Use cast<int>(value), cast<string>(value), etc."
         )
 
     def _eval_new(self, node: ASTNode) -> CSSLInstance:
@@ -5018,12 +6679,15 @@ class CSSLRuntime:
 
         # v4.2.6: Handle Namespace::ClassName lookup
         if namespace:
-            # Look up namespace dict first
-            ns_dict = self.scope.get(namespace)
-            if ns_dict is None:
-                ns_dict = self.global_scope.get(namespace)
-            if isinstance(ns_dict, dict) and class_name in ns_dict:
-                class_def = ns_dict[class_name]
+            # Look up namespace first
+            ns_obj = self.scope.get(namespace)
+            if ns_obj is None:
+                ns_obj = self.global_scope.get(namespace)
+            # v4.8: Handle CSSLNamespace objects
+            if isinstance(ns_obj, CSSLNamespace):
+                class_def = ns_obj.classes.get(class_name)
+            elif isinstance(ns_obj, dict) and class_name in ns_obj:
+                class_def = ns_obj[class_name]
 
         # Get class definition from scope (if not found in namespace)
         if class_def is None:
@@ -5070,6 +6734,16 @@ class CSSLRuntime:
             elif isinstance(class_def, dict) and 'class_def' in class_def:
                 # Injected class reference from +<== operator
                 class_def = class_def['class_def']
+            elif isinstance(class_def, type):
+                # v4.9.6: Support Python classes with 'new' keyword
+                # This allows: new CsslWidget("title", 400, 300)
+                try:
+                    return class_def(*args, **kwargs)
+                except Exception as e:
+                    raise CSSLRuntimeError(
+                        f"Failed to instantiate Python class '{class_name}': {e}",
+                        node.line
+                    )
             else:
                 # Not a class - show error
                 raise CSSLRuntimeError(
@@ -5111,11 +6785,14 @@ class CSSLRuntime:
 
         # Bind class_params to instance scope (they receive values from constructor args)
         # These are the implicit constructor parameters defined in class declaration
+        # v4.9.4: Also check kwargs for named class params like: new Engine(debug=true)
         param_values = {}
         for i, param in enumerate(class_params):
             param_name = param.get('name') if isinstance(param, dict) else param
             if i < len(args):
                 param_values[param_name] = args[i]
+            elif param_name in kwargs:
+                param_values[param_name] = kwargs[param_name]
             else:
                 param_values[param_name] = None
 
@@ -5125,13 +6802,41 @@ class CSSLRuntime:
             self._call_parent_constructor(instance, evaluated_extends_args)
             instance._parent_constructor_called = True
 
-        # Execute all constructors defined with 'constr' keyword (in order)
-        for constr in constructors:
-            self._call_constructor(instance, constr, args, kwargs, param_values)
+        # v4.8.8: Separate constructors by modifier type
+        regular_constructors = []
+        secure_constructors = []
+        callable_constructors = []
 
-        # Call primary constructor (old-style) if defined
-        if class_def.constructor:
-            self._call_method(instance, class_def.constructor, args, kwargs)
+        for constr in constructors:
+            constr_info = constr.value
+            if constr_info.get('is_secure'):
+                secure_constructors.append(constr)
+            elif constr_info.get('is_callable'):
+                callable_constructors.append(constr)
+            else:
+                regular_constructors.append(constr)
+
+        # Store callable constructors on instance for manual invocation
+        instance._callable_constructors = callable_constructors
+        instance._secure_constructors = secure_constructors
+
+        # Execute regular constructors (not callable, not secure)
+        # Wrap in try/except to call secure constructors on exception
+        try:
+            for constr in regular_constructors:
+                self._call_constructor(instance, constr, args, kwargs, param_values)
+
+            # Call primary constructor (old-style) if defined
+            if class_def.constructor:
+                self._call_method(instance, class_def.constructor, args, kwargs)
+        except Exception as e:
+            # v4.8.8: Call all secure constructors on exception
+            for secure_constr in secure_constructors:
+                try:
+                    self._call_constructor(instance, secure_constr, args, kwargs, param_values)
+                except:
+                    pass  # Secure constructor failed, continue with others
+            raise  # Re-raise the original exception
 
         return instance
 
@@ -5192,6 +6897,11 @@ class CSSLRuntime:
         """
         from .cssl_builtins import CSSLizedPythonObject
 
+        # v4.9.2: Handle &builtinName ++ syntax (stored as __builtins__::builtinName)
+        if ref_class == '__builtins__' and ref_member:
+            ref_class = ref_member
+            ref_member = None
+
         # Handle direct function reference: &FunctionName ++ (no ::member part)
         if ref_member is None and not is_constructor:
             # ref_class is actually a function name
@@ -5199,8 +6909,20 @@ class CSSLRuntime:
             if func_name.startswith('$'):
                 func_name = func_name[1:]
 
-            # Look for the function in scope
-            func = self.scope.get(func_name) or self.global_scope.get(func_name)
+            # v4.9.2: For builtin hooks, check _original_functions FIRST to avoid infinite recursion
+            # When &builtin ++ is used, scope contains the wrapper, but we want the original
+            func = None
+            if hasattr(self, '_original_functions'):
+                func = self._original_functions.get(func_name)
+
+            # If not an overwritten builtin, check scope
+            if func is None:
+                func = self.scope.get(func_name) or self.global_scope.get(func_name)
+
+            # v4.9.2: Check in builtins._functions if still not found (for non-overwritten builtins)
+            if func is None and hasattr(self, 'builtins') and hasattr(self.builtins, '_functions'):
+                func = self.builtins._functions.get(func_name)
+
             if func is not None:
                 if isinstance(func, ASTNode) and func.type in ('function', 'FUNCTION'):
                     # Execute the referenced function
@@ -5351,9 +7073,52 @@ class CSSLRuntime:
         prev_scope = self.scope
         self.scope = new_scope
 
+        # v4.8.8: Set 'this' and 'super' in constructor scope
+        new_scope.set('this', instance)
+        parent_class = getattr(instance, '_parent_class', None)
+        if parent_class is None and hasattr(instance, '_class'):
+            parent_class = getattr(instance._class, 'parent', None)
+        if parent_class:
+            new_scope.set('super', SuperProxy(instance, parent_class, self))
+
         try:
             for stmt in constr_node.children:
                 self._execute_node(stmt)
+        finally:
+            self.scope = prev_scope
+            self._current_instance = prev_instance
+
+    def _call_destructor(self, instance: CSSLInstance, destr_node: ASTNode):
+        """v4.8.8: Call a destructor on an instance.
+
+        Destructors are defined with constr ~Name() { } syntax.
+        They are called by delete(instance) or delete(instance, "Name").
+
+        Args:
+            instance: The CSSLInstance to clean up
+            destr_node: The destructor AST node
+        """
+        # Save previous instance context
+        prev_instance = self._current_instance
+        self._current_instance = instance
+
+        # Create new scope for destructor
+        new_scope = Scope(parent=self.scope)
+        prev_scope = self.scope
+        self.scope = new_scope
+
+        # v4.8.8: Set 'this' and 'super' in destructor scope
+        new_scope.set('this', instance)
+        parent_class = getattr(instance, '_parent_class', None)
+        if parent_class is None and hasattr(instance, '_class'):
+            parent_class = getattr(instance._class, 'parent', None)
+        if parent_class:
+            new_scope.set('super', SuperProxy(instance, parent_class, self))
+
+        try:
+            # Execute destructor body
+            for child in destr_node.children:
+                self._execute_node(child)
         finally:
             self.scope = prev_scope
             self._current_instance = prev_instance
@@ -5489,6 +7254,12 @@ class CSSLRuntime:
         self._current_instance = instance
         # v4.7: Set 'this' in scope for this.member access
         new_scope.set('this', instance)
+        # v4.8.8: Set 'super' for parent method access
+        parent_class = getattr(instance, '_parent_class', None)
+        if parent_class is None and hasattr(instance, '_class'):
+            parent_class = getattr(instance._class, 'parent', None)
+        if parent_class:
+            new_scope.set('super', SuperProxy(instance, parent_class, self))
 
         original_return = None
         try:
@@ -5526,6 +7297,72 @@ class CSSLRuntime:
         # If no return in appended code, use original's return
         return original_return
 
+    def _call_method_with_super(self, instance: CSSLInstance, method_node: ASTNode,
+                                 args: list, kwargs: dict, super_parent_class) -> Any:
+        """v4.8.8: Call a method with a specific super context.
+
+        Used when calling parent methods via super->method() to ensure the super
+        inside the parent method points to the grandparent, not the instance's parent.
+
+        Args:
+            instance: The CSSLInstance to use as 'this'
+            method_node: The method AST node to execute
+            args: Method arguments
+            kwargs: Keyword arguments
+            super_parent_class: The class to use for 'super' (typically grandparent)
+        """
+        kwargs = kwargs or {}
+        func_info = method_node.value
+        params = func_info.get('params', [])
+        modifiers = func_info.get('modifiers', [])
+
+        # Check for undefined modifier
+        is_undefined = 'undefined' in modifiers
+
+        # Create new scope for method
+        new_scope = Scope(parent=self.scope)
+
+        # Bind parameters
+        for i, param in enumerate(params):
+            param_name = param['name'] if isinstance(param, dict) else param
+            if param_name in kwargs:
+                new_scope.set(param_name, kwargs[param_name])
+            elif i < len(args):
+                new_scope.set(param_name, args[i])
+            else:
+                new_scope.set(param_name, None)
+
+        # Save current state
+        old_scope = self.scope
+        old_instance = self._current_instance
+
+        # Set up method context
+        self.scope = new_scope
+        self._current_instance = instance
+        # Set 'this' in scope for this.member access
+        new_scope.set('this', instance)
+        # Set 'super' with the specified parent class (typically grandparent)
+        if super_parent_class:
+            new_scope.set('super', SuperProxy(instance, super_parent_class, self))
+
+        try:
+            for child in method_node.children:
+                if not self._running:
+                    break
+                self._execute_node(child)
+        except CSSLReturn as ret:
+            return ret.value
+        except Exception as e:
+            if is_undefined:
+                return None
+            raise
+        finally:
+            # Restore previous state
+            self.scope = old_scope
+            self._current_instance = old_instance
+
+        return None
+
     # v4.7.1: Attribute blacklist for security - prevents access to dangerous Python attributes
     ATTR_BLACKLIST = frozenset({
         '__class__', '__dict__', '__bases__', '__mro__', '__subclasses__',
@@ -5541,7 +7378,10 @@ class CSSLRuntime:
         obj = self._evaluate(node.value.get('object'))
         member = node.value.get('member')
 
+        # v4.9.3: Special handling for null checks - null.is_null() returns true
         if obj is None:
+            if member == 'is_null':
+                return lambda: True
             return None
 
         # v4.7.1: Security - block access to dangerous Python attributes
@@ -5561,28 +7401,39 @@ class CSSLRuntime:
 
         # === ServiceDefinition (from include()) ===
         if isinstance(obj, ServiceDefinition):
-            # Check functions dict first
+            # v4.8.6: Check classes first (for new MyClass() pattern)
+            if member in obj.classes:
+                return obj.classes[member]
+            # Check functions
             if member in obj.functions:
                 func_node = obj.functions[member]
                 return lambda *args, **kwargs: self._call_function(func_node, list(args), kwargs)
-            # Check structs dict
+            # Check structs
             if member in obj.structs:
                 return obj.structs[member]
+            # v4.8.6: Check enums
+            if member in obj.enums:
+                return obj.enums[member]
+            # v4.8.6: Check namespaces
+            if member in obj.namespaces:
+                return obj.namespaces[member]
             # Check regular attributes
             if hasattr(obj, member):
                 return getattr(obj, member)
             # Build helpful error
-            available = list(obj.functions.keys()) + list(obj.structs.keys())
+            available = (list(obj.classes.keys()) + list(obj.functions.keys()) +
+                        list(obj.structs.keys()) + list(obj.enums.keys()) +
+                        list(obj.namespaces.keys()))
             similar = _find_similar_names(member, available)
             if similar:
                 hint = f"Did you mean: {', '.join(similar)}?"
             elif available:
                 hint = f"Available: {', '.join(available[:10])}"
             else:
-                hint = "No functions or structs defined in this module."
+                hint = "No exports defined in this module."
             raise self._format_error(
                 node.line if hasattr(node, 'line') else 0,
-                f"Module has no function or struct '{member}'",
+                f"Module has no export '{member}'",
                 hint
             )
 
@@ -5617,6 +7468,35 @@ class CSSLRuntime:
                 node.line,
                 f"'{class_name}' has no member or method '{member}'",
                 hint
+            )
+
+        # === v4.8.8: SUPER PROXY - Parent class method access ===
+        if isinstance(obj, SuperProxy):
+            # Get method from parent class
+            method_node = obj.get_method(member)
+            if method_node:
+                # Return a callable that invokes the parent method with correct super context
+                # Key: super inside the parent method should point to grandparent!
+                parent_of_parent = getattr(obj._parent_class, 'parent', None)
+
+                def call_parent_method(*args, **kwargs):
+                    return self._call_method_with_super(
+                        obj._instance, method_node, list(args), kwargs,
+                        parent_of_parent  # Pass grandparent as the super context
+                    )
+                return call_parent_method
+
+            # Check for member
+            member_val = obj.get_member(member)
+            if member_val is not None:
+                return member_val
+
+            # Error: no such method in parent
+            parent_name = obj._parent_class.name if obj._parent_class else "parent"
+            raise self._format_error(
+                node.line if hasattr(node, 'line') else 0,
+                f"Parent class '{parent_name}' has no method '{member}'",
+                "Check that the parent class defines this method."
             )
 
         # === UNIVERSAL INSTANCE METHODS ===
@@ -5669,11 +7549,26 @@ class CSSLRuntime:
 
         # === LIST/ARRAY METHODS for plain lists ===
         # Exclude DataStruct and other custom containers - they have their own methods
-        from .cssl_types import DataStruct
-        if isinstance(obj, list) and not isinstance(obj, (Stack, Vector, Array, DataStruct)):
+        from .cssl_types import DataStruct, List, Dictionary, Queue, Bit, Byte, Address
+        if isinstance(obj, list) and not isinstance(obj, (Stack, Vector, Array, DataStruct, List)):
             list_methods = self._get_list_method(obj, member)
             if list_methods is not None:
                 return list_methods
+
+        # === CSSL CONTAINER TYPES (Stack, Vector, Array, Map, Queue, etc.) ===
+        # v4.8.7: Explicit handling for CSSL container methods to ensure they're found
+        # v4.9.0: Added Bit and Byte types
+        if isinstance(obj, (Stack, Vector, Array, DataStruct, List, Dictionary, Map, Queue, Bit, Byte, Address)):
+            # Try to get the method directly from the object
+            method = getattr(obj, member, None)
+            if method is not None:
+                return method
+            # Also check the class for methods (handles inheritance)
+            for cls in type(obj).__mro__:
+                if hasattr(cls, member):
+                    method = getattr(obj, member)
+                    if method is not None:
+                        return method
 
         if hasattr(obj, member):
             return getattr(obj, member)
@@ -6363,8 +8258,16 @@ def run_cssl(source: str, service_engine=None, force_python: bool = False) -> An
     Returns:
         Execution result
     """
+    # v4.8.8: Python-only builtins that require subprocess/import magic
+    # These don't work in C++ interpreter and must use Python
+    # v4.9.2: Added address/reflect/memory for pointer system, hooks syntax
+    PYTHON_ONLY_FEATURES = ['includecpp(', 'snapshot(', '%', 'address(', 'reflect(', 'memory(', ' &', '&$', 'destroy(', 'execute(']
+
+    # Check if source uses Python-only features
+    needs_python = any(feat in source for feat in PYTHON_ONLY_FEATURES)
+
     # Try C++ interpreter first (10-20x faster)
-    if not force_python:
+    if not force_python and not needs_python:
         cpp_interp = _get_cpp_interpreter()
         if cpp_interp:
             try:
@@ -6394,8 +8297,21 @@ def run_cssl_file(filepath: str, service_engine=None, force_python: bool = False
 
     Uses C++ interpreter for maximum performance when available.
     """
+    # v4.8.8: Python-only builtins that require subprocess/import magic
+    # v4.9.2: Added address/reflect/memory for pointer system, hooks syntax
+    PYTHON_ONLY_FEATURES = ['includecpp(', 'snapshot(', '%', 'address(', 'reflect(', 'memory(', ' &', '&$', 'destroy(', 'execute(']
+
+    # Check file content for Python-only features
+    needs_python = False
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            source = f.read()
+            needs_python = any(feat in source for feat in PYTHON_ONLY_FEATURES)
+    except Exception:
+        pass  # If we can't read, let the runtime handle it
+
     # Try C++ interpreter first
-    if not force_python:
+    if not force_python and not needs_python:
         cpp_interp = _get_cpp_interpreter()
         if cpp_interp:
             try:

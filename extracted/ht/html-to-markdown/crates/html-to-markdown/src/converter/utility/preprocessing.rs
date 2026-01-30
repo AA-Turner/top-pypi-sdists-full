@@ -547,29 +547,54 @@ pub(crate) fn matches_end_tag_start(bytes: &[u8], start: usize, tag: &[u8]) -> b
 /// # Returns
 /// * `Cow<str>` - Either the borrowed original URL or an owned sanitized version
 pub(crate) fn sanitize_markdown_url(url: &str) -> Cow<'_, str> {
-    // Pattern: //[text](actual_url) or similar markdown-like syntax
+    // Pattern: ...[text](actual_url) or similar markdown-like syntax
     // This handles malformed HTML where markdown syntax wasn't properly converted
+    // and prevents downstream URL parsing errors (e.g., bracketed "IPv6" hosts).
 
-    // Quick check: if URL doesn't start with '//' or doesn't contain '[' and ']', skip regex
-    if !url.starts_with("//") || (!url.contains('[') && !url.contains(']')) {
+    // Fast-path: we only care about markdown-like link syntax.
+    let Some(mid) = url.find("](") else {
+        return Cow::Borrowed(url);
+    };
+
+    // Ensure there is an opening '[' before the "](..." sequence.
+    if !url[..mid].contains('[') {
         return Cow::Borrowed(url);
     }
 
-    // Use simple string parsing instead of regex for performance
-    // Look for pattern: //[...](...)
-    if let Some(bracket_start) = url.find('[') {
-        if let Some(bracket_end) = url[bracket_start..].find(']') {
-            let bracket_end = bracket_start + bracket_end;
-            if let Some(paren_start) = url[bracket_end..].find('(') {
-                let paren_start = bracket_end + paren_start + 1; // +1 to skip '('
-                if let Some(paren_end) = url[paren_start..].find(')') {
-                    let paren_end = paren_start + paren_end;
-                    // Extract URL from parentheses
-                    return Cow::Owned(url[paren_start..paren_end].to_string());
-                }
-            }
-        }
+    let paren_start = mid + 2;
+    let Some(rel_end) = url[paren_start..].find(')') else {
+        return Cow::Borrowed(url);
+    };
+    let paren_end = paren_start + rel_end;
+    if paren_start >= paren_end {
+        return Cow::Borrowed(url);
     }
 
-    Cow::Borrowed(url)
+    Cow::Owned(url[paren_start..paren_end].to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_markdown_url;
+
+    #[test]
+    fn sanitize_markdown_url_extracts_scheme_relative_markdown_like_url() {
+        let input = "//[p1.zemanta.com/v2/p/ns/45625/PAGE\\_VIEW/](http://p1.zemanta.com/v2/p/ns/45625/PAGE_VIEW/)";
+        let sanitized = sanitize_markdown_url(input);
+        assert_eq!(sanitized, "http://p1.zemanta.com/v2/p/ns/45625/PAGE_VIEW/");
+    }
+
+    #[test]
+    fn sanitize_markdown_url_extracts_standard_markdown_like_url() {
+        let input = "[label](https://example.com/path?q=1)";
+        let sanitized = sanitize_markdown_url(input);
+        assert_eq!(sanitized, "https://example.com/path?q=1");
+    }
+
+    #[test]
+    fn sanitize_markdown_url_leaves_normal_urls_unchanged() {
+        let input = "https://example.com/normal";
+        let sanitized = sanitize_markdown_url(input);
+        assert_eq!(sanitized, input);
+    }
 }

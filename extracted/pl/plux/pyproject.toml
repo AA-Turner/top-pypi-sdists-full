@@ -1,11 +1,56 @@
-# plux project configuration
+[build-system]
+requires = ['hatchling', 'hatch-vcs']
+build-backend = "hatchling.build"
 
-[tool.black]
-line_length = 100
-include = '((plugin)/.*\.py$|(plux)/.*\.py$|tests/.*\.py$)'
-#extend_exclude = '()'
+[project]
+name = "plux"
+authors = [
+    { name = "Thomas Rausch", email = "info@localstack.cloud" }
+]
+description = "A dynamic code loading framework for building pluggable Python distributions"
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities"
+]
+requires-python = ">=3.10"
+dynamic = ["version"]
 
-[tool.isort]
-profile = 'black'
-#extend_skip = []
-line_length = 100
+[project.urls]
+Repository = "https://github.com/localstack/plux"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "setuptools",
+    "pytest==8.4.1",
+    "ruff==0.9.1",
+]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "plux/version.py"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+# integrations with setuptools
+
+[project.entry-points."distutils.commands"]
+plugins = "plux.build.setuptools:plugins"
+
+[project.entry-points."egg_info.writers"]
+# this is actually not a writer, it's a reader :-)
+"plux.json" = "plux.build.setuptools:load_plux_entrypoints"
+

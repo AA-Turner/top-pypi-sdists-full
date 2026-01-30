@@ -3,15 +3,15 @@ from itertools import product
 
 import numpy as np
 
-type NetworkWeights = dict[str, dict[str, np.ndarray]]
-type DescriptorWeights = dict[tuple[str, str], np.ndarray]
-type RestartParameters = dict[str, dict[str, dict[str, np.ndarray]]]
+NetworkWeights = dict[str, dict[str, np.ndarray]]
+DescriptorWeights = dict[tuple[str, str], np.ndarray]
+RestartParameters = dict[str, dict[str, dict[str, np.ndarray]]]
 
 
 def _get_restart_contents(filename: str) -> tuple[list[float], list[float]]:
     """Parses a ``nep.restart`` file, and returns an unformatted list of the
     mean and standard deviation for all model parameters.
-    Intended to be used by the py:meth:`~Model.load_restart` function.
+    Intended to be used by the py:meth:`~Model.read_restart` function.
 
     Parameters
     ----------
@@ -33,17 +33,19 @@ def _get_restart_contents(filename: str) -> tuple[list[float], list[float]]:
 
 
 def _get_model_type(first_row: list[str]) -> str:
-    """Parses a the first row of a ``nep.txt`` file,
-    and returns the type of NEP model. Available types
-    are ``potential``, ``dipole`` and ``polarizability``.
+    """Parses a the first row of a ``nep.txt`` file, and returns the
+    type of NEP model. Available types are `potential`, `potential_with_charges`,
+    `dipole`, and `polarizability`.
 
     Parameters
     ----------
     first_row
-        first row of a NEP file, split by white space.
+        First row of a NEP file, split by white space.
     """
     model_type = first_row[0]
-    if 'dipole' in model_type:
+    if 'charge' in model_type:
+        return 'potential_with_charges'
+    elif 'dipole' in model_type:
         return 'dipole'
     elif 'polarizability' in model_type:
         return 'polarizability'
@@ -143,13 +145,14 @@ def _sort_ann_parameters(parameters: list[float],
                          n_networks: int,
                          n_bias: int,
                          n_descriptor: int,
-                         is_polarizability_model: bool
+                         is_polarizability_model: bool,
+                         is_model_with_charges: bool
                          ) -> NetworkWeights:
     """Reads a list of model parameters and sorts them into an appropriately structured `dict`.
     Intended to be used by the :func:`read_model <calorine.nep.read_model>` function.
     """
     n_ann_input_weights = (n_descriptor + 1) * n_neuron  # weights + bias
-    n_ann_output_weights = n_neuron  # only weights
+    n_ann_output_weights = 2*n_neuron if is_model_with_charges else n_neuron  # only weights
     n_ann_parameters = (
         n_ann_input_weights + n_ann_output_weights
     ) * n_networks + n_bias
@@ -157,9 +160,10 @@ def _sort_ann_parameters(parameters: list[float],
     # Group ANN parameters
     pars = {}
     n1 = 0
-    n_network_params = n_ann_input_weights + n_ann_output_weights  # except last bias
+    n_network_params = n_ann_input_weights + n_ann_output_weights  # except last bias(es)
 
     n_count = 2 if is_polarizability_model else 1
+    n_outputs = 2 if is_model_with_charges else 1
     for count in range(n_count):
         # if polarizability model, all parameters including bias are repeated
         # need to offset n1 by +1 to handle bias
@@ -194,23 +198,24 @@ def _sort_ann_parameters(parameters: list[float],
             ann_output_weights = ann_parameters[
                 n_ann_input_weights : n_ann_input_weights + n_ann_output_weights
             ]
-
-            w1 = np.zeros((1, n_neuron))
+            w1 = np.zeros((1, n_neuron * n_outputs))
             w1[0, :] = ann_output_weights[:]
             assert np.all(
-                w1.shape == (1, n_neuron)
+                w1.shape == (1, n_neuron * n_outputs)
             ), f'w1 has invalid shape for key {s}; please submit a bug report'
             assert not np.any(
                 np.isnan(w1)
             ), f'some weights in w1 are nan for key {s}; please submit a bug report'
 
-            if count == 0:
+            if count == 0 and n_outputs == 1:
                 pars[s] = dict(w0=w0, b0=b0, w1=w1)
+            elif count == 0 and n_outputs == 2:
+                pars[s] = dict(w0=w0, b0=b0, w1=w1[0, :n_neuron], w1_charge=w1[0, n_neuron:])
             else:
                 pars[s].update({'w0_polar': w0, 'b0_polar': b0, 'w1_polar': w1})
             # Jump to bias
             n1 += n_network_params
-            if n_bias > 1:
+            if n_bias > 1 and not is_model_with_charges:
                 # For NEP5 models we additionally have one bias term per species.
                 # Currently NEP5 only exists for potential models, but we'll
                 # keep it here in case it gets added down the line.
@@ -218,14 +223,18 @@ def _sort_ann_parameters(parameters: list[float],
                 pars[s][bias_label] = parameters[n1]
                 n1 += 1
         # For NEP3 and NEP4 we only have one bias.
+        # For NEP4 with charges we have two biases.
         # For NEP5 we have one bias per species, and one global.
-        if count == 0:
+        if count == 0 and n_outputs == 1:
             pars['b1'] = parameters[n1]
+        elif count == 0 and n_outputs == 2:
+            pars['sqrt_epsilon_infinity'] = parameters[n1]
+            pars['b1'] = parameters[n1+1]
         else:
             pars['b1_polar'] = parameters[n1]
     sum = 0
     for s in pars.keys():
-        if s.startswith('b1'):
+        if s.startswith('b1') or s.startswith('sqrt'):
             sum += 1
         else:
             sum += np.sum([np.array(p).size for p in pars[s].values()])
@@ -250,10 +259,12 @@ class Model:
         One of ``potential``, ``dipole`` or ``polarizability``.
     types : tuple[str, ...]
         Chemical species that this model represents.
-    radial_cutoff : float
+    radial_cutoff : float | list[float]
         The radial cutoff parameter in Å.
-    angular_cutoff : float
+        Is a list of radial cutoffs ordered after ``types`` in the case of typewise cutoffs.
+    angular_cutoff : float | list[float]
         The angular cutoff parameter in Å.
+        Is a list of angular cutoffs ordered after ``types`` in the case of typewise cutoffs.
     max_neighbors_radial : int
         Maximum number of neighbors in neighbor list for radial terms.
     max_neighbors_angular : int
@@ -306,18 +317,20 @@ class Model:
         Angular descriptor weights by combination of species; the array for each combination
         has dimensions of
         :math:`(n_\mathrm{max}^\mathrm{A}+1) \times (n_\mathrm{basis}^\mathrm{A}+1)`.
+    sqrt_epsilon_infinity : Optional[float]
+        Square root of epsilon infinity $\epsilon_\infty$ (only for NEP models with charges).
     restart_parameters :  dict[str, dict[str, dict[str, np.ndarray]]]
         NEP restart parameters. A nested dictionary that contains the mean (mu) and standard
         deviation (sigma) for the ANN and descriptor parameters. Is set using the
-        py:meth:`~Model.load_restart` method. Defaults to None.
+        py:meth:`~Model.read_restart` method. Defaults to None.
     """
 
     version: int
     model_type: str
     types: tuple[str, ...]
 
-    radial_cutoff: float
-    angular_cutoff: float
+    radial_cutoff: float | list[float]
+    angular_cutoff: float | list[float]
 
     n_basis_radial: int
     n_basis_angular: int
@@ -337,6 +350,7 @@ class Model:
     q_scaler: list[float]
     radial_descriptor_weights: DescriptorWeights
     angular_descriptor_weights: DescriptorWeights
+    sqrt_epsilon_infinity: float = None
     restart_parameters: RestartParameters = None
 
     zbl: tuple[float, float] = None
@@ -375,9 +389,10 @@ class Model:
                 ]
         for fld in self._special_fields:
             d = getattr(self, fld)
+            # print('xxx', fld, d)
             if fld.endswith('descriptor_weights'):
                 dim = list(d.values())[0].shape
-            if fld == 'ann_parameters' and self.version == 4:
+            elif fld == 'ann_parameters' and self.version == 4:
                 dim = (len(self.types), len(list(d.values())[0]))
             else:
                 dim = len(d)
@@ -500,16 +515,14 @@ class Model:
             f.write(f'{version_name} {len(self.types)} {" ".join(self.types)}\n')
             if self.zbl is not None:
                 f.write(f'zbl {" ".join(map(str, self.zbl))}\n')
-            f.write(f'cutoff {self.radial_cutoff} {self.angular_cutoff}')
+            f.write('cutoff')
+            if isinstance(self.radial_cutoff, float) and isinstance(self.angular_cutoff, float):
+                f.write(f' {self.radial_cutoff} {self.angular_cutoff}')
+            else:
+                # Typewise cutoffs: one set of cutoffs per type
+                for i in range(len(self.types)):
+                    f.write(f' {self.radial_cutoff[i]} {self.angular_cutoff[i]}')
             f.write(f' {self.max_neighbors_radial} {self.max_neighbors_angular}')
-            if (
-                self.radial_typewise_cutoff_factor is not None
-                and self.angular_typewise_cutoff_factor is not None
-            ):
-                f.write(f' {self.radial_typewise_cutoff_factor}'
-                        f' {self.angular_typewise_cutoff_factor}')
-            if self.zbl_typewise_cutoff_factor:
-                f.write(f' {self.zbl_typewise_cutoff_factor}')
             f.write('\n')
             f.write(f'n_max {self.n_max_radial} {self.n_max_angular}\n')
             f.write(f'basis_size {self.n_basis_radial} {self.n_basis_angular}\n')
@@ -561,7 +574,7 @@ class Model:
             for v in self.q_scaler:
                 f.write(f'{v:15.7e}\n')
 
-    def load_restart(self, filename: str):
+    def read_restart(self, filename: str):
         """Parses a file in `nep.restart` format and saves the
         content in the form of mean and standard deviation for each
         parameter in the corresponding NEP model.
@@ -575,6 +588,8 @@ class Model:
         restart_parameters = np.array([mu, sigma]).T
 
         is_polarizability_model = self.model_type == 'polarizability'
+        is_charged_model = self.model_type == 'potential_with_charges'
+
         n1 = self.n_ann_parameters
         n1 *= 2 if is_polarizability_model else 1
         n2 = n1 + self.n_descriptor_parameters
@@ -603,7 +618,8 @@ class Model:
                                        n_networks,
                                        n_bias,
                                        n_descriptor,
-                                       is_polarizability_model)
+                                       is_polarizability_model,
+                                       is_charged_model)
             radial, angular = _sort_descriptor_parameters(descriptor_parameters[:, i],
                                                           self.types,
                                                           self.n_max_radial,
@@ -652,7 +668,6 @@ class Model:
             mat = []
             for s1 in self.types:
                 for s2 in self.types:
-                    print(len(radial_descriptor_parameters[(s1, s2)].flatten()))
                     mat = np.hstack(
                         [mat, radial_descriptor_parameters[(s1, s2)].flatten()]
                     )
@@ -694,16 +709,18 @@ def read_model(filename: str) -> Model:
     ], 'Invalid model file; only NEP versions 3, 4 and 5 are currently supported'
 
     # split up cutoff tuple
-    assert len(data['cutoff']) in [4, 6, 7]
-    data['radial_cutoff'] = data['cutoff'][0]
-    data['angular_cutoff'] = data['cutoff'][1]
-    data['max_neighbors_radial'] = int(data['cutoff'][2])
-    data['max_neighbors_angular'] = int(data['cutoff'][3])
-    if len(data['cutoff']) >= 6:
-        data['radial_typewise_cutoff_factor'] = data['cutoff'][4]
-        data['angular_typewise_cutoff_factor'] = data['cutoff'][5]
-    if len(data['cutoff']) == 7:
-        data['zbl_typewise_cutoff_factor'] = data['cutoff'][6]
+    N_types = len(data['types'])
+    # Either global cutoffs + max neighbirs, or typewise cutoffs + max_neighbors
+    assert len(data['cutoff']) in [4, 2*N_types+2]
+    data['max_neighbors_radial'] = int(data['cutoff'][-2])
+    data['max_neighbors_angular'] = int(data['cutoff'][-1])
+    if len(data['cutoff']) == 2*N_types+2:
+        # Typewise cutoffs: radial are even, angular are odd
+        data['radial_cutoff'] = [data['cutoff'][i*2] for i in range(N_types)]
+        data['angular_cutoff'] = [data['cutoff'][i*2+1] for i in range(N_types)]
+    else:
+        data['radial_cutoff'] = data['cutoff'][0]
+        data['angular_cutoff'] = data['cutoff'][1]
     del data['cutoff']
 
     # split up basis_size tuple
@@ -732,6 +749,7 @@ def read_model(filename: str) -> Model:
     data['n_descriptor_angular'] = (data['n_max_angular'] + 1) * l_max_enh
     n_descriptor = data['n_descriptor_radial'] + data['n_descriptor_angular']
 
+    is_charged_model = data['model_type'] == 'potential_with_charges'
     # compute number of parameters
     data['n_neuron'] = data['ANN'][0]
     del data['ANN']
@@ -739,6 +757,10 @@ def read_model(filename: str) -> Model:
     if data['version'] == 3:
         n = 1
         n_bias = 1
+    elif data['version'] == 4 and is_charged_model:
+        # one hidden layer per atomic species, but two output nodes
+        n = n_types
+        n_bias = 2
     elif data['version'] == 4:
         # one hidden layer per atomic species
         n = n_types
@@ -751,7 +773,7 @@ def read_model(filename: str) -> Model:
         n_bias = 1 + n_types  # one global bias + one per species
 
     n_ann_input_weights = (n_descriptor + 1) * data['n_neuron']  # weights + bias
-    n_ann_output_weights = data['n_neuron']  # only weights
+    n_ann_output_weights = 2*data['n_neuron'] if is_charged_model else data['n_neuron']  # weights
     n_ann_parameters = (
         n_ann_input_weights + n_ann_output_weights
     ) * n + n_bias
@@ -768,7 +790,7 @@ def read_model(filename: str) -> Model:
             'Model is not labelled as a polarizability model, but the number of '
             'parameters matches a polarizability model.\n'
             'If this is a polarizability model trained with GPUMD <=v3.8, please '
-            'modify the header in the nep.txt file to read '
+            'modify the header in the nep.txt file to enable parsing '
             f'`nep{data["version"]}_polarizability`.\n'
         )
     assert data['n_parameters'] == len(parameters), (
@@ -793,9 +815,14 @@ def read_model(filename: str) -> Model:
                                                  n,
                                                  n_bias,
                                                  n_descriptor,
-                                                 is_polarizability_model)
+                                                 is_polarizability_model,
+                                                 is_charged_model)
 
     data['ann_parameters'] = sorted_ann_parameters
+    if 'sqrt_epsilon_infinity' in sorted_ann_parameters.keys():
+        data['sqrt_epsilon_infinity'] = sorted_ann_parameters['sqrt_epsilon_infinity']
+        sorted_ann_parameters.pop('sqrt_epsilon_infinity')
+        data['ann_parameters'] = sorted_ann_parameters
 
     # add descriptors to data dict
     data['n_descriptor_parameters'] = len(descriptor_weights)

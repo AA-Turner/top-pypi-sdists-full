@@ -15,6 +15,10 @@
 
 from ....utils.deps import require_deps
 
+__all__ = ["get_config"]
+
+# TODO: Allow setting `trust-remote-code` to `False` to use `transformers` processors
+
 
 def get_config(backend):
     if backend == "fastdeploy":
@@ -36,6 +40,8 @@ def get_config(backend):
         elif paddle.device.is_compiled_with_custom_device("iluvatar_gpu"):
             cfg["block-size"] = 16
             cfg["max-num-seqs"] = 32
+            cfg["max-concurrency"] = 2048
+        elif paddle.device.is_compiled_with_xpu():
             cfg["max-concurrency"] = 2048
         return cfg
     elif backend == "vllm":

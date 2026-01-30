@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: acachecontrol
-Version: 0.3.6
+Version: 0.3.7
 Summary: Cache-Control for aiohttp
 Home-page: https://github.com/MasterSergius/acachecontrol
 Author: Serhii Buniak, Andrii Ivaniuk
@@ -26,7 +26,17 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.6,<4.0
 Description-Content-Type: text/markdown
 Requires-Dist: aiohttp>=3.10.2
-Requires-Dist: setuptools>=38.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![PyPI](https://img.shields.io/pypi/v/acachecontrol)](https://pypi.org/project/acachecontrol/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)

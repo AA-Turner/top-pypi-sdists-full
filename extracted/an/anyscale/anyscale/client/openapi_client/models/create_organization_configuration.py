@@ -36,17 +36,19 @@ class CreateOrganizationConfiguration(object):
         'customer_billing_type': 'str',
         'invite_code': 'str',
         'expires_at': 'datetime',
-        'description': 'str'
+        'description': 'str',
+        'contract_end_date': 'datetime'
     }
 
     attribute_map = {
         'customer_billing_type': 'customer_billing_type',
         'invite_code': 'invite_code',
         'expires_at': 'expires_at',
-        'description': 'description'
+        'description': 'description',
+        'contract_end_date': 'contract_end_date'
     }
 
-    def __init__(self, customer_billing_type=None, invite_code=None, expires_at=None, description=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, customer_billing_type=None, invite_code=None, expires_at=None, description=None, contract_end_date=None, local_vars_configuration=None):  # noqa: E501
         """CreateOrganizationConfiguration - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class CreateOrganizationConfiguration(object):
         self._invite_code = None
         self._expires_at = None
         self._description = None
+        self._contract_end_date = None
         self.discriminator = None
 
         self.customer_billing_type = customer_billing_type
@@ -65,6 +68,8 @@ class CreateOrganizationConfiguration(object):
             self.expires_at = expires_at
         if description is not None:
             self.description = description
+        if contract_end_date is not None:
+            self.contract_end_date = contract_end_date
 
     @property
     def customer_billing_type(self):
@@ -151,6 +156,27 @@ class CreateOrganizationConfiguration(object):
         """
 
         self._description = description
+
+    @property
+    def contract_end_date(self):
+        """Gets the contract_end_date of this CreateOrganizationConfiguration.  # noqa: E501
+
+
+        :return: The contract_end_date of this CreateOrganizationConfiguration.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._contract_end_date
+
+    @contract_end_date.setter
+    def contract_end_date(self, contract_end_date):
+        """Sets the contract_end_date of this CreateOrganizationConfiguration.
+
+
+        :param contract_end_date: The contract_end_date of this CreateOrganizationConfiguration.  # noqa: E501
+        :type: datetime
+        """
+
+        self._contract_end_date = contract_end_date
 
     def to_dict(self):
         """Returns the model properties as a dict"""

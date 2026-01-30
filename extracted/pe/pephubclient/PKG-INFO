@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pephubclient
-Version: 0.4.5
+Version: 0.5.0
 Summary: PEPhub command line interface.
 Home-page: https://github.com/databio/pephubclient/
 Author: Oleksandr Khoroshevskyi, Rafal Stepien
@@ -24,6 +24,17 @@ Requires-Dist: pydantic>2.5.0
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: ubiquerg>=0.6.3
 Requires-Dist: coloredlogs>=15.0.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 <h1 align="center">PEPHubClient</h1>
 

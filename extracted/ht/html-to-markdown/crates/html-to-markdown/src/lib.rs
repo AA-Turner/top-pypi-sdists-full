@@ -227,23 +227,23 @@ mod basic_tests {
 
     #[test]
     fn test_binary_input_rejected() {
-        let html = "PDF\0DATA";
-        let result = convert(html, None);
+        let html = format!("abc{}def", "\0".repeat(20));
+        let result = convert(&html, None);
         assert!(matches!(result, Err(ConversionError::InvalidInput(_))));
     }
 
     #[test]
     fn test_binary_magic_rejected() {
-        let html = String::from_utf8_lossy(b"\x1F\x8B\x08\x00gzip").to_string();
-        let result = convert(&html, None);
+        let html = "%PDF-1.7";
+        let result = convert(html, None);
         assert!(matches!(result, Err(ConversionError::InvalidInput(_))));
     }
 
     #[test]
-    fn test_utf16_hint_rejected() {
+    fn test_utf16_hint_recovered() {
         let html = String::from_utf8_lossy(b"\xFF\xFE<\0h\0t\0m\0l\0>\0").to_string();
         let result = convert(&html, None);
-        assert!(matches!(result, Err(ConversionError::InvalidInput(_))));
+        assert!(result.is_ok(), "UTF-16 input should be recovered instead of rejected");
     }
 
     #[test]

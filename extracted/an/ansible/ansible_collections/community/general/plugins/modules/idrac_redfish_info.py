@@ -129,19 +129,24 @@ msg:
 """
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.general.plugins.module_utils.redfish_utils import (
-    RedfishUtils,
     REDFISH_COMMON_ARGUMENT_SPEC,
+    RedfishUtils,
 )
 
 
 class IdracRedfishUtils(RedfishUtils):
     def get_manager_attributes(self):
         result = {}
+        response = {}
         manager_attributes = []
         properties = ["Attributes", "Id"]
 
-        response = self.get_request(self.root_uri + self.manager_uri)
+        if len(self.manager_uris) == 1:
+            response = self.get_request(f"{self.root_uri}{self.manager_uri}")
+        elif len(self.manager_uris) > 1:
+            response = self.get_request(f"{self.root_uri}/redfish/v1/Managers/iDRAC.Embedded.1", override_headers=None)
 
         if response["ret"] is False:
             return response

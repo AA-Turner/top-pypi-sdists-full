@@ -245,6 +245,27 @@ class GetModelResponse(google.protobuf.message.Message):
 
 global___GetModelResponse = GetModelResponse
 
+class ListModelsByModelIdsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_IDS_FIELD_NUMBER: builtins.int
+    MODEL_UUIDS_FIELD_NUMBER: builtins.int
+    @property
+    def model_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The model ids"""
+    @property
+    def model_uuids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The model uuids"""
+    def __init__(
+        self,
+        *,
+        model_ids: collections.abc.Iterable[builtins.str] | None = ...,
+        model_uuids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["model_ids", b"model_ids", "model_uuids", b"model_uuids"]) -> None: ...
+
+global___ListModelsByModelIdsRequest = ListModelsByModelIdsRequest
+
 class DeleteModelRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

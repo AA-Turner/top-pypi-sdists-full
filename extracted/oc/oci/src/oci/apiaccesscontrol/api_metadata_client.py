@@ -165,7 +165,7 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apiaccesscontrol/get_api_metadata.py.html>`__ to see an example of how to use get_api_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apiaccesscontrol/get_api_metadata.py.html>`__ to see an example of how to use get_api_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apiMetadataId']
@@ -312,7 +312,7 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apiaccesscontrol/list_api_metadata.py.html>`__ to see an example of how to use list_api_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apiaccesscontrol/list_api_metadata.py.html>`__ to see an example of how to use list_api_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -490,7 +490,7 @@ class ApiMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/apiaccesscontrol/list_api_metadata_by_entity_types.py.html>`__ to see an example of how to use list_api_metadata_by_entity_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/apiaccesscontrol/list_api_metadata_by_entity_types.py.html>`__ to see an example of how to use list_api_metadata_by_entity_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

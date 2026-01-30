@@ -6,6 +6,7 @@ from typing import IO, TypedDict
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 AccessKeyIdString = str
+AccountIdString = str
 ApplicationArn = str
 AuditContextString = str
 Boolean = bool
@@ -85,6 +86,11 @@ class ComparisonOperator(StrEnum):
     BEGINS_WITH = "BEGINS_WITH"
     IN = "IN"
     BETWEEN = "BETWEEN"
+
+
+class CredentialsScope(StrEnum):
+    READ = "READ"
+    READWRITE = "READWRITE"
 
 
 class DataLakeResourceType(StrEnum):
@@ -185,6 +191,12 @@ class TransactionType(StrEnum):
     READ_ONLY = "READ_ONLY"
 
 
+class VerificationStatus(StrEnum):
+    VERIFIED = "VERIFIED"
+    VERIFICATION_FAILED = "VERIFICATION_FAILED"
+    NOT_VERIFIED = "NOT_VERIFIED"
+
+
 class AccessDeniedException(ServiceException):
     """Access to a resource was denied."""
 
@@ -205,6 +217,14 @@ class ConcurrentModificationException(ServiceException):
     """Two processes are trying to modify a resource simultaneously."""
 
     code: str = "ConcurrentModificationException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ConflictException(ServiceException):
+    """Multiple resources exist with the same Amazon S3 location"""
+
+    code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -920,6 +940,8 @@ class ResourceInfo(TypedDict, total=False):
     WithFederation: NullableBoolean | None
     HybridAccessEnabled: NullableBoolean | None
     WithPrivilegedAccess: NullableBoolean | None
+    VerificationStatus: VerificationStatus | None
+    ExpectedResourceOwnerAccount: AccountIdString | None
 
 
 class DescribeResourceResponse(TypedDict, total=False):
@@ -1154,6 +1176,40 @@ class GetTableObjectsResponse(TypedDict, total=False):
     NextToken: TokenString | None
 
 
+PathStringList = list[PathString]
+
+
+class GetTemporaryDataLocationCredentialsRequest(ServiceRequest):
+    DurationSeconds: CredentialTimeoutDurationSecondInteger | None
+    AuditContext: AuditContext | None
+    DataLocations: PathStringList | None
+    CredentialsScope: CredentialsScope | None
+
+
+class TemporaryCredentials(TypedDict, total=False):
+    """A temporary set of credentials for an Lake Formation user. These
+    credentials are scoped down to only access the raw data sources that the
+    user has access to.
+
+    The temporary security credentials consist of an access key and a
+    session token. The access key consists of an access key ID and a secret
+    key. When the credentials are created, they are associated with an IAM
+    access control policy that limits what the user can do when using the
+    credentials.
+    """
+
+    AccessKeyId: AccessKeyIdString | None
+    SecretAccessKey: SecretAccessKeyString | None
+    SessionToken: SessionTokenString | None
+    Expiration: ExpirationTimestamp | None
+
+
+class GetTemporaryDataLocationCredentialsResponse(TypedDict, total=False):
+    Credentials: TemporaryCredentials | None
+    AccessibleDataLocations: PathStringList | None
+    CredentialsScope: CredentialsScope | None
+
+
 PermissionTypeList = list[PermissionType]
 ValueStringList = list[ValueString]
 
@@ -1201,9 +1257,6 @@ class GetTemporaryGlueTableCredentialsRequest(ServiceRequest):
     SupportedPermissionTypes: PermissionTypeList | None
     S3Path: PathString | None
     QuerySessionContext: QuerySessionContext | None
-
-
-PathStringList = list[PathString]
 
 
 class GetTemporaryGlueTableCredentialsResponse(TypedDict, total=False):
@@ -1453,6 +1506,7 @@ class RegisterResourceRequest(ServiceRequest):
     WithFederation: NullableBoolean | None
     HybridAccessEnabled: NullableBoolean | None
     WithPrivilegedAccess: Boolean | None
+    ExpectedResourceOwnerAccount: AccountIdString | None
 
 
 class RegisterResourceResponse(TypedDict, total=False):
@@ -1587,6 +1641,7 @@ class UpdateResourceRequest(ServiceRequest):
     ResourceArn: ResourceArnString
     WithFederation: NullableBoolean | None
     HybridAccessEnabled: NullableBoolean | None
+    ExpectedResourceOwnerAccount: AccountIdString | None
 
 
 class UpdateResourceResponse(TypedDict, total=False):
@@ -2395,6 +2450,57 @@ class LakeformationApi:
         """
         raise NotImplementedError
 
+    @handler("GetTemporaryDataLocationCredentials")
+    def get_temporary_data_location_credentials(
+        self,
+        context: RequestContext,
+        duration_seconds: CredentialTimeoutDurationSecondInteger | None = None,
+        audit_context: AuditContext | None = None,
+        data_locations: PathStringList | None = None,
+        credentials_scope: CredentialsScope | None = None,
+        **kwargs,
+    ) -> GetTemporaryDataLocationCredentialsResponse:
+        """Allows a user or application in a secure environment to access data in a
+        specific Amazon S3 location registered with Lake Formation by providing
+        temporary scoped credentials that are limited to the requested data
+        location and the caller's authorized access level.
+
+        The API operation returns an error in the following scenarios:
+
+        -  The data location is not registered with Lake Formation.
+
+        -  No Glue table is associated with the data location.
+
+        -  The caller doesn't have required permissions on the associated table.
+           The caller must have ``SELECT`` or ``SUPER`` permissions on the
+           associated table, and credential vending for full table access must
+           be enabled in the data lake settings.
+
+           For more information, see `Application integration for full table
+           access <https://docs.aws.amazon.com/lake-formation/latest/dg/full-table-credential-vending.html>`__.
+
+        -  The data location is in a different Amazon Web Services Region. Lake
+           Formation doesn't support cross-Region access when vending
+           credentials for a data location. Lake Formation only supports Amazon
+           S3 paths registered within the same Region as the API call.
+
+        :param duration_seconds: The time period, between 900 and 43,200 seconds, for the timeout of the
+        temporary credentials.
+        :param audit_context: A structure used to include auditing information on the privileged API.
+        :param data_locations: The Amazon S3 data location that you want to access.
+        :param credentials_scope: The credential scope is determined by the caller's Lake Formation
+        permission on the associated table.
+        :returns: GetTemporaryDataLocationCredentialsResponse
+        :raises InvalidInputException:
+        :raises InternalServiceException:
+        :raises OperationTimeoutException:
+        :raises GlueEncryptionException:
+        :raises EntityNotFoundException:
+        :raises AccessDeniedException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
     @handler("GetTemporaryGluePartitionCredentials")
     def get_temporary_glue_partition_credentials(
         self,
@@ -2820,6 +2926,7 @@ class LakeformationApi:
         with_federation: NullableBoolean | None = None,
         hybrid_access_enabled: NullableBoolean | None = None,
         with_privileged_access: Boolean | None = None,
+        expected_resource_owner_account: AccountIdString | None = None,
         **kwargs,
     ) -> RegisterResourceResponse:
         """Registers the resource as managed by the Data Catalog.
@@ -2854,6 +2961,8 @@ class LakeformationApi:
         bucket policies.
         :param with_privileged_access: Grants the calling principal the permissions to perform all supported
         Lake Formation operations on the registered data location.
+        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated
+        with specific Amazon S3 locations.
         :returns: RegisterResourceResponse
         :raises InvalidInputException:
         :raises InternalServiceException:
@@ -3146,6 +3255,7 @@ class LakeformationApi:
         resource_arn: ResourceArnString,
         with_federation: NullableBoolean | None = None,
         hybrid_access_enabled: NullableBoolean | None = None,
+        expected_resource_owner_account: AccountIdString | None = None,
         **kwargs,
     ) -> UpdateResourceResponse:
         """Updates the data access role used for vending access to the given
@@ -3157,6 +3267,8 @@ class LakeformationApi:
         :param hybrid_access_enabled: Specifies whether the data access of tables pointing to the location can
         be managed by both Lake Formation permissions as well as Amazon S3
         bucket policies.
+        :param expected_resource_owner_account: The Amazon Web Services account that owns the Glue tables associated
+        with specific Amazon S3 locations.
         :returns: UpdateResourceResponse
         :raises InvalidInputException:
         :raises InternalServiceException:

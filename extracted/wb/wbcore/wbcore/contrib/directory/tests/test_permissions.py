@@ -57,10 +57,8 @@ class TestEntryPermissionQueryset:
         Test that internal user can see everything
         """
         user, anonymous_profile, any_person, any_company, employer, colleague, client = entry_fixtures
-        user.user_permissions.add(
-            Permission.objects.get(content_type__app_label="authentication", codename="is_internal_user")
-        )
-        user = User.objects.get(id=user.id)
+        user.is_internal = True
+        user.save()
 
         assert set(Entry.objects.filter_for_user(user)) == {
             user.profile.entry_ptr,

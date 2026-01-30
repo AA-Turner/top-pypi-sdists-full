@@ -1,6 +1,5 @@
 from typing import Any, cast, ClassVar, Dict, List, Optional, Union
 import uuid
-import warnings
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
@@ -72,6 +71,9 @@ TERMINAL_HA_JOB_STATES = [
     HaJobStates.OUT_OF_RETRIES,
 ]
 
+# TODO(praneethkaturi): This is a temporary mapping. The backend should accept
+# user-facing JobState values directly instead of requiring conversion to
+# HaJobStates. Once the backend API is updated, this mapping can be removed.
 # Reverse mapping from JobState to HaJobStates for filtering in list operations
 JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
     JobState.SUCCEEDED: [HaJobStates.SUCCESS],
@@ -430,6 +432,7 @@ class PrivateJobSDK(WorkloadSDK):
             runs=runs,
             config=config,
             creator_id=model.creator_id,
+            created_at=model.created_at,
         )
 
     def _decorated_job_to_status(
@@ -487,9 +490,17 @@ class PrivateJobSDK(WorkloadSDK):
         if job_id is not None and (cloud is not None or project is not None):
             raise ValueError("'cloud' and 'project' should only be used with 'name'.")
 
-        model: Optional[ProductionJob] = self.client.get_job(
-            name=name, job_id=job_id, cloud=cloud, project=project
-        )
+        try:
+            model: Optional[ProductionJob] = self.client.get_job(
+                name=name, job_id=job_id, cloud=cloud, project=project
+            )
+        except Exception as e:
+            # Convert API exceptions to RuntimeError for user-friendly error messages
+            if name is not None:
+                raise RuntimeError(f"Job with name '{name}' was not found.") from e
+            else:
+                raise RuntimeError(f"Job with ID '{job_id}' was not found.") from e
+
         if model is None:
             if name is not None:
                 raise RuntimeError(f"Job with name '{name}' was not found.")
@@ -797,6 +808,8 @@ class PrivateJobSDK(WorkloadSDK):
         tags_filter: Optional[Dict[str, List[str]]] = None,
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> ResultIterator[JobStatus]:
         """List jobs with filtering and pagination.
 
@@ -812,48 +825,48 @@ class PrivateJobSDK(WorkloadSDK):
             tags_filter: Filter by tags (dict of key to list of values).
             page_size: Number of items per page. Defaults to server default.
             max_items: Maximum total items to return.
+            sort_field: Field to sort by (CREATED_AT, NAME, STATUS, etc.).
+            sort_order: Sort order (ASC or DESC).
 
         Returns:
             ResultIterator that lazily fetches pages of JobStatus objects.
         """
         # Validate page_size
         if page_size is not None and (page_size <= 0 or page_size > 100):
-            raise ValueError("page_size must be between 1 and 100.")
+            raise ValueError("page_size must be between 1 and 100, inclusive.")
 
-        # Handle deprecated project_id parameter
-        if project_id is not None:
-            warnings.warn(
-                "project_id is deprecated and will be removed in 6 months. "
-                "Use project instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if project is None:
-                # Resolve project_id to project name for consistency
-                project_model = self.client.get_project(project_id)
-                if project_model:
-                    project = project_model.name
+        # Handle project_id parameter
+        if project_id is not None and project is None:
+            # Resolve project_id to project name for consistency
+            project_model = self.client.get_project(project_id)
+            if project_model:
+                project = project_model.name
 
         # If job_id provided, fetch single job
         if job_id is not None:
-            job_model = self._resolve_to_job_model(job_id=job_id)
-            runs = self.client.get_job_runs(job_model.id)
-            status = self._job_model_to_status(model=job_model, runs=runs)
+            try:
+                job_model = self._resolve_to_job_model(job_id=job_id)
+                runs = self.client.get_job_runs(job_model.id)
+                status = self._job_model_to_status(model=job_model, runs=runs)
+                results: list = [status]
+            except RuntimeError:
+                # Job not found - return empty iterator (consistent with --name behavior)
+                results = []
 
-            def _fetch_single_page(_token: Optional[str]):
-                class SingleItemResponse:
+            def _fetch_single_job_page(_token: Optional[str]):
+                class PageResponse:
                     def __init__(self):
-                        self.results = [status] if _token is None else []
+                        self.results = results if _token is None else []
                         self.metadata = ListResponseMetadata(
-                            total=1, next_paging_token=None
+                            total=len(results), next_paging_token=None
                         )
 
-                return SingleItemResponse()
+                return PageResponse()
 
             return ResultIterator(
                 page_token=None,
-                max_items=1,
-                fetch_page=_fetch_single_page,
+                max_items=len(results),
+                fetch_page=_fetch_single_job_page,
                 parse_fn=lambda x: x,
             )
 
@@ -865,42 +878,41 @@ class PrivateJobSDK(WorkloadSDK):
                 parent_cloud_id=cloud_id, name=project
             )
 
-        # Determine creator_id filter
+        # Get creator_id for filtering
         creator_id = None
         if not include_all_users:
-            user_info = self.client.get_user_info()
-            creator_id = user_info.id
+            user = self.client.get_user_info()
+            creator_id = user.id if user else None
 
-        # Normalize state filter
-        ha_state_filter = _normalize_state_filter(state_filter)
+        # Convert tags dict to API format using utility
+        backend_tags_filter = flatten_tag_dict_to_api_list(tags_filter)
 
-        # Handle archive status
         archive_status = (
             ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
         )
 
-        # Flatten tags for API
-        tags_filter_list = (
-            flatten_tag_dict_to_api_list(tags_filter) if tags_filter else None
-        )
+        # Convert user-facing JobState values to backend HaJobStates
+        ha_job_states_filter = _normalize_state_filter(state_filter)
 
         def _fetch_page(token: Optional[str]):
-            return self.client.list_jobs(
-                name=name,
-                project_id=resolved_project_id,
-                creator_id=creator_id,
-                state_filter=ha_state_filter,
-                archive_status=archive_status,
-                tags_filter=tags_filter_list,
-                count=page_size,
-                paging_token=token,
-            )
+            kwargs: Dict[str, Any] = {
+                "name": name,
+                "project_id": resolved_project_id,
+                "creator_id": creator_id,
+                "archive_status": archive_status,
+                "state_filter": ha_job_states_filter,
+                "tags_filter": backend_tags_filter,
+                "paging_token": token,
+                "sort_field": sort_field,
+                "sort_order": sort_order,
+            }
+            if page_size is not None:
+                kwargs["count"] = page_size
+            return self.client.list_jobs(**kwargs)
 
         def _parse_job(decorated_job: DecoratedProductionJob) -> JobStatus:
-            # Get job runs for each job
-            # TODO: Consider batching get_job_runs calls once the backend API supports
-            # fetching runs for multiple jobs in a single request.
             runs = self.client.get_job_runs(decorated_job.id)
+            # Use DecoratedProductionJob directly instead of making extra API call
             return self._decorated_job_to_status(decorated_job=decorated_job, runs=runs)
 
         return ResultIterator(

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: pamd
 author:
@@ -228,12 +227,12 @@ backupdest:
 """
 
 
-from ansible.module_utils.basic import AnsibleModule
 import os
 import re
-from tempfile import NamedTemporaryFile
 from datetime import datetime
+from tempfile import NamedTemporaryFile
 
+from ansible.module_utils.basic import AnsibleModule
 
 RULE_REGEX = re.compile(
     r"""(?P<rule_type>-?(?:auth|account|session|password))\s+
@@ -787,9 +786,9 @@ def main():
 
     # Open the file and read the content or fail
     try:
-        with open(fname, "r") as service_file_obj:
+        with open(fname) as service_file_obj:
             content = service_file_obj.read()
-    except IOError as e:
+    except OSError as e:
         # If unable to read the file, fail out
         module.fail_json(msg=f"Unable to open/read PAM module file {fname} with error {e}.")
 
@@ -875,7 +874,7 @@ def main():
             with open(temp_file.name, "w") as fd:
                 fd.write(str(service))
 
-        except IOError:
+        except OSError:
             module.fail_json(msg=f"Unable to create temporary file {temp_file}")
 
         module.atomic_move(temp_file.name, os.path.realpath(fname))

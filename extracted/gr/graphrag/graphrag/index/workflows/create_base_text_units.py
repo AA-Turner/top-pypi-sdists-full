@@ -3,20 +3,23 @@
 
 """A module containing run_workflow method definition."""
 
-import json
 import logging
 from typing import Any, cast
 
 import pandas as pd
+from graphrag_chunking.chunker import Chunker
+from graphrag_chunking.chunker_factory import create_chunker
+from graphrag_chunking.transformers import add_metadata
+from graphrag_input import TextDocument
+from graphrag_llm.tokenizer import Tokenizer
 
 from graphrag.callbacks.workflow_callbacks import WorkflowCallbacks
-from graphrag.config.models.chunking_config import ChunkStrategyType
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.index.operations.chunk_text.chunk_text import chunk_text
-from graphrag.index.operations.chunk_text.strategies import get_encoding_fn
 from graphrag.index.typing.context import PipelineRunContext
 from graphrag.index.typing.workflow import WorkflowFunctionOutput
 from graphrag.index.utils.hashing import gen_sha512_hash
+from graphrag.logger.progress import progress_ticker
+from graphrag.tokenizer.get_tokenizer import get_tokenizer
 from graphrag.utils.storage import load_table_from_storage, write_table_to_storage
 
 logger = logging.getLogger(__name__)
@@ -30,18 +33,14 @@ async def run_workflow(
     logger.info("Workflow started: create_base_text_units")
     documents = await load_table_from_storage("documents", context.output_storage)
 
-    chunks = config.chunks
-
+    tokenizer = get_tokenizer(encoding_model=config.chunking.encoding_model)
+    chunker = create_chunker(config.chunking, tokenizer.encode, tokenizer.decode)
     output = create_base_text_units(
         documents,
         context.callbacks,
-        chunks.group_by_columns,
-        chunks.size,
-        chunks.overlap,
-        chunks.encoding_model,
-        strategy=chunks.strategy,
-        prepend_metadata=chunks.prepend_metadata,
-        chunk_size_includes_metadata=chunks.chunk_size_includes_metadata,
+        tokenizer=tokenizer,
+        chunker=chunker,
+        prepend_metadata=config.chunking.prepend_metadata,
     )
 
     await write_table_to_storage(output, "text_units", context.output_storage)
@@ -53,111 +52,67 @@ async def run_workflow(
 def create_base_text_units(
     documents: pd.DataFrame,
     callbacks: WorkflowCallbacks,
-    group_by_columns: list[str],
-    size: int,
-    overlap: int,
-    encoding_model: str,
-    strategy: ChunkStrategyType,
-    prepend_metadata: bool = False,
-    chunk_size_includes_metadata: bool = False,
+    tokenizer: Tokenizer,
+    chunker: Chunker,
+    prepend_metadata: list[str] | None = None,
 ) -> pd.DataFrame:
     """All the steps to transform base text_units."""
-    sort = documents.sort_values(by=["id"], ascending=[True])
+    documents.sort_values(by=["id"], ascending=[True], inplace=True)
 
-    sort["text_with_ids"] = list(
-        zip(*[sort[col] for col in ["id", "text"]], strict=True)
-    )
-
-    agg_dict = {"text_with_ids": list}
-    if "metadata" in documents:
-        agg_dict["metadata"] = "first"  # type: ignore
-
-    aggregated = (
-        (
-            sort.groupby(group_by_columns, sort=False)
-            if len(group_by_columns) > 0
-            else sort.groupby(lambda _x: True)
-        )
-        .agg(agg_dict)
-        .reset_index()
-    )
-    aggregated.rename(columns={"text_with_ids": "texts"}, inplace=True)
-
-    def chunker(row: pd.Series) -> Any:
-        line_delimiter = ".\n"
-        metadata_str = ""
-        metadata_tokens = 0
-
-        if prepend_metadata and "metadata" in row:
-            metadata = row["metadata"]
-            if isinstance(metadata, str):
-                metadata = json.loads(metadata)
-            if isinstance(metadata, dict):
-                metadata_str = (
-                    line_delimiter.join(f"{k}: {v}" for k, v in metadata.items())
-                    + line_delimiter
-                )
-
-            if chunk_size_includes_metadata:
-                encode, _ = get_encoding_fn(encoding_model)
-                metadata_tokens = len(encode(metadata_str))
-                if metadata_tokens >= size:
-                    message = "Metadata tokens exceeds the maximum tokens per chunk. Please increase the tokens per chunk."
-                    raise ValueError(message)
-
-        chunked = chunk_text(
-            pd.DataFrame([row]).reset_index(drop=True),
-            column="texts",
-            size=size - metadata_tokens,
-            overlap=overlap,
-            encoding_model=encoding_model,
-            strategy=strategy,
-            callbacks=callbacks,
-        )[0]
-
-        if prepend_metadata:
-            for index, chunk in enumerate(chunked):
-                if isinstance(chunk, str):
-                    chunked[index] = metadata_str + chunk
-                else:
-                    chunked[index] = (
-                        (chunk[0], metadata_str + chunk[1], chunk[2]) if chunk else None
-                    )
-
-        row["chunks"] = chunked
-        return row
+    total_rows = len(documents)
+    tick = progress_ticker(callbacks.progress, total_rows)
 
     # Track progress of row-wise apply operation
-    total_rows = len(aggregated)
     logger.info("Starting chunking process for %d documents", total_rows)
 
     def chunker_with_logging(row: pd.Series, row_index: int) -> Any:
-        """Add logging to chunker execution."""
-        result = chunker(row)
-        logger.info("chunker progress:  %d/%d", row_index + 1, total_rows)
-        return result
+        if prepend_metadata:
+            # create a standard text document for metadata plucking
+            # ignore any additional fields in case the input dataframe has extra columns
+            document = TextDocument(
+                id=row["id"],
+                title=row["title"],
+                text=row["text"],
+                creation_date=row["creation_date"],
+                raw_data=row["raw_data"],
+            )
+            metadata = document.collect(prepend_metadata)
+            transformer = add_metadata(
+                metadata=metadata, line_delimiter=".\n"
+            )  # delim with . for back-compat older indexes
+        else:
+            transformer = None
 
-    aggregated = aggregated.apply(
+        row["chunks"] = [
+            chunk.text for chunk in chunker.chunk(row["text"], transform=transformer)
+        ]
+
+        tick()
+        logger.info("chunker progress:  %d/%d", row_index + 1, total_rows)
+        return row
+
+    text_units = documents.apply(
         lambda row: chunker_with_logging(row, row.name), axis=1
     )
 
-    aggregated = cast("pd.DataFrame", aggregated[[*group_by_columns, "chunks"]])
-    aggregated = aggregated.explode("chunks")
-    aggregated.rename(
+    text_units = cast("pd.DataFrame", text_units[["id", "chunks"]])
+    text_units = text_units.explode("chunks")
+    text_units.rename(
         columns={
-            "chunks": "chunk",
+            "id": "document_id",
+            "chunks": "text",
         },
         inplace=True,
     )
-    aggregated["id"] = aggregated.apply(
-        lambda row: gen_sha512_hash(row, ["chunk"]), axis=1
+
+    text_units["id"] = text_units.apply(
+        lambda row: gen_sha512_hash(row, ["text"]), axis=1
     )
-    aggregated[["document_ids", "chunk", "n_tokens"]] = pd.DataFrame(
-        aggregated["chunk"].tolist(), index=aggregated.index
+    # get a final token measurement
+    text_units["n_tokens"] = text_units["text"].apply(
+        lambda x: len(tokenizer.encode(x))
     )
-    # rename for downstream consumption
-    aggregated.rename(columns={"chunk": "text"}, inplace=True)
 
     return cast(
-        "pd.DataFrame", aggregated[aggregated["text"].notna()].reset_index(drop=True)
+        "pd.DataFrame", text_units[text_units["text"].notna()].reset_index(drop=True)
     )

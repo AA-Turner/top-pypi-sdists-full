@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: coolname
-Version: 2.2.0
+Version: 3.0.0
 Summary: Random name and slug generator
 Home-page: https://github.com/alexanderlukanin13/coolname
 Author: Alexander Lukanin
@@ -12,12 +12,24 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 ==============================
 Random Name and Slug Generator
@@ -31,7 +43,7 @@ Do you want random human-readable strings?
 
     >>> from coolname import generate_slug
     >>> generate_slug()
-    'big-maize-lori-of-renovation'
+    'big-maize-loris-of-renovation'
     >>> generate_slug()
     'tunneling-amaranth-rhino-of-holiness'
     >>> generate_slug()
@@ -98,7 +110,7 @@ Features
 
         >>> from coolname import get_combinations_count
         >>> get_combinations_count(4)
-        62620779367
+        64175336926
 
 * Hand-picked vocabulary. ``sexy`` and ``demonic`` are about the most "offensive" words here -
   but there is only a pinch of them, for spice. Most words are either neutral, such as ``red``, or positive,
@@ -134,15 +146,15 @@ Installation
 
     pip install coolname
 
-**coolname** is written in pure Python and has no dependencies. It works on any modern Python version (3.6+), including PyPy.
+**coolname** is written in pure Python and has no dependencies. It works on any modern Python version (3.7+), including PyPy.
 
 
 .. |pypi| image:: https://img.shields.io/pypi/v/coolname.svg
     :target: https://pypi.python.org/pypi/coolname
     :alt: pypi
 
-.. |build| image:: https://api.travis-ci.org/alexanderlukanin13/coolname.svg?branch=master
-    :target: https://travis-ci.org/alexanderlukanin13/coolname?branch=master
+.. |build| image:: https://github.com/alexanderlukanin13/coolname/actions/workflows/ci.yml/badge.svg?branch=master
+    :target: https://github.com/alexanderlukanin13/coolname/actions/workflows/ci.yml
     :alt: build status
 
 .. |coverage| image:: https://coveralls.io/repos/alexanderlukanin13/coolname/badge.svg?branch=master&service=github
@@ -158,6 +170,17 @@ Installation
 
 Release history
 ===============
+
+3.0.0 (2026-01-29)
+------------------
+
+* **Breaking change:** Python 3.6 is not supported anymore. Tests cover Python 3.7-3.14 and PyPy 3.7-3.11.
+
+* Better type hints (now checked with mypy)
+
+* Minor bug fixed, concerning abnormal configs (most likely didn't affect anyone)
+
+* More mythical animals + one mistake fixed + few other words
 
 2.2.0 (2023-01-09)
 ------------------

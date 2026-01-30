@@ -1262,7 +1262,8 @@ def handle_column_names(
 
     Returns:
         A tuple of (dataframe, snowpark_column_names) where snowpark_column_names
-        are the resulting column names after any renaming.
+        are the resulting column names after any renaming. Only visible columns are
+        included in the output.
     """
     df = container.dataframe
     column_map = container.column_map

@@ -2,7 +2,6 @@ from rest_framework.reverse import reverse
 
 from wbcore.contrib.directory.models import ClientManagerRelationship
 from wbcore.metadata.configs.endpoints import EndpointViewConfig
-from wbcore.permissions.shortcuts import is_internal_user
 
 
 class RelationshipEntryModelEndpoint(EndpointViewConfig):
@@ -76,6 +75,6 @@ class UserIsClientEndpointConfig(EndpointViewConfig):
         return None
 
     def get_instance_endpoint(self, **kwargs):
-        if is_internal_user(self.request.user, include_superuser=True):
+        if self.request.user.is_internal:
             return reverse("wbcore:directory:person-list", request=self.request)
         return None

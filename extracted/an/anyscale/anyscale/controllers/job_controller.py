@@ -262,8 +262,8 @@ class JobController(BaseController):
         job_id: Optional[str],
         project_id: Optional[str],
         include_archived: bool,
-        max_items: int,
-        states: List[HaJobStates],
+        max_items: Optional[int] = 10,
+        states: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> None:
         """
@@ -321,7 +321,9 @@ class JobController(BaseController):
             )
             jobs_list.extend(resp.results)
             paging_token = resp.metadata.next_paging_token
-            has_more = (paging_token is not None) and (len(jobs_list) < max_items)
+            has_more = (paging_token is not None) and (
+                max_items is None or len(jobs_list) < max_items
+            )
             while has_more:
                 resp = self.api_client.list_decorated_jobs_api_v2_decorated_ha_jobs_get(
                     project_id=project_id,
@@ -336,7 +338,9 @@ class JobController(BaseController):
                 )
                 jobs_list.extend(resp.results)
                 paging_token = resp.metadata.next_paging_token
-                has_more = (paging_token is not None) and (len(jobs_list) < max_items)
+                has_more = (paging_token is not None) and (
+                    max_items is None or len(jobs_list) < max_items
+                )
             jobs_list = jobs_list[:max_items]
 
         jobs_table = [

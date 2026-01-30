@@ -5,20 +5,17 @@ import os
 import time
 from pathlib import Path
 
-from mkdocs_git_revision_date_localized_plugin.ci import raise_ci_warnings
-from mkdocs_git_revision_date_localized_plugin.dates import get_date_formats
-
-
 from git import (
-    Repo,
     Git,
     GitCommandError,
     GitCommandNotFound,
     InvalidGitRepositoryError,
     NoSuchPathError,
+    Repo,
 )
 
-from typing import Dict, List, Tuple
+from mkdocs_git_revision_date_localized_plugin.ci import raise_ci_warnings
+from mkdocs_git_revision_date_localized_plugin.dates import get_date_formats
 
 logger = logging.getLogger("mkdocs.plugins")
 
@@ -29,14 +26,17 @@ class Util:
     This helps find git and calculate relevant dates.
     """
 
-    def __init__(self, config: Dict, mkdocs_dir: str):
+    def __init__(self, config: dict, mkdocs_dir: str):
         """Initialize utility class."""
         self.config = config
         self.repo_cache = {}
 
         ignore_commits_file = self.config.get("ignored_commits_file")
-        ignore_commits_filepath = Path(mkdocs_dir) / ignore_commits_file if ignore_commits_file else None
-        self.ignored_commits = self.parse_git_ignore_revs(ignore_commits_filepath) if ignore_commits_file else []
+        if ignore_commits_file:
+            ignore_commits_filepath = Path(mkdocs_dir) / ignore_commits_file
+            self.ignored_commits = self.parse_git_ignore_revs(ignore_commits_filepath)
+        else:
+            self.ignored_commits: list[str] = []
 
     def _get_repo(self, path: str) -> Git:
         if not os.path.isdir(path):
@@ -50,7 +50,7 @@ class Util:
 
         return self.repo_cache[path]
 
-    def get_git_commit_timestamp(self, path: str, is_first_commit: bool = False) -> Tuple[str, int]:
+    def get_git_commit_timestamp(self, path: str, is_first_commit: bool = False) -> tuple[str, int]:
         """
         Get a list of commit dates in unix timestamp, starts with the most recent commit.
 
@@ -139,14 +139,14 @@ class Util:
         except GitCommandError as err:
             if self.config.get("fallback_to_build_date"):
                 log(
-                    "[git-revision-date-localized-plugin] Unable to read git logs of '%s'. Is git log readable?"
-                    " Option 'fallback_to_build_date' set to 'true': Falling back to build date" % path
+                    f"[git-revision-date-localized-plugin] Unable to read git logs of '{path}'. Is git log readable?"
+                    " Option 'fallback_to_build_date' set to 'true': Falling back to build date"
                 )
                 commit_timestamp = time.time()
             else:
                 logger.error(
-                    "[git-revision-date-localized-plugin] Unable to read git logs of '%s'. "
-                    " To ignore this error, set option 'fallback_to_build_date: true'" % path
+                    f"[git-revision-date-localized-plugin] Unable to read git logs of '{path}'. "
+                    " To ignore this error, set option 'fallback_to_build_date: true'"
                 )
                 raise err
         except GitCommandNotFound as err:
@@ -167,21 +167,21 @@ class Util:
         except Exception as err:
             if self.config.get("fallback_to_build_date"):
                 log(
-                    "[git-revision-date-localized-plugin] An unexpected error occurred: %s"
-                    " Option 'fallback_to_build_date' set to 'true': Falling back to build date" % str(err)
+                    f"[git-revision-date-localized-plugin] An unexpected error occurred: {str(err)}"
+                    " Option 'fallback_to_build_date' set to 'true': Falling back to build date"
                 )
                 commit_timestamp = time.time()
             else:
                 logger.error(
-                    "[git-revision-date-localized-plugin] An unexpected error occurred: %s"
-                    " To ignore this error, set option 'fallback_to_build_date: true'" % str(err)
+                    f"[git-revision-date-localized-plugin] An unexpected error occurred: {str(err)}"
+                    " To ignore this error, set option 'fallback_to_build_date: true'"
                 )
                 raise err
 
         # create timestamp
         if commit_timestamp == "":
             commit_timestamp = time.time()
-            msg = "[git-revision-date-localized-plugin] '%s' has no git logs, using current timestamp" % path
+            msg = f"[git-revision-date-localized-plugin] '{path}' has no git logs, using current timestamp"
             if n_ignored_commits:
                 msg += f" (ignored {n_ignored_commits} commits)"
             log(msg)
@@ -193,7 +193,7 @@ class Util:
         commit_timestamp: int,
         locale: str,
         add_spans: bool = True,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Determine localized date variants for a given timestamp.
 
@@ -207,9 +207,9 @@ class Util:
         """
         date_formats = get_date_formats(
             unix_timestamp=commit_timestamp,
-            time_zone=self.config.get("timezone"),
+            time_zone=self.config.get("timezone") or "UTC",
             locale=locale,
-            custom_format=self.config.get("custom_format"),
+            custom_format=self.config.get("custom_format") or "%d. %B %Y",
         )
         if add_spans:
             date_formats = self.add_spans(date_formats)
@@ -217,20 +217,19 @@ class Util:
         return date_formats
 
     @staticmethod
-    def add_spans(date_formats: Dict[str, str]) -> Dict[str, str]:
+    def add_spans(date_formats: dict[str, str]) -> dict[str, str]:
         """
         Wraps the date string in <span> elements with CSS identifiers.
         """
         datetime_string = date_formats["datetime-timezone"]
         for date_type, date_string in date_formats.items():
             date_formats[date_type] = (
-                '<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-%s" title="%s">%s</span>'
-                % (date_type, datetime_string, date_string)
+                f'<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-{date_type}" title="{datetime_string}">{date_string}</span>'
             )
         return date_formats
 
     @staticmethod
-    def parse_git_ignore_revs(filename: str) -> List[str]:
+    def parse_git_ignore_revs(filename: str | Path) -> list[str]:
         """
         Parses a file that is the same format as git's blame.ignoreRevsFile and return the list of commit hashes.
 
@@ -239,7 +238,7 @@ class Util:
         result = []
 
         try:
-            with open(filename, "rt", encoding="utf-8") as f:
+            with open(filename, encoding="utf-8") as f:
                 for line in f:
                     line = line.split("#", 1)[0].strip()
                     if not line:

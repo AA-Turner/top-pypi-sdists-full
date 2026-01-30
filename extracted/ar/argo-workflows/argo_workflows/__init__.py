@@ -10,7 +10,7 @@
 """
 
 
-__version__ = "6.6.17"
+__version__ = "6.6.18"
 
 # import ApiClient
 from argo_workflows.api_client import ApiClient

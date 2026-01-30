@@ -1,7 +1,7 @@
 [tool.poetry]
 
 name = "datafiles"
-version = "2.4"
+version = "2.5"
 description = "File-based ORM for dataclasses."
 
 license = "MIT"
@@ -36,6 +36,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python",
     "Topic :: Software Development",
     "Topic :: Utilities",
@@ -66,7 +67,7 @@ isort = ">=5.10,<7.0"
 
 # Linters
 mypy = "^1.18.1"
-pylint = "~3.3.8"
+pylint = ">=3.3.8,<4.1.0"
 pydocstyle = "*"
 
 # Testing
@@ -90,7 +91,7 @@ pygments = "^2.15"
 # Notebooks
 ipython = "^8.14.0"
 notebook = { version = "^7.1.1", markers = "os.name != 'nt'" }
-nbstripout = ">=0.7.1,<0.9.0"
+nbstripout = ">=0.7.1,<0.10.0"
 papermill = { version = "^2.6", markers = "os.name != 'nt'" }
 six = "*" # missing papermill dependency
 

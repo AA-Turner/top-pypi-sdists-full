@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-# flake8: noqa
 
-import os.path as osp
+import pathlib
 
 import matplotlib.pyplot as plt
 
-here = osp.dirname(osp.abspath(__file__))  # NOQA
+_here: pathlib.Path = pathlib.Path(__file__).parent
 
 # -----------------------------------------------------------------------------
 # GETTING_STARTED {{
@@ -38,20 +37,21 @@ maskviz = imgviz.instances2rgb(gray, masks=masks, labels=labels, captions=captio
 insviz = [
     (rgb * m[:, :, None])[b[0] : b[2], b[1] : b[3]] for b, m in zip(bboxes, masks)
 ]
-insviz = imgviz.tile(imgs=insviz, border=(255, 255, 255))
+insviz = imgviz.tile(images=insviz, border=(255, 255, 255))
 insviz = imgviz.resize(insviz, height=rgb.shape[0])
 
 # tile visualization
 tiled = imgviz.tile(
     [rgb, depthviz, labelviz, maskviz, insviz],
-    shape=(1, 5),
+    row=1,
+    col=5,
     border=(255, 255, 255),
     border_width=5,
 )
 # }} GETTING_STARTED
 # -----------------------------------------------------------------------------
 
-out_file = osp.join(here, "assets/getting_started.jpg")
+out_file: pathlib.Path = _here / "assets/getting_started.jpg"
 imgviz.io.imsave(out_file, tiled)
 
 img = imgviz.io.imread(out_file)

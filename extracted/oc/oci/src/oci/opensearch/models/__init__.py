@@ -23,6 +23,7 @@ from .export_opensearch_cluster_backup_details import ExportOpensearchClusterBac
 from .force_patch_cluster_details import ForcePatchClusterDetails
 from .force_patch_pipeline_details import ForcePatchPipelineDetails
 from .get_manifest_response import GetManifestResponse
+from .load_balancer_config import LoadBalancerConfig
 from .maintenance_details import MaintenanceDetails
 from .maintenance_notification_details import MaintenanceNotificationDetails
 from .maintenance_notification_failure import MaintenanceNotificationFailure
@@ -87,6 +88,7 @@ opensearch_type_mapping = {
     "ForcePatchClusterDetails": ForcePatchClusterDetails,
     "ForcePatchPipelineDetails": ForcePatchPipelineDetails,
     "GetManifestResponse": GetManifestResponse,
+    "LoadBalancerConfig": LoadBalancerConfig,
     "MaintenanceDetails": MaintenanceDetails,
     "MaintenanceNotificationDetails": MaintenanceNotificationDetails,
     "MaintenanceNotificationFailure": MaintenanceNotificationFailure,

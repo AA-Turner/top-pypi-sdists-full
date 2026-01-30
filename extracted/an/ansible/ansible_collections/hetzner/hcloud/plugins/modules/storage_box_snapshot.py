@@ -15,8 +15,6 @@ short_description: Create and manage Storage Box Snapshots in Hetzner.
 description:
     - Create, update and delete Storage Box Snapshots in Hetzner.
     - See the L(Storage Box Snapshots API documentation,https://docs.hetzner.cloud/reference/hetzner#storage-box-snapshots) for more details.
-    - B(Experimental:) Storage Box support is experimental, breaking changes may occur within minor releases.
-      See https://github.com/ansible-collections/hetzner.hcloud/issues/756 for more details.
 
 author:
     - Jonas Lammler (@jooola)
@@ -140,11 +138,10 @@ hcloud_storage_box_snapshot:
             sample: "2025-12-03T13:47:47Z"
 """
 
-from ..module_utils import storage_box, storage_box_snapshot
-from ..module_utils.experimental import storage_box_experimental_warning
-from ..module_utils.hcloud import AnsibleHCloud, AnsibleModule
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.storage_boxes import (
+from ..module_utils import _storage_box, _storage_box_snapshot
+from ..module_utils._base import AnsibleHCloud, AnsibleModule
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.storage_boxes import (
     BoundStorageBox,
     BoundStorageBoxSnapshot,
 )
@@ -156,17 +153,13 @@ class AnsibleStorageBoxSnapshot(AnsibleHCloud):
     storage_box: BoundStorageBox | None = None
     storage_box_snapshot: BoundStorageBoxSnapshot | None = None
 
-    def __init__(self, module: AnsibleModule):
-        storage_box_experimental_warning(module)
-        super().__init__(module)
-
     def _prepare_result(self):
         if self.storage_box_snapshot is None:
             return {}
-        return storage_box_snapshot.prepare_result(self.storage_box_snapshot)
+        return _storage_box_snapshot.prepare_result(self.storage_box_snapshot)
 
     def _fetch(self):
-        self.storage_box = storage_box.get(self.client.storage_boxes, self.module.params.get("storage_box"))
+        self.storage_box = _storage_box.get(self.client.storage_boxes, self.module.params.get("storage_box"))
 
         if (value := self.module.params.get("id")) is not None:
             self.storage_box_snapshot = self.storage_box.get_snapshot_by_id(value)

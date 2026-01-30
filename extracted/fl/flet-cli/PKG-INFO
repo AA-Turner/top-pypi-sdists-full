@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flet-cli
-Version: 0.80.4
+Version: 0.80.5
 Summary: Flet CLI
 Author-email: "Appveyor Systems Inc." <hello@flet.dev>
 License-Expression: Apache-2.0

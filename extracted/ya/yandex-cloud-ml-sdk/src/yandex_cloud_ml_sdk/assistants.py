@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ._assistants.prompt_truncation_options import AutoPromptTruncationStrategy, LastMessagesPromptTruncationStrategy
+from yandex_ai_studio_sdk.assistants import AutoPromptTruncationStrategy, LastMessagesPromptTruncationStrategy
 
-__all__ = [
+__all__ = (
     'AutoPromptTruncationStrategy',
-    'LastMessagesPromptTruncationStrategy'
-]
+    'LastMessagesPromptTruncationStrategy',
+)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-automl
-Version: 2.18.0
+Version: 2.18.1
 Summary: Google Cloud Automl API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-automl
 Author: Google LLC

@@ -299,8 +299,79 @@ class LogsController(BaseController):
             resource_id=resource_id,
         )
 
-    # TODO (shomilj): Refactor this method. It's too nested.
-    def _download_or_stdout(  # noqa: C901, PLR0913
+    def _resolve_download_directory(
+        self,
+        write_to_stdout: bool,
+        download_dir: Optional[str],
+        resource_id: Optional[str],
+    ) -> Optional[str]:
+        """Determine the final download directory based on options."""
+        if write_to_stdout:
+            return None
+
+        base_dir = download_dir or os.getcwd()
+        if resource_id:
+            return os.path.join(base_dir, resource_id)
+        return base_dir
+
+    def _write_logs_to_stdout(
+        self, log_group: LogGroup, tmp_dir: str, tail: int
+    ) -> bool:
+        """Write logs to stdout. Returns True if we hit the tail limit and should stop."""
+        lines_read = 0
+        for log_file in log_group.get_files():
+            is_tail = tail > 0
+            chunks = log_file.get_chunks(reverse=is_tail)
+            for chunk in chunks:
+                with open(
+                    os.path.join(tmp_dir, chunk.chunk_name), errors="ignore"
+                ) as source:
+                    if tail > 0:
+                        # Tail is enabled, so read log lines in reverse.
+                        # TODO (shomilj): Make this more efficient (don't read everything into memory before reversing it)
+                        # For now, this is fine (the chunks are <10 MB, so this isn't that inefficient).
+                        for line in reversed(source.readlines()):
+                            print(line.strip())
+                            lines_read += 1
+                            if lines_read >= tail:
+                                return True
+                    else:
+                        print(source.read())
+        return False
+
+    def _write_logs_to_files(
+        self, log_group: LogGroup, tmp_dir: str, final_dir: str, unpack: bool
+    ) -> None:
+        """Write logs to files in the final directory."""
+        for log_file in log_group.get_files():
+            chunks = log_file.get_chunks(reverse=False)
+            real_path = os.path.join(final_dir, log_file.get_target_path())
+            real_dir = os.path.dirname(real_path)
+            if not os.path.exists(real_dir):
+                os.makedirs(real_dir)
+
+            chunks_written = 0
+            with open(real_path, "w") as dest:
+                for chunk in chunks:
+                    downloaded_chunk_path = os.path.join(tmp_dir, chunk.chunk_name)
+                    if not os.path.exists(downloaded_chunk_path):
+                        self.log.error(
+                            "Download failed for file: %s", chunk.chunk_name,
+                        )
+                        continue
+                    with open(downloaded_chunk_path, errors="ignore") as source:
+                        for line in source:
+                            dest.write(line)
+                        dest.write("\n")
+                    chunks_written += 1
+
+            if unpack:
+                self._unpack_structured_log(real_path)
+
+            if chunks_written == 0:
+                os.remove(real_path)
+
+    def _download_or_stdout(  # noqa: PLR0913
         self,
         log_group: LogGroup,
         parallelism: int,
@@ -316,20 +387,9 @@ class LogsController(BaseController):
             return
 
         try:
-            # Determine the final download directory early
-            if write_to_stdout:
-                final_download_dir = None
-            else:
-                # Determine base directory
-                base_dir = download_dir or os.getcwd()
-
-                # Use resource_id if provided, otherwise fall back to cluster_id
-                if resource_id:
-                    # For workspace/job/service, use {base_dir}/{resource_id}
-                    final_download_dir = os.path.join(base_dir, resource_id)
-                else:
-                    # For cluster, use {base_dir} (existing behavior)
-                    final_download_dir = os.path.join(base_dir)
+            final_download_dir = self._resolve_download_directory(
+                write_to_stdout, download_dir, resource_id
+            )
 
             # Create target directory before temp dir so temp is on the same partition.
             # This ensures disk space errors reference the actual target location.
@@ -350,66 +410,14 @@ class LogsController(BaseController):
                     )
                 )
 
-                for log_file in log_group.get_files():
-                    is_tail = tail > 0
-                    chunks = log_file.get_chunks(reverse=is_tail)
-                    if write_to_stdout:
-                        # Write to standard out
-                        lines_read = 0
-                        for chunk in chunks:
-                            with open(
-                                os.path.join(tmp_dir, chunk.chunk_name), errors="ignore"
-                            ) as source:
-                                if tail > 0:
-                                    # Tail is enabled, so read log lines in reverse.
-                                    # TODO (shomilj): Make this more efficient (don't read everything into memory before reversing it)
-                                    # For now, this is fine (the chunks are <10 MB, so this isn't that inefficient).
-                                    for line in reversed(source.readlines()):
-                                        print(line.strip())
-                                        lines_read += 1
-                                        if lines_read >= tail:
-                                            return
-                                else:
-                                    # Read log lines normally.
-                                    print(source.read())
-                    else:
-                        assert final_download_dir is not None
-                        # Write to destination files
-                        real_path = os.path.join(
-                            final_download_dir, log_file.get_target_path()
-                        )
-                        real_dir = os.path.dirname(real_path)
-                        if not os.path.exists(real_dir):
-                            os.makedirs(real_dir)
-
-                        chunks_written = 0
-                        with open(real_path, "w") as dest:
-                            for chunk in chunks:
-                                downloaded_chunk_path = os.path.join(
-                                    tmp_dir, chunk.chunk_name
-                                )
-                                if not os.path.exists(downloaded_chunk_path):
-                                    self.log.error(
-                                        "Download failed for file: %s",
-                                        chunk.chunk_name,
-                                    )
-                                    continue
-                                with open(
-                                    downloaded_chunk_path, errors="ignore"
-                                ) as source:
-                                    for line in source:
-                                        dest.write(line)
-                                    dest.write("\n")
-                                chunks_written += 1
-
-                        if unpack:
-                            self._unpack_structured_log(real_path)
-
-                        if chunks_written == 0:
-                            os.remove(real_path)
-
-                if not write_to_stdout and final_download_dir:
-                    # Convert to absolute path for clarity
+                if write_to_stdout:
+                    if self._write_logs_to_stdout(log_group, tmp_dir, tail):
+                        return
+                else:
+                    assert final_download_dir is not None
+                    self._write_logs_to_files(
+                        log_group, tmp_dir, final_download_dir, unpack
+                    )
                     absolute_path = os.path.abspath(final_download_dir)
                     self.console.log(
                         f"Download complete! Files have been downloaded to {absolute_path}"

@@ -994,7 +994,343 @@ fn test_rule_command_shows_specific_rule() {
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     assert!(output.status.success(), "'rumdl rule MD013' did not exit successfully");
     assert!(stdout.contains("MD013"), "Output missing rule name MD013");
-    assert!(stdout.contains("Description"), "Output missing 'Description'");
+    // Updated to match new output format
+    assert!(
+        stdout.contains("Name:") || stdout.contains("Description"),
+        "Output missing expected field"
+    );
+}
+
+#[test]
+fn test_rule_command_json_output_all_rules() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --output-format json'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert!(
+        output.status.success(),
+        "'rumdl rule --output-format json' did not exit successfully"
+    );
+
+    // Parse the JSON output
+    let rules: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON output");
+    assert!(rules.is_array(), "Expected JSON array");
+    let rules_array = rules.as_array().unwrap();
+    assert!(!rules_array.is_empty(), "Expected at least one rule");
+
+    // Check structure of first rule
+    let first_rule = &rules_array[0];
+    assert!(first_rule.get("code").is_some(), "Missing 'code' field");
+    assert!(first_rule.get("name").is_some(), "Missing 'name' field");
+    assert!(first_rule.get("aliases").is_some(), "Missing 'aliases' field");
+    assert!(first_rule.get("summary").is_some(), "Missing 'summary' field");
+    assert!(first_rule.get("category").is_some(), "Missing 'category' field");
+    assert!(first_rule.get("fix").is_some(), "Missing 'fix' field");
+    assert!(
+        first_rule.get("fix_availability").is_some(),
+        "Missing 'fix_availability' field"
+    );
+    assert!(first_rule.get("url").is_some(), "Missing 'url' field");
+
+    // Verify MD001 is present
+    let md001 = rules_array
+        .iter()
+        .find(|r| r.get("code").and_then(|c| c.as_str()) == Some("MD001"));
+    assert!(md001.is_some(), "MD001 not found in rules");
+    let md001 = md001.unwrap();
+    assert_eq!(md001.get("name").and_then(|n| n.as_str()), Some("heading-increment"));
+    assert_eq!(md001.get("category").and_then(|c| c.as_str()), Some("heading"));
+    assert!(
+        md001.get("url").and_then(|u| u.as_str()).unwrap().contains("rumdl.dev"),
+        "URL should contain rumdl.dev"
+    );
+}
+
+#[test]
+fn test_rule_command_json_output_single_rule() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "MD041", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule MD041 --output-format json'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert!(
+        output.status.success(),
+        "'rumdl rule MD041 --output-format json' did not exit successfully"
+    );
+
+    // Parse the JSON output (single object, not array)
+    let rule: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON output");
+    assert!(rule.is_object(), "Expected JSON object for single rule");
+
+    assert_eq!(rule.get("code").and_then(|c| c.as_str()), Some("MD041"));
+    assert_eq!(rule.get("name").and_then(|n| n.as_str()), Some("first-line-h1"));
+    // MD041 has "first-line-heading" as an alias
+    let aliases = rule.get("aliases").and_then(|a| a.as_array()).unwrap();
+    assert!(aliases.iter().any(|a| a.as_str() == Some("first-line-heading")));
+    assert_eq!(
+        rule.get("url").and_then(|u| u.as_str()),
+        Some("https://rumdl.dev/md041/")
+    );
+}
+
+#[test]
+fn test_rule_command_json_fix_availability_values() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --output-format json'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    // Verify fix_availability values are one of the expected values
+    for rule in &rules {
+        let fix_avail = rule.get("fix_availability").and_then(|f| f.as_str()).unwrap();
+        assert!(
+            matches!(fix_avail, "Always" | "Sometimes" | "None"),
+            "Unexpected fix_availability value: {} for rule {}",
+            fix_avail,
+            rule.get("code").and_then(|c| c.as_str()).unwrap_or("unknown")
+        );
+    }
+
+    // Verify at least one unfixable rule exists (MD033 - no-inline-html)
+    let md033 = rules
+        .iter()
+        .find(|r| r.get("code").and_then(|c| c.as_str()) == Some("MD033"));
+    assert!(md033.is_some(), "MD033 not found");
+    assert_eq!(
+        md033.unwrap().get("fix_availability").and_then(|f| f.as_str()),
+        Some("None")
+    );
+}
+
+#[test]
+fn test_rule_command_fixable_filter() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--fixable", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --fixable'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    // All returned rules should be fixable (Always or Sometimes)
+    for rule in &rules {
+        let fix_avail = rule.get("fix_availability").and_then(|f| f.as_str()).unwrap();
+        assert!(
+            matches!(fix_avail, "Always" | "Sometimes"),
+            "Non-fixable rule {} returned with --fixable filter",
+            rule.get("code").and_then(|c| c.as_str()).unwrap_or("unknown")
+        );
+    }
+
+    // Should not include MD033 (no-inline-html) which has fix_availability = None
+    let has_md033 = rules
+        .iter()
+        .any(|r| r.get("code").and_then(|c| c.as_str()) == Some("MD033"));
+    assert!(!has_md033, "MD033 should not be included with --fixable filter");
+}
+
+#[test]
+fn test_rule_command_category_filter() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--category", "heading", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --category heading'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    assert!(!rules.is_empty(), "Should return at least one heading rule");
+
+    // All returned rules should have category "heading"
+    for rule in &rules {
+        let category = rule.get("category").and_then(|c| c.as_str()).unwrap();
+        assert_eq!(
+            category,
+            "heading",
+            "Rule {} has category {} instead of heading",
+            rule.get("code").and_then(|c| c.as_str()).unwrap_or("unknown"),
+            category
+        );
+    }
+
+    // Should include MD001 (heading-increment)
+    let has_md001 = rules
+        .iter()
+        .any(|r| r.get("code").and_then(|c| c.as_str()) == Some("MD001"));
+    assert!(has_md001, "MD001 should be included with --category heading");
+}
+
+#[test]
+fn test_rule_command_combined_filters() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--fixable", "--category", "heading", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --fixable --category heading'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    assert!(!rules.is_empty(), "Should return at least one fixable heading rule");
+
+    // All returned rules should be fixable AND have category heading
+    for rule in &rules {
+        let fix_avail = rule.get("fix_availability").and_then(|f| f.as_str()).unwrap();
+        let category = rule.get("category").and_then(|c| c.as_str()).unwrap();
+
+        assert!(
+            matches!(fix_avail, "Always" | "Sometimes"),
+            "Rule {} should be fixable",
+            rule.get("code").and_then(|c| c.as_str()).unwrap_or("unknown")
+        );
+        assert_eq!(
+            category,
+            "heading",
+            "Rule {} should have category heading",
+            rule.get("code").and_then(|c| c.as_str()).unwrap_or("unknown")
+        );
+    }
+}
+
+#[test]
+fn test_rule_command_json_lines_format() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--output-format", "json-lines"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --output-format json-lines'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    // Each line should be valid JSON
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert!(!lines.is_empty(), "Should output at least one line");
+
+    for (i, line) in lines.iter().enumerate() {
+        let rule: serde_json::Value =
+            serde_json::from_str(line).unwrap_or_else(|e| panic!("Line {i} is not valid JSON: {e}"));
+        assert!(rule.get("code").is_some(), "Line {i} missing 'code' field");
+        assert!(rule.get("name").is_some(), "Line {i} missing 'name' field");
+    }
+
+    // First line should be MD001
+    let first: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(
+        first.get("code").and_then(|c| c.as_str()),
+        Some("MD001"),
+        "First line should be MD001"
+    );
+}
+
+#[test]
+fn test_rule_command_explain_flag() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "MD001", "--output-format", "json", "--explain"])
+        .output()
+        .expect("Failed to execute 'rumdl rule MD001 --explain'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rule: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    // Should have explanation field
+    let explanation = rule.get("explanation").and_then(|e| e.as_str());
+    assert!(explanation.is_some(), "Should have explanation field with --explain");
+    assert!(
+        explanation.unwrap().contains("heading"),
+        "Explanation should contain 'heading'"
+    );
+
+    // Without --explain, should not have explanation field
+    let output_no_explain = Command::new(rumdl_exe)
+        .args(["rule", "MD001", "--output-format", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule MD001'");
+    let stdout_no_explain = String::from_utf8_lossy(&output_no_explain.stdout).to_string();
+    let rule_no_explain: serde_json::Value = serde_json::from_str(&stdout_no_explain).expect("Failed to parse JSON");
+
+    assert!(
+        rule_no_explain.get("explanation").is_none(),
+        "Should not have explanation field without --explain"
+    );
+}
+
+#[test]
+fn test_rule_command_text_output_with_filters() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--fixable", "--category", "heading"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --fixable --category heading'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    // Should show filter info in header
+    assert!(stdout.contains("fixable"), "Output should mention fixable filter");
+    assert!(stdout.contains("heading"), "Output should mention category filter");
+
+    // Should show total count
+    assert!(stdout.contains("Total:"), "Output should show total count");
+
+    // Should include MD001
+    assert!(stdout.contains("MD001"), "Should include MD001 in output");
+}
+
+#[test]
+fn test_rule_command_list_categories() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--list-categories"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --list-categories'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    assert!(output.status.success(), "Should exit successfully");
+    assert!(stdout.contains("Available categories:"), "Should show header");
+    assert!(stdout.contains("heading"), "Should list heading category");
+    assert!(stdout.contains("whitespace"), "Should list whitespace category");
+    assert!(stdout.contains("rules)"), "Should show rule counts");
+}
+
+#[test]
+fn test_rule_command_invalid_category_error() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "--category", "nonexistent"])
+        .output()
+        .expect("Failed to execute 'rumdl rule --category nonexistent'");
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    assert!(!output.status.success(), "Should exit with error");
+    assert!(stderr.contains("Invalid category"), "Should mention invalid category");
+    assert!(stderr.contains("Valid categories:"), "Should list valid categories");
+    assert!(stderr.contains("heading"), "Should show heading as valid option");
+}
+
+#[test]
+fn test_rule_command_short_flags() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+
+    // Test -f (fixable) and -c (category) short flags
+    let output = Command::new(rumdl_exe)
+        .args(["rule", "-f", "-c", "heading", "-o", "json"])
+        .output()
+        .expect("Failed to execute 'rumdl rule -f -c heading -o json'");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let rules: Vec<serde_json::Value> = serde_json::from_str(&stdout).expect("Failed to parse JSON");
+
+    assert!(!rules.is_empty(), "Should return at least one rule");
+
+    // All rules should be fixable and in heading category
+    for rule in &rules {
+        let fix_avail = rule.get("fix_availability").and_then(|f| f.as_str()).unwrap();
+        let category = rule.get("category").and_then(|c| c.as_str()).unwrap();
+
+        assert!(matches!(fix_avail, "Always" | "Sometimes"), "Rule should be fixable");
+        assert_eq!(category, "heading", "Rule should be in heading category");
+    }
 }
 
 #[test]
@@ -1894,4 +2230,515 @@ mod issue197_exit_code {
             "Content should be fixed (2 spaces). Got: {fixed_content}"
         );
     }
+}
+
+/// Test that `rumdl fmt` correctly reports the number of files that were actually fixed
+/// (GitHub issue #347: summary underreported changed files)
+///
+/// This test verifies that when all issues in a file are fixed (leaving no remaining issues),
+/// the file is still counted in the "Fixed X issues in Y files" summary.
+#[test]
+fn test_fmt_files_fixed_count_reports_actual_modified_files() {
+    let temp_dir = tempdir().unwrap();
+
+    // Create file A with fixable issues (no space after # in heading)
+    let file_a = temp_dir.path().join("file_a.md");
+    fs::write(
+        &file_a,
+        r#"# Heading A
+
+#Bad heading A1
+
+#Bad heading A2
+"#,
+    )
+    .unwrap();
+
+    // Create file B with fixable issues
+    let file_b = temp_dir.path().join("file_b.md");
+    fs::write(
+        &file_b,
+        r#"# Heading B
+
+#Bad heading B1
+"#,
+    )
+    .unwrap();
+
+    // Create file C with NO issues (clean file)
+    let file_c = temp_dir.path().join("file_c.md");
+    fs::write(
+        &file_c,
+        r#"# Clean file
+
+This file has no issues.
+"#,
+    )
+    .unwrap();
+
+    // Create file D with fixable issues
+    let file_d = temp_dir.path().join("file_d.md");
+    fs::write(
+        &file_d,
+        r#"# Heading D
+
+#Bad heading D1
+
+#Bad heading D2
+
+#Bad heading D3
+"#,
+    )
+    .unwrap();
+
+    // Run rumdl fmt
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["fmt", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // The summary should report 3 files fixed (A, B, D), NOT 0 or 4
+    // Before the fix, it would show "in 0 files" because no remaining issues
+    assert!(
+        stdout.contains("in 3 files") || stdout.contains("in 3 file"),
+        "Summary should report 3 files fixed (not 0 or 4). Got:\n{stdout}"
+    );
+
+    // Verify files were actually modified
+    let content_a = fs::read_to_string(&file_a).unwrap();
+    assert!(
+        content_a.contains("## Bad heading A1"),
+        "File A should be modified. Got:\n{content_a}"
+    );
+
+    let content_c = fs::read_to_string(&file_c).unwrap();
+    assert!(
+        content_c.contains("# Clean file"),
+        "File C should not be modified. Got:\n{content_c}"
+    );
+}
+
+/// Test that files_fixed count is correct when some files have unfixable issues
+#[test]
+fn test_fmt_files_fixed_count_with_unfixable_issues() {
+    let temp_dir = tempdir().unwrap();
+
+    // Create file A with fixable issues only
+    let file_a = temp_dir.path().join("file_a.md");
+    fs::write(
+        &file_a,
+        r#"# Heading A
+
+#Bad heading A1
+"#,
+    )
+    .unwrap();
+
+    // Create file B with unfixable issue (MD041 - first line should be heading)
+    let file_b = temp_dir.path().join("file_b.md");
+    fs::write(
+        &file_b,
+        r#"This file starts with text, not a heading.
+
+# Later heading
+"#,
+    )
+    .unwrap();
+
+    // Create file C with NO issues
+    let file_c = temp_dir.path().join("file_c.md");
+    fs::write(
+        &file_c,
+        r#"# Clean file
+
+This file has no issues.
+"#,
+    )
+    .unwrap();
+
+    // Run rumdl fmt
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["fmt", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Only file A should be counted as fixed (file B has unfixable issues)
+    assert!(
+        stdout.contains("in 1 file"),
+        "Summary should report 1 file fixed (only file_a). Got:\n{stdout}"
+    );
+
+    // Verify file A was modified
+    let content_a = fs::read_to_string(&file_a).unwrap();
+    assert!(
+        content_a.contains("## Bad heading A1"),
+        "File A should be modified. Got:\n{content_a}"
+    );
+}
+
+/// Test that files_fixed is 0 when no files are actually modified
+#[test]
+fn test_fmt_files_fixed_count_zero_when_no_changes() {
+    let temp_dir = tempdir().unwrap();
+
+    // Create clean files only
+    let file_a = temp_dir.path().join("file_a.md");
+    fs::write(
+        &file_a,
+        r#"# Clean file A
+
+This file has no issues.
+"#,
+    )
+    .unwrap();
+
+    let file_b = temp_dir.path().join("file_b.md");
+    fs::write(
+        &file_b,
+        r#"# Clean file B
+
+This file also has no issues.
+"#,
+    )
+    .unwrap();
+
+    // Run rumdl fmt
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["fmt", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show success with no issues found
+    assert!(
+        stdout.contains("No issues found") || stdout.contains("Success"),
+        "Summary should indicate no issues found. Got:\n{stdout}"
+    );
+}
+
+/// Test that MD033 warnings are NOT counted as fixable (issue #349)
+/// MD033 has LSP-only fixes (for VS Code quick actions) but declares FixCapability::Unfixable
+#[test]
+fn test_md033_not_counted_as_fixable() {
+    let temp_dir = tempdir().unwrap();
+
+    // Create file with MD033 violation (inline HTML)
+    let file = temp_dir.path().join("test.md");
+    fs::write(
+        &file,
+        r#"# Test
+
+This has <b>inline HTML</b> which triggers MD033.
+"#,
+    )
+    .unwrap();
+
+    // Run rumdl check - should report issue but NOT as fixable
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["check", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should find MD033 issue
+    assert!(
+        stdout.contains("MD033") || stderr.contains("MD033"),
+        "Should detect MD033 violation. Got stdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    // Should NOT show fixable count (MD033 is not CLI-fixable)
+    assert!(
+        !stdout.contains("fixable"),
+        "MD033 should NOT be counted as fixable. Got:\n{stdout}"
+    );
+
+    // Run rumdl fmt - should report 0 fixes
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["fmt", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should NOT report any fixes
+    assert!(!stdout.contains("Fixed"), "MD033 should NOT be fixed. Got:\n{stdout}");
+
+    // File content should be unchanged
+    let content = fs::read_to_string(&file).unwrap();
+    assert!(
+        content.contains("<b>inline HTML</b>"),
+        "File should not be modified. Got:\n{content}"
+    );
+}
+
+/// Test that capability-based fix counting works correctly with mixed rule types
+/// Tests that only truly CLI-fixable rules are counted as fixable
+#[test]
+fn test_capability_based_fixable_count() {
+    let temp_dir = tempdir().unwrap();
+
+    // Create file with both fixable (MD018) and unfixable (MD033) issues
+    let file = temp_dir.path().join("test.md");
+    fs::write(
+        &file,
+        r#"#Missing space after hash
+
+This has <b>inline HTML</b> which triggers MD033.
+"#,
+    )
+    .unwrap();
+
+    // Run rumdl check
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["check", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should detect both issues
+    assert!(
+        stdout.contains("MD018") || stdout.contains("no-missing-space-atx"),
+        "Should detect MD018 violation. Got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("MD033") || stdout.contains("no-inline-html"),
+        "Should detect MD033 violation. Got:\n{stdout}"
+    );
+
+    // Should show 1 fixable (MD018 only, not MD033)
+    // Output format: "Run `rumdl fmt` to automatically fix 1 of the 2 issues"
+    assert!(
+        stdout.contains("fix 1 of the 2 issues") || stdout.contains("1 fixable"),
+        "Should report 1 fixable issue (MD018 only). Got:\n{stdout}"
+    );
+
+    // Run rumdl fmt
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["fmt", "--no-cache", "."])
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should report 1 fix (MD018 only)
+    // Output format: "Fixed 1/2 issues in 1 file"
+    assert!(
+        stdout.contains("Fixed 1/2 issues") || stdout.contains("Fixed 1 issue"),
+        "Should report 1 issue fixed. Got:\n{stdout}"
+    );
+
+    // Verify MD018 was fixed but HTML remains
+    let content = fs::read_to_string(&file).unwrap();
+    assert!(
+        content.contains("# Missing space"),
+        "MD018 should be fixed. Got:\n{content}"
+    );
+    assert!(
+        content.contains("<b>inline HTML</b>"),
+        "HTML should remain unchanged. Got:\n{content}"
+    );
+}
+
+// =============================================================================
+// Shell completions tests
+// =============================================================================
+
+#[test]
+fn test_completions_list_shells() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "--list"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(stdout.contains("bash"), "Should list bash");
+    assert!(stdout.contains("zsh"), "Should list zsh");
+    assert!(stdout.contains("fish"), "Should list fish");
+    assert!(stdout.contains("powershell"), "Should list powershell");
+    assert!(stdout.contains("elvish"), "Should list elvish");
+}
+
+#[test]
+fn test_completions_bash_generates_script() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "bash"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(
+        stderr.contains("Installation"),
+        "Should have installation instructions on stderr"
+    );
+    assert!(stdout.contains("_rumdl()"), "Should generate bash completion function");
+    assert!(stdout.contains("COMPREPLY"), "Should use COMPREPLY for completions");
+}
+
+#[test]
+fn test_completions_zsh_generates_script() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "zsh"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(
+        stderr.contains("Installation"),
+        "Should have installation instructions on stderr"
+    );
+    assert!(stdout.contains("#compdef rumdl"), "Should have zsh compdef directive");
+    assert!(stdout.contains("_rumdl()"), "Should generate zsh completion function");
+}
+
+#[test]
+fn test_completions_fish_generates_script() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "fish"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(
+        stderr.contains("Installation"),
+        "Should have installation instructions on stderr"
+    );
+    assert!(
+        stdout.contains("complete -c rumdl"),
+        "Should generate fish complete commands"
+    );
+}
+
+#[test]
+fn test_completions_powershell_generates_script() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "powershell"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(
+        stderr.contains("Installation"),
+        "Should have installation instructions on stderr"
+    );
+    assert!(
+        stdout.contains("Register-ArgumentCompleter"),
+        "Should register argument completer"
+    );
+}
+
+#[test]
+fn test_completions_elvish_generates_script() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "elvish"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "Command should succeed");
+    assert!(
+        stderr.contains("Installation"),
+        "Should have installation instructions on stderr"
+    );
+}
+
+#[test]
+fn test_completions_auto_detect_from_shell_env() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions"])
+        .env("SHELL", "/bin/bash")
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "Command should succeed with SHELL=bash");
+    assert!(
+        stdout.contains("_rumdl()"),
+        "Should auto-detect bash and generate bash completions"
+    );
+}
+
+#[test]
+fn test_completions_unknown_shell_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions"])
+        .env("SHELL", "/bin/unknown")
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "Command should fail with unknown shell");
+    assert!(
+        stderr.contains("Could not detect shell"),
+        "Should show helpful error message"
+    );
+    assert!(
+        stderr.contains("rumdl completions bash"),
+        "Should suggest explicit shell argument"
+    );
+}
+
+#[test]
+fn test_completions_short_list_flag() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "-l"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "Command should succeed with -l flag");
+    assert!(stdout.contains("bash"), "Should list shells with short flag");
+}
+
+#[test]
+fn test_completions_clean_piping_stdout_has_no_instructions() {
+    // Verify stdout contains only the script (no instructions)
+    // This ensures `rumdl completions zsh > file` produces a clean script
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .args(["completions", "zsh"])
+        .output()
+        .expect("Failed to execute rumdl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // stdout should have the script, NOT installation instructions
+    assert!(
+        stdout.contains("#compdef rumdl"),
+        "stdout should contain the zsh script"
+    );
+    assert!(
+        !stdout.contains("Installation"),
+        "stdout should NOT contain installation instructions"
+    );
+
+    // stderr should have instructions, NOT the script
+    assert!(
+        stderr.contains("Installation"),
+        "stderr should contain installation instructions"
+    );
+    assert!(!stderr.contains("#compdef"), "stderr should NOT contain the script");
 }

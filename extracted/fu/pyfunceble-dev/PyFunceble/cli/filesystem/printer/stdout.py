@@ -35,7 +35,7 @@ License:
 ::
 
 
-    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025 Nissar Chababy
+    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -254,11 +254,13 @@ class StdoutPrinter(PrinterBase):
                         print(
                             f"{self.STATUS2BACKGROUND_COLOR[status_to_compare]}"
                             f"{line_to_print}"
+                            f"{colorama.Style.RESET_ALL}"
                         )
                     else:
                         print(
                             f"{self.STATUS2FORGROUND_COLOR[status_to_compare]}"
                             f"{line_to_print}"
+                            f"{colorama.Style.RESET_ALL}"
                         )
                 elif self.template_to_use in self.FOREGROUND_COLORATED:
                     print(

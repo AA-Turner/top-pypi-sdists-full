@@ -2,10 +2,9 @@ from adam.commands import extract_options, extract_sequence, extract_trailing_op
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
 from adam.config import Config
-from adam.repl_session import ReplSession
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
-from adam.utils_async_job import AsyncJobs
+from adam.utils import Color
+from adam.utils_context import Context
 
 class ShowProcesses(Command):
     COMMAND = 'show processes'
@@ -31,7 +30,7 @@ class ShowProcesses(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, backgrounded):
-                with extract_options(args, ['-s', '--show']) as (args, show_out):
+                with extract_options(args, ['-s', '--show']) as (args, verbose):
                     with extract_sequence(args, ['with', 'recipe', '=', 'mpstat']) as (_, recipe_qing):
                         cols = Config().get('processes.columns', 'pod,cpu-metrics,mem')
                         header = Config().get('processes.header', 'POD_NAME,M_CPU(USAGE/LIMIT),MEM/LIMIT')
@@ -40,15 +39,13 @@ class ShowProcesses(Command):
                             header = Config().get('processes-mpstat.header', 'POD_NAME,Q_CPU/TOTAL,MEM/LIMIT')
 
                         with cassandra(state) as pods:
-                            job_log = AsyncJobs.new_job(cmd, backgrounded)
-                            pods.display_table(cols, header, show_out=show_out, backgrounded=backgrounded, msg='Checking processes', job_log=job_log)
+                            pods.display_table(cols, header, ctx=Context.new(cmd, backgrounded=backgrounded, show_verbose=verbose))
 
                         return state
 
     def completion(self, state: ReplState):
         recipes = ['metrics', 'mpstat']
         return super().completion(state, {'with': {'recipe': {'=': {r: {'-s': {'&': None}, '&': None} for r in recipes}}}, '-s': {'&': None}, '&': None})
-        # return super().completion(state, {'with': {'recipe': {'=': {'metrics': {'-s': {'&': None}, '&': None}, 'qing': {'-s': {'&': None}}}}}, '-s': {'&': None}, '&': None})
 
     def help(self, state: ReplState):
         return super().help(state, 'show process overview  -s show processing details', args='[with recipe=metrics|mpstat] [-s]')

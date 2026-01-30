@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rioxarray
-Version: 0.20.0
+Version: 0.21.0
 Summary: geospatial xarray extension powered by rasterio
 Maintainer: rioxarray Contributors
 License: Apache
@@ -30,7 +30,7 @@ License-File: LICENSE_xarray
 License-File: AUTHORS.rst
 Requires-Dist: packaging
 Requires-Dist: rasterio>=1.4.3
-Requires-Dist: xarray>=2024.7.0
+Requires-Dist: xarray<2025.12,>=2024.7.0
 Requires-Dist: pyproj>=3.3
 Requires-Dist: numpy>=2
 Provides-Extra: interp

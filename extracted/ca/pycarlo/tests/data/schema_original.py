@@ -1922,17 +1922,6 @@ class DomainModelDomainType(sgqlc.types.Enum):
     __choices__ = ("METADATA", "SAMPLING")
 
 
-class DomainType(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `DATA_SAMPLING`None
-    * `METADATA`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("DATA_SAMPLING", "METADATA")
-
-
 class ETLAssetType(sgqlc.types.Enum):
     """Enum to distinguish between jobs and tasks
 
@@ -2957,11 +2946,12 @@ class FilterValueType(sgqlc.types.Enum):
 
     * `FIELD`None
     * `LITERAL`None
+    * `MAP_KEY`None
     * `SQL`None
     """
 
     __schema__ = schema
-    __choices__ = ("FIELD", "LITERAL", "SQL")
+    __choices__ = ("FIELD", "LITERAL", "MAP_KEY", "SQL")
 
 
 class FivetranConnectorSetupStates(sgqlc.types.Enum):
@@ -3640,6 +3630,23 @@ class LookbackRange(sgqlc.types.Enum):
     __choices__ = ("ONE_DAY", "ONE_HOUR", "SEVEN_DAY", "TWELVE_HOUR")
 
 
+class ManualMonitorExecutionStatus(sgqlc.types.Enum):
+    """Status of a manual monitor execution.
+
+    Enumeration Choices:
+
+    * `CANCELLED`None
+    * `FAILED`None
+    * `IN_PROGRESS`None
+    * `QUEUED`None
+    * `SUCCESS`None
+    * `TIMEOUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CANCELLED", "FAILED", "IN_PROGRESS", "QUEUED", "SUCCESS", "TIMEOUT")
+
+
 class MetricDataType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4144,7 +4151,7 @@ class Permission(sgqlc.types.Enum):
     * `SettingsAccess`None
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
-    * `SettingsApiTokensManage`None
+    * `SettingsApiManageTokens`None
     * `SettingsBillingAccess`None
     * `SettingsCollectionPreferencesEdit`None
     * `SettingsCollectionPreferencesList`None
@@ -4165,7 +4172,7 @@ class Permission(sgqlc.types.Enum):
     * `SettingsPiiFiltersViewMetrics`None
     * `SettingsSecretsAccess`None
     * `SettingsSecretsEdit`None
-    * `SettingsSecretsValuesAccess`None
+    * `SettingsSecretsViewValues`None
     * `SettingsUsageAccess`None
     * `SettingsUsageEdit`None
     * `SettingsUserSubscribeWeeklyDigest`None
@@ -4210,7 +4217,7 @@ class Permission(sgqlc.types.Enum):
         "SettingsAccess",
         "SettingsApiAccess",
         "SettingsApiEdit",
-        "SettingsApiTokensManage",
+        "SettingsApiManageTokens",
         "SettingsBillingAccess",
         "SettingsCollectionPreferencesEdit",
         "SettingsCollectionPreferencesList",
@@ -4231,7 +4238,7 @@ class Permission(sgqlc.types.Enum):
         "SettingsPiiFiltersViewMetrics",
         "SettingsSecretsAccess",
         "SettingsSecretsEdit",
-        "SettingsSecretsValuesAccess",
+        "SettingsSecretsViewValues",
         "SettingsUsageAccess",
         "SettingsUsageEdit",
         "SettingsUserSubscribeWeeklyDigest",
@@ -6563,6 +6570,25 @@ class AthenaPolicyInput(sgqlc.types.Input):
     """Path within result bucket (default: /)"""
 
 
+class AthenaUpdateConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("catalog", "assumable_role", "external_id", "workgroup", "aws_region")
+    catalog = sgqlc.types.Field(String, graphql_name="catalog")
+    """Athena data catalog name"""
+
+    assumable_role = sgqlc.types.Field(String, graphql_name="assumableRole")
+    """ARN of AWS IAM role to assume"""
+
+    external_id = sgqlc.types.Field(String, graphql_name="externalId")
+    """External ID for AWS IAM role assumption"""
+
+    workgroup = sgqlc.types.Field(String, graphql_name="workgroup")
+    """Athena workgroup name"""
+
+    aws_region = sgqlc.types.Field(String, graphql_name="awsRegion")
+    """AWS region"""
+
+
 class AudienceNotificationSettingInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -7861,7 +7887,17 @@ class FilterUnionInput(sgqlc.types.Input):
 
 class FilterValueUnionInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("literal", "sql", "field", "table", "mcon", "type", "id")
+    __field_names__ = (
+        "literal",
+        "sql",
+        "field",
+        "table",
+        "mcon",
+        "map_column",
+        "key",
+        "type",
+        "id",
+    )
     literal = sgqlc.types.Field(String, graphql_name="literal")
 
     sql = sgqlc.types.Field(String, graphql_name="sql")
@@ -7871,6 +7907,10 @@ class FilterValueUnionInput(sgqlc.types.Input):
     table = sgqlc.types.Field(String, graphql_name="table")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+    map_column = sgqlc.types.Field(String, graphql_name="mapColumn")
+
+    key = sgqlc.types.Field(String, graphql_name="key")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(FilterValueType), graphql_name="type")
 
@@ -8050,6 +8090,22 @@ class GluePolicyInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="dataBuckets"
     )
     """List of S3 bucket names for data access"""
+
+
+class GlueUpdateConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("assumable_role", "external_id", "aws_region", "ssl_options")
+    assumable_role = sgqlc.types.Field(String, graphql_name="assumableRole")
+    """ARN of AWS IAM role to assume"""
+
+    external_id = sgqlc.types.Field(String, graphql_name="externalId")
+    """External ID for AWS IAM role assumption"""
+
+    aws_region = sgqlc.types.Field(String, graphql_name="awsRegion")
+    """AWS region"""
+
+    ssl_options = sgqlc.types.Field("SslOptions", graphql_name="sslOptions")
+    """Optional SSL options"""
 
 
 class ImportanceScoreTableStatsRule(sgqlc.types.Input):
@@ -9958,6 +10014,14 @@ class SnowflakeUpdateConnectionDetails(sgqlc.types.Input):
     """Configuration for OAuth for Snowflake."""
 
 
+class SpanAttributeFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("key", "value")
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+
+
 class SparkBinaryInput(sgqlc.types.Input):
     """Credentials to the Spark  Thrift server in binary mode"""
 
@@ -11542,6 +11606,7 @@ class IMonitor(sgqlc.types.Interface):
         "entities",
         "entity_mcons",
         "entity_count",
+        "assigned_asset_mcons",
         "schedule_type",
         "name",
         "rule_name",
@@ -11626,6 +11691,11 @@ class IMonitor(sgqlc.types.Interface):
 
     entity_count = sgqlc.types.Field(Int, graphql_name="entityCount")
     """Number of monitored entities"""
+
+    assigned_asset_mcons = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="assignedAssetMcons"
+    )
+    """MCONs for tables manually assigned to this monitor"""
 
     schedule_type = sgqlc.types.Field(String, graphql_name="scheduleType")
     """Monitor scheduling type"""
@@ -14650,6 +14720,27 @@ class AssetsUsageResults(sgqlc.types.Type):
     """Total number of nodes."""
 
 
+class AssignAsset(sgqlc.types.Type):
+    """Assign a table to a monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("assignment",)
+    assignment = sgqlc.types.Field("AssignedAssetOutput", graphql_name="assignment")
+    """(experimental) The created assignment"""
+
+
+class AssignedAssetOutput(sgqlc.types.Type):
+    """A table assigned to a monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "table_mcon")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """UUID of the monitor"""
+
+    table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
+    """MCON of the assigned table"""
+
+
 class AssignmentWithProperties(sgqlc.types.Type):
     """Domain Assignment configuration"""
 
@@ -15180,6 +15271,26 @@ class AwsPrivateLinkRegionDetails(sgqlc.types.Type):
         sgqlc.types.non_null(String), graphql_name="agentVpcEndpointId"
     )
     """Agent VPC Endpoint ID"""
+
+
+class AwsRegion(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("region_code", "region_name", "region_geography")
+    region_code = sgqlc.types.Field(String, graphql_name="regionCode")
+    """AWS region code (e.g., 'us-east-1')"""
+
+    region_name = sgqlc.types.Field(String, graphql_name="regionName")
+    """AWS region name (e.g., 'Ohio', 'N. Virginia')"""
+
+    region_geography = sgqlc.types.Field(String, graphql_name="regionGeography")
+    """Geographic area (e.g., 'United States', 'Europe', 'Asia Pacific')"""
+
+
+class AwsRegionsResponse(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("regions",)
+    regions = sgqlc.types.Field(sgqlc.types.list_of(AwsRegion), graphql_name="regions")
+    """List of supported AWS regions"""
 
 
 class AzureAgentCleanupTasks(sgqlc.types.Type):
@@ -18060,6 +18171,24 @@ class CreateOrUpdateDataProductV2(sgqlc.types.Type):
     """Created or updated data product"""
 
 
+class CreateOrUpdateDataSamplingRestrictions(sgqlc.types.Type):
+    """Create or update data sampling restrictions for a warehouse. This
+    restricts what data is allowed to be sampled from the related
+    warehouse for all users. All given restrictions are cumulative:
+    includes select what to include; excludes further constrain from
+    whatever is included. Use `add_new_databases_automatically` to
+    control whether new databases discovered during metadata
+    collection are automatically added to the restrictions. Use
+    removeDataSamplingRestrictions mutation to remove all sampling
+    restrictions.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the operation was successful."""
+
+
 class CreateOrUpdateDomain(sgqlc.types.Type):
     """Create or update a domain"""
 
@@ -19863,6 +19992,51 @@ class DataResponseType(sgqlc.types.Type):
     """Provides metadata that describes how response is structured."""
 
 
+class DataSamplingRestrictions(sgqlc.types.Type):
+    """Restrictions/controls on what data is allowed to be sampled for
+    the related warehouse.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "assignments",
+        "excluded_assignments",
+        "tags",
+        "excluded_tags",
+        "add_new_databases_automatically",
+    )
+    assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
+    """Assets (as MCONs) to include in sampled data. By default, all
+    warehouse databases are included. Exclusions may apply--see
+    exclusion settings in related fields.
+    """
+
+    excluded_assignments = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="excludedAssignments"
+    )
+    """Assets (as MCONs) to exclude from sampled data."""
+
+    tags = sgqlc.types.Field(sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="tags")
+    """Asset tag key/value pairs to match for inclusion in sampled data.
+    Unless otherwise excluded, data for assets matching these tags may
+    be sampled.
+    """
+
+    excluded_tags = sgqlc.types.Field(
+        sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="excludedTags"
+    )
+    """Asset tag key/value pairs to match for exclusion from sampled
+    data. Data for assets matching these tags will not be sampled.
+    """
+
+    add_new_databases_automatically = sgqlc.types.Field(
+        Boolean, graphql_name="addNewDatabasesAutomatically"
+    )
+    """Controls whether to automatically include any newly discovered
+    databases in the warehouse, during metadata collection.
+    """
+
+
 class DataShareOutput(sgqlc.types.Type):
     """Data share configuration details"""
 
@@ -21440,7 +21614,6 @@ class DomainOutput(sgqlc.types.Type):
         "description",
         "created_by_email",
         "domain_tag",
-        "domain_type",
         "assignments",
         "excluded_assignments",
         "tags",
@@ -21463,9 +21636,6 @@ class DomainOutput(sgqlc.types.Type):
 
     domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
     """The domain's tag representation"""
-
-    domain_type = sgqlc.types.Field(DomainType, graphql_name="domainType")
-    """Indicates how the domain is used"""
 
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""
@@ -26274,6 +26444,35 @@ class LookerDashboardTileRef(sgqlc.types.Type):
     tile_title = sgqlc.types.Field(String, graphql_name="tileTitle")
 
 
+class ManualMonitorExecutionStatusType(sgqlc.types.Type):
+    """Status of a manual monitor execution"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "manual_monitor_execution_uuid",
+        "monitor_uuid",
+        "status",
+        "consolidating_job_uuid",
+        "breached",
+        "completed",
+    )
+    manual_monitor_execution_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="manualMonitorExecutionUuid"
+    )
+
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ManualMonitorExecutionStatus), graphql_name="status"
+    )
+
+    consolidating_job_uuid = sgqlc.types.Field(UUID, graphql_name="consolidatingJobUuid")
+
+    breached = sgqlc.types.Field(Boolean, graphql_name="breached")
+
+    completed = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="completed")
+
+
 class ManyToManyChange(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("operation", "object_names")
@@ -27733,6 +27932,8 @@ class Mutation(sgqlc.types.Type):
         "update_self_hosted_credentials_v2",
         "update_dbt_cloud_credentials_v2_mutation",
         "update_transactional_db_credentials_v2",
+        "update_glue_credentials_v2",
+        "update_athena_credentials_v2",
         "update_big_query_credentials_v2",
         "update_tableau_credentials_v2",
         "update_looker_credentials_v2",
@@ -28015,7 +28216,8 @@ class Mutation(sgqlc.types.Type):
         "toggle_create_alerts_in_datasource",
         "set_wildcard_templates",
         "set_custom_sql_sampling_size",
-        "update_warehouse_sampling_domain",
+        "create_or_update_data_sampling_restrictions",
+        "remove_data_sampling_restrictions",
         "create_shared_query",
         "create_or_update_user_settings",
         "create_or_update_user_settings_batch",
@@ -28129,6 +28331,8 @@ class Mutation(sgqlc.types.Type):
         "upload_airflow_dag_result",
         "upload_airflow_task_result",
         "upload_airflow_sla_misses",
+        "assign_asset",
+        "unassign_asset",
         "merge_alerts",
         "request_alert_access",
         "create_or_update_collibra_integration",
@@ -29295,6 +29499,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -29362,6 +29570,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `interval_minutes` (`Int`): How often to run scheduled custom
@@ -30052,6 +30263,68 @@ class Mutation(sgqlc.types.Type):
 
     * `changes` (`TransactionalDbUpdateConnectionDetails!`): Updated
       Transactional DB connection parameters.
+    * `connection_id` (`UUID!`): ID for connection to update.
+    """
+
+    update_glue_credentials_v2 = sgqlc.types.Field(
+        "UpdateGlueCredentialsV2Mutation",
+        graphql_name="updateGlueCredentialsV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "changes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GlueUpdateConnectionDetails),
+                        graphql_name="changes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updated AWS Glue connection details
+
+    Arguments:
+
+    * `changes` (`GlueUpdateConnectionDetails!`): Updated AWS Glue
+      connection parameters.
+    * `connection_id` (`UUID!`): ID for connection to update.
+    """
+
+    update_athena_credentials_v2 = sgqlc.types.Field(
+        "UpdateAthenaCredentialsV2Mutation",
+        graphql_name="updateAthenaCredentialsV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "changes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AthenaUpdateConnectionDetails),
+                        graphql_name="changes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Updated AWS Athena connection details
+
+    Arguments:
+
+    * `changes` (`AthenaUpdateConnectionDetails!`): Updated AWS Athena
+      connection parameters.
     * `connection_id` (`UUID!`): ID for connection to update.
     """
 
@@ -34753,6 +35026,14 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
                     ),
                 ),
+                (
+                    "runtime_variables",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(RuntimeVariableValueInput)),
+                        graphql_name="runtimeVariables",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -34761,6 +35042,8 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): Monitor UUID to run
+    * `runtime_variables` (`[RuntimeVariableValueInput!]`): Runtime
+      variable values for parameterized execution
     """
 
     update_monitors_priorities = sgqlc.types.Field(
@@ -36309,6 +36592,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -36369,6 +36656,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `interval_minutes` (`Int`): How often to run scheduled custom
@@ -36432,6 +36722,10 @@ class Mutation(sgqlc.types.Type):
                 (
                     "event_rollup_until_changed",
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
+                ),
+                (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
                 ),
                 (
                     "failure_audiences",
@@ -36498,6 +36792,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `interval_minutes` (`Int`): How often to run scheduled custom
@@ -36580,6 +36877,10 @@ class Mutation(sgqlc.types.Type):
                 (
                     "event_rollup_until_changed",
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
+                ),
+                (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
                 ),
                 (
                     "fail_on_reset",
@@ -36687,6 +36988,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `fail_on_reset` (`Boolean`): Return an error if the update is a
       significant change that would require a monitor reset. (default:
       `false`)
@@ -36797,6 +37101,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "fail_on_reset",
                     sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
                 ),
@@ -36902,6 +37210,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `fail_on_reset` (`Boolean`): Return an error if the update is a
       significant change that would require a monitor reset. (default:
       `false`)
@@ -37105,6 +37416,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -37167,6 +37482,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `labels` (`[String]`): The monitor labels
@@ -37250,6 +37568,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "fail_on_reset",
                     sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
                 ),
@@ -37330,6 +37652,8 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Column name to use as
+      primary key for exception management.
     * `fail_on_reset` (`Boolean`): Return an error if the update is a
       significant change that would require a monitor reset. (default:
       `false`)
@@ -37408,6 +37732,10 @@ class Mutation(sgqlc.types.Type):
                 (
                     "event_rollup_until_changed",
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
+                ),
+                (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
                 ),
                 (
                     "failure_audiences",
@@ -37506,6 +37834,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `labels` (`[String]`): The monitor labels
@@ -37678,6 +38009,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -37743,6 +38078,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `interval_minutes` (`Int`): How often to run scheduled custom
@@ -38384,6 +38722,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
                 ),
                 (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -38480,6 +38822,9 @@ class Mutation(sgqlc.types.Type):
       into a single incident
     * `event_rollup_until_changed` (`Boolean`): If true, roll up
       events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `field_names` (`[String]!`): Fields to monitor
@@ -39656,6 +40001,10 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "time_bucketed",
+                    sgqlc.types.Arg(Boolean, graphql_name="timeBucketed", default=True),
+                ),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
             )
         ),
@@ -39717,6 +40066,9 @@ class Mutation(sgqlc.types.Type):
       configuration and false positives might be detected for up to 35
       days (default: `false`)
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `time_bucketed` (`Boolean`): Whether to use time bucketing
+      (True) or all rows (False). When False, aggregate_by is ignored
+      and no time axis is used. (default: `true`)
     * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
       request is for update
     """
@@ -39851,6 +40203,10 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "time_bucketed",
+                    sgqlc.types.Arg(Boolean, graphql_name="timeBucketed", default=True),
+                ),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
             )
         ),
@@ -39910,6 +40266,9 @@ class Mutation(sgqlc.types.Type):
       configuration and false positives might be detected for up to 35
       days (default: `false`)
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `time_bucketed` (`Boolean`): Whether to use time bucketing
+      (True) or all rows (False). When False, aggregate_by is ignored
+      and no time axis is used. (default: `true`)
     * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
       request is for update
     """
@@ -40052,6 +40411,10 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "time_bucketed",
+                    sgqlc.types.Arg(Boolean, graphql_name="timeBucketed", default=True),
+                ),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
             )
         ),
@@ -40113,6 +40476,9 @@ class Mutation(sgqlc.types.Type):
       configuration and false positives might be detected for up to 35
       days (default: `false`)
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `time_bucketed` (`Boolean`): Whether to use time bucketing
+      (True) or all rows (False). When False, aggregate_by is ignored
+      and no time axis is used. (default: `true`)
     * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
       request is for update
     """
@@ -40816,10 +41182,6 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 (
-                    "domain_type",
-                    sgqlc.types.Arg(DomainType, graphql_name="domainType", default=None),
-                ),
-                (
                     "excluded_assignments",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -40858,8 +41220,6 @@ class Mutation(sgqlc.types.Type):
     * `assignments` (`[String]`): Objects assigned to domain (as
       MCONs)
     * `description` (`String`): Description of the domain
-    * `domain_type` (`DomainType`): Indicates how the domain is used.
-      Defaults to METADATA
     * `excluded_assignments` (`[String]`): Objects excluded from
       domain (as MCONs)
     * `excluded_tags` (`[TagKeyValuePairInput]`): Filter out by tag
@@ -41745,14 +42105,44 @@ class Mutation(sgqlc.types.Type):
     * `warehouse_id` (`UUID!`): The warehouse's UUID
     """
 
-    update_warehouse_sampling_domain = sgqlc.types.Field(
-        "UpdateWarehouseSamplingDomain",
-        graphql_name="updateWarehouseSamplingDomain",
+    create_or_update_data_sampling_restrictions = sgqlc.types.Field(
+        CreateOrUpdateDataSamplingRestrictions,
+        graphql_name="createOrUpdateDataSamplingRestrictions",
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "sampling_domain_uuid",
-                    sgqlc.types.Arg(UUID, graphql_name="samplingDomainUuid", default=None),
+                    "add_new_databases_automatically",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="addNewDatabasesAutomatically", default=None
+                    ),
+                ),
+                (
+                    "assignments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="assignments", default=None
+                    ),
+                ),
+                (
+                    "excluded_assignments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="excludedAssignments",
+                        default=None,
+                    ),
+                ),
+                (
+                    "excluded_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput),
+                        graphql_name="excludedTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
                 ),
                 (
                     "warehouse_uuid",
@@ -41763,14 +42153,50 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Set or remove the sampling domain for a warehouse.
-    Set to NULL to remove domain restrictions on sampling for this
-    warehouse
+    """(experimental) Create or update data sampling restrictions for a
+    warehouse.
 
     Arguments:
 
-    * `sampling_domain_uuid` (`UUID`): The UUID of the sampling domain
-      to associate. Pass null to remove the current sampling domain.
+    * `add_new_databases_automatically` (`Boolean`): Controls whether
+      to automatically include any newly discovered databases in the
+      warehouse, during metadata collection.
+    * `assignments` (`[String]`): A list of assets (as MCONs). Use to
+      only sample data from the given assets in the related warehouse.
+      When `add_new_databases_automatically` is True, these are used
+      as initial assignments and new databases will be added. When
+      `add_new_databases_automatically` is False, only these assets
+      will be included. Any configured exclusions will still apply.
+    * `excluded_assignments` (`[String]`): A list of assets (as
+      MCONs). Use to prevent sampling data from the given assets in
+      the related warehouse.
+    * `excluded_tags` (`[TagKeyValuePairInput]`): Tag key/value pairs.
+      Use to prevent sampling data from the matched assets in the
+      related warehouse.
+    * `tags` (`[TagKeyValuePairInput]`): Tag key/value pairs. Use to
+      only sample data for matching objects in the related warehouse.
+    * `warehouse_uuid` (`UUID!`): The warehouse's UUID
+    """
+
+    remove_data_sampling_restrictions = sgqlc.types.Field(
+        "RemoveDataSamplingRestrictions",
+        graphql_name="removeDataSamplingRestrictions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Remove all data sampling restrictions from a
+    warehouse.
+
+    Arguments:
+
     * `warehouse_uuid` (`UUID!`): The warehouse's UUID
     """
 
@@ -45707,6 +46133,62 @@ class Mutation(sgqlc.types.Type):
       active Airflow connection on the account.
     """
 
+    assign_asset = sgqlc.types.Field(
+        AssignAsset,
+        graphql_name="assignAsset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                (
+                    "table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="tableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Assign a table to a monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of the monitor
+    * `table_mcon` (`String!`): MCON of the table to assign
+    """
+
+    unassign_asset = sgqlc.types.Field(
+        "UnassignAsset",
+        graphql_name="unassignAsset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+                (
+                    "table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="tableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Unassign a table from a monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of the monitor
+    * `table_mcon` (`String!`): MCON of the table to unassign
+    """
+
     merge_alerts = sgqlc.types.Field(
         MergeAlerts,
         graphql_name="mergeAlerts",
@@ -48104,6 +48586,7 @@ class Query(sgqlc.types.Type):
         "test_monitor_queries",
         "get_notification_audiences_for_table",
         "get_monitor_comments",
+        "get_manual_monitor_execution_status",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
         "get_custom_rule",
@@ -48260,6 +48743,7 @@ class Query(sgqlc.types.Type):
         "run_sql_investigation_query",
         "get_warehouse_connections",
         "get_warehouse_tags_collection_setting",
+        "get_data_sampling_restrictions",
         "get_lineage_node_types",
         "get_common_fields",
         "get_common_fields_v2",
@@ -48315,12 +48799,14 @@ class Query(sgqlc.types.Type):
         "list_projects",
         "list_datasets",
         "generate_aws_policy",
+        "get_supported_aws_regions",
         "get_data_export_url",
         "get_generate_report_status",
         "evaluate_asset_selection",
         "get_account_audit_logs",
         "get_monitor_audit_logs",
         "get_monitored_rules_audit_logs",
+        "get_assigned_assets",
         "get_alerts",
         "get_alert",
         "get_alert_description",
@@ -55321,6 +55807,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "attribute_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(SpanAttributeFilterInput)),
+                        graphql_name="attributeFilters",
+                        default=None,
+                    ),
+                ),
+                (
                     "filters",
                     sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
                 ),
@@ -55383,6 +55877,8 @@ class Query(sgqlc.types.Type):
       traces
     * `agent_span_filters` (`[AgentSpanFilterInput!]`): Filter by
       agent span fields (agent, workflow, task, span_name)
+    * `attribute_filters` (`[SpanAttributeFilterInput!]`): Filter
+      spans by attribute key-value pairs from attr_map column
     * `filters` (`FilterGroupInput`): Structured SQL filtering
       conditions to apply to query
     * `transforms` (`[TransformInput!]`): Transforms to apply to the
@@ -58030,6 +58526,29 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): UUID of the monitor
+    """
+
+    get_manual_monitor_execution_status = sgqlc.types.Field(
+        ManualMonitorExecutionStatusType,
+        graphql_name="getManualMonitorExecutionStatus",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "manual_monitor_execution_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID),
+                        graphql_name="manualMonitorExecutionUuid",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the status of a manual monitor execution
+
+    Arguments:
+
+    * `manual_monitor_execution_uuid` (`UUID!`)None
     """
 
     get_all_user_defined_monitors_v2 = sgqlc.types.Field(
@@ -63457,6 +63976,29 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
+    get_data_sampling_restrictions = sgqlc.types.Field(
+        DataSamplingRestrictions,
+        graphql_name="getDataSamplingRestrictions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get data sampling restrictions for a warehouse.
+    These restrictions apply to all users in the account. Returns null
+    if no restrictions are configured.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID
+    """
+
     get_lineage_node_types = sgqlc.types.Field(
         LineageNodeTypeStats,
         graphql_name="getLineageNodeTypes",
@@ -65328,6 +65870,13 @@ class Query(sgqlc.types.Type):
       policy generation
     """
 
+    get_supported_aws_regions = sgqlc.types.Field(
+        AwsRegionsResponse, graphql_name="getSupportedAwsRegions"
+    )
+    """(experimental) Get a list of supported AWS regions with both
+    region codes and names
+    """
+
     get_data_export_url = sgqlc.types.Field(
         DataExportURL,
         graphql_name="getDataExportUrl",
@@ -65588,6 +66137,27 @@ class Query(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     * `timestamp__lt` (`DateTime`)None
+    """
+
+    get_assigned_assets = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssignedAssetOutput)),
+        graphql_name="getAssignedAssets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get tables assigned to a monitor
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of the monitor
     """
 
     get_alerts = sgqlc.types.Field(
@@ -67207,6 +67777,19 @@ class RemoveConnectionMutation(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class RemoveDataSamplingRestrictions(sgqlc.types.Type):
+    """Remove all data sampling restrictions from a warehouse. After
+    removal, all data in the warehouse can be sampled without
+    restrictions. The data sampling enable/disable warehouse setting
+    is still respected.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the operation was successful."""
+
+
 class RemoveFromCollectionBlockList(sgqlc.types.Type):
     """Removes from the list of entities for which metadata collection is
     not allowed on this account.
@@ -67510,14 +68093,24 @@ class RunMonitor(sgqlc.types.Type):
     """Run a monitor manually"""
 
     __schema__ = schema
-    __field_names__ = ("success",)
+    __field_names__ = ("success", "manual_monitor_execution_uuid")
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+    manual_monitor_execution_uuid = sgqlc.types.Field(
+        UUID, graphql_name="manualMonitorExecutionUuid"
+    )
+    """UUID of the ManualMonitorExecutionModel created for this run"""
 
 
 class RunMonitors(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("success",)
+    __field_names__ = ("success", "manual_monitor_execution_uuids")
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+    manual_monitor_execution_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(UUID), graphql_name="manualMonitorExecutionUuids"
+    )
+    """UUIDs of ManualMonitorExecutionModels created for each run"""
 
 
 class RunSqlRule(sgqlc.types.Type):
@@ -72712,6 +73305,15 @@ class UCSTableMonitorConfigOutput(sgqlc.types.Type):
     """Detector freshness threshold"""
 
 
+class UnassignAsset(sgqlc.types.Type):
+    """Unassign a table from a monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Int, graphql_name="deleted")
+    """(experimental) Number of assignments deleted"""
+
+
 class UnexpandedRegexPattern(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -72890,6 +73492,22 @@ class UpdateAlert(sgqlc.types.Type):
     __field_names__ = ("alert",)
     alert = sgqlc.types.Field("Alert", graphql_name="alert")
     """The updated alert"""
+
+
+class UpdateAthenaCredentialsV2Mutation(sgqlc.types.Type):
+    """Update credentials for an existing AWS Athena connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field("UpdateCredentialsV2Result", graphql_name="result")
 
 
 class UpdateAzureDataFactoryCredentialsV2Mutation(sgqlc.types.Type):
@@ -73146,6 +73764,22 @@ class UpdateGitlabInstallation(sgqlc.types.Type):
     __field_names__ = ("installation",)
     installation = sgqlc.types.Field(GitlabAppInstallation, graphql_name="installation")
     """Updated GitLab installation"""
+
+
+class UpdateGlueCredentialsV2Mutation(sgqlc.types.Type):
+    """Update credentials for an existing AWS Glue connection.  Note:
+    This mutation only uploads credentials and returns a temporary
+    key. To complete the update:  Call testUpdatedCredentialsV2 with
+    the returned key as tempCredentialsKey and the same connectionId
+    to validate the credentials  Call updateCredentialsV2 with the
+    same tempCredentialsKey and connectionId to persist the changes.
+    See full instructions here -
+    https://docs.getmontecarlo.com/docs/updating-integrations#/.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
 
 
 class UpdateJiraIntegration(sgqlc.types.Type):
@@ -73519,17 +74153,6 @@ class UpdateUserStatePayload(sgqlc.types.Type):
     user = sgqlc.types.Field("User", graphql_name="user")
 
     client_mutation_id = sgqlc.types.Field(String, graphql_name="clientMutationId")
-
-
-class UpdateWarehouseSamplingDomain(sgqlc.types.Type):
-    """Set or remove the sampling domain for a warehouse. Set to NULL to
-    remove domain restrictions on sampling for this warehouse
-    """
-
-    __schema__ = schema
-    __field_names__ = ("success",)
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """Whether the operation was successful"""
 
 
 class UpdateWebexIntegration(sgqlc.types.Type):
@@ -74231,8 +74854,8 @@ class Warehouse(sgqlc.types.Type):
     created_by = sgqlc.types.Field("User", graphql_name="createdBy")
     """User who created this warehouse"""
 
-    sampling_domain = sgqlc.types.Field(DomainOutput, graphql_name="samplingDomain")
-    """Domain defining which data/assets can be sampled in this warehouse"""
+    sampling_domain = sgqlc.types.Field("DomainRestriction", graphql_name="samplingDomain")
+    """Domain defining which tables can be sampled. If null, all allowed."""
 
     connections = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Connection))),
@@ -77999,6 +78622,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "sampling_entities",
         "sampling_entity_mcons",
         "sql_blocks",
+        "exception_primary_key_column",
         "generated_rules",
         "queries",
         "entity_mcons",
@@ -78191,6 +78815,11 @@ class CustomRule(sgqlc.types.Type, Node):
 
     sql_blocks = sgqlc.types.Field(CustomRuleSqlBlocks, graphql_name="sqlBlocks")
     """SQL blocks used on the monitor"""
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+    """Column name to use as primary key for exception management."""
 
     generated_rules = sgqlc.types.Field(
         sgqlc.types.non_null(CustomRuleConnection),
@@ -80379,7 +81008,6 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "created_by_email",
         "created_by",
         "domain_tag",
-        "domain_type",
         "assignments",
         "excluded_assignments",
         "tags",
@@ -80410,9 +81038,6 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
 
     domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
     """The domain's tag representation"""
-
-    domain_type = sgqlc.types.Field(DomainType, graphql_name="domainType")
-    """Indicates how the domain is used"""
 
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""
@@ -80929,6 +81554,14 @@ class FilterValueLiteral(sgqlc.types.Type, FilterValueInterface):
     __schema__ = schema
     __field_names__ = ("literal",)
     literal = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="literal")
+
+
+class FilterValueMapKey(sgqlc.types.Type, FilterValueInterface):
+    __schema__ = schema
+    __field_names__ = ("map_column", "key")
+    map_column = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mapColumn")
+
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
 
 
 class FilterValueSql(sgqlc.types.Type, FilterValueInterface):

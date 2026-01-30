@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ariadne
-Version: 0.27.0
+Version: 0.27.1
 Summary: Ariadne is a Python library for implementing GraphQL servers.
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne

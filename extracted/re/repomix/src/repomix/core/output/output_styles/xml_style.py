@@ -3,7 +3,7 @@ XML Output Style Module - Implements XML Format Output
 """
 
 from xml.dom import minidom
-from typing import Dict, List
+from typing import Dict, List, Any
 import xml.etree.ElementTree as ET
 
 from ..output_style_decorate import OutputStyle
@@ -97,7 +97,7 @@ class XmlStyle(OutputStyle):
         # Apply parsable style formatting if enabled
         if self.config.output.parsable_style:
             # For parsable XML, ensure content is properly CDATA wrapped if it contains special characters
-            if any(char in content for char in ['<', '>', '&']):
+            if any(char in content for char in ["<", ">", "&"]):
                 # Use CDATA section for content with XML special characters
                 content_elem.text = f"<![CDATA[{content}]]>"
             else:
@@ -161,6 +161,56 @@ class XmlStyle(OutputStyle):
         tree_elem = ET.Element("repository_structure")
         self._format_file_tree_xml(file_tree, tree_elem)
         xml_str = ET.tostring(tree_elem, encoding="unicode")
+        return self._pretty_print(xml_str)
+
+    def generate_git_diff_section(self, work_tree_diff: str, staged_diff: str) -> str:
+        """Generate git diff section in XML format
+
+        Args:
+            work_tree_diff: Unstaged changes diff
+            staged_diff: Staged changes diff
+
+        Returns:
+            XML formatted git diff section
+        """
+        git_diffs_elem = ET.Element("git_diffs")
+
+        work_tree_elem = ET.SubElement(git_diffs_elem, "git_diff_work_tree")
+        work_tree_elem.text = work_tree_diff if work_tree_diff else ""
+
+        staged_elem = ET.SubElement(git_diffs_elem, "git_diff_staged")
+        staged_elem.text = staged_diff if staged_diff else ""
+
+        xml_str = ET.tostring(git_diffs_elem, encoding="unicode")
+        return self._pretty_print(xml_str)
+
+    def generate_git_log_section(self, commits: List[Any]) -> str:
+        """Generate git log section in XML format
+
+        Args:
+            commits: List of GitLogCommit objects
+
+        Returns:
+            XML formatted git log section
+        """
+        if not commits:
+            return ""
+
+        git_logs_elem = ET.Element("git_logs")
+
+        for commit in commits:
+            commit_elem = ET.SubElement(git_logs_elem, "git_log_commit")
+
+            date_elem = ET.SubElement(commit_elem, "date")
+            date_elem.text = commit.date
+
+            message_elem = ET.SubElement(commit_elem, "message")
+            message_elem.text = commit.message
+
+            files_elem = ET.SubElement(commit_elem, "files")
+            files_elem.text = "\n".join(commit.files)
+
+        xml_str = ET.tostring(git_logs_elem, encoding="unicode")
         return self._pretty_print(xml_str)
 
     def _pretty_print(self, xml_str: str) -> str:

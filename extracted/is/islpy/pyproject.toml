@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "islpy"
-version = "2025.2.5"
+version = "2026.1"
 description = "Wrapper around isl, an integer set library"
 readme = "README.rst"
 license = "MIT"
@@ -102,6 +102,7 @@ extend-ignore = [
     "E402", # module-level import not at top of file
     "UP031", # use f-strings instead of %
     "UP032", # use f-strings instead of .format
+    "RUF067", # no code in __init__ *shrug*
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -123,9 +124,9 @@ lines-after-imports = 2
 ]
 
 [tool.cibuildwheel]
-# nanobind does not support Py<3.8
 # i686 does not have enough memory for LTO to complete
-skip = ["pp*", "cp3[6789]-*", "*_i686"]
+# 3.14 on musl has a hard-to-debug test crash
+skip = ["*_i686", 'cp31?t-*', "cp314-musllinux_x86_64"]
 
 test-requires = "pytest"
 test-command = "pytest {project}/test"

@@ -149,12 +149,11 @@ def format_where_for_mutation_command(where_clause: str) -> str:
 # Functions that take table/dictionary names as string literal arguments.
 # Normalizing these would cause incorrect cache hits since different table names
 # would map to the same cache key.
-# See: https://clickhouse.com/docs/en/sql-reference/functions/other-functions#joinget
-#      https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+# See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/cluster
 #      https://clickhouse.com/docs/en/sql-reference/table-functions/remote
 _FUNCTIONS_WITH_TABLE_NAME_ARGS = re.compile(
-    r"\b(?:joinGet|joinGetOrNull|dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
+    r"\b(?:dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
     re.IGNORECASE,
 )
 
@@ -166,7 +165,7 @@ def _normalize_sql_for_cache(sql: str) -> str:
     while preserving table/column names, so queries with the same structure share
     cache entries.
 
-    However, some functions like joinGet(), dictGet*, remote(), cluster(), and
+    However, some functions like dictGet*, remote(), cluster(), and
     clusterAllReplicas() take table/dictionary names as arguments. Normalizing these
     would incorrectly map different tables to the same cache key, so we fall back to
     using the original SQL for such queries.
@@ -177,8 +176,6 @@ def _normalize_sql_for_cache(sql: str) -> str:
     'SELECT * FROM events WHERE id = ? AND name = ?'
     >>> _normalize_sql_for_cache("SELECT * FROM events")
     'SELECT * FROM events'
-    >>> _normalize_sql_for_cache("SELECT joinGet('my_table', 'col', id) FROM t")
-    "SELECT joinGet('my_table', 'col', id) FROM t"
     >>> _normalize_sql_for_cache("SELECT dictGet('my_dict', 'value', id) FROM t")
     "SELECT dictGet('my_dict', 'value', id) FROM t"
     >>> _normalize_sql_for_cache("SELECT * FROM remote('host', db, table)")
@@ -200,7 +197,7 @@ def _normalize_sql_for_cache(sql: str) -> str:
 
 # Cache for sql_get_used_tables using normalized SQL as key.
 # Uses lru-dict (C extension) for a fast LRU implementation.
-_sql_get_used_tables_cache: LRU = LRU(2**15)
+_sql_get_used_tables_cache: LRU = LRU(2**13)
 _sql_get_used_tables_cache_lock = threading.Lock()
 _sql_get_used_tables_cache_hits = 0
 _sql_get_used_tables_cache_misses = 0
@@ -395,36 +392,13 @@ class ReplacementsDict(dict):
         if isinstance(v, tuple):
             k, r = v
             if callable(r):
-                r = update_callable_signature(r)(self.enabled_table_functions)
+                r = r(self.enabled_table_functions)
                 super().__setitem__(key, (k, r))
             return k, r
         if callable(v):
-            v = update_callable_signature(v)(self.enabled_table_functions)
+            v = v(self.enabled_table_functions)
             super().__setitem__(key, v)
         return v
-
-
-def update_callable_signature(func):
-    """
-    Utility function to provide backward compatibility for callable functions
-    that don't accept the enabled_table_functions parameter.
-    """
-    if callable(func):
-
-        def wrapper(enabled_table_functions=None):
-            # Check if the function accepts the enabled_table_functions parameter
-            import inspect
-
-            sig = inspect.signature(func)
-            if len(sig.parameters) == 0:
-                # Old-style callable with no parameters
-                return func()
-            else:
-                # New-style callable that accepts enabled_table_functions
-                return func(enabled_table_functions)
-
-        return wrapper
-    return func
 
 
 def tables_or_sql(replacement: dict, table_functions=False, function_allow_list=None) -> set:

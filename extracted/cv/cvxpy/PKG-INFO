@@ -1,24 +1,22 @@
 Metadata-Version: 2.4
 Name: cvxpy
-Version: 1.7.5
+Version: 1.8.0
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
 License: Apache License, Version 2.0
 Project-URL: Homepage, https://github.com/cvxpy/cvxpy
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: osqp>=1.0.0
 Requires-Dist: clarabel>=0.5.0
 Requires-Dist: scs>=3.2.4.post1
-Requires-Dist: numpy>=1.22.4
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: scipy>=1.13.0
+Requires-Dist: highspy>=1.11.0
 Provides-Extra: cbc
 Requires-Dist: cylp>=0.91.5; extra == "cbc"
 Provides-Extra: clarabel
-Provides-Extra: cuopt
-Requires-Dist: cuopt-cu12>=25.5; extra == "cuopt"
-Requires-Dist: nvidia-cuda-runtime-cu12<13.0,>=12.8; extra == "cuopt"
 Provides-Extra: cvxopt
 Requires-Dist: cvxopt; extra == "cvxopt"
 Provides-Extra: diffcp
@@ -48,6 +46,8 @@ Provides-Extra: proxqp
 Requires-Dist: proxsuite; extra == "proxqp"
 Provides-Extra: qoco
 Requires-Dist: qoco; extra == "qoco"
+Provides-Extra: qpalm
+Requires-Dist: qpalm~=1.2.5; extra == "qpalm"
 Provides-Extra: scip
 Requires-Dist: PySCIPOpt; extra == "scip"
 Provides-Extra: scipy
@@ -57,6 +57,8 @@ Provides-Extra: xpress
 Requires-Dist: xpress>=9.5; extra == "xpress"
 Provides-Extra: daqp
 Requires-Dist: daqp; extra == "daqp"
+Provides-Extra: knitro
+Requires-Dist: knitro; extra == "knitro"
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: hypothesis; extra == "testing"
@@ -130,8 +132,8 @@ With CVXPY, you can model
 
 CVXPY is not a solver. It relies upon the open source solvers 
 [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs), [SCS](https://github.com/bodono/scs-python),
-and [OSQP](https://github.com/oxfordcontrol/osqp). Additional solvers are
-[available](https://www.cvxpy.org/tutorial/solvers/index.html#choosing-a-solver),
+[OSQP](https://github.com/oxfordcontrol/osqp) and [HiGHS](https://github.com/ERGO-Code/HiGHS).
+Additional solvers are [available](https://www.cvxpy.org/tutorial/solvers/index.html#choosing-a-solver),
 but must be installed separately.
 
 CVXPY began as a Stanford University research project. It is now developed by
@@ -151,12 +153,13 @@ conda install -c conda-forge cvxpy
 
 CVXPY has the following dependencies:
 
-- Python >= 3.9
+- Python >= 3.11
 - Clarabel >= 0.5.0
-- OSQP >= 0.6.2
+- OSQP >= 1.0.0
 - SCS >= 3.2.4.post1
-- NumPy >= 1.22.4
+- NumPy >= 2.0.0
 - SciPy >= 1.13.0
+- highspy >= 1.11.0
 
 For detailed instructions, see the [installation
 guide](https://www.cvxpy.org/install/index.html).
@@ -191,7 +194,7 @@ Here are some simple ways to start contributing immediately:
 * Read the CVXPY source code and improve the documentation, or address TODOs
 * Enhance the [website documentation](https://github.com/cvxpy/cvxpy/tree/master/doc)
 * Browse the [issue tracker](https://github.com/cvxpy/cvxpy/issues), and look for issues tagged as "help wanted"
-* Polish the [example library](https://github.com/cvxpy/cvxpy/tree/master/examples)
+* Polish the [example library](https://github.com/cvxpy/examples)
 * Add a [benchmark](https://github.com/cvxpy/benchmarks)
 
 If you'd like to add a new example to our library, or implement a new feature,

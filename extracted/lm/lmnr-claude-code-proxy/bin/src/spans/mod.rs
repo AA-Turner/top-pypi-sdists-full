@@ -23,53 +23,38 @@ use crate::{
         opentelemetry_collector_trace_v1::ExportTraceServiceRequest,
         opentelemetry_proto_common_v1::KeyValue as KeyValueInner,
         opentelemetry_proto_trace_v1::{
-            ResourceSpans, ScopeSpans, Span as ProtoSpan, Status, span::SpanKind,
+            ResourceSpans, ScopeSpans, Span as ProtoSpan, Status,
+            span::{Event, SpanKind},
             status::StatusCode,
         },
     },
-    spans::utils::convert_attributes_to_proto_key_value,
+    spans::utils::{convert_attributes_to_proto_key_value, json_value_to_any_value},
 };
 
 use utils::{
-    bytes_to_uuid_like_string, extract_attributes, generate_span_id, is_gzip_encoded,
-    parse_span_id, parse_sse_events, parse_trace_id,
+    bytes_to_uuid_like_string, extract_attributes, generate_span_id, parse_span_id, parse_trace_id,
 };
 
+pub struct ResponseFailure {
+    pub status_code: hyper::StatusCode,
+    pub body: Vec<u8>,
+}
+
+pub enum ResponseInfo {
+    Success(MessageResponse),
+    Failure(ResponseFailure),
+}
+
 pub fn create_span_request(
-    request_body: String,
-    response_body: Vec<u8>,
     trace_id: String,
     parent_span_id: String,
     span_ids_path: Vec<String>,
     start_time_unix_nano: u64,
     end_time_unix_nano: u64,
     span_path: Vec<String>,
-    has_gzip_content_encoding: bool,
-) -> Result<Option<ExportTraceServiceRequest>, SpanError> {
-    let input: PostMessagesRequest =
-        serde_json::from_str(&request_body).map_err(|e| SpanError::JsonParseError {
-            context: format!("request body: {}", request_body),
-            error: e.to_string(),
-        })?;
-
-    let output = if input.stream {
-        // Streaming response: parse as SSE events
-        let response_str = String::from_utf8_lossy(&response_body);
-        let events = parse_sse_events(&response_str);
-        MessageResponse::try_from_stream_events(events)?
-    } else {
-        if is_gzip_encoded(&response_body, has_gzip_content_encoding) {
-            return Ok(None);
-        }
-        let string_response_body = String::from_utf8_lossy(&response_body).to_string();
-        let message_response: MessageResponse = serde_json::from_str(&string_response_body)
-            .map_err(|e| SpanError::JsonParseError {
-                context: "response body".to_string(),
-                error: e.to_string(),
-            })?;
-        message_response
-    };
-
+    input: PostMessagesRequest,
+    response_info: ResponseInfo,
+) -> Result<ExportTraceServiceRequest, SpanError> {
     // Parse trace_id and span_id from UUID format to bytes
     let trace_id_bytes = parse_trace_id(&trace_id)?;
     let parent_span_id_bytes = parse_span_id(&parent_span_id)?;
@@ -96,10 +81,53 @@ pub fn create_span_request(
         .chain(vec![span_id_string])
         .collect::<Vec<_>>();
 
+    let mut events = Vec::new();
+    let mut status_message = String::new();
+    let status_code = match &response_info {
+        ResponseInfo::Success(_) => StatusCode::Ok,
+        ResponseInfo::Failure(status_and_body) => StatusCode::Error,
+    };
+
+    if let ResponseInfo::Failure(status_and_body) = &response_info {
+        let body = String::from_utf8(status_and_body.body.clone()).ok();
+        if let Some(body) = &body {
+            status_message = body.clone();
+        }
+        events.push(Event {
+            time_unix_nano: end_time_unix_nano,
+            name: "exception".to_string(),
+            attributes: vec![
+                KeyValueInner {
+                    key: "exception.message".to_string(),
+                    value: json_value_to_any_value(body.map(Value::String).unwrap_or_default())
+                        .ok(),
+                },
+                KeyValueInner {
+                    key: "exception.status_code".to_string(),
+                    value: json_value_to_any_value(Value::Number(
+                        status_and_body.status_code.as_u16().into(),
+                    ))
+                    .ok(),
+                },
+                KeyValueInner {
+                    key: "exception.type".to_string(),
+                    value: json_value_to_any_value(Value::String(
+                        status_and_body
+                            .status_code
+                            .canonical_reason()
+                            .map(|s| s.to_string())
+                            .unwrap_or(status_and_body.status_code.as_str().to_string()),
+                    ))
+                    .ok(),
+                },
+            ],
+            dropped_attributes_count: 0,
+        });
+    }
+
     // Note: Tool spans are now created separately via SpanProcessor.complete_tool_spans()
     // which tracks tool duration properly (from tool_use in response to tool_result in next request)
-
-    let mut attributes = extract_attributes(input, output);
+    let mut attributes = extract_attributes(input, response_info);
     attributes.insert(
         "lmnr.span.ids_path".to_string(),
         Value::Array(ids_path.into_iter().map(|s| Value::String(s)).collect()),
@@ -125,14 +153,14 @@ pub fn create_span_request(
         kind: SpanKind::Client as i32, // Client
         start_time_unix_nano,
         end_time_unix_nano,
-        events: Vec::new(),
+        events,
         dropped_attributes_count: 0,
         dropped_events_count: 0,
         links: Vec::new(),
         dropped_links_count: 0,
         status: Some(Status {
-            code: StatusCode::Ok as i32,
-            message: String::new(),
+            code: status_code as i32,
+            message: status_message,
         }),
     };
 
@@ -155,5 +183,5 @@ pub fn create_span_request(
         resource_spans: vec![resource_spans],
     };
 
-    Ok(Some(export_request))
+    Ok(export_request)
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytun-pmd3
-Version: 3.0.2
+Version: 3.0.3
 Summary: python-pytun fork with darwin and windows support (IPv6-ONLY)
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>

@@ -33,7 +33,7 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ...pagination import SyncDefaultPagination, AsyncDefaultPagination
+from ...pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.dtmf_type import DtmfType
 from ...types.encrypted_media import EncryptedMedia
@@ -91,6 +91,7 @@ class CredentialConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: CredentialInboundParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: credential_connection_create_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -145,6 +146,12 @@ class CredentialConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -205,6 +212,7 @@ class CredentialConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -273,6 +281,7 @@ class CredentialConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: CredentialInboundParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: credential_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -323,6 +332,12 @@ class CredentialConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -387,6 +402,7 @@ class CredentialConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -413,7 +429,8 @@ class CredentialConnectionsResource(SyncAPIResource):
         self,
         *,
         filter: credential_connection_list_params.Filter | Omit = omit,
-        page: credential_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -421,7 +438,7 @@ class CredentialConnectionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncDefaultPagination[CredentialConnection]:
+    ) -> SyncDefaultFlatPagination[CredentialConnection]:
         """
         Returns a list of your credential connections.
 
@@ -430,9 +447,6 @@ class CredentialConnectionsResource(SyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -459,7 +473,7 @@ class CredentialConnectionsResource(SyncAPIResource):
         """
         return self._get_api_list(
             "/credential_connections",
-            page=SyncDefaultPagination[CredentialConnection],
+            page=SyncDefaultFlatPagination[CredentialConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -468,7 +482,8 @@ class CredentialConnectionsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     credential_connection_list_params.CredentialConnectionListParams,
@@ -551,6 +566,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: CredentialInboundParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: credential_connection_create_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -605,6 +621,12 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -665,6 +687,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -733,6 +756,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: CredentialInboundParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: credential_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -783,6 +807,12 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -847,6 +877,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -873,7 +904,8 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
         self,
         *,
         filter: credential_connection_list_params.Filter | Omit = omit,
-        page: credential_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -881,7 +913,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[CredentialConnection, AsyncDefaultPagination[CredentialConnection]]:
+    ) -> AsyncPaginator[CredentialConnection, AsyncDefaultFlatPagination[CredentialConnection]]:
         """
         Returns a list of your credential connections.
 
@@ -890,9 +922,6 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -919,7 +948,7 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
         """
         return self._get_api_list(
             "/credential_connections",
-            page=AsyncDefaultPagination[CredentialConnection],
+            page=AsyncDefaultFlatPagination[CredentialConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -928,7 +957,8 @@ class AsyncCredentialConnectionsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     credential_connection_list_params.CredentialConnectionListParams,

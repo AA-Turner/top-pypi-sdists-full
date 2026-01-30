@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintrunner
-Version: 0.12.11
+Version: 0.13.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

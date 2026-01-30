@@ -7,7 +7,7 @@ __all__ = ["BaseFileShardGenerator"]
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
+from coola.utils.format import repr_indent, repr_mapping, str_indent, str_mapping
 
 from iden.data.generator import BaseDataGenerator, setup_data_generator
 from iden.shard.generator.base import BaseShardGenerator

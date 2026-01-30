@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dao_treasury
-Version: 0.1.11
+Version: 0.1.12
 Summary: Produce comprehensive financial reports for your on-chain org
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -14,7 +14,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10,<3.13
 Description-Content-Type: text/markdown
-Requires-Dist: eth-portfolio==0.5.6
+Requires-Dist: eth-portfolio==0.5.10
 Requires-Dist: psycopg2-binary==2.9.11
 Dynamic: classifier
 Dynamic: description
@@ -44,6 +44,9 @@ DAO Treasury is a comprehensive financial reporting and treasury management solu
 - You must configure a [brownie network](https://eth-brownie.readthedocs.io/en/stable/network-management.html) to use your RPC.
 - You will need an auth token for [Etherscan](https://etherscan.io/)'s API. Follow their [guide](https://docs.etherscan.io/etherscan-v2/getting-an-api-key) to get your key, and set env var `ETHERSCAN_TOKEN` with its value.
 - You'll also need [Docker](https://www.docker.com/get-started/) installed on your system. If on MacOS, you will need to leave Docker Desktop open while DAO Treasury is running.
+
+## Debug logging
+DAO Treasury relies on ypricemagic for price lookups. If you need to spot long-running price calls, enable the `y.stuck?` logger at DEBUG. Details: [y.stuck? logger](CONTRIBUTING.md#y-stuck-logger).
 
 ## Installation
 

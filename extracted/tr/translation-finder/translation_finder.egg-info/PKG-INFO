@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translation-finder
-Version: 2.23
+Version: 2.24
 Summary: A translation file finder used in Weblate.
 Home-page: https://weblate.org/
 Download-URL: https://github.com/WeblateOrg/translation-finder
@@ -22,30 +22,29 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: charset-normalizer<4.0,>2.0
 Requires-Dist: ruamel.yaml
-Requires-Dist: weblate-language-data>=2024.14
+Requires-Dist: weblate-language-data>=2026.1
 Provides-Extra: dev
 Requires-Dist: translation-finder[lint,test,types]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: pre-commit==4.2.0; extra == "lint"
+Requires-Dist: pre-commit==4.5.1; extra == "lint"
 Provides-Extra: test
-Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: pytest-cov==7.0.0; extra == "test"
 Requires-Dist: pytest-github-actions-annotate-failures==0.3.0; extra == "test"
 Provides-Extra: types
-Requires-Dist: mypy==1.17.1; extra == "types"
+Requires-Dist: mypy==1.19.1; extra == "types"
 Dynamic: download-url
 Dynamic: license-file
 
@@ -96,15 +95,16 @@ In can be used from Python:
    >>> from pprint import pprint
    >>> results = discover("translation_finder/test_data/")
    >>> len(results)
-   30
+   40
    >>> pprint(results[0].match)
    {'file_format': 'aresource',
     'filemask': 'app/src/res/main/values-*/strings.xml',
     'name': 'android',
     'template': 'app/src/res/main/values/strings.xml'}
-   >>> pprint(results[16].match)
+   >>> pprint(results[1].match)
    {'file_format': 'po',
     'filemask': 'locales/*.po',
+    'name': 'translation',
     'new_base': 'locales/messages.pot'}
 
 Additional information about discovery can be obtained from meta attribute:
@@ -113,7 +113,7 @@ Additional information about discovery can be obtained from meta attribute:
 
    >>> pprint(results[0].meta)
    {'discovery': 'TransifexDiscovery', 'origin': 'Transifex', 'priority': 500}
-   >>> pprint(results[16].meta)
+   >>> pprint(results[22].meta)
    {'discovery': 'GettextDiscovery', 'origin': None, 'priority': 1000}
 
 

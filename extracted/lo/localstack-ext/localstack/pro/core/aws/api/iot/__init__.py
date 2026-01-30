@@ -87,6 +87,7 @@ CommandId = str
 CommandMaxResults = int
 CommandParameterDescription = str
 CommandParameterName = str
+CommandPayloadTemplateString = str
 Comment = str
 CompliantChecksCount = int
 ConfigValue = str
@@ -135,6 +136,7 @@ ElasticsearchEndpoint = str
 ElasticsearchId = str
 ElasticsearchIndex = str
 ElasticsearchType = str
+EnableBatching = bool
 EnableCachingForHttp = bool
 EnableOCSPCheck = bool
 Enabled = bool
@@ -208,11 +210,16 @@ KmsKeyArn = str
 LaserMaxResults = int
 ListSuppressedAlerts = bool
 ListSuppressedFindings = bool
+LogDestination = str
+LogEventType = str
 LogGroupName = str
 LogTargetName = str
 ManagedJobTemplateName = str
 ManagedTemplateVersion = str
 Marker = str
+MaxBatchOpenMs = int
+MaxBatchSize = int
+MaxBatchSizeBytes = int
 MaxBuckets = int
 MaxJobExecutionsPerMin = int
 MaxResults = int
@@ -422,6 +429,7 @@ UserPropertyValue = str
 Valid = bool
 Value = str
 Variance = float
+VerboseFlag = bool
 VerificationStateDescription = str
 VersionName = str
 ViolationId = str
@@ -608,6 +616,29 @@ class CommandExecutionStatus(StrEnum):
 class CommandNamespace(StrEnum):
     AWS_IoT = "AWS-IoT"
     AWS_IoT_FleetWise = "AWS-IoT-FleetWise"
+
+
+class CommandParameterType(StrEnum):
+    STRING = "STRING"
+    INTEGER = "INTEGER"
+    DOUBLE = "DOUBLE"
+    LONG = "LONG"
+    UNSIGNEDLONG = "UNSIGNEDLONG"
+    BOOLEAN = "BOOLEAN"
+    BINARY = "BINARY"
+
+
+class CommandParameterValueComparisonOperator(StrEnum):
+    EQUALS = "EQUALS"
+    NOT_EQUALS = "NOT_EQUALS"
+    LESS_THAN = "LESS_THAN"
+    LESS_THAN_EQUALS = "LESS_THAN_EQUALS"
+    GREATER_THAN = "GREATER_THAN"
+    GREATER_THAN_EQUALS = "GREATER_THAN_EQUALS"
+    IN_SET = "IN_SET"
+    NOT_IN_SET = "NOT_IN_SET"
+    IN_RANGE = "IN_RANGE"
+    NOT_IN_RANGE = "NOT_IN_RANGE"
 
 
 class ComparisonOperator(StrEnum):
@@ -868,6 +899,11 @@ class OTAUpdateStatus(StrEnum):
     CREATE_FAILED = "CREATE_FAILED"
     DELETE_IN_PROGRESS = "DELETE_IN_PROGRESS"
     DELETE_FAILED = "DELETE_FAILED"
+
+
+class OutputFormat(StrEnum):
+    JSON = "JSON"
+    CBOR = "CBOR"
 
 
 class PackageVersionAction(StrEnum):
@@ -1384,6 +1420,14 @@ class KafkaAction(TypedDict, total=False):
     headers: KafkaHeaders | None
 
 
+class BatchConfig(TypedDict, total=False):
+    """Configuration settings for batching."""
+
+    maxBatchOpenMs: MaxBatchOpenMs | None
+    maxBatchSize: MaxBatchSize | None
+    maxBatchSizeBytes: MaxBatchSizeBytes | None
+
+
 class SigV4Authorization(TypedDict, total=False):
     """For more information, see `Signature Version 4 signing
     process <https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html>`__.
@@ -1417,6 +1461,8 @@ class HttpAction(TypedDict, total=False):
     confirmationUrl: Url | None
     headers: HeaderList | None
     auth: HttpAuthorization | None
+    enableBatching: EnableBatching | None
+    batchConfig: BatchConfig | None
 
 
 class TimestreamTimestamp(TypedDict, total=False):
@@ -2372,6 +2418,15 @@ class AwsJobTimeoutConfig(TypedDict, total=False):
     inProgressTimeoutInMinutes: AwsJobTimeoutInProgressTimeoutInMinutes | None
 
 
+class AwsJsonSubstitutionCommandPreprocessorConfig(TypedDict, total=False):
+    """Configures the command to treat the ``payloadTemplate`` as a JSON
+    document for preprocessing. This preprocessor substitutes placeholders
+    with parameter values to generate the command execution request payload.
+    """
+
+    outputFormat: OutputFormat
+
+
 class BehaviorModelTrainingSummary(TypedDict, total=False):
     """The summary of an ML Detect behavior model."""
 
@@ -2665,8 +2720,7 @@ LongParameterValue = int
 
 
 class CommandParameterValue(TypedDict, total=False):
-    """The range of possible values that's used to describe a specific command
-    parameter.
+    """The value of a command parameter used to create a command execution.
 
     The ``commandParameterValue`` can only have one of the below fields
     listed.
@@ -2717,12 +2771,48 @@ CommandExecutionSummaryList = list[CommandExecutionSummary]
 CommandExecutionTimeoutInSeconds = int
 
 
-class CommandParameter(TypedDict, total=False):
-    """A map of key-value pairs that describe the command."""
+class CommandParameterValueNumberRange(TypedDict, total=False):
+    """The numerical range value type to compare a command parameter value
+    against.
+    """
 
+    min: StringParameterValue
+    max: StringParameterValue
+
+
+CommandParameterValueStringList = list[StringParameterValue]
+
+
+class CommandParameterValueComparisonOperand(TypedDict, total=False):
+    """The comparison operand used to compare the defined value against the
+    value supplied in request.
+    """
+
+    number: StringParameterValue | None
+    numbers: CommandParameterValueStringList | None
+    string: StringParameterValue | None
+    strings: CommandParameterValueStringList | None
+    numberRange: CommandParameterValueNumberRange | None
+
+
+class CommandParameterValueCondition(TypedDict, total=False):
+    """A condition for the command parameter that must be evaluated to true for
+    successful creation of a command execution.
+    """
+
+    comparisonOperator: CommandParameterValueComparisonOperator
+    operand: CommandParameterValueComparisonOperand
+
+
+CommandParameterValueConditionList = list[CommandParameterValueCondition]
+
+
+class CommandParameter(TypedDict, total=False):
     name: CommandParameterName
+    type: CommandParameterType | None
     value: CommandParameterValue | None
     defaultValue: CommandParameterValue | None
+    valueConditions: CommandParameterValueConditionList | None
     description: CommandParameterDescription | None
 
 
@@ -2737,6 +2827,15 @@ class CommandPayload(TypedDict, total=False):
 
     content: CommandPayloadBlob | None
     contentType: MimeType | None
+
+
+class CommandPreprocessor(TypedDict, total=False):
+    """Configuration that determines how the ``payloadTemplate`` is processed
+    by the service to generate the final payload sent to devices at
+    ``StartCommandExecution`` API invocation.
+    """
+
+    awsJsonSubstitution: AwsJsonSubstitutionCommandPreprocessorConfig | None
 
 
 class CommandSummary(TypedDict, total=False):
@@ -2762,8 +2861,7 @@ class Configuration(TypedDict, total=False):
 
 class ConfigurationDetails(TypedDict, total=False):
     """The encryption configuration details that include the status information
-    of the Amazon Web Services Key Management Service (KMS) key and the KMS
-    access role.
+    of the Key Management Service (KMS) key and the KMS access role.
     """
 
     configurationStatus: ConfigurationStatus | None
@@ -2867,6 +2965,8 @@ class CreateCommandRequest(ServiceRequest):
     displayName: DisplayName | None
     description: CommandDescription | None
     payload: CommandPayload | None
+    payloadTemplate: CommandPayloadTemplateString | None
+    preprocessor: CommandPreprocessor | None
     mandatoryParameters: CommandParameterList | None
     roleArn: RoleArn | None
     tags: TagList | None
@@ -4912,6 +5012,8 @@ class GetCommandResponse(TypedDict, total=False):
     description: CommandDescription | None
     mandatoryParameters: CommandParameterList | None
     payload: CommandPayload | None
+    payloadTemplate: CommandPayloadTemplateString | None
+    preprocessor: CommandPreprocessor | None
     roleArn: RoleArn | None
     createdAt: DateType | None
     lastUpdatedAt: DateType | None
@@ -5243,13 +5345,28 @@ class GetTopicRuleResponse(TypedDict, total=False):
 
 
 class GetV2LoggingOptionsRequest(ServiceRequest):
-    pass
+    verbose: VerboseFlag | None
+
+
+class LogEventConfiguration(TypedDict, total=False):
+    """Configuration for event-based logging that specifies which event types
+    to log and their logging settings. Used for account-level logging
+    overrides.
+    """
+
+    eventType: LogEventType
+    logLevel: LogLevel | None
+    logDestination: LogDestination | None
+
+
+LogEventConfigurations = list[LogEventConfiguration]
 
 
 class GetV2LoggingOptionsResponse(TypedDict, total=False):
     roleArn: AwsArn | None
     defaultLogLevel: LogLevel | None
     disableAllLogs: DisableAllLogs | None
+    eventConfigurations: LogEventConfigurations | None
 
 
 HttpHeaders = dict[HttpHeaderName, HttpHeaderValue]
@@ -6718,6 +6835,7 @@ class SetV2LoggingOptionsRequest(ServiceRequest):
     roleArn: AwsArn | None
     defaultLogLevel: LogLevel | None
     disableAllLogs: DisableAllLogs | None
+    eventConfigurations: LogEventConfigurations | None
 
 
 class StartAuditMitigationActionsTaskRequest(ServiceRequest):
@@ -7951,6 +8069,8 @@ class IotApi:
         display_name: DisplayName | None = None,
         description: CommandDescription | None = None,
         payload: CommandPayload | None = None,
+        payload_template: CommandPayloadTemplateString | None = None,
+        preprocessor: CommandPreprocessor | None = None,
         mandatory_parameters: CommandParameterList | None = None,
         role_arn: RoleArn | None = None,
         tags: TagList | None = None,
@@ -7963,9 +8083,12 @@ class IotApi:
         :param namespace: The namespace of the command.
         :param display_name: The user-friendly name in the console for the command.
         :param description: A short text decription of the command.
-        :param payload: The payload object for the command.
-        :param mandatory_parameters: A list of parameters that are required by the ``StartCommandExecution``
-        API.
+        :param payload: The payload object for the static command.
+        :param payload_template: The payload template for the dynamic command.
+        :param preprocessor: Configuration that determines how ``payloadTemplate`` is processed to
+        generate command execution payload.
+        :param mandatory_parameters: A list of parameters that are used by ``StartCommandExecution`` API for
+        execution payload generation.
         :param role_arn: The IAM role that you must provide when using the ``AWS-IoT-FleetWise``
         namespace.
         :param tags: Name-value pairs that are used as metadata to manage a command.
@@ -10135,9 +10258,9 @@ class IotApi:
     ) -> DescribeEncryptionConfigurationResponse:
         """Retrieves the encryption configuration for resources and data of your
         Amazon Web Services account in Amazon Web Services IoT Core. For more
-        information, see `Key management in
-        IoT <https://docs.aws.amazon.com/iot/latest/developerguide/key-management.html>`__
-        from the *Amazon Web Services IoT Core Developer Guide*.
+        information, see `Data encryption at
+        rest <https://docs.aws.amazon.com/iot/latest/developerguide/encryption-at-rest.html>`__
+        in the *Amazon Web Services IoT Core Developer Guide*.
 
         :returns: DescribeEncryptionConfigurationResponse
         :raises InvalidRequestException:
@@ -11228,7 +11351,7 @@ class IotApi:
 
     @handler("GetV2LoggingOptions")
     def get_v2_logging_options(
-        self, context: RequestContext, **kwargs
+        self, context: RequestContext, verbose: VerboseFlag | None = None, **kwargs
     ) -> GetV2LoggingOptionsResponse:
         """Gets the fine grained logging options.
 
@@ -11236,6 +11359,8 @@ class IotApi:
         `GetV2LoggingOptions <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
+        :param verbose: The flag is used to get all the event types and their respective
+        configuration that event-based logging supports.
         :returns: GetV2LoggingOptionsResponse
         :raises InternalException:
         :raises NotConfiguredException:
@@ -13647,6 +13772,7 @@ class IotApi:
         role_arn: AwsArn | None = None,
         default_log_level: LogLevel | None = None,
         disable_all_logs: DisableAllLogs | None = None,
+        event_configurations: LogEventConfigurations | None = None,
         **kwargs,
     ) -> None:
         """Sets the logging options for the V2 logging service.
@@ -13658,6 +13784,7 @@ class IotApi:
         :param role_arn: The ARN of the role that allows IoT to write to Cloudwatch logs.
         :param default_log_level: The default logging level.
         :param disable_all_logs: If true all logs are disabled.
+        :param event_configurations: The list of event configurations that override account-level logging.
         :raises InternalException:
         :raises InvalidRequestException:
         :raises ServiceUnavailableException:
@@ -13913,10 +14040,10 @@ class IotApi:
         `TransferCertificate <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`__
         action.
 
-        You can cancel the transfer until it is acknowledged by the recipient.
+        You can cancel the transfer until it is accepted by the recipient.
 
-        No notification is sent to the transfer destination's account. It's up
-        to the caller to notify the transfer target.
+        No notification is sent to the transfer destination's account. The
+        caller is responsible for notifying the transfer target.
 
         The certificate being transferred must not be in the ``ACTIVE`` state.
         You can use the UpdateCertificate action to deactivate it.
@@ -13925,23 +14052,24 @@ class IotApi:
         the DetachPolicy action to detach them.
 
         **Customer managed key behavior:** When you use a customer managed key
-        to secure your data and then transfer the key to a customer in a
-        different account using the TransferCertificate operation, the
-        certificates will no longer be protected by their customer managed key
+        to encrypt your data and then transfer the certificate to a customer in
+        a different account using the ``TransferCertificate`` operation, the
+        certificates will no longer be encrypted by their customer managed key
         configuration. During the transfer process, certificates are encrypted
-        using IoT owned keys.
+        using Amazon Web Services IoT Core owned keys.
 
         While a certificate is in the **PENDING_TRANSFER** state, it's always
-        protected by IoT owned keys, regardless of the customer managed key
-        configuration of either the source or destination account.
+        protected by Amazon Web Services IoT Core owned keys, regardless of the
+        customer managed key configuration of either the source or destination
+        account.
 
         Once the transfer is completed through AcceptCertificateTransfer,
         RejectCertificateTransfer, or CancelCertificateTransfer, the certificate
         will be protected by the customer managed key configuration of the
         account that owns the certificate after the transfer operation:
 
-        -  If the transfer is accepted: The certificate is protected by the
-           destination account's customer managed key configuration.
+        -  If the transfer is accepted: The certificate is encrypted by the
+           target account's customer managed key configuration.
 
         -  If the transfer is rejected or cancelled: The certificate is
            protected by the source account's customer managed key configuration.
@@ -14358,18 +14486,21 @@ class IotApi:
         kms_access_role_arn: KmsAccessRoleArn | None = None,
         **kwargs,
     ) -> UpdateEncryptionConfigurationResponse:
-        """Updates the encryption configuration. By default, all Amazon Web
-        Services IoT Core data at rest is encrypted using Amazon Web Services
-        owned keys. Amazon Web Services IoT Core also supports symmetric
-        customer managed keys from Amazon Web Services Key Management Service
-        (KMS). With customer managed keys, you create, own, and manage the KMS
-        keys in your Amazon Web Services account. For more information, see
-        `Data
-        encryption <https://docs.aws.amazon.com/iot/latest/developerguide/data-encryption.html>`__
+        """Updates the encryption configuration. By default, Amazon Web Services
+        IoT Core encrypts your data at rest using Amazon Web Services owned
+        keys. Amazon Web Services IoT Core also supports symmetric customer
+        managed keys from Key Management Service (KMS). With customer managed
+        keys, you create, own, and manage the KMS keys in your Amazon Web
+        Services account.
+
+        Before using this API, you must set up permissions for Amazon Web
+        Services IoT Core to access KMS. For more information, see `Data
+        encryption at
+        rest <https://docs.aws.amazon.com/iot/latest/developerguide/encryption-at-rest.html>`__
         in the *Amazon Web Services IoT Core Developer Guide*.
 
-        :param encryption_type: The type of the Amazon Web Services Key Management Service (KMS) key.
-        :param kms_key_arn: The ARN of the customer-managed KMS key.
+        :param encryption_type: The type of the KMS key.
+        :param kms_key_arn: The ARN of the customer managedKMS key.
         :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by Amazon Web
         Services IoT Core to call KMS on behalf of the customer.
         :returns: UpdateEncryptionConfigurationResponse

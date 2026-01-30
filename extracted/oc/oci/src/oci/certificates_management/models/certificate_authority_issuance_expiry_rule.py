@@ -24,7 +24,7 @@ class CertificateAuthorityIssuanceExpiryRule(CertificateAuthorityRule):
 
         :param rule_type:
             The value to assign to the rule_type property of this CertificateAuthorityIssuanceExpiryRule.
-            Allowed values for this property are: "CERTIFICATE_AUTHORITY_ISSUANCE_EXPIRY_RULE"
+            Allowed values for this property are: "CERTIFICATE_AUTHORITY_ISSUANCE_EXPIRY_RULE", "CERTIFICATE_AUTHORITY_ISSUANCE_RULE"
         :type rule_type: str
 
         :param leaf_certificate_max_validity_duration:

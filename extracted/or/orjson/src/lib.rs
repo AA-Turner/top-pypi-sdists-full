@@ -1,57 +1,26 @@
-// SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2018-2025)
+// SPDX-License-Identifier: MPL-2.0
+// Copyright ijl (2018-2026)
 
 #![cfg_attr(feature = "optimize", feature(optimize_attribute))]
 #![cfg_attr(feature = "generic_simd", feature(portable_simd))]
 #![cfg_attr(feature = "cold_path", feature(cold_path))]
 #![allow(non_camel_case_types)]
-#![allow(stable_features)] // MSRV
 #![allow(static_mut_refs)]
-#![allow(unknown_lints)] // internal_features
 #![allow(unused_unsafe)]
 #![warn(clippy::correctness)]
 #![warn(clippy::suspicious)]
 #![warn(clippy::complexity)]
 #![warn(clippy::perf)]
 #![warn(clippy::style)]
-#![allow(clippy::absolute_paths)]
-#![allow(clippy::allow_attributes)]
-#![allow(clippy::allow_attributes_without_reason)]
-#![allow(clippy::arbitrary_source_item_ordering)]
-#![allow(clippy::arithmetic_side_effects)]
-#![allow(clippy::decimal_literal_representation)]
-#![allow(clippy::default_numeric_fallback)]
-#![allow(clippy::doc_markdown)]
-#![allow(clippy::enum_variant_names)]
-#![allow(clippy::explicit_iter_loop)]
-#![allow(clippy::host_endian_bytes)]
-#![allow(clippy::if_not_else)]
-#![allow(clippy::implicit_return)]
-#![allow(clippy::incompatible_msrv)] // MSRV 1.89
 #![allow(clippy::inline_always)]
-#![allow(clippy::let_underscore_untyped)]
-#![allow(clippy::missing_assert_message)]
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(clippy::missing_inline_in_public_items)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::missing_safety_doc)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::multiple_unsafe_ops_per_block)]
-#![allow(clippy::needless_lifetimes)]
-#![allow(clippy::question_mark_used)]
-#![allow(clippy::redundant_else)]
+#![allow(clippy::explicit_iter_loop)]
 #![allow(clippy::redundant_field_names)]
-#![allow(clippy::renamed_function_params)]
-#![allow(clippy::semicolon_outside_block)]
-#![allow(clippy::single_call_fn)]
-#![allow(clippy::undocumented_unsafe_blocks)]
-#![allow(clippy::unreachable)]
-#![allow(clippy::unreadable_literal)]
-#![allow(clippy::unusual_byte_groupings)]
-#![allow(clippy::unwrap_in_result)]
-#![allow(clippy::unwrap_used)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::zero_prefixed_literal)]
+#![warn(clippy::borrow_as_ptr)]
+#![warn(clippy::cast_possible_wrap)]
+#![warn(clippy::cast_ptr_alignment)]
+#![warn(clippy::cast_sign_loss)]
 #![warn(clippy::elidable_lifetime_names)]
 #![warn(clippy::ptr_arg)]
 #![warn(clippy::ptr_as_ptr)]
@@ -81,7 +50,6 @@ mod exception;
 mod ffi;
 mod opt;
 mod serialize;
-mod str;
 mod typeref;
 
 use core::ffi::{c_char, c_int, c_void};
@@ -92,9 +60,9 @@ use crate::exception::{
     raise_dumps_exception_dynamic, raise_dumps_exception_fixed, raise_loads_exception,
 };
 use crate::ffi::{
-    METH_KEYWORDS, METH_O, Py_SIZE, Py_ssize_t, PyCFunction_NewEx, PyLong_AsLong, PyMethodDef,
-    PyMethodDefPointer, PyModuleDef, PyModuleDef_HEAD_INIT, PyModuleDef_Slot, PyObject,
-    PyUnicode_FromStringAndSize, PyUnicode_InternFromString, PyVectorcall_NARGS,
+    METH_KEYWORDS, METH_O, Py_SIZE, Py_ssize_t, PyCFunction_NewEx, PyIntRef, PyMethodDef,
+    PyMethodDefPointer, PyModuleDef, PyModuleDef_HEAD_INIT, PyModuleDef_Slot, PyNoneRef, PyObject,
+    PyTupleRef, PyUnicode_FromStringAndSize, PyUnicode_InternFromString, PyVectorcall_NARGS,
 };
 use crate::serialize::serialize;
 use crate::util::{isize_to_usize, usize_to_isize};
@@ -106,17 +74,10 @@ macro_rules! add {
     };
 }
 
-#[cfg(all(Py_3_10, not(Py_3_13)))]
+#[cfg(not(Py_3_13))]
 macro_rules! add {
     ($mptr:expr, $name:expr, $obj:expr) => {
         crate::ffi::PyModule_AddObjectRef($mptr, $name.as_ptr(), $obj);
-    };
-}
-
-#[cfg(not(Py_3_10))]
-macro_rules! add {
-    ($mptr:expr, $name:expr, $obj:expr) => {
-        crate::ffi::PyModule_AddObject($mptr, $name.as_ptr(), $obj);
     };
 }
 
@@ -134,7 +95,6 @@ macro_rules! opt {
 #[allow(non_snake_case)]
 #[unsafe(no_mangle)]
 #[cold]
-#[cfg_attr(not(Py_3_10), allow(deprecated))] // _PyCFunctionFastWithKeywords
 #[cfg_attr(feature = "optimize", optimize(size))]
 pub(crate) unsafe extern "C" fn orjson_init_exec(mptr: *mut PyObject) -> c_int {
     unsafe {
@@ -155,10 +115,7 @@ pub(crate) unsafe extern "C" fn orjson_init_exec(mptr: *mut PyObject) -> c_int {
             let wrapped_dumps = Box::new(PyMethodDef {
                 ml_name: c"dumps".as_ptr(),
                 ml_meth: PyMethodDefPointer {
-                    #[cfg(Py_3_10)]
                     PyCFunctionFastWithKeywords: dumps,
-                    #[cfg(not(Py_3_10))]
-                    _PyCFunctionFastWithKeywords: dumps,
                 },
                 ml_flags: crate::ffi::METH_FASTCALL | METH_KEYWORDS,
                 ml_doc: dumps_doc.as_ptr(),
@@ -313,8 +270,9 @@ pub(crate) unsafe extern "C" fn dumps(
         }
         if !kwnames.is_null() {
             cold_path!();
+            let kwob = PyTupleRef::from_ptr_unchecked(kwnames);
             for i in 0..=Py_SIZE(kwnames).saturating_sub(1) {
-                let arg = crate::ffi::PyTuple_GET_ITEM(kwnames, i as Py_ssize_t);
+                let arg = kwob.get(i.cast_unsigned());
                 if matches_kwarg!(arg, typeref::OPTION) {
                     if num_args & 3 == 3 {
                         cold_path!();
@@ -339,25 +297,26 @@ pub(crate) unsafe extern "C" fn dumps(
             }
         }
 
-        let mut optsbits: i32 = 0;
-        if let Some(opts) = optsptr {
+        let mut opts = 0 as opt::Opt;
+        if let Some(tmp) = optsptr {
             cold_path!();
-            if core::ptr::eq((*opts.as_ptr()).ob_type, typeref::INT_TYPE) {
-                #[allow(clippy::cast_possible_truncation)]
-                let tmp = PyLong_AsLong(optsptr.unwrap().as_ptr()) as i32; // stmt_expr_attributes
-                optsbits = tmp;
-                if !(0..=opt::MAX_OPT).contains(&optsbits) {
-                    cold_path!();
-                    return raise_dumps_exception_fixed("Invalid opts");
+            match PyIntRef::from_ptr(tmp.as_ptr()) {
+                Ok(val) => match val.as_opt() {
+                    Ok(opt) => {
+                        opts = opt;
+                    }
+                    Err(_) => {
+                        return raise_dumps_exception_fixed("Invalid opts");
+                    }
+                },
+                Err(_) => {
+                    if !core::ptr::eq(tmp.as_ptr(), PyNoneRef::none().as_ptr()) {
+                        cold_path!();
+                        return raise_dumps_exception_fixed("Invalid opts");
+                    }
                 }
-            } else if !core::ptr::eq(opts.as_ptr(), typeref::NONE) {
-                cold_path!();
-                return raise_dumps_exception_fixed("Invalid opts");
             }
         }
-
-        #[allow(clippy::cast_sign_loss)]
-        let opts = optsbits as opt::Opt;
 
         serialize(*args, default, opts).map_or_else(
             |err| raise_dumps_exception_dynamic(err.as_str()),

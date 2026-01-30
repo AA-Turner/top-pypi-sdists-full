@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyboy
-Version: 2.6.1
+Version: 2.7.0
 Summary: Game Boy emulator written in Python
 Author-email: Mads Ynddal <mads@ynddal.dk>
 License-Expression: LGPL-3.0-only
@@ -21,13 +21,15 @@ Requires-Dist: pysdl2
 Requires-Dist: pysdl2-dll
 Provides-Extra: all
 Requires-Dist: pyopengl; extra == "all"
+Requires-Dist: glfw; extra == "all"
+Requires-Dist: PyOpenAL; extra == "all"
 Requires-Dist: markdown; extra == "all"
 Requires-Dist: pdoc3; extra == "all"
 Requires-Dist: gym; extra == "all"
 Dynamic: license-file
 
 <p align="center">
-<img src="extras/README/pyboy.svg" width="480">
+<img src="extras/README/pyboy10.svg" width="800">
 </p>
 
 __If you have any questions, or just want to chat, [join us on Discord](https://discord.gg/wUbag3KNqQ).__

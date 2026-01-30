@@ -1,5 +1,7 @@
 import warnings
 import importlib
+import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -14,7 +16,15 @@ __version__ = "0.1.0"
 
 _lazy_imports = {}
 
-load_dotenv()
+# Load .env file from current working directory (where user runs their script)
+# This ensures .env is found even when package is installed in site-packages
+cwd = Path(os.getcwd())
+env_path = cwd / ".env"
+if env_path.exists():
+    load_dotenv(env_path, override=False)
+else:
+    # Fallback: search from current directory upwards (default behavior)
+    load_dotenv(override=False)
 
 def _lazy_import(module_name: str, class_name: str = None):
     """Lazy import function to defer heavy imports until actually needed."""
@@ -68,6 +78,12 @@ def _get_Chat():
 def _get_Direct():
     return _lazy_import("upsonic.direct", "Direct")()
 
+def _get_Simulation():
+    return _lazy_import("upsonic.simulation.simulation", "Simulation")()
+
+def _get_RalphLoop():
+    return _lazy_import("upsonic.ralph.loop", "RalphLoop")()
+
 def hello() -> str:
     return "Hello from upsonic!"
 
@@ -93,6 +109,10 @@ def __getattr__(name: str) -> Any:
         return _get_Chat()
     elif name == "Direct":
         return _get_Direct()
+    elif name == "Simulation":
+        return _get_Simulation()
+    elif name == "RalphLoop":
+        return _get_RalphLoop()
     
     # All other imports must come from sub-modules
     raise AttributeError(
@@ -110,4 +130,6 @@ __all__ = [
     "Team",
     "Chat",
     "Direct",
+    "Simulation",
+    "RalphLoop",
 ]

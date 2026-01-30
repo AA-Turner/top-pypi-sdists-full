@@ -1,6 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, DefaultDict, Dict, List, Optional, Union
+import warnings
 
 from anyscale._private.models import ModelBase, ModelEnum
 
@@ -125,6 +126,38 @@ def _parse_memory_string(memory_str: Union[str, int]) -> int:
         return int(parse_quantity(memory_str))
     except (ValueError, ImportError, AttributeError) as e:
         raise ValueError(f"Invalid memory format: {memory_str}. Error: {e}") from e
+
+
+def _format_bytes_to_memory_string(memory_bytes: Union[int, str]) -> str:
+    """Convert memory in bytes to human-readable string format (e.g., '8Gi').
+
+    Args:
+        memory_bytes: Memory value in bytes (int) or already formatted string.
+
+    Returns:
+        Memory as human-readable string (e.g., '8Gi', '512Mi').
+    """
+    if isinstance(memory_bytes, str):
+        return memory_bytes
+
+    if not isinstance(memory_bytes, int):
+        return str(memory_bytes)
+
+    # Use GiB if it's a clean multiple, otherwise use MiB or bytes
+    gib = 1024 * 1024 * 1024
+    mib = 1024 * 1024
+
+    # GiB format (clean multiple or with decimal)
+    if memory_bytes >= gib:
+        if memory_bytes % gib == 0:
+            return f"{memory_bytes // gib}Gi"
+        return f"{memory_bytes / gib:.1f}Gi".rstrip("0").rstrip(".")
+
+    # MiB format
+    if memory_bytes >= mib:
+        return f"{memory_bytes // mib}Mi"
+
+    return str(memory_bytes)
 
 
 @dataclass(frozen=True)
@@ -252,36 +285,83 @@ required_resources:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "PhysicalResources":
-        """Create PhysicalResources from dict, handling case variations."""
-        # Normalize keys: accept both 'Memory' and 'memory'
+        """Create PhysicalResources from dict, handling case variations.
+
+        Handles conversions from API model (lowercase) to user model (mixed case):
+        - cpu -> CPU
+        - gpu -> GPU
+        - tpu -> TPU
+        - Memory -> memory
+        - anyscale_tpu_hosts -> tpu_hosts
+
+        Also converts memory from bytes (int) to human-readable format (e.g., '8Gi').
+        """
+        # Key mapping from API model (lowercase) to user model (mixed case)
+        key_mapping = {
+            "cpu": "CPU",
+            "gpu": "GPU",
+            "tpu": "TPU",
+            "Memory": "memory",
+            "anyscale_tpu_hosts": "tpu_hosts",
+        }
+
         normalized = {}
         for k, v in d.items():
-            if k == "Memory":
-                normalized["memory"] = v
-            else:
-                normalized[k] = v
+            # Skip None values
+            if v is None:
+                continue
+            # Map to expected key name, or keep original if not in mapping
+            normalized_key = key_mapping.get(k, k)
+            # Convert memory from bytes to human-readable format
+            normalized_value = (
+                _format_bytes_to_memory_string(v)
+                if normalized_key == "memory" and isinstance(v, int)
+                else v
+            )
+            normalized[normalized_key] = normalized_value
+
         return cls(**normalized)
 
-    def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
-        """Convert to dictionary with memory as bytes."""
+    def to_dict(
+        self, *, exclude_none: bool = True, for_api: bool = False
+    ) -> Dict[str, Any]:
+        """Convert to dictionary.
+
+        Args:
+            exclude_none: If True, exclude keys with None values.
+            for_api: If True, use lowercase keys (cpu, gpu, tpu) and convert memory to bytes.
+                     If False, use uppercase keys (CPU, GPU, TPU) and keep memory human-readable.
+        """
         result: Dict[str, Any] = {}
 
+        # Key names based on output format
+        cpu_key = "cpu" if for_api else "CPU"
+        gpu_key = "gpu" if for_api else "GPU"
+        tpu_key = "tpu" if for_api else "TPU"
+
         if self.CPU is not None or not exclude_none:
-            result["cpu"] = self.CPU
+            result[cpu_key] = self.CPU
 
         if self.memory is not None:
-            result["memory"] = _parse_memory_string(self.memory)
+            if for_api:
+                # Convert to bytes for API
+                result["memory"] = _parse_memory_string(self.memory)
+            # Keep human-readable format for user output
+            elif isinstance(self.memory, str):
+                result["memory"] = self.memory
+            else:
+                result["memory"] = _format_bytes_to_memory_string(self.memory)
         elif not exclude_none:
             result["memory"] = None
 
         if self.GPU is not None or not exclude_none:
-            result["gpu"] = self.GPU
+            result[gpu_key] = self.GPU
 
         if self.accelerator is not None or not exclude_none:
             result["accelerator"] = self.accelerator
 
         if self.TPU is not None or not exclude_none:
-            result["tpu"] = self.TPU
+            result[tpu_key] = self.TPU
 
         if self.tpu_hosts is not None or not exclude_none:
             result["tpu_hosts"] = self.tpu_hosts
@@ -429,6 +509,20 @@ class _NodeConfig(ModelBase):
             raise TypeError("'instance_type' must be a string.")
         return instance_type
 
+    def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
+        """Convert to dictionary, excluding 'instance_type: custom' for free pod shapes."""
+        result = super().to_dict(exclude_none=exclude_none)
+
+        # Remove instance_type if it's "custom" and required_resources is present
+        # This makes the output cleaner for free pod shapes
+        if (
+            result.get("instance_type") == "custom"
+            and result.get("required_resources") is not None
+        ):
+            del result["instance_type"]
+
+        return result
+
     resources: Optional[ResourceDict] = field(
         default=None,
         repr=False,
@@ -483,6 +577,126 @@ class _NodeConfig(ModelBase):
 
     def _validate_required_labels(self, required_labels: Optional[LabelDict]):
         _validate_label_dict(required_labels)
+        # Cross-field validation: if accelerator-type is a GPU, GPU must be specified
+        self._validate_gpu_accelerator_consistency(required_labels)
+        # Cross-field validation: if accelerator-type is a TPU, TPU fields must be specified
+        self._validate_tpu_accelerator_consistency(required_labels)
+
+    def _validate_gpu_accelerator_consistency(
+        self, required_labels: Optional[LabelDict]
+    ):
+        """Validate that GPU count is specified when a non-TPU accelerator type is requested.
+
+        If ray.io/accelerator-type is specified and it's not a TPU type,
+        then GPU must be specified in required_resources.
+        """
+        if required_labels is None:
+            return
+
+        accelerator_type = required_labels.get(RAY_TPU_ACCELERATOR_LABEL)
+        if not accelerator_type:
+            return
+
+        # Skip if it's a TPU type (TPU validation is handled separately)
+        if accelerator_type.upper().startswith("TPU"):
+            return
+
+        # Non-TPU accelerator type specified - assume it's a GPU and require GPU count
+        # GPU accelerator type is specified, check if GPU count is provided
+        if self.required_resources is None:
+            raise ValueError(
+                f"When specifying an accelerator type '{accelerator_type}' in "
+                f"'required_labels', you must also specify 'GPU' count in 'required_resources'.\n"
+                f"Example:\n"
+                f"  required_resources:\n"
+                f"    CPU: 7\n"
+                f"    memory: 12Gi\n"
+                f"    GPU: 1  # Required when using accelerator type\n"
+                f"  required_labels:\n"
+                f"    ray.io/accelerator-type: {accelerator_type}"
+            )
+
+        pr = self.required_resources
+        gpu_count = (
+            pr.get("GPU") or pr.get("gpu") or 0 if isinstance(pr, dict) else pr.GPU or 0
+        )
+
+        if not gpu_count or gpu_count <= 0:
+            raise ValueError(
+                f"When specifying an accelerator type '{accelerator_type}' in "
+                f"'required_labels', you must also specify 'GPU' count in 'required_resources'.\n"
+                f"Example:\n"
+                f"  required_resources:\n"
+                f"    CPU: 7\n"
+                f"    memory: 12Gi\n"
+                f"    GPU: 1  # Required when using accelerator type\n"
+                f"  required_labels:\n"
+                f"    ray.io/accelerator-type: {accelerator_type}"
+            )
+
+    def _validate_tpu_accelerator_consistency(
+        self, required_labels: Optional[LabelDict]
+    ):
+        """Validate that TPU fields are specified when a TPU accelerator type is requested.
+
+        If ray.io/accelerator-type is a TPU type (starts with "TPU"),
+        then TPU, tpu_hosts, and ray.io/tpu-topology must be specified.
+        """
+        if required_labels is None:
+            return
+
+        accelerator_type = required_labels.get(RAY_TPU_ACCELERATOR_LABEL)
+        if not accelerator_type:
+            return
+
+        # Only validate if it's a TPU type
+        if not accelerator_type.upper().startswith("TPU"):
+            return
+
+        # TPU accelerator type specified - check required fields
+        missing_fields = []
+
+        # Check TPU count in required_resources
+        tpu_count = 0
+        tpu_hosts = 0
+        if self.required_resources is not None:
+            pr = self.required_resources
+            if isinstance(pr, dict):
+                tpu_count = pr.get("TPU") or pr.get("tpu") or 0
+                tpu_hosts = pr.get("tpu_hosts") or 0
+            else:
+                tpu_count = pr.TPU or 0
+                tpu_hosts = pr.tpu_hosts or 0
+
+        if not tpu_count or tpu_count <= 0:
+            missing_fields.append("TPU (in required_resources)")
+
+        if not tpu_hosts or tpu_hosts <= 0:
+            missing_fields.append("tpu_hosts (in required_resources)")
+
+        # Check ray.io/tpu-topology in required_labels or labels
+        has_topology = RAY_TPU_TOPOLOGY_LABEL in required_labels
+        if not has_topology and self.labels:
+            has_topology = RAY_TPU_TOPOLOGY_LABEL in self.labels
+
+        if not has_topology:
+            missing_fields.append("ray.io/tpu-topology (in required_labels)")
+
+        if missing_fields:
+            raise ValueError(
+                f"When specifying a TPU accelerator type '{accelerator_type}' in "
+                f"'required_labels', you must also specify: {', '.join(missing_fields)}.\n"
+                f"Example:\n"
+                f"  required_resources:\n"
+                f"    CPU: 7\n"
+                f"    memory: 12Gi\n"
+                f"    TPU: 4\n"
+                f"    tpu_hosts: 1\n"
+                f"  required_labels:\n"
+                f"    ray.io/accelerator-type: {accelerator_type}\n"
+                f"    ray.io/tpu-topology: 2x2\n"
+                f"For more information, see: {TPU_DOCS_URL}"
+            )
 
     advanced_instance_config: Optional[AdvancedInstanceConfigDict] = field(
         default=None,
@@ -499,6 +713,75 @@ class _NodeConfig(ModelBase):
         _validate_advanced_instance_config_dict(advanced_instance_config)
         # Validate TPU-specific node selectors if TPU is configured
         self._validate_tpu_node_selectors(advanced_instance_config)
+        # Validate accelerator type consistency between required_labels and nodeSelector
+        self._validate_accelerator_consistency(advanced_instance_config)
+
+    def _validate_accelerator_consistency(
+        self, advanced_instance_config: Optional[AdvancedInstanceConfigDict]
+    ):
+        """Validate that accelerator types are consistent between required_labels and nodeSelector.
+
+        If both ray.io/accelerator-type (in required_labels) and cloud.google.com/gke-accelerator
+        (in nodeSelector) are specified, they should refer to the same accelerator type.
+        """
+        if advanced_instance_config is None:
+            return
+
+        # Extract nodeSelector from advanced_instance_config
+        spec = advanced_instance_config.get("spec", {})
+        if not isinstance(spec, dict):
+            return
+        node_selectors = spec.get("nodeSelector", {})
+        if not node_selectors:
+            return
+
+        # Get cloud.google.com/gke-accelerator from nodeSelector
+        gke_accelerator = node_selectors.get("cloud.google.com/gke-accelerator")
+        if not gke_accelerator:
+            return
+
+        # Get ray.io/accelerator-type from required_labels or labels
+        ray_accelerator = None
+        if self.required_labels and RAY_TPU_ACCELERATOR_LABEL in self.required_labels:
+            ray_accelerator = self.required_labels[RAY_TPU_ACCELERATOR_LABEL]
+        elif self.labels and RAY_TPU_ACCELERATOR_LABEL in self.labels:
+            ray_accelerator = self.labels[RAY_TPU_ACCELERATOR_LABEL]
+
+        if not ray_accelerator:
+            return
+
+        # Both are specified - check for consistency
+        # Normalize gke-accelerator by removing common prefixes and extracting GPU identifier
+        # e.g., "nvidia-tesla-t4" -> "t4", "nvidia-a100-80gb" -> "a100"
+        gke_normalized = gke_accelerator.lower()
+        for prefix in ["nvidia-", "tesla-", "geforce-", "quadro-"]:
+            gke_normalized = gke_normalized.replace(prefix, "")
+        # Remove common suffixes like "-80gb", "-40gb", "-sxm", "-pcie"
+        for suffix in ["-80gb", "-40gb", "-sxm4", "-sxm", "-pcie", "-nvlink"]:
+            gke_normalized = gke_normalized.replace(suffix, "")
+        gke_normalized = gke_normalized.strip("-").replace("-", "").replace("_", "")
+
+        # Normalize ray accelerator type
+        ray_normalized = ray_accelerator.lower().replace("-", "").replace("_", "")
+
+        # Check if there's any overlap - the normalized values should match or one should contain the other
+        # This handles cases like:
+        #   - ray: "T4" vs gke: "nvidia-tesla-t4" -> both normalize to contain "t4"
+        #   - ray: "A100" vs gke: "nvidia-a100-80gb" -> both normalize to contain "a100"
+        is_consistent = (
+            gke_normalized in ray_normalized
+            or ray_normalized in gke_normalized
+            or gke_normalized == ray_normalized
+        )
+
+        if not is_consistent:
+            warnings.warn(
+                f"Potentially inconsistent accelerator types: 'ray.io/accelerator-type: {ray_accelerator}' "
+                f"may not match 'cloud.google.com/gke-accelerator: {gke_accelerator}' in nodeSelector. "
+                f"Please ensure both refer to the same GPU type.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _validate_tpu_node_selectors(
         self, advanced_instance_config: Optional[AdvancedInstanceConfigDict]

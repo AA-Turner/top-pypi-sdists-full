@@ -2,7 +2,7 @@
 # pylint: disable=redefined-builtin
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2025
+# Copyright (C) 2015-2026
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 import datetime as dtm
 from collections.abc import Sequence
 from html import escape
-from typing import TYPE_CHECKING, Final, Optional, Union
+from typing import TYPE_CHECKING, Final
 
 from telegram import constants
 from telegram._chatpermissions import ChatPermissions
@@ -37,7 +37,6 @@ from telegram._utils.types import (
     FileInput,
     JSONDict,
     ODVInput,
-    ReplyMarkup,
     TimePeriod,
 )
 from telegram._utils.usernames import get_full_name, get_link
@@ -68,9 +67,11 @@ if TYPE_CHECKING:
         Message,
         MessageEntity,
         MessageId,
+        OwnedGifts,
         PhotoSize,
         ReplyParameters,
         Sticker,
+        Story,
         SuggestedPostParameters,
         UserChatBoosts,
         Venue,
@@ -78,6 +79,7 @@ if TYPE_CHECKING:
         VideoNote,
         Voice,
     )
+    from telegram._utils.types import ReplyMarkup
 
 
 class _ChatBase(TelegramObject):
@@ -101,26 +103,26 @@ class _ChatBase(TelegramObject):
         self,
         id: int,
         type: str,
-        title: Optional[str] = None,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        is_forum: Optional[bool] = None,
-        is_direct_messages: Optional[bool] = None,
+        title: str | None = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        is_forum: bool | None = None,
+        is_direct_messages: bool | None = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(api_kwargs=api_kwargs)
         # Required
         self.id: int = id
         self.type: str = enum.get_member(constants.ChatType, type, type)
         # Optionals
-        self.title: Optional[str] = title
-        self.username: Optional[str] = username
-        self.first_name: Optional[str] = first_name
-        self.last_name: Optional[str] = last_name
-        self.is_forum: Optional[bool] = is_forum
-        self.is_direct_messages: Optional[bool] = is_direct_messages
+        self.title: str | None = title
+        self.username: str | None = username
+        self.first_name: str | None = first_name
+        self.last_name: str | None = last_name
+        self.is_forum: bool | None = is_forum
+        self.is_direct_messages: bool | None = is_direct_messages
 
         self._id_attrs = (self.id,)
 
@@ -141,7 +143,7 @@ class _ChatBase(TelegramObject):
     """:const:`telegram.constants.ChatType.CHANNEL`"""
 
     @property
-    def effective_name(self) -> Optional[str]:
+    def effective_name(self) -> str | None:
         """
         :obj:`str`: Convenience property. Gives :attr:`~Chat.title` if not :obj:`None`,
         else :attr:`~Chat.full_name` if not :obj:`None`.
@@ -155,7 +157,7 @@ class _ChatBase(TelegramObject):
         return None
 
     @property
-    def full_name(self) -> Optional[str]:
+    def full_name(self) -> str | None:
         """
         :obj:`str`: Convenience property. If :attr:`~Chat.first_name` is not :obj:`None`, gives
         :attr:`~Chat.first_name` followed by (if available) :attr:`~Chat.last_name`.
@@ -169,13 +171,13 @@ class _ChatBase(TelegramObject):
         return get_full_name(self)
 
     @property
-    def link(self) -> Optional[str]:
+    def link(self) -> str | None:
         """:obj:`str`: Convenience property. If the chat has a :attr:`~Chat.username`, returns a
         t.me link of the chat.
         """
         return get_link(self)
 
-    def mention_markdown(self, name: Optional[str] = None) -> str:
+    def mention_markdown(self, name: str | None = None) -> str:
         """
         Note:
             :tg-const:`telegram.constants.ParseMode.MARKDOWN` is a legacy mode, retained by
@@ -213,7 +215,7 @@ class _ChatBase(TelegramObject):
             raise TypeError("Can not create a mention to a public chat without title")
         raise TypeError("Can not create a mention to a private group chat")
 
-    def mention_markdown_v2(self, name: Optional[str] = None) -> str:
+    def mention_markdown_v2(self, name: str | None = None) -> str:
         """
         .. versionadded:: 20.0
 
@@ -246,7 +248,7 @@ class _ChatBase(TelegramObject):
             raise TypeError("Can not create a mention to a public chat without title")
         raise TypeError("Can not create a mention to a private group chat")
 
-    def mention_html(self, name: Optional[str] = None) -> str:
+    def mention_html(self, name: str | None = None) -> str:
         """
         .. versionadded:: 20.0
 
@@ -285,7 +287,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -313,7 +315,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["ChatMember", ...]:
         """Shortcut for::
 
@@ -345,7 +347,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> int:
         """Shortcut for::
 
@@ -374,7 +376,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatMember":
         """Shortcut for::
 
@@ -399,14 +401,14 @@ class _ChatBase(TelegramObject):
     async def ban_member(
         self,
         user_id: int,
-        revoke_messages: Optional[bool] = None,
-        until_date: Optional[Union[int, dtm.datetime]] = None,
+        revoke_messages: bool | None = None,
+        until_date: int | dtm.datetime | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -438,7 +440,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -465,13 +467,13 @@ class _ChatBase(TelegramObject):
 
     async def ban_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -506,7 +508,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -533,13 +535,13 @@ class _ChatBase(TelegramObject):
 
     async def unban_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -569,13 +571,13 @@ class _ChatBase(TelegramObject):
     async def unban_member(
         self,
         user_id: int,
-        only_if_banned: Optional[bool] = None,
+        only_if_banned: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -601,28 +603,28 @@ class _ChatBase(TelegramObject):
     async def promote_member(
         self,
         user_id: int,
-        can_change_info: Optional[bool] = None,
-        can_post_messages: Optional[bool] = None,
-        can_edit_messages: Optional[bool] = None,
-        can_delete_messages: Optional[bool] = None,
-        can_invite_users: Optional[bool] = None,
-        can_restrict_members: Optional[bool] = None,
-        can_pin_messages: Optional[bool] = None,
-        can_promote_members: Optional[bool] = None,
-        is_anonymous: Optional[bool] = None,
-        can_manage_chat: Optional[bool] = None,
-        can_manage_video_chats: Optional[bool] = None,
-        can_manage_topics: Optional[bool] = None,
-        can_post_stories: Optional[bool] = None,
-        can_edit_stories: Optional[bool] = None,
-        can_delete_stories: Optional[bool] = None,
-        can_manage_direct_messages: Optional[bool] = None,
+        can_change_info: bool | None = None,
+        can_post_messages: bool | None = None,
+        can_edit_messages: bool | None = None,
+        can_delete_messages: bool | None = None,
+        can_invite_users: bool | None = None,
+        can_restrict_members: bool | None = None,
+        can_pin_messages: bool | None = None,
+        can_promote_members: bool | None = None,
+        is_anonymous: bool | None = None,
+        can_manage_chat: bool | None = None,
+        can_manage_video_chats: bool | None = None,
+        can_manage_topics: bool | None = None,
+        can_post_stories: bool | None = None,
+        can_edit_stories: bool | None = None,
+        can_delete_stories: bool | None = None,
+        can_manage_direct_messages: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -674,14 +676,14 @@ class _ChatBase(TelegramObject):
         self,
         user_id: int,
         permissions: ChatPermissions,
-        until_date: Optional[Union[int, dtm.datetime]] = None,
-        use_independent_chat_permissions: Optional[bool] = None,
+        until_date: int | dtm.datetime | None = None,
+        use_independent_chat_permissions: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -715,13 +717,13 @@ class _ChatBase(TelegramObject):
     async def set_permissions(
         self,
         permissions: ChatPermissions,
-        use_independent_chat_permissions: Optional[bool] = None,
+        use_independent_chat_permissions: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -757,7 +759,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -791,7 +793,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -825,7 +827,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -859,7 +861,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -888,13 +890,13 @@ class _ChatBase(TelegramObject):
 
     async def set_description(
         self,
-        description: Optional[str] = None,
+        description: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -925,13 +927,13 @@ class _ChatBase(TelegramObject):
         self,
         message_id: int,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        business_connection_id: Optional[str] = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -958,14 +960,14 @@ class _ChatBase(TelegramObject):
 
     async def unpin_message(
         self,
-        message_id: Optional[int] = None,
-        business_connection_id: Optional[str] = None,
+        message_id: int | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -996,7 +998,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -1023,26 +1025,26 @@ class _ChatBase(TelegramObject):
         text: str,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        entities: Optional[Sequence["MessageEntity"]] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
+        message_thread_id: int | None = None,
         link_preview_options: ODVInput["LinkPreviewOptions"] = DEFAULT_NONE,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        disable_web_page_preview: Optional[bool] = None,
+        disable_web_page_preview: bool | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1080,6 +1082,44 @@ class _ChatBase(TelegramObject):
             suggested_post_parameters=suggested_post_parameters,
         )
 
+    async def send_message_draft(
+        self,
+        draft_id: int,
+        text: str,
+        message_thread_id: int | None = None,
+        parse_mode: ODVInput[str] = DEFAULT_NONE,
+        entities: Sequence["MessageEntity"] | None = None,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> bool:
+        """Shortcut for::
+
+             await bot.send_message_draft(update.effective_chat.id, *args, **kwargs)
+
+        For the documentation of the arguments, please see :meth:`telegram.Bot.send_message_draft`.
+
+        Returns:
+            :obj:`bool`: On success, :obj:`True` is returned.
+
+        """
+        return await self.get_bot().send_message_draft(
+            chat_id=self.id,
+            draft_id=draft_id,
+            text=text,
+            message_thread_id=message_thread_id,
+            parse_mode=parse_mode,
+            entities=entities,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+
     async def delete_message(
         self,
         message_id: int,
@@ -1088,7 +1128,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -1120,7 +1160,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -1147,27 +1187,27 @@ class _ChatBase(TelegramObject):
     async def send_media_group(
         self,
         media: Sequence[
-            Union["InputMediaAudio", "InputMediaDocument", "InputMediaPhoto", "InputMediaVideo"]
+            "InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo"
         ],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-        caption: Optional[str] = None,
+        api_kwargs: JSONDict | None = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
     ) -> tuple["Message", ...]:
         """Shortcut for::
 
@@ -1206,14 +1246,14 @@ class _ChatBase(TelegramObject):
     async def send_chat_action(
         self,
         action: str,
-        message_thread_id: Optional[int] = None,
-        business_connection_id: Optional[str] = None,
+        message_thread_id: int | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -1242,31 +1282,31 @@ class _ChatBase(TelegramObject):
 
     async def send_photo(
         self,
-        photo: Union[FileInput, "PhotoSize"],
-        caption: Optional[str] = None,
+        photo: "FileInput | PhotoSize",
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1308,29 +1348,29 @@ class _ChatBase(TelegramObject):
 
     async def send_contact(
         self,
-        phone_number: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
+        phone_number: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        vcard: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        vcard: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        contact: Optional["Contact"] = None,
+        contact: "Contact | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1370,33 +1410,33 @@ class _ChatBase(TelegramObject):
 
     async def send_audio(
         self,
-        audio: Union[FileInput, "Audio"],
-        duration: Optional[TimePeriod] = None,
-        performer: Optional[str] = None,
-        title: Optional[str] = None,
-        caption: Optional[str] = None,
+        audio: "FileInput | Audio",
+        duration: TimePeriod | None = None,
+        performer: str | None = None,
+        title: str | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1440,31 +1480,31 @@ class _ChatBase(TelegramObject):
 
     async def send_document(
         self,
-        document: Union[FileInput, "Document"],
-        caption: Optional[str] = None,
+        document: "FileInput | Document",
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        disable_content_type_detection: Optional[bool] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        disable_content_type_detection: bool | None = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1509,18 +1549,18 @@ class _ChatBase(TelegramObject):
         business_connection_id: str,
         checklist: "InputChecklist",
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        message_effect_id: Optional[str] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1555,24 +1595,24 @@ class _ChatBase(TelegramObject):
     async def send_dice(
         self,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        emoji: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        emoji: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1610,21 +1650,21 @@ class _ChatBase(TelegramObject):
         self,
         game_short_name: str,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1663,39 +1703,39 @@ class _ChatBase(TelegramObject):
         payload: str,
         currency: str,
         prices: Sequence["LabeledPrice"],
-        provider_token: Optional[str] = None,
-        start_parameter: Optional[str] = None,
-        photo_url: Optional[str] = None,
-        photo_size: Optional[int] = None,
-        photo_width: Optional[int] = None,
-        photo_height: Optional[int] = None,
-        need_name: Optional[bool] = None,
-        need_phone_number: Optional[bool] = None,
-        need_email: Optional[bool] = None,
-        need_shipping_address: Optional[bool] = None,
-        is_flexible: Optional[bool] = None,
+        provider_token: str | None = None,
+        start_parameter: str | None = None,
+        photo_url: str | None = None,
+        photo_size: int | None = None,
+        photo_width: int | None = None,
+        photo_height: int | None = None,
+        need_name: bool | None = None,
+        need_phone_number: bool | None = None,
+        need_email: bool | None = None,
+        need_shipping_address: bool | None = None,
+        is_flexible: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        provider_data: Optional[Union[str, object]] = None,
-        send_phone_number_to_provider: Optional[bool] = None,
-        send_email_to_provider: Optional[bool] = None,
-        max_tip_amount: Optional[int] = None,
-        suggested_tip_amounts: Optional[Sequence[int]] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        provider_data: str | object | None = None,
+        send_phone_number_to_provider: bool | None = None,
+        send_email_to_provider: bool | None = None,
+        max_tip_amount: int | None = None,
+        suggested_tip_amounts: Sequence[int] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1760,31 +1800,31 @@ class _ChatBase(TelegramObject):
 
     async def send_location(
         self,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        live_period: Optional[TimePeriod] = None,
-        horizontal_accuracy: Optional[float] = None,
-        heading: Optional[int] = None,
-        proximity_alert_radius: Optional[int] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        live_period: TimePeriod | None = None,
+        horizontal_accuracy: float | None = None,
+        heading: int | None = None,
+        proximity_alert_radius: int | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        location: Optional["Location"] = None,
+        location: "Location | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1826,35 +1866,35 @@ class _ChatBase(TelegramObject):
 
     async def send_animation(
         self,
-        animation: Union[FileInput, "Animation"],
-        duration: Optional[TimePeriod] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-        caption: Optional[str] = None,
+        animation: "FileInput | Animation",
+        duration: TimePeriod | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1900,26 +1940,26 @@ class _ChatBase(TelegramObject):
 
     async def send_sticker(
         self,
-        sticker: Union[FileInput, "Sticker"],
+        sticker: "FileInput | Sticker",
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        emoji: Optional[str] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        emoji: str | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -1956,33 +1996,33 @@ class _ChatBase(TelegramObject):
 
     async def send_venue(
         self,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        title: Optional[str] = None,
-        address: Optional[str] = None,
-        foursquare_id: Optional[str] = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        title: str | None = None,
+        address: str | None = None,
+        foursquare_id: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        foursquare_type: Optional[str] = None,
-        google_place_id: Optional[str] = None,
-        google_place_type: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        foursquare_type: str | None = None,
+        google_place_id: str | None = None,
+        google_place_type: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        venue: Optional["Venue"] = None,
+        venue: "Venue | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2026,38 +2066,38 @@ class _ChatBase(TelegramObject):
 
     async def send_video(
         self,
-        video: Union[FileInput, "Video"],
-        duration: Optional[TimePeriod] = None,
-        caption: Optional[str] = None,
+        video: "FileInput | Video",
+        duration: TimePeriod | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        width: int | None = None,
+        height: int | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        supports_streaming: Optional[bool] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        supports_streaming: bool | None = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        cover: Optional[FileInput] = None,
-        start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        cover: "FileInput | None" = None,
+        start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2106,29 +2146,29 @@ class _ChatBase(TelegramObject):
 
     async def send_video_note(
         self,
-        video_note: Union[FileInput, "VideoNote"],
-        duration: Optional[TimePeriod] = None,
-        length: Optional[int] = None,
+        video_note: "FileInput | VideoNote",
+        duration: TimePeriod | None = None,
+        length: int | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2168,30 +2208,30 @@ class _ChatBase(TelegramObject):
 
     async def send_voice(
         self,
-        voice: Union[FileInput, "Voice"],
-        duration: Optional[TimePeriod] = None,
-        caption: Optional[str] = None,
+        voice: "FileInput | Voice",
+        duration: TimePeriod | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2233,35 +2273,35 @@ class _ChatBase(TelegramObject):
     async def send_poll(
         self,
         question: str,
-        options: Sequence[Union[str, "InputPollOption"]],
-        is_anonymous: Optional[bool] = None,
-        type: Optional[str] = None,
-        allows_multiple_answers: Optional[bool] = None,
-        correct_option_id: Optional[CorrectOptionID] = None,
-        is_closed: Optional[bool] = None,
+        options: Sequence["str | InputPollOption"],
+        is_anonymous: bool | None = None,
+        type: str | None = None,
+        allows_multiple_answers: bool | None = None,
+        correct_option_id: CorrectOptionID | None = None,
+        is_closed: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        explanation: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        explanation: str | None = None,
         explanation_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        open_period: Optional[TimePeriod] = None,
-        close_date: Optional[Union[int, dtm.datetime]] = None,
-        explanation_entities: Optional[Sequence["MessageEntity"]] = None,
+        open_period: TimePeriod | None = None,
+        close_date: int | dtm.datetime | None = None,
+        explanation_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
         question_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        question_entities: Optional[Sequence["MessageEntity"]] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
+        question_entities: Sequence["MessageEntity"] | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2308,29 +2348,30 @@ class _ChatBase(TelegramObject):
 
     async def send_copy(
         self,
-        from_chat_id: Union[str, int],
+        from_chat_id: str | int,
         message_id: int,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        show_caption_above_media: Optional[bool] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        show_caption_above_media: bool | None = None,
+        allow_paid_broadcast: bool | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "MessageId":
         """Shortcut for::
 
@@ -2368,33 +2409,35 @@ class _ChatBase(TelegramObject):
             allow_paid_broadcast=allow_paid_broadcast,
             direct_messages_topic_id=direct_messages_topic_id,
             suggested_post_parameters=suggested_post_parameters,
+            message_effect_id=message_effect_id,
         )
 
     async def copy_message(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         message_id: int,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        show_caption_above_media: Optional[bool] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        show_caption_above_media: bool | None = None,
+        allow_paid_broadcast: bool | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "MessageId":
         """Shortcut for::
 
@@ -2432,23 +2475,24 @@ class _ChatBase(TelegramObject):
             allow_paid_broadcast=allow_paid_broadcast,
             direct_messages_topic_id=direct_messages_topic_id,
             suggested_post_parameters=suggested_post_parameters,
+            message_effect_id=message_effect_id,
         )
 
     async def send_copies(
         self,
-        from_chat_id: Union[str, int],
+        from_chat_id: str | int,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        remove_caption: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        remove_caption: bool | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["MessageId", ...]:
         """Shortcut for::
 
@@ -2483,19 +2527,19 @@ class _ChatBase(TelegramObject):
 
     async def copy_messages(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        remove_caption: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        remove_caption: bool | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["MessageId", ...]:
         """Shortcut for::
 
@@ -2530,20 +2574,21 @@ class _ChatBase(TelegramObject):
 
     async def forward_from(
         self,
-        from_chat_id: Union[str, int],
+        from_chat_id: str | int,
         message_id: int,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2574,24 +2619,26 @@ class _ChatBase(TelegramObject):
             message_thread_id=message_thread_id,
             direct_messages_topic_id=direct_messages_topic_id,
             suggested_post_parameters=suggested_post_parameters,
+            message_effect_id=message_effect_id,
         )
 
     async def forward_to(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         message_id: int,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -2623,22 +2670,23 @@ class _ChatBase(TelegramObject):
             message_thread_id=message_thread_id,
             direct_messages_topic_id=direct_messages_topic_id,
             suggested_post_parameters=suggested_post_parameters,
+            message_effect_id=message_effect_id,
         )
 
     async def forward_messages_from(
         self,
-        from_chat_id: Union[str, int],
+        from_chat_id: str | int,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["MessageId", ...]:
         """Shortcut for::
 
@@ -2672,18 +2720,18 @@ class _ChatBase(TelegramObject):
 
     async def forward_messages_to(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["MessageId", ...]:
         """Shortcut for::
 
@@ -2722,7 +2770,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> str:
         """Shortcut for::
 
@@ -2748,16 +2796,16 @@ class _ChatBase(TelegramObject):
 
     async def create_invite_link(
         self,
-        expire_date: Optional[Union[int, dtm.datetime]] = None,
-        member_limit: Optional[int] = None,
-        name: Optional[str] = None,
-        creates_join_request: Optional[bool] = None,
+        expire_date: int | dtm.datetime | None = None,
+        member_limit: int | None = None,
+        name: str | None = None,
+        creates_join_request: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatInviteLink":
         """Shortcut for::
 
@@ -2791,17 +2839,17 @@ class _ChatBase(TelegramObject):
 
     async def edit_invite_link(
         self,
-        invite_link: Union[str, "ChatInviteLink"],
-        expire_date: Optional[Union[int, dtm.datetime]] = None,
-        member_limit: Optional[int] = None,
-        name: Optional[str] = None,
-        creates_join_request: Optional[bool] = None,
+        invite_link: "str | ChatInviteLink",
+        expire_date: int | dtm.datetime | None = None,
+        member_limit: int | None = None,
+        name: str | None = None,
+        creates_join_request: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatInviteLink":
         """Shortcut for::
 
@@ -2835,13 +2883,13 @@ class _ChatBase(TelegramObject):
 
     async def revoke_invite_link(
         self,
-        invite_link: Union[str, "ChatInviteLink"],
+        invite_link: "str | ChatInviteLink",
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatInviteLink":
         """Shortcut for::
 
@@ -2870,13 +2918,13 @@ class _ChatBase(TelegramObject):
         self,
         subscription_period: TimePeriod,
         subscription_price: int,
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatInviteLink":
         """Shortcut for::
 
@@ -2906,14 +2954,14 @@ class _ChatBase(TelegramObject):
 
     async def edit_subscription_invite_link(
         self,
-        invite_link: Union[str, "ChatInviteLink"],
-        name: Optional[str] = None,
+        invite_link: "str | ChatInviteLink",
+        name: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "ChatInviteLink":
         """Shortcut for::
 
@@ -2949,7 +2997,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -2982,7 +3030,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3009,13 +3057,13 @@ class _ChatBase(TelegramObject):
 
     async def set_menu_button(
         self,
-        menu_button: Optional[MenuButton] = None,
+        menu_button: MenuButton | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3047,14 +3095,14 @@ class _ChatBase(TelegramObject):
     async def create_forum_topic(
         self,
         name: str,
-        icon_color: Optional[int] = None,
-        icon_custom_emoji_id: Optional[str] = None,
+        icon_color: int | None = None,
+        icon_custom_emoji_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ForumTopic:
         """Shortcut for::
 
@@ -3083,14 +3131,14 @@ class _ChatBase(TelegramObject):
     async def edit_forum_topic(
         self,
         message_thread_id: int,
-        name: Optional[str] = None,
-        icon_custom_emoji_id: Optional[str] = None,
+        name: str | None = None,
+        icon_custom_emoji_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3124,7 +3172,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3156,7 +3204,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3188,7 +3236,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3220,7 +3268,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3252,7 +3300,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3284,7 +3332,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3317,7 +3365,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3347,7 +3395,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3379,7 +3427,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3409,7 +3457,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3441,7 +3489,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> MenuButton:
         """Shortcut for::
 
@@ -3477,7 +3525,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "UserChatBoosts":
         """Shortcut for::
 
@@ -3504,14 +3552,14 @@ class _ChatBase(TelegramObject):
     async def set_message_reaction(
         self,
         message_id: int,
-        reaction: Optional[Union[Sequence[Union[ReactionType, str]], ReactionType, str]] = None,
-        is_big: Optional[bool] = None,
+        reaction: Sequence[ReactionType | str] | ReactionType | str | None = None,
+        is_big: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3541,28 +3589,28 @@ class _ChatBase(TelegramObject):
         self,
         star_count: int,
         media: Sequence["InputPaidMedia"],
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
-        show_caption_above_media: Optional[bool] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
+        show_caption_above_media: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        reply_markup: Optional[ReplyMarkup] = None,
-        business_connection_id: Optional[str] = None,
-        payload: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
-        message_thread_id: Optional[int] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        business_connection_id: str | None = None,
+        payload: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_thread_id: int | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> "Message":
         """Shortcut for::
 
@@ -3605,17 +3653,17 @@ class _ChatBase(TelegramObject):
 
     async def send_gift(
         self,
-        gift_id: Union[str, "Gift"],
-        text: Optional[str] = None,
+        gift_id: "str | Gift",
+        text: str | None = None,
         text_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        text_entities: Optional[Sequence["MessageEntity"]] = None,
-        pay_for_upgrade: Optional[bool] = None,
+        text_entities: Sequence["MessageEntity"] | None = None,
+        pay_for_upgrade: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3657,13 +3705,13 @@ class _ChatBase(TelegramObject):
         self,
         business_connection_id: str,
         owned_gift_id: str,
-        star_count: Optional[int] = None,
+        star_count: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3690,13 +3738,13 @@ class _ChatBase(TelegramObject):
 
     async def verify(
         self,
-        custom_description: Optional[str] = None,
+        custom_description: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3727,7 +3775,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3759,7 +3807,7 @@ class _ChatBase(TelegramObject):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Shortcut for::
 
@@ -3787,13 +3835,13 @@ class _ChatBase(TelegramObject):
     async def approve_suggested_post(
         self,
         message_id: int,
-        send_date: Optional[Union[int, dtm.datetime]] = None,
+        send_date: int | dtm.datetime | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Shortcut for::
@@ -3822,13 +3870,13 @@ class _ChatBase(TelegramObject):
     async def decline_suggested_post(
         self,
         message_id: int,
-        comment: Optional[str] = None,
+        comment: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Shortcut for::
@@ -3847,6 +3895,99 @@ class _ChatBase(TelegramObject):
             chat_id=self.id,
             message_id=message_id,
             comment=comment,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+
+    async def repost_story(
+        self,
+        business_connection_id: str,
+        from_story_id: int,
+        active_period: TimePeriod,
+        post_to_chat_page: bool | None = None,
+        protect_content: ODVInput[bool] = DEFAULT_NONE,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> "Story":
+        """Shortcut for::
+
+             await bot.repost_story(
+                from_chat_id=update.effective_chat.id,
+                *args, **kwargs
+            )
+
+        For the documentation of the arguments, please see :meth:`telegram.Bot.repost_story`.
+
+        .. versionadded:: 22.6
+
+        Returns:
+            :class:`Story`: On success, :class:`Story` is returned.
+
+        """
+        return await self.get_bot().repost_story(
+            business_connection_id=business_connection_id,
+            from_chat_id=self.id,
+            from_story_id=from_story_id,
+            active_period=active_period,
+            post_to_chat_page=post_to_chat_page,
+            protect_content=protect_content,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+
+    async def get_gifts(
+        self,
+        exclude_unsaved: bool | None = None,
+        exclude_saved: bool | None = None,
+        exclude_unlimited: bool | None = None,
+        exclude_limited_upgradable: bool | None = None,
+        exclude_limited_non_upgradable: bool | None = None,
+        exclude_from_blockchain: bool | None = None,
+        exclude_unique: bool | None = None,
+        sort_by_price: bool | None = None,
+        offset: str | None = None,
+        limit: int | None = None,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> "OwnedGifts":
+        """Shortcut for::
+
+             await bot.get_chat_gifts(chat_id=update.effective_chat.id)
+
+        For the documentation of the arguments, please see
+        :meth:`telegram.Bot.get_chat_gifts`.
+
+        .. versionadded:: 22.6
+
+        Returns:
+            :class:`telegram.OwnedGifts`: On success, returns the gifts owned by the chat.
+        """
+        return await self.get_bot().get_chat_gifts(
+            chat_id=self.id,
+            exclude_unsaved=exclude_unsaved,
+            exclude_saved=exclude_saved,
+            exclude_unlimited=exclude_unlimited,
+            exclude_limited_upgradable=exclude_limited_upgradable,
+            exclude_limited_non_upgradable=exclude_limited_non_upgradable,
+            exclude_from_blockchain=exclude_from_blockchain,
+            exclude_unique=exclude_unique,
+            sort_by_price=sort_by_price,
+            offset=offset,
+            limit=limit,
             read_timeout=read_timeout,
             write_timeout=write_timeout,
             connect_timeout=connect_timeout,

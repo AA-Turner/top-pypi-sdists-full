@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.405.0"
+version = "1.405.6"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
@@ -42,7 +42,7 @@ shortuuid = "^1.0.13"
 [tool.poetry.group.dev.dependencies]
 black = "25.12.0"
 flake8 = "^7.3.0"
-markdown = "3.10"
+markdown = "3.10.1"
 pre-commit = "4.5.1"
 ptvsd = "^4.3.2"
 pytest = ">=8.4.1,<10.0.0"

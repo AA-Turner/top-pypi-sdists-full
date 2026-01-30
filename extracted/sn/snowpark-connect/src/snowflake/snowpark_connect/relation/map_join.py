@@ -579,6 +579,9 @@ def _disambiguate_snowpark_columns(
     column_map = right.column_map
     disambiguated_columns: list[Column] = []
     disambiguated_snowpark_names: list[str] = []
+    disambiguated_spark_names: list[str] = []
+    disambiguated_qualifiers: list[set[ColumnQualifier]] = []
+    disambiguated_is_hidden: list[bool] = []
     # retain old snowpark names in column map
     equivalent_snowpark_names: list[set[str]] = []
     for c in column_map.columns:
@@ -594,6 +597,9 @@ def _disambiguate_snowpark_columns(
             disambiguated_snowpark_names.append(c.snowpark_name)
             disambiguated_columns.append(snowpark_fn.col(c.snowpark_name))
 
+        disambiguated_spark_names.append(c.spark_name)
+        disambiguated_qualifiers.append(c.qualifiers)
+        disambiguated_is_hidden.append(c.is_hidden)
         equivalent_snowpark_names.append(col_equivalent_snowpark_names)
 
     disambiguated_df = right.dataframe.select(*disambiguated_columns)
@@ -609,10 +615,11 @@ def _disambiguate_snowpark_columns(
 
     disambiguated_right = DataFrameContainer.create_with_column_mapping(
         dataframe=disambiguated_df,
-        spark_column_names=column_map.get_spark_columns(),
+        spark_column_names=disambiguated_spark_names,
         snowpark_column_names=disambiguated_snowpark_names,
         column_metadata=column_map.column_metadata,
-        column_qualifiers=column_map.get_qualifiers(),
+        column_qualifiers=disambiguated_qualifiers,
+        column_is_hidden=disambiguated_is_hidden,
         table_name=right.table_name,
         cached_schema_getter=_schema_getter,
         equivalent_snowpark_names=equivalent_snowpark_names,

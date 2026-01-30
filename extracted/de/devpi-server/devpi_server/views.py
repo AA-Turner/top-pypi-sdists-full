@@ -1,44 +1,6 @@
 from __future__ import annotations
 
-import contextlib
-import os
-import re
-import warnings
-from time import time
-from collections import defaultdict
-from devpi_common.types import ensure_unicode
-from devpi_common.url import URL
-from devpi_common.metadata import get_pyversion_filetype
-import devpi_server
-from html import escape
-from http import HTTPStatus
-from lazy import lazy
-from operator import attrgetter
-from pluggy import HookimplMarker
-from pyramid.authentication import b64encode
-from pyramid.interfaces import IRequestExtensions
-from pyramid.interfaces import IRootFactory
-from pyramid.interfaces import IRoutesMapper
-from pyramid.httpexceptions import HTTPException, HTTPFound, HTTPSuccessful
-from pyramid.httpexceptions import HTTPForbidden
-from pyramid.httpexceptions import HTTPInternalServerError
-from pyramid.httpexceptions import HTTPOk
-from pyramid.httpexceptions import HTTPUnauthorized
-from pyramid.httpexceptions import exception_response
-from pyramid.request import Request
-from pyramid.request import apply_request_extensions
-from pyramid.response import FileIter
-from pyramid.response import Response
-from pyramid.security import forget
-from pyramid.threadlocal import RequestContext
-from pyramid.traversal import DefaultRootFactory
-from pyramid.view import exception_view_config
-from pyramid.view import view_config
-from urllib.parse import urlparse
-import itertools
-import json
-from devpi_common.validation import normalize_name, is_valid_archive_name
-
+from .auth import Auth
 from .config import NodeInfo
 from .config import hookimpl
 from .exceptions import lazy_format_exception_only
@@ -48,14 +10,59 @@ from .filestore import get_hashes
 from .filestore import get_seekable_content_or_file
 from .fileutil import buffered_iterator
 from .keyfs import KeyfsTimeoutError
-from .model import InvalidIndex, InvalidIndexconfig, InvalidUser, InvalidUserconfig
+from .log import thread_pop_log
+from .log import thread_push_log
+from .log import threadlog
+from .model import InvalidIndex
+from .model import InvalidIndexconfig
+from .model import InvalidUser
+from .model import InvalidUserconfig
 from .model import ReadonlyIndex
 from .model import RemoveValue
+from .normalized import normalize_name
 from .readonly import get_mutable_deepcopy
-from .log import thread_push_log, thread_pop_log, threadlog
-
-from .auth import Auth
+from collections import defaultdict
+from devpi_common.metadata import get_pyversion_filetype
+from devpi_common.types import ensure_unicode
+from devpi_common.url import URL
+from devpi_common.validation import is_valid_archive_name
+from html import escape
+from http import HTTPStatus
+from lazy import lazy
+from operator import attrgetter
+from pluggy import HookimplMarker
+from pyramid.authentication import b64encode
+from pyramid.httpexceptions import HTTPException
+from pyramid.httpexceptions import HTTPForbidden
+from pyramid.httpexceptions import HTTPFound
+from pyramid.httpexceptions import HTTPInternalServerError
+from pyramid.httpexceptions import HTTPOk
+from pyramid.httpexceptions import HTTPSuccessful
+from pyramid.httpexceptions import HTTPUnauthorized
+from pyramid.httpexceptions import exception_response
+from pyramid.interfaces import IRequestExtensions
+from pyramid.interfaces import IRootFactory
+from pyramid.interfaces import IRoutesMapper
+from pyramid.request import Request
+from pyramid.request import apply_request_extensions
+from pyramid.response import FileIter
+from pyramid.response import Response
+from pyramid.security import forget
+from pyramid.threadlocal import RequestContext
+from pyramid.traversal import DefaultRootFactory
+from pyramid.view import exception_view_config
+from pyramid.view import view_config
+from time import time
+from urllib.parse import urlparse
 import attrs
+import contextlib
+import devpi_server
+import itertools
+import json
+import os
+import re
+import warnings
+
 
 devpiweb_hookimpl = HookimplMarker("devpiweb")
 server_version = devpi_server.__version__
@@ -196,7 +203,7 @@ def tween_request_logging(handler, registry):
         log = thread_push_log(tag)
         try:
             request.log = log
-            log.info("%s %s" % (request.method, request.path))
+            log.info("%s %s", request.method, request.path)
             now = time()
             response = handler(request)
             duration = time() - now
@@ -410,7 +417,7 @@ def devpiweb_get_status_info(request):
             msgs.append(dict(status="warn", msg="The event processing hasn't been in sync for more than 1 hour"))
         if sync_at is not None and (last_processed is None or (last_processed > 1800)):
             msgs.append(dict(status="fatal", msg="No changes processed by plugins for more than 30 minutes"))
-        elif sync_at is not None and (last_processed > 300):
+        elif sync_at is not None and (last_processed is None or (last_processed > 300)):
             msgs.append(dict(status="warn", msg="No changes processed by plugins for more than 5 minutes"))
     return msgs
 
@@ -1081,7 +1088,7 @@ class PyPIView:
         return apiresult(200, result=results, type="actionlog")
 
     def _push_external(self, name, version, links, metadata, pushdata):
-        results = []
+        results: list = []
         register_project = pushdata.pop("register_project", False)
         posturl = pushdata["posturl"]
         pypiauth = f"{pushdata['username']}:{pushdata['password']}".encode()
@@ -1123,7 +1130,7 @@ class PyPIView:
         )
 
     def _push_external_release(self, link, metadata, posturl, extra_headers):
-        results = []
+        results: list = []
         entry = link.entry
         file_metadata = metadata.copy()
         file_metadata[":action"] = "file_upload"
@@ -1155,7 +1162,7 @@ class PyPIView:
         return results
 
     def _push_external_doczip(self, link, metadata, posturl, extra_headers):
-        results = []
+        results: list = []
         doc_metadata = metadata.copy()
         doc_metadata[":action"] = "doc_upload"
         name = doc_metadata["name"]
@@ -1287,7 +1294,7 @@ class PyPIView:
                     project, version,
                     content_filename, content_file, hashes=hashes)
             except stage.NonVolatile as e:
-                if e.link.matches_checksum(content_file):
+                if e.link.matches_hashes(hashes):
                     abort_submit(
                         request, 200,
                         "Upload of identical file to non volatile index.",
@@ -1315,7 +1322,7 @@ class PyPIView:
                     request, 400,
                     "%s" % e)
             except stage.NonVolatile as e:
-                if e.link.matches_checksum(content_file):
+                if e.link.matches_hashes(hashes):
                     abort_submit(
                         request, 200,
                         "Upload of identical file to non volatile index.",
@@ -1330,6 +1337,7 @@ class PyPIView:
 
     def _get_versiondata_from_form(self, stage, form, skip_missing=False):
         metadata = {}
+        val: list | str
         for key in stage.metadata_keys:
             if skip_missing and key not in form:
                 continue
@@ -1817,7 +1825,8 @@ def iter_cache_remote_file(stage, entry, url):
             with xom.keyfs.filestore_transaction():
                 entry.file_set_content_no_meta(f, hashes=file_streamer.hashes)
                 threadlog.debug(
-                    "put missing file back into place: %s", entry._storepath)
+                    "put missing file back into place: %s", entry.file_path_info
+                )
                 # on Windows we need to close the file
                 # before the transaction closes
                 f.close()
@@ -1879,7 +1888,9 @@ def iter_remote_file_replica(stage, entry, url):
             # on Windows we need to close the file
             # before the transaction closes
             f.close()
-            threadlog.debug("put missing file back into place: %s", entry._storepath)
+            threadlog.debug(
+                "put missing file back into place: %s", entry.file_path_info
+            )
         # in case there were errors before, we can now remove them
         replication_errors.remove(entry)
 

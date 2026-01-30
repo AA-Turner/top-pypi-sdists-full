@@ -23,6 +23,7 @@ def _get_kwargs(
     include_draft_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     without_description: Union[Unset, None, bool] = UNSET,
+    dedicated_worker: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -48,6 +49,8 @@ def _get_kwargs(
     params["with_deployment_msg"] = with_deployment_msg
 
     params["without_description"] = without_description
+
+    params["dedicated_worker"] = dedicated_worker
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -104,6 +107,7 @@ def sync_detailed(
     include_draft_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     without_description: Union[Unset, None, bool] = UNSET,
+    dedicated_worker: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListFlowsResponse200Item"]]:
     """list all flows
 
@@ -120,6 +124,7 @@ def sync_detailed(
         include_draft_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         without_description (Union[Unset, None, bool]):
+        dedicated_worker (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,6 +147,7 @@ def sync_detailed(
         include_draft_only=include_draft_only,
         with_deployment_msg=with_deployment_msg,
         without_description=without_description,
+        dedicated_worker=dedicated_worker,
     )
 
     response = client.get_httpx_client().request(
@@ -166,6 +172,7 @@ def sync(
     include_draft_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     without_description: Union[Unset, None, bool] = UNSET,
+    dedicated_worker: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListFlowsResponse200Item"]]:
     """list all flows
 
@@ -182,6 +189,7 @@ def sync(
         include_draft_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         without_description (Union[Unset, None, bool]):
+        dedicated_worker (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -205,6 +213,7 @@ def sync(
         include_draft_only=include_draft_only,
         with_deployment_msg=with_deployment_msg,
         without_description=without_description,
+        dedicated_worker=dedicated_worker,
     ).parsed
 
 
@@ -223,6 +232,7 @@ async def asyncio_detailed(
     include_draft_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     without_description: Union[Unset, None, bool] = UNSET,
+    dedicated_worker: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListFlowsResponse200Item"]]:
     """list all flows
 
@@ -239,6 +249,7 @@ async def asyncio_detailed(
         include_draft_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         without_description (Union[Unset, None, bool]):
+        dedicated_worker (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -261,6 +272,7 @@ async def asyncio_detailed(
         include_draft_only=include_draft_only,
         with_deployment_msg=with_deployment_msg,
         without_description=without_description,
+        dedicated_worker=dedicated_worker,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -283,6 +295,7 @@ async def asyncio(
     include_draft_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     without_description: Union[Unset, None, bool] = UNSET,
+    dedicated_worker: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListFlowsResponse200Item"]]:
     """list all flows
 
@@ -299,6 +312,7 @@ async def asyncio(
         include_draft_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         without_description (Union[Unset, None, bool]):
+        dedicated_worker (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -323,5 +337,6 @@ async def asyncio(
             include_draft_only=include_draft_only,
             with_deployment_msg=with_deployment_msg,
             without_description=without_description,
+            dedicated_worker=dedicated_worker,
         )
     ).parsed

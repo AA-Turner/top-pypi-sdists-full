@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from . import mythread
 from .config import hookimpl
 from .exceptions import lazy_format_exception
@@ -7,16 +9,19 @@ from .fileutil import buffered_iterator
 from .fileutil import dumps
 from .fileutil import load
 from .fileutil import loads
+from .httpclient import FatalResponse
 from .log import thread_push_log
 from .log import threadlog
-from .main import fatal
+from .main import Fatal
+from .markers import Absent
+from .markers import absent
 from .model import UpstreamError
+from .normalized import normalize_name
 from .views import FileStreamer
 from .views import H_MASTER_UUID
 from .views import H_PRIMARY_UUID
 from devpi_common.types import cached_property
 from devpi_common.url import URL
-from devpi_common.validation import normalize_name
 from pluggy import HookimplMarker
 from pyramid.httpexceptions import HTTPAccepted
 from pyramid.httpexceptions import HTTPBadRequest
@@ -25,6 +30,7 @@ from pyramid.httpexceptions import HTTPNotFound
 from pyramid.response import Response
 from pyramid.view import view_config
 from repoze.lru import LRUCache
+from typing import TYPE_CHECKING
 from webob.headers import EnvironHeaders
 from webob.headers import ResponseHeaders
 import contextlib
@@ -37,6 +43,15 @@ import threading
 import time
 import traceback
 import warnings
+
+
+if TYPE_CHECKING:
+    from .httpclient import GetResponse
+    from .httpclient import HTTPClient
+    from .keyfs_types import KeyFSTypesRO
+    from .keyfs_types import TypedKey
+    from .main import XOM
+    from contextlib import ExitStack
 
 
 devpiweb_hookimpl = HookimplMarker("devpiweb")
@@ -53,20 +68,18 @@ REPLICA_USER_NAME = "+replica"
 REPLICA_REQUEST_TIMEOUT = MAX_REPLICA_BLOCK_TIME * 1.25
 REPLICA_MULTIPLE_TIMEOUT = REPLICA_REQUEST_TIMEOUT / 2
 REPLICA_AUTH_MAX_AGE = REPLICA_REQUEST_TIMEOUT + 0.1
+REPLICA_CHUNK_SIZE = 65536
 REPLICA_CONTENT_TYPE = "application/x-devpi-replica-changes"
 REPLICA_ACCEPT_STREAMING = f"{REPLICA_CONTENT_TYPE}, application/octet-stream; q=0.9"
 MAX_REPLICA_CHANGES_SIZE = 5 * 1024 * 1024
 
 
-notset = object()
-
-
 class IndexType:
     # class for the index type to get correct sort order
-    def __init__(self, index_type):
+    def __init__(self, index_type: IndexType | str | None) -> None:
         if isinstance(index_type, IndexType):
             index_type = index_type._index_type
-        self._index_type = index_type
+        self._index_type: str | None = index_type
 
     def __hash__(self):
         return hash(self._index_type)
@@ -162,7 +175,7 @@ class ReadableIterabel(io.RawIOBase):
 
     def readinto(self, b):
         if self.chunk is None:
-            self.chunk = next(self.iterable)
+            self.chunk = next(self.iterable, b"")
             self.chunk_pos = 0
             self.chunk_size = len(self.chunk)
         chunk_remaining = self.chunk_size - self.chunk_pos
@@ -316,6 +329,7 @@ class PrimaryChangelogRequest:
             for serial in range(start_serial, devpi_serial + 1):
                 with keyfs.get_connection() as conn:
                     raw = conn.get_raw_changelog_entry(serial)
+                threadlog.debug("Sending serial %s", serial)
                 with self.update_replica_status(serial, streaming=True):
                     yield dumps(serial)
                     yield raw
@@ -336,7 +350,7 @@ class PrimaryChangelogRequest:
             raise HTTPNotFound("can only wait for next serial")
         elif serial == next_serial:
             if 'initial_fetch' in self.request.params:
-                timeout = 1
+                timeout = 1.0
             else:
                 timeout = self.MAX_REPLICA_BLOCK_TIME
             arrived = keyfs.wait_tx_serial(serial, timeout=timeout)
@@ -347,8 +361,10 @@ class PrimaryChangelogRequest:
         return serial
 
 
-class HTTPClient:
-    def __init__(self, xom):
+class ReplicaHTTPClient:
+    http: HTTPClient
+
+    def __init__(self, xom: XOM) -> None:
         self.config = xom.config
         self.http = xom.new_http_client("replica")
         self.outside_url = xom.config.outside_url
@@ -360,7 +376,14 @@ class HTTPClient:
     def close(self):
         self.http.close()
 
-    def get(self, url, *, allow_redirects, timeout=None, extra_headers=None):
+    def get(
+        self,
+        url: URL | str,
+        *,
+        allow_redirects: bool,
+        timeout: float | None = None,
+        extra_headers: dict | None = None,
+    ) -> GetResponse:
         extra_headers = self.get_extra_headers(extra_headers)
         return self.http.get(
             URL(url).url,
@@ -387,8 +410,15 @@ class HTTPClient:
         return extra_headers
 
     def stream(
-        self, cstack, method, url, *, allow_redirects, timeout=None, extra_headers=None
-    ):
+        self,
+        cstack: ExitStack,
+        method: str,
+        url: URL | str,
+        *,
+        allow_redirects: bool,
+        timeout: float | None = None,
+        extra_headers: dict | None = None,
+    ) -> GetResponse:
         extra_headers = self.get_extra_headers(extra_headers)
         return self.http.stream(
             cstack,
@@ -405,8 +435,15 @@ class ReplicaThread:
     H_REPLICA_UUID = H_REPLICA_UUID
     REPLICA_REQUEST_TIMEOUT = REPLICA_REQUEST_TIMEOUT
     ERROR_SLEEP = 50
+    _primary_serial: int | None
+    _primary_serial_timestamp: float | None
+    primary_contacted_at: float | None
+    replica_in_sync_at: float | None
+    started_at: float | None
+    thread: mythread.MyThread
+    update_from_primary_at: float | None
 
-    def __init__(self, xom):
+    def __init__(self, xom: XOM) -> None:
         self.xom = xom
         self.shared_data = FileReplicationSharedData(xom)
         keyfs = self.xom.keyfs
@@ -433,7 +470,7 @@ class ReplicaThread:
         self.update_from_primary_at = None
         # set whenever the primary serial and current replication serial match
         self.replica_in_sync_at = None
-        self.http = HTTPClient(xom)
+        self.http = ReplicaHTTPClient(xom)
         self.initial_fetch = True
 
     def get_master_serial(self):
@@ -544,16 +581,23 @@ class ReplicaThread:
                 log.error("error fetching %s: %s", url, msg)  # noqa: TRY400
                 return False
 
-            if r.status_code in (301, 302):
+            if r.status_code in (301, 302) and not isinstance(r, FatalResponse):
                 log.error(
                     "%s %s: redirect detected at %s to %s",
-                    r.status_code, r.reason, url, r.headers.get('Location'))
+                    r.status_code,
+                    r.reason_phrase,
+                    url,
+                    r.headers.get("Location"),
+                )
                 return False
 
             if r.status_code not in (200, 202):
-                log.error("%s %s: failed fetching %s", r.status_code, r.reason, url)
+                log.error(
+                    "%s %s: failed fetching %s", r.status_code, r.reason_phrase, url
+                )
                 return False
 
+            assert not isinstance(r, FatalResponse)
             # we check that the remote instance
             # has the same UUID we saw last time
             primary_uuid = config.get_primary_uuid()
@@ -625,8 +669,12 @@ class ReplicaThread:
     def handler_multi(self, response):
         if response.headers.get("content-type", "") == REPLICA_CONTENT_TYPE:
             with contextlib.closing(response):
-                readableiterable = ReadableIterabel(response.iter_bytes(65536))
-                stream = io.BufferedReader(readableiterable, buffer_size=65536)
+                readableiterable = ReadableIterabel(
+                    response.iter_bytes(REPLICA_CHUNK_SIZE)
+                )
+                stream = io.BufferedReader(
+                    readableiterable, buffer_size=REPLICA_CHUNK_SIZE
+                )
                 try:
                     while True:
                         serial = load(stream)
@@ -690,18 +738,27 @@ def register_key_subscribers(xom):
 
 
 class FileReplicationSharedData:
-    QUEUE_TIMEOUT = 1
+    QUEUE_TIMEOUT: float = 1
     ERROR_QUEUE_DELAY_MULTIPLIER = 1.5
     ERROR_QUEUE_REPORT_DELAY = 2 * 60
     ERROR_QUEUE_MAX_DELAY = 60 * 60
+    last_added: float | None
+    last_errored: float | None
+    last_processed: float | None
+    num_threads: int
+    skip_indexes: set[str]
 
-    def __init__(self, xom):
+    def __init__(self, xom: XOM) -> None:
         from queue import Empty
         from queue import PriorityQueue
         self.Empty = Empty
         self.xom = xom
-        self.queue = PriorityQueue()
-        self.error_queue = PriorityQueue()
+        self.queue: PriorityQueue[
+            tuple[IndexType, int, str, str, KeyFSTypesRO, int]
+        ] = PriorityQueue()
+        self.error_queue: PriorityQueue[
+            tuple[int, int, str, int, None, str, KeyFSTypesRO, int]
+        ] = PriorityQueue()
         self.deleted = LRUCache(100)
         self.index_types = LRUCache(1000)
         self.errors = ReplicationErrors()
@@ -801,13 +858,15 @@ class FileReplicationSharedData:
             (ts, delay, index_type, serial, key, keyname, value, back_serial))
         self.last_errored = time.time()
 
-    def get_index_name_for(self, key):
+    def get_index_name_for(self, key: TypedKey) -> str:
         return f"{key.params['user']}/{key.params['index']}"
 
-    def get_index_type_for(self, key, default=notset):
-        result = self.index_types.get(self.get_index_name_for(key), notset)
-        if result is notset:
-            if default is notset:
+    def get_index_type_for(
+        self, key: TypedKey, default: IndexType | Absent = absent
+    ) -> IndexType:
+        result = self.index_types.get(self.get_index_name_for(key), absent)
+        if isinstance(result, Absent):
+            if isinstance(default, Absent):
                 raise KeyError
             return IndexType(default)
         return result
@@ -878,7 +937,7 @@ class FileReplicationSharedData:
 
 @hookimpl
 def devpiserver_metrics(request):
-    result = []
+    result: list[tuple[str, str, object]] = []
     xom = request.registry["xom"]
     replica_thread = getattr(xom, 'replica_thread', None)
     if not isinstance(replica_thread, ReplicaThread):
@@ -929,7 +988,7 @@ def devpiweb_get_status_info(request):
         now = time.time()
         qsize = shared_data.queue.qsize()
         if qsize:
-            last_activity_seconds = 0
+            last_activity_seconds = 0.0
             if shared_data.last_processed is None and shared_data.last_added:
                 last_activity_seconds = (now - shared_data.last_added)
             elif shared_data.last_processed:
@@ -947,10 +1006,12 @@ def devpiweb_get_status_info(request):
 
 
 class FileReplicationThread:
-    def __init__(self, xom, shared_data):
+    thread: mythread.MyThread
+
+    def __init__(self, xom: XOM, shared_data: FileReplicationSharedData) -> None:
         self.xom = xom
         self.shared_data = shared_data
-        self.http = HTTPClient(xom)
+        self.http = ReplicaHTTPClient(xom)
         self.file_search_path = None
         if self.xom.config.replica_file_search_path is not None:
             search_path = os.path.join(
@@ -960,9 +1021,11 @@ class FileReplicationThread:
             else:
                 self.file_search_path = self.xom.config.replica_file_search_path
             if not os.path.isdir(self.file_search_path):
-                fatal(
-                    "path for existing files doesn't exist: %s",
-                    self.xom.config.replica_file_search_path)
+                msg = (
+                    f"path for existing files doesn't exist: "
+                    f"{self.xom.config.replica_file_search_path}"
+                )
+                raise Fatal(msg)
         self.use_hard_links = self.xom.config.hard_links
 
     def find_pre_existing_file(self, entry):
@@ -994,7 +1057,7 @@ class FileReplicationThread:
         threadlog.info("using matching existing file: %s", path)
         f.seek(0)
         if self.use_hard_links:
-            f.devpi_srcpath = path
+            f.devpi_srcpath = path  # type: ignore[attr-defined]
         return (f, entry.hashes)
 
     def importer(self, serial, key, val, back_serial):  # noqa: PLR0911, PLR0912
@@ -1039,14 +1102,20 @@ class FileReplicationThread:
         # we perform the request with a special header so that
         # the primary can avoid getting "volatile" links
         with contextlib.ExitStack() as cstack:
-            r = self.http.stream(
-                cstack,
-                "GET",
-                url,
-                allow_redirects=False,
-                extra_headers={H_REPLICA_FILEREPL: "YES"},
-                timeout=self.xom.config.args.request_timeout,
-            )
+            try:
+                r = self.http.stream(
+                    cstack,
+                    "GET",
+                    url,
+                    allow_redirects=False,
+                    extra_headers={H_REPLICA_FILEREPL: "YES"},
+                    timeout=self.xom.config.args.request_timeout,
+                )
+            except Exception as err:
+                self.shared_data.errors.add(
+                    dict(url=url, message=str(err), relpath=entry.relpath)
+                )
+                raise
             if r.status_code == 302:
                 r.close()
                 # mirrors might redirect to external file when
@@ -1082,11 +1151,11 @@ class FileReplicationThread:
                 threadlog.error(
                     "error downloading '%s' from primary, will be retried later: %s",
                     relpath,
-                    r.reason,
+                    r.reason_phrase,
                 )
                 # add the error for the UI
                 self.shared_data.errors.add(
-                    dict(url=r.url, message=r.reason, relpath=entry.relpath)
+                    dict(url=r.url, message=r.reason_phrase, relpath=entry.relpath)
                 )
                 # and raise for retrying later
                 raise FileReplicationError(r, relpath)
@@ -1101,17 +1170,17 @@ class FileReplicationThread:
                 for _chunk in file_streamer:
                     # we only need the data to be written to the file
                     pass
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 if isinstance(err, ChecksumError):
                     threadlog.error(
                         "checksum mismatch for '%s', will be retried later: %s",
                         relpath,
-                        r.reason,
+                        r.reason_phrase,
                     )
                 self.shared_data.errors.add(
                     dict(url=r.url, message=str(err), relpath=entry.relpath)
                 )
-                return
+                raise
 
             # in case there were errors before, we can now remove them
             self.shared_data.errors.remove(entry)
@@ -1174,7 +1243,9 @@ class FileReplicationThread:
 
 
 class InitialQueueThread:
-    def __init__(self, xom, shared_data):
+    thread: mythread.MyThread
+
+    def __init__(self, xom: XOM, shared_data: FileReplicationSharedData) -> None:
         self.xom = xom
         self.shared_data = shared_data
 
@@ -1218,7 +1289,7 @@ class InitialQueueThread:
                         "Skipping %s because %r in %s.", key, index_name, skip_indexes
                     )
                     continue
-                index_type = self.shared_data.get_index_type_for(key, None)
+                index_type = self.shared_data.get_index_type_for(key, IndexType(None))
                 if index_type != IndexType(None) and str(index_type) in skip_indexes:
                     threadlog.debug(
                         "Skipping %s because %r in %s.", key, index_type, skip_indexes
@@ -1241,7 +1312,8 @@ class InitialQueueThread:
 class SimpleLinksChanged:
     """ Event executed in notification thread based on a pypi link change.
     It allows a replica to sync up the local full projectnames list."""
-    def __init__(self, xom):
+
+    def __init__(self, xom: XOM) -> None:
         self.xom = xom
 
     def __call__(self, ev):
@@ -1325,7 +1397,11 @@ def proxy_request_to_primary(xom, request, cstack):
         headers = clean_request_headers(request)
 
         def body():
-            yield request.body_file.read(65536)
+            while True:
+                chunk = request.body_file.read(REPLICA_CHUNK_SIZE)
+                if not chunk:
+                    return
+                yield chunk
 
         return http.stream(
             cstack,
@@ -1398,10 +1474,6 @@ class FileReplicationError(Exception):
     def __init__(self, response, relpath, message=None):
         self.url = response.url
         self.status_code = response.status_code
-        self.reason = response.reason
+        self.reason_phrase = response.reason_phrase
         self.relpath = relpath
         self.message = message or "failed"
-
-    def __str__(self):
-        return "FileReplicationError with %s, code=%s, reason=%s, relpath=%s, message=%s" % (
-               self.url, self.status_code, self.reason, self.relpath, self.message)

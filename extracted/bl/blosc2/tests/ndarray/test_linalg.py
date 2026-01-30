@@ -1,13 +1,28 @@
+#######################################################################
+# Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#######################################################################
+
 import inspect
 from itertools import permutations
 
 import numpy as np
 import pytest
-import torch
 
 import blosc2
 from blosc2.lazyexpr import linalg_funcs
 from blosc2.utils import npvecdot
+
+# Conditionally import torch for proxy tests
+try:
+    import torch
+
+    PROXY_TEST_XP = [torch, np]
+except ImportError:
+    torch = None
+    PROXY_TEST_XP = [np]
 
 
 @pytest.mark.parametrize(
@@ -826,7 +841,7 @@ def test_diagonal(shape, chunkshape, offset):
 
 @pytest.mark.parametrize(
     "xp",
-    [torch, np],
+    PROXY_TEST_XP,
 )
 @pytest.mark.parametrize(
     "dtype",

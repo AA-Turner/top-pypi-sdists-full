@@ -3,7 +3,7 @@ from .ensure_utils import *
 def get_globs(items,recursive: bool = True,allowed=None,cfg=None,**kwargs):
     glob_paths = []
     allowed = get_allowed_predicate(allowed=allowed,cfg=cfg,**kwargs)
-    items = [item for item in make_list(items) if item]
+    items = [item for item in make_list(items,commaparse=False) if item]
     for item in items:
         pattern = os.path.join(item, "**/*")  # include all files recursively\n
         nuItems = glob.glob(pattern, recursive=recursive)

@@ -3,6 +3,7 @@ from typing import List
 from kubernetes import client
 
 from adam.config import Config
+from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_session import ReplSession
@@ -28,14 +29,19 @@ class AppPods:
     def exec(pod_name: str,
              namespace: str,
              command: str,
-             show_out = True,
              throw_err = False,
              shell = '/bin/sh',
-             backgrounded = False) -> PodExecResult:
+             ctx: Context = Context.NULL) -> PodExecResult:
         container = Config().get('app.container-name', 'c3-server')
-        r = Pods.exec(pod_name, container, namespace, command, show_out = show_out, throw_err = throw_err, shell = shell, backgrounded = backgrounded)
+        r = Pods.exec(pod_name, container, namespace, command, throw_err = throw_err, shell = shell, ctx = ctx)
 
-        if r and r.log_file:
-            ReplSession().append_history(f':cat {r.log_file}')
+        if r:
+            if ctx.show_out:
+                ctx.log2(command, verbose=True)
+                ctx.log(r.stdout)
+                ctx.log2(r.stderr)
+
+            if r.log_file:
+                ReplSession().append_history(f':tail {r.log_file}')
 
         return r

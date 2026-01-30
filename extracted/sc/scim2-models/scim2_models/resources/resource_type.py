@@ -8,15 +8,17 @@ from ..annotations import CaseExact
 from ..annotations import Mutability
 from ..annotations import Required
 from ..annotations import Returned
+from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
+from ..path import URN
+from ..reference import URI
 from ..reference import Reference
-from ..reference import URIReference
 from .resource import Resource
 
 
 class SchemaExtension(ComplexAttribute):
     schema_: Annotated[
-        Reference[URIReference] | None,
+        Reference[URI] | None,
         Mutability.read_only,
         Required.true,
         CaseExact.true,
@@ -35,11 +37,15 @@ class SchemaExtension(ComplexAttribute):
 
 
 class ResourceType(Resource[Any]):
-    schemas: Annotated[list[str], Required.true] = [
-        "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
-    ]
+    __schema__ = URN("urn:ietf:params:scim:schemas:core:2.0:ResourceType")
 
-    name: Annotated[str | None, Mutability.read_only, Required.true] = None
+    name: Annotated[
+        str | None,
+        Mutability.read_only,
+        Required.true,
+        CaseExact.true,
+        Uniqueness.server,
+    ] = None
     """The resource type name.
 
     When applicable, service providers MUST specify the name, e.g.,
@@ -59,13 +65,13 @@ class ResourceType(Resource[Any]):
     """
 
     endpoint: Annotated[
-        Reference[URIReference] | None, Mutability.read_only, Required.true
+        Reference[URI] | None, Mutability.read_only, Required.true, Uniqueness.server
     ] = None
     """The resource type's HTTP-addressable endpoint relative to the Base URL,
     e.g., '/Users'."""
 
     schema_: Annotated[
-        Reference[URIReference] | None,
+        Reference[URI] | None,
         Mutability.read_only,
         Required.true,
         CaseExact.true,
@@ -80,21 +86,23 @@ class ResourceType(Resource[Any]):
     @classmethod
     def from_resource(cls, resource_model: type[Resource[Any]]) -> Self:
         """Build a naive ResourceType from a resource model."""
-        schema = resource_model.model_fields["schemas"].default[0]
+        schema = resource_model.__schema__
+        if schema is None:
+            raise ValueError(f"{resource_model.__name__} has no __schema__ defined")
         name = schema.split(":")[-1]
 
-        # Get extensions from the metadata system
         extensions = getattr(resource_model, "__scim_extension_metadata__", [])
 
         return cls(
             id=name,
             name=name,
             description=name,
-            endpoint=Reference[URIReference](f"/{name}s"),
-            schema_=schema,
+            endpoint=Reference[URI](f"/{name}s"),
+            schema_=Reference[URI](schema),
             schema_extensions=[
                 SchemaExtension(
-                    schema_=extension.model_fields["schemas"].default[0], required=False
+                    schema_=Reference[URI](extension.__schema__),
+                    required=False,
                 )
                 for extension in extensions
             ],

@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(name="phidget22",
-    version='1.23.20251006',
+    version='1.24.20260127',
     author="Phidgets Inc",
     author_email="support@phidgets.com",
     description="Phidget22 Python wrapper library",

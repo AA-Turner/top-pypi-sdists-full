@@ -67,6 +67,22 @@ pub fn goto_definition(file: ast::SourceFile, offset: TextSize) -> SmallVec<[Tex
         }
     }
 
+    let type_node = ast::Type::cast(parent.clone()).or_else(|| {
+        // special case if we're at the timezone clause inside a timezone type
+        if ast::Timezone::can_cast(parent.kind()) {
+            parent.parent().and_then(ast::Type::cast)
+        } else {
+            None
+        }
+    });
+    if let Some(ty) = type_node {
+        let binder_output = binder::bind(&file);
+        let position = token.text_range().start();
+        if let Some(ptr) = resolve::resolve_type_ptr_from_type(&binder_output, &ty, position) {
+            return smallvec![ptr.to_node(file.syntax()).text_range()];
+        }
+    }
+
     smallvec![]
 }
 
@@ -1746,6 +1762,34 @@ create function b(t$0) returns int as 'select 1' language sql;
     }
 
     #[test]
+    fn goto_function_param_time_type() {
+        assert_snapshot!(goto("
+create type timestamp;
+create function f(timestamp$0 without time zone) returns text language internal;
+"), @r"
+          ╭▸ 
+        2 │ create type timestamp;
+          │             ───────── 2. destination
+        3 │ create function f(timestamp without time zone) returns text language internal;
+          ╰╴                          ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_function_param_time_type_no_timezone() {
+        assert_snapshot!(goto("
+create type time;
+create function f(time$0) returns text language internal;
+"), @r"
+  ╭▸ 
+2 │ create type time;
+  │             ──── 2. destination
+3 │ create function f(time) returns text language internal;
+  ╰╴                     ─ 1. source
+");
+    }
+
+    #[test]
     fn goto_create_table_type_reference_enum() {
         assert_snapshot!(goto("
 create type mood as enum ('sad', 'ok', 'happy');
@@ -1814,6 +1858,48 @@ drop type int4_range$0;
           │             ────────── 2. destination
         3 │ drop type int4_range;
           ╰╴                   ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_domain() {
+        assert_snapshot!(goto("
+create domain posint as integer check (value > 0);
+drop domain posint$0;
+"), @r"
+          ╭▸ 
+        2 │ create domain posint as integer check (value > 0);
+          │               ────── 2. destination
+        3 │ drop domain posint;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_to_domain() {
+        assert_snapshot!(goto("
+create domain posint as integer check (value > 0);
+select 1::posint$0;
+"), @r"
+          ╭▸ 
+        2 │ create domain posint as integer check (value > 0);
+          │               ────── 2. destination
+        3 │ select 1::posint;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_drop_type_domain() {
+        assert_snapshot!(goto("
+create domain posint as integer check (value > 0);
+drop type posint$0;
+"), @r"
+          ╭▸ 
+        2 │ create domain posint as integer check (value > 0);
+          │               ────── 2. destination
+        3 │ drop type posint;
+          ╰╴               ─ 1. source
         ");
     }
 
@@ -2091,6 +2177,293 @@ select x::public.baz$0;
     }
 
     #[test]
+    fn goto_cast_timestamp_without_time_zone() {
+        assert_snapshot!(goto("
+create type pg_catalog.timestamp;
+select ''::timestamp without$0 time zone;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.timestamp;
+          │                        ───────── 2. destination
+        3 │ select ''::timestamp without time zone;
+          ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_timestamp_with_time_zone() {
+        assert_snapshot!(goto("
+create type pg_catalog.timestamptz;
+select ''::timestamp with$0 time zone;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.timestamptz;
+          │                        ─────────── 2. destination
+        3 │ select ''::timestamp with time zone;
+          ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_multirange_type_from_range() {
+        assert_snapshot!(goto("
+create type floatrange as range (
+  subtype = float8,
+  subtype_diff = float8mi
+);
+select '{[1.234, 5.678]}'::floatmultirange$0;
+"), @r"
+          ╭▸ 
+        2 │ create type floatrange as range (
+          │             ────────── 2. destination
+          ‡
+        6 │ select '{[1.234, 5.678]}'::floatmultirange;
+          ╰╴                                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_multirange_special_type_name_string() {
+        assert_snapshot!(goto("
+create type floatrange as range (
+  subtype = float8,
+  subtype_diff = float8mi,
+  multirange_type_name = 'floatmulirangething'
+);
+select '{[1.234, 5.678]}'::floatmulirangething$0;
+"), @r"
+          ╭▸ 
+        2 │ create type floatrange as range (
+          │             ────────── 2. destination
+          ‡
+        7 │ select '{[1.234, 5.678]}'::floatmulirangething;
+          ╰╴                                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_multirange_special_type_name_ident() {
+        assert_snapshot!(goto("
+create type floatrange as range (
+  subtype = float8,
+  subtype_diff = float8mi,
+  multirange_type_name = floatrangemutirange
+);
+select '{[1.234, 5.678]}'::floatrangemutirange$0;
+"), @r"
+          ╭▸ 
+        2 │ create type floatrange as range (
+          │             ────────── 2. destination
+          ‡
+        7 │ select '{[1.234, 5.678]}'::floatrangemutirange;
+          ╰╴                                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_multirange_edge_case_type_from_range() {
+        // make sure we're calculating the multirange correctly
+        assert_snapshot!(goto("
+create type floatrangerange as range (
+  subtype = float8,
+  subtype_diff = float8mi
+);
+select '{[1.234, 5.678]}'::floatmultirangerange$0;
+"), @r"
+          ╭▸ 
+        2 │ create type floatrangerange as range (
+          │             ─────────────── 2. destination
+          ‡
+        6 │ select '{[1.234, 5.678]}'::floatmultirangerange;
+          ╰╴                                              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_bigint_falls_back_to_int8() {
+        assert_snapshot!(goto("
+create type pg_catalog.int8;
+select 1::bigint$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int8;
+          │                        ──── 2. destination
+        3 │ select 1::bigint;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_bigint_prefers_user_type() {
+        assert_snapshot!(goto("
+create type bigint;
+create type pg_catalog.int8;
+select 1::bigint$0;
+"), @r"
+          ╭▸ 
+        2 │ create type bigint;
+          │             ────── 2. destination
+        3 │ create type pg_catalog.int8;
+        4 │ select 1::bigint;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_smallserial_falls_back_to_int2() {
+        assert_snapshot!(goto("
+create type pg_catalog.int2;
+select 1::smallserial$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int2;
+          │                        ──── 2. destination
+        3 │ select 1::smallserial;
+          ╰╴                    ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_serial2_falls_back_to_int2() {
+        assert_snapshot!(goto("
+create type pg_catalog.int2;
+select 1::serial2$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int2;
+          │                        ──── 2. destination
+        3 │ select 1::serial2;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_serial_falls_back_to_int4() {
+        assert_snapshot!(goto("
+create type pg_catalog.int4;
+select 1::serial$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int4;
+          │                        ──── 2. destination
+        3 │ select 1::serial;
+          ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_serial4_falls_back_to_int4() {
+        assert_snapshot!(goto("
+create type pg_catalog.int4;
+select 1::serial4$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int4;
+          │                        ──── 2. destination
+        3 │ select 1::serial4;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_bigserial_falls_back_to_int8() {
+        assert_snapshot!(goto("
+create type pg_catalog.int8;
+select 1::bigserial$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int8;
+          │                        ──── 2. destination
+        3 │ select 1::bigserial;
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_serial8_falls_back_to_int8() {
+        assert_snapshot!(goto("
+create type pg_catalog.int8;
+select 1::serial8$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int8;
+          │                        ──── 2. destination
+        3 │ select 1::serial8;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_int_falls_back_to_int4() {
+        assert_snapshot!(goto("
+create type pg_catalog.int4;
+select 1::int$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int4;
+          │                        ──── 2. destination
+        3 │ select 1::int;
+          ╰╴            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_integer_falls_back_to_int4() {
+        assert_snapshot!(goto("
+create type pg_catalog.int4;
+select 1::integer$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int4;
+          │                        ──── 2. destination
+        3 │ select 1::integer;
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_smallint_falls_back_to_int2() {
+        assert_snapshot!(goto("
+create type pg_catalog.int2;
+select 1::smallint$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.int2;
+          │                        ──── 2. destination
+        3 │ select 1::smallint;
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_double_precision_falls_back_to_float8() {
+        assert_snapshot!(goto("
+create type pg_catalog.float8;
+select '1'::double precision[]$0;
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.float8;
+          │                        ────── 2. destination
+        3 │ select '1'::double precision[];
+          ╰╴                             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cast_varchar_with_modifier() {
+        assert_snapshot!(goto("
+create type pg_catalog.varchar;
+select '1'::varchar$0(1);
+"), @r"
+          ╭▸ 
+        2 │ create type pg_catalog.varchar;
+          │                        ─────── 2. destination
+        3 │ select '1'::varchar(1);
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_cast_composite_type() {
         assert_snapshot!(goto("
 create type person_info as (name varchar(50), age int);
@@ -2317,6 +2690,18 @@ drop table foo.t$0;
         4 │ drop table foo.t;
           ╰╴               ─ 1. source
         ");
+    }
+
+    #[test]
+    fn goto_column_not_in_cte_but_in_table() {
+        // we shouldn't navigate up to the table of the same name
+        goto_not_found(
+            r"
+create table t (c int);
+with t as (select 1 a)
+select c$0 from t;
+",
+        );
     }
 
     #[test]
@@ -7394,5 +7779,33 @@ create function foo(correct_param int) returns int as 'select 1' language sql;
 select foo(wrong_param$0 := 5);
 ",
         );
+    }
+
+    #[test]
+    fn goto_operator_function_ref() {
+        assert_snapshot!(goto("
+create function pg_catalog.tsvector_concat(tsvector, tsvector) returns tsvector language internal;
+create operator pg_catalog.|| (leftarg = tsvector, rightarg = tsvector, function = pg_catalog.tsvector_concat$0);
+"), @r"
+          ╭▸ 
+        2 │ create function pg_catalog.tsvector_concat(tsvector, tsvector) returns tsvector language internal;
+          │                            ─────────────── 2. destination
+        3 │ create operator pg_catalog.|| (leftarg = tsvector, rightarg = tsvector, function = pg_catalog.tsvector_concat);
+          ╰╴                                                                                                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_operator_procedure_ref() {
+        assert_snapshot!(goto("
+create function f(int, int) returns int language internal;
+create operator ||| (leftarg = int, rightarg = int, procedure = f$0);
+"), @r"
+          ╭▸ 
+        2 │ create function f(int, int) returns int language internal;
+          │                 ─ 2. destination
+        3 │ create operator ||| (leftarg = int, rightarg = int, procedure = f);
+          ╰╴                                                                ─ 1. source
+        ");
     }
 }

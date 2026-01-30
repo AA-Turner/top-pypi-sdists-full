@@ -177,6 +177,10 @@ $SUBNETS_ROUTE_TABLE_ASSOCIATION
               - DELETE
             AllowedOrigins:
               - $ALLOWED_ORIGIN
+            ExposedHeaders:
+              - Accept-Ranges
+              - Content-Range
+              - Content-Length
             Id: AnyscaleCORSRule
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True

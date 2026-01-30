@@ -21,6 +21,7 @@ import warnings
 from meridian import backend
 from meridian import constants
 from meridian.data import input_data as data
+from meridian.data import time_coordinates as tc
 from meridian.model import adstock_hill
 from meridian.model import knots
 from meridian.model import media
@@ -59,6 +60,8 @@ class ModelContext:
     self._check_media_prior_support()
     self._validate_geo_invariants()
     self._validate_time_invariants()
+    self._validate_media_spend_for_paid_channels()
+    self._validate_rf_spend_for_paid_channels()
 
   def _validate_data_dependent_model_spec(self):
     """Validates that the data dependent model specs have correct shapes."""
@@ -305,6 +308,41 @@ class ModelContext:
           self._input_data.organic_reach.coords[
               constants.ORGANIC_RF_CHANNEL
           ].values,
+      )
+
+  def _validate_media_spend_for_paid_channels(self) -> None:
+    self._validate_spend_for_paid_channels(
+        self.input_data.aggregate_media_spend(), constants.MEDIA_CHANNEL
+    )
+
+  def _validate_rf_spend_for_paid_channels(self) -> None:
+    self._validate_spend_for_paid_channels(
+        self.input_data.aggregate_rf_spend(), constants.RF_CHANNEL
+    )
+
+  def _validate_spend_for_paid_channels(
+      self,
+      spend: np.ndarray | None,
+      dim: str,
+  ) -> None:
+    """Validates non-zero media spend for paid media channels.
+
+    Args:
+      spend: The media spend data to validate.
+      dim: The dimension name of the spend data.
+
+    Raises:
+      ValueError if any paid media channel has zero total spend.
+    """
+    if spend is None:
+      return
+    zero_spend_channels = spend.coords[dim].where(spend == 0, drop=True).values
+
+    if zero_spend_channels.size > 0:
+      raise ValueError(
+          "Zero total spend detected for paid channels:"
+          f" {', '.join(zero_spend_channels)}. If data is correct and this is"
+          " expected, please consider modeling the data as organic media."
       )
 
   def _check_if_no_time_variation(
@@ -905,6 +943,68 @@ class ModelContext:
         organic_rf=organic_rf_adstock_function,
     )
 
+  def create_inference_data_coords(
+      self, n_chains: int, n_draws: int
+  ) -> Mapping[str, np.ndarray | Sequence[str]]:
+    """Creates data coordinates for inference data."""
+    media_channel_names = (
+        self.input_data.media_channel
+        if self.input_data.media_channel is not None
+        else np.array([])
+    )
+    rf_channel_names = (
+        self.input_data.rf_channel
+        if self.input_data.rf_channel is not None
+        else np.array([])
+    )
+    organic_media_channel_names = (
+        self.input_data.organic_media_channel
+        if self.input_data.organic_media_channel is not None
+        else np.array([])
+    )
+    organic_rf_channel_names = (
+        self.input_data.organic_rf_channel
+        if self.input_data.organic_rf_channel is not None
+        else np.array([])
+    )
+    non_media_channel_names = (
+        self.input_data.non_media_channel
+        if self.input_data.non_media_channel is not None
+        else np.array([])
+    )
+    control_variable_names = (
+        self.input_data.control_variable
+        if self.input_data.control_variable is not None
+        else np.array([])
+    )
+    return {
+        constants.CHAIN: np.arange(n_chains),
+        constants.DRAW: np.arange(n_draws),
+        constants.GEO: self.input_data.geo,
+        constants.TIME: self.input_data.time,
+        constants.MEDIA_TIME: self.input_data.media_time,
+        constants.KNOTS: np.arange(self.knot_info.n_knots),
+        constants.CONTROL_VARIABLE: control_variable_names,
+        constants.NON_MEDIA_CHANNEL: non_media_channel_names,
+        constants.MEDIA_CHANNEL: media_channel_names,
+        constants.RF_CHANNEL: rf_channel_names,
+        constants.ORGANIC_MEDIA_CHANNEL: organic_media_channel_names,
+        constants.ORGANIC_RF_CHANNEL: organic_rf_channel_names,
+    }
+
+  def create_inference_data_dims(self) -> Mapping[str, Sequence[str]]:
+    """Creates data dimensions for inference data."""
+    inference_dims = dict(constants.INFERENCE_DIMS)
+    if self.unique_sigma_for_each_geo:
+      inference_dims[constants.SIGMA] = [constants.GEO]
+    else:
+      inference_dims[constants.SIGMA] = []
+
+    return {
+        param: [constants.CHAIN, constants.DRAW] + list(dims)
+        for param, dims in inference_dims.items()
+    }
+
   def populate_cached_properties(self):
     """Eagerly activates all cached properties.
 
@@ -923,3 +1023,37 @@ class ModelContext:
     ]
     for attr in cached_properties:
       _ = getattr(self, attr)
+
+  def expand_selected_time_dims(
+      self,
+      start_date: tc.Date = None,
+      end_date: tc.Date = None,
+  ) -> list[str] | None:
+    """Validates and returns time dimension values based on the selected times.
+
+    If both `start_date` and `end_date` are None, returns None. If specified,
+    both `start_date` and `end_date` are inclusive, and must be present in the
+    time coordinates of the input data.
+
+    Args:
+      start_date: Start date of the selected time period. If None, implies the
+        earliest time dimension value in the input data.
+      end_date: End date of the selected time period. If None, implies the
+        latest time dimension value in the input data.
+
+    Returns:
+      A list of time dimension values (as Meridian-formatted strings) in the
+      input data within the selected time period, or do nothing and pass through
+      None if both arguments are Nones, or if `start_date` and `end_date`
+      correspond to the entire time range in the input data.
+
+    Raises:
+      ValueError if `start_date` or `end_date` is not in the input data time
+      dimensions.
+    """
+    expanded = self.input_data.time_coordinates.expand_selected_time_dims(
+        start_date=start_date, end_date=end_date
+    )
+    if expanded is None:
+      return None
+    return [date.strftime(constants.DATE_FORMAT) for date in expanded]

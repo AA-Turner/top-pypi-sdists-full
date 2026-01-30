@@ -33,6 +33,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassGeneric;
+use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAbstractClassCheck;
@@ -66,6 +67,7 @@ use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamCollector;
+use crate::binding::django::DjangoFieldInfo;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
@@ -190,11 +192,21 @@ impl<'a> BindingsBuilder<'a> {
             // usage tracking.
             if matches!(base_class, BaseClass::BaseClassExpr(..)) {
                 self.insert_binding(
-                    KeyExpect(base.range()),
+                    KeyExpect::TypeCheckBaseClassExpr(base.range()),
                     BindingExpect::TypeCheckBaseClassExpr(base),
                 );
             }
             base_class
+        });
+
+        let has_protocol_base = bases.iter().any(|base| {
+            matches!(
+                base,
+                BaseClass::Generic(BaseClassGeneric {
+                    kind: BaseClassGenericKind::Protocol,
+                    ..
+                })
+            )
         });
 
         let mut keywords = Vec::new();
@@ -207,10 +219,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.error(
                         keyword.range(),
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!(
-                            "The use of unpacking in class header of `{}` is not supported",
-                            x.name
-                        ),
+                        "Unpacking is not supported in class header".to_owned(),
                     )
                 }
             });
@@ -242,6 +251,7 @@ impl<'a> BindingsBuilder<'a> {
             x.range,
             class_indices.clone(),
             x.name.clone(),
+            has_protocol_base,
         ));
         self.init_static_scope(&body, false);
         self.stmts(
@@ -251,6 +261,8 @@ impl<'a> BindingsBuilder<'a> {
         let field_definitions = self.scopes.finish_class_and_get_field_definitions();
 
         let mut django_primary_key_field: Option<Name> = None;
+        let mut django_foreign_key_fields: Vec<Name> = Vec::new();
+        let mut django_fields_with_choices: Vec<Name> = Vec::new();
         let mut fields = SmallMap::with_capacity(field_definitions.len());
         for (name, (definition, range)) in field_definitions.into_iter_hashed() {
             if let ClassFieldDefinition::AssignedInBody {
@@ -262,6 +274,14 @@ impl<'a> BindingsBuilder<'a> {
 
                 if self.extract_django_primary_key(e) {
                     django_primary_key_field = Some(name.clone().into_key());
+                }
+
+                if self.extract_django_foreign_key(e) {
+                    django_foreign_key_fields.push(name.clone().into_key());
+                }
+
+                if self.extract_django_choices(e) {
+                    django_fields_with_choices.push(name.clone().into_key());
                 }
             }
             let (is_initialized_on_class, is_annotated) = match &definition {
@@ -364,7 +384,11 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators.into_boxed_slice(),
                 is_new_type: false,
                 pydantic_config_dict,
-                django_primary_key_field,
+                django_field_info: Box::new(DjangoFieldInfo {
+                    primary_key_field: django_primary_key_field,
+                    foreign_key_fields: django_foreign_key_fields,
+                    fields_with_choices: django_fields_with_choices,
+                }),
             },
         );
         self.insert_binding_idx(
@@ -478,11 +502,11 @@ impl<'a> BindingsBuilder<'a> {
                         );
                         None
                     }
-                    _ => {
+                    elts => {
                         self.error(
                             item.range(),
                             ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Expected a pair".to_owned(),
+                            format!("Expected (name, type) pair, got {}-tuple", elts.len()),
                         );
                         None
                     }
@@ -537,7 +561,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: Box::new([]),
                 is_new_type,
                 pydantic_config_dict: PydanticConfigDict::default(),
-                django_primary_key_field: None,
+                django_field_info: Box::default(),
             },
         );
         self.insert_binding_idx(
@@ -623,10 +647,12 @@ impl<'a> BindingsBuilder<'a> {
                 (Some(value), _) => ClassFieldDefinition::AssignedInBody {
                     value: ExprOrBinding::Expr(value),
                     annotation,
+                    alias_of: None,
                 },
                 (None, true) => ClassFieldDefinition::AssignedInBody {
                     value: ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
                     annotation,
+                    alias_of: None,
                 },
                 (None, false) => match annotation {
                     Some(annotation) => ClassFieldDefinition::DeclaredByAnnotation { annotation },
@@ -762,7 +788,8 @@ impl<'a> BindingsBuilder<'a> {
                             self.error(
                                 item.range(),
                                 ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Expected a key-value pair".to_owned(),
+                                "Unpacking is not supported in functional enum definition"
+                                    .to_owned(),
                             );
                             None
                         }
@@ -876,7 +903,7 @@ impl<'a> BindingsBuilder<'a> {
                         kw.value.range(),
                         ErrorInfo::Kind(ErrorKind::InvalidArgument),
                         format!(
-                            "Too many defaults values: expected up to {n_members}, got {n_defaults}",
+                            "Too many defaults: expected at most {n_members}, got {n_defaults}",
                         ),
                     );
                     let n_to_drop = n_defaults - n_members;
@@ -885,15 +912,15 @@ impl<'a> BindingsBuilder<'a> {
                     defaults.splice(n_members - n_defaults.., elts.map(|x| Some(x.clone())));
                 }
             } else {
-                let maybe_name = if let Some(name) = &kw.arg {
-                    format!(" `{name}`")
+                let msg = if let Some(name) = &kw.arg {
+                    format!("Unrecognized keyword argument `{name}`")
                 } else {
-                    "".to_owned()
+                    "Unpacking is not supported".to_owned()
                 };
                 self.error(
                     kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    format!("Unrecognized argument{maybe_name} for named tuple definition"),
+                    format!("{msg} in named tuple definition"),
                 );
             }
         }
@@ -1040,15 +1067,15 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(kw_name) = recognized_kw {
                 base_class_keywords.push((kw_name.clone(), kw.value.clone()));
             } else {
-                let maybe_name = if let Some(name) = &kw.arg {
-                    format!(" `{name}`")
+                let msg = if let Some(name) = &kw.arg {
+                    format!("Unrecognized keyword argument `{name}`")
                 } else {
-                    "".to_owned()
+                    "Unpacking is not supported".to_owned()
                 };
                 self.error(
                     kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    format!("Unrecognized argument{maybe_name} for typed dictionary definition"),
+                    format!("{msg} in typed dictionary definition"),
                 );
             }
         }
@@ -1077,7 +1104,8 @@ impl<'a> BindingsBuilder<'a> {
                             self.error(
                                 item.range(),
                                 ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Expected a key-value pair".to_owned(),
+                                "Unpacking is not supported in functional typed dictionary definition"
+                                    .to_owned(),
                             );
                             None
                         }

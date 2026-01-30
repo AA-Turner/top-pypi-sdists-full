@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqui-tts
-Version: 0.27.4
+Version: 0.27.5
 Summary: Deep learning for Text to Speech.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-TTS
 Project-URL: Documentation, https://coqui-tts.readthedocs.io

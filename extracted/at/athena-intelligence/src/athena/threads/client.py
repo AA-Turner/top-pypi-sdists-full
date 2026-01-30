@@ -4,8 +4,14 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.thread_batch_stop_request import ThreadBatchStopRequest
+from ..types.thread_batch_stop_response_out import ThreadBatchStopResponseOut
 from ..types.thread_status_response_out import ThreadStatusResponseOut
+from ..types.thread_stop_response_out import ThreadStopResponseOut
 from .raw_client import AsyncRawThreadsClient, RawThreadsClient
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class ThreadsClient:
@@ -22,6 +28,74 @@ class ThreadsClient:
         RawThreadsClient
         """
         return self._raw_client
+
+    def batch_stop_by_asset_id(
+        self, *, request: ThreadBatchStopRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadBatchStopResponseOut:
+        """
+        Stop multiple running thread executions by asset ID in a single request. This is useful for stopping many AOP executions at once from the UI. Each thread is stopped independently - failures for individual threads do not affect other threads in the batch.
+
+        Parameters
+        ----------
+        request : ThreadBatchStopRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadBatchStopResponseOut
+            Batch stop completed (check results for individual thread status)
+
+        Examples
+        --------
+        from athena import Athena, ThreadBatchStopRequest
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.threads.batch_stop_by_asset_id(
+            request=ThreadBatchStopRequest(
+                thread_ids=["thread_ids"],
+            ),
+        )
+        """
+        _response = self._raw_client.batch_stop_by_asset_id(request=request, request_options=request_options)
+        return _response.data
+
+    def batch_stop(
+        self, *, request: ThreadBatchStopRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadBatchStopResponseOut:
+        """
+        Stop multiple running thread executions in a single request. This endpoint accepts thread IDs (the same IDs used with the single-thread stop endpoint). Each thread is stopped independently - failures for individual threads do not affect other threads in the batch.
+
+        Parameters
+        ----------
+        request : ThreadBatchStopRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadBatchStopResponseOut
+            Batch stop completed (check results for individual thread status)
+
+        Examples
+        --------
+        from athena import Athena, ThreadBatchStopRequest
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.threads.batch_stop(
+            request=ThreadBatchStopRequest(
+                thread_ids=["thread_ids"],
+            ),
+        )
+        """
+        _response = self._raw_client.batch_stop(request=request, request_options=request_options)
+        return _response.data
 
     def get_status(
         self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -56,6 +130,37 @@ class ThreadsClient:
         _response = self._raw_client.get_status(thread_id, request_options=request_options)
         return _response.data
 
+    def stop(self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> ThreadStopResponseOut:
+        """
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+
+        Parameters
+        ----------
+        thread_id : str
+            The unique thread ID to stop
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadStopResponseOut
+            Thread stopped successfully
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.threads.stop(
+            thread_id="thread_id",
+        )
+        """
+        _response = self._raw_client.stop(thread_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncThreadsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -71,6 +176,90 @@ class AsyncThreadsClient:
         AsyncRawThreadsClient
         """
         return self._raw_client
+
+    async def batch_stop_by_asset_id(
+        self, *, request: ThreadBatchStopRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadBatchStopResponseOut:
+        """
+        Stop multiple running thread executions by asset ID in a single request. This is useful for stopping many AOP executions at once from the UI. Each thread is stopped independently - failures for individual threads do not affect other threads in the batch.
+
+        Parameters
+        ----------
+        request : ThreadBatchStopRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadBatchStopResponseOut
+            Batch stop completed (check results for individual thread status)
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena, ThreadBatchStopRequest
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.threads.batch_stop_by_asset_id(
+                request=ThreadBatchStopRequest(
+                    thread_ids=["thread_ids"],
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.batch_stop_by_asset_id(request=request, request_options=request_options)
+        return _response.data
+
+    async def batch_stop(
+        self, *, request: ThreadBatchStopRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadBatchStopResponseOut:
+        """
+        Stop multiple running thread executions in a single request. This endpoint accepts thread IDs (the same IDs used with the single-thread stop endpoint). Each thread is stopped independently - failures for individual threads do not affect other threads in the batch.
+
+        Parameters
+        ----------
+        request : ThreadBatchStopRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadBatchStopResponseOut
+            Batch stop completed (check results for individual thread status)
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena, ThreadBatchStopRequest
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.threads.batch_stop(
+                request=ThreadBatchStopRequest(
+                    thread_ids=["thread_ids"],
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.batch_stop(request=request, request_options=request_options)
+        return _response.data
 
     async def get_status(
         self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -111,4 +300,45 @@ class AsyncThreadsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_status(thread_id, request_options=request_options)
+        return _response.data
+
+    async def stop(
+        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadStopResponseOut:
+        """
+        Stop a running thread execution. This will stop the thread if it is currently running and mark it as stopped.
+
+        Parameters
+        ----------
+        thread_id : str
+            The unique thread ID to stop
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadStopResponseOut
+            Thread stopped successfully
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.threads.stop(
+                thread_id="thread_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.stop(thread_id, request_options=request_options)
         return _response.data

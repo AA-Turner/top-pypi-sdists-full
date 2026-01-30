@@ -6,6 +6,7 @@ import botocore
 
 from adam.config import Config
 from adam.utils import tabulize, log, log2, log_exc, wait_log
+from adam.utils_context import Context
 
 # no state utility class
 class Athena:
@@ -82,30 +83,26 @@ class Athena:
 
       return []
 
-   def run_query(sql: str, database: str = None, output: Callable[[str], str] = None):
+   def run_query(sql: str, database: str = None, ctx: Context = Context.NULL):
       state, reason, rs = Athena.query(sql, database)
 
-      log_file = None
+      # log_file = None
       if state == 'SUCCEEDED':
          if rs:
             column_info = rs[0]['Data']
             columns = [col.get('VarCharValue') for col in column_info]
-            out = tabulize(rs[1:],
+            tabulize(rs[1:],
                            lambda r: '\t'.join(col.get('VarCharValue') if col else '' for col in r['Data']),
                            header='\t'.join(columns),
                            separator='\t',
-                           to=0)
-            if output:
-               log_file = output(out)
-            else:
-               log(out)
+                           log_file=ctx.log_file)
 
-            return len(rs)-1, log_file
+            return len(rs)-1, ctx.log_file
       else:
-         log2(f"Query failed or was cancelled. State: {state}")
-         log2(f"Reason: {reason}")
+         ctx.log2(f"Query failed or was cancelled. State: {state}")
+         ctx.log2(f"Reason: {reason}")
 
-      return 0, log_file
+      return 0
 
    def query(sql: str, database: str = None, function: str = 'audit') -> tuple[str, str, list]:
       region_name = Config().get(f'{function}.athena.region', 'us-west-2')

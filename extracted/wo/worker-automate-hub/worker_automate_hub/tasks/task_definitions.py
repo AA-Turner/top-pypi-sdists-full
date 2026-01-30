@@ -148,6 +148,10 @@ from worker_automate_hub.tasks.jobs.emissao_nf_frota import (
 emissao_nf_frota
 )
 
+from worker_automate_hub.tasks.jobs.extracao_pedido_compra_sap import (
+extracao_pedidos_compras_sap
+)
+
 task_definitions = {
     "5b295021-8df7-40a1-a45e-fe7109ae3902": exemplo_processo,
     "a0788650-de48-454f-acbf-3537ead2d8ed": login_emsys,
@@ -267,6 +271,7 @@ task_definitions = {
     "7a4e1ea5-852f-48b3-99e3-5c2910632fe3": lista_devolucoes_sap,
     "f4dbc4ce-4741-4fe6-839d-9439d60b521a": sftp_equals_netunna,
     "f8cb70e5-1340-4e6c-8745-1e5af9fd4e3d": emissao_nf_frota,
+    "f2136556-b27b-4b40-96d2-de3060bd2859": extracao_pedidos_compras_sap,
 }
 
 

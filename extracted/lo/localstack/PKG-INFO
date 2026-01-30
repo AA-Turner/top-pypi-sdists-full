@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack
-Version: 4.12.0
+Version: 4.13.0
 Summary: LocalStack - A fully functional local Cloud stack
 Home-page: https://github.com/localstack/localstack
 Author: LocalStack Contributors
@@ -13,10 +13,10 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
 Description-Content-Type: text/markdown
 Requires-Dist: localstack-core
-Requires-Dist: localstack-ext==4.12.0
+Requires-Dist: localstack-ext==4.13.0
 Provides-Extra: runtime
 Requires-Dist: localstack-core[runtime]; extra == "runtime"
-Requires-Dist: localstack-ext[runtime]==4.12.0; extra == "runtime"
+Requires-Dist: localstack-ext[runtime]==4.13.0; extra == "runtime"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -28,9 +28,9 @@ Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
-<p align="center">
-:zap: We are thrilled to announce the release of <a href="https://blog.localstack.cloud/localstack-for-aws-release-v-4-11-0/">LocalStack 4.11</a> :zap:
-</p>
+> [!IMPORTANT]
+> **We’re moving toward a unified LocalStack for AWS image, updating how access works.**
+> **For details on timing and impact please refer [to this blog post](https://localstack.cloud/2026-updates).**
 
 <p align="center">
   <img src="docs/localstack-readme-banner.svg" alt="LocalStack - The Leading Platform for Local Cloud Development">

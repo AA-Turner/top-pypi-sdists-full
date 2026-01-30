@@ -30,7 +30,6 @@ async def build_index(
     config: GraphRagConfig,
     method: IndexingMethod | str = IndexingMethod.Standard,
     is_update_run: bool = False,
-    memory_profile: bool = False,
     callbacks: list[WorkflowCallbacks] | None = None,
     additional_context: dict[str, Any] | None = None,
     verbose: bool = False,
@@ -67,9 +66,6 @@ async def build_index(
 
     outputs: list[PipelineRunResult] = []
 
-    if memory_profile:
-        logger.warning("New pipeline does not yet support memory profiling.")
-
     logger.info("Initializing indexing pipeline...")
     # todo: this could propagate out to the cli for better clarity, but will be a breaking api change
     method = _get_method(method, is_update_run)
@@ -86,8 +82,9 @@ async def build_index(
         input_documents=input_documents,
     ):
         outputs.append(output)
-        if output.errors and len(output.errors) > 0:
+        if output.error is not None:
             logger.error("Workflow %s completed with errors", output.workflow)
+            workflow_callbacks.pipeline_error(output.error)
         else:
             logger.info("Workflow %s completed successfully", output.workflow)
         logger.debug(str(output.result))

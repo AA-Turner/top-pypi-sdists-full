@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 3.4.1
+Version: 3.4.2
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0
@@ -39,6 +39,7 @@ Requires-Dist: numpy; extra == "test"
 Requires-Dist: pandas; extra == "test"
 Requires-Dist: pyarrow; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: tox; extra == "test"
 Provides-Extra: oci-config
 Requires-Dist: oci; extra == "oci-config"
 Provides-Extra: oci-auth

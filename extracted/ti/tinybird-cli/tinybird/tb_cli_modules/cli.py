@@ -27,7 +27,7 @@ from tinybird.client import (
     OperationCanNotBePerformed,
     TinyB,
 )
-from tinybird.config import CURRENT_VERSION, SUPPORTED_CONNECTORS, VERSION, FeatureFlags, get_config
+from tinybird.config import CURRENT_VERSION, VERSION, FeatureFlags, get_config
 from tinybird.datafile_common import (
     AlreadyExistsException,
     CLIGitRelease,
@@ -62,7 +62,6 @@ from tinybird.tb_cli_modules.common import (
     getenv_bool,
     is_major_semver,
     is_post_semver,
-    load_connector_config,
     remove_release,
     try_update_config_with_remote,
 )
@@ -85,32 +84,6 @@ DEFAULT_PATTERNS: List[Tuple[str, Union[str, Callable[[str], str]]]] = [
 @click.option("--token", help="Use auth token, defaults to TB_TOKEN envvar, then to the .tinyb file")
 @click.option("--host", help="Use custom host, defaults to TB_HOST envvar, then to https://api.tinybird.co")
 @click.option("--semver", help="Semver of a Release to run the command. Example: 1.0.0", hidden=True)
-@click.option("--gcp-project-id", help="The Google Cloud project ID", hidden=True)
-@click.option(
-    "--gcs-bucket", help="The Google Cloud Storage bucket to write temp files when using the connectors", hidden=True
-)
-@click.option(
-    "--google-application-credentials",
-    envvar="GOOGLE_APPLICATION_CREDENTIALS",
-    help="Set GOOGLE_APPLICATION_CREDENTIALS",
-    hidden=True,
-)
-@click.option("--sf-account", help="The Snowflake Account (e.g. your-domain.west-europe.azure)", hidden=True)
-@click.option("--sf-warehouse", help="The Snowflake warehouse name", hidden=True)
-@click.option("--sf-database", help="The Snowflake database name", hidden=True)
-@click.option("--sf-schema", help="The Snowflake schema name", hidden=True)
-@click.option("--sf-role", help="The Snowflake role name", hidden=True)
-@click.option("--sf-user", help="The Snowflake user name", hidden=True)
-@click.option("--sf-password", help="The Snowflake password", hidden=True)
-@click.option(
-    "--sf-storage-integration",
-    help="The Snowflake GCS storage integration name (leave empty to auto-generate one)",
-    hidden=True,
-)
-@click.option("--sf-stage", help="The Snowflake GCS stage name (leave empty to auto-generate one)", hidden=True)
-@click.option(
-    "--with-headers", help="Flag to enable connector to export with headers", is_flag=True, default=False, hidden=True
-)
 @click.option(
     "--version-warning/--no-version-warning",
     envvar="TB_VERSION_WARNING",
@@ -127,19 +100,6 @@ async def cli(
     token: str,
     host: str,
     semver: str,
-    gcp_project_id: str,
-    gcs_bucket: str,
-    google_application_credentials: str,
-    sf_account: str,
-    sf_warehouse: str,
-    sf_database: str,
-    sf_schema: str,
-    sf_role: str,
-    sf_user: str,
-    sf_password: str,
-    sf_storage_integration: str,
-    sf_stage,
-    with_headers: bool,
     version_warning: bool,
     show_tokens: bool,
 ) -> None:
@@ -212,51 +172,9 @@ async def cli(
     if ctx.invoked_subcommand == "auth":
         return
 
-    from tinybird.connectors import create_connector
-
-    if gcp_project_id and gcs_bucket and google_application_credentials and not sf_account:
-        bq_config = {
-            "project_id": gcp_project_id,
-            "bucket_name": gcs_bucket,
-            "service_account": google_application_credentials,
-            "with_headers": with_headers,
-        }
-        ctx.ensure_object(dict)["bigquery"] = create_connector("bigquery", bq_config)
-    if (
-        sf_account
-        and sf_warehouse
-        and sf_database
-        and sf_schema
-        and sf_role
-        and sf_user
-        and sf_password
-        and gcs_bucket
-        and google_application_credentials
-        and gcp_project_id
-    ):
-        sf_config = {
-            "account": sf_account,
-            "warehouse": sf_warehouse,
-            "database": sf_database,
-            "schema": sf_schema,
-            "role": sf_role,
-            "user": sf_user,
-            "password": sf_password,
-            "storage_integration": sf_storage_integration,
-            "stage": sf_stage,
-            "bucket_name": gcs_bucket,
-            "service_account": google_application_credentials,
-            "project_id": gcp_project_id,
-            "with_headers": with_headers,
-        }
-        ctx.ensure_object(dict)["snowflake"] = create_connector("snowflake", sf_config)
-
     logging.debug("debug enabled")
 
     ctx.ensure_object(dict)["client"] = _get_tb_client(config.get("token", None), config["host"], semver)  # type: ignore[arg-type]
-
-    for connector in SUPPORTED_CONNECTORS:
-        load_connector_config(ctx, connector, debug, check_uninstalled=True)
 
 
 @cli.command()

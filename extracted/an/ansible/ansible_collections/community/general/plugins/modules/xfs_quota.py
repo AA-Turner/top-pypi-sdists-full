@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: xfs_quota
 short_description: Manage quotas on XFS filesystems
@@ -438,7 +437,7 @@ def exec_quota(module, xfs_quota_bin, cmd, mountpoint):
 
 def get_fs_by_mountpoint(mountpoint):
     mpr = None
-    with open("/proc/mounts", "r") as s:
+    with open("/proc/mounts") as s:
         for line in s.readlines():
             mp = line.strip().split()
             if len(mp) == 6 and mp[1] == mountpoint and mp[2] == "xfs":
@@ -450,7 +449,7 @@ def get_fs_by_mountpoint(mountpoint):
 
 def get_project_id(name):
     prjid = None
-    with open("/etc/projid", "r") as s:
+    with open("/etc/projid") as s:
         for line in s.readlines():
             line = line.strip().partition(":")
             if line[0] == name:

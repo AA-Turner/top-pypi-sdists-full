@@ -3,24 +3,36 @@
 
 """Parameterization settings for the default configuration."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from graphrag.config.defaults import graphrag_config_defaults
-from graphrag.config.models.language_model_config import LanguageModelConfig
+from graphrag.prompts.index.extract_claims import EXTRACT_CLAIMS_PROMPT
 
 
-class ClaimExtractionConfig(BaseModel):
+@dataclass
+class ClaimExtractionPrompts:
+    """Claim extraction prompt templates."""
+
+    extraction_prompt: str
+
+
+class ExtractClaimsConfig(BaseModel):
     """Configuration section for claim extraction."""
 
     enabled: bool = Field(
         description="Whether claim extraction is enabled.",
         default=graphrag_config_defaults.extract_claims.enabled,
     )
-    model_id: str = Field(
+    completion_model_id: str = Field(
         description="The model ID to use for claim extraction.",
-        default=graphrag_config_defaults.extract_claims.model_id,
+        default=graphrag_config_defaults.extract_claims.completion_model_id,
+    )
+    model_instance_name: str = Field(
+        description="The model singleton instance name. This primarily affects the cache storage partitioning.",
+        default=graphrag_config_defaults.extract_claims.model_instance_name,
     )
     prompt: str | None = Field(
         description="The claim extraction prompt to use.",
@@ -34,22 +46,11 @@ class ClaimExtractionConfig(BaseModel):
         description="The maximum number of entity gleanings to use.",
         default=graphrag_config_defaults.extract_claims.max_gleanings,
     )
-    strategy: dict | None = Field(
-        description="The override strategy to use.",
-        default=graphrag_config_defaults.extract_claims.strategy,
-    )
 
-    def resolved_strategy(
-        self, root_dir: str, model_config: LanguageModelConfig
-    ) -> dict:
-        """Get the resolved claim extraction strategy."""
-        return self.strategy or {
-            "llm": model_config.model_dump(),
-            "extraction_prompt": (Path(root_dir) / self.prompt).read_text(
-                encoding="utf-8"
-            )
+    def resolved_prompts(self) -> ClaimExtractionPrompts:
+        """Get the resolved claim extraction prompts."""
+        return ClaimExtractionPrompts(
+            extraction_prompt=Path(self.prompt).read_text(encoding="utf-8")
             if self.prompt
-            else None,
-            "claim_description": self.description,
-            "max_gleanings": self.max_gleanings,
-        }
+            else EXTRACT_CLAIMS_PROMPT,
+        )

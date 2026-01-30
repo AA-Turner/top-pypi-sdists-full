@@ -1,36 +1,27 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.11.7
+Version: 0.12.1
 Summary: Download compute kernels
 Author-email: OlivierDehaene <olivier@huggingface.co>, Daniel de Kok <daniel@huggingface.co>, David Holtz <david@huggingface.co>, Nicolas Patry <nicolas@huggingface.co>
 License: Apache-2.0
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: huggingface_hub<2.0,>=0.26.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
 Requires-Dist: tomli>=2.0; python_version < "3.11"
 Provides-Extra: abi-check
 Requires-Dist: kernel-abi-check<0.7.0,>=0.6.2; extra == "abi-check"
+Provides-Extra: benchmark
+Requires-Dist: numpy>=2.0.2; extra == "benchmark"
+Requires-Dist: requests>=2.32.5; extra == "benchmark"
+Requires-Dist: torch; extra == "benchmark"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
-Dynamic: license-file
 
 # kernels
-
-<div align="center">
-<img src="https://github.com/user-attachments/assets/64a652f3-0cd3-4829-b3c1-df13f7933569" width="450" height="450" alt="kernel-builder logo">
-<p align="center">
-    <a href="https://pypi.org/project/kernels"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/kernels"></a>
-    <a href="https://github.com/huggingface/kernels/tags"><img alt="GitHub tag" src="https://img.shields.io/github/v/tag/huggingface/kernels"></a>
-    <a href="https://github.com/huggingface/kernels/actions/workflows/docker-build-push.yaml"><img alt="Test kernels" src="https://img.shields.io/github/actions/workflow/status/huggingface/kernels/test.yml?label=test"></a>
-  
-</p>
-</div>
-<hr/>
 
 The Kernel Hub allows Python libraries and applications to load compute
 kernels directly from the [Hub](https://hf.co/). To support this kind
@@ -43,6 +34,8 @@ packages in that they are made to be:
 - Compatible: kernels must support all recent versions of Python and
   the different PyTorch build configurations (various CUDA versions
   and C++ ABIs). Furthermore, older C library versions must be supported.
+
+The `kernels` Python package is used to load kernels from the Hub.
 
 ## 🚀 Quick Start
 
@@ -60,7 +53,7 @@ import torch
 from kernels import get_kernel
 
 # Download optimized kernels from the Hugging Face hub
-activation = get_kernel("kernels-community/activation")
+activation = get_kernel("kernels-community/activation", version=1)
 
 # Random tensor
 x = torch.randn((10, 10), dtype=torch.float16, device="cuda")
@@ -77,12 +70,4 @@ the Hub.
 
 ## 📚 Documentation
 
-- [Introduction](docs/source/index.md)
-- [Installation](docs/source/installation.md)
-- [Basic usage](docs/source/basic-usage.md)
-- [Using layers](docs/source/layers.md)
-- [Locking kernel/layer versions](docs/source/locking.md)
-- [Environment variables](docs/source/env.md)
-- [Kernel requirements](docs/source/kernel-requirements.md)
-- [Frequently Asked Questions](docs/source/faq.md)
-- [Writing kernels](https://github.com/huggingface/kernel-builder/blob/main/docs/writing-kernels.md) using [kernel-builder](https://github.com/huggingface/kernel-builder/)
+Read the [documentation of kernels](https://huggingface.co/docs/kernels/).

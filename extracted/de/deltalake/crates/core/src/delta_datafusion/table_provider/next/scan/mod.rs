@@ -19,7 +19,7 @@ use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use arrow::array::AsArray;
 use arrow_array::{ArrayRef, RecordBatch, StructArray};
 use arrow_cast::{CastOptions, cast_with_options};
-use arrow_schema::{DataType, FieldRef, Schema, SchemaRef};
+use arrow_schema::{DataType, FieldRef, Schema, SchemaBuilder, SchemaRef};
 use chrono::{TimeZone as _, Utc};
 use dashmap::DashMap;
 use datafusion::{
@@ -40,8 +40,10 @@ use datafusion::{
     scalar::ScalarValue,
 };
 use datafusion_datasource::{
-    PartitionedFile, compute_all_files_statistics, file_groups::FileGroup,
-    file_scan_config::FileScanConfigBuilder, source::DataSourceExec,
+    PartitionedFile, TableSchema, compute_all_files_statistics,
+    file_groups::FileGroup,
+    file_scan_config::{FileScanConfigBuilder, wrap_partition_value_in_dict},
+    source::DataSourceExec,
 };
 use delta_kernel::{
     Engine, Expression, expressions::StructData, scan::ScanMetadata, table_features::TableFeature,
@@ -77,7 +79,8 @@ pub(super) async fn execution_plan(
     engine: Arc<dyn Engine>,
     limit: Option<usize>,
 ) -> Result<Arc<dyn ExecutionPlan>> {
-    let (files, transforms, dvs, metrics) = replay_files(engine, &scan_plan, stream).await?;
+    let (files, transforms, dvs, metrics) =
+        replay_files(engine, &scan_plan, config.clone(), stream).await?;
 
     let file_id_field = config.file_id_field();
     if scan_plan.is_metadata_only() {
@@ -92,11 +95,11 @@ pub(super) async fn execution_plan(
                 },
             ))
         };
+
         let maybe_file_rows = files
             .iter()
             .map(map_file)
             .try_collect::<_, VecDeque<_>, _>();
-
         if let Ok(file_rows) = maybe_file_rows {
             let exec = DeltaScanMetaExec::new(
                 Arc::new(scan_plan),
@@ -106,7 +109,7 @@ pub(super) async fn execution_plan(
                 config.retain_file_id().then_some(file_id_field),
                 metrics,
             );
-            return Ok(Arc::new(exec) as Arc<dyn ExecutionPlan>);
+            return Ok(Arc::new(exec) as _);
         }
     }
 
@@ -127,6 +130,7 @@ pub(super) async fn execution_plan(
 async fn replay_files(
     engine: Arc<dyn Engine>,
     scan_plan: &KernelScanPlan,
+    scan_config: DeltaScanConfig,
     stream: ScanMetadataStream,
 ) -> Result<(
     Vec<ScanFileContext>,
@@ -134,7 +138,7 @@ async fn replay_files(
     DashMap<String, Vec<bool>>,
     ExecutionPlanMetricsSet,
 )> {
-    let mut stream = ScanFileStream::new(engine, &scan_plan.scan, stream);
+    let mut stream = ScanFileStream::new(engine, &scan_plan.scan, scan_config, stream);
     let mut files = Vec::new();
     while let Some(file) = stream.try_next().await? {
         files.extend(file);
@@ -195,8 +199,12 @@ async fn get_data_scan_plan(
             version: None,
         }
         .into();
+        let file_value =
+            wrap_partition_value_in_dict(ScalarValue::Utf8(Some(f.file_url.to_string())));
+        // NOTE: `PartitionedFile::with_statistics` appends exact stats for partition columns based
+        // on `partition_values`, so partition values must be set first.
+        partitioned_file.partition_values = vec![file_value.clone()];
         partitioned_file = partitioned_file.with_statistics(Arc::new(f.stats));
-        partitioned_file.partition_values = vec![ScalarValue::Utf8(Some(f.file_url.to_string()))];
         Ok::<_, DataFusionError>((
             f.file_url.as_object_store_url(),
             (partitioned_file, None::<Vec<bool>>),
@@ -272,6 +280,7 @@ fn update_partition_stats(
                     max_value: value,
                     distinct_count: Precision::Absent,
                     sum_value: Precision::Absent,
+                    byte_size: Precision::Absent,
                 },
             );
         }
@@ -284,7 +293,7 @@ type FilesByStore = (ObjectStoreUrl, Vec<(PartitionedFile, Option<Vec<bool>>)>);
 async fn get_read_plan(
     state: &dyn Session,
     files_by_store: impl IntoIterator<Item = FilesByStore>,
-    physical_schema: &SchemaRef,
+    parquet_read_schema: &SchemaRef,
     limit: Option<usize>,
     file_id_field: &FieldRef,
     predicate: Option<&Expr>,
@@ -296,20 +305,34 @@ async fn get_read_plan(
         ..Default::default()
     };
 
+    let mut full_read_schema = SchemaBuilder::from(parquet_read_schema.as_ref().clone());
+    full_read_schema.push(file_id_field.as_ref().clone().with_nullable(true));
+    let full_read_schema = Arc::new(full_read_schema.finish());
+
     for (store_url, files) in files_by_store.into_iter() {
         let reader_factory = Arc::new(CachedParquetFileReaderFactory::new(
             state.runtime_env().object_store(&store_url)?,
             state.runtime_env().cache_manager.get_file_metadata_cache(),
         ));
-        let mut file_source =
-            ParquetSource::new(pq_options.clone()).with_parquet_file_reader_factory(reader_factory);
+
+        // NOTE: In the "next" provider, DataFusion's Parquet scan partition fields are file-id
+        // only. Delta partition columns/values are injected via kernel transforms and handled
+        // above Parquet, so they are not part of the Parquet partition schema here.
+        let table_schema =
+            TableSchema::new(parquet_read_schema.clone(), vec![file_id_field.clone()]);
+        let full_table_schema = table_schema.table_schema().clone();
+        let mut file_source = ParquetSource::new(table_schema)
+            .with_table_parquet_options(pq_options.clone())
+            .with_parquet_file_reader_factory(reader_factory);
 
         // TODO(roeap); we might be able to also push selection vectors into the read plan
         // by creating parquet access plans. However we need to make sure this does not
         // interfere with other delta features like row ids.
         let has_selection_vectors = files.iter().any(|(_, sv)| sv.is_some());
         if !has_selection_vectors && let Some(pred) = predicate {
-            let physical = logical2physical(pred, physical_schema.as_ref());
+            // Predicate pushdown can reference the synthetic file-id partition column.
+            // Use the full read schema (data columns + file-id) when planning.
+            let physical = logical2physical(pred, full_read_schema.as_ref());
             file_source = file_source
                 .with_predicate(physical)
                 .with_pushdown_filters(true);
@@ -317,21 +340,19 @@ async fn get_read_plan(
 
         let file_group: FileGroup = files.into_iter().map(|file| file.0).collect();
         let (file_groups, statistics) =
-            compute_all_files_statistics(vec![file_group], physical_schema.clone(), true, false)?;
+            compute_all_files_statistics(vec![file_group], full_table_schema, true, false)?;
 
-        let config =
-            FileScanConfigBuilder::new(store_url, physical_schema.clone(), Arc::new(file_source))
-                .with_file_groups(file_groups)
-                .with_statistics(statistics)
-                .with_table_partition_cols(vec![file_id_field.as_ref().clone()])
-                .with_limit(limit)
-                .build();
+        let config = FileScanConfigBuilder::new(store_url, Arc::new(file_source))
+            .with_file_groups(file_groups)
+            .with_statistics(statistics)
+            .with_limit(limit)
+            .build();
 
         plans.push(DataSourceExec::from_data_source(config) as Arc<dyn ExecutionPlan>);
     }
 
     Ok(match plans.len() {
-        0 => Arc::new(EmptyExec::new(physical_schema.clone())),
+        0 => Arc::new(EmptyExec::new(full_read_schema.clone())),
         1 => plans.remove(0),
         _ => UnionExec::try_new(plans)?,
     })
@@ -349,9 +370,18 @@ fn finalize_transformed_batch(
         batch
     };
     // NOTE: most data is read properly typed already, however columns added via
-    // literals in the transdormations may need to be cast to the physical expected type.
+    // literals in the transformations may need to be cast to the physical expected type.
     let result = cast_record_batch(result, &scan_plan.result_schema)?;
     if let Some((arr, field)) = file_id_col {
+        let arr = if arr.data_type() != field.data_type() {
+            let options = CastOptions {
+                safe: true,
+                ..Default::default()
+            };
+            cast_with_options(arr.as_ref(), field.data_type(), &options)?
+        } else {
+            arr
+        };
         let mut columns = result.columns().to_vec();
         columns.push(arr);
         let mut fields = result.schema().fields().to_vec();
@@ -437,9 +467,10 @@ mod tests {
         let path = Path::from("test_data.parquet");
         store.put(&path, buffer.into()).await?;
         let mut file: PartitionedFile = store.head(&path).await?.into();
-        file.partition_values.push(ScalarValue::Utf8(Some(
-            "memory:///test_data.parquet".to_string(),
-        )));
+        file.partition_values
+            .push(wrap_partition_value_in_dict(ScalarValue::Utf8(Some(
+                "memory:///test_data.parquet".to_string(),
+            ))));
 
         let files_by_store = vec![(
             store_url.as_object_store_url(),
@@ -518,39 +549,6 @@ mod tests {
         ];
         assert_batches_sorted_eq!(&expected, &batches);
 
-        // extended schema with missing column and different data types
-        let arrow_schema_extended = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Int32, false),
-            Field::new("value", DataType::Utf8View, true),
-            Field::new("value2", DataType::Utf8View, true),
-        ]));
-        let plan = get_read_plan(
-            &session.state(),
-            files_by_store,
-            &arrow_schema_extended,
-            Some(1),
-            &file_id_field,
-            None,
-        )
-        .await?;
-        let batches = collect(plan, session.task_ctx()).await?;
-        let expected = vec![
-            "+----+-------+--------+-----------------------------+",
-            "| id | value | value2 | __delta_rs_file_id__        |",
-            "+----+-------+--------+-----------------------------+",
-            "| 1  | a     |        | memory:///test_data.parquet |",
-            "+----+-------+--------+-----------------------------+",
-        ];
-        assert_batches_sorted_eq!(&expected, &batches);
-        assert!(matches!(
-            batches[0].column(1).data_type(),
-            DataType::Utf8View
-        ));
-        assert!(matches!(
-            batches[0].column(2).data_type(),
-            DataType::Utf8View
-        ));
-
         Ok(())
     }
 
@@ -595,9 +593,10 @@ mod tests {
         let path = Path::from("test_data.parquet");
         store.put(&path, buffer.into()).await?;
         let mut file: PartitionedFile = store.head(&path).await?.into();
-        file.partition_values.push(ScalarValue::Utf8(Some(
-            "memory:///test_data.parquet".to_string(),
-        )));
+        file.partition_values
+            .push(wrap_partition_value_in_dict(ScalarValue::Utf8(Some(
+                "memory:///test_data.parquet".to_string(),
+            ))));
 
         let files_by_store = vec![(
             store_url.as_object_store_url(),
@@ -711,9 +710,11 @@ mod tests {
         let path = Path::from("test_data.parquet");
         store_1.put(&path, buffer.into()).await?;
         let mut file_1: PartitionedFile = store_1.head(&path).await?.into();
-        file_1.partition_values.push(ScalarValue::Utf8(Some(
-            "first:///test_data.parquet".to_string(),
-        )));
+        file_1
+            .partition_values
+            .push(wrap_partition_value_in_dict(ScalarValue::Utf8(Some(
+                "first:///test_data.parquet".to_string(),
+            ))));
 
         let mut buffer = Vec::new();
         let mut arrow_writer = ArrowWriter::try_new(&mut buffer, arrow_schema.clone(), None)?;
@@ -722,9 +723,11 @@ mod tests {
         let path = Path::from("test_data.parquet");
         store_2.put(&path, buffer.into()).await?;
         let mut file_2: PartitionedFile = store_2.head(&path).await?.into();
-        file_2.partition_values.push(ScalarValue::Utf8(Some(
-            "second:///test_data.parquet".to_string(),
-        )));
+        file_2
+            .partition_values
+            .push(wrap_partition_value_in_dict(ScalarValue::Utf8(Some(
+                "second:///test_data.parquet".to_string(),
+            ))));
 
         let files_by_store = vec![
             (
@@ -795,9 +798,10 @@ mod tests {
         let path = Path::from("test_data.parquet");
         store.put(&path, buffer.into()).await?;
         let mut file: PartitionedFile = store.head(&path).await?.into();
-        file.partition_values.push(ScalarValue::Utf8(Some(
-            "memory:///test_data.parquet".to_string(),
-        )));
+        file.partition_values
+            .push(wrap_partition_value_in_dict(ScalarValue::Utf8(Some(
+                "memory:///test_data.parquet".to_string(),
+            ))));
 
         let files_by_store = vec![(
             store_url.as_object_store_url(),

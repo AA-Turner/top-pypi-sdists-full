@@ -2357,7 +2357,7 @@ class TeoClient(AbstractClient):
             opts: Dict = None,
     ) -> models.DescribeTimingL4DataResponse:
         """
-        本接口（DescribeTimingL4Data）用于查询四层时序流量数据列表。
+        <p>本接口（<code>DescribeTimingL4Data</code>）用于查询四层时序数据列表。</p>
         """
         
         kwargs = {}
@@ -3621,6 +3621,24 @@ class TeoClient(AbstractClient):
         kwargs["action"] = "ModifyZoneStatus"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.ModifyZoneStatusResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ModifyZoneWorkMode(
+            self,
+            request: models.ModifyZoneWorkModeRequest,
+            opts: Dict = None,
+    ) -> models.ModifyZoneWorkModeResponse:
+        """
+        本接口用于修改站点下各配置模块的工作模式。站点各配置模块可按照配置组维度开启「版本管理模式」或「即时生效模式」，详情请参考 [版本管理](https://cloud.tencent.com/document/product/1552/113690)。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifyZoneWorkMode"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifyZoneWorkModeResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

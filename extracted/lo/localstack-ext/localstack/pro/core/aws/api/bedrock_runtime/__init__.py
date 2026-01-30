@@ -12,6 +12,7 @@ AsyncInvokeIdentifier = str
 AsyncInvokeMessage = str
 AutomatedReasoningRuleIdentifier = str
 Boolean = bool
+CacheDetailInputTokensInteger = int
 ConversationalModelId = str
 ConverseRequestAdditionalModelResponseFieldPathsListMemberString = str
 ConverseStreamRequestAdditionalModelResponseFieldPathsListMemberString = str
@@ -109,6 +110,11 @@ class AudioFormat(StrEnum):
 
 class CachePointType(StrEnum):
     default = "default"
+
+
+class CacheTTL(StrEnum):
+    i_5m = "5m"
+    i_1h = "1h"
 
 
 class ConversationRole(StrEnum):
@@ -1035,8 +1041,19 @@ Blob = bytes
 Body = bytes
 
 
+class CacheDetail(TypedDict, total=False):
+    """Cache creation metrics for a specific TTL duration"""
+
+    ttl: CacheTTL
+    inputTokens: CacheDetailInputTokensInteger
+
+
+CacheDetailsList = list[CacheDetail]
+
+
 class CachePointBlock(TypedDict, total=False):
     type: CachePointType
+    ttl: CacheTTL | None
 
 
 class SearchResultLocation(TypedDict, total=False):
@@ -1740,6 +1757,7 @@ class TokenUsage(TypedDict, total=False):
     totalTokens: TokenUsageTotalTokensInteger
     cacheReadInputTokens: TokenUsageCacheReadInputTokensInteger | None
     cacheWriteInputTokens: TokenUsageCacheWriteInputTokensInteger | None
+    cacheDetails: CacheDetailsList | None
 
 
 class ConverseResponse(TypedDict, total=False):

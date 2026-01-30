@@ -10,7 +10,7 @@ import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.cloud_utils import get_cloud_id_and_name
 from anyscale.commands import command_examples
-from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.compute_config.models import (
     compute_config_type_from_yaml,
     ComputeConfigVersion,
@@ -155,14 +155,13 @@ def archive_compute_config(
 @compute_config_cli.command(
     name="list",
     help=(
-        "By default, only compute configs created by the current user are returned."
-        "List information about compute configs.\n\n"
-        "By default, only compute configs created by the current user are returned.\n\n"
-        "Pagination uses --max-items to control the number of results per page "
-        "and --next-token to fetch subsequent pages."
+        "List compute configurations with filtering, sorting, and pagination.\n\n"
+        "By default, only compute configs created by the current user are returned. "
+        "Use --include-shared to include configs shared with you.\n\n"
+        "Use --max-items to control page size and --next-token for pagination."
     ),
-    cls=LegacyAnyscaleCommand,
-    is_limited_support=True,
+    cls=AnyscaleCommand,
+    example=command_examples.COMPUTE_CONFIG_LIST_EXAMPLE,
 )
 @click.option(
     "-n",

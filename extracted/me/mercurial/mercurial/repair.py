@@ -224,19 +224,35 @@ def strip(ui, repo, nodelist, backup=True, topic=b'backup'):
                 cl.strip(striprev, tr)
                 stripmanifest(repo, striprev, tr, files)
 
+                fileindex = repo.store.fileindex
                 for fn in files:
-                    repo.file(fn).strip(striprev, tr)
+                    filelog = repo.file(fn)
+                    filelog.strip(striprev, tr)
+                    filelog_empty = not filelog
+                    if fileindex is not None and filelog_empty:
+                        fileindex.remove(fn, tr)
                 tr.endgroup()
 
                 entries = tr.readjournal()
+
+                # now that the file are marked for "to delete" by the
+                # transaction, we need the fncache to be consistent with that.
+                for file, troffset in entries:
+                    if file in oldfiles or troffset > 0:
+                        continue
+                    repo.store.markremoved(file)
+                # we don't want the older content (with all the file) in a
+                # backup that would be reinstated at the same time as a
+                # "recover" operation delete files it points to. so we simply
+                # overwrite the existing content.
+                if (fncache := repo.store.fncache) is not None:
+                    fncache.write(tr, _backup=False)
 
                 for file, troffset in entries:
                     if file in oldfiles:
                         continue
                     with repo.svfs(file, b'a', checkambig=True) as fp:
                         fp.truncate(troffset)
-                    if troffset == 0:
-                        repo.store.markremoved(file)
 
                 deleteobsmarkers(repo.obsstore, stripobsidx)
                 del repo.obsstore
@@ -450,7 +466,7 @@ def manifestrevlogs(repo):
         # This logic is safe if treemanifest isn't enabled, but also
         # pointless, so we skip it if treemanifest isn't enabled.
         for entry in repo.store.data_entries():
-            if entry.is_revlog and entry.is_manifestlog:
+            if entry.is_manifestlog:
                 yield repo.manifestlog.getstorage(entry.target_id)
 
 

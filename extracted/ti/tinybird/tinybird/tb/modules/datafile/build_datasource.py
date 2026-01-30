@@ -58,12 +58,6 @@ def new_ds(
     ):
         raise click.ClickException(FeedbackManager.error_dynamodb_engine_not_supported(engine=engine_param))
 
-    if engine_param.lower() == "join":
-        deprecation_notice = FeedbackManager.warning_deprecated(
-            warning="Data sources with Join engine are deprecated and will be removed in the next major release of tinybird-cli. Use MergeTree instead."
-        )
-        click.echo(deprecation_notice)
-
     if not datasource_exists or fork_downstream or fork:
         params = ds["params"]
 

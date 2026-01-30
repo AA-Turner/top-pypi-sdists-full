@@ -19,3 +19,4 @@ from dotenv import load_dotenv
 from types import MethodType
 from datetime import datetime, date
 from decimal import Decimal
+from .list_utils import make_list

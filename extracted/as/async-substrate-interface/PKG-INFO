@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: async-substrate-interface
-Version: 1.5.15
+Version: 1.6.0
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -44,11 +44,11 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wheel
+Requires-Dist: aiosqlite<1.0.0,>=0.21.0
 Requires-Dist: bt-decode==v0.8.0
 Requires-Dist: scalecodec~=1.2.11
 Requires-Dist: websockets>=14.1
 Requires-Dist: xxhash
-Requires-Dist: aiosqlite<1.0.0,>=0.21.0
 Provides-Extra: dev
 Requires-Dist: bittensor; extra == "dev"
 Requires-Dist: pytest==8.3.5; extra == "dev"
@@ -75,7 +75,7 @@ pip install async-substrate-interface
 
 ## Usage
 
-Here are examples of how to use the sync and async inferfaces:
+Here are examples of how to use the sync and async interfaces:
 
 ```python
 from async_substrate_interface import SubstrateInterface

@@ -4,18 +4,13 @@
 
 from __future__ import annotations
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 import daemon
 
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
-    def write_to_output(stream, content):
-        stream.write(content)
-except ImportError:
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-
-    def write_to_output(stream, content):
-        stream.write(bytes(content, "utf-8"))
+def write_to_output(stream, content):
+    stream.write(bytes(content, "utf-8"))
 
 
 hostname = "localhost"
@@ -32,7 +27,7 @@ class EchoServer(BaseHTTPRequestHandler):
 
 def run_webserver():
     webServer = HTTPServer((hostname, server_port), EchoServer)
-    print("Server started http://%s:%s" % (hostname, server_port))
+    print(f"Server started http://{hostname}:{server_port}")
 
     try:
         webServer.serve_forever()

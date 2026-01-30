@@ -328,7 +328,6 @@ def aten_col2im(
     else:  # assert len(padding) == 4, already [w, x, y, z]
         pads = padding
 
-    # Only one ONNX op here so didn't write a private function
     return op.Col2Im(
         self,
         output_size,
@@ -1838,10 +1837,6 @@ def aten_scaled_dot_product_attention(
 
     if enable_gqa:
         key, value = _attention_repeat_kv_for_group_query(query, key, value)
-    else:
-        assert query.shape[1] == key.shape[1] == value.shape[1], (
-            "SDPA (MHA) requires q_num_heads = kv_num_heads"
-        )
 
     if attn_mask is None:
         return _aten_scaled_dot_product_attention_no_mask_onnx(

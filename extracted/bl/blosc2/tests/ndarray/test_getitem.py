@@ -2,9 +2,9 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
+
 import math
 
 import numpy as np
@@ -18,6 +18,13 @@ argvalues = [
     ([77, 134, 13], [31, 13, 5], [7, 8, 3], (slice(3, 7), slice(50, 100), 7), np.float64),
     ([77, 134, 13], [31, 13, 5], [7, 8, 3], (slice(3, 56, 3), slice(100, 50, -4), 7), np.float64),
     ([12, 13, 14, 15, 16], [5, 5, 5, 5, 5], [2, 2, 2, 2, 2], (slice(1, 3), ..., slice(3, 6)), np.float32),
+    (
+        [12, 13, 14, 15, 16],
+        [5, 5, 5, 5, 5],
+        [2, 2, 2, 2, 2],
+        (None, slice(1, 3), None, ..., slice(3, 6)),
+        np.float32,
+    ),
 ]
 
 

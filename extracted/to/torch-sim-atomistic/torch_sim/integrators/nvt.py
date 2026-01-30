@@ -72,7 +72,7 @@ def _ou_step(
         c1.unsqueeze(-1) * state.momenta
         + c2 * torch.sqrt(state.masses).unsqueeze(-1) * noise
     )
-    state.momenta = new_momenta
+    state.set_constrained_momenta(new_momenta)
     return state
 
 
@@ -118,17 +118,11 @@ def nvt_langevin_init(
         "momenta",
         calculate_momenta(state.positions, state.masses, state.system_idx, kT, seed),
     )
-
-    return MDState(
-        positions=state.positions,
+    return MDState.from_state(
+        state,
         momenta=momenta,
         energy=model_output["energy"],
         forces=model_output["forces"],
-        masses=state.masses,
-        cell=state.cell,
-        pbc=state.pbc,
-        system_idx=state.system_idx,
-        atomic_numbers=state.atomic_numbers,
     )
 
 
@@ -316,18 +310,14 @@ def nvt_nose_hoover_init(
     )  # n_atoms * n_dimensions
 
     # Initialize state
-    return NVTNoseHooverState(
-        positions=state.positions,
+    return NVTNoseHooverState.from_state(
+        state,
         momenta=momenta,
         energy=model_output["energy"],
         forces=model_output["forces"],
-        masses=state.masses,
-        cell=state.cell,
-        pbc=state.pbc,
         atomic_numbers=atomic_numbers,
-        system_idx=state.system_idx,
         chain=chain_fns.initialize(dof_per_system, KE, kT),
-        _chain_fns=chain_fns,  # Store the chain functions
+        _chain_fns=chain_fns,
     )
 
 
@@ -372,7 +362,7 @@ def nvt_nose_hoover_step(
 
     # First half-step of chain evolution
     momenta, chain = chain_fns.half_step(state.momenta, chain, kT, state.system_idx)
-    state.momenta = momenta
+    state.set_constrained_momenta(momenta)
 
     # Full velocity Verlet step
     state = velocity_verlet(state=state, dt=dt, model=model)
@@ -385,7 +375,7 @@ def nvt_nose_hoover_step(
 
     # Second half-step of chain evolution
     momenta, chain = chain_fns.half_step(state.momenta, chain, kT, state.system_idx)
-    state.momenta = momenta
+    state.set_constrained_momenta(momenta)
     state.chain = chain
 
     return state
@@ -602,16 +592,11 @@ def nvt_vrescale_init(
         calculate_momenta(state.positions, state.masses, state.system_idx, kT, seed),
     )
 
-    return NVTVRescaleState(
-        positions=state.positions,
+    return NVTVRescaleState.from_state(
+        state,
         momenta=momenta,
         energy=model_output["energy"],
         forces=model_output["forces"],
-        masses=state.masses,
-        cell=state.cell,
-        pbc=state.pbc,
-        system_idx=state.system_idx,
-        atomic_numbers=state.atomic_numbers,
     )
 
 

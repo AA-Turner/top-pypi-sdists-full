@@ -28,7 +28,8 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use ahash::HashMap;
-use pyo3::FromPyObject;
+use pyo3::types::PyAnyMethods;
+use pyo3::{FromPyObject, Python};
 use serde::Serialize;
 use zrx::id::Id;
 use zrx::scheduler::Value;
@@ -86,14 +87,6 @@ impl Navigation {
                 (id, item.data)
             })
             .collect::<HashMap<_, _>>();
-
-        // Consolidate autorefs from all pages
-        let mut autorefs = Autorefs::default();
-        for page in pages.clone().into_values() {
-            if let Some(page_autorefs) = page.autorefs {
-                autorefs.extend(page_autorefs);
-            }
-        }
 
         // Since a navigation structure is given, we just need to add titles and
         // icons where necessary and defined in page metadata
@@ -158,6 +151,8 @@ impl Navigation {
             hasher.finish()
         };
 
+        let autorefs = get_autorefs();
+
         // Return navigation
         Self {
             items,
@@ -174,7 +169,7 @@ impl Navigation {
     /// Note that this does not modify the navigation in place, but returns a
     /// new instance with the active state set. This is important, as we need
     /// to keep the original navigation structure intact for other pages.
-    pub fn with_active(&self, page: &Page) -> Self {
+    pub fn with_active(self, page: &Page) -> Self {
         /// Recursively set active state on navigation items.
         fn recurse(items: &mut [NavigationItem], url: &str) -> bool {
             for item in items.iter_mut() {
@@ -193,12 +188,12 @@ impl Navigation {
         }
 
         // Set active state starting from the root
-        let mut items = self.items.clone();
+        let mut items = self.items;
         recurse(&mut items, &page.url);
         Self {
             items,
-            homepage: self.homepage.clone(),
-            autorefs: self.autorefs.clone(),
+            homepage: self.homepage,
+            autorefs: self.autorefs,
             hash: self.hash,
         }
     }
@@ -302,7 +297,6 @@ impl From<Chunk<Id, Page>> for Navigation {
 
         // There can only be pages, no URLs, since we're auto-populating the
         // navigation from the files in the docs directory
-        let mut autorefs = Autorefs::default();
         for page in pages {
             let location = page.id.location();
 
@@ -355,11 +349,6 @@ impl From<Chunk<Id, Page>> for Navigation {
                 is_index: is_index(&file),
                 active: false,
             });
-
-            // Consolidate autorefs
-            if let Some(value) = page.data.autorefs {
-                autorefs.extend(value);
-            }
         }
 
         // Precompute hash
@@ -368,6 +357,8 @@ impl From<Chunk<Id, Page>> for Navigation {
             items.hash(&mut hasher);
             hasher.finish()
         };
+
+        let autorefs = get_autorefs();
 
         // Determine homepage and return navigation
         Self {
@@ -440,6 +431,16 @@ pub(crate) fn to_title(component: &str) -> String {
         first.to_uppercase().to_string() + &title[1..]
     } else {
         title
+    }
+}
+
+fn get_autorefs() -> Autorefs {
+    match Python::attach(|py| {
+        let module = py.import("mkdocstrings._internal.extension")?;
+        module.call_method0("_get_autorefs")?.extract::<Autorefs>()
+    }) {
+        Ok(autorefs) => autorefs,
+        Err(_) => Autorefs::new(),
     }
 }
 

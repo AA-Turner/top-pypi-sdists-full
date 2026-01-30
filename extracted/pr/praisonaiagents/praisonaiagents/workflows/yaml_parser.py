@@ -254,6 +254,12 @@ class YAMLWorkflowParser:
         memory_config = workflow_config.get('memory_config')
         output_mode = workflow_config.get('output')  # NEW: parse output mode from YAML
         
+        # Parse approve field for auto-approving tools (e.g., approve: [write_file, delete_file])
+        # This allows recipes to pre-approve dangerous tools for non-interactive execution
+        approve_tools = data.get('approve', [])
+        if isinstance(approve_tools, str):
+            approve_tools = [approve_tools]  # Handle single tool as string
+        
         # Parse variables (YAML defaults), then merge CLI overrides (extra_vars take precedence)
         variables = data.get('variables', {})
         if extra_vars:
@@ -343,6 +349,8 @@ class YAMLWorkflowParser:
             variables=variables,
             planning=planning_value,
             default_llm=default_llm,
+            process=process,  # Process type: sequential or hierarchical
+            manager_llm=manager_llm,  # LLM for manager agent (hierarchical mode)
             output=workflow_output,  # Pass output mode to Workflow
             memory=memory_value,  # Pass memory config to Workflow
             context=context_value,  # Pass context management config to Workflow
@@ -351,8 +359,9 @@ class YAMLWorkflowParser:
         # Store additional attributes for feature parity with agents.yaml
         workflow.description = description
         workflow.framework = framework
-        workflow.process = process
-        workflow.manager_llm = manager_llm
+        
+        # Store approved tools for auto-approval during workflow execution
+        workflow.approve_tools = approve_tools
         
         # Store workflow input (from 'input' or 'topic' field)
         # This is the default input passed to workflow.start() if no input is provided
@@ -442,16 +451,24 @@ class YAMLWorkflowParser:
         
         return agents
     
-    def _create_agent(self, agent_id: str, config: Dict[str, Any]) -> Agent:
+    def _create_agent(self, agent_id: str, config: Dict[str, Any]) -> Any:
         """
         Create an Agent from configuration.
+        
+        Supports specialized agent types via the `agent:` field:
+        - agent: AudioAgent  -> Creates AudioAgent for TTS/STT
+        - agent: VideoAgent  -> Creates VideoAgent for video generation
+        - agent: ImageAgent  -> Creates ImageAgent for image generation
+        - agent: OCRAgent    -> Creates OCRAgent for text extraction
+        - agent: DeepResearchAgent -> Creates DeepResearchAgent for research
+        - (no agent field)   -> Creates default Agent
         
         Args:
             agent_id: Identifier for the agent
             config: Agent configuration dictionary
             
         Returns:
-            Agent object
+            Agent object (or specialized agent type)
         """
         # Extract agent parameters
         name = config.get('name', agent_id)
@@ -486,16 +503,34 @@ class YAMLWorkflowParser:
         prompt_template = config.get('prompt_template')
         response_template = config.get('response_template')
         
-        # Create agent (verbose parameter removed - Agent no longer accepts it)
-        agent = Agent(
-            name=name,
-            role=role,
-            goal=goal,
-            instructions=instructions,
-            backstory=backstory,
-            llm=llm,
-            tools=tools if tools else None,
-        )
+        # Tool choice configuration (auto, required, none)
+        tool_choice = config.get('tool_choice')
+        
+        # Check for specialized agent type via `agent:` field
+        agent_type = config.get('agent', '').lower() if config.get('agent') else ''
+        
+        # Create appropriate agent based on type
+        if agent_type == 'audioagent':
+            agent = self._create_audio_agent(name, llm, config)
+        elif agent_type == 'videoagent':
+            agent = self._create_video_agent(name, llm, config)
+        elif agent_type == 'imageagent':
+            agent = self._create_image_agent(name, llm, config)
+        elif agent_type == 'ocragent':
+            agent = self._create_ocr_agent(name, llm, config)
+        elif agent_type == 'deepresearchagent':
+            agent = self._create_deep_research_agent(name, llm, config)
+        else:
+            # Default: create standard Agent
+            agent = Agent(
+                name=name,
+                role=role,
+                goal=goal,
+                instructions=instructions,
+                backstory=backstory,
+                llm=llm,
+                tools=tools if tools else None,
+            )
         
         # Store additional attributes for later use
         agent._yaml_planning = planning
@@ -515,6 +550,130 @@ class YAMLWorkflowParser:
         agent._yaml_prompt_template = prompt_template
         agent._yaml_response_template = response_template
         
+        # Store tool_choice for forcing tool usage (auto, required, none)
+        agent._yaml_tool_choice = tool_choice
+        
+        return agent
+    
+    def _create_audio_agent(self, name: str, llm: Optional[str], config: Dict[str, Any]) -> Any:
+        """
+        Create an AudioAgent for TTS/STT operations.
+        
+        Args:
+            name: Agent name
+            llm: LLM model (e.g., openai/tts-1, openai/whisper-1)
+            config: Full agent configuration
+            
+        Returns:
+            AudioAgent instance
+        """
+        from ..agent import AudioAgent
+        
+        # AudioAgent accepts: llm, audio config
+        audio_config = config.get('audio', {})
+        
+        agent = AudioAgent(
+            llm=llm,
+            audio=audio_config if audio_config else None,
+        )
+        # Store name for identification
+        agent.name = name
+        return agent
+    
+    def _create_video_agent(self, name: str, llm: Optional[str], config: Dict[str, Any]) -> Any:
+        """
+        Create a VideoAgent for video generation.
+        
+        Args:
+            name: Agent name
+            llm: LLM model (e.g., openai/sora-2)
+            config: Full agent configuration
+            
+        Returns:
+            VideoAgent instance
+        """
+        from ..agent import VideoAgent
+        
+        # VideoAgent accepts: llm, video config
+        video_config = config.get('video', {})
+        
+        agent = VideoAgent(
+            llm=llm,
+            video=video_config if video_config else None,
+        )
+        agent.name = name
+        return agent
+    
+    def _create_image_agent(self, name: str, llm: Optional[str], config: Dict[str, Any]) -> Any:
+        """
+        Create an ImageAgent for image generation.
+        
+        Args:
+            name: Agent name
+            llm: LLM model (e.g., openai/dall-e-3)
+            config: Full agent configuration
+            
+        Returns:
+            ImageAgent instance
+        """
+        from ..agent import ImageAgent
+        
+        # ImageAgent accepts: llm, style, and other image config
+        style = config.get('style', 'natural')
+        
+        agent = ImageAgent(
+            llm=llm,
+            style=style,
+        )
+        agent.name = name
+        return agent
+    
+    def _create_ocr_agent(self, name: str, llm: Optional[str], config: Dict[str, Any]) -> Any:
+        """
+        Create an OCRAgent for text extraction from documents/images.
+        
+        Args:
+            name: Agent name
+            llm: LLM model (e.g., mistral/mistral-ocr-latest)
+            config: Full agent configuration
+            
+        Returns:
+            OCRAgent instance
+        """
+        from ..agent import OCRAgent
+        
+        # OCRAgent accepts: llm, ocr config
+        ocr_config = config.get('ocr', {})
+        
+        agent = OCRAgent(
+            llm=llm,
+            ocr=ocr_config if ocr_config else None,
+        )
+        agent.name = name
+        return agent
+    
+    def _create_deep_research_agent(self, name: str, llm: Optional[str], config: Dict[str, Any]) -> Any:
+        """
+        Create a DeepResearchAgent for automated research.
+        
+        Args:
+            name: Agent name
+            llm: LLM model (e.g., o3-deep-research)
+            config: Full agent configuration
+            
+        Returns:
+            DeepResearchAgent instance
+        """
+        from ..agent import DeepResearchAgent
+        
+        # DeepResearchAgent accepts: model, instructions, etc.
+        instructions = config.get('instructions', config.get('backstory', ''))
+        
+        agent = DeepResearchAgent(
+            name=name,
+            model=llm or 'o3-deep-research',
+            instructions=instructions,
+        )
         return agent
     
     def _resolve_tools(self, tools_config: List[str]) -> List[Callable]:
@@ -531,7 +690,16 @@ class YAMLWorkflowParser:
         for tool_name in tools_config:
             if tool_name in self.tool_registry:
                 tools.append(self.tool_registry[tool_name])
-            # If tool not in registry, skip it (will be resolved later or is a string reference)
+            else:
+                # Fallback: try to import from praisonaiagents.tools
+                try:
+                    from praisonaiagents import tools as builtin_tools
+                    if hasattr(builtin_tools, tool_name):
+                        tool_func = getattr(builtin_tools, tool_name)
+                        if callable(tool_func):
+                            tools.append(tool_func)
+                except (ImportError, AttributeError):
+                    pass
         return tools
     
     def _parse_callbacks(self, callbacks_data: Dict[str, str]) -> None:
@@ -587,6 +755,8 @@ class YAMLWorkflowParser:
             return self._parse_repeat_step(step_data)
         elif 'include' in step_data:
             return self._parse_include_step(step_data)
+        elif 'if' in step_data:
+            return self._parse_if_step(step_data)
         elif 'agent' in step_data:
             return self._parse_agent_step(step_data)
         else:
@@ -709,6 +879,52 @@ class YAMLWorkflowParser:
             input_template = include_config.get('input')
         
         return Include(recipe=recipe_name, input=input_template)
+    
+    def _parse_if_step(self, step_data: Dict):
+        """
+        Parse a conditional branching (if:) pattern step.
+        
+        Args:
+            step_data: Step definition with 'if' key
+            
+        Returns:
+            If pattern object
+            
+        YAML syntax:
+            - if:
+                condition: "{{score}} > 80"
+                then:
+                  - agent: approver
+                else:
+                  - agent: rejector
+        """
+        from .workflows import If
+        
+        if_config = step_data['if']
+        
+        condition = if_config.get('condition', '')
+        
+        # Parse then steps
+        then_steps = []
+        then_config = if_config.get('then', [])
+        for step in then_config:
+            parsed = self._parse_single_step(step)
+            if parsed:
+                then_steps.append(parsed)
+        
+        # Parse else steps (optional)
+        else_steps = []
+        else_config = if_config.get('else', [])
+        for step in else_config:
+            parsed = self._parse_single_step(step)
+            if parsed:
+                else_steps.append(parsed)
+        
+        return If(
+            condition=condition,
+            then_steps=then_steps,
+            else_steps=else_steps if else_steps else None
+        )
     
     def _parse_route_step(self, step_data: Dict) -> Dict:
         """

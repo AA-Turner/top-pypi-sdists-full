@@ -4,7 +4,7 @@ import re
 try:
     from setuptools import setup
     from setuptools.command.sdist import sdist
-except ImportError:
+except ImportError:  # Backwards compatibility for Python < 3.12, remove distutils when support is dropped
     from distutils.core import setup
     from distutils.command.sdist import sdist
 
@@ -53,12 +53,9 @@ For earlier releases, see `History <https://coolname.readthedocs.io/en/latest/hi
 '''
     history = re.sub(r':\w+:`(\w+(?:\.\w+)*)`', r'``\1``', history)
 
-
-test_requirements = []
-
 setup(
     name='coolname',
-    version='2.2.0',
+    version='3.0.0',
     description="Random name and slug generator",
     long_description=readme + '\n\n' + history,
     author="Alexander Lukanin",
@@ -83,12 +80,13 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
-    test_suite='tests',
-    tests_require=test_requirements
 )

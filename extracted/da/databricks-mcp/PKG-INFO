@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-mcp
-Version: 0.6.0
+Version: 0.7.0
 Summary: MCP helpers for Databricks
 Author-email: Databricks <agent-feedback@databricks.com>
 License: Apache-2.0

@@ -2,9 +2,7 @@ from collections.abc import Callable
 from dataclasses import (
     dataclass,
 )
-from datetime import (
-    datetime,
-)
+from datetime import date, datetime, time
 from typing import (
     TypeVar,
 )
@@ -38,9 +36,13 @@ _R = TypeVar("_R")
 @dataclass(frozen=True)
 class DbPrimitiveFactory:
     @staticmethod
-    def from_raw(raw: Primitive | datetime) -> DbPrimitive:
+    def from_raw(raw: Primitive | datetime | date | time) -> DbPrimitive:
         if isinstance(raw, datetime):
-            return Coproduct.inr(raw)
+            return Coproduct.inr(Coproduct.inl(raw))
+        if isinstance(raw, date):
+            return Coproduct.inr(Coproduct.inr(Coproduct.inl(raw)))
+        if isinstance(raw, time):
+            return Coproduct.inr(Coproduct.inr(Coproduct.inr(raw)))
         return Coproduct.inl(JsonPrimitiveFactory.from_raw(raw))
 
     @classmethod
@@ -62,13 +64,13 @@ class DbPrimitiveFactory:
         factory: ResultFactory[DbPrimitive, Exception] = ResultFactory()
         factory2: CoproductFactory[
             JsonPrimitive,
-            datetime,
+            Coproduct[datetime, Coproduct[date, time]],
         ] = CoproductFactory()
         return (
             JsonPrimitiveFactory.from_any(raw)
             .map(lambda p: factory2.inl(p))
             .lash(
-                lambda _: factory.success(factory2.inr(raw))
+                lambda _: factory.success(factory2.inr(Coproduct.inl(raw)))
                 if isinstance(raw, datetime)
                 else factory.failure(
                     ValueError(

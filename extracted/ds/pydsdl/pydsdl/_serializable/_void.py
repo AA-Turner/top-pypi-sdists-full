@@ -2,8 +2,9 @@
 # This software is distributed under the terms of the MIT License.
 # Author: Pavel Kirienko <pavel@opencyphal.org>
 
+import typing
 from .._bit_length_set import BitLengthSet
-from ._serializable import SerializableType
+from ._serializable import SerializableType, AggregationFailure
 from ._primitive import InvalidBitLengthError
 
 
@@ -25,6 +26,18 @@ class VoidType(SerializableType):
         return BitLengthSet(self.bit_length)
 
     @property
+    def deprecated(self) -> bool:
+        """Void types cannot be deprecated."""
+        return False
+
+    def _check_aggregation(self, aggregate: "SerializableType") -> typing.Optional[AggregationFailure]:
+        from ._composite import StructureType, CompositeType
+
+        if not isinstance(aggregate, CompositeType) or not isinstance(aggregate.inner_type, StructureType):
+            return AggregationFailure(self, aggregate, "Void types can only be aggregated into structures")
+        return super()._check_aggregation(aggregate)
+
+    @property
     def bit_length(self) -> int:
         """
         This is a shortcut for ``next(iter(x.bit_length_set))``, because the bit length set of a void type
@@ -37,10 +50,16 @@ class VoidType(SerializableType):
         return 1
 
     def __str__(self) -> str:
-        return "void%d" % self.bit_length
+        try:
+            return "void%d" % self.bit_length
+        except AttributeError:  # pragma: no cover
+            return "VoidType(UNINITIALIZED)"
 
     def __repr__(self) -> str:
-        return "VoidType(bit_length=%d)" % self.bit_length
+        try:
+            return "VoidType(bit_length=%d)" % self.bit_length
+        except AttributeError:  # pragma: no cover
+            return "VoidType(UNINITIALIZED)"
 
 
 def _unittest_void() -> None:

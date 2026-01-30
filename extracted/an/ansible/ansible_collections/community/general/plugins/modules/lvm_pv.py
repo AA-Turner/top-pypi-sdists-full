@@ -6,7 +6,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: lvm_pv
 short_description: Manage LVM Physical Volumes
@@ -71,6 +70,7 @@ RETURN = r"""
 
 
 import os
+
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -109,7 +109,7 @@ def rescan_device(module, device):
             with open(rescan_path, "w") as f:
                 f.write("1")
             return True
-        except IOError as e:
+        except OSError as e:
             module.warn(f"Failed to rescan device {device}: {e!s}")
     else:
         module.warn(f"Rescan path does not exist for device {device}")

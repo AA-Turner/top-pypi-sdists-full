@@ -1287,6 +1287,7 @@ __all__ = (
     "TaskActionDefinitionOutputTypeDef",
     "TaskActionDefinitionTypeDef",
     "TaskActionDefinitionUnionTypeDef",
+    "TaskAttachmentTypeDef",
     "TaskTemplateConstraintsOutputTypeDef",
     "TaskTemplateConstraintsTypeDef",
     "TaskTemplateConstraintsUnionTypeDef",
@@ -4457,6 +4458,11 @@ class StartScreenSharingRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
     ClientToken: NotRequired[str]
+
+
+class TaskAttachmentTypeDef(TypedDict):
+    FileName: str
+    S3Url: str
 
 
 class StartTestCaseExecutionRequestTypeDef(TypedDict):
@@ -8478,6 +8484,7 @@ class StartTaskContactRequestTypeDef(TypedDict):
     QuickConnectId: NotRequired[str]
     RelatedContactId: NotRequired[str]
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
+    Attachments: NotRequired[Sequence[TaskAttachmentTypeDef]]
 
 
 class UpdateContactRequestTypeDef(TypedDict):
@@ -9435,6 +9442,7 @@ class SearchCriteriaTypeDef(TypedDict):
     SearchableContactAttributes: NotRequired[SearchableContactAttributesTypeDef]
     SearchableSegmentAttributes: NotRequired[SearchableSegmentAttributesTypeDef]
     ActiveRegions: NotRequired[Sequence[str]]
+    ContactTags: NotRequired[ControlPlaneTagFilterTypeDef]
 
 
 class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):
@@ -9757,6 +9765,7 @@ class ContactSearchSummaryTypeDef(TypedDict):
     SegmentAttributes: NotRequired[dict[str, ContactSearchSummarySegmentAttributeValueTypeDef]]
     Name: NotRequired[str]
     RoutingCriteria: NotRequired[RoutingCriteriaTypeDef]
+    Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
 
 
@@ -9828,6 +9837,7 @@ class ContactSearchSummaryPaginatorTypeDef(TypedDict):
     ]
     Name: NotRequired[str]
     RoutingCriteria: NotRequired[RoutingCriteriaPaginatorTypeDef]
+    Tags: NotRequired[dict[str, str]]
     GlobalResiliencyMetadata: NotRequired[GlobalResiliencyMetadataTypeDef]
 
 

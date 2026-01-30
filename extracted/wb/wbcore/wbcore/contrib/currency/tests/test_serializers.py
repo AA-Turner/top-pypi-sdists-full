@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from django.utils import timezone
 from pytest_mock import MockerFixture
@@ -42,7 +44,7 @@ class TestSerializers:
     def expected_data_fx_rate(self, currency_fx_rate):
         return {
             "id": currency_fx_rate.id,
-            "value": currency_fx_rate.value,
+            "value": Decimal(currency_fx_rate.value),
             "date": currency_fx_rate.date,
             "currency": currency_fx_rate.currency_id,
         }

@@ -2,8 +2,13 @@
 
 import contextlib
 import os
+from contextlib import AbstractContextManager
+from typing import IO, Any
 
-from .util import create_url
+import urllib3
+
+from tdclient.types import BytesOrStream, DataFormat, FileLike
+from tdclient.util import create_url
 
 
 class ImportAPI:
@@ -12,7 +17,32 @@ class ImportAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    def import_data(self, db, table, format, bytes_or_stream, size, unique_id=None):
+    # Methods from API class
+    def put(
+        self,
+        path: str,
+        bytes_or_stream: BytesOrStream,
+        size: int,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+    def _prepare_file(
+        self, file_like: FileLike, fmt: DataFormat, **kwargs: Any
+    ) -> IO[bytes]: ...
+
+    def import_data(
+        self,
+        db: str,
+        table: str,
+        format: DataFormat,
+        bytes_or_stream: BytesOrStream,
+        size: int,
+        unique_id: str | None = None,
+    ) -> float:
         """Import data into Treasure Data Service
 
         This method expects data from a file-like object formatted with "msgpack.gz".
@@ -44,7 +74,7 @@ class ImportAPI:
                 format=format,
             )
 
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         with self.put(path, bytes_or_stream, size, **kwargs) as res:
             code, body = res.status, res.read()
             if code / 100 != 2:
@@ -53,7 +83,15 @@ class ImportAPI:
             time = float(js["elapsed_time"])
             return time
 
-    def import_file(self, db, table, format, file, unique_id=None, **kwargs):
+    def import_file(
+        self,
+        db: str,
+        table: str,
+        format: DataFormat,
+        file: FileLike,
+        unique_id: str | None = None,
+        **kwargs: Any,
+    ) -> float:
         """Import data into Treasure Data Service, from an existing file on filesystem.
 
         This method will decompress/deserialize records from given file, and then

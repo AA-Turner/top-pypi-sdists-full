@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from ._search_indexes.chunking_strategy import StaticIndexChunkingStrategy
-from ._search_indexes.combination_strategy import (
-    MeanIndexCombinationStrategy, MeanIndexEvaluationTechnique, ReciprocalRankFusionIndexCombinationStrategy
+from yandex_ai_studio_sdk.search_indexes import (
+    HybridSearchIndexType, IndexNormalizationStrategy, MeanIndexCombinationStrategy, MeanIndexEvaluationTechnique,
+    ReciprocalRankFusionIndexCombinationStrategy, StaticIndexChunkingStrategy, TextSearchIndexType,
+    VectorSearchIndexType
 )
-from ._search_indexes.index_type import HybridSearchIndexType, TextSearchIndexType, VectorSearchIndexType
-from ._search_indexes.normalization_strategy import IndexNormalizationStrategy
 
 __all__ = [
     'IndexNormalizationStrategy',

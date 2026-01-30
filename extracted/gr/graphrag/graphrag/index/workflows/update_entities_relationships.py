@@ -6,8 +6,11 @@
 import logging
 
 import pandas as pd
+from graphrag_cache import Cache
+from graphrag_llm.completion import create_completion
+from graphrag_storage import Storage
 
-from graphrag.cache.pipeline_cache import PipelineCache
+from graphrag.cache.cache_key_creator import cache_key_creator
 from graphrag.callbacks.workflow_callbacks import WorkflowCallbacks
 from graphrag.config.models.graph_rag_config import GraphRagConfig
 from graphrag.index.run.utils import get_update_storages
@@ -16,7 +19,6 @@ from graphrag.index.typing.workflow import WorkflowFunctionOutput
 from graphrag.index.update.entities import _group_and_resolve_entities
 from graphrag.index.update.relationships import _update_and_merge_relationships
 from graphrag.index.workflows.extract_graph import get_summarized_entities_relationships
-from graphrag.storage.pipeline_storage import PipelineStorage
 from graphrag.utils.storage import load_table_from_storage, write_table_to_storage
 
 logger = logging.getLogger(__name__)
@@ -54,11 +56,11 @@ async def run_workflow(
 
 
 async def _update_entities_and_relationships(
-    previous_storage: PipelineStorage,
-    delta_storage: PipelineStorage,
-    output_storage: PipelineStorage,
+    previous_storage: Storage,
+    delta_storage: Storage,
+    output_storage: Storage,
     config: GraphRagConfig,
-    cache: PipelineCache,
+    cache: Cache,
     callbacks: WorkflowCallbacks,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Update Final Entities  and Relationships output."""
@@ -77,11 +79,14 @@ async def _update_entities_and_relationships(
         delta_relationships,
     )
 
-    summarization_llm_settings = config.get_language_model_config(
-        config.summarize_descriptions.model_id
+    summarization_model_config = config.get_completion_model_config(
+        config.summarize_descriptions.completion_model_id
     )
-    summarization_strategy = config.summarize_descriptions.resolved_strategy(
-        config.root_dir, summarization_llm_settings
+    prompts = config.summarize_descriptions.resolved_prompts()
+    model = create_completion(
+        summarization_model_config,
+        cache=cache.child("summarize_descriptions"),
+        cache_key_creator=cache_key_creator,
     )
 
     (
@@ -91,9 +96,11 @@ async def _update_entities_and_relationships(
         extracted_entities=merged_entities_df,
         extracted_relationships=merged_relationships_df,
         callbacks=callbacks,
-        cache=cache,
-        summarization_strategy=summarization_strategy,
-        summarization_num_threads=summarization_llm_settings.concurrent_requests,
+        model=model,
+        max_summary_length=config.summarize_descriptions.max_length,
+        max_input_tokens=config.summarize_descriptions.max_input_tokens,
+        summarization_prompt=prompts.summarize_prompt,
+        num_threads=config.concurrent_requests,
     )
 
     # Save the updated entities back to storage

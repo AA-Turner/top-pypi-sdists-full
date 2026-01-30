@@ -2,6 +2,7 @@
 # This file is auto-generated, don't edit it. Thanks.
 from __future__ import annotations
 
+from ._disk_init import DiskInit
 from ._hugepage import Hugepage
 from ._instance_metadata_options import InstanceMetadataOptions
 from ._addon import Addon
@@ -38,6 +39,9 @@ from ._clean_user_permissions_request import CleanUserPermissionsRequest
 from ._clean_user_permissions_shrink_request import CleanUserPermissionsShrinkRequest
 from ._clean_user_permissions_response_body import CleanUserPermissionsResponseBody
 from ._clean_user_permissions_response import CleanUserPermissionsResponse
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequest
+from ._create_auto_repair_policy_response_body import CreateAutoRepairPolicyResponseBody
+from ._create_auto_repair_policy_response import CreateAutoRepairPolicyResponse
 from ._create_autoscaling_config_request import CreateAutoscalingConfigRequest
 from ._create_autoscaling_config_response_body import CreateAutoscalingConfigResponseBody
 from ._create_autoscaling_config_response import CreateAutoscalingConfigResponse
@@ -68,6 +72,8 @@ from ._delete_alert_contact_response import DeleteAlertContactResponse
 from ._delete_alert_contact_group_request import DeleteAlertContactGroupRequest
 from ._delete_alert_contact_group_shrink_request import DeleteAlertContactGroupShrinkRequest
 from ._delete_alert_contact_group_response import DeleteAlertContactGroupResponse
+from ._delete_auto_repair_policy_response_body import DeleteAutoRepairPolicyResponseBody
+from ._delete_auto_repair_policy_response import DeleteAutoRepairPolicyResponse
 from ._delete_cluster_request import DeleteClusterRequest
 from ._delete_cluster_shrink_request import DeleteClusterShrinkRequest
 from ._delete_cluster_response_body import DeleteClusterResponseBody
@@ -95,6 +101,8 @@ from ._describe_addon_response import DescribeAddonResponse
 from ._describe_addons_request import DescribeAddonsRequest
 from ._describe_addons_response_body import DescribeAddonsResponseBody
 from ._describe_addons_response import DescribeAddonsResponse
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBody
+from ._describe_auto_repair_policy_response import DescribeAutoRepairPolicyResponse
 from ._describe_cluster_addon_instance_response_body import DescribeClusterAddonInstanceResponseBody
 from ._describe_cluster_addon_instance_response import DescribeClusterAddonInstanceResponse
 from ._describe_cluster_addon_metadata_request import DescribeClusterAddonMetadataRequest
@@ -165,6 +173,9 @@ from ._describe_policy_instances_request import DescribePolicyInstancesRequest
 from ._describe_policy_instances_response import DescribePolicyInstancesResponse
 from ._describe_policy_instances_status_response_body import DescribePolicyInstancesStatusResponseBody
 from ._describe_policy_instances_status_response import DescribePolicyInstancesStatusResponse
+from ._describe_regions_request import DescribeRegionsRequest
+from ._describe_regions_response_body import DescribeRegionsResponseBody
+from ._describe_regions_response import DescribeRegionsResponse
 from ._describe_resources_delete_protection_request import DescribeResourcesDeleteProtectionRequest
 from ._describe_resources_delete_protection_response import DescribeResourcesDeleteProtectionResponse
 from ._describe_subaccount_k8s_cluster_user_config_request import DescribeSubaccountK8sClusterUserConfigRequest
@@ -218,6 +229,8 @@ from ._install_node_pool_components_response import InstallNodePoolComponentsRes
 from ._list_addons_request import ListAddonsRequest
 from ._list_addons_response_body import ListAddonsResponseBody
 from ._list_addons_response import ListAddonsResponse
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBody
+from ._list_auto_repair_policies_response import ListAutoRepairPoliciesResponse
 from ._list_cluster_addon_instance_resources_response_body import ListClusterAddonInstanceResourcesResponseBody
 from ._list_cluster_addon_instance_resources_response import ListClusterAddonInstanceResourcesResponse
 from ._list_cluster_addon_instances_response_body import ListClusterAddonInstancesResponseBody
@@ -247,6 +260,9 @@ from ._list_user_kube_config_states_response import ListUserKubeConfigStatesResp
 from ._migrate_cluster_request import MigrateClusterRequest
 from ._migrate_cluster_response_body import MigrateClusterResponseBody
 from ._migrate_cluster_response import MigrateClusterResponse
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequest
+from ._modify_auto_repair_policy_response_body import ModifyAutoRepairPolicyResponseBody
+from ._modify_auto_repair_policy_response import ModifyAutoRepairPolicyResponse
 from ._modify_cluster_request import ModifyClusterRequest
 from ._modify_cluster_response_body import ModifyClusterResponseBody
 from ._modify_cluster_response import ModifyClusterResponse
@@ -371,6 +387,14 @@ from ._nodepool import NodepoolTeeConfig
 from ._attach_instances_response_body import AttachInstancesResponseBodyList
 from ._check_service_role_request import CheckServiceRoleRequestRoles
 from ._check_service_role_response_body import CheckServiceRoleResponseBodyRoles
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesIncidentsConditions
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesIncidentsEvents
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesIncidents
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesRepairProcedureInterventionApprovedLabel
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesRepairProcedureInterventionInquiringLabel
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesRepairProcedureIntervention
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRulesRepairProcedure
+from ._create_auto_repair_policy_request import CreateAutoRepairPolicyRequestRules
 from ._create_cluster_request import CreateClusterRequestAuditLogConfig
 from ._create_cluster_request import CreateClusterRequestAutoMode
 from ._create_cluster_request import CreateClusterRequestControlPlaneConfig
@@ -407,6 +431,14 @@ from ._delete_cluster_request import DeleteClusterRequestDeleteOptions
 from ._describe_addon_response_body import DescribeAddonResponseBodyNewerVersions
 from ._describe_addons_response_body import DescribeAddonsResponseBodyComponentGroupsItems
 from ._describe_addons_response_body import DescribeAddonsResponseBodyComponentGroups
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesIncidentsConditions
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesIncidentsEvents
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesIncidents
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureInterventionApprovedLabel
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureInterventionInquiringLabel
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureIntervention
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRulesRepairProcedure
+from ._describe_auto_repair_policy_response_body import DescribeAutoRepairPolicyResponseBodyRules
 from ._describe_cluster_detail_response_body import DescribeClusterDetailResponseBodyAutoMode
 from ._describe_cluster_detail_response_body import DescribeClusterDetailResponseBodyControlPlaneConfig
 from ._describe_cluster_detail_response_body import DescribeClusterDetailResponseBodyControlPlaneEndpointsConfigInternalDnsConfig
@@ -501,6 +533,7 @@ from ._describe_policy_governance_in_cluster_response_body import DescribePolicy
 from ._describe_policy_governance_in_cluster_response_body import DescribePolicyGovernanceInClusterResponseBodyOnState
 from ._describe_policy_instances_response import DescribePolicyInstancesResponseBody
 from ._describe_policy_instances_status_response_body import DescribePolicyInstancesStatusResponseBodyPolicyInstances
+from ._describe_regions_response_body import DescribeRegionsResponseBodyRegions
 from ._describe_resources_delete_protection_response import DescribeResourcesDeleteProtectionResponseBody
 from ._describe_task_info_response_body import DescribeTaskInfoResponseBodyError
 from ._describe_task_info_response_body import DescribeTaskInfoResponseBodyEvents
@@ -526,6 +559,15 @@ from ._install_node_pool_components_request import InstallNodePoolComponentsRequ
 from ._install_node_pool_components_request import InstallNodePoolComponentsRequestComponents
 from ._install_node_pool_components_request import InstallNodePoolComponentsRequestRollingPolicy
 from ._list_addons_response_body import ListAddonsResponseBodyAddons
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesIncidentsConditions
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesIncidentsEvents
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesIncidents
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureInterventionApprovedLabel
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureInterventionInquiringLabel
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureIntervention
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedure
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItemsRules
+from ._list_auto_repair_policies_response_body import ListAutoRepairPoliciesResponseBodyItems
 from ._list_cluster_addon_instance_resources_response_body import ListClusterAddonInstanceResourcesResponseBodyHelmRelease
 from ._list_cluster_addon_instance_resources_response_body import ListClusterAddonInstanceResourcesResponseBodyKubernetesObjects
 from ._list_cluster_addon_instances_response_body import ListClusterAddonInstancesResponseBodyAddons
@@ -542,6 +584,14 @@ from ._list_tag_resources_response_body import ListTagResourcesResponseBodyTagRe
 from ._list_tag_resources_response_body import ListTagResourcesResponseBodyTagResources
 from ._list_user_kube_config_states_response_body import ListUserKubeConfigStatesResponseBodyPage
 from ._list_user_kube_config_states_response_body import ListUserKubeConfigStatesResponseBodyStates
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesIncidentsConditions
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesIncidentsEvents
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesIncidents
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesRepairProcedureInterventionApprovedLabel
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesRepairProcedureInterventionInquiringLabel
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesRepairProcedureIntervention
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRulesRepairProcedure
+from ._modify_auto_repair_policy_request import ModifyAutoRepairPolicyRequestRules
 from ._modify_cluster_request import ModifyClusterRequestApiServerCustomCertSans
 from ._modify_cluster_request import ModifyClusterRequestControlPlaneConfig
 from ._modify_cluster_request import ModifyClusterRequestControlPlaneEndpointsConfigInternalDnsConfig
@@ -575,6 +625,7 @@ from ._upgrade_cluster_addons_request import UpgradeClusterAddonsRequestBody
 from ._upgrade_cluster_nodepool_request import UpgradeClusterNodepoolRequestRollingPolicy
 
 __all__ = [
+    DiskInit,
     Hugepage,
     InstanceMetadataOptions,
     Addon,
@@ -611,6 +662,9 @@ __all__ = [
     CleanUserPermissionsShrinkRequest,
     CleanUserPermissionsResponseBody,
     CleanUserPermissionsResponse,
+    CreateAutoRepairPolicyRequest,
+    CreateAutoRepairPolicyResponseBody,
+    CreateAutoRepairPolicyResponse,
     CreateAutoscalingConfigRequest,
     CreateAutoscalingConfigResponseBody,
     CreateAutoscalingConfigResponse,
@@ -641,6 +695,8 @@ __all__ = [
     DeleteAlertContactGroupRequest,
     DeleteAlertContactGroupShrinkRequest,
     DeleteAlertContactGroupResponse,
+    DeleteAutoRepairPolicyResponseBody,
+    DeleteAutoRepairPolicyResponse,
     DeleteClusterRequest,
     DeleteClusterShrinkRequest,
     DeleteClusterResponseBody,
@@ -668,6 +724,8 @@ __all__ = [
     DescribeAddonsRequest,
     DescribeAddonsResponseBody,
     DescribeAddonsResponse,
+    DescribeAutoRepairPolicyResponseBody,
+    DescribeAutoRepairPolicyResponse,
     DescribeClusterAddonInstanceResponseBody,
     DescribeClusterAddonInstanceResponse,
     DescribeClusterAddonMetadataRequest,
@@ -738,6 +796,9 @@ __all__ = [
     DescribePolicyInstancesResponse,
     DescribePolicyInstancesStatusResponseBody,
     DescribePolicyInstancesStatusResponse,
+    DescribeRegionsRequest,
+    DescribeRegionsResponseBody,
+    DescribeRegionsResponse,
     DescribeResourcesDeleteProtectionRequest,
     DescribeResourcesDeleteProtectionResponse,
     DescribeSubaccountK8sClusterUserConfigRequest,
@@ -791,6 +852,8 @@ __all__ = [
     ListAddonsRequest,
     ListAddonsResponseBody,
     ListAddonsResponse,
+    ListAutoRepairPoliciesResponseBody,
+    ListAutoRepairPoliciesResponse,
     ListClusterAddonInstanceResourcesResponseBody,
     ListClusterAddonInstanceResourcesResponse,
     ListClusterAddonInstancesResponseBody,
@@ -820,6 +883,9 @@ __all__ = [
     MigrateClusterRequest,
     MigrateClusterResponseBody,
     MigrateClusterResponse,
+    ModifyAutoRepairPolicyRequest,
+    ModifyAutoRepairPolicyResponseBody,
+    ModifyAutoRepairPolicyResponse,
     ModifyClusterRequest,
     ModifyClusterResponseBody,
     ModifyClusterResponse,
@@ -944,6 +1010,14 @@ __all__ = [
     AttachInstancesResponseBodyList,
     CheckServiceRoleRequestRoles,
     CheckServiceRoleResponseBodyRoles,
+    CreateAutoRepairPolicyRequestRulesIncidentsConditions,
+    CreateAutoRepairPolicyRequestRulesIncidentsEvents,
+    CreateAutoRepairPolicyRequestRulesIncidents,
+    CreateAutoRepairPolicyRequestRulesRepairProcedureInterventionApprovedLabel,
+    CreateAutoRepairPolicyRequestRulesRepairProcedureInterventionInquiringLabel,
+    CreateAutoRepairPolicyRequestRulesRepairProcedureIntervention,
+    CreateAutoRepairPolicyRequestRulesRepairProcedure,
+    CreateAutoRepairPolicyRequestRules,
     CreateClusterRequestAuditLogConfig,
     CreateClusterRequestAutoMode,
     CreateClusterRequestControlPlaneConfig,
@@ -980,6 +1054,14 @@ __all__ = [
     DescribeAddonResponseBodyNewerVersions,
     DescribeAddonsResponseBodyComponentGroupsItems,
     DescribeAddonsResponseBodyComponentGroups,
+    DescribeAutoRepairPolicyResponseBodyRulesIncidentsConditions,
+    DescribeAutoRepairPolicyResponseBodyRulesIncidentsEvents,
+    DescribeAutoRepairPolicyResponseBodyRulesIncidents,
+    DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureInterventionApprovedLabel,
+    DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureInterventionInquiringLabel,
+    DescribeAutoRepairPolicyResponseBodyRulesRepairProcedureIntervention,
+    DescribeAutoRepairPolicyResponseBodyRulesRepairProcedure,
+    DescribeAutoRepairPolicyResponseBodyRules,
     DescribeClusterDetailResponseBodyAutoMode,
     DescribeClusterDetailResponseBodyControlPlaneConfig,
     DescribeClusterDetailResponseBodyControlPlaneEndpointsConfigInternalDnsConfig,
@@ -1074,6 +1156,7 @@ __all__ = [
     DescribePolicyGovernanceInClusterResponseBodyOnState,
     DescribePolicyInstancesResponseBody,
     DescribePolicyInstancesStatusResponseBodyPolicyInstances,
+    DescribeRegionsResponseBodyRegions,
     DescribeResourcesDeleteProtectionResponseBody,
     DescribeTaskInfoResponseBodyError,
     DescribeTaskInfoResponseBodyEvents,
@@ -1099,6 +1182,15 @@ __all__ = [
     InstallNodePoolComponentsRequestComponents,
     InstallNodePoolComponentsRequestRollingPolicy,
     ListAddonsResponseBodyAddons,
+    ListAutoRepairPoliciesResponseBodyItemsRulesIncidentsConditions,
+    ListAutoRepairPoliciesResponseBodyItemsRulesIncidentsEvents,
+    ListAutoRepairPoliciesResponseBodyItemsRulesIncidents,
+    ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureInterventionApprovedLabel,
+    ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureInterventionInquiringLabel,
+    ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedureIntervention,
+    ListAutoRepairPoliciesResponseBodyItemsRulesRepairProcedure,
+    ListAutoRepairPoliciesResponseBodyItemsRules,
+    ListAutoRepairPoliciesResponseBodyItems,
     ListClusterAddonInstanceResourcesResponseBodyHelmRelease,
     ListClusterAddonInstanceResourcesResponseBodyKubernetesObjects,
     ListClusterAddonInstancesResponseBodyAddons,
@@ -1115,6 +1207,14 @@ __all__ = [
     ListTagResourcesResponseBodyTagResources,
     ListUserKubeConfigStatesResponseBodyPage,
     ListUserKubeConfigStatesResponseBodyStates,
+    ModifyAutoRepairPolicyRequestRulesIncidentsConditions,
+    ModifyAutoRepairPolicyRequestRulesIncidentsEvents,
+    ModifyAutoRepairPolicyRequestRulesIncidents,
+    ModifyAutoRepairPolicyRequestRulesRepairProcedureInterventionApprovedLabel,
+    ModifyAutoRepairPolicyRequestRulesRepairProcedureInterventionInquiringLabel,
+    ModifyAutoRepairPolicyRequestRulesRepairProcedureIntervention,
+    ModifyAutoRepairPolicyRequestRulesRepairProcedure,
+    ModifyAutoRepairPolicyRequestRules,
     ModifyClusterRequestApiServerCustomCertSans,
     ModifyClusterRequestControlPlaneConfig,
     ModifyClusterRequestControlPlaneEndpointsConfigInternalDnsConfig,

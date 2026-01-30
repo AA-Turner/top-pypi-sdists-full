@@ -111,7 +111,7 @@ def derive_all_defaults(**kwargs):
         else:
             value = default if key_value is None else key_value
             if typ == list:
-                value = make_list(value)
+                value = make_list(value,commaparse=False)
             elif typ == bool:
                 value = bool(value)
             nu_defaults[key] = value

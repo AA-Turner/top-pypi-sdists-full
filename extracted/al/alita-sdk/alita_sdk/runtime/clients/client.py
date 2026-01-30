@@ -93,7 +93,7 @@ class AlitaClient:
         if api_extra_headers is not None:
             self.headers.update(api_extra_headers)
         self.predict_url = f"{self.base_url}{self.api_path}/prompt_lib/predict/prompt_lib/{self.project_id}"
-        self.base_app_url = f"{self.base_url}{self.api_path}/applications/application/prompt_lib/"
+        self.base_app_url = f"{self.base_url}{self.api_v2_path}/applications/application/prompt_lib/"
         self.base_public_app_url = f"{self.base_url}{self.api_path}/applications/public_application/prompt_lib/"
         self.app = f"{self.base_app_url}{self.project_id}"
         self.mcp_tools_list = f"{self.base_url}{self.api_path}/mcp_sse/tools_list/{self.project_id}"
@@ -145,11 +145,11 @@ class AlitaClient:
         else:
             return f"Error: Could not determine user ID for MCP tool call"
 
-    def get_app_details(self, application_id: int):
-        """Get application details for the client's project."""
-        url = f"{self.base_app_url}{self.project_id}/{application_id}"
+    def get_app_details(self, application_id: int, version_name: Optional[str] = None):
+        url = f"{self.app}/{application_id}" if version_name is None else f"{self.app}/{application_id}/{version_name}"
         data = requests.get(url, headers=self.headers, verify=False).json()
         return data
+
 
     def get_public_app_details(self, application_id: int, version_name: str = None) -> dict:
         """
@@ -584,24 +584,24 @@ class AlitaClient:
         """Parse filename from Content-Disposition header."""
         if not header:
             return ""
-        
+
         # Try to extract filename from header
         # Format: 'inline; filename="image.png"' or 'attachment; filename="image.png"'
         import re
-        
+
         # Try filename*= first (RFC 5987 extended format)
         match = re.search(r"filename\*=(?:UTF-8'')?([^;]+)", header)
         if match:
             from urllib.parse import unquote
             return unquote(match.group(1).strip('"\''))
-        
+
         # Try regular filename=
         match = re.search(r'filename="?([^";]+)"?', header)
         if match:
             return match.group(1).strip('"\'')
-        
+
         return ""
-    
+
     def download_artifact_by_id(self, artifact_id: str) -> tuple:
         """Download artifact by ID and return (file_bytes, filename) tuple."""
         url = f"{self.artifact_by_id_url}/{artifact_id}"
@@ -615,11 +615,11 @@ class AlitaClient:
                 "error": "An error occurred while fetching the resource",
                 "content": data.content
             }
-        
+
         # Extract filename from Content-Disposition header
         content_disposition = data.headers.get('Content-Disposition', '')
         filename = self._parse_content_disposition(content_disposition)
-        
+
         # Fallback filename if header parsing fails
         if not filename:
             # Try to detect extension from file content
@@ -629,9 +629,9 @@ class AlitaClient:
                 extension = f".{kind.extension}" if kind else ""
             except Exception:
                 extension = ""
-            
+
             filename = f"file_{artifact_id[:8]}{extension}"
-        
+
         return data.content, filename
 
     @staticmethod
@@ -1270,7 +1270,8 @@ class AlitaClient:
         """
         import asyncio
         import time
-        from ..utils.mcp_client import McpClient
+        # Migration: Use UnifiedMcpClient (wraps langchain-mcp-adapters) instead of custom McpClient
+        from ..utils.mcp_adapter import UnifiedMcpClient as McpClient
         from ..utils.mcp_oauth import canonical_resource
 
         toolkit_name = toolkit_config.get('toolkit_name', 'unknown')

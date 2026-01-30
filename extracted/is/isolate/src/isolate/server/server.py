@@ -25,7 +25,7 @@ from isolate.backends import (
     EnvironmentCreationError,
     IsolateSettings,
 )
-from isolate.backends.common import active_python
+from isolate.backends.common import Requirements, active_python
 from isolate.backends.local import LocalPythonEnvironment
 from isolate.backends.virtualenv import VirtualPythonEnvironment
 from isolate.connections.grpc import AgentError, LocalPythonGRPC
@@ -182,6 +182,14 @@ class BridgeManager:
             for agent in agents:
                 agent.terminate()
 
+    def abort_unreachable_agents(self) -> None:
+        for agents in self._agents.values():
+            for agent in agents:
+                connection = agent._connection
+                if connection is not None and not connection.is_alive():
+                    connection.abort_agent()
+                    # maybe restart the agent?
+
 
 @dataclass
 class RunTask:
@@ -258,7 +266,7 @@ class IsolateServicer(definitions.IsolateServicer):
                 primary_environment, "python_version", active_python()
             )
             agent_environ = VirtualPythonEnvironment(
-                requirements=AGENT_REQUIREMENTS,
+                requirements=Requirements.from_raw(AGENT_REQUIREMENTS),
                 python_version=python_version,
             )
             agent_environ.apply_settings(run_settings)
@@ -650,7 +658,7 @@ class SingleTaskInterceptor(ServerBoundInterceptor):
 
                             def _stop(*args):
                                 # Small sleep to make sure the cancellation is processed
-                                time.sleep(0.1)
+                                time.sleep(0.3)
                                 print("Stopping server since the task is finished")
                                 self.servicer.shutdown()
                                 self.server.stop(grace=0.1)
@@ -720,8 +728,13 @@ def main(argv: list[str] | None = None) -> None:
             servicer.shutdown()
             server.stop(grace=0.1)
 
+        def handle_child_termination(*args):
+            print("Child termination signal received, aborting unreachable agents...")
+            bridge_manager.abort_unreachable_agents()
+
         signal.signal(signal.SIGINT, handle_termination)
         signal.signal(signal.SIGTERM, handle_termination)
+        signal.signal(signal.SIGCHLD, handle_child_termination)
 
         server.add_insecure_port(f"[::]:{options.port}")
         print(f"Started listening at {options.host}:{options.port}")

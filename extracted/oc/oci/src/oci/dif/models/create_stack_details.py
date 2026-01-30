@@ -31,6 +31,10 @@ class CreateStackDetails(object):
     #: This constant has a value of "DATATRANSFORMATION"
     STACK_TEMPLATES_DATATRANSFORMATION = "DATATRANSFORMATION"
 
+    #: A constant which can be used with the stack_templates property of a CreateStackDetails.
+    #: This constant has a value of "DEVOPSTOOLKIT"
+    STACK_TEMPLATES_DEVOPSTOOLKIT = "DEVOPSTOOLKIT"
+
     #: A constant which can be used with the services property of a CreateStackDetails.
     #: This constant has a value of "ADB"
     SERVICES_ADB = "ADB"
@@ -51,6 +55,18 @@ class CreateStackDetails(object):
     #: This constant has a value of "DATAFLOW"
     SERVICES_DATAFLOW = "DATAFLOW"
 
+    #: A constant which can be used with the services property of a CreateStackDetails.
+    #: This constant has a value of "AIDATAPLATFORM"
+    SERVICES_AIDATAPLATFORM = "AIDATAPLATFORM"
+
+    #: A constant which can be used with the services property of a CreateStackDetails.
+    #: This constant has a value of "OMK"
+    SERVICES_OMK = "OMK"
+
+    #: A constant which can be used with the services property of a CreateStackDetails.
+    #: This constant has a value of "OKE"
+    SERVICES_OKE = "OKE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new CreateStackDetails object with values from keyword arguments.
@@ -70,12 +86,12 @@ class CreateStackDetails(object):
 
         :param stack_templates:
             The value to assign to the stack_templates property of this CreateStackDetails.
-            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
         :type stack_templates: list[str]
 
         :param services:
             The value to assign to the services property of this CreateStackDetails.
-            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
         :type services: list[str]
 
         :param adb:
@@ -98,6 +114,18 @@ class CreateStackDetails(object):
             The value to assign to the genai property of this CreateStackDetails.
         :type genai: list[oci.dif.models.GenAiDetail]
 
+        :param aidataplatform:
+            The value to assign to the aidataplatform property of this CreateStackDetails.
+        :type aidataplatform: list[oci.dif.models.AiDataPlatformDetail]
+
+        :param omk:
+            The value to assign to the omk property of this CreateStackDetails.
+        :type omk: list[oci.dif.models.OmkDetail]
+
+        :param oke:
+            The value to assign to the oke property of this CreateStackDetails.
+        :type oke: list[oci.dif.models.OkeDetail]
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this CreateStackDetails.
         :type freeform_tags: dict(str, str)
@@ -118,6 +146,9 @@ class CreateStackDetails(object):
             'dataflow': 'list[DataflowDetail]',
             'objectstorage': 'list[ObjectStorageDetail]',
             'genai': 'list[GenAiDetail]',
+            'aidataplatform': 'list[AiDataPlatformDetail]',
+            'omk': 'list[OmkDetail]',
+            'oke': 'list[OkeDetail]',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))'
         }
@@ -132,6 +163,9 @@ class CreateStackDetails(object):
             'dataflow': 'dataflow',
             'objectstorage': 'objectstorage',
             'genai': 'genai',
+            'aidataplatform': 'aidataplatform',
+            'omk': 'omk',
+            'oke': 'oke',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags'
         }
@@ -145,6 +179,9 @@ class CreateStackDetails(object):
         self._dataflow = None
         self._objectstorage = None
         self._genai = None
+        self._aidataplatform = None
+        self._omk = None
+        self._oke = None
         self._freeform_tags = None
         self._defined_tags = None
 
@@ -230,7 +267,7 @@ class CreateStackDetails(object):
         **[Required]** Gets the stack_templates of this CreateStackDetails.
         List of templates to be onboarded for the stack.
 
-        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
 
 
         :return: The stack_templates of this CreateStackDetails.
@@ -248,7 +285,7 @@ class CreateStackDetails(object):
         :param stack_templates: The stack_templates of this CreateStackDetails.
         :type: list[str]
         """
-        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"]
+        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"]
 
         if stack_templates and stack_templates is not NONE_SENTINEL:
             for value in stack_templates:
@@ -264,7 +301,7 @@ class CreateStackDetails(object):
         **[Required]** Gets the services of this CreateStackDetails.
         List of services to be onboarded for the stack.
 
-        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
 
 
         :return: The services of this CreateStackDetails.
@@ -282,7 +319,7 @@ class CreateStackDetails(object):
         :param services: The services of this CreateStackDetails.
         :type: list[str]
         """
-        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"]
+        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"]
 
         if services and services is not NONE_SENTINEL:
             for value in services:
@@ -411,6 +448,78 @@ class CreateStackDetails(object):
         :type: list[oci.dif.models.GenAiDetail]
         """
         self._genai = genai
+
+    @property
+    def aidataplatform(self):
+        """
+        Gets the aidataplatform of this CreateStackDetails.
+        AI Data Platform Details if aidataplatform is included in services.
+
+
+        :return: The aidataplatform of this CreateStackDetails.
+        :rtype: list[oci.dif.models.AiDataPlatformDetail]
+        """
+        return self._aidataplatform
+
+    @aidataplatform.setter
+    def aidataplatform(self, aidataplatform):
+        """
+        Sets the aidataplatform of this CreateStackDetails.
+        AI Data Platform Details if aidataplatform is included in services.
+
+
+        :param aidataplatform: The aidataplatform of this CreateStackDetails.
+        :type: list[oci.dif.models.AiDataPlatformDetail]
+        """
+        self._aidataplatform = aidataplatform
+
+    @property
+    def omk(self):
+        """
+        Gets the omk of this CreateStackDetails.
+        OMK Details if omk is included in services.
+
+
+        :return: The omk of this CreateStackDetails.
+        :rtype: list[oci.dif.models.OmkDetail]
+        """
+        return self._omk
+
+    @omk.setter
+    def omk(self, omk):
+        """
+        Sets the omk of this CreateStackDetails.
+        OMK Details if omk is included in services.
+
+
+        :param omk: The omk of this CreateStackDetails.
+        :type: list[oci.dif.models.OmkDetail]
+        """
+        self._omk = omk
+
+    @property
+    def oke(self):
+        """
+        Gets the oke of this CreateStackDetails.
+        OKE Details if oke is included in services.
+
+
+        :return: The oke of this CreateStackDetails.
+        :rtype: list[oci.dif.models.OkeDetail]
+        """
+        return self._oke
+
+    @oke.setter
+    def oke(self, oke):
+        """
+        Sets the oke of this CreateStackDetails.
+        OKE Details if oke is included in services.
+
+
+        :param oke: The oke of this CreateStackDetails.
+        :type: list[oci.dif.models.OkeDetail]
+        """
+        self._oke = oke
 
     @property
     def freeform_tags(self):

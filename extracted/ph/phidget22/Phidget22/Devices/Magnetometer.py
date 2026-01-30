@@ -202,7 +202,7 @@ class Magnetometer(Phidget):
 
 
 	def getMagneticField(self):
-		_MagneticField = (ctypes.c_double * 3)()
+		_MagneticField = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetMagnetometer_getMagneticField
 		__func.restype = ctypes.c_int32
@@ -214,7 +214,7 @@ class Magnetometer(Phidget):
 		return list(_MagneticField)
 
 	def getMinMagneticField(self):
-		_MinMagneticField = (ctypes.c_double * 3)()
+		_MinMagneticField = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetMagnetometer_getMinMagneticField
 		__func.restype = ctypes.c_int32
@@ -226,7 +226,7 @@ class Magnetometer(Phidget):
 		return list(_MinMagneticField)
 
 	def getMaxMagneticField(self):
-		_MaxMagneticField = (ctypes.c_double * 3)()
+		_MaxMagneticField = ctypes.c_void_p()
 
 		__func = PhidgetSupport.getDll().PhidgetMagnetometer_getMaxMagneticField
 		__func.restype = ctypes.c_int32

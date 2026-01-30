@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-compute
-Version: 37.1.0
+Version: 37.2.0
 Summary: Microsoft Azure Compute Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: msrest>=0.7.1
+Requires-Dist: isodate>=0.6.1
 Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
 Dynamic: license-file
@@ -86,6 +86,16 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 37.2.0 (2026-01-27)
+
+### Features Added
+
+  - Added operation group GalleryScriptVersionsOperations
+  - Added operation group GalleryScriptsOperations
+  - Model GalleryApplicationVersionPublishingProfile has a new parameter storage_account_strategy
+  - Model GalleryArtifactPublishingProfileBase has a new parameter storage_account_strategy
+  - Model GalleryImageVersionPublishingProfile has a new parameter storage_account_strategy
 
 ## 37.1.0 (2025-11-17)
 

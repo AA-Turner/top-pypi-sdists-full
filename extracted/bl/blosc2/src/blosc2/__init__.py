@@ -2,14 +2,15 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 # Hey Ruff, please ignore the next violations
 # ruff: noqa: E402 - Module level import not at top of file
 # ruff: noqa: F401 - `var` imported but unused
 
+import contextlib
+import os
 import platform
 from enum import Enum
 
@@ -59,6 +60,8 @@ class Codec(Enum):
     OPENHTJ2K = 36
     #: Needs to be installed with ``pip install blosc2-grok``
     GROK = 37
+    #: Needs to be installed with ``pip install blosc2-openzl``
+    OPENZL = 38
 
 
 class Filter(Enum):
@@ -111,6 +114,21 @@ class Tuner(Enum):
     #: (more info `here <https://github.com/Blosc/blosc2_btune/>`_); Needs to be installed with
     #: ``pip install blosc2-btune``
     BTUNE = 32
+
+
+class FPAccuracy(Enum):
+    """
+    Floating point accuracy modes for Blosc2 computing with lazy expressions.
+
+    This is only relevant when using floating point dtypes with miniexpr.
+    """
+
+    #: Use 1.0 ULPs (Units in the Last Place) for floating point functions
+    HIGH = 1
+    #: Use 3.5 ULPs (Units in the Last Place) for floating point functions
+    MEDIUM = 2
+    #: Use default accuracy. This is MEDIUM, which should be enough for most applications.
+    DEFAULT = MEDIUM
 
 
 from .blosc2_ext import (
@@ -386,7 +404,14 @@ if nthreads > 16:
     nthreads -= nthreads // 8
 if not IS_WASM:
     # WASM does not support threading
-    numexpr.set_num_threads(nthreads)
+    # Only call set_num_threads if within NUMEXPR_MAX_THREADS limit to avoid warning
+    numexpr_max_env = os.environ.get("NUMEXPR_MAX_THREADS")
+    numexpr_max: int | None = None
+    if numexpr_max_env is not None:
+        with contextlib.suppress(ValueError):
+            numexpr_max = int(numexpr_max_env)
+    if numexpr_max is None or nthreads <= numexpr_max:
+        numexpr.set_num_threads(nthreads)
 
 # This import must be before ndarray and schunk
 from .storage import (  # noqa: I001

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import concurrent.futures
+import logging
 import os
 import queue
 import random
@@ -12,9 +13,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import libcst as cst
+import sentry_sdk
 from rich.console import Group
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.text import Text
 from rich.tree import Tree
 
 from codeflash.api.aiservice import AiServiceClient, AIServiceRefinerRequest, LocalAiServiceClient
@@ -22,7 +25,7 @@ from codeflash.api.cfapi import add_code_context_hash, create_staging, get_cfapi
 from codeflash.benchmarking.utils import process_benchmark_data
 from codeflash.cli_cmds.console import code_print, console, logger, lsp_log, progress_bar
 from codeflash.code_utils import env_utils
-from codeflash.code_utils.code_extractor import get_opt_review_metrics
+from codeflash.code_utils.code_extractor import get_opt_review_metrics, is_numerical_code
 from codeflash.code_utils.code_replacer import (
     add_custom_marker_to_all_tests,
     modify_autouse_fixture,
@@ -34,6 +37,7 @@ from codeflash.code_utils.code_utils import (
     create_rank_dictionary_compact,
     create_score_dictionary_from_metrics,
     diff_length,
+    encoded_tokens_len,
     extract_unique_errors,
     file_name_from_test_module_name,
     get_run_tmp_file,
@@ -43,19 +47,16 @@ from codeflash.code_utils.code_utils import (
     unified_diff_strings,
 )
 from codeflash.code_utils.config_consts import (
-    ADAPTIVE_OPTIMIZATION_THRESHOLD,
     COVERAGE_THRESHOLD,
     INDIVIDUAL_TESTCASE_TIMEOUT,
-    MAX_ADAPTIVE_OPTIMIZATIONS_PER_TRACE,
-    MAX_REPAIRS_PER_TRACE,
     MIN_CORRECT_CANDIDATES,
-    N_TESTS_TO_GENERATE_EFFECTIVE,
-    REFINE_ALL_THRESHOLD,
+    OPTIMIZATION_CONTEXT_TOKEN_LIMIT,
     REFINED_CANDIDATE_RANKING_WEIGHTS,
-    REPAIR_UNMATCHED_PERCENTAGE_LIMIT,
     REPEAT_OPTIMIZATION_PROBABILITY,
-    TOP_N_REFINEMENTS,
     TOTAL_LOOPING_TIME_EFFECTIVE,
+    EffortKeys,
+    EffortLevel,
+    get_effort_value,
 )
 from codeflash.code_utils.deduplicate_code import normalize_code
 from codeflash.code_utils.edit_generated_tests import (
@@ -66,7 +67,7 @@ from codeflash.code_utils.env_utils import get_pr_number
 from codeflash.code_utils.formatter import format_code, format_generated_code, sort_imports
 from codeflash.code_utils.git_utils import git_root_dir
 from codeflash.code_utils.instrument_existing_tests import inject_profiling_into_existing_test
-from codeflash.code_utils.line_profile_utils import add_decorator_imports
+from codeflash.code_utils.line_profile_utils import add_decorator_imports, contains_jit_decorator
 from codeflash.code_utils.static_analysis import get_first_top_level_function_or_method_ast
 from codeflash.code_utils.time_utils import humanize_runtime
 from codeflash.context import code_context_extractor
@@ -99,7 +100,9 @@ from codeflash.models.models import (
 )
 from codeflash.result.create_pr import check_create_pr, existing_tests_source_for
 from codeflash.result.critic import (
+    concurrency_gain,
     coverage_critic,
+    get_acceptance_reason,
     performance_gain,
     quantity_of_tests_critic,
     speedup_critic,
@@ -111,7 +114,11 @@ from codeflash.verification.concolic_testing import generate_concolic_tests
 from codeflash.verification.equivalence import compare_test_results
 from codeflash.verification.instrument_codeflash_capture import instrument_codeflash_capture
 from codeflash.verification.parse_line_profile_test_output import parse_line_profile_results
-from codeflash.verification.parse_test_output import calculate_function_throughput_from_test_results, parse_test_results
+from codeflash.verification.parse_test_output import (
+    calculate_function_throughput_from_test_results,
+    parse_concurrency_metrics,
+    parse_test_results,
+)
 from codeflash.verification.test_runner import run_behavioral_tests, run_benchmarking_tests, run_line_profile_tests
 from codeflash.verification.verification_utils import get_test_file_path
 from codeflash.verification.verifier import generate_tests
@@ -124,12 +131,76 @@ if TYPE_CHECKING:
     from codeflash.models.models import (
         BenchmarkKey,
         CodeStringsMarkdown,
+        ConcurrencyMetrics,
         CoverageData,
         FunctionCalledInTest,
         FunctionSource,
         TestDiff,
     )
     from codeflash.verification.verification_utils import TestConfig
+
+
+def log_optimization_context(function_name: str, code_context: CodeOptimizationContext) -> None:
+    """Log optimization context details when in verbose mode using Rich formatting."""
+    if logger.getEffectiveLevel() > logging.DEBUG:
+        return
+
+    console.rule()
+    read_writable_tokens = encoded_tokens_len(code_context.read_writable_code.markdown)
+    read_only_tokens = (
+        encoded_tokens_len(code_context.read_only_context_code) if code_context.read_only_context_code else 0
+    )
+    total_tokens = read_writable_tokens + read_only_tokens
+    token_pct = min(total_tokens / OPTIMIZATION_CONTEXT_TOKEN_LIMIT, 1.0)
+
+    # Token bar color based on usage
+    bar_color = "green" if token_pct < 0.7 else "yellow" if token_pct < 0.9 else "red"
+
+    # Build compact info line
+    helper_names = [hf.qualified_name for hf in code_context.helper_functions]
+    helpers_str = f"[magenta]{', '.join(helper_names)}[/]" if helper_names else "[dim]none[/]"
+    read_writable_files = [str(cs.file_path) for cs in code_context.read_writable_code.code_strings]
+
+    # Create a tree view for the context
+    tree = Tree(f"[bold cyan]Context for {function_name}[/]")
+    tree.add(
+        Text.assemble(
+            ("Tokens: ", "dim"),
+            (f"{total_tokens:,}", "bold " + bar_color),
+            (f"/{OPTIMIZATION_CONTEXT_TOKEN_LIMIT:,} ", "dim"),
+            (f"({token_pct:.0%})", bar_color),
+            ("  [", "dim"),
+            (f"{read_writable_tokens:,}", "green"),
+            (" rw", "dim green"),
+            (" + ", "dim"),
+            (f"{read_only_tokens:,}", "yellow"),
+            (" ro", "dim yellow"),
+            ("]", "dim"),
+        )
+    )
+    tree.add(f"[dim]Helpers:[/] {helpers_str}")
+    files_branch = tree.add("[dim]Files:[/]")
+    for f in read_writable_files:
+        files_branch.add(f"[blue]{f}[/]")
+
+    console.print(tree)
+
+    console.print(
+        Panel(
+            Syntax(code_context.read_writable_code.markdown, "markdown", theme="monokai", word_wrap=True),
+            title="[green]Read-Writable Code[/]",
+            border_style="green",
+        )
+    )
+
+    if code_context.read_only_context_code:
+        console.print(
+            Panel(
+                Syntax(code_context.read_only_context_code, "markdown", theme="monokai", word_wrap=True),
+                title="[yellow]Read-Only Dependencies[/]",
+                border_style="yellow",
+            )
+        )
 
 
 class CandidateNode:
@@ -187,8 +258,8 @@ class CandidateProcessor:
         self,
         initial_candidates: list[OptimizedCandidate],
         future_line_profile_results: concurrent.futures.Future,
-        ai_service_client: AiServiceClient,
         eval_ctx: CandidateEvaluationContext,
+        effort: str,
         original_markdown_code: str,
         future_all_refinements: list[concurrent.futures.Future],
         future_all_code_repair: list[concurrent.futures.Future],
@@ -198,11 +269,11 @@ class CandidateProcessor:
         self.forest = CandidateForest()
         self.line_profiler_done = False
         self.refinement_done = False
+        self.eval_ctx = eval_ctx
+        self.effort = effort
         self.candidate_len = len(initial_candidates)
-        self.ai_service_client = ai_service_client
         self.refinement_calls_count = 0
         self.original_markdown_code = original_markdown_code
-        self.eval_ctx = eval_ctx
 
         # Initialize queue with initial candidates
         for candidate in initial_candidates:
@@ -298,8 +369,14 @@ class CandidateProcessor:
         """We generate a weighted ranking based on the runtime and diff lines and select the best of valid optimizations to be tested."""
         self.refinement_calls_count += len(candidates)
 
-        if len(candidates) <= REFINE_ALL_THRESHOLD:
+        top_n_candidates = int(
+            min(int(get_effort_value(EffortKeys.TOP_VALID_CANDIDATES_FOR_REFINEMENT, self.effort)), len(candidates))
+        )
+
+        if len(candidates) == top_n_candidates:
+            # no need for ranking since we will return all candidates
             return candidates
+
         diff_lens_list = []
         runtimes_list = []
         for c in candidates:
@@ -326,7 +403,6 @@ class CandidateProcessor:
         diffs_norm = normalize_by_max(diff_lens_list)
         # the lower the better
         score_dict = create_score_dictionary_from_metrics(weights, runtime_norm, diffs_norm)
-        top_n_candidates = int((TOP_N_REFINEMENTS * len(runtimes_list)) + 0.5)
         top_indecies = sorted(score_dict, key=score_dict.get)[:top_n_candidates]
 
         return [candidates[idx] for idx in top_indecies]
@@ -377,6 +453,9 @@ class FunctionOptimizer:
         self.experiment_id = os.getenv("CODEFLASH_EXPERIMENT_ID", None)
         self.local_aiservice_client = LocalAiServiceClient() if self.experiment_id else None
         self.test_files = TestFiles(test_files=[])
+
+        self.effort = getattr(args, "effort", EffortLevel.MEDIUM.value) if args else EffortLevel.MEDIUM.value
+
         self.args = args  # Check defaults for these
         self.function_trace_id: str = str(uuid.uuid4())
         self.original_module_path = module_name_from_file_path(self.function_to_optimize.file_path, self.project_root)
@@ -384,7 +463,7 @@ class FunctionOptimizer:
         self.function_benchmark_timings = function_benchmark_timings if function_benchmark_timings else {}
         self.total_benchmark_timings = total_benchmark_timings if total_benchmark_timings else {}
         self.replay_tests_dir = replay_tests_dir if replay_tests_dir else None
-        n_tests = N_TESTS_TO_GENERATE_EFFECTIVE
+        n_tests = get_effort_value(EffortKeys.N_GENERATED_TESTS, self.effort)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=n_tests + 3 if self.experiment_id is None else n_tests + 4
         )
@@ -394,6 +473,7 @@ class FunctionOptimizer:
         self.future_adaptive_optimizations: list[concurrent.futures.Future] = []
         self.repair_counter = 0  # track how many repairs we did for each function
         self.adaptive_optimization_counter = 0  # track how many adaptive optimizations we did for each function
+        self.is_numerical_code: bool | None = None
 
     def can_be_optimized(self) -> Result[tuple[bool, CodeOptimizationContext, dict[Path, str]], str]:
         should_run_experiment = self.experiment_id is not None
@@ -405,6 +485,7 @@ class FunctionOptimizer:
         if not is_successful(ctx_result):
             return Failure(ctx_result.failure())
         code_context: CodeOptimizationContext = ctx_result.unwrap()
+        log_optimization_context(self.function_to_optimize.function_name, code_context)
         original_helper_code: dict[Path, str] = {}
         helper_function_paths = {hf.file_path for hf in code_context.helper_functions}
         for helper_function_path in helper_function_paths:
@@ -437,7 +518,7 @@ class FunctionOptimizer:
         str,
     ]:
         """Generate and instrument tests for the function."""
-        n_tests = N_TESTS_TO_GENERATE_EFFECTIVE
+        n_tests = get_effort_value(EffortKeys.N_GENERATED_TESTS, self.effort)
         generated_test_paths = [
             get_test_file_path(
                 self.test_cfg.tests_root, self.function_to_optimize.function_name, test_index, test_type="unit"
@@ -515,7 +596,7 @@ class FunctionOptimizer:
         if not is_successful(initialization_result):
             return Failure(initialization_result.failure())
         should_run_experiment, code_context, original_helper_code = initialization_result.unwrap()
-
+        self.is_numerical_code = is_numerical_code(code_string=code_context.read_writable_code.flat)
         code_print(
             code_context.read_writable_code.flat,
             file_name=self.function_to_optimize.file_path,
@@ -528,13 +609,37 @@ class FunctionOptimizer:
             revert_to_print=bool(get_pr_number()),
         ):
             console.rule()
+            new_code_context = code_context
+            if self.is_numerical_code:  # if the code is numerical in nature (uses numpy/tensorflow/math/pytorch/jax)
+                jit_compiled_opt_candidate = self.aiservice_client.get_jit_rewritten_code(
+                    code_context.read_writable_code.markdown, self.function_trace_id
+                )
+                if jit_compiled_opt_candidate:  # jit rewrite was successful
+                    # write files
+                    # Try to replace function with optimized code
+                    self.replace_function_and_helpers_with_optimized_code(
+                        code_context=code_context,
+                        optimized_code=jit_compiled_opt_candidate[0].source_code,
+                        original_helper_code=original_helper_code,
+                    )
+                    # get code context
+                    try:
+                        new_code_context = self.get_code_optimization_context().unwrap()
+                    except Exception as e:
+                        sentry_sdk.capture_exception(e)
+                        logger.debug("!lsp|Getting new code context failed, revert to original one")
+                    # unwrite files
+                    self.write_code_and_helpers(
+                        self.function_to_optimize_source_code, original_helper_code, self.function_to_optimize.file_path
+                    )
             # Generate tests and optimizations in parallel
-            future_tests = self.executor.submit(self.generate_and_instrument_tests, code_context)
+            future_tests = self.executor.submit(self.generate_and_instrument_tests, new_code_context)
             future_optimizations = self.executor.submit(
                 self.generate_optimizations,
                 read_writable_code=code_context.read_writable_code,
                 read_only_context_code=code_context.read_only_context_code,
                 run_experiment=should_run_experiment,
+                is_numerical_code=self.is_numerical_code,
             )
 
             concurrent.futures.wait([future_tests, future_optimizations])
@@ -637,6 +742,13 @@ class FunctionOptimizer:
                 tree.add(f"Optimized async throughput: {candidate_result.async_throughput} executions")
                 tree.add(f"Throughput improvement: {throughput_gain_value * 100:.1f}%")
                 tree.add(f"Throughput ratio: {throughput_gain_value + 1:.3f}X")
+
+                # Display concurrency metrics if available
+                if candidate_result.concurrency_metrics and original_code_baseline.concurrency_metrics:
+                    orig_ratio = original_code_baseline.concurrency_metrics.concurrency_ratio
+                    cand_ratio = candidate_result.concurrency_metrics.concurrency_ratio
+                    conc_gain = ((cand_ratio - orig_ratio) / orig_ratio * 100) if orig_ratio > 0 else 0
+                    tree.add(f"Concurrency ratio: {orig_ratio:.2f}x → {cand_ratio:.2f}x ({conc_gain:+.1f}%)")
             else:
                 tree.add("This candidate is faster than the original code. 🚀")
                 tree.add(f"Original summed runtime: {humanize_runtime(original_code_baseline.runtime)}")
@@ -655,6 +767,14 @@ class FunctionOptimizer:
             )
             tree.add(f"Async throughput: {candidate_result.async_throughput} executions")
             tree.add(f"Throughput change: {throughput_gain_value * 100:.1f}%")
+
+            # Display concurrency metrics if available
+            if candidate_result.concurrency_metrics and original_code_baseline.concurrency_metrics:
+                orig_ratio = original_code_baseline.concurrency_metrics.concurrency_ratio
+                cand_ratio = candidate_result.concurrency_metrics.concurrency_ratio
+                conc_gain = ((cand_ratio - orig_ratio) / orig_ratio * 100) if orig_ratio > 0 else 0
+                tree.add(f"Concurrency ratio: {orig_ratio:.2f}x → {cand_ratio:.2f}x ({conc_gain:+.1f}%)")
+
             tree.add(
                 f"(Runtime for reference: {humanize_runtime(candidate_result.best_test_runtime)} over "
                 f"{candidate_result.max_loop_count} loop{'s' if candidate_result.max_loop_count > 1 else ''})"
@@ -721,6 +841,7 @@ class FunctionOptimizer:
             winning_benchmarking_test_results=candidate_result.benchmarking_test_results,
             winning_replay_benchmarking_test_results=candidate_result.benchmarking_test_results,
             async_throughput=candidate_result.async_throughput,
+            concurrency_metrics=candidate_result.concurrency_metrics,
         )
 
         return best_optimization, benchmark_tree
@@ -765,6 +886,7 @@ class FunctionOptimizer:
                 winning_benchmarking_test_results=valid_opt.winning_benchmarking_test_results,
                 winning_replay_benchmarking_test_results=valid_opt.winning_replay_benchmarking_test_results,
                 async_throughput=valid_opt.async_throughput,
+                concurrency_metrics=valid_opt.concurrency_metrics,
             )
             valid_candidates_with_shorter_code.append(new_best_opt)
             diff_lens_list.append(
@@ -916,6 +1038,8 @@ class FunctionOptimizer:
             best_runtime_until_now=None,
             original_async_throughput=original_code_baseline.async_throughput,
             best_throughput_until_now=None,
+            original_concurrency_metrics=original_code_baseline.concurrency_metrics,
+            best_concurrency_ratio_until_now=None,
         ) and quantity_of_tests_critic(candidate_result)
 
         tree = self.build_runtime_info_tree(
@@ -1028,18 +1152,20 @@ class FunctionOptimizer:
             dependency_code=code_context.read_only_context_code,
             trace_id=self.get_trace_id(exp_type),
             line_profiler_results=original_code_baseline.line_profile_results["str_out"],
+            n_candidates=get_effort_value(EffortKeys.N_OPTIMIZER_LP_CANDIDATES, self.effort),
             experiment_metadata=ExperimentMetadata(
                 id=self.experiment_id, group="control" if exp_type == "EXP0" else "experiment"
             )
             if self.experiment_id
             else None,
+            is_numerical_code=self.is_numerical_code,
         )
 
         processor = CandidateProcessor(
             candidates,
             future_line_profile_results,
-            self.aiservice_client,
             eval_ctx,
+            self.effort,
             code_context.read_writable_code.markdown,
             self.future_all_refinements,
             self.future_all_code_repair,
@@ -1105,7 +1231,9 @@ class FunctionOptimizer:
         eval_ctx: CandidateEvaluationContext,
         ai_service_client: AiServiceClient,
     ) -> concurrent.futures.Future[OptimizedCandidate | None] | None:
-        if self.adaptive_optimization_counter >= MAX_ADAPTIVE_OPTIMIZATIONS_PER_TRACE:
+        if self.adaptive_optimization_counter >= get_effort_value(
+            EffortKeys.MAX_ADAPTIVE_OPTIMIZATIONS_PER_TRACE, self.effort
+        ):
             logger.debug(
                 f"Max adaptive optimizations reached for {self.function_to_optimize.qualified_name}: {self.adaptive_optimization_counter}"
             )
@@ -1113,7 +1241,7 @@ class FunctionOptimizer:
 
         adaptive_count = sum(1 for c in prev_candidates if c.source == OptimizedCandidateSource.ADAPTIVE)
 
-        if adaptive_count >= ADAPTIVE_OPTIMIZATION_THRESHOLD:
+        if adaptive_count >= get_effort_value(EffortKeys.ADAPTIVE_OPTIMIZATION_THRESHOLD, self.effort):
             return None
 
         request_candidates = []
@@ -1433,7 +1561,7 @@ class FunctionOptimizer:
         generated_perf_test_paths: list[Path],
     ) -> Result[tuple[int, GeneratedTestsList, dict[str, set[FunctionCalledInTest]], str], str]:
         """Generate unit tests and concolic tests for the function."""
-        n_tests = N_TESTS_TO_GENERATE_EFFECTIVE
+        n_tests = get_effort_value(EffortKeys.N_GENERATED_TESTS, self.effort)
         assert len(generated_test_paths) == n_tests
 
         if not self.args.no_gen_tests:
@@ -1498,8 +1626,10 @@ class FunctionOptimizer:
         read_writable_code: CodeStringsMarkdown,
         read_only_context_code: str,
         run_experiment: bool = False,  # noqa: FBT001, FBT002
+        is_numerical_code: bool | None = None,  # noqa: FBT001
     ) -> Result[tuple[OptimizationSet, str], str]:
         """Generate optimization candidates for the function. Backend handles multi-model diversity."""
+        n_candidates = get_effort_value(EffortKeys.N_OPTIMIZER_CANDIDATES, self.effort)
         future_optimization_candidates = self.executor.submit(
             self.aiservice_client.optimize_python_code,
             read_writable_code.markdown,
@@ -1507,6 +1637,8 @@ class FunctionOptimizer:
             self.function_trace_id[:-4] + "EXP0" if run_experiment else self.function_trace_id,
             ExperimentMetadata(id=self.experiment_id, group="control") if run_experiment else None,
             is_async=self.function_to_optimize.is_async,
+            n_candidates=n_candidates,
+            is_numerical_code=is_numerical_code,
         )
 
         future_references = self.executor.submit(
@@ -1529,6 +1661,7 @@ class FunctionOptimizer:
                 self.function_trace_id[:-4] + "EXP1",
                 ExperimentMetadata(id=self.experiment_id, group="experiment"),
                 is_async=self.function_to_optimize.is_async,
+                n_candidates=n_candidates,
             )
             futures.append(future_candidates_exp)
 
@@ -1669,6 +1802,14 @@ class FunctionOptimizer:
                         fto_benchmark_timings=self.function_benchmark_timings,
                         total_benchmark_timings=self.total_benchmark_timings,
                     )
+                acceptance_reason = get_acceptance_reason(
+                    original_runtime_ns=original_code_baseline.runtime,
+                    optimized_runtime_ns=best_optimization.runtime,
+                    original_async_throughput=original_code_baseline.async_throughput,
+                    optimized_async_throughput=best_optimization.async_throughput,
+                    original_concurrency_metrics=original_code_baseline.concurrency_metrics,
+                    optimized_concurrency_metrics=best_optimization.concurrency_metrics,
+                )
                 explanation = Explanation(
                     raw_explanation_message=best_optimization.candidate.explanation,
                     winning_behavior_test_results=best_optimization.winning_behavior_test_results,
@@ -1680,6 +1821,9 @@ class FunctionOptimizer:
                     benchmark_details=processed_benchmark_info.benchmark_details if processed_benchmark_info else None,
                     original_async_throughput=original_code_baseline.async_throughput,
                     best_async_throughput=best_optimization.async_throughput,
+                    original_concurrency_metrics=original_code_baseline.concurrency_metrics,
+                    best_concurrency_metrics=best_optimization.concurrency_metrics,
+                    acceptance_reason=acceptance_reason,
                 )
 
                 self.replace_function_and_helpers_with_optimized_code(
@@ -1777,6 +1921,9 @@ class FunctionOptimizer:
         original_throughput_str = None
         optimized_throughput_str = None
         throughput_improvement_str = None
+        original_concurrency_ratio_str = None
+        optimized_concurrency_ratio_str = None
+        concurrency_improvement_str = None
 
         if (
             self.function_to_optimize.is_async
@@ -1790,6 +1937,14 @@ class FunctionOptimizer:
                 optimized_throughput=best_optimization.async_throughput,
             )
             throughput_improvement_str = f"{throughput_improvement_value * 100:.1f}%"
+
+        if original_code_baseline.concurrency_metrics is not None and best_optimization.concurrency_metrics is not None:
+            original_concurrency_ratio_str = f"{original_code_baseline.concurrency_metrics.concurrency_ratio:.2f}x"
+            optimized_concurrency_ratio_str = f"{best_optimization.concurrency_metrics.concurrency_ratio:.2f}x"
+            conc_improvement_value = concurrency_gain(
+                original_code_baseline.concurrency_metrics, best_optimization.concurrency_metrics
+            )
+            concurrency_improvement_str = f"{conc_improvement_value * 100:.1f}%"
 
         new_explanation_raw_str = self.aiservice_client.get_new_explanation(
             source_code=code_context.read_writable_code.flat,
@@ -1808,6 +1963,10 @@ class FunctionOptimizer:
             optimized_throughput=optimized_throughput_str,
             throughput_improvement=throughput_improvement_str,
             function_references=function_references,
+            acceptance_reason=explanation.acceptance_reason.value,
+            original_concurrency_ratio=original_concurrency_ratio_str,
+            optimized_concurrency_ratio=optimized_concurrency_ratio_str,
+            concurrency_improvement=concurrency_improvement_str,
         )
         new_explanation = Explanation(
             raw_explanation_message=new_explanation_raw_str or explanation.raw_explanation_message,
@@ -1820,6 +1979,9 @@ class FunctionOptimizer:
             benchmark_details=explanation.benchmark_details,
             original_async_throughput=explanation.original_async_throughput,
             best_async_throughput=explanation.best_async_throughput,
+            original_concurrency_metrics=explanation.original_concurrency_metrics,
+            best_concurrency_metrics=explanation.best_concurrency_metrics,
+            acceptance_reason=explanation.acceptance_reason,
         )
         self.log_successful_optimization(new_explanation, generated_tests, exp_type)
 
@@ -2048,11 +2210,21 @@ class FunctionOptimizer:
         logger.debug(f"Total original code runtime (ns): {total_timing}")
 
         async_throughput = None
+        concurrency_metrics = None
         if self.function_to_optimize.is_async:
             async_throughput = calculate_function_throughput_from_test_results(
                 benchmarking_results, self.function_to_optimize.function_name
             )
             logger.debug(f"Original async function throughput: {async_throughput} calls/second")
+
+            concurrency_metrics = self.run_concurrency_benchmark(
+                code_context=code_context, original_helper_code=original_helper_code, test_env=test_env
+            )
+            if concurrency_metrics:
+                logger.debug(
+                    f"Original concurrency metrics: ratio={concurrency_metrics.concurrency_ratio:.2f}, "
+                    f"seq={concurrency_metrics.sequential_time_ns}ns, conc={concurrency_metrics.concurrent_time_ns}ns"
+                )
 
         if self.args.benchmark:
             replay_benchmarking_test_results = benchmarking_results.group_by_benchmarks(
@@ -2068,6 +2240,7 @@ class FunctionOptimizer:
                     coverage_results=coverage_results,
                     line_profile_results=line_profile_results,
                     async_throughput=async_throughput,
+                    concurrency_metrics=concurrency_metrics,
                 ),
                 functions_to_remove,
             )
@@ -2087,8 +2260,9 @@ class FunctionOptimizer:
         test_results_count: int,
         exp_type: str,
     ) -> None:
-        if self.repair_counter >= MAX_REPAIRS_PER_TRACE:
-            logger.debug(f"Repair counter reached {MAX_REPAIRS_PER_TRACE}, skipping repair")
+        max_repairs = get_effort_value(EffortKeys.MAX_CODE_REPAIRS_PER_TRACE, self.effort)
+        if self.repair_counter >= max_repairs:
+            logger.debug(f"Repair counter reached {max_repairs}, skipping repair")
             return
 
         successful_candidates_count = sum(1 for is_correct in eval_ctx.is_correct.values() if is_correct)
@@ -2104,7 +2278,7 @@ class FunctionOptimizer:
             logger.debug("No diffs found, skipping repair")
             return
         result_unmatched_perc = len(diffs) / test_results_count
-        if result_unmatched_perc > REPAIR_UNMATCHED_PERCENTAGE_LIMIT:
+        if result_unmatched_perc > get_effort_value(EffortKeys.REPAIR_UNMATCHED_PERCENTAGE_LIMIT, self.effort):
             logger.debug(f"Result unmatched percentage is {result_unmatched_perc * 100}%, skipping repair")
             return
 
@@ -2233,11 +2407,22 @@ class FunctionOptimizer:
             logger.debug(f"Total optimized code {optimization_candidate_index} runtime (ns): {total_candidate_timing}")
 
             candidate_async_throughput = None
+            candidate_concurrency_metrics = None
             if self.function_to_optimize.is_async:
                 candidate_async_throughput = calculate_function_throughput_from_test_results(
                     candidate_benchmarking_results, self.function_to_optimize.function_name
                 )
                 logger.debug(f"Candidate async function throughput: {candidate_async_throughput} calls/second")
+
+                # Run concurrency benchmark for candidate
+                candidate_concurrency_metrics = self.run_concurrency_benchmark(
+                    code_context=code_context, original_helper_code=candidate_helper_code, test_env=test_env
+                )
+                if candidate_concurrency_metrics:
+                    logger.debug(
+                        f"Candidate concurrency metrics: ratio={candidate_concurrency_metrics.concurrency_ratio:.2f}, "
+                        f"seq={candidate_concurrency_metrics.sequential_time_ns}ns, conc={candidate_concurrency_metrics.concurrent_time_ns}ns"
+                    )
 
             if self.args.benchmark:
                 candidate_replay_benchmarking_results = candidate_benchmarking_results.group_by_benchmarks(
@@ -2259,6 +2444,7 @@ class FunctionOptimizer:
                     optimization_candidate_index=optimization_candidate_index,
                     total_candidate_timing=total_candidate_timing,
                     async_throughput=candidate_async_throughput,
+                    concurrency_metrics=candidate_concurrency_metrics,
                 )
             )
 
@@ -2382,6 +2568,7 @@ class FunctionOptimizer:
                 test_index,
                 test_path,
                 test_perf_path,
+                self.is_numerical_code,
             )
             for test_index, (test_path, test_perf_path) in enumerate(
                 zip(generated_test_paths, generated_perf_test_paths)
@@ -2412,6 +2599,23 @@ class FunctionOptimizer:
     def line_profiler_step(
         self, code_context: CodeOptimizationContext, original_helper_code: dict[Path, str], candidate_index: int
     ) -> dict:
+        # Check if candidate code contains JIT decorators - line profiler doesn't work with JIT compiled code
+        candidate_fto_code = Path(self.function_to_optimize.file_path).read_text("utf-8")
+        if contains_jit_decorator(candidate_fto_code):
+            logger.info(
+                f"Skipping line profiler for {self.function_to_optimize.function_name} - code contains JIT decorator"
+            )
+            return {"timings": {}, "unit": 0, "str_out": ""}
+
+        # Check helper code for JIT decorators
+        for module_abspath in original_helper_code:
+            candidate_helper_code = Path(module_abspath).read_text("utf-8")
+            if contains_jit_decorator(candidate_helper_code):
+                logger.info(
+                    f"Skipping line profiler for {self.function_to_optimize.function_name} - helper code contains JIT decorator"
+                )
+                return {"timings": {}, "unit": 0, "str_out": ""}
+
         try:
             console.rule()
 
@@ -2446,3 +2650,57 @@ class FunctionOptimizer:
                 f"Couldn't run line profiler for original function {self.function_to_optimize.function_name}"
             )
         return line_profile_results
+
+    def run_concurrency_benchmark(
+        self, code_context: CodeOptimizationContext, original_helper_code: dict[Path, str], test_env: dict[str, str]
+    ) -> ConcurrencyMetrics | None:
+        """Run concurrency benchmark to measure sequential vs concurrent execution for async functions.
+
+        This benchmark detects blocking vs non-blocking async code by comparing:
+        - Sequential execution time (running N iterations one after another)
+        - Concurrent execution time (running N iterations in parallel with asyncio.gather)
+
+        Blocking code (like time.sleep) will have similar sequential and concurrent times.
+        Non-blocking code (like asyncio.sleep) will be much faster when run concurrently.
+
+        Returns:
+            ConcurrencyMetrics if benchmark ran successfully, None otherwise.
+
+        """
+        if not self.function_to_optimize.is_async:
+            return None
+
+        from codeflash.code_utils.instrument_existing_tests import add_async_decorator_to_function
+
+        try:
+            # Add concurrency decorator to the source function
+            add_async_decorator_to_function(
+                self.function_to_optimize.file_path, self.function_to_optimize, TestingMode.CONCURRENCY
+            )
+
+            # Run the concurrency benchmark tests
+            concurrency_results, _ = self.run_and_parse_tests(
+                testing_type=TestingMode.PERFORMANCE,  # Use performance mode for running
+                test_env=test_env,
+                test_files=self.test_files,
+                optimization_iteration=0,
+                testing_time=5.0,  # Short benchmark time
+                enable_coverage=False,
+                code_context=code_context,
+                pytest_min_loops=1,
+                pytest_max_loops=3,
+            )
+        except Exception as e:
+            logger.debug(f"Concurrency benchmark failed: {e}")
+            return None
+        finally:
+            # Restore original code
+            self.write_code_and_helpers(
+                self.function_to_optimize_source_code, original_helper_code, self.function_to_optimize.file_path
+            )
+
+        # Parse concurrency metrics from stdout
+        if concurrency_results and concurrency_results.perf_stdout:
+            return parse_concurrency_metrics(concurrency_results, self.function_to_optimize.function_name)
+
+        return None

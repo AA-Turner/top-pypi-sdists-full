@@ -12,7 +12,7 @@ __all__ = [
 import logging
 from typing import TYPE_CHECKING, Any
 
-from coola.utils import is_numpy_available, is_torch_available
+from coola.utils.imports import is_numpy_available, is_torch_available
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 

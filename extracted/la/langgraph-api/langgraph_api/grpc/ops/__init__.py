@@ -13,11 +13,11 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.struct_pb2 import Struct  # type: ignore[import]
 from grpc import StatusCode
 from grpc.aio import AioRpcError
+from langgraph_grpc_common.proto import core_api_pb2 as pb
 from langgraph_sdk.schema import Config
 from starlette.exceptions import HTTPException
 
 from langgraph_api.auth.custom import handle_event as auth_handle_event
-from langgraph_api.grpc.generated import core_api_pb2 as pb
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx
 
@@ -41,7 +41,7 @@ GRPC_STATUS_TO_HTTP_STATUS = {
 
 def map_if_exists(if_exists: str) -> Any:
     """Map if_exists string to protobuf OnConflictBehavior."""
-    from langgraph_api.grpc.generated import core_api_pb2 as pb
+    from langgraph_grpc_common.proto import core_api_pb2 as pb
 
     if if_exists == "do_nothing":
         return pb.OnConflictBehavior.DO_NOTHING
@@ -116,7 +116,7 @@ def exception_to_struct(exception: BaseException | None) -> Struct | None:
 
 def _map_sort_order(sort_order: str | None) -> Any:
     """Map string sort_order to protobuf enum."""
-    from langgraph_api.grpc.generated import core_api_pb2 as pb
+    from langgraph_grpc_common.proto import core_api_pb2 as pb
 
     if sort_order and sort_order.upper() == "ASC":
         return pb.SortOrder.ASC

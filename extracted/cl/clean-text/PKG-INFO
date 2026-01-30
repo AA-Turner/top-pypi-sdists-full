@@ -1,28 +1,31 @@
 Metadata-Version: 2.1
 Name: clean-text
-Version: 0.6.0
+Version: 0.7.1
 Summary: Functions to preprocess and normalize text.
 License: Apache-2.0
 Keywords: natural-language-processing,text-cleaning,text-preprocessing,text-normalization,user-generated-content
 Author: Johannes Filter
 Author-email: hi@jfilter.de
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: gpl
 Provides-Extra: sklearn
-Requires-Dist: emoji (>=1.0.0,<2.0.0)
+Requires-Dist: emoji (>=2.1.0)
 Requires-Dist: ftfy (>=6.0,<7.0)
-Requires-Dist: pandas (>=1.0.0,<2.0.0); extra == "sklearn"
-Requires-Dist: scikit-learn (>=1.0.0,<2.0.0); extra == "sklearn"
-Requires-Dist: unidecode (>=1.1.1,<2.0.0); extra == "gpl"
+Requires-Dist: pandas (>=1.0.0,<3.0.0) ; extra == "sklearn"
+Requires-Dist: scikit-learn (>=1.5.0) ; extra == "sklearn"
+Requires-Dist: scipy (>=1.13.0,<1.14) ; (python_version >= "3.9" and python_version < "3.10") and (extra == "sklearn")
+Requires-Dist: scipy (>=1.14.0) ; (python_version >= "3.10") and (extra == "sklearn")
+Requires-Dist: unidecode (>=1.1.1,<2.0.0) ; extra == "gpl"
 Description-Content-Type: text/markdown
 
-# `clean-text` [![Build Status](https://img.shields.io/github/workflow/status/jfilter/clean-text/Test)](https://github.com/jfilter/clean-text/actions/workflows/test.yml) [![PyPI](https://img.shields.io/pypi/v/clean-text.svg)](https://pypi.org/project/clean-text/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/clean-text.svg)](https://pypi.org/project/clean-text/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/clean-text)](https://pypistats.org/packages/clean-text)
+# `clean-text` [![Build Status](https://img.shields.io/github/actions/workflow/status/jfilter/clean-text/test.yml)](https://github.com/jfilter/clean-text/actions/workflows/test.yml) [![PyPI](https://img.shields.io/pypi/v/clean-text.svg)](https://pypi.org/project/clean-text/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/clean-text.svg)](https://pypi.org/project/clean-text/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/clean-text)](https://pypistats.org/packages/clean-text)
 
 User-generated content on the Web and in social media is often dirty. Preprocess your scraped data with `clean-text` to create a normalized text representation. For instance, turn this corrupted input:
 
@@ -76,17 +79,24 @@ clean("some input",
     to_ascii=True,                  # transliterate to closest ASCII representation
     lower=True,                     # lowercase text
     no_line_breaks=False,           # fully strip line breaks as opposed to only normalizing them
+    no_code=False,                  # replace all code snippets with a special token
     no_urls=False,                  # replace all URLs with a special token
     no_emails=False,                # replace all email addresses with a special token
     no_phone_numbers=False,         # replace all phone numbers with a special token
+    no_ip_addresses=False,          # replace all IP addresses with a special token
+    no_file_paths=False,            # replace all file paths with a special token
     no_numbers=False,               # replace all numbers with a special token
     no_digits=False,                # replace all digits with a special token
     no_currency_symbols=False,      # replace all currency symbols with a special token
     no_punct=False,                 # remove punctuations
     replace_with_punct="",          # instead of removing punctuations you may replace them
+    exceptions=None,                # list of regex patterns to preserve verbatim
+    replace_with_code="<CODE>",
     replace_with_url="<URL>",
     replace_with_email="<EMAIL>",
     replace_with_phone_number="<PHONE>",
+    replace_with_ip_address="<IP>",
+    replace_with_file_path="<FILE_PATH>",
     replace_with_number="<NUMBER>",
     replace_with_digit="0",
     replace_with_currency_symbol="<CUR>",
@@ -96,7 +106,57 @@ clean("some input",
 
 Carefully choose the arguments that fit your task. The default parameters are listed above.
 
+### Preserving patterns with exceptions
+
+Use `exceptions` to protect specific text patterns from being modified during cleaning.
+Each entry is a regex pattern string; all matches are preserved **verbatim** (not lowered, not
+transliterated — exactly as they appeared in the input).
+
+```python
+from cleantext import clean
+
+# Preserve a literal compound word while removing other punctuation
+clean("drive-thru and text---cleaning", no_punct=True, exceptions=["drive-thru"])
+# => 'drive-thru and textcleaning'
+
+# Preserve all hyphenated compound words using a regex
+clean("drive-thru and pick-up", no_punct=True, exceptions=[r"\w+-\w+"])
+# => 'drive-thru and pick-up'
+
+# Multiple exception patterns
+clean("drive-thru costs $5", no_punct=True, no_currency_symbols=True,
+      exceptions=[r"\w+-\w+", r"\$\d+"])
+# => 'drive-thru costs $5'
+```
+
 You may also only use specific functions for cleaning. For this, take a look at the [source code](https://github.com/jfilter/clean-text/blob/main/cleantext/clean.py).
+
+### Cleaning multiple texts in parallel
+
+Use `clean_texts()` to clean a list of strings. Set `n_jobs` to enable parallel processing via Python's built-in `multiprocessing`:
+
+```python
+from cleantext import clean_texts
+
+# Sequential (default) — no multiprocessing overhead
+clean_texts(["text one", "text two", "text three"])
+
+# Use all available CPU cores
+clean_texts(["text one", "text two", "text three"], n_jobs=-1)
+
+# Use a specific number of workers
+clean_texts(["text one", "text two", "text three"], n_jobs=4)
+
+# All clean() keyword arguments are supported
+clean_texts(texts, n_jobs=-1, no_urls=True, lang="de", lower=False)
+```
+
+`n_jobs` semantics:
+- `1` or `None` — sequential processing (default, zero overhead)
+- `-1` — use all available CPU cores
+- `-2` — use all cores except one, etc.
+- Any positive integer — use exactly that many workers
+- `0` — raises `ValueError`
 
 ### Supported languages
 
@@ -125,6 +185,8 @@ cleaner.transform(['Happily clean your text!', 'Another Input'])
 ## Development
 
 [Use poetry.](https://python-poetry.org/)
+
+See [RELEASING.md](RELEASING.md) for how to publish a new version.
 
 ## Contributing
 

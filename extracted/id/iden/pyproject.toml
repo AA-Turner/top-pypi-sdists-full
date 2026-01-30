@@ -9,7 +9,7 @@ only-include = ["src"]
 
 [project]
 name = "iden"
-version = "0.3.0"
+version = "0.4.0"
 description = "simple library to manage a dataset of shards to train machine learning models"
 readme = "README.md"
 authors = [
@@ -40,7 +40,7 @@ dynamic = ["maintainers"]
 requires-python = ">=3.10"
 
 dependencies = [
-    "coola >=0.11.0,<1.0",
+    "coola >=1.0,<2.0",
     "objectory >=0.3.0,<1.0",
 ]
 
@@ -60,10 +60,10 @@ torch = [
 
 [dependency-groups]
 dev = [
-    "black >=25.12",
+    "black >=26.1",
     "coverage[toml] >=7.11,<8.0",
     "docformatter[tomli] >=1.7,<2.0 ; python_version < '3.14'",
-    "feu[all] >=0.6.0,<1.0",
+    "feu[all] >=0.6.2,<1.0",
     "invoke >=2.2.0,<3.0",
     "pre-commit >=4.5,<5.0",
     "pygments >=2.19,<3.0",

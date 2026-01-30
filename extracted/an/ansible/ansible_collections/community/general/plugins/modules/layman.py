@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: layman
 author: "Jakub Jirutka (@jirutka)"
@@ -83,7 +82,6 @@ EXAMPLES = r"""
 
 import shutil
 import traceback
-
 from os import path
 
 LAYMAN_IMP_ERR = None
@@ -98,7 +96,6 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from ansible.module_utils.urls import fetch_url
-
 
 USERAGENT = "ansible-httpget"
 
@@ -135,7 +132,7 @@ def download_url(module, url, dest):
     try:
         with open(dest, "w") as f:
             shutil.copyfileobj(response, f)
-    except IOError as e:
+    except OSError as e:
         raise ModuleError(f"Failed to write: {e}") from e
 
 

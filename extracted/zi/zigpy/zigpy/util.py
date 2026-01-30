@@ -299,7 +299,7 @@ class CatchingTaskMixin(LocalLogMixin):
             return await target
         except exceptions:
             pass
-        except (Exception, asyncio.CancelledError):  # pylint: disable=broad-except
+        except (Exception, asyncio.CancelledError):  # noqa: BLE001
             # Do not print the wrapper in the traceback
             frames = len(inspect.trace()) - 1
             exc_msg = traceback.format_exc(-frames)
@@ -413,19 +413,6 @@ def pick_optimal_channel(
     LOGGER.debug("Channel scores: %s", scores)
 
     return optimal_channel
-
-
-class Singleton:
-    """Singleton class."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def __repr__(self) -> str:
-        return f"<Singleton {self.name!r}>"
-
-    def __hash__(self) -> int:
-        return hash(self.name)
 
 
 def filter_relays(relays: list[int]) -> list[int]:

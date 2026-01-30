@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyfunceble-process-manager
-Version: 1.0.10
+Version: 1.0.11
 Summary: The process manager library for and from the PyFunceble project.
 Home-page: https://github.com/PyFunceble/process-manager
 Author: funilrys
@@ -23,21 +23,23 @@ License-File: LICENSE
 Requires-Dist: setuptools>=65.5.1
 Provides-Extra: dev
 Requires-Dist: flake8; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
+Requires-Dist: bandit; extra == "dev"
 Requires-Dist: isort; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: full
-Requires-Dist: pytest-cov; extra == "full"
-Requires-Dist: coverage; extra == "full"
-Requires-Dist: isort; extra == "full"
-Requires-Dist: pylint; extra == "full"
+Requires-Dist: setuptools>=65.5.1; extra == "full"
 Requires-Dist: pytest; extra == "full"
 Requires-Dist: flake8; extra == "full"
-Requires-Dist: setuptools>=65.5.1; extra == "full"
+Requires-Dist: bandit; extra == "full"
+Requires-Dist: isort; extra == "full"
+Requires-Dist: pylint; extra == "full"
+Requires-Dist: coverage; extra == "full"
+Requires-Dist: pytest-cov; extra == "full"
 Requires-Dist: black; extra == "full"
 Dynamic: author
 Dynamic: author-email
@@ -47,6 +49,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: project-url
 Dynamic: provides-extra
@@ -213,7 +216,7 @@ if __name__ == "__main__":
 
 # License
 
-    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025 Nissar Chababy
+    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025, 2026 Nissar Chababy
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

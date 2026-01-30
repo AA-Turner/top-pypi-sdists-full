@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apyds
-Version: 0.0.14
+Version: 0.0.17
 Summary: A deductive system
 Author-Email: Hao Zhang <hzhangxyz@outlook.com>
 License-Expression: AGPL-3.0-or-later
@@ -10,10 +10,6 @@ Provides-Extra: dev
 Requires-Dist: ruff~=0.14.10; extra == "dev"
 Requires-Dist: pytest~=9.0.2; extra == "dev"
 Requires-Dist: pytest-cov~=7.0.0; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: mkdocs~=1.6.1; extra == "docs"
-Requires-Dist: mkdocs-material~=9.7.1; extra == "docs"
-Requires-Dist: mike~=2.1.3; extra == "docs"
 Description-Content-Type: text/markdown
 
 # DS - A Deductive System
@@ -28,13 +24,12 @@ A deductive system for logical inference, implemented in C++. The library provid
 
 ## Features
 
-- **Multi-Language Support**: Use the same deductive system in C++, Python, or TypeScript/JavaScript
-- **Logical Terms**: Work with variables, items (constants/functors), and lists
-- **Rule-Based Inference**: Define rules and facts, perform logical deduction
-- **Unification and Matching**: Unify terms and match rules
-- **Search Engine**: Built-in search mechanism for iterative inference
-- **WebAssembly**: Run inference in the browser or Node.js environments
-- **Type-Safe**: Strong typing support in TypeScript and Python
+- **Multi-Language Support**: Seamlessly use the same deductive system in C++, Python, or TypeScript/JavaScript.
+- **WebAssembly Performance**: Run high-performance deductive system in the browser or Node.js via Emscripten.
+- **Rich Logical Terms**: Comprehensive support for variables, items, and nested lists.
+- **Rule-Based Inference**: Flexible framework for defining rules and facts to perform complex logical deduction.
+- **Unification Engine**: Powerful built-in mechanisms for term unification and rule matching.
+- **Automated Search**: Built-in search engine for iterative inference.
 
 ## Installation
 
@@ -383,7 +378,7 @@ Pre-commit hooks are configured in `.pre-commit-config.yaml`.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 or later. See [LICENSE.md](LICENSE.md) for details.
+This project is licensed under the GNU Affero General Public License v3.0 or later. See [LICENSE.md](LICENSE.md) for details.
 
 ## Documentation
 

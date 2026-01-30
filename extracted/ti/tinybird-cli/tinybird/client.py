@@ -62,9 +62,7 @@ class JobException(Exception):
 def connector_equals(connector, datafile_params):
     if not connector:
         return False
-    if connector["name"] == datafile_params["kafka_connection_name"]:
-        return True
-    return False
+    return connector["name"] == datafile_params["kafka_connection_name"]
 
 
 def parse_error_response(response: Response) -> str:
@@ -316,15 +314,9 @@ class TinyB:
         response = await self._req(f"/v0/connectors?{urlencode(params)}")
         return response["connectors"]
 
-    async def connections(self, connector: Optional[str] = None, skip_bigquery: Optional[bool] = False):
+    async def connections(self, connector: Optional[str] = None):
         response = await self._req("/v0/connectors")
         connectors = response["connectors"]
-        bigquery_connection = None
-        if not skip_bigquery:
-            bigquery_connection = (
-                await self.bigquery_connection() if connector == "bigquery" or connector is None else None
-            )
-        connectors = [*connectors, bigquery_connection] if bigquery_connection else connectors
         if connector:
             return [
                 {
@@ -347,22 +339,6 @@ class TinyB:
             }
             for c in connectors
         ]
-
-    async def bigquery_connection(self):
-        bigquery_resources = await self.list_gcp_resources()
-        if len(bigquery_resources) == 0:
-            return None
-
-        gcp_account_details: Dict[str, Any] = await self.get_gcp_service_account_details()
-        datasources = await self.datasources()
-        bigquery_datasources = [ds["name"] for ds in datasources if ds["type"] == "bigquery"]
-        return {
-            "id": gcp_account_details["account"].split("@")[0],
-            "service": "bigquery",
-            "name": "bigquery",
-            "linkers": bigquery_datasources,
-            "settings": gcp_account_details,
-        }
 
     async def get_datasource(self, ds_name: str, used_by: bool = False) -> Dict[str, Any]:
         params = {
@@ -1024,117 +1000,22 @@ class TinyB:
         )
         return [x["topic"] for x in resp["preview"]]
 
-    async def get_gcp_service_account_details(self) -> Dict[str, Any]:
-        return await self._req("/v0/datasources-bigquery-credentials")
-
-    async def list_connectors(self, service: Optional[str] = None) -> List[Dict[str, Any]]:
-        try:
-            params: str = f"?service={service}" if service else ""
-            result = await self._req(f"/v0/connections/{params}")
-            if not result:
-                return []
-
-            return result.get("connectors", [])
-        except Exception:
-            return []
-
     async def get_connector(
         self,
         name_or_id: str,
         service: Optional[str] = None,
         key: Optional[str] = "name",
-        skip_bigquery: Optional[bool] = False,
     ) -> Optional[Dict[str, Any]]:
         return next(
-            (c for c in await self.connections(connector=service, skip_bigquery=skip_bigquery) if c[key] == name_or_id),
+            (c for c in await self.connections(connector=service) if c[key] == name_or_id),
             None,
         )
 
     async def get_connector_by_id(self, connector_id: Optional[str] = None):
         return await self._req(f"/v0/connectors/{connector_id}")
 
-    async def get_snowflake_integration_query(
-        self, role: str, stage: Optional[str], integration: Optional[str]
-    ) -> Optional[Dict[str, Any]]:
-        try:
-            params = {
-                "role": role,
-            }
-            if stage:
-                params["stage"] = stage
-            if integration:
-                params["integration"] = integration
-
-            return await self._req(f"/v0/connectors/snowflake/instructions?{urlencode(params)}")
-        except Exception:
-            return None
-
-    async def list_gcp_resources(self) -> List[Dict[str, Any]]:
-        try:
-            resources = await self._req("/v0/connections/bigquery")
-            if not resources:
-                return []
-
-            return resources.get("items", [])
-        except Exception:
-            return []
-
-    async def check_gcp_read_permissions(self) -> bool:
-        """Returns `True` if our service account (see `TinyB::get_gcp_service_account_details()`)
-        has the proper permissions in GCP.
-
-        Here we assume that we have permissions if we can list resources but currently this
-        logic is wrong under some circumstances.
-
-        See https://gitlab.com/tinybird/analytics/-/issues/6485.
-        """
-        try:
-            items = await self.list_gcp_resources()
-            if not items:
-                return False
-            return len(items) > 0
-        except Exception:
-            return False
-
     async def connector_delete(self, connection_id):
         return await self._req(f"/v0/connectors/{connection_id}", method="DELETE")
-
-    async def connection_create_snowflake(
-        self,
-        account_identifier: str,
-        user: str,
-        password: str,
-        warehouse: str,
-        role: str,
-        connection_name: str,
-        integration: Optional[str],
-        stage: Optional[str],
-    ) -> Dict[str, Any]:
-        params = {
-            "service": "snowflake",
-            "name": connection_name,
-            "account": account_identifier,
-            "username": user,
-            "password": password,
-            "role": role,
-            "warehouse": warehouse,
-        }
-
-        if integration:
-            params["integration"] = integration
-        if stage:
-            params["stage"] = stage
-
-        return await self._req(f"/v0/connectors?{urlencode(params)}", method="POST", data="")
-
-    async def validate_snowflake_connection(self, account_identifier: str, user: str, password: str) -> bool:
-        try:
-            roles = await self.get_snowflake_roles(account_identifier, user, password)
-            if not roles:
-                return False
-            return len(roles) > 0
-        except Exception:
-            return False
 
     async def validate_preview_connection(self, service: str, params: Dict[str, Any]) -> bool:
         params = {"service": service, "dry_run": "true", **params}
@@ -1153,25 +1034,6 @@ class TinyB:
 
     async def connection_create(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return await self._req(f"/v0/connectors?{urlencode(params)}", method="POST", data="")
-
-    async def get_snowflake_roles(self, account_identifier: str, user: str, password: str) -> Optional[List[str]]:
-        params = {"account": account_identifier, "username": user, "password": password}
-
-        response = await self._req(f"/v0/connectors/snowflake/roles?{urlencode(params)}", method="POST", data="")
-        return response["roles"]
-
-    async def get_snowflake_warehouses(
-        self, account_identifier: str, user: str, password: str, role: str
-    ) -> Optional[List[Dict[str, Any]]]:
-        params = {
-            "account": account_identifier,
-            "username": user,
-            "password": password,
-            "role": role,
-        }
-
-        response = await self._req(f"/v0/connectors/snowflake/warehouses?{urlencode(params)}", method="POST", data="")
-        return response["warehouses"]
 
     async def get_trust_policy(self, service: str) -> Dict[str, Any]:
         return await self._req(f"/v0/integrations/{service}/policies/trust-policy")

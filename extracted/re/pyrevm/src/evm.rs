@@ -52,7 +52,8 @@ pub struct EVM {
 impl EVM {
     /// Create a new EVM instance.
     #[new]
-    #[pyo3(signature = (env = None, fork_url = None, fork_block = None, gas_limit = 18446744073709551615, tracing = false, spec_id = "LATEST"))]
+    #[pyo3(signature = (env = None, fork_url = None, fork_block = None, gas_limit = 18446744073709551615, tracing = false, spec_id = "LATEST")
+    )]
     fn new(
         env: Option<Env>,
         fork_url: Option<&str>,
@@ -125,18 +126,18 @@ impl EVM {
     }
 
     /// Get storage value of address at index.
-    fn storage(&mut self, address: &str, index: U256) -> PyResult<Option<U256>> {
-        let (account, _) = self.context.load_account(addr(address)?).map_err(pyerr)?;
-        Ok(account.storage.get(&index).map(|s| s.present_value))
+    fn storage(&mut self, address: &str, index: U256) -> PyResult<U256> {
+        let address = addr(address)?;
+        // `sload` expects the account to be already loaded.
+        let _ = self.context.load_account(address).map_err(pyerr)?;
+        let (value, _) = self.context.sload(address, index).map_err(pyerr)?;
+        Ok(value)
     }
 
     /// Get block hash by block number.
-    fn block_hash(&mut self, number: U256, py: Python<'_>) -> PyResult<Option<PyObject>> {
-        let bytes = self.context.block_hash(number).map_err(pyerr)?;
-        if bytes.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(PyBytes::new(py, bytes.as_ref()).into()))
+    fn block_hash(&mut self, number: U256, py: Python<'_>) -> PyResult<PyObject> {
+        let hash = self.context.block_hash(number).map_err(pyerr)?;
+        Ok(PyBytes::new(py, hash.as_ref()).into())
     }
 
     /// Inserts the provided account information in the database at the specified address.
@@ -151,16 +152,39 @@ impl EVM {
         Ok(())
     }
 
+    /// Inserts the provided value for slot of in the database at the specified address
+    fn insert_account_storage(
+        &mut self,
+        address: &str,
+        index: U256,
+        value: U256,
+    ) -> PyResult<U256> {
+        let target = addr(address)?;
+
+        match self.context.journaled_state.state.get_mut(&target) {
+            // account is cold, just insert into the DB
+            None => {
+                self.context
+                    .db
+                    .insert_insert_account_storage(target, index, value)
+                    .map_err(pyerr)?;
+                self.context.load_account(target).map_err(pyerr)?;
+                Ok(U256::ZERO)
+            }
+            // just replace old value
+            Some(_) => {
+                let store_result = self.context.sstore(target, index, value).map_err(pyerr)?;
+                Ok(store_result.original_value)
+            }
+        }
+    }
+
     /// Set the balance of a given address.
     fn set_balance(&mut self, address: &str, balance: U256) -> PyResult<()> {
-        let address_ = addr(address)?;
-        let account = {
-            let (account, _) = self.context.load_account(address_).map_err(pyerr)?;
-            account.info.balance = balance;
-            account.clone()
-        };
-        self.context.journaled_state.state.insert(address_, account);
-        self.context.journaled_state.touch(&address_);
+        let address = addr(address)?;
+        let (account, _) = self.context.load_account(address).map_err(pyerr)?;
+        account.info.balance = balance;
+        self.context.journaled_state.touch(&address);
         Ok(())
     }
 
@@ -170,7 +194,8 @@ impl EVM {
         Ok(balance)
     }
 
-    #[pyo3(signature = (caller, to, calldata = None, value = None, gas = None, gas_price = None, is_static = false))]
+    #[pyo3(signature = (caller, to, calldata = None, value = None, gas = None, gas_price = None, is_static = false)
+    )]
     pub fn message_call(
         &mut self,
         caller: &str,
@@ -190,14 +215,15 @@ impl EVM {
             gas,
             gas_price,
         );
-        match self.call_with_env(env, is_static) {
+        match self.call_with_env(env, is_static, true) {
             Ok(data) => Ok(PyBytes::new(py, data.as_ref()).into()),
             Err(e) => Err(e),
         }
     }
 
     /// Deploy a contract with the given code.
-    #[pyo3(signature = (deployer, code, value = None, gas = None, gas_price = None, is_static = false, _abi = None))]
+    #[pyo3(signature = (deployer, code, value = None, gas = None, gas_price = None, is_static = false, _abi = None)
+    )]
     fn deploy(
         &mut self,
         deployer: &str,
@@ -336,27 +362,32 @@ impl EVM {
         );
         trace!(sender=?env.tx.caller, "deploying contract");
 
-        let result = self.run_env(env, is_static)?;
+        let result = self.run_env(env, is_static, false)?;
 
         if let Success { output, .. } = result {
             if let Output::Create(out, address) = output {
                 Ok((out, address.unwrap()))
             } else {
-                Err(pyerr(output.clone()))
+                Err(pyerr(output))
             }
         } else {
-            Err(pyerr(result.clone()))
+            Err(pyerr(result))
         }
     }
 
-    fn call_with_env(&mut self, env: RevmEnv, is_static: bool) -> PyResult<Bytes> {
+    fn call_with_env(
+        &mut self,
+        env: RevmEnv,
+        is_static: bool,
+        is_message_call: bool,
+    ) -> PyResult<Bytes> {
         debug_assert!(
             matches!(env.tx.transact_to, TransactTo::Call(_)),
             "Expect call transaction"
         );
         trace!(sender=?env.tx.caller, "deploying contract");
 
-        let result = self.run_env(env, is_static)?;
+        let result = self.run_env(env, is_static, is_message_call)?;
         if let Success { output, .. } = result {
             if let Output::Call(_) = output {
                 Ok(output.into_data())
@@ -368,12 +399,22 @@ impl EVM {
         }
     }
 
-    fn run_env(&mut self, env: RevmEnv, is_static: bool) -> PyResult<RevmExecutionResult> {
-        self.context.env = Box::new(env);
+    fn run_env(
+        &mut self,
+        env: RevmEnv,
+        is_static: bool,
+        is_message_call: bool,
+    ) -> PyResult<RevmExecutionResult> {
+        *self.context.env = env;
         let evm_context: EvmContext<DB> =
             replace(&mut self.context, EvmContext::new(DB::new_memory()));
-        let (result, evm_context) =
-            call_evm(evm_context, self.handler_cfg, self.tracing, is_static);
+        let (result, evm_context) = call_evm(
+            evm_context,
+            self.handler_cfg,
+            self.tracing,
+            is_static,
+            is_message_call,
+        );
         self.context = evm_context;
         self.result = result.as_ref().ok().cloned();
         result

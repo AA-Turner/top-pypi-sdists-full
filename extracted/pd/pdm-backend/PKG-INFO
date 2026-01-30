@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdm-backend
-Version: 2.4.6
+Version: 2.4.7
 Summary: The build backend used by PDM that supports latest packaging standards
 Keywords: packaging,PEP 517,build
 Author-Email: Frost Ming <me@frostming.com>

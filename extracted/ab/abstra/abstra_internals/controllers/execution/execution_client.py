@@ -10,7 +10,7 @@ from abstra_internals.entities.execution_context import ClientContext
 from abstra_internals.utils import deserialize, serialize
 
 
-class ClientAbandoned(Exception):
+class ClientAbandoned(BaseException):
     pass
 
 
@@ -64,6 +64,10 @@ class ExecutionClient(abc.ABC):
     def handle_start(self, execution_id: str):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def handle_abandoned(self) -> None:
+        raise NotImplementedError()
+
 
 class HeadlessClient(ExecutionClient):
     context: ClientContext
@@ -89,6 +93,9 @@ class HeadlessClient(ExecutionClient):
 
     def handle_start(self, execution_id: str):
         self._send(contract.ExecutionStartedMessage(execution_id))
+
+    def handle_abandoned(self) -> None:
+        self.conn.close()
 
     def _send(self, msg: contract.Message) -> None:
         str_data = serialize(msg.to_json())

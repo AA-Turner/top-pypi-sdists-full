@@ -2,6 +2,7 @@ import logging
 from collections.abc import Mapping, Sequence
 
 import httpx
+from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 from pydantic.main import BaseModel
 
@@ -57,6 +58,18 @@ def create_openai_client_with_defaults(
     return AsyncOpenAI(
         api_key=api_key,
         base_url=base_url,
+        http_client=default_httpx_client(),
+        max_retries=3,
+    )
+
+
+def create_anthropic_client_with_defaults(
+    api_key: str, base_url: str | None = None, default_headers: dict[str, str] = {}
+) -> AsyncAnthropic:
+    return AsyncAnthropic(
+        base_url=base_url,
+        api_key=api_key,
+        default_headers=default_headers,
         http_client=default_httpx_client(),
         max_retries=3,
     )

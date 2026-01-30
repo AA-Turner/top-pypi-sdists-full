@@ -211,19 +211,41 @@ class TestSPMD(parameterized.TestCase):
         else:
           assert not has_sharding_spec(w)
 
-  def test_out_sharding(self):
-    mesh = jax.make_mesh((2, 2), ("X", "Y"),
-                         axis_types=(AxisType.Explicit, AxisType.Explicit))
+  def test_out_sharding_linear_layers(self):
+    mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
     with jax.set_mesh(mesh):
       replicated_array = jnp.arange(4).reshape(2, 2)
       sharded_array = reshard(replicated_array, P("X", None))
-      model = nnx.Linear(2,4, rngs=nnx.Rngs(0))
-      assert 'float32[2@X,4]' in str(jax.typeof(model(sharded_array)))
-      assert 'float32[2@X,4@Y]' in str(jax.typeof(model(sharded_array, out_sharding=P("X", "Y"))))
+      layers = [
+        nnx.Linear(2, 4, rngs=nnx.Rngs(0)),
+        nnx.LinearGeneral(2, 4, rngs=nnx.Rngs(0)),
+        nnx.Einsum('ab,bc->ac', (2, 4), (4,), rngs=nnx.Rngs(0)),
+      ]
+      for layer in layers:
+        assert 'float32[2@X,4]' in str(jax.typeof(layer(sharded_array)))
+        assert 'float32[2@X,4@Y]' in str(jax.typeof(layer(sharded_array, out_sharding=P("X", "Y"))))
+
+  def test_out_sharding_conv(self):
+    mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
+    with jax.set_mesh(mesh):
+      replicated_array = jnp.arange(32).reshape(2, 4, 4).astype(jnp.float32)
+      sharded_array = reshard(replicated_array, P("X", None, None))
+      layer = nnx.Conv(4, 8, kernel_size=(3,), rngs=nnx.Rngs(0))
+      assert 'float32[2@X,4,8]' in str(jax.typeof(layer(sharded_array)))
+      assert 'float32[2@X,4@Y,8]' in str(jax.typeof(layer(sharded_array, out_sharding=P("X", "Y", None))))
+
+  def test_out_sharding_embed_attend(self):
+    mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
+    with jax.set_mesh(mesh):
+      replicated_array = jnp.arange(8).reshape(2, 4).astype(jnp.float32)
+      sharded_array = reshard(replicated_array, P("X", None))
+      layer = nnx.Embed(num_embeddings=10, features=4, rngs=nnx.Rngs(0))
+      assert 'float32[2@X,10]' in str(jax.typeof(layer.attend(sharded_array)))
+      assert 'float32[2@X,10@Y]' in str(jax.typeof(layer.attend(sharded_array, out_sharding=P("X", "Y"))))
 
   @parameterized.product(use_hijax=[True, False])
   def test_logical_rules(self, use_hijax):
-    self.enter_context(nnx.use_hijax(use_hijax))
+    self.enter_context(nnx.var_defaults(hijax=use_hijax))
     class Foo(nnx.Module):
 
       def __init__(self):
@@ -279,57 +301,35 @@ class TestSPMD(parameterized.TestCase):
     assert jax.tree.leaves(abs_state)[0].sharding.is_equivalent_to(
       NamedSharding(mesh, P(None, 'model')), ndim=2)
 
-  def test_explicit_sharding(self):
-    mesh = jax.make_mesh(
-      (2, 2),
-      ('row', 'col'),
-      axis_types=(jax.sharding.AxisType.Auto, jax.sharding.AxisType.Explicit),
-    )
-    v = nnx.Variable(
-      jnp.ones((4, 4)),
-      sharding_names=('row', 'col'),
-      mesh=mesh,
-    )
-    self.assertEqual(v.sharding.mesh, mesh)
-    self.assertEqual(
-      v.sharding.spec,
-      P('row', 'col'),
-    )
+  @parameterized.parameters('auto', 'explicit', 'mixed')
+  def test_sharding_axis_types(self, mode):
+    if mode == 'auto':
+      axis_types = (jax.sharding.AxisType.Auto, jax.sharding.AxisType.Auto)
+    elif mode == 'explicit':
+      axis_types = (jax.sharding.AxisType.Explicit, jax.sharding.AxisType.Explicit)
+    else:
+      axis_types = (jax.sharding.AxisType.Auto, jax.sharding.AxisType.Explicit)
 
-  def test_explicit_sharding_disable_jit(self):
     mesh = jax.make_mesh(
       (2, 2),
       ('row', 'col'),
-      axis_types=(jax.sharding.AxisType.Auto, jax.sharding.AxisType.Explicit),
+      axis_types=axis_types,
     )
-    with jax.disable_jit(True):
+    if mode == 'mixed':
+      with self.assertRaises(ValueError):
+        nnx.Variable(
+          jnp.ones((4, 4)),
+          sharding_names=('row', 'col'),
+          mesh=mesh,
+        )
+    else:
       v = nnx.Variable(
         jnp.ones((4, 4)),
         sharding_names=('row', 'col'),
         mesh=mesh,
       )
-    self.assertEqual(v.sharding.mesh, mesh)
-    self.assertEqual(
-      v.sharding.spec,
-      P('row', 'col'),
-    )
-
-  def test_explicit_sharding_mesh_context(self):
-    mesh = jax.make_mesh(
-      (2, 2),
-      ('row', 'col'),
-      axis_types=(jax.sharding.AxisType.Auto, jax.sharding.AxisType.Explicit),
-    )
-    with jax.set_mesh(mesh):
-      v = nnx.Variable(
-        jnp.ones((4, 4)),
-        sharding_names=('row', 'col'),
-      )
-    self.assertEqual(v.sharding.mesh, mesh)
-    self.assertEqual(
-      v.sharding.spec,
-      P('row', 'col'),
-    )
+      self.assertEqual(v.sharding.mesh, mesh)
+      self.assertEqual(v.sharding.spec, P('row', 'col'))
 
 def has_sharding_spec(array):
     sharding = array.sharding

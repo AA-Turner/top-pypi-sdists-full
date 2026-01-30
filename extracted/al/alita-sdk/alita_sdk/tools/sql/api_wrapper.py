@@ -24,7 +24,7 @@ SQLNoInput = create_model(
 class SQLApiWrapper(BaseToolApiWrapper):
     dialect: str
     host: str
-    port: str
+    port: Optional[str] = None
     username: str
     password: SecretStr
     database_name: str
@@ -33,7 +33,8 @@ class SQLApiWrapper(BaseToolApiWrapper):
     @model_validator(mode='before')
     @classmethod
     def validate_toolkit(cls, values):
-        for field in SQLConfig.model_fields:
+        required_fields = ['dialect', 'host', 'username', 'password', 'database_name']
+        for field in required_fields:
             if field not in values or not values[field]:
                 raise ValueError(f"{field} is a required field and must be provided.")
         return values
@@ -64,10 +65,13 @@ class SQLApiWrapper(BaseToolApiWrapper):
                 database_name = self.database_name
                 port = self.port
 
+                # Build host string with optional port
+                host_with_port = f"{host}:{port}" if port else host
+
                 if dialect == SQLDialect.POSTGRES:
-                    connection_string = f'postgresql+psycopg2://{username}:{password}@{host}:{port}/{database_name}'
+                    connection_string = f'postgresql+psycopg2://{username}:{password}@{host_with_port}/{database_name}'
                 elif dialect == SQLDialect.MYSQL:
-                    connection_string = f'mysql+pymysql://{username}:{password}@{host}:{port}/{database_name}'
+                    connection_string = f'mysql+pymysql://{username}:{password}@{host_with_port}/{database_name}'
                 else:
                     raise ValueError(f"Unsupported database type. Supported types are: {[e.value for e in SQLDialect]}")
 

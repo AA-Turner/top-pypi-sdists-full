@@ -604,6 +604,24 @@ class MongodbClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DescribeSRVConnectionDomain(
+            self,
+            request: models.DescribeSRVConnectionDomainRequest,
+            opts: Dict = None,
+    ) -> models.DescribeSRVConnectionDomainResponse:
+        """
+        本接口（DescribeSRVConnectionDomain）用于查询MongoDB数据库当前的域名信息。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeSRVConnectionDomain"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeSRVConnectionDomainResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DescribeSecurityGroup(
             self,
             request: models.DescribeSecurityGroupRequest,
@@ -694,6 +712,24 @@ class MongodbClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DisableSRVConnectionUrl(
+            self,
+            request: models.DisableSRVConnectionUrlRequest,
+            opts: Dict = None,
+    ) -> models.DisableSRVConnectionUrlResponse:
+        """
+        本接口（DisableSRVConnectionUrl）用于关闭MongoDB数据库的SRV访问地址。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DisableSRVConnectionUrl"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DisableSRVConnectionUrlResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DropDBInstanceParamTpl(
             self,
             request: models.DropDBInstanceParamTplRequest,
@@ -708,6 +744,24 @@ class MongodbClient(AbstractClient):
         kwargs["action"] = "DropDBInstanceParamTpl"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.DropDBInstanceParamTplResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def EnableSRVConnectionUrl(
+            self,
+            request: models.EnableSRVConnectionUrlRequest,
+            opts: Dict = None,
+    ) -> models.EnableSRVConnectionUrlResponse:
+        """
+        本接口（EnableSRVConnectionUrl）用于开启MongoDB数据库的SRV访问地址。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "EnableSRVConnectionUrl"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.EnableSRVConnectionUrlResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -985,6 +1039,24 @@ class MongodbClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def ModifySRVConnectionUrl(
+            self,
+            request: models.ModifySRVConnectionUrlRequest,
+            opts: Dict = None,
+    ) -> models.ModifySRVConnectionUrlResponse:
+        """
+        本接口（DisableSRVConnectionUrl）用于修改MongoDB数据库的SRV访问地址的TTL时长。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifySRVConnectionUrl"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifySRVConnectionUrlResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def OfflineIsolatedDBInstance(
             self,
             request: models.OfflineIsolatedDBInstanceRequest,
@@ -1207,7 +1279,8 @@ class MongodbClient(AbstractClient):
             opts: Dict = None,
     ) -> models.UpgradeDbInstanceVersionResponse:
         """
-        本接口用于跨版本升级数据库内核。当前仅支持3.6版本升级为4.0版本、4.0版本升级为4.2版本、4.2版本升级为4.4版本及4.4版本升级为5.0版本。
+        本接口（UpgradeDbInstanceVersion）用于升级数据库版本。
+        **说明**：支持3.6及以上版本升级，仅支持从低版本向高版本逐级升级，不支持跨版本升级或版本降级。
         """
         
         kwargs = {}

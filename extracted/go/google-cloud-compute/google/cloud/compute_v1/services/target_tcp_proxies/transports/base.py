@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import abc
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
 from google.api_core import exceptions as core_exceptions
@@ -87,8 +87,6 @@ class TargetTcpProxiesTransport(abc.ABC):
         """
         self._extended_operations_services: Dict[str, Any] = {}
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -103,11 +101,16 @@ class TargetTcpProxiesTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -170,6 +173,11 @@ class TargetTcpProxiesTransport(abc.ABC):
             ),
             self.set_proxy_header: gapic_v1.method.wrap_method(
                 self.set_proxy_header,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -247,6 +255,17 @@ class TargetTcpProxiesTransport(abc.ABC):
     ) -> Callable[
         [compute.SetProxyHeaderTargetTcpProxyRequest],
         Union[compute.Operation, Awaitable[compute.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [compute.TestIamPermissionsTargetTcpProxyRequest],
+        Union[
+            compute.TestPermissionsResponse, Awaitable[compute.TestPermissionsResponse]
+        ],
     ]:
         raise NotImplementedError()
 

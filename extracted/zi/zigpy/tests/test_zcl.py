@@ -7,14 +7,29 @@ from unittest.mock import AsyncMock, MagicMock, call, patch, sentinel
 
 import pytest
 
-from tests.conftest import add_initialized_device, make_app
+from tests.conftest import (
+    add_initialized_device,
+    make_app,
+    make_ieee,
+    mock_attribute_reads,
+    mock_attribute_report,
+    mock_attribute_writes,
+)
 from zigpy import zcl
 import zigpy.device
 import zigpy.endpoint
 import zigpy.profiles.zha
 import zigpy.types as t
-from zigpy.zcl import foundation
-from zigpy.zcl.clusters.general import OnOff, Ota
+from zigpy.zcl import (
+    AttributeReadEvent,
+    AttributeReportedEvent,
+    AttributeUpdatedEvent,
+    AttributeWrittenEvent,
+    foundation,
+)
+from zigpy.zcl.clusters.general import Basic, OnOff, Ota
+from zigpy.zcl.clusters.measurement import OccupancySensing
+from zigpy.zcl.helpers import ReportingConfig
 
 DEFAULT_TSN = 123
 
@@ -280,10 +295,18 @@ def test_attribute_report(cluster):
     attr.attrid = 4
     attr.value = zcl.foundation.TypeValue()
     attr.value.value = "manufacturer"
-    hdr = MagicMock(auto_spec=foundation.ZCLHeader)
-    hdr.command_id = foundation.GeneralCommand.Report_Attributes
-    hdr.frame_control.is_general = True
-    hdr.frame_control.is_cluster = False
+    hdr = foundation.ZCLHeader(
+        frame_control=foundation.FrameControl(
+            frame_type=foundation.FrameType.GLOBAL_COMMAND,
+            is_manufacturer_specific=False,
+            direction=foundation.Direction.Server_to_Client,
+            disable_default_response=True,
+            reserved=0,
+        ),
+        manufacturer=None,
+        tsn=1,
+        command_id=foundation.GeneralCommand.Report_Attributes,
+    )
 
     cmd = foundation.GENERAL_COMMANDS[
         foundation.GeneralCommand.Report_Attributes
@@ -291,10 +314,6 @@ def test_attribute_report(cluster):
     cluster.handle_message(hdr, cmd)
 
     assert cluster._attr_cache[4] == "manufacturer"
-
-    attr.attrid = 0x89AB
-    cluster.handle_message(hdr, cmd)
-    assert cluster._attr_cache[attr.attrid] == "manufacturer"
 
 
 def test_handle_request_unknown(cluster):
@@ -351,51 +370,53 @@ async def test_read_attributes_uncached(cluster):
         assert command == 0
         rar0 = _mk_rar(0, 99)
         rar4 = _mk_rar(4, "Manufacturer")
-        rar99 = _mk_rar(99, None, 1)
-        rar199 = _mk_rar(199, 199)
+        rar1 = _mk_rar(1, None, foundation.Status.HARDWARE_FAILURE)
+        rar5 = _mk_rar(5, "Model")
         rar16 = _mk_rar(0x0010, None, zcl.foundation.Status.UNSUPPORTED_ATTRIBUTE)
-        return [[rar0, rar4, rar99, rar199, rar16]]
+        return [[rar0, rar4, rar1, rar5, rar16]]
 
     cluster.request = mockrequest
-    success, failure = await cluster.read_attributes([0, "manufacturer", 99, 199, 16])
+    success, failure = await cluster.read_attributes(
+        [0, "manufacturer", "app_version", "model", "location_desc"]
+    )
     assert success[0] == 99
     assert success["manufacturer"] == "Manufacturer"
-    assert failure[99] == 1
-    assert {99, 0x0010} == failure.keys()
-    assert success[199] == 199
-    assert cluster.unsupported_attributes == {0x0010, "location_desc"}
+    assert success["model"] == "Model"
+    assert failure["app_version"] == foundation.Status.HARDWARE_FAILURE
+    assert set(failure.keys()) == {"app_version", "location_desc"}
+    assert cluster._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
 
 
 async def test_read_attributes_cached(cluster):
     cluster.request = MagicMock()
-    cluster._attr_cache[0] = 99
-    cluster._attr_cache[4] = "Manufacturer"
-    cluster.unsupported_attributes.add(0x0010)
+    cluster._attr_cache.set_value(Basic.AttributeDefs.zcl_version, 99)
+    cluster._attr_cache.set_value(Basic.AttributeDefs.manufacturer, "Manufacturer")
+    cluster.add_unsupported_attribute("location_desc")
     success, failure = await cluster.read_attributes(
-        [0, "manufacturer", 0x0010], allow_cache=True
+        [0, "manufacturer", "location_desc"], allow_cache=True
     )
     assert cluster.request.call_count == 0
     assert success[0] == 99
     assert success["manufacturer"] == "Manufacturer"
-    assert failure == {0x0010: zcl.foundation.Status.UNSUPPORTED_ATTRIBUTE}
+    assert failure == {"location_desc": foundation.Status.UNSUPPORTED_ATTRIBUTE}
 
 
 async def test_read_attributes_mixed_cached(cluster):
     """Reading cached and uncached attributes."""
 
     cluster.request = AsyncMock(return_value=[[_mk_rar(5, "Model")]])
-    cluster._attr_cache[0] = 99
-    cluster._attr_cache[4] = "Manufacturer"
-    cluster.unsupported_attributes.add(0x0010)
+    cluster._attr_cache.set_value(Basic.AttributeDefs.zcl_version, 99)
+    cluster._attr_cache.set_value(Basic.AttributeDefs.manufacturer, "Manufacturer")
+    cluster.add_unsupported_attribute("location_desc")
     success, failure = await cluster.read_attributes(
-        [0, "manufacturer", "model", 0x0010], allow_cache=True
+        [0, "manufacturer", "model", "location_desc"], allow_cache=True
     )
     assert success[0] == 99
     assert success["manufacturer"] == "Manufacturer"
     assert success["model"] == "Model"
     assert cluster.request.await_count == 1
     assert cluster.request.call_args[0][3] == [0x0005]
-    assert failure == {0x0010: zcl.foundation.Status.UNSUPPORTED_ATTRIBUTE}
+    assert failure == {"location_desc": foundation.Status.UNSUPPORTED_ATTRIBUTE}
 
 
 async def test_read_attributes_default_response(cluster):
@@ -407,9 +428,11 @@ async def test_read_attributes_default_response(cluster):
         return [0xC1]
 
     cluster.request = mockrequest
-    success, failure = await cluster.read_attributes([0, 5, 23], allow_cache=False)
+    success, failure = await cluster.read_attributes(
+        ["zcl_version", "model", "hw_version"], allow_cache=False
+    )
     assert success == {}
-    assert failure == {0: 0xC1, 5: 0xC1, 23: 0xC1}
+    assert failure == {"zcl_version": 0xC1, "model": 0xC1, "hw_version": 0xC1}
 
 
 async def test_item_access_attributes(cluster):
@@ -435,11 +458,11 @@ async def test_item_access_attributes(cluster):
         # wrong attr name
         cluster["some_non_existent_attr"]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         # wrong key type
         cluster[None]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         # wrong key type
         cluster.get(None)
 
@@ -448,26 +471,14 @@ async def test_item_access_attributes(cluster):
         cluster.get("no_such_attribute")
 
 
-async def test_item_set_attributes(cluster):
-    with patch.object(cluster, "write_attributes") as write_mock:
-        cluster["model"] = sentinel.model
-        await asyncio.sleep(0)
-    assert write_mock.await_count == 1
-    assert write_mock.call_args[0][0] == {"model": sentinel.model}
-
-    with pytest.raises(ValueError):
-        cluster[None] = sentinel.manufacturer
-
-
 async def test_write_attributes(cluster):
-    with patch.object(cluster, "_write_attributes", new=AsyncMock()):
+    success_response = [
+        [foundation.WriteAttributesStatusRecord(status=foundation.Status.SUCCESS)]
+    ]
+    with patch.object(
+        cluster, "_write_attributes", new=AsyncMock(return_value=success_response)
+    ):
         await cluster.write_attributes({0: 5, "app_version": 4})
-        assert cluster._write_attributes.call_count == 1
-
-
-async def test_write_wrong_attribute(cluster):
-    with patch.object(cluster, "_write_attributes", new=AsyncMock()):
-        await cluster.write_attributes({0xFF: 5})
         assert cluster._write_attributes.call_count == 1
 
 
@@ -487,14 +498,6 @@ async def test_write_attributes_wrong_type(cluster):
         assert cluster._write_attributes.call_count == 0
 
 
-async def test_write_attributes_raw(cluster):
-    with patch.object(cluster, "_write_attributes", new=AsyncMock()):
-        # write_attributes_raw does not check the attributes,
-        # send to unknown attribute in cluster, the write should be effective
-        await cluster.write_attributes_raw({0: 5, 0x3000: 5})
-        assert cluster._write_attributes.call_count == 1
-
-
 @pytest.mark.parametrize(
     ("cluster_id", "attr", "value", "serialized"),
     [
@@ -509,7 +512,12 @@ async def test_write_attribute_types(
     cluster_id: int, attr: str, value: Any, serialized: bytes, cluster_by_id
 ):
     cluster = cluster_by_id(cluster_id)
-    with patch.object(cluster.endpoint, "request", new=AsyncMock()):
+    success_response = [
+        [foundation.WriteAttributesStatusRecord(status=foundation.Status.SUCCESS)]
+    ]
+    with patch.object(
+        cluster.endpoint, "request", new=AsyncMock(return_value=success_response)
+    ):
         await cluster.write_attributes({attr: value})
         assert cluster._endpoint.reply.call_count == 0
         assert cluster._endpoint.request.call_count == 1
@@ -537,13 +545,11 @@ async def test_write_attributes_cache_default_response(cluster, status):
         ({4: "manufacturer"}, b"\x00"),
         ({4: "manufacturer", 5: "model"}, b"\x00"),
         ({4: "manufacturer", 5: "model", 3: 12}, b"\x00"),
-        ({4: "manufacturer", 5: "model"}, b"\x00\x00"),
-        ({4: "manufacturer", 5: "model", 3: 12}, b"\x00\x00\x00"),
     ],
 )
 async def test_write_attributes_cache_success(cluster, attributes, result):
-    listener = MagicMock()
-    cluster.add_listener(listener)
+    event_listener = MagicMock()
+    cluster.on_event(AttributeWrittenEvent.event_type, event_listener)
 
     rsp_type = t.List[foundation.WriteAttributesStatusRecord]
     write_mock = AsyncMock(return_value=[rsp_type.deserialize(result)[0]])
@@ -552,9 +558,12 @@ async def test_write_attributes_cache_success(cluster, attributes, result):
         assert cluster._write_attributes.call_count == 1
         for attr_id in attributes:
             assert cluster._attr_cache[attr_id] == attributes[attr_id]
-            listener.attribute_updated.assert_any_call(
-                attr_id, attributes[attr_id], mock.ANY
-            )
+
+    assert len(event_listener.mock_calls) == len(attributes)
+    for c in event_listener.mock_calls:
+        event = c.args[0]
+        assert event.status == foundation.Status.SUCCESS
+        assert event.value == attributes[event.attribute_id]
 
 
 @pytest.mark.parametrize(
@@ -581,8 +590,8 @@ async def test_write_attributes_cache_success(cluster, attributes, result):
     ],
 )
 async def test_write_attributes_cache_failure(cluster, attributes, result, failed):
-    listener = MagicMock()
-    cluster.add_listener(listener)
+    event_listener = MagicMock()
+    cluster.on_event(AttributeWrittenEvent.event_type, event_listener)
 
     rsp_type = foundation.WriteAttributesResponse
     write_mock = AsyncMock(return_value=[rsp_type.deserialize(result)[0]])
@@ -593,17 +602,17 @@ async def test_write_attributes_cache_failure(cluster, attributes, result, faile
         for attr_id in attributes:
             if attr_id in failed:
                 assert attr_id not in cluster._attr_cache
-
-                # Failed writes do not propagate
-                with pytest.raises(AssertionError):
-                    listener.attribute_updated.assert_any_call(
-                        attr_id, attributes[attr_id]
-                    )
             else:
                 assert cluster._attr_cache[attr_id] == attributes[attr_id]
-                listener.attribute_updated.assert_any_call(
-                    attr_id, attributes[attr_id], mock.ANY
-                )
+
+    assert len(event_listener.mock_calls) == len(attributes)
+    for c in event_listener.mock_calls:
+        event = c.args[0]
+        if event.attribute_id in failed:
+            assert event.status != foundation.Status.SUCCESS
+        else:
+            assert event.status == foundation.Status.SUCCESS
+        assert event.value == attributes[event.attribute_id]
 
 
 async def test_bind(cluster):
@@ -632,14 +641,14 @@ async def test_configure_reporting_named(cluster):
 
 
 async def test_configure_reporting_wrong_named(cluster):
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         await cluster.configure_reporting("wrong_attr_name", 10, 20, 1)
 
     assert cluster._endpoint.request.call_count == 0
 
 
 async def test_configure_reporting_wrong_attrid(cluster):
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         await cluster.configure_reporting(0xABCD, 10, 20, 1)
 
     assert cluster._endpoint.request.call_count == 0
@@ -648,31 +657,22 @@ async def test_configure_reporting_wrong_attrid(cluster):
 async def test_configure_reporting_manuf():
     ep = MagicMock()
     cluster = zcl.Cluster.from_id(ep, 6)
-    cluster.request = AsyncMock(name="request")
+    success_response = [
+        [foundation.ConfigureReportingResponseRecord(status=foundation.Status.SUCCESS)]
+    ]
+    cluster.request = AsyncMock(name="request", return_value=success_response)
     await cluster.configure_reporting(0, 10, 20, 1)
-    cluster.request.assert_called_with(
-        True,
-        0x06,
-        mock.ANY,
-        mock.ANY,
-        expect_reply=True,
-        manufacturer=None,
-        tsn=mock.ANY,
-    )
-
-    cluster.request.reset_mock()
-    manufacturer_id = 0xFCFC
-    await cluster.configure_reporting(0, 10, 20, 1, manufacturer=manufacturer_id)
-    cluster.request.assert_called_with(
-        True,
-        0x06,
-        mock.ANY,
-        mock.ANY,
-        expect_reply=True,
-        manufacturer=manufacturer_id,
-        tsn=mock.ANY,
-    )
-    assert cluster.request.call_count == 1
+    assert cluster.request.mock_calls == [
+        call(
+            True,
+            foundation.GeneralCommand.Configure_Reporting,
+            mock.ANY,
+            mock.ANY,
+            expect_reply=True,
+            manufacturer=None,
+            tsn=None,
+        )
+    ]
 
 
 @pytest.mark.parametrize(
@@ -800,19 +800,21 @@ async def test_handle_cluster_general_request_disable_default_rsp(endpoint):
         b"\x01\x00\x0a\x21\x00\x00",
     )
     cluster = endpoint.in_clusters[0]
-    p1 = patch.object(cluster, "_update_attribute")
-    p2 = patch.object(cluster, "general_command")
-    with p1 as attr_lst_mock, p2 as general_cmd_mock:
+    event_listener = MagicMock()
+    cluster.on_event(zcl.AttributeReportedEvent.event_type, event_listener)
+
+    with patch.object(cluster, "general_command") as general_cmd_mock:
         cluster.handle_cluster_general_request(hdr, values)
         await asyncio.sleep(0)
-        assert attr_lst_mock.call_count > 0
+        assert len(event_listener.mock_calls) > 0
         assert general_cmd_mock.call_count == 0
 
-    with p1 as attr_lst_mock, p2 as general_cmd_mock:
+    event_listener.reset_mock()
+    with patch.object(cluster, "general_command") as general_cmd_mock:
         hdr.frame_control = hdr.frame_control.replace(disable_default_response=False)
         cluster.handle_cluster_general_request(hdr, values)
         await asyncio.sleep(0)
-        assert attr_lst_mock.call_count > 0
+        assert len(event_listener.mock_calls) > 0
         assert general_cmd_mock.call_count == 1
         assert general_cmd_mock.call_args[1]["tsn"] == hdr.tsn
 
@@ -837,28 +839,28 @@ async def test_handle_cluster_general_request_not_attr_report(cluster):
         ]
 
 
-async def test_write_attributes_undivided(cluster):
-    with patch.object(cluster, "request", new=AsyncMock()):
-        i = cluster.write_attributes_undivided({0: 5, "app_version": 4})
-        await i
-        assert cluster.request.call_count == 1
-
-
 async def test_configure_reporting_multiple(cluster):
+    cluster.endpoint.request.return_value = _mk_cfg_rsp(
+        {0: zcl.foundation.Status.SUCCESS}
+    )
+
     await cluster.configure_reporting(
         attribute=3,
         min_interval=5,
         max_interval=15,
         reportable_change=20,
-        manufacturer=0x2345,
     )
     await cluster.configure_reporting_multiple(
-        attributes={3: (5, 15, 20)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            )
+        }
     )
     assert cluster.endpoint.request.call_count == 2
+    # Both methods should produce equivalent requests
     assert (
-        cluster.endpoint.request.mock_calls[0].kwargs["data"]
-        == cluster.endpoint.request.mock_calls[2].kwargs["data"]
+        cluster.endpoint.request.mock_calls[0] == cluster.endpoint.request.mock_calls[1]
     )
 
 
@@ -869,10 +871,16 @@ async def test_configure_reporting_multiple_def_rsp(cluster):
         zcl.foundation.Status.UNSUP_GENERAL_COMMAND,
     )
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 1
-    assert cluster.unsupported_attributes == set()
 
 
 def _mk_cfg_rsp(responses: dict[int, zcl.foundation.Status]):
@@ -894,10 +902,18 @@ async def test_configure_reporting_multiple_single_success(cluster):
     )
 
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 1
-    assert cluster.unsupported_attributes == set()
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.hw_version)
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.manufacturer)
 
 
 async def test_configure_reporting_multiple_single_fail(cluster):
@@ -907,19 +923,33 @@ async def test_configure_reporting_multiple_single_fail(cluster):
     )
 
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 1
-    assert cluster.unsupported_attributes == {"hw_version", 3}
+    assert cluster._attr_cache.is_unsupported(Basic.AttributeDefs.hw_version)
 
     cluster.endpoint.request.return_value = _mk_cfg_rsp(
         {3: zcl.foundation.Status.SUCCESS}
     )
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 2
-    assert cluster.unsupported_attributes == set()
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.hw_version)
 
 
 async def test_configure_reporting_multiple_single_unreportable(cluster):
@@ -929,10 +959,18 @@ async def test_configure_reporting_multiple_single_unreportable(cluster):
     )
 
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 1
-    assert cluster.unsupported_attributes == set()
+    # UNREPORTABLE_ATTRIBUTE doesn't mark the attribute as unsupported
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.manufacturer)
 
 
 async def test_configure_reporting_multiple_both_unsupp(cluster):
@@ -945,10 +983,18 @@ async def test_configure_reporting_multiple_both_unsupp(cluster):
     )
 
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 1
-    assert cluster.unsupported_attributes == {"hw_version", 3, "manufacturer", 4}
+    assert cluster._attr_cache.is_unsupported(Basic.AttributeDefs.hw_version)
+    assert cluster._attr_cache.is_unsupported(Basic.AttributeDefs.manufacturer)
 
     cluster.endpoint.request.return_value = _mk_cfg_rsp(
         {
@@ -958,85 +1004,81 @@ async def test_configure_reporting_multiple_both_unsupp(cluster):
     )
 
     await cluster.configure_reporting_multiple(
-        {3: (5, 15, 20), 4: (6, 16, 26)}, manufacturer=0x2345
+        {
+            Basic.AttributeDefs.hw_version: ReportingConfig(
+                min_interval=5, max_interval=15, reportable_change=20
+            ),
+            Basic.AttributeDefs.manufacturer: ReportingConfig(
+                min_interval=6, max_interval=16, reportable_change=26
+            ),
+        }
     )
     assert cluster.endpoint.request.await_count == 2
-    assert cluster.unsupported_attributes == set()
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.hw_version)
+    assert not cluster._attr_cache.is_unsupported(Basic.AttributeDefs.manufacturer)
 
 
 def test_unsupported_attr_add(cluster):
     """Test adding unsupported attributes."""
+    assert not cluster.is_attribute_unsupported(Basic.AttributeDefs.manufacturer)
+    assert not cluster.is_attribute_unsupported(Basic.AttributeDefs.model)
 
-    assert "manufacturer" not in cluster.unsupported_attributes
-    assert 4 not in cluster.unsupported_attributes
-    assert "model" not in cluster.unsupported_attributes
-    assert 5 not in cluster.unsupported_attributes
+    cluster.add_unsupported_attribute(Basic.AttributeDefs.model.id)
+    assert cluster.is_attribute_unsupported(Basic.AttributeDefs.model)
 
-    cluster.add_unsupported_attribute(4)
-    assert "manufacturer" in cluster.unsupported_attributes
-    assert 4 in cluster.unsupported_attributes
-
-    cluster.add_unsupported_attribute("model")
-    assert "model" in cluster.unsupported_attributes
-    assert 5 in cluster.unsupported_attributes
+    cluster.add_unsupported_attribute("manufacturer")
+    assert cluster.is_attribute_unsupported(Basic.AttributeDefs.manufacturer)
 
 
-def test_unsupported_attr_add_no_reverse_attr_name(cluster):
-    """Test adding unsupported attributes without corresponding reverse attr name."""
+def test_unsupported_attr_add_unknown_attribute(cluster):
+    """Test adding unsupported attributes for unknown attributes raises KeyError."""
 
-    assert "no_such_attr" not in cluster.unsupported_attributes
-    assert 0xDEED not in cluster.unsupported_attributes
+    with pytest.raises(KeyError):
+        cluster.add_unsupported_attribute("no_such_attr")
 
-    cluster.add_unsupported_attribute("no_such_attr")
-    cluster.add_unsupported_attribute("no_such_attr")
-    assert "no_such_attr" in cluster.unsupported_attributes
-
-    cluster.add_unsupported_attribute(0xDEED)
-    assert 0xDEED in cluster.unsupported_attributes
+    with pytest.raises(KeyError):
+        cluster.add_unsupported_attribute(0xDEED)
 
 
-def test_unsupported_attr_remove(cluster):
-    """Test removing unsupported attributes."""
+def test_attr_cache_deprecated_setter(cluster, caplog):
+    """Test deprecated _attr_cache setter logs warning and updates values."""
+    cluster._attr_cache = {0x0004: "test_manufacturer", 0x0005: "test_model"}
 
-    assert "manufacturer" not in cluster.unsupported_attributes
-    assert 4 not in cluster.unsupported_attributes
-    assert "model" not in cluster.unsupported_attributes
-    assert 5 not in cluster.unsupported_attributes
-
-    cluster.add_unsupported_attribute(4)
-    assert "manufacturer" in cluster.unsupported_attributes
-    assert 4 in cluster.unsupported_attributes
-
-    cluster.add_unsupported_attribute("model")
-    assert "model" in cluster.unsupported_attributes
-    assert 5 in cluster.unsupported_attributes
-
-    cluster.remove_unsupported_attribute(4)
-    assert "manufacturer" not in cluster.unsupported_attributes
-    assert 4 not in cluster.unsupported_attributes
-
-    cluster.remove_unsupported_attribute("model")
-    assert "model" not in cluster.unsupported_attributes
-    assert 5 not in cluster.unsupported_attributes
+    assert "Updating the attribute cache directly is deprecated" in caplog.text
+    assert cluster.get(Basic.AttributeDefs.manufacturer) == "test_manufacturer"
+    assert cluster.get(Basic.AttributeDefs.model) == "test_model"
 
 
-def test_unsupported_attr_remove_no_reverse_attr_name(cluster):
-    """Test removing unsupported attributes without corresponding reverse attr name."""
+def test_attribute_def_removal():
+    """Test that setting an attribute definition to None removes it."""
 
-    assert "no_such_attr" not in cluster.unsupported_attributes
-    assert 0xDEED not in cluster.unsupported_attributes
+    class ParentCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "parent"
 
-    cluster.add_unsupported_attribute("no_such_attr")
-    assert "no_such_attr" in cluster.unsupported_attributes
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            attr1 = foundation.ZCLAttributeDef(id=0x0001, type=t.uint8_t)
+            attr2 = foundation.ZCLAttributeDef(id=0x0002, type=t.uint8_t)
 
-    cluster.add_unsupported_attribute(0xDEED)
-    assert 0xDEED in cluster.unsupported_attributes
+    class ChildCluster(ParentCluster):
+        class AttributeDefs(ParentCluster.AttributeDefs):
+            attr1 = None  # Remove attr1
 
-    cluster.remove_unsupported_attribute("no_such_attr")
-    assert "no_such_attr" not in cluster.unsupported_attributes
+    assert ParentCluster.AttributeDefs.attr1 is not None
+    assert ParentCluster.AttributeDefs.attr2 is not None
+    assert ChildCluster.AttributeDefs.attr1 is None
+    assert ChildCluster.AttributeDefs.attr2 is not None
 
-    cluster.remove_unsupported_attribute(0xDEED)
-    assert 0xDEED not in cluster.unsupported_attributes
+
+async def test_read_attributes_duplicate(cluster):
+    """Test that reading the same attribute twice raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot read the same attribute twice"):
+        await cluster.read_attributes(
+            [
+                Basic.AttributeDefs.manufacturer,
+                Basic.AttributeDefs.manufacturer,
+            ]
+        )
 
 
 def test_zcl_command_duplicate_name_prevention():
@@ -1051,14 +1093,6 @@ def test_zcl_command_duplicate_name_prevention():
                 0x00: foundation.ZCLCommandDef(name="command1", schema={}),
                 0x01: foundation.ZCLCommandDef(name="command1", schema={}),
             }
-
-
-def test_zcl_attridx_deprecation(cluster):
-    with pytest.deprecated_call():
-        cluster.attridx  # noqa: B018
-
-    with pytest.deprecated_call():
-        assert cluster.attridx is cluster.attributes_by_name
 
 
 def test_zcl_response_type_tuple_like():
@@ -1396,3 +1430,696 @@ async def test_received_onoff_toggle_generates_default_response():
             priority=t.PacketPriority.LOW,
         )
     ]
+
+
+def test_find_attribute_simple() -> None:
+    """Test attribute finding with simple cluster definition."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "test_cluster"
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            attribute1 = foundation.ZCLAttributeDef(id=0x0001, type=t.EUI64)
+            attribute2 = foundation.ZCLAttributeDef(
+                id=0x0002, type=t.EUI64, manufacturer_code=0x1234
+            )
+
+    assert (
+        TestCluster.find_attribute("attribute1") is TestCluster.AttributeDefs.attribute1
+    )
+    assert TestCluster.find_attribute(0x0001) is TestCluster.AttributeDefs.attribute1
+    assert TestCluster.find_attribute(0x0002) is TestCluster.AttributeDefs.attribute2
+    assert (
+        TestCluster.find_attribute(TestCluster.AttributeDefs.attribute2)
+        is TestCluster.AttributeDefs.attribute2
+    )
+
+    with pytest.raises(KeyError):
+        TestCluster.find_attribute(0x0003)
+
+    with pytest.raises(TypeError):
+        TestCluster.find_attribute(b"attribute1")
+
+
+def test_find_attribute_colliding_manufacturer_codes() -> None:
+    """Test attribute finding with simple cluster definition."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "test_cluster"
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            attribute1 = foundation.ZCLAttributeDef(id=0x0001, type=t.EUI64)
+            attribute2 = foundation.ZCLAttributeDef(
+                id=0x0001, type=t.EUI64, manufacturer_code=0x1234
+            )
+            attribute3 = foundation.ZCLAttributeDef(
+                id=0x0001, type=t.EUI64, manufacturer_code=0x5678
+            )
+            attribute4 = foundation.ZCLAttributeDef(id=0x0002, type=t.EUI64)
+
+    assert (
+        TestCluster.find_attribute("attribute1") is TestCluster.AttributeDefs.attribute1
+    )
+
+    with pytest.raises(KeyError, match="Multiple definitions exist for attribute"):
+        TestCluster.find_attribute(0x0001)
+
+    assert (
+        TestCluster.find_attribute(0x0001, manufacturer_code=0x1234)
+        is TestCluster.AttributeDefs.attribute2
+    )
+    assert (
+        TestCluster.find_attribute(0x0001, manufacturer_code=0x5678)
+        is TestCluster.AttributeDefs.attribute3
+    )
+    assert TestCluster.find_attribute(0x0002) is TestCluster.AttributeDefs.attribute4
+
+
+def test_find_attribute_unspecified_manufacturer_code() -> None:
+    """Test attribute finding when the manufacturer code is unspecified."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "test_cluster"
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            attribute1 = foundation.ZCLAttributeDef(id=0x0001, type=t.EUI64)
+            attribute2 = foundation.ZCLAttributeDef(
+                id=0x0002, type=t.EUI64, is_manufacturer_specific=True
+            )
+            attribute3 = foundation.ZCLAttributeDef(id=0x0002, type=t.EUI64)
+            attribute4 = foundation.ZCLAttributeDef(
+                id=0x0003, type=t.EUI64, manufacturer_code=0x1234
+            )
+
+    assert TestCluster.find_attribute(0x0001) is TestCluster.AttributeDefs.attribute1
+
+    assert (
+        TestCluster.find_attribute(0x0002, manufacturer_code=0x1234)
+        is TestCluster.AttributeDefs.attribute2
+    )
+    assert (
+        TestCluster.find_attribute(0x0002, manufacturer_code=None)
+        is TestCluster.AttributeDefs.attribute3
+    )
+
+    with pytest.raises(KeyError):
+        TestCluster.find_attribute(0x0003, manufacturer_code=0x5678)
+
+
+async def test_read_attributes_complex() -> None:
+    """Test reading attributes, complex scenario."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "test_cluster"
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            attribute1 = foundation.ZCLAttributeDef(id=0x0001, type=t.uint8_t)
+            attribute2 = foundation.ZCLAttributeDef(id=0x0002, type=t.uint8_t)
+
+            # These two can be read together
+            attribute3 = foundation.ZCLAttributeDef(
+                id=0x0001, type=t.uint8_t, manufacturer_code=0x1234
+            )
+            attribute4 = foundation.ZCLAttributeDef(
+                id=0x0002, type=t.uint8_t, manufacturer_code=0x1234
+            )
+
+            # As can these two
+            attribute5 = foundation.ZCLAttributeDef(
+                id=0x0003, type=t.uint8_t, manufacturer_code=0x5678
+            )
+            attribute6 = foundation.ZCLAttributeDef(
+                id=0x0004, type=t.uint8_t, manufacturer_code=0x5678
+            )
+
+    endpoint = AsyncMock(spec=zigpy.endpoint.Endpoint)
+    cluster = TestCluster(endpoint)
+
+    async def mock_read_attributes(
+        attribute_ids: list[int], manufacturer: int | None = None, **kwargs
+    ):
+        status_records = {
+            (None, (0x0001, 0x0002)): [
+                # One is supported
+                foundation.ReadAttributeRecord(
+                    attrid=0x0001,
+                    status=foundation.Status.SUCCESS,
+                    value=foundation.TypeValue(
+                        type=foundation.DataTypeId.uint8,
+                        value=t.uint8_t(123),
+                    ),
+                ),
+                # The other is not
+                foundation.ReadAttributeRecord(
+                    attrid=0x0002,
+                    status=foundation.Status.UNSUPPORTED_ATTRIBUTE,
+                ),
+            ],
+            (0x1234, (0x0001, 0x0002)): [
+                # Both are supported
+                foundation.ReadAttributeRecord(
+                    attrid=0x0001,
+                    status=foundation.Status.SUCCESS,
+                    value=foundation.TypeValue(
+                        type=foundation.DataTypeId.uint8,
+                        value=t.uint8_t(12),
+                    ),
+                ),
+                foundation.ReadAttributeRecord(
+                    attrid=0x0002,
+                    status=foundation.Status.SUCCESS,
+                    value=foundation.TypeValue(
+                        type=foundation.DataTypeId.uint8,
+                        value=t.uint8_t(34),
+                    ),
+                ),
+            ],
+            (0x5678, (0x0003, 0x0004)): [
+                # Neither of these are supported
+                foundation.ReadAttributeRecord(
+                    attrid=0x0003,
+                    status=foundation.Status.UNSUPPORTED_ATTRIBUTE,
+                ),
+                foundation.ReadAttributeRecord(
+                    attrid=0x0004,
+                    status=foundation.Status.UNSUPPORTED_ATTRIBUTE,
+                ),
+            ],
+        }[manufacturer, tuple(attribute_ids)]
+
+        return foundation.GENERAL_COMMANDS[
+            foundation.GeneralCommand.Read_Attributes_rsp
+        ].schema(status_records=status_records)
+
+    with patch.object(
+        cluster, "_read_attributes", side_effect=mock_read_attributes
+    ) as mock_raw:
+        success, failure = await cluster.read_attributes(
+            [
+                # These are arranged "randomly" but will still be read in order within
+                # a particular batch
+                TestCluster.AttributeDefs.attribute1,  # Batch 1  (no code)
+                TestCluster.AttributeDefs.attribute5,  # Batch 2  (0x5678)
+                TestCluster.AttributeDefs.attribute3,  # Batch 3  (0x1234)
+                TestCluster.AttributeDefs.attribute2,  # Batch 1  (no code)
+                TestCluster.AttributeDefs.attribute4,  # Batch 2  (0x5678)
+                TestCluster.AttributeDefs.attribute6,  # Batch 3  (0x1234)
+            ]
+        )
+
+    assert success == {
+        TestCluster.AttributeDefs.attribute1: 123,
+        TestCluster.AttributeDefs.attribute3: 12,
+        TestCluster.AttributeDefs.attribute4: 34,
+    }
+
+    assert failure == {
+        TestCluster.AttributeDefs.attribute2: foundation.Status.UNSUPPORTED_ATTRIBUTE,
+        TestCluster.AttributeDefs.attribute5: foundation.Status.UNSUPPORTED_ATTRIBUTE,
+        TestCluster.AttributeDefs.attribute6: foundation.Status.UNSUPPORTED_ATTRIBUTE,
+    }
+
+    assert mock_raw.mock_calls == [
+        call([0x0001, 0x0002], manufacturer=None),
+        call([0x0003, 0x0004], manufacturer=0x5678),
+        call([0x0001, 0x0002], manufacturer=0x1234),
+    ]
+
+
+async def test_command_explicit_manufacturer():
+    """Test that explicit manufacturer= overrides command definition's manufacturer_code."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xABCD
+        ep_attribute = "test_cluster"
+
+        class ServerCommandDefs(zcl.foundation.BaseCommandDefs):
+            test_cmd = foundation.ZCLCommandDef(id=0x00, schema={})
+
+    endpoint = MagicMock(spec=zigpy.endpoint.Endpoint)
+    cluster = TestCluster(endpoint)
+
+    with patch.object(cluster, "request", autospec=True) as mock_request:
+        await cluster.command(0x00, manufacturer=0x9999)
+
+    assert mock_request.mock_calls[0].kwargs["manufacturer"] == 0x9999
+
+
+async def test_read_attribute_manufacturer_code_none_on_manuf_cluster():
+    """Test that manufacturer_code=None suppresses manufacturer code on manuf clusters."""
+
+    class ManufCluster(zcl.Cluster):
+        cluster_id = 0xFC11  # Manufacturer-specific cluster range
+        ep_attribute = "manuf_cluster"
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            # Explicitly no manufacturer code, even though cluster is manufacturer-specific
+            valve_opening = foundation.ZCLAttributeDef(
+                id=0x600B, type=t.uint8_t, manufacturer_code=None
+            )
+
+    endpoint = MagicMock(spec=zigpy.endpoint.Endpoint)
+    cluster = ManufCluster(endpoint)
+
+    with mock_attribute_reads(
+        cluster, {ManufCluster.AttributeDefs.valve_opening: t.uint8_t(100)}
+    ) as (mock_read, _):
+        await cluster.read_attributes([ManufCluster.AttributeDefs.valve_opening])
+
+    assert mock_read.mock_calls == [call([0x600B], manufacturer=None)]
+
+
+async def test_report_attributes_quirk_transforms_value(app_mock):
+    """Test that quirks transforming values emit both reported and updated events."""
+    MOTION_ATTRIBUTE = 0x0112  # Unknown attribute that triggers motion
+
+    class DoublingCluster(zcl.Cluster):
+        """A quirk cluster that doubles reported values."""
+
+        cluster_id = 0xABCD
+        ep_attribute = "doubling"
+
+        class AttributeDefs(zcl.foundation.BaseAttributeDefs):
+            test_attr = foundation.ZCLAttributeDef(
+                id=0x0001, type=t.uint8_t, access="r"
+            )
+            other_attr = foundation.ZCLAttributeDef(
+                id=0x0002, type=t.uint8_t, access="r"
+            )
+            passthrough_attr = foundation.ZCLAttributeDef(
+                id=0x0003, type=t.uint8_t, access="r"
+            )
+            swallowed_attr = foundation.ZCLAttributeDef(
+                id=0x0004, type=t.uint8_t, access="r"
+            )
+
+        def _update_attribute(self, attrid, value):
+            if attrid == self.AttributeDefs.test_attr.id:
+                # Double the value
+                value = value * 2
+                super()._update_attribute(attrid, value)
+
+                # Also update a different attribute
+                super()._update_attribute(self.AttributeDefs.other_attr.id, 123)
+
+                # Update an attribute that doesn't have a definition
+                super()._update_attribute(0xABCD, 45)
+            elif attrid == MOTION_ATTRIBUTE:
+                # Unknown attribute that updates a different cluster (like motion sensors)
+                super()._update_attribute(attrid, value)
+                self.endpoint.occupancy.update_attribute(
+                    OccupancySensing.AttributeDefs.occupancy.id,
+                    OccupancySensing.Occupancy.Occupied,
+                )
+            elif attrid == self.AttributeDefs.swallowed_attr.id:
+                # Swallow the attribute update entirely (no super() call)
+                return
+            else:
+                # Pass through unchanged
+                super()._update_attribute(attrid, value)
+
+    dev = add_initialized_device(app_mock, nwk=0x1234, ieee=make_ieee(1))
+    cluster = DoublingCluster(dev.endpoints[1])
+    occupancy_cluster = OccupancySensing(dev.endpoints[1])
+    dev.endpoints[1].add_input_cluster(DoublingCluster.cluster_id, cluster)
+    dev.endpoints[1].add_input_cluster(OccupancySensing.cluster_id, occupancy_cluster)
+
+    events = []
+    cluster.on_event(AttributeReadEvent.event_type, events.append)
+    cluster.on_event(AttributeReportedEvent.event_type, events.append)
+    cluster.on_event(AttributeUpdatedEvent.event_type, events.append)
+    occupancy_cluster.on_event(AttributeReportedEvent.event_type, events.append)
+    occupancy_cluster.on_event(AttributeUpdatedEvent.event_type, events.append)
+
+    await mock_attribute_report(
+        cluster,
+        {
+            DoublingCluster.AttributeDefs.test_attr: t.uint8_t(50),
+            DoublingCluster.AttributeDefs.passthrough_attr: t.uint8_t(99),
+            DoublingCluster.AttributeDefs.swallowed_attr: t.uint8_t(42),
+            MOTION_ATTRIBUTE: t.uint8_t(1),  # Unknown attribute (raw ID)
+        },
+    )
+
+    assert events == [
+        # No event for swallowed_attr since quirk swallows it entirely
+        # No AttributeReportedEvent for test_attr since the value was transformed
+        # AttributeUpdatedEvent for other_attr (quirk side-effect)
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="other_attr",
+            attribute_id=DoublingCluster.AttributeDefs.other_attr.id,
+            manufacturer_code=None,
+            value=123,
+        ),
+        # AttributeUpdatedEvent for unknown attribute
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name=None,
+            attribute_id=0xABCD,
+            manufacturer_code=None,
+            value=45,
+        ),
+        # AttributeUpdatedEvent for test_attr with transformed value (doubled)
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="test_attr",
+            attribute_id=DoublingCluster.AttributeDefs.test_attr.id,
+            manufacturer_code=None,
+            value=100,
+        ),
+        # AttributeReportedEvent for passthrough_attr (no transformation)
+        AttributeReportedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="passthrough_attr",
+            attribute_id=DoublingCluster.AttributeDefs.passthrough_attr.id,
+            manufacturer_code=None,
+            raw_value=99,
+            value=99,
+        ),
+        # No AttributeUpdatedEvent for passthrough_attr since value wasn't transformed
+        # AttributeUpdatedEvent for occupancy (quirk updates different cluster)
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=OccupancySensing.cluster_id,
+            attribute_name="occupancy",
+            attribute_id=OccupancySensing.AttributeDefs.occupancy.id,
+            manufacturer_code=None,
+            value=OccupancySensing.Occupancy.Occupied,
+        ),
+        # AttributeReportedEvent for unknown MOTION_ATTRIBUTE (no transformation)
+        AttributeReportedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name=None,
+            attribute_id=MOTION_ATTRIBUTE,
+            manufacturer_code=None,
+            raw_value=1,
+            value=1,
+        ),
+    ]
+
+    # Now test the read path
+    events.clear()
+
+    with mock_attribute_reads(
+        cluster,
+        {
+            DoublingCluster.AttributeDefs.test_attr: t.uint8_t(25),
+            DoublingCluster.AttributeDefs.passthrough_attr: t.uint8_t(77),
+            DoublingCluster.AttributeDefs.swallowed_attr: t.uint8_t(99),
+        },
+    ):
+        await cluster.read_attributes(
+            [
+                DoublingCluster.AttributeDefs.test_attr,
+                DoublingCluster.AttributeDefs.passthrough_attr,
+                DoublingCluster.AttributeDefs.swallowed_attr,
+            ]
+        )
+
+    assert events == [
+        # No event for swallowed_attr since quirk swallows it entirely
+        # No AttributeReadEvent for test_attr since the value was transformed
+        # AttributeUpdatedEvent for other_attr (quirk side-effect)
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="other_attr",
+            attribute_id=DoublingCluster.AttributeDefs.other_attr.id,
+            manufacturer_code=None,
+            value=123,
+        ),
+        # AttributeUpdatedEvent for unknown attribute
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name=None,
+            attribute_id=0xABCD,
+            manufacturer_code=None,
+            value=45,
+        ),
+        # AttributeUpdatedEvent for test_attr with transformed value (doubled)
+        AttributeUpdatedEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="test_attr",
+            attribute_id=DoublingCluster.AttributeDefs.test_attr.id,
+            manufacturer_code=None,
+            value=50,  # Doubled from 25
+        ),
+        # AttributeReadEvent for passthrough_attr (no transformation)
+        AttributeReadEvent(
+            device_ieee=str(dev.ieee),
+            endpoint_id=1,
+            cluster_type=zcl.ClusterType.Server,
+            cluster_id=DoublingCluster.cluster_id,
+            attribute_name="passthrough_attr",
+            attribute_id=DoublingCluster.AttributeDefs.passthrough_attr.id,
+            manufacturer_code=None,
+            raw_value=77,
+            value=77,
+        ),
+        # No AttributeUpdatedEvent for passthrough_attr since value wasn't transformed
+    ]
+
+
+async def test_zcl_write_attributes_update_cache(app_mock) -> None:
+    """Test that `write_attributes` can skip updating the attribute cache."""
+    dev = add_initialized_device(app_mock, nwk=0x1234, ieee=make_ieee(1))
+
+    cluster = Basic(dev.endpoints[1])
+    dev.endpoints[1].add_input_cluster(Basic.cluster_id, cluster)
+
+    cluster.add_unsupported_attribute(Basic.AttributeDefs.product_url)
+
+    # The cache updates by default
+    with mock_attribute_writes(
+        cluster,
+        {
+            Basic.AttributeDefs.location_desc: foundation.Status.SUCCESS,
+            Basic.AttributeDefs.serial_number: foundation.Status.UNSUPPORTED_ATTRIBUTE,
+            Basic.AttributeDefs.product_url: foundation.Status.SUCCESS,
+        },
+    ):
+        await cluster.write_attributes(
+            {
+                Basic.AttributeDefs.location_desc: "Test",
+                Basic.AttributeDefs.serial_number: "1234",
+                Basic.AttributeDefs.product_url: "5678",
+            }
+        )
+
+    # The cache updated and all attribute state makes sense
+    assert cluster._attr_cache.get(Basic.AttributeDefs.location_desc) == "Test"
+    assert cluster.is_attribute_unsupported(Basic.AttributeDefs.serial_number) is True
+    assert not cluster.is_attribute_unsupported(Basic.AttributeDefs.product_url)
+    assert cluster._attr_cache.get(Basic.AttributeDefs.product_url) == "5678"
+
+    events = []
+    cluster.on_all_events(events.append)
+
+    with mock_attribute_writes(
+        cluster,
+        {
+            Basic.AttributeDefs.location_desc: foundation.Status.SUCCESS,
+            # We flip things around: `serial_number` is reported as supported
+            Basic.AttributeDefs.serial_number: foundation.Status.SUCCESS,
+            # And `product_url` is now unsupported
+            Basic.AttributeDefs.product_url: foundation.Status.UNSUPPORTED_ATTRIBUTE,
+        },
+    ):
+        await cluster.write_attributes(
+            {
+                Basic.AttributeDefs.location_desc: "Test 2",
+                Basic.AttributeDefs.serial_number: "abcd",
+                Basic.AttributeDefs.product_url: "efgh",
+            },
+            update_cache=False,
+        )
+
+    # Nothing changes, however
+    assert cluster._attr_cache.get(Basic.AttributeDefs.location_desc) == "Test"
+    assert cluster.is_attribute_unsupported(Basic.AttributeDefs.serial_number) is True
+    assert not cluster.is_attribute_unsupported(Basic.AttributeDefs.product_url)
+    assert cluster._attr_cache.get(Basic.AttributeDefs.product_url) == "5678"
+
+    # No events should have been emitted
+    assert events == []
+
+
+def test_manufacturer_id_override_manuf_specific_cluster(app_mock) -> None:
+    """Test class-level `manufacturer_id_override` for custom clusters."""
+
+    class TestCluster(zcl.Cluster):
+        cluster_id = 0xFEED  # Manufacturer-specific cluster range
+        ep_attribute = "test_cluster"
+        manufacturer_id_override = 0x5678
+
+        class AttributeDefs(zcl.BaseAttributeDefs):
+            test_attr1 = foundation.ZCLAttributeDef(
+                id=0xB001,
+                type=t.uint8_t,
+                # Definition-level override takes priority
+                manufacturer_code=0xABCD,
+            )
+            test_attr2 = foundation.ZCLAttributeDef(
+                id=0xB002,
+                type=t.uint8_t,
+                # Definition-level override takes priority
+                manufacturer_code=None,
+            )
+            test_attr3 = foundation.ZCLAttributeDef(
+                id=0xB003,
+                type=t.uint8_t,
+                # While not strictly necessary, it is correct
+                is_manufacturer_specific=True,
+            )
+            test_attr4 = foundation.ZCLAttributeDef(
+                id=0xB004,
+                type=t.uint8_t,
+            )
+            test_attr5 = foundation.ZCLAttributeDef(
+                id=0xB005,
+                type=t.uint8_t,
+                is_manufacturer_specific=False,
+                # This is technically incorrect but since this cluster ID is in the
+                # manufacturer range, the default value of `is_manufacturer_specific`
+                # is effectively ignored, it must be
+            )
+
+        class ServerCommandDefs(zcl.BaseCommandDefs):
+            test_cmd1 = foundation.ZCLCommandDef(
+                id=0xB1, schema={}, manufacturer_code=0xABCD
+            )
+            test_cmd2 = foundation.ZCLCommandDef(
+                id=0xB2, schema={}, manufacturer_code=None
+            )
+            test_cmd3 = foundation.ZCLCommandDef(
+                id=0xB3, schema={}, is_manufacturer_specific=True
+            )
+            test_cmd4 = foundation.ZCLCommandDef(id=0xB4, schema={})
+            test_cmd5 = foundation.ZCLCommandDef(
+                id=0xB5, schema={}, is_manufacturer_specific=False
+            )
+
+    dev = add_initialized_device(app_mock, nwk=0x1234, ieee=make_ieee(1))
+    dev.node_desc.manufacturer_code = 0x1234
+
+    cluster = TestCluster(dev.endpoints[1])
+    dev.endpoints[1].add_input_cluster(TestCluster.cluster_id, cluster)
+
+    for definition, expected in [
+        (TestCluster.AttributeDefs.test_attr1, 0xABCD),
+        (TestCluster.ServerCommandDefs.test_cmd1, 0xABCD),
+        (TestCluster.AttributeDefs.test_attr2, None),
+        (TestCluster.ServerCommandDefs.test_cmd2, None),
+        (TestCluster.AttributeDefs.test_attr3, 0x5678),
+        (TestCluster.ServerCommandDefs.test_cmd3, 0x5678),
+        (TestCluster.AttributeDefs.test_attr4, 0x5678),
+        (TestCluster.ServerCommandDefs.test_cmd4, 0x5678),
+        (TestCluster.AttributeDefs.test_attr5, None),
+        (TestCluster.ServerCommandDefs.test_cmd5, None),
+    ]:
+        assert cluster._get_effective_manufacturer_code(definition) is expected
+
+
+def test_manufacturer_id_override_extended_zcl_cluster(app_mock) -> None:
+    """Test class-level `manufacturer_id_override` for extended ZCL clusters."""
+
+    class TestCluster(Basic):
+        _skip_registry = True
+        manufacturer_id_override = 0x5678
+
+        class AttributeDefs(Basic.AttributeDefs):
+            test_attr1 = foundation.ZCLAttributeDef(
+                id=0xB001,
+                type=t.uint8_t,
+                # Definition-level override takes priority
+                manufacturer_code=0xABCD,
+            )
+            test_attr2 = foundation.ZCLAttributeDef(
+                id=0xB002,
+                type=t.uint8_t,
+                # Definition-level override takes priority
+                manufacturer_code=None,
+            )
+            test_attr3 = foundation.ZCLAttributeDef(
+                id=0xB003,
+                type=t.uint8_t,
+                is_manufacturer_specific=True,
+            )
+            test_attr4 = foundation.ZCLAttributeDef(
+                id=0xB004,
+                type=t.uint8_t,
+                # A normal attribute
+            )
+            test_attr5 = foundation.ZCLAttributeDef(
+                id=0xB005,
+                type=t.uint8_t,
+                # While not strictly necessary, it is correct
+                is_manufacturer_specific=False,
+            )
+
+        class ServerCommandDefs(Basic.ServerCommandDefs):
+            test_cmd1 = foundation.ZCLCommandDef(
+                id=0xB1, schema={}, manufacturer_code=0xABCD
+            )
+            test_cmd2 = foundation.ZCLCommandDef(
+                id=0xB2, schema={}, manufacturer_code=None
+            )
+            test_cmd3 = foundation.ZCLCommandDef(
+                id=0xB3, schema={}, is_manufacturer_specific=True
+            )
+            test_cmd4 = foundation.ZCLCommandDef(id=0xB4, schema={})
+            test_cmd5 = foundation.ZCLCommandDef(
+                id=0xB5, schema={}, is_manufacturer_specific=False
+            )
+
+    dev = add_initialized_device(app_mock, nwk=0x1234, ieee=make_ieee(1))
+    dev.node_desc.manufacturer_code = 0x1234
+
+    cluster = TestCluster(dev.endpoints[1])
+    dev.endpoints[1].add_input_cluster(TestCluster.cluster_id, cluster)
+
+    for definition, expected in [
+        (TestCluster.AttributeDefs.test_attr1, 0xABCD),
+        (TestCluster.ServerCommandDefs.test_cmd1, 0xABCD),
+        (TestCluster.AttributeDefs.test_attr2, None),
+        (TestCluster.ServerCommandDefs.test_cmd2, None),
+        (TestCluster.AttributeDefs.test_attr3, 0x5678),
+        (TestCluster.ServerCommandDefs.test_cmd3, 0x5678),
+        (TestCluster.AttributeDefs.test_attr4, None),
+        (TestCluster.ServerCommandDefs.test_cmd4, None),
+        (TestCluster.AttributeDefs.test_attr5, None),
+        (TestCluster.ServerCommandDefs.test_cmd5, None),
+        (TestCluster.AttributeDefs.model, None),
+        (TestCluster.ServerCommandDefs.reset_fact_default, None),
+    ]:
+        assert cluster._get_effective_manufacturer_code(definition) is expected

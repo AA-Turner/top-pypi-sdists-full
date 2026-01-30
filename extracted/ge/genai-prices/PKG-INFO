@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: genai-prices
-Version: 0.0.51
+Version: 0.0.52
 Summary: Calculate prices for calling LLM inference APIs.
 Author: Samuel Colvin
 Author-email: Samuel Colvin <samuel@pydantic.dev>
@@ -29,9 +29,9 @@ Requires-Dist: eval-type-backport>=0.2 ; python_full_version < '3.10'
 Requires-Dist: httpx>=0.27
 Requires-Dist: pydantic>=2.10
 Requires-Python: >=3.9
-Project-URL: Changelog, https://github.com/pydantic/genai-prices/releases
 Project-URL: Homepage, https://github.com/pydantic/genai-prices
 Project-URL: Source, https://github.com/pydantic/genai-prices
+Project-URL: Changelog, https://github.com/pydantic/genai-prices/releases
 Description-Content-Type: text/markdown
 
 <div align="center">

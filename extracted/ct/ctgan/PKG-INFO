@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ctgan
-Version: 0.11.1
+Version: 0.12.0
 Summary: Create tabular synthetic data using a conditional GAN
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License: BSL-1.1
@@ -20,27 +20,32 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0; python_version < "3.10"
 Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
 Requires-Dist: pandas>=1.4.0; python_version < "3.11"
 Requires-Dist: pandas>=1.5.0; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version >= "3.13"
+Requires-Dist: pandas>=2.2.3; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
 Requires-Dist: torch>=1.13.0; python_version < "3.11"
 Requires-Dist: torch>=2.0.0; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: torch>=2.3.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: torch>=2.6.0; python_version >= "3.13"
-Requires-Dist: tqdm<5,>=4.29
-Requires-Dist: rdt>=1.14.0
+Requires-Dist: torch>=2.6.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: torch>=2.9.0; python_version >= "3.14"
+Requires-Dist: tqdm>=4.29
+Requires-Dist: rdt>=1.14.0; python_version < "3.14"
+Requires-Dist: rdt>=1.20.0; python_version >= "3.14"
 Provides-Extra: test
 Requires-Dist: pytest>=3.4.2; extra == "test"
-Requires-Dist: pytest-rerunfailures<15,>=10.3; extra == "test"
+Requires-Dist: pytest-rerunfailures<17,>=10.3; extra == "test"
 Requires-Dist: pytest-cov>=2.6.0; extra == "test"
 Requires-Dist: pytest-runner>=2.11.1; extra == "test"
 Requires-Dist: tomli<3,>=2.0.0; extra == "test"

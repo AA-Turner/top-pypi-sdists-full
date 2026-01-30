@@ -387,6 +387,12 @@ fn add_explicit_alias(
         return None;
     }
 
+    if let Some(ast::Expr::FieldExpr(field_expr)) = target.expr()
+        && field_expr.star_token().is_some()
+    {
+        return None;
+    }
+
     let alias = ColumnName::from_target(target.clone()).and_then(|c| c.0.to_string())?;
 
     let expr_end = target.expr().map(|e| e.syntax().text_range().end())?;
@@ -523,7 +529,9 @@ fn rewrite_double_colon_to_cast(
     let token = token_from_offset(file, offset)?;
     let cast_expr = token.parent_ancestors().find_map(ast::CastExpr::cast)?;
 
-    cast_expr.colon_colon()?;
+    if cast_expr.cast_token().is_some() {
+        return None;
+    }
 
     let expr = cast_expr.expr()?;
     let ty = cast_expr.ty()?;
@@ -1512,6 +1520,14 @@ select myschema.f$0();"
     }
 
     #[test]
+    fn add_explicit_alias_not_applicable_qualified_star() {
+        assert!(code_action_not_applicable(
+            add_explicit_alias,
+            "with t as (select 1 a) select t.*$0 from t;"
+        ));
+    }
+
+    #[test]
     fn add_explicit_alias_literal() {
         assert_snapshot!(apply_code_action(
             add_explicit_alias,
@@ -1627,6 +1643,24 @@ select myschema.f$0();"
     }
 
     #[test]
+    fn rewrite_cast_to_double_colon_type_first_syntax() {
+        assert_snapshot!(apply_code_action(
+            rewrite_cast_to_double_colon,
+            "select in$0t '1';"),
+            @"select '1'::int;"
+        );
+    }
+
+    #[test]
+    fn rewrite_cast_to_double_colon_type_first_qualified() {
+        assert_snapshot!(apply_code_action(
+            rewrite_cast_to_double_colon,
+            "select pg_catalog.int$04 '1';"),
+            @"select '1'::pg_catalog.int4;"
+        );
+    }
+
+    #[test]
     fn rewrite_cast_to_double_colon_not_applicable_already_double_colon() {
         assert!(code_action_not_applicable(
             rewrite_cast_to_double_colon,
@@ -1684,6 +1718,24 @@ select myschema.f$0();"
             rewrite_double_colon_to_cast,
             "select 1 + 2::bigi$0nt from t;"),
             @"select 1 + cast(2 as bigint) from t;"
+        );
+    }
+
+    #[test]
+    fn rewrite_type_literal_syntax_to_cast() {
+        assert_snapshot!(apply_code_action(
+            rewrite_double_colon_to_cast,
+            "select in$0t '1';"),
+            @"select cast('1' as int);"
+        );
+    }
+
+    #[test]
+    fn rewrite_qualified_type_literal_syntax_to_cast() {
+        assert_snapshot!(apply_code_action(
+            rewrite_double_colon_to_cast,
+            "select pg_catalog.int$04 '1';"),
+            @"select cast('1' as pg_catalog.int4);"
         );
     }
 

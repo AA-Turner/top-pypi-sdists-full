@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import functools
 import json
@@ -33,7 +34,7 @@ from dbos._utils import (
     retriable_sqlite_exception,
 )
 
-from ._context import get_local_dbos_context
+from ._context import DBOSContext, get_local_dbos_context
 from ._error import (
     DBOSAwaitedWorkflowCancelledError,
     DBOSConflictingWorkflowError,
@@ -84,7 +85,7 @@ class WorkflowStatus:
     # The workflow ID
     workflow_id: str
     # The workflow status. Must be one of ENQUEUED, PENDING, SUCCESS, ERROR, CANCELLED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
-    status: str
+    status: WorkflowStatuses
     # The name of the workflow function
     name: str
     # The name of the workflow's class, if any
@@ -654,6 +655,7 @@ class SystemDatabase(ABC):
                     queue_name=None,
                     deduplication_id=None,
                     started_at_epoch_ms=None,
+                    updated_at=func.extract("epoch", func.now()) * 1000,
                 )
             )
 
@@ -687,6 +689,7 @@ class SystemDatabase(ABC):
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
                     started_at_epoch_ms=None,
+                    updated_at=func.extract("epoch", func.now()) * 1000,
                 )
             )
 
@@ -1280,13 +1283,18 @@ class SystemDatabase(ABC):
 
     @db_retry()
     def record_get_result(
-        self, result_workflow_id: str, output: Optional[str], error: Optional[str]
+        self,
+        result_workflow_id: str,
+        output: Optional[str],
+        error: Optional[str],
+        ctx: Optional["DBOSContext"] = None,
     ) -> None:
-        ctx = get_local_dbos_context()
-        # Only record get_result called in workflow functions
-        if ctx is None or not ctx.is_workflow():
-            return
-        ctx.function_id += 1  # Record the get_result as a step
+        if ctx is None:
+            ctx = get_local_dbos_context()
+            # Only record get_result called in workflow functions
+            if ctx is None or not ctx.is_workflow():
+                return
+            ctx.function_id += 1  # Record the get_result as a step
         # Because there's no corresponding check, we do nothing on conflict
         # and do not raise a DBOSWorkflowConflictIDError
         sql = (
@@ -2115,13 +2123,13 @@ class SystemDatabase(ABC):
 
     T = TypeVar("T")
 
-    def call_function_as_step(self, fn: Callable[[], T], function_name: str) -> T:
-        ctx = get_local_dbos_context()
+    def call_function_as_step(
+        self, fn: Callable[[], T], function_name: str, ctx: Optional[DBOSContext]
+    ) -> T:
         start_time = int(time.time() * 1000)
         if ctx and ctx.is_transaction():
             raise Exception(f"Invalid call to `{function_name}` inside a transaction")
         if ctx and ctx.is_workflow():
-            ctx.function_id += 1
             res = self.check_operation_execution(
                 ctx.workflow_id, ctx.function_id, function_name
             )
@@ -2151,6 +2159,13 @@ class SystemDatabase(ABC):
                 }
             )
         return result
+
+    async def call_function_as_step_from_async(
+        self, fn: Callable[[], T], function_name: str, ctx: Optional[DBOSContext]
+    ) -> T:
+        return await asyncio.to_thread(
+            self.call_function_as_step, fn, function_name, ctx
+        )
 
     @db_retry()
     def init_workflow(

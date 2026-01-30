@@ -3630,6 +3630,7 @@ async def kill_all_emsys():
         await kill_process("EMSysFiscal")
         await kill_process("EMSys")
         await kill_contabil_processes()
+        await kill_chrome_driver()
         return RpaRetornoProcessoDTO(
             sucesso=True,
             retorno=f"EMSys encerrado com sucesso",
@@ -5329,3 +5330,12 @@ async def gerenciador_nf_header_retransmissao(
 
 async def ensure_browsers_installed():
     subprocess.run([sys.executable, "-m", "playwright", "install"], check=True)
+
+
+async def kill_chrome_driver():
+    processos = ["chromedriver.exe", "chrome.exe"]
+    for p in processos:
+        try:
+            subprocess.run(f"taskkill /f /im {p} /t", shell=True, capture_output=True)
+        except:
+            console.print("Processo nao encontrado")

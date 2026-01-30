@@ -31,6 +31,10 @@ class AddServiceDetails(object):
     #: This constant has a value of "DATATRANSFORMATION"
     STACK_TEMPLATES_DATATRANSFORMATION = "DATATRANSFORMATION"
 
+    #: A constant which can be used with the stack_templates property of a AddServiceDetails.
+    #: This constant has a value of "DEVOPSTOOLKIT"
+    STACK_TEMPLATES_DEVOPSTOOLKIT = "DEVOPSTOOLKIT"
+
     #: A constant which can be used with the services property of a AddServiceDetails.
     #: This constant has a value of "ADB"
     SERVICES_ADB = "ADB"
@@ -51,6 +55,18 @@ class AddServiceDetails(object):
     #: This constant has a value of "DATAFLOW"
     SERVICES_DATAFLOW = "DATAFLOW"
 
+    #: A constant which can be used with the services property of a AddServiceDetails.
+    #: This constant has a value of "AIDATAPLATFORM"
+    SERVICES_AIDATAPLATFORM = "AIDATAPLATFORM"
+
+    #: A constant which can be used with the services property of a AddServiceDetails.
+    #: This constant has a value of "OMK"
+    SERVICES_OMK = "OMK"
+
+    #: A constant which can be used with the services property of a AddServiceDetails.
+    #: This constant has a value of "OKE"
+    SERVICES_OKE = "OKE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new AddServiceDetails object with values from keyword arguments.
@@ -58,12 +74,12 @@ class AddServiceDetails(object):
 
         :param stack_templates:
             The value to assign to the stack_templates property of this AddServiceDetails.
-            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
         :type stack_templates: list[str]
 
         :param services:
             The value to assign to the services property of this AddServiceDetails.
-            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
         :type services: list[str]
 
         :param adb:
@@ -86,6 +102,18 @@ class AddServiceDetails(object):
             The value to assign to the genai property of this AddServiceDetails.
         :type genai: list[oci.dif.models.GenAiDetail]
 
+        :param aidataplatform:
+            The value to assign to the aidataplatform property of this AddServiceDetails.
+        :type aidataplatform: list[oci.dif.models.AiDataPlatformDetail]
+
+        :param omk:
+            The value to assign to the omk property of this AddServiceDetails.
+        :type omk: list[oci.dif.models.OmkDetail]
+
+        :param oke:
+            The value to assign to the oke property of this AddServiceDetails.
+        :type oke: list[oci.dif.models.OkeDetail]
+
         """
         self.swagger_types = {
             'stack_templates': 'list[str]',
@@ -94,7 +122,10 @@ class AddServiceDetails(object):
             'ggcs': 'list[GgcsDetail]',
             'dataflow': 'list[DataflowDetail]',
             'objectstorage': 'list[ObjectStorageDetail]',
-            'genai': 'list[GenAiDetail]'
+            'genai': 'list[GenAiDetail]',
+            'aidataplatform': 'list[AiDataPlatformDetail]',
+            'omk': 'list[OmkDetail]',
+            'oke': 'list[OkeDetail]'
         }
         self.attribute_map = {
             'stack_templates': 'stackTemplates',
@@ -103,7 +134,10 @@ class AddServiceDetails(object):
             'ggcs': 'ggcs',
             'dataflow': 'dataflow',
             'objectstorage': 'objectstorage',
-            'genai': 'genai'
+            'genai': 'genai',
+            'aidataplatform': 'aidataplatform',
+            'omk': 'omk',
+            'oke': 'oke'
         }
         self._stack_templates = None
         self._services = None
@@ -112,6 +146,9 @@ class AddServiceDetails(object):
         self._dataflow = None
         self._objectstorage = None
         self._genai = None
+        self._aidataplatform = None
+        self._omk = None
+        self._oke = None
 
     @property
     def stack_templates(self):
@@ -119,7 +156,7 @@ class AddServiceDetails(object):
         **[Required]** Gets the stack_templates of this AddServiceDetails.
         List of templates to be added for the stack.
 
-        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
 
 
         :return: The stack_templates of this AddServiceDetails.
@@ -137,7 +174,7 @@ class AddServiceDetails(object):
         :param stack_templates: The stack_templates of this AddServiceDetails.
         :type: list[str]
         """
-        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"]
+        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"]
 
         if stack_templates and stack_templates is not NONE_SENTINEL:
             for value in stack_templates:
@@ -153,7 +190,7 @@ class AddServiceDetails(object):
         **[Required]** Gets the services of this AddServiceDetails.
         List of services to be added for the stack.
 
-        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
 
 
         :return: The services of this AddServiceDetails.
@@ -171,7 +208,7 @@ class AddServiceDetails(object):
         :param services: The services of this AddServiceDetails.
         :type: list[str]
         """
-        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"]
+        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"]
 
         if services and services is not NONE_SENTINEL:
             for value in services:
@@ -300,6 +337,78 @@ class AddServiceDetails(object):
         :type: list[oci.dif.models.GenAiDetail]
         """
         self._genai = genai
+
+    @property
+    def aidataplatform(self):
+        """
+        Gets the aidataplatform of this AddServiceDetails.
+        AI Data Platform Details if aidataplatform is included in services to be added.
+
+
+        :return: The aidataplatform of this AddServiceDetails.
+        :rtype: list[oci.dif.models.AiDataPlatformDetail]
+        """
+        return self._aidataplatform
+
+    @aidataplatform.setter
+    def aidataplatform(self, aidataplatform):
+        """
+        Sets the aidataplatform of this AddServiceDetails.
+        AI Data Platform Details if aidataplatform is included in services to be added.
+
+
+        :param aidataplatform: The aidataplatform of this AddServiceDetails.
+        :type: list[oci.dif.models.AiDataPlatformDetail]
+        """
+        self._aidataplatform = aidataplatform
+
+    @property
+    def omk(self):
+        """
+        Gets the omk of this AddServiceDetails.
+        OMK Details if omk is included in services to be added.
+
+
+        :return: The omk of this AddServiceDetails.
+        :rtype: list[oci.dif.models.OmkDetail]
+        """
+        return self._omk
+
+    @omk.setter
+    def omk(self, omk):
+        """
+        Sets the omk of this AddServiceDetails.
+        OMK Details if omk is included in services to be added.
+
+
+        :param omk: The omk of this AddServiceDetails.
+        :type: list[oci.dif.models.OmkDetail]
+        """
+        self._omk = omk
+
+    @property
+    def oke(self):
+        """
+        Gets the oke of this AddServiceDetails.
+        OKE Details if oke is included in services to be added.
+
+
+        :return: The oke of this AddServiceDetails.
+        :rtype: list[oci.dif.models.OkeDetail]
+        """
+        return self._oke
+
+    @oke.setter
+    def oke(self, oke):
+        """
+        Sets the oke of this AddServiceDetails.
+        OKE Details if oke is included in services to be added.
+
+
+        :param oke: The oke of this AddServiceDetails.
+        :type: list[oci.dif.models.OkeDetail]
+        """
+        self._oke = oke
 
     def __repr__(self):
         return formatted_flat_dict(self)

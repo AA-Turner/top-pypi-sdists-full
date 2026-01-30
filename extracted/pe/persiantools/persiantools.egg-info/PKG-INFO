@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: persiantools
-Version: 5.4.0
+Version: 5.5.0
 Summary: Jalali date and datetime with other tools
-Home-page: https://github.com/majiidd/persiantools
-Author: Majid Hajiloo
-Author-email: majid.hajiloo@gmail.com
-License: MIT
+Author-email: Majid Hajiloo <majid.hajiloo@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/majiidd/persiantools
 Project-URL: Source, https://github.com/majiidd/persiantools
 Project-URL: Issues, https://github.com/majiidd/persiantools/issues
-Keywords: jalali shamsi persian digits characters converter jalalidate jalalidatetime date datetime jdate jdatetime farsi
+Keywords: jalali,shamsi,persian,digits,characters,converter,jalalidate,jalalidatetime,date,datetime,jdate,jdatetime,farsi
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: Persian
 Classifier: Operating System :: OS Independent
@@ -19,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
@@ -30,19 +30,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tzdata; platform_system == "Windows"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # PersianTools
 

@@ -118,11 +118,19 @@ def dask(
         decompression_executor (None or Executor with a ``submit`` method): The
             executor that is used to decompress ``TBaskets``; if None, a
             :doc:`uproot.source.futures.TrivialExecutor` is created.
+            This option is primarily useful for very large, CPU-intensive TBaskets
+            (e.g. LZMA compression) and can lead to nested parallelism, leaving it as None is recommended
+            for most cases. These options are particularly useful in very high thread-count scenarios,
+            such as when using Python 3.13 free-threading.
             Executors attached to a file are ``shutdown`` when the file is closed.
         interpretation_executor (None or Executor with a ``submit`` method): The
             executor that is used to interpret uncompressed ``TBasket`` data as
             arrays; if None, a :doc:`uproot.source.futures.TrivialExecutor`
             is created.
+            It is primarily useful when interpretation is CPU-intensive (e.g. for certain Awkward
+            ''AsObjects'') and can lead to nested parallelism, leaving it as None is recommended
+            for most cases. These options are particularly useful in very high thread-count scenarios,
+            such as when using Python 3.13 free-threading.
             Executors attached to a file are ``shutdown`` when the file is closed.
         options: See below.
 
@@ -169,6 +177,7 @@ def dask(
     * handler (:doc:`uproot.source.chunk.Source` class; None)
     * timeout (float for HTTP, int for XRootD; 30)
     * max_num_elements (None or int; None)
+        The maximum number of elements to be requested in a single vector read, when using XRootD.
     * num_workers (int; 1)
     * use_threads (bool; False on the emscripten platform (i.e. in a web browser), else True)
     * num_fallback_workers (int; 10)
@@ -430,7 +439,7 @@ def _dask_array_from_map(
         # Structure inputs such that the tuple of arguments pair each 0th,
         # 1st, 2nd, ... elements together; for example:
         # from_map(f, [1, 2, 3], [4, 5, 6]) --> [f(1, 4), f(2, 5), f(3, 6)]
-        inputs = list(zip(*iters))
+        inputs = list(zip(*iters, strict=True))
         packed = True
 
     # Define collection name
@@ -543,7 +552,7 @@ class _UprootOpenAndReadNumpy:
             start, stop = (istep_or_start * events_per_steps), min(
                 (istep_or_start + 1) * events_per_steps, num_entries
             )
-        elif (not 0 <= start < num_entries) or (not 0 <= stop <= num_entries):
+        elif (not 0 <= start <= num_entries) or (not 0 <= stop <= num_entries):
             raise ValueError(
                 f"""explicit entry start ({start}) or stop ({stop}) from uproot.dask 'files' argument is out of bounds for file
 
@@ -703,7 +712,7 @@ def _get_dask_array(
                         chunk_args.append((i, start, stop))
             else:
                 for start, stop in explicit_chunks[i]:
-                    if (not 0 <= start < entry_stop) or (not 0 <= stop <= entry_stop):
+                    if (not 0 <= start <= entry_stop) or (not 0 <= stop <= entry_stop):
                         raise ValueError(
                             f"""explicit entry start ({start}) or stop ({stop}) from uproot.dask 'files' argument is out of bounds for file
 
@@ -950,7 +959,7 @@ class TrivialFormMappingInfo(ImplementsFormMappingInfo):
         # subform, as they're derived from `branch.interpretation.awkward_form`
         # Therefore, we can correlate the subform keys using `expected_from_buffers`
         container = {}
-        for key, array in zip(keys, arrays):
+        for key, array in zip(keys, arrays, strict=True):
             # First, convert the sub-array into buffers
             ttree_subform, _length, ttree_container = awkward.to_buffers(array)
 
@@ -961,6 +970,7 @@ class TrivialFormMappingInfo(ImplementsFormMappingInfo):
             for (src, src_dtype), (dst, dst_dtype) in zip(
                 ttree_subform.expected_from_buffers().items(),
                 projection_subform.expected_from_buffers(self.buffer_key).items(),
+                strict=True,
             ):
                 assert src_dtype == dst_dtype  # Sanity check!
                 container[dst] = ttree_container[src]
@@ -1016,6 +1026,7 @@ class FormMappingInfoWithVirtualArrays(TrivialFormMappingInfo):
                 for (src, src_dtype), (dst, dst_dtype) in zip(
                     ttree_subform.expected_from_buffers().items(),
                     projection_subform.expected_from_buffers(self.buffer_key).items(),
+                    strict=True,
                 ):
                     # Return the corresponding array from the TTree if buffer key matches
                     if buffer_key == dst:
@@ -1394,7 +1405,7 @@ class _UprootOpenAndRead(UprootReadMixin):
         num_entries = ttree.num_entries
         if is_chunk:
             start, stop = i_step_or_start, n_steps_or_stop
-            if (not 0 <= start < num_entries) or (not 0 <= stop <= num_entries):
+            if (not 0 <= start <= num_entries) or (not 0 <= stop <= num_entries):
                 raise ValueError(
                     f"""explicit entry start ({start}) or stop ({stop}) from uproot.dask 'files' argument is out of bounds for file
 
@@ -1685,7 +1696,7 @@ def _get_dak_array(
                     partition_args.append((i, start, stop))
         else:
             for start, stop in explicit_chunks[i]:
-                if (not 0 <= start < entry_stop) or (not 0 <= stop <= entry_stop):
+                if (not 0 <= start <= entry_stop) or (not 0 <= stop <= entry_stop):
                     raise ValueError(
                         f"""explicit entry start ({start}) or stop ({stop}) from uproot.dask 'files' argument is out of bounds for file
 
@@ -1731,12 +1742,15 @@ which has {entry_stop} entries"""
         interpretation_executor=interpretation_executor,
     )
 
-    return dask_awkward.from_map(
+    out = dask_awkward.from_map(
         fn,
         partition_args,
         divisions=tuple(divisions),
         label="from-uproot",
     )
+    if allow_read_errors_with_report:
+        out[0].clear_divisions()
+    return out
 
 
 def _get_dak_array_delay_open(
@@ -1838,12 +1852,15 @@ def _get_dak_array_delay_open(
         interpretation_executor=interpretation_executor,
     )
 
-    return dask_awkward.from_map(
+    out = dask_awkward.from_map(
         fn,
         partition_args,
         divisions=None if divisions is None else tuple(divisions),
         label="from-uproot",
     )
+    if allow_read_errors_with_report:
+        out[0].clear_divisions()
+    return out
 
 
 class Accessed(NamedTuple):

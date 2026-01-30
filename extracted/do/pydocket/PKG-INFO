@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.17.1
+Version: 0.17.3
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://github.com/chrisguidry/docket
 Project-URL: Bug Tracker, https://github.com/chrisguidry/docket/issues
@@ -35,6 +35,7 @@ Requires-Dist: py-key-value-aio[memory,redis]>=0.3.0
 Requires-Dist: python-json-logger>=2.0.7
 Requires-Dist: redis>=5
 Requires-Dist: rich>=13.9.4
+Requires-Dist: taskgroup>=0.2.2; python_version < '3.11'
 Requires-Dist: typer>=0.15.1
 Requires-Dist: typing-extensions>=4.12.0
 Provides-Extra: metrics

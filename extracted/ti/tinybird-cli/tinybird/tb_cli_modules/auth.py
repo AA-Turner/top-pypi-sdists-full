@@ -13,7 +13,6 @@ from tinybird.config import get_display_host
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import (
-    configure_connector,
     coro,
     echo_safe_humanfriendly_tables_format_smart_table,
     get_host_from_region,
@@ -36,11 +35,6 @@ from tinybird.tb_cli_modules.regions import Region
     "--region", envvar="TB_REGION", help="Set region. Run 'tb auth ls' to show available regions. Overrides host."
 )
 @click.option(
-    "--connector",
-    type=click.Choice(["bigquery", "snowflake"], case_sensitive=True),
-    help="Set credentials for one of the supported connectors",
-)
-@click.option(
     "-i",
     "--interactive",
     is_flag=True,
@@ -49,7 +43,7 @@ from tinybird.tb_cli_modules.regions import Region
 )
 @click.pass_context
 @coro
-async def auth(ctx: click.Context, token: str, host: str, region: str, connector: str, interactive: bool) -> None:
+async def auth(ctx: click.Context, token: str, host: str, region: str, interactive: bool) -> None:
     """Configure auth."""
 
     config: CLIConfig = CLIConfig.get_project_config()
@@ -57,10 +51,6 @@ async def auth(ctx: click.Context, token: str, host: str, region: str, connector
         config.set_token(token)
     if host:
         config.set_host(host)
-
-    if connector:
-        await configure_connector(connector)
-        return
 
     # Only run when doing a bare 'tb auth'
     if ctx.invoked_subcommand:

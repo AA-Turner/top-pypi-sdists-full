@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-hana
-Version: 4.2.0
+Version: 4.3.0
 Summary: SQLAlchemy dialect for SAP HANA
 Author-email: Christoph Heer <christoph.heer@sap.com>
 Maintainer-email: Christoph Heer <christoph.heer@sap.com>, Kai Harder <kai.harder@sap.com>
@@ -417,6 +417,13 @@ an auto-increment behavior, as followed:
 Note, that on SAP HANA side, the column and the sequence are not linked, meaning that the sequence
 can be e.g. be incremented w/o an actual insert into the table.
 
+asyncio support
+---------------
+asyncio is supported via the
+`SQLAlchemy asyncio extension <https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html>`_.
+For this, use the ``hana+aiohdbcli`` dialect name.
+The support is still experimental, therefore some features might not work as expected.
+
 Alembic
 -------
 The sqlalchemy-hana dialect also contains a dialect for ``alembic``.
@@ -493,7 +500,7 @@ By participating in this project, you agree to abide by its
 
 Licensing
 ---------
-Copyright 2025 SAP SE or an SAP affiliate company and sqlalchemy-hana contributors.
+Copyright 2026 SAP SE or an SAP affiliate company and sqlalchemy-hana contributors.
 Please see our `LICENSE <https://github.com/SAP/sqlalchemy-hana/blob/main/LICENSE>`_
 for copyright and license information.
 Detailed information including third-party components and their licensing/copyright information

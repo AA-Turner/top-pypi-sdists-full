@@ -1,28 +1,29 @@
-import pytest
-import json
-import posixpath
-from bs4 import BeautifulSoup
-
-from pyramid.response import Response
-from devpi_common.metadata import splitbasename
-from devpi_common.url import URL
-from devpi_common.archive import Archive, zip_dict
-from devpi_common.viewhelp import ViewLinkStore
-
-import devpi_server.views
-from devpi_server.config import hookimpl
-from devpi_server.filestore import FileEntry
-from devpi_server.filestore import get_hashes
-from devpi_server.filestore import get_hash_spec
-from devpi_server.filestore import make_splitdir
-from devpi_server.views import tween_keyfs_transaction, make_uuid_headers
-from devpi_server.mirror import parse_index
-from io import BytesIO
-from .functional import TestIndexThings  # noqa: F401
 from .functional import TestIndexPushThings  # noqa: F401
+from .functional import TestIndexThings  # noqa: F401
+from .functional import TestMirrorIndexThings  # noqa: F401
 from .functional import TestProjectThings  # noqa: F401
 from .functional import TestUserThings  # noqa: F401
-from .functional import TestMirrorIndexThings  # noqa: F401
+from bs4 import BeautifulSoup
+from devpi_common.archive import Archive
+from devpi_common.archive import zip_dict
+from devpi_common.metadata import splitbasename
+from devpi_common.url import URL
+from devpi_common.viewhelp import ViewLinkStore
+from devpi_server.config import hookimpl
+from devpi_server.filestore import FileEntry
+from devpi_server.filestore import get_hash_spec
+from devpi_server.filestore import get_hashes
+from devpi_server.filestore import make_splitdir
+from devpi_server.mirror import parse_index
+from devpi_server.views import make_uuid_headers
+from devpi_server.views import tween_keyfs_transaction
+from io import BytesIO
+from pyramid.response import Response
+import devpi_server.views
+import json
+import posixpath
+import pytest
+
 
 proj = pytest.mark.parametrize("proj", [True, False])
 pytestmark = [pytest.mark.notransaction]
@@ -227,6 +228,16 @@ def test_simple_project_redirect(pypistage, testapp):
     assert r.headers["location"].endswith("/root/pypi/+simple/%s/" % project)
 
 
+def test_index_project_not_found(mapp):
+    api = mapp.create_and_use()
+    r = mapp.getjson(api.index + "/pkg1", code=404)
+    assert r["message"] == "no project 'pkg1'"
+    # non-normalized projects are redirected first,
+    # causing normalized name in error
+    r = mapp.getjson(api.index + "/Foo.Bar", code=404)
+    assert r["message"] == "no project 'foo-bar'"
+
+
 def test_index_get_json_patch_json_roundtrip(mapp, testapp):
     api = mapp.create_and_use(indexconfig=dict(bases=["root/pypi"]))
     r = testapp.get(api.index)
@@ -242,15 +253,17 @@ def test_index_get_json_patch_json_roundtrip(mapp, testapp):
 @pytest.mark.parametrize("outside_url", ['', 'http://localhost/devpi'])
 def test_simple_project_outside_url_subpath(mapp, outside_url, pypistage, testapp):
     api = mapp.create_and_use(indexconfig=dict(bases=["root/pypi"]))
+    content = b"123"
     mapp.upload_file_pypi(
-        "qpwoei-1.0.tar.gz", b'123', "qpwoei", "1.0", indexname=api.stagename)
+        "qpwoei-1.0.tar.gz", content, "qpwoei", "1.0", indexname=api.stagename
+    )
     pypistage.mock_simple("qpwoei", text='<a href="/qpwoei-1.0.zip"/>')
     headers = {'X-outside-url': str(outside_url)}
     r = testapp.get("/%s/+simple/qpwoei/" % api.stagename, headers=headers)
     assert r.status_code == 200
     links = sorted(x["href"] for x in getlinks(r.text))
     assert len(links) == 2
-    hash_spec = get_hashes(b'123').get_default_spec()
+    hash_spec = get_hashes(content).get_default_spec()
     hashdir = "/".join(make_splitdir(hash_spec))
     assert links == [
         '../../+f/%s/qpwoei-1.0.tar.gz#%s' % (hashdir, hash_spec),
@@ -264,15 +277,18 @@ def test_simple_project_outside_url_subpath(mapp, outside_url, pypistage, testap
 
 def test_simple_project_absolute_url(mapp, pypistage, testapp):
     api = mapp.create_and_use(indexconfig=dict(bases=["root/pypi"]))
+    content = b"123"
     mapp.upload_file_pypi(
-        "qpwoei-1.0.tar.gz", b'123', "qpwoei", "1.0", indexname=api.stagename)
+        "qpwoei-1.0.tar.gz", content, "qpwoei", "1.0", indexname=api.stagename
+    )
     pypistage.mock_simple("qpwoei", text='<a href="/qpwoei-1.0.zip"/>')
     headers = {'X-devpi-absolute-urls': ""}
     r = testapp.get("/%s/+simple/qpwoei/" % api.stagename, headers=headers)
     assert r.status_code == 200
     links = sorted(x["href"] for x in getlinks(r.text))
     assert len(links) == 2
-    hash_spec = get_hashes(b'123').get_default_spec()
+    hashes = get_hashes(content)
+    hash_spec = hashes.get_default_spec()
     hashdir = "/".join(make_splitdir(hash_spec))
     assert links == [
         'http://localhost/root/pypi/+e/https_pypi.org/qpwoei-1.0.zip',
@@ -285,8 +301,6 @@ def test_simple_project_absolute_url(mapp, pypistage, testapp):
     assert r.status_code == 200
     links = sorted(x["href"] for x in getlinks(r.text))
     assert len(links) == 2
-    hash_spec = get_hashes(b'123').get_default_spec()
-    hashdir = "/".join(make_splitdir(hash_spec))
     assert links == [
         'http://localhost/devpi/root/pypi/+e/https_pypi.org/qpwoei-1.0.zip',
         'http://localhost/devpi/user1/dev/+f/%s/qpwoei-1.0.tar.gz#%s' % (hashdir, hash_spec)]
@@ -1266,10 +1280,11 @@ def test_submit_authorization(mapp, testapp):
     r = testapp.post(api.index + '/', data, expect_errors=True)
     assert r.status_code == 401
     assert 'WWW-Authenticate' in r.headers
-    basic_auth = '%s:%s' % (api.user, api.password)
-    basic_auth = b"Basic " + b64encode(basic_auth.encode("ascii"))
-    basic_auth = basic_auth.decode("ascii")
-    headers = {'Authorization': basic_auth}
+    headers = {
+        "Authorization": (
+            b"Basic " + b64encode(f"{api.user}:{api.password}".encode("ascii"))
+        ).decode("ascii")
+    }
     r = testapp.post(api.index + '/', data, headers=headers)
     assert r.status_code == 200
 
@@ -1670,6 +1685,10 @@ def test_upload_and_delete_project(mapp, testapp):
     assert r.status_code == 200
     mapp.getjson(api.index + "/pkg1", code=404)
     mapp.getjson(api.index + "/pkg1/2.7", code=404)
+    with mapp.xom.keyfs.read_transaction():
+        stage = mapp.xom.model.getstage(api.stagename)
+        assert not stage.key_projversions("pkg1").exists()
+        assert not stage.key_projsimplelinks("pkg1").exists()
 
 
 def test_upload_with_acl(mapp):
@@ -1760,6 +1779,8 @@ class TestPluginPermissions:
 
 def test_upload_trigger(mapp):
     class Plugin:
+        results: list
+
         @hookimpl
         def devpiserver_on_upload_sync(
                 self, log, application_url, stage, project, version):  # noqa: ARG002
@@ -1801,6 +1822,8 @@ def test_upload_and_access_releasefile_meta(mapp, testapp, proj):
     hash_spec = pkgmeta["result"]["hash_spec"]
     (hash_type, hash_value) = hash_spec.split("=", 1)
     assert hash_spec == get_hash_spec(content, hash_type)
+    hashes = pkgmeta["result"]["hashes"]
+    assert get_hashes(content, hash_types=hashes.keys()) == hashes
 
 
 def test_upload_and_delete_project_version(mapp):
@@ -1883,7 +1906,7 @@ def test_delete_mirror(mapp, monkeypatch, simpypi, testapp, xom):
     async def async_get(url, **kwargs):  # noqa: ARG001 - testing
         class Response:
             status_code = 503
-            reason = "Service Unavailable"
+            reason = reason_phrase = "Service Unavailable"
         return (Response(), None)
 
     monkeypatch.setattr(xom.http, "async_get", async_get)

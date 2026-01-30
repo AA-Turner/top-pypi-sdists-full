@@ -11,8 +11,9 @@ this module will need to change.
 import asyncio
 import logging
 import typing
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from contextlib import AsyncExitStack, asynccontextmanager
+from types import TracebackType
+from typing import AsyncGenerator, Protocol
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from redis.asyncio import ConnectionPool, Redis
@@ -23,7 +24,26 @@ from redis.asyncio.connection import Connection, SSLConnection
 if typing.TYPE_CHECKING:
     from fakeredis.aioredis import FakeServer
 
+
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class AsyncCloseable(Protocol):
+    """Protocol for objects with an async aclose() method."""
+
+    async def aclose(self) -> None: ...
+
+
+async def close_resource(resource: AsyncCloseable, name: str) -> None:
+    """Close a resource with error handling.
+
+    Designed to be used with AsyncExitStack.push_async_callback().
+    """
+    try:
+        await resource.aclose()
+    except Exception:  # pragma: no cover
+        logger.warning("Failed to close %s", name, exc_info=True)
+
 
 # Cache of FakeServer instances keyed by URL
 _memory_servers: dict[str, "FakeServer"] = {}
@@ -69,6 +89,7 @@ class RedisConnection:
     # support pub/sub natively, so we connect directly to one primary node)
     _node_pool: ConnectionPool | None
     _parsed: ParseResult
+    _stack: AsyncExitStack
 
     def __init__(self, url: str) -> None:
         """Initialize a Redis connection manager.
@@ -84,45 +105,43 @@ class RedisConnection:
 
     async def __aenter__(self) -> "RedisConnection":
         """Connect to Redis when entering the context."""
-        if self.is_connected:
-            return self
+        assert not self.is_connected, "RedisConnection is not reentrant"
+
+        self._stack = AsyncExitStack()
+        await self._stack.__aenter__()
+
         if self.is_cluster:  # pragma: no cover
             self._cluster_client = await self._create_cluster_client()
+            self._stack.callback(lambda: setattr(self, "_cluster_client", None))
+            self._stack.push_async_callback(
+                close_resource, self._cluster_client, "cluster client"
+            )
+
             self._node_pool = self._create_node_pool()
+            self._stack.callback(lambda: setattr(self, "_node_pool", None))
+            self._stack.push_async_callback(
+                close_resource, self._node_pool, "node pool"
+            )
         else:
             self._connection_pool = await self._connection_pool_from_url()
+            self._stack.callback(lambda: setattr(self, "_connection_pool", None))
+            self._stack.push_async_callback(
+                close_resource, self._connection_pool, "connection pool"
+            )
+
         return self
 
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: object,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Close the Redis connection when exiting the context."""
-        if self._cluster_client is not None:  # pragma: no cover
-            # Close node pool first (used for pub/sub)
-            if self._node_pool is not None:
-                try:
-                    await asyncio.shield(self._node_pool.aclose())
-                except (Exception, asyncio.CancelledError):
-                    logger.warning("Failed to close node pool", exc_info=True)
-                finally:
-                    self._node_pool = None
-            # Then close cluster client
-            try:
-                await asyncio.shield(self._cluster_client.aclose())
-            except (Exception, asyncio.CancelledError):
-                logger.warning("Failed to close cluster client", exc_info=True)
-            finally:
-                self._cluster_client = None
-        elif self._connection_pool is not None:
-            try:
-                await asyncio.shield(self._connection_pool.aclose())
-            except (Exception, asyncio.CancelledError):  # pragma: no cover
-                logger.warning("Failed to close connection pool", exc_info=True)
-            finally:
-                self._connection_pool = None
+        try:
+            await self._stack.__aexit__(exc_type, exc_val, exc_tb)
+        finally:
+            del self._stack
 
     @property
     def is_connected(self) -> bool:
@@ -311,17 +330,13 @@ class RedisConnection:
         try:
             yield pubsub
         finally:
-            # Explicit cleanup with failure isolation for cancellation safety.
-            # Must catch CancelledError too - it inherits from BaseException, not
-            # Exception. The shield ensures aclose() completes, but the await still
-            # raises CancelledError if the outer task is cancelled.
             try:
-                await asyncio.shield(pubsub.aclose())
-            except (Exception, asyncio.CancelledError):
+                await pubsub.aclose()
+            except Exception:
                 logger.warning("Failed to close cluster pubsub", exc_info=True)
             try:
-                await asyncio.shield(client.aclose())
-            except (Exception, asyncio.CancelledError):
+                await client.aclose()
+            except Exception:
                 logger.warning("Failed to close cluster client", exc_info=True)
 
 
@@ -381,17 +396,20 @@ def _patch_fakeredis_lua_runtime() -> None:  # pragma: no cover
         sha1 = hashlib.sha1(script).hexdigest().encode()
         self._server.script_cache[sha1] = script
 
-        # Cache LuaRuntime and set_globals function on the server
+        # Cache LuaRuntime and all callbacks on the server
         if not hasattr(self._server, "_lua_runtime"):
             self._server._lua_runtime = LUA_MODULE.LuaRuntime(
                 encoding=None, unpack_returned_tuples=True
             )
+            lua_runtime = self._server._lua_runtime
             modules_import_str = "\n".join(
                 [f"{module} = require('{module}')" for module in self.load_lua_modules]
             )
-            self._server._lua_set_globals = self._server._lua_runtime.eval(
+
+            # Create set_globals for initial setup (sets callbacks once)
+            set_globals_init = lua_runtime.eval(
                 f"""
-                function(keys, argv, redis_call, redis_pcall, redis_log, cjson_encode, cjson_decode, cjson_null)
+                function(redis_call, redis_pcall, redis_log, cjson_encode, cjson_decode, cjson_null)
                     redis = {{}}
                     redis.call = redis_call
                     redis.pcall = redis_pcall
@@ -408,16 +426,25 @@ def _patch_fakeredis_lua_runtime() -> None:  # pragma: no cover
                     cjson.decode = cjson_decode
                     cjson.null = cjson_null
 
-                    KEYS = keys
-                    ARGV = argv
+                    KEYS = {{}}
+                    ARGV = {{}}
                     {modules_import_str}
                 end
                 """
             )
-            # Capture expected globals once after first setup
-            self._server._lua_set_globals(
-                self._server._lua_runtime.table_from([]),
-                self._server._lua_runtime.table_from([]),
+
+            # Create set_keys_argv to update just KEYS/ARGV per call
+            self._server._lua_set_keys_argv = lua_runtime.eval(
+                """
+                function(keys, argv)
+                    KEYS = keys
+                    ARGV = argv
+                end
+                """
+            )
+
+            # Capture expected globals before setting up callbacks
+            set_globals_init(
                 lambda *args: None,
                 lambda *args: None,
                 lambda *args: None,
@@ -425,23 +452,68 @@ def _patch_fakeredis_lua_runtime() -> None:  # pragma: no cover
                 lambda *args: None,
                 None,
             )
-            self._server._lua_expected_globals = set(
-                self._server._lua_runtime.globals().keys()
+            self._server._lua_expected_globals = set(lua_runtime.globals().keys())
+            expected_globals = self._server._lua_expected_globals
+
+            # Container to hold current socket - callbacks will look this up
+            self._server._lua_current_socket = [None]  # Use list for mutability
+
+            # Create wrapper callbacks that look up the current socket dynamically
+            def make_redis_call_wrapper() -> typing.Callable[..., typing.Any]:
+                server = self._server
+                lr = lua_runtime
+                eg = expected_globals
+
+                def wrapper(op: bytes, *args: typing.Any) -> typing.Any:
+                    socket = server._lua_current_socket[0]
+                    return socket._lua_redis_call(lr, eg, op, *args)
+
+                return wrapper
+
+            def make_redis_pcall_wrapper() -> typing.Callable[..., typing.Any]:
+                server = self._server
+                lr = lua_runtime
+                eg = expected_globals
+
+                def wrapper(op: bytes, *args: typing.Any) -> typing.Any:
+                    socket = server._lua_current_socket[0]
+                    return socket._lua_redis_pcall(lr, eg, op, *args)
+
+                return wrapper
+
+            # Cache the callback wrappers and static partials
+            self._server._lua_redis_call_wrapper = make_redis_call_wrapper()
+            self._server._lua_redis_pcall_wrapper = make_redis_pcall_wrapper()
+            self._server._lua_log_partial = functools.partial(
+                _lua_redis_log, lua_runtime, expected_globals
+            )
+            self._server._lua_cjson_encode_partial = functools.partial(
+                _lua_cjson_encode, lua_runtime, expected_globals
+            )
+            self._server._lua_cjson_decode_partial = functools.partial(
+                _lua_cjson_decode, lua_runtime, expected_globals
+            )
+
+            # Set up all callbacks once
+            set_globals_init(
+                self._server._lua_redis_call_wrapper,
+                self._server._lua_redis_pcall_wrapper,
+                self._server._lua_log_partial,
+                self._server._lua_cjson_encode_partial,
+                self._server._lua_cjson_decode_partial,
+                _lua_cjson_null,
             )
 
         lua_runtime = self._server._lua_runtime
-        set_globals = self._server._lua_set_globals
         expected_globals = self._server._lua_expected_globals
 
-        set_globals(
+        # Update the current socket so callbacks can find it
+        self._server._lua_current_socket[0] = self
+
+        # Only update KEYS and ARGV per call (callbacks are already set)
+        self._server._lua_set_keys_argv(
             lua_runtime.table_from(keys_and_args[:numkeys]),
             lua_runtime.table_from(keys_and_args[numkeys:]),
-            functools.partial(self._lua_redis_call, lua_runtime, expected_globals),
-            functools.partial(self._lua_redis_pcall, lua_runtime, expected_globals),
-            functools.partial(_lua_redis_log, lua_runtime, expected_globals),
-            functools.partial(_lua_cjson_encode, lua_runtime, expected_globals),
-            functools.partial(_lua_cjson_decode, lua_runtime, expected_globals),
-            _lua_cjson_null,
         )
 
         try:
@@ -463,6 +535,9 @@ def _patch_fakeredis_lua_runtime() -> None:  # pragma: no cover
             raise SimpleError(msgs.SCRIPT_ERROR_MSG.format(sha1.decode(), ex))
 
         _check_for_lua_globals(lua_runtime, expected_globals)
+
+        # Clean up Lua tables (KEYS/ARGV) created for this script execution
+        lua_runtime.execute("collectgarbage()")
 
         return self._convert_lua_result(result, nested=False)
 

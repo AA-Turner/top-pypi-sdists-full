@@ -6,10 +6,11 @@ from adam.commands.intermediate_command import IntermediateCommand
 from adam.commands.postgres.postgres_databases import pg_path
 from adam.commands.postgres.completions_p import psql0_completions, completions_p
 from adam.commands.postgres.utils_postgres import pg_table_names, postgres
+from adam.utils_context import Context
 from .postgres_ls import PostgresLs
 from .postgres_preview import PostgresPreview
 from adam.repl_state import ReplState
-from adam.utils import log, log2, log_timing
+from adam.utils import ExecResult, log, log2, log_timing
 
 class Postgres(IntermediateCommand):
     COMMAND = 'pg'
@@ -41,12 +42,13 @@ class Postgres(IntermediateCommand):
 
                         return state
 
-                    if state.in_repl:
-                        with postgres(state) as pod:
-                            pod.sql(args, backgrounded=backgrounded)
-                    elif not self.run_subcommand(cmd, state):
-                        with postgres(state) as pod:
-                            pod.sql(args, backgrounded=backgrounded)
+                    r: ExecResult = None
+                    with postgres(state) as pod:
+                        r = pod.sql(args, ctx=Context.new(cmd, backgrounded, show_out=True, history=Context.PODS))
+
+                    if not backgrounded and r:
+                        log(r.stdout)
+                        log2(r.stderr)
 
                     return state
 

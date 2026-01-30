@@ -201,9 +201,11 @@ class LicenseV1Client(LicenseV1ClientBase):
 	def _get_machine_data(C)->dict:from localstack.utils.analytics.metadata import get_client_metadata as B;A=B();return{'id':A.machine_id,'cli':config.is_env_true(_G),'ci':A.is_ci,'system':get_system_information_summary()}
 	def _get_product_data(B)->dict:from localstack.pro.core.constants import VERSION as A;return{_I:'localstack-pro',_E:A}
 	def _perform_licensing_request(E,path:str,payload:dict):
-		import requests as A;from localstack.utils.http import get_proxies as B;C=B()
-		try:return A.post(f"{constants.API_ENDPOINT}{path}",json.dumps(payload),verify=not config.is_env_true('SSL_NO_VERIFY'),proxies=C,timeout=10)
-		except A.exceptions.RequestException as D:raise LicensingServerUnavailableError()from D
+		import requests as A;from localstack.utils.http import get_proxies as B;from localstack.utils.sync import retry;C=B()
+		def D():
+			try:return A.post(f"{constants.API_ENDPOINT}{path}",json.dumps(payload),verify=not config.is_env_true('SSL_NO_VERIFY'),proxies=C,timeout=10)
+			except A.exceptions.RequestException as B:raise LicensingServerUnavailableError()from B
+		return retry(D,retries=2,sleep=1)
 	def activate_license_online(B,credentials:Credentials,license:LicenseV1)->LicenseV1:
 		A=credentials
 		if isinstance(A,AuthToken):D=_M;E=A.token

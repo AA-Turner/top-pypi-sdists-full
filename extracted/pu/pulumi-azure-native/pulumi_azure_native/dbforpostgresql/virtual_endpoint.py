@@ -31,7 +31,7 @@ class VirtualEndpointArgs:
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] server_name: The name of the server.
         :param pulumi.Input[Union[_builtins.str, 'VirtualEndpointType']] endpoint_type: Type of endpoint for the virtual endpoints.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] members: List of flexible servers that one of the virtual endpoints can refer to.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] members: List of servers that one of the virtual endpoints can refer to.
         :param pulumi.Input[_builtins.str] virtual_endpoint_name: Base name of the virtual endpoints.
         """
         pulumi.set(__self__, "resource_group_name", resource_group_name)
@@ -83,7 +83,7 @@ class VirtualEndpointArgs:
     @pulumi.getter
     def members(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        List of flexible servers that one of the virtual endpoints can refer to.
+        List of servers that one of the virtual endpoints can refer to.
         """
         return pulumi.get(self, "members")
 
@@ -117,16 +117,16 @@ class VirtualEndpoint(pulumi.CustomResource):
                  virtual_endpoint_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        Pair of virtual endpoints for a flexible server.
+        Pair of virtual endpoints for a server.
 
-        Uses Azure REST API version 2024-08-01. In version 2.x of the Azure Native provider, it used API version 2023-06-01-preview.
+        Uses Azure REST API version 2025-08-01. In version 2.x of the Azure Native provider, it used API version 2023-06-01-preview.
 
-        Other available API versions: 2023-06-01-preview, 2023-12-01-preview, 2024-03-01-preview, 2024-11-01-preview, 2025-01-01-preview, 2025-06-01-preview, 2025-08-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native dbforpostgresql [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-06-01-preview, 2023-12-01-preview, 2024-03-01-preview, 2024-08-01, 2024-11-01-preview, 2025-01-01-preview, 2025-06-01-preview, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native dbforpostgresql [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union[_builtins.str, 'VirtualEndpointType']] endpoint_type: Type of endpoint for the virtual endpoints.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] members: List of flexible servers that one of the virtual endpoints can refer to.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] members: List of servers that one of the virtual endpoints can refer to.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] server_name: The name of the server.
         :param pulumi.Input[_builtins.str] virtual_endpoint_name: Base name of the virtual endpoints.
@@ -138,11 +138,11 @@ class VirtualEndpoint(pulumi.CustomResource):
                  args: VirtualEndpointArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Pair of virtual endpoints for a flexible server.
+        Pair of virtual endpoints for a server.
 
-        Uses Azure REST API version 2024-08-01. In version 2.x of the Azure Native provider, it used API version 2023-06-01-preview.
+        Uses Azure REST API version 2025-08-01. In version 2.x of the Azure Native provider, it used API version 2023-06-01-preview.
 
-        Other available API versions: 2023-06-01-preview, 2023-12-01-preview, 2024-03-01-preview, 2024-11-01-preview, 2025-01-01-preview, 2025-06-01-preview, 2025-08-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native dbforpostgresql [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-06-01-preview, 2023-12-01-preview, 2024-03-01-preview, 2024-08-01, 2024-11-01-preview, 2025-01-01-preview, 2025-06-01-preview, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native dbforpostgresql [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
 
         :param str resource_name: The name of the resource.
         :param VirtualEndpointArgs args: The arguments to use to populate this resource's properties.
@@ -187,7 +187,7 @@ class VirtualEndpoint(pulumi.CustomResource):
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["virtual_endpoints"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:dbforpostgresql/v20230601preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20231201preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20240301preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20240801:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20241101preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250101preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250601preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250801:VirtualEndpoint")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:dbforpostgresql/v20230601preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20231201preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20240301preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20240801:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20241101preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250101preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250601preview:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20250801:VirtualEndpoint"), pulumi.Alias(type_="azure-native:dbforpostgresql/v20260101preview:VirtualEndpoint")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(VirtualEndpoint, __self__).__init__(
             'azure-native:dbforpostgresql:VirtualEndpoint',
@@ -240,7 +240,7 @@ class VirtualEndpoint(pulumi.CustomResource):
     @pulumi.getter
     def members(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        List of flexible servers that one of the virtual endpoints can refer to.
+        List of servers that one of the virtual endpoints can refer to.
         """
         return pulumi.get(self, "members")
 
@@ -272,7 +272,7 @@ class VirtualEndpoint(pulumi.CustomResource):
     @pulumi.getter(name="virtualEndpoints")
     def virtual_endpoints(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        List of virtual endpoints for a flexible server.
+        List of virtual endpoints for a server.
         """
         return pulumi.get(self, "virtual_endpoints")
 

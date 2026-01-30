@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 4.6.2
+Version: 4.6.3
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0
@@ -27,7 +27,7 @@ Requires-Dist: requests
 Requires-Dist: furl
 Requires-Dist: boto3
 Requires-Dist: pandas[mysql]<2.4.0
-Requires-Dist: numpy<2
+Requires-Dist: numpy<2.5.0,>=1.26.3
 Requires-Dist: pyjks
 Requires-Dist: mock
 Requires-Dist: avro==1.12.0
@@ -70,6 +70,7 @@ Requires-Dist: ruff; extra == "dev-pandas1"
 Requires-Dist: pyspark==3.5.5; extra == "dev-pandas1"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-pandas1"
 Requires-Dist: pandas<=1.5.3; extra == "dev-pandas1"
+Requires-Dist: numpy<2.0.0; extra == "dev-pandas1"
 Requires-Dist: sqlalchemy<=1.4.48; extra == "dev-pandas1"
 Requires-Dist: delta-spark==3.3.1; extra == "dev-pandas1"
 Provides-Extra: dev

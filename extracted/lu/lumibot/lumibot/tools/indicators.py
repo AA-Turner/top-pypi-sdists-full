@@ -35,6 +35,34 @@ TERMINAL_TRADE_STATUSES_FOR_MARKERS = {
 }
 
 
+def _format_indicator_plotly_text(value: object, detail_text: object) -> str:
+    """Format plotly hover text for indicator markers/lines.
+
+    Strategies frequently omit `detail_text` for some points. When those points are collected
+    into a pandas DataFrame, missing values are represented as `NaN` (a float), not `None`.
+    This helper treats None/NaN/NA/empty strings as "no detail text" and always returns a
+    string, never raising.
+    """
+
+    base = "Value: " + str(value)
+
+    if detail_text is None:
+        return base
+
+    try:
+        if bool(pd.isna(detail_text)):
+            return base
+    except Exception:
+        # `pd.isna(list)` returns an array; `bool(array)` raises. Treat those as not-missing.
+        pass
+
+    detail_str = str(detail_text)
+    if detail_str.strip() == "":
+        return base
+
+    return base + "<br>" + detail_str
+
+
 def _build_trade_marker_tooltip(row: pd.Series):
     """Return tooltip text for a trade marker; None when the row lacks required data."""
     status_value = row.get("status")
@@ -208,9 +236,21 @@ def cagr(_df):
     df = df.sort_index(ascending=True)
     df["cum_return"] = (1 + df["return"]).cumprod()
     total_ret = df["cum_return"].iloc[-1]
-    start = datetime.fromtimestamp(df.index.values[0].astype("O") / 1e9, pytz.UTC)
-    end = datetime.fromtimestamp(df.index.values[-1].astype("O") / 1e9, pytz.UTC)
-    period_years = (end - start).days / 365.25
+    try:
+        start = pd.Timestamp(df.index[0])
+        end = pd.Timestamp(df.index[-1])
+        if start.tzinfo is None:
+            start = start.tz_localize(pytz.UTC)
+        else:
+            start = start.tz_convert(pytz.UTC)
+        if end.tzinfo is None:
+            end = end.tz_localize(pytz.UTC)
+        else:
+            end = end.tz_convert(pytz.UTC)
+        period_years = (end - start).days / 365.25
+    except Exception:
+        # Avoid tearing down backtests during end-of-run stats generation; return neutral CAGR.
+        return 0
     if period_years == 0:
         return 0
     CAGR = (total_ret) ** (1 / period_years) - 1
@@ -223,9 +263,21 @@ def volatility(_df):
     has the return for that time period (eg. daily)
     """
     df = _df.copy()
-    start = datetime.fromtimestamp(df.index.values[0].astype("O") / 1e9, pytz.UTC)
-    end = datetime.fromtimestamp(df.index.values[-1].astype("O") / 1e9, pytz.UTC)
-    period_years = (end - start).days / 365.25
+    try:
+        start = pd.Timestamp(df.index[0])
+        end = pd.Timestamp(df.index[-1])
+        if start.tzinfo is None:
+            start = start.tz_localize(pytz.UTC)
+        else:
+            start = start.tz_convert(pytz.UTC)
+        if end.tzinfo is None:
+            end = end.tz_localize(pytz.UTC)
+        else:
+            end = end.tz_convert(pytz.UTC)
+        period_years = (end - start).days / 365.25
+    except Exception:
+        # Avoid tearing down backtests during end-of-run stats generation; return neutral volatility.
+        return 0
     if period_years == 0:
         return 0
     ratio_to_annual = df["return"].count() / period_years
@@ -461,10 +513,7 @@ def plot_indicators(
     ###############################
 
     def generate_marker_plotly_text(row):
-        if row["detail_text"] is None:
-            return "Value: " + str(row["value"])
-        else:
-            return "Value: " + str(row["value"]) + "<br>" + row["detail_text"]
+        return _format_indicator_plotly_text(row.get("value"), row.get("detail_text"))
 
     # Plot the chart markers
     if chart_markers_df is not None and not chart_markers_df.empty:
@@ -532,10 +581,7 @@ def plot_indicators(
     ###############################
 
     def generate_line_plotly_text(row):
-        if row["detail_text"] is None:
-            return "Value: " + str(row["value"])
-        else:
-            return "Value: " + str(row["value"]) + "<br>" + row["detail_text"]
+        return _format_indicator_plotly_text(row.get("value"), row.get("detail_text"))
 
     # Plot the chart lines
     if chart_lines_df is not None and not chart_lines_df.empty:

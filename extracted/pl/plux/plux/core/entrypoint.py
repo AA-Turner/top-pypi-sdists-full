@@ -6,12 +6,22 @@ from .plugin import PluginFinder, PluginSpec
 
 
 class EntryPoint(t.NamedTuple):
+    """
+    Lightweight data structure to represent an entry point. You can find out more about the data model here:
+    https://packaging.python.org/en/latest/specifications/entry-points/#data-model
+    """
+
     name: str
+    """The name identifies this entry point within its group. The precise meaning of this is up to the consumer.
+    Within a group, entry point names should be unique."""
     value: str
+    """The object reference points to a Python object. It is either in the form ``importable.module``, or
+    importable.module:object.attr."""
     group: str
+    """The group that an entry point belongs to indicates what sort of object it provides."""
 
 
-EntryPointDict = t.Dict[str, t.List[str]]
+EntryPointDict = dict[str, list[str]]
 
 
 def discover_entry_points(finder: PluginFinder) -> EntryPointDict:
@@ -24,7 +34,15 @@ def discover_entry_points(finder: PluginFinder) -> EntryPointDict:
     return to_entry_point_dict([spec_to_entry_point(spec) for spec in finder.find_plugins()])
 
 
-def to_entry_point_dict(eps: t.List[EntryPoint]) -> EntryPointDict:
+def to_entry_point_dict(eps: list[EntryPoint]) -> EntryPointDict:
+    """
+    Convert the list of EntryPoint objects to a dictionary that maps entry point groups to their respective list of
+    ``name=value`` entry points. Each pair is represented as a string.
+
+    :param eps: List of entrypoints to convert
+    :return: an entry point dictionary
+    :raises ValueError: if there are duplicate entry points in the same group
+    """
     result = defaultdict(list)
     names = defaultdict(set)  # book-keeping to check duplicates
 

@@ -4,14 +4,26 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from uipath.platform.context_grounding.context_grounding_index import (
+    ContextGroundingIndex,
+)
+
 from ..action_center.tasks import Task, TaskRecipient
+from ..attachments import Attachment
 from ..context_grounding import (
     BatchTransformCreationResponse,
     BatchTransformOutputColumn,
     CitationMode,
     DeepRagCreationResponse,
+    EphemeralIndexUsage,
 )
-from ..documents import FileContent, StartExtractionResponse
+from ..documents import (
+    ActionPriority,
+    ExtractionResponseIXP,
+    FileContent,
+    StartExtractionResponse,
+)
+from ..documents.documents import StartExtractionValidationResponse
 from ..orchestrator.job import Job
 
 
@@ -22,6 +34,7 @@ class InvokeProcess(BaseModel):
     process_folder_path: str | None = None
     process_folder_key: str | None = None
     input_arguments: dict[str, Any] | None
+    attachments: list[Attachment] | None = None
 
 
 class WaitJob(BaseModel):
@@ -43,6 +56,10 @@ class CreateTask(BaseModel):
     app_folder_path: str | None = None
     app_folder_key: str | None = None
     app_key: str | None = None
+    priority: str | None = None
+    labels: list[str] | None = None
+    is_actionable_message_enabled: bool | None = None
+    actionable_message_metadata: dict[str, Any] | None = None
 
 
 class CreateEscalation(CreateTask):
@@ -83,6 +100,19 @@ class WaitDeepRag(BaseModel):
     deep_rag: DeepRagCreationResponse
     index_folder_path: str | None = None
     index_folder_key: str | None = None
+
+
+class CreateEphemeralIndex(BaseModel):
+    """Model representing a Ephemeral Index task creation."""
+
+    usage: EphemeralIndexUsage
+    attachments: list[str]
+
+
+class WaitEphemeralIndex(BaseModel):
+    """Model representing a wait Ephemeral Index task."""
+
+    index: ContextGroundingIndex
 
 
 class CreateBatchTransform(BaseModel):
@@ -153,3 +183,21 @@ class WaitDocumentExtraction(BaseModel):
     """Model representing a wait document extraction task creation."""
 
     extraction: StartExtractionResponse
+
+
+class DocumentExtractionValidation(BaseModel):
+    """Model representing a document extraction task creation."""
+
+    extraction_response: ExtractionResponseIXP
+    action_title: str
+    action_catalog: str | None = None
+    action_priority: ActionPriority | None = None
+    action_folder: str | None = None
+    storage_bucket_name: str | None = None
+    storage_bucket_directory_path: str | None = None
+
+
+class WaitDocumentExtractionValidation(BaseModel):
+    """Model representing a wait document extraction task creation."""
+
+    extraction_validation: StartExtractionValidationResponse

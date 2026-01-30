@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.40.0
+Version: 0.40.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -82,6 +82,8 @@ for annotation in evaluation.annotations():
 ```
 
 > ⚠️ **Upgrading from older versions?** Check our [Migration Guide](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/MIGRATION.md) for key changes.
+
+> **Migrating from `jsonschema`?** See the [jsonschema migration guide](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/MIGRATION_FROM_JSONSCHEMA.md).
 
 ## Highlights
 
@@ -250,6 +252,12 @@ assert evaluation.list() == {
             "valid": False,
         },
         {
+            "valid": True,
+            "evaluationPath": "/type",
+            "instanceLocation": "",
+            "schemaLocation": "/type",
+        },
+        {
             "valid": False,
             "evaluationPath": "/items",
             "instanceLocation": "",
@@ -288,12 +296,6 @@ assert evaluation.list() == {
             "instanceLocation": "/0",
             "schemaLocation": "/prefixItems/0/type",
         },
-        {
-            "valid": True,
-            "evaluationPath": "/type",
-            "instanceLocation": "",
-            "schemaLocation": "/type",
-        },
     ],
 }
 
@@ -304,6 +306,12 @@ assert hierarchical == {
     "instanceLocation": "",
     "schemaLocation": "",
     "details": [
+        {
+            "valid": True,
+            "evaluationPath": "/type",
+            "instanceLocation": "",
+            "schemaLocation": "/type",
+        },
         {
             "valid": False,
             "evaluationPath": "/items",
@@ -350,12 +358,6 @@ assert hierarchical == {
                     ],
                 }
             ],
-        },
-        {
-            "valid": True,
-            "evaluationPath": "/type",
-            "instanceLocation": "",
-            "schemaLocation": "/type",
         },
     ],
 }
@@ -637,6 +639,28 @@ except jsonschema_rs.ValidationError as error:
 
 For a complete list of all error kinds and their attributes, see the [type definitions file](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/python/jsonschema_rs/__init__.pyi)
 
+### Error Kind Properties
+
+Each error has a `kind` property with convenient accessors:
+
+```python
+for error in jsonschema_rs.iter_errors({"minimum": 5}, 3):
+    print(error.kind.name)      # "minimum"
+    print(error.kind.value)     # 5
+    print(error.kind.as_dict()) # {"limit": 5}
+```
+
+Pattern matching (Python 3.10+):
+
+```python
+for error in jsonschema_rs.iter_errors({"minimum": 5}, 3):
+    match error.kind:
+        case jsonschema_rs.ValidationErrorKind.Minimum(limit=limit):
+            print(f"Value below {limit}")
+        case jsonschema_rs.ValidationErrorKind.Type(types=types):
+            print(f"Expected one of {types}")
+```
+
 ### Error Message Masking
 
 When working with sensitive data, you might want to hide actual values from error messages.
@@ -674,14 +698,14 @@ On instance["api_key"]:
 
 `jsonschema-rs` is designed for high performance, outperforming other Python JSON Schema validators in most scenarios:
 
-- **45-200x** faster than `jsonschema` for complex schemas and large instances
-- **2-5x** faster than `fastjsonschema` on CPython
+- **40-230x** faster than `jsonschema` for complex schemas and large instances
+- **1.7-290x** faster than `fastjsonschema` on CPython
 
 For detailed benchmarks, see our [full performance comparison](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/BENCHMARKS.md).
 
 ## Python support
 
-`jsonschema-rs` supports CPython 3.8 through 3.14.
+`jsonschema-rs` supports CPython 3.10 through 3.14 and PyPy 3.10+.
 
 ## Acknowledgements
 

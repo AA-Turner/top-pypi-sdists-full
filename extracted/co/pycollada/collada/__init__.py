@@ -18,7 +18,7 @@ file is not what is expected.
 
 """
 
-__version__ = "0.9.2"
+__version__ = "0.9.3"
 
 import io
 import os.path
@@ -471,7 +471,7 @@ class Collada(object):
 
     def _loadDefaultScene(self):
         """Loads the default scene from <scene> tag in the root node."""
-        node = self.xmlnode.find('%s/%s' % (self.tag('scene'), self.tag('instance_visual_scene')))
+        node = self.xmlnode.find(f"{self.tag('scene')}/{self.tag('instance_visual_scene')}")
         try:
             if node is not None:
                 sceneid = node.get('url')

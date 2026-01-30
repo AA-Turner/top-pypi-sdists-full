@@ -39,6 +39,8 @@ class CronQuery(_message.Message):
         "resource_group",
         "planner_options",
         "completion_deadline",
+        "num_shards",
+        "num_workers",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -64,6 +66,8 @@ class CronQuery(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     COMPLETION_DEADLINE_FIELD_NUMBER: _ClassVar[int]
+    NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -80,6 +84,8 @@ class CronQuery(_message.Message):
     resource_group: str
     planner_options: _containers.ScalarMap[str, str]
     completion_deadline: _duration_pb2.Duration
+    num_shards: int
+    num_workers: int
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -98,4 +104,6 @@ class CronQuery(_message.Message):
         resource_group: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, str]] = ...,
         completion_deadline: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        num_shards: _Optional[int] = ...,
+        num_workers: _Optional[int] = ...,
     ) -> None: ...

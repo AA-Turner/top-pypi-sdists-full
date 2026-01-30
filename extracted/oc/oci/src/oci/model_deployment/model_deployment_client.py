@@ -163,7 +163,7 @@ class ModelDeploymentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/modeldeployment/predict.py.html>`__ to see an example of how to use predict API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/modeldeployment/predict.py.html>`__ to see an example of how to use predict API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['modelDeploymentId']
@@ -276,7 +276,7 @@ class ModelDeploymentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/modeldeployment/predict_with_response_stream.py.html>`__ to see an example of how to use predict_with_response_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/modeldeployment/predict_with_response_stream.py.html>`__ to see an example of how to use predict_with_response_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['modelDeploymentId']

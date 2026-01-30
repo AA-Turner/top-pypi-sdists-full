@@ -216,6 +216,10 @@ class CreateOpensearchClusterDetails(object):
             The value to assign to the maintenance_details property of this CreateOpensearchClusterDetails.
         :type maintenance_details: oci.opensearch.models.CreateMaintenanceDetails
 
+        :param load_balancer_config:
+            The value to assign to the load_balancer_config property of this CreateOpensearchClusterDetails.
+        :type load_balancer_config: oci.opensearch.models.LoadBalancerConfig
+
         :param certificate_config:
             The value to assign to the certificate_config property of this CreateOpensearchClusterDetails.
         :type certificate_config: oci.opensearch.models.CertificateConfig
@@ -278,6 +282,7 @@ class CreateOpensearchClusterDetails(object):
             'inbound_cluster_ids': 'list[str]',
             'outbound_cluster_config': 'OutboundClusterConfig',
             'maintenance_details': 'CreateMaintenanceDetails',
+            'load_balancer_config': 'LoadBalancerConfig',
             'certificate_config': 'CertificateConfig',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
@@ -325,6 +330,7 @@ class CreateOpensearchClusterDetails(object):
             'inbound_cluster_ids': 'inboundClusterIds',
             'outbound_cluster_config': 'outboundClusterConfig',
             'maintenance_details': 'maintenanceDetails',
+            'load_balancer_config': 'loadBalancerConfig',
             'certificate_config': 'certificateConfig',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
@@ -371,6 +377,7 @@ class CreateOpensearchClusterDetails(object):
         self._inbound_cluster_ids = None
         self._outbound_cluster_config = None
         self._maintenance_details = None
+        self._load_balancer_config = None
         self._certificate_config = None
         self._freeform_tags = None
         self._defined_tags = None
@@ -1348,6 +1355,26 @@ class CreateOpensearchClusterDetails(object):
         :type: oci.opensearch.models.CreateMaintenanceDetails
         """
         self._maintenance_details = maintenance_details
+
+    @property
+    def load_balancer_config(self):
+        """
+        Gets the load_balancer_config of this CreateOpensearchClusterDetails.
+
+        :return: The load_balancer_config of this CreateOpensearchClusterDetails.
+        :rtype: oci.opensearch.models.LoadBalancerConfig
+        """
+        return self._load_balancer_config
+
+    @load_balancer_config.setter
+    def load_balancer_config(self, load_balancer_config):
+        """
+        Sets the load_balancer_config of this CreateOpensearchClusterDetails.
+
+        :param load_balancer_config: The load_balancer_config of this CreateOpensearchClusterDetails.
+        :type: oci.opensearch.models.LoadBalancerConfig
+        """
+        self._load_balancer_config = load_balancer_config
 
     @property
     def certificate_config(self):

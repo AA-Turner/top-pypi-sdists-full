@@ -10,14 +10,13 @@ import socket
 import ssl
 from collections.abc import Iterable, Sequence
 from types import TracebackType
-from typing import (
-    Any,
-    Literal,
-    Optional,
-    Union,
+from typing import Any, Literal
+from .auth import (
+    auth_crammd5_verify,
+    auth_login_encode,
+    auth_plain_encode,
+    auth_xoauth2_encode,
 )
-
-from .auth import auth_crammd5_verify, auth_login_encode, auth_plain_encode
 from .email import (
     extract_recipients,
     extract_sender,
@@ -43,7 +42,7 @@ from .errors import (
 from .esmtp import parse_esmtp_extensions
 from .protocol import SMTPProtocol
 from .response import SMTPResponse
-from .typing import Default, SMTPStatus, SocketPathType
+from .typing import Default, SMTPStatus, SMTPTokenGenerator, SocketPathType
 
 
 __all__ = ("SMTP", "SMTP_PORT", "SMTP_TLS_PORT", "SMTP_STARTTLS_PORT")
@@ -87,29 +86,34 @@ class SMTP:
     def __init__(
         self,
         *,
-        hostname: Optional[str] = None,
-        port: Optional[int] = None,
-        username: Optional[Union[str, bytes]] = None,
-        password: Optional[Union[str, bytes]] = None,
-        local_hostname: Optional[str] = None,
-        source_address: Optional[tuple[str, int]] = None,
-        timeout: Optional[float] = DEFAULT_TIMEOUT,
+        hostname: str | None = None,
+        port: int | None = None,
+        username: str | bytes | None = None,
+        password: str | bytes | None = None,
+        oauth_token_generator: SMTPTokenGenerator | None = None,
+        local_hostname: str | None = None,
+        source_address: tuple[str, int] | None = None,
+        timeout: float | None = DEFAULT_TIMEOUT,
         use_tls: bool = False,
-        start_tls: Optional[bool] = None,
+        start_tls: bool | None = None,
         validate_certs: bool = True,
-        client_cert: Optional[str] = None,
-        client_key: Optional[str] = None,
-        tls_context: Optional[ssl.SSLContext] = None,
-        cert_bundle: Optional[str] = None,
-        socket_path: Optional[SocketPathType] = None,
-        sock: Optional[socket.socket] = None,
+        client_cert: str | None = None,
+        client_key: str | None = None,
+        tls_context: ssl.SSLContext | None = None,
+        cert_bundle: str | None = None,
+        socket_path: SocketPathType | None = None,
+        sock: socket.socket | None = None,
     ) -> None:
         """
         :keyword hostname:  Server name (or IP) to connect to. defaults to "localhost".
         :keyword port: Server port. defaults ``465`` if ``use_tls`` is ``True``,
             ``587`` if ``start_tls`` is ``True``, or ``25`` otherwise.
         :keyword username:  Username to login as after connect.
-        :keyword password:  Password for login after connect.
+        :keyword password:  Password for login after connect. Mutually exclusive
+            with ``oauth_token_generator``.
+        :keyword oauth_token_generator: An async callable that returns an OAuth2
+            access token for XOAUTH2 authentication. Mutually exclusive with
+            ``password``.
         :keyword local_hostname: The hostname of the client.  If specified, used as the
             FQDN of the local host in the HELO/EHLO command. Otherwise, the result of
             :func:`socket.getfqdn`.
@@ -141,14 +145,15 @@ class SMTP:
 
         :raises ValueError: mutually exclusive options provided
         """
-        self.protocol: Optional[SMTPProtocol] = None
-        self.transport: Optional[asyncio.BaseTransport] = None
+        self.protocol: SMTPProtocol | None = None
+        self.transport: asyncio.BaseTransport | None = None
 
         # Kwarg defaults are provided here, and saved for connect.
         self.hostname = hostname
         self.port = port
         self._login_username = username
         self._login_password = password
+        self._oauth_token_generator = oauth_token_generator
         self.local_hostname = local_hostname
         self.timeout = timeout
         self.use_tls = use_tls
@@ -162,14 +167,14 @@ class SMTP:
         self.sock = sock
         self.source_address = source_address
 
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
-        self._connect_lock: Optional[asyncio.Lock] = None
-        self.last_helo_response: Optional[SMTPResponse] = None
-        self._last_ehlo_response: Optional[SMTPResponse] = None
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self._connect_lock: asyncio.Lock | None = None
+        self.last_helo_response: SMTPResponse | None = None
+        self._last_ehlo_response: SMTPResponse | None = None
         self.esmtp_extensions: dict[str, str] = {}
         self.supports_esmtp = False
         self.server_auth_methods: list[str] = []
-        self._sendmail_lock: Optional[asyncio.Lock] = None
+        self._sendmail_lock: asyncio.Lock | None = None
 
         self._validate_config()
 
@@ -181,9 +186,9 @@ class SMTP:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         if isinstance(exc, (ConnectionError, TimeoutError)):
             self.close()
@@ -202,7 +207,7 @@ class SMTP:
         return bool(self.protocol is not None and self.protocol.is_connected)
 
     @property
-    def last_ehlo_response(self) -> Union[SMTPResponse, None]:
+    def last_ehlo_response(self) -> SMTPResponse | None:
         return self._last_ehlo_response
 
     @last_ehlo_response.setter
@@ -233,27 +238,24 @@ class SMTP:
 
     def _update_settings_from_kwargs(
         self,
-        hostname: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        port: Optional[Union[int, Literal[Default.token]]] = Default.token,
-        username: Optional[Union[str, bytes, Literal[Default.token]]] = Default.token,
-        password: Optional[Union[str, bytes, Literal[Default.token]]] = Default.token,
-        local_hostname: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        source_address: Optional[
-            Union[tuple[str, int], Literal[Default.token]]
-        ] = Default.token,
-        use_tls: Optional[bool] = None,
-        start_tls: Optional[Union[bool, Literal[Default.token]]] = Default.token,
-        validate_certs: Optional[bool] = None,
-        client_cert: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        client_key: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        tls_context: Optional[
-            Union[ssl.SSLContext, Literal[Default.token]]
-        ] = Default.token,
-        cert_bundle: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        socket_path: Optional[
-            Union[SocketPathType, Literal[Default.token]]
-        ] = Default.token,
-        sock: Optional[Union[socket.socket, Literal[Default.token]]] = Default.token,
+        hostname: str | Literal[Default.token] | None = Default.token,
+        port: int | Literal[Default.token] | None = Default.token,
+        username: str | bytes | Literal[Default.token] | None = Default.token,
+        password: str | bytes | Literal[Default.token] | None = Default.token,
+        oauth_token_generator: SMTPTokenGenerator
+        | Literal[Default.token]
+        | None = Default.token,
+        local_hostname: str | Literal[Default.token] | None = Default.token,
+        source_address: tuple[str, int] | Literal[Default.token] | None = Default.token,
+        use_tls: bool | None = None,
+        start_tls: bool | Literal[Default.token] | None = Default.token,
+        validate_certs: bool | None = None,
+        client_cert: str | Literal[Default.token] | None = Default.token,
+        client_key: str | Literal[Default.token] | None = Default.token,
+        tls_context: ssl.SSLContext | Literal[Default.token] | None = Default.token,
+        cert_bundle: str | Literal[Default.token] | None = Default.token,
+        socket_path: SocketPathType | Literal[Default.token] | None = Default.token,
+        sock: socket.socket | Literal[Default.token] | None = Default.token,
     ) -> None:
         """Update our configuration from the kwargs provided.
 
@@ -273,6 +275,8 @@ class SMTP:
             self._login_username = username
         if password is not Default.token:
             self._login_password = password
+        if oauth_token_generator is not Default.token:
+            self._oauth_token_generator = oauth_token_generator
 
         if local_hostname is not Default.token:
             self.local_hostname = local_hostname
@@ -292,6 +296,11 @@ class SMTP:
             self.sock = sock
 
     def _validate_config(self) -> None:
+        if self._login_password is not None and self._oauth_token_generator is not None:
+            raise ValueError(
+                "password and oauth_token_generator are mutually exclusive"
+            )
+
         if self._start_tls_on_connect and self.use_tls:
             raise ValueError("The start_tls and use_tls options are not compatible.")
 
@@ -342,28 +351,25 @@ class SMTP:
     async def connect(
         self,
         *,
-        hostname: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        port: Optional[Union[int, Literal[Default.token]]] = Default.token,
-        username: Optional[Union[str, bytes, Literal[Default.token]]] = Default.token,
-        password: Optional[Union[str, bytes, Literal[Default.token]]] = Default.token,
-        local_hostname: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        source_address: Optional[
-            Union[tuple[str, int], Literal[Default.token]]
-        ] = Default.token,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
-        use_tls: Optional[bool] = None,
-        start_tls: Optional[Union[bool, Literal[Default.token]]] = Default.token,
-        validate_certs: Optional[bool] = None,
-        client_cert: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        client_key: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        tls_context: Optional[
-            Union[ssl.SSLContext, Literal[Default.token]]
-        ] = Default.token,
-        cert_bundle: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        socket_path: Optional[
-            Union[SocketPathType, Literal[Default.token]]
-        ] = Default.token,
-        sock: Optional[Union[socket.socket, Literal[Default.token]]] = Default.token,
+        hostname: str | Literal[Default.token] | None = Default.token,
+        port: int | Literal[Default.token] | None = Default.token,
+        username: str | bytes | Literal[Default.token] | None = Default.token,
+        password: str | bytes | Literal[Default.token] | None = Default.token,
+        oauth_token_generator: SMTPTokenGenerator
+        | Literal[Default.token]
+        | None = Default.token,
+        local_hostname: str | Literal[Default.token] | None = Default.token,
+        source_address: tuple[str, int] | Literal[Default.token] | None = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
+        use_tls: bool | None = None,
+        start_tls: bool | Literal[Default.token] | None = Default.token,
+        validate_certs: bool | None = None,
+        client_cert: str | Literal[Default.token] | None = Default.token,
+        client_key: str | Literal[Default.token] | None = Default.token,
+        tls_context: ssl.SSLContext | Literal[Default.token] | None = Default.token,
+        cert_bundle: str | Literal[Default.token] | None = Default.token,
+        socket_path: SocketPathType | Literal[Default.token] | None = Default.token,
+        sock: socket.socket | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Initialize a connection to the server. Options provided to
@@ -374,7 +380,11 @@ class SMTP:
         :keyword port: Server port. defaults ``465`` if ``use_tls`` is ``True``,
             ``587`` if ``start_tls`` is ``True``, or ``25`` otherwise.
         :keyword username:  Username to login as after connect.
-        :keyword password:  Password for login after connect.
+        :keyword password:  Password for login after connect. Mutually exclusive
+            with ``oauth_token_generator``.
+        :keyword oauth_token_generator: An async callable that returns an OAuth2
+            access token for XOAUTH2 authentication. Mutually exclusive with
+            ``password``.
         :keyword local_hostname: The hostname of the client.  If specified, used as the
             FQDN of the local host in the HELO/EHLO command. Otherwise, the result of
             :func:`socket.getfqdn`.
@@ -423,6 +433,7 @@ class SMTP:
             sock=sock,
             username=username,
             password=password,
+            oauth_token_generator=oauth_token_generator,
         )
         self._validate_config()
 
@@ -454,15 +465,15 @@ class SMTP:
 
         return response
 
-    async def _create_connection(self, timeout: Optional[float]) -> SMTPResponse:
+    async def _create_connection(self, timeout: float | None) -> SMTPResponse:
         if self.loop is None:
             raise RuntimeError("No event loop set")
 
         protocol = SMTPProtocol(loop=self.loop, connection_lost_callback=self.close)
 
-        tls_context: Optional[ssl.SSLContext] = None
-        ssl_handshake_timeout: Optional[float] = None
-        server_hostname: Optional[str] = None
+        tls_context: ssl.SSLContext | None = None
+        ssl_handshake_timeout: float | None = None
+        server_hostname: str | None = None
         if self.use_tls:
             tls_context = self._get_tls_context()
             ssl_handshake_timeout = timeout
@@ -548,7 +559,19 @@ class SMTP:
         """
         Depending on config, login after connecting.
         """
-        if self._login_username is not None:
+        if self._oauth_token_generator is not None:
+            if self._login_username is None:
+                raise SMTPException(
+                    "username is required when using oauth_token_generator"
+                )
+            await self._ehlo_or_helo_if_needed()
+            if "xoauth2" not in self.server_auth_methods:
+                raise SMTPException(
+                    "oauth_token_generator provided but server does not support XOAUTH2"
+                )
+            token = await self._oauth_token_generator()
+            await self.auth_xoauth2(self._login_username, token)
+        elif self._login_username is not None:
             login_password = (
                 self._login_password if self._login_password is not None else ""
             )
@@ -557,7 +580,7 @@ class SMTP:
     async def execute_command(
         self,
         *args: bytes,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Check that we're connected, if we got a timeout value, and then
@@ -647,8 +670,8 @@ class SMTP:
     async def helo(
         self,
         *,
-        hostname: Optional[str] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        hostname: str | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send the SMTP HELO command.
@@ -674,7 +697,7 @@ class SMTP:
         return response
 
     async def help(
-        self, *, timeout: Optional[Union[float, Literal[Default.token]]] = Default.token
+        self, *, timeout: float | Literal[Default.token] | None = Default.token
     ) -> str:
         """
         Send the SMTP HELP command, which responds with help text.
@@ -694,7 +717,7 @@ class SMTP:
         return response.message
 
     async def rset(
-        self, *, timeout: Optional[Union[float, Literal[Default.token]]] = Default.token
+        self, *, timeout: float | Literal[Default.token] | None = Default.token
     ) -> SMTPResponse:
         """
         Send an SMTP RSET command, which resets the server's envelope
@@ -711,7 +734,7 @@ class SMTP:
         return response
 
     async def noop(
-        self, *, timeout: Optional[Union[float, Literal[Default.token]]] = Default.token
+        self, *, timeout: float | Literal[Default.token] | None = Default.token
     ) -> SMTPResponse:
         """
         Send an SMTP NOOP command, which does nothing.
@@ -731,8 +754,8 @@ class SMTP:
         address: str,
         /,
         *,
-        options: Optional[Iterable[str]] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        options: Iterable[str] | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send an SMTP VRFY command, which tests an address for validity.
@@ -772,8 +795,8 @@ class SMTP:
         address: str,
         /,
         *,
-        options: Optional[Iterable[str]] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        options: Iterable[str] | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send an SMTP EXPN command, which expands a mailing list.
@@ -805,7 +828,7 @@ class SMTP:
         return response
 
     async def quit(
-        self, *, timeout: Optional[Union[float, Literal[Default.token]]] = Default.token
+        self, *, timeout: float | Literal[Default.token] | None = Default.token
     ) -> SMTPResponse:
         """
         Send the SMTP QUIT command, which closes the connection.
@@ -826,9 +849,9 @@ class SMTP:
         sender: str,
         /,
         *,
-        options: Optional[Iterable[str]] = None,
+        options: Iterable[str] | None = None,
         encoding: str = "ascii",
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send an SMTP MAIL command, which specifies the message sender and
@@ -859,9 +882,9 @@ class SMTP:
         recipient: str,
         /,
         *,
-        options: Optional[Iterable[str]] = None,
+        options: Iterable[str] | None = None,
         encoding: str = "ascii",
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send an SMTP RCPT command, which specifies a single recipient for
@@ -890,10 +913,10 @@ class SMTP:
 
     async def data(
         self,
-        message: Union[str, bytes],
+        message: str | bytes,
         /,
         *,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send an SMTP DATA command, followed by the message given.
@@ -924,8 +947,8 @@ class SMTP:
     async def ehlo(
         self,
         *,
-        hostname: Optional[str] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        hostname: str | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Send the SMTP EHLO command.
@@ -986,15 +1009,13 @@ class SMTP:
     async def starttls(
         self,
         *,
-        server_hostname: Optional[str] = None,
-        validate_certs: Optional[bool] = None,
-        client_cert: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        client_key: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        cert_bundle: Optional[Union[str, Literal[Default.token]]] = Default.token,
-        tls_context: Optional[
-            Union[ssl.SSLContext, Literal[Default.token]]
-        ] = Default.token,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        server_hostname: str | None = None,
+        validate_certs: bool | None = None,
+        client_cert: str | Literal[Default.token] | None = Default.token,
+        client_key: str | Literal[Default.token] | None = Default.token,
+        cert_bundle: str | Literal[Default.token] | None = Default.token,
+        tls_context: ssl.SSLContext | Literal[Default.token] | None = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Puts the connection to the SMTP server into TLS mode.
@@ -1065,10 +1086,10 @@ class SMTP:
 
     async def login(
         self,
-        username: Union[str, bytes],
-        password: Union[str, bytes],
+        username: str | bytes,
+        password: str | bytes,
         /,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         Tries to login with supported auth methods.
@@ -1089,8 +1110,8 @@ class SMTP:
                 "The SMTP AUTH extension is not supported by this server."
             )
 
-        response: Optional[SMTPResponse] = None
-        exception: Optional[SMTPAuthenticationError] = None
+        response: SMTPResponse | None = None
+        exception: SMTPAuthenticationError | None = None
         for auth_name in self.supported_auth_methods:
             method_name = f"auth_{auth_name.replace('-', '')}"
             try:
@@ -1114,11 +1135,11 @@ class SMTP:
 
     async def auth_crammd5(
         self,
-        username: Union[str, bytes],
-        password: Union[str, bytes],
+        username: str | bytes,
+        password: str | bytes,
         /,
         *,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         CRAM-MD5 auth uses the password as a shared secret to MD5 the server's
@@ -1153,11 +1174,11 @@ class SMTP:
 
     async def auth_plain(
         self,
-        username: Union[str, bytes],
-        password: Union[str, bytes],
+        username: str | bytes,
+        password: str | bytes,
         /,
         *,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         PLAIN auth encodes the username and password in one Base64 encoded
@@ -1182,11 +1203,11 @@ class SMTP:
 
     async def auth_login(
         self,
-        username: Union[str, bytes],
-        password: Union[str, bytes],
+        username: str | bytes,
+        password: str | bytes,
         /,
         *,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> SMTPResponse:
         """
         LOGIN auth sends the Base64 encoded username and password in sequence.
@@ -1228,16 +1249,54 @@ class SMTP:
 
         return response
 
+    async def auth_xoauth2(
+        self,
+        username: str | bytes,
+        access_token: str | bytes,
+        /,
+        *,
+        timeout: float | Literal[Default.token] | None = Default.token,
+    ) -> SMTPResponse:
+        """
+        XOAUTH2 auth for OAuth2 access tokens (e.g., Gmail, Outlook).
+
+        See https://developers.google.com/gmail/imap/xoauth2-protocol
+
+        Example::
+
+            250 AUTH XOAUTH2
+            AUTH XOAUTH2 dXNlcj11c2VyQGV4YW1wbGUuY29tAWF1dGg9QmVhcmVyIHRva2VuAQE=
+            235 2.7.0 Accepted
+
+        On failure, the server sends a base64-encoded JSON error as a challenge.
+        We respond with an empty line to get the final error response.
+        """
+        await self._ehlo_or_helo_if_needed()
+
+        encoded = auth_xoauth2_encode(username, access_token)
+        response = await self.execute_command(
+            b"AUTH", b"XOAUTH2", encoded, timeout=timeout
+        )
+
+        if response.code == SMTPStatus.auth_continue:
+            # Server sent an error challenge; send empty response to get final error
+            response = await self.execute_command(b"", timeout=timeout)
+
+        if response.code != SMTPStatus.auth_successful:
+            raise SMTPAuthenticationError(response.code, response.message)
+
+        return response
+
     async def sendmail(
         self,
         sender: str,
-        recipients: Union[str, Sequence[str]],
-        message: Union[str, bytes],
+        recipients: str | Sequence[str],
+        message: str | bytes,
         /,
         *,
-        mail_options: Optional[Iterable[str]] = None,
-        rcpt_options: Optional[Iterable[str]] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        mail_options: Iterable[str] | None = None,
+        rcpt_options: Iterable[str] | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> tuple[dict[str, SMTPResponse], str]:
         """
         This command performs an entire mail transaction.
@@ -1360,7 +1419,7 @@ class SMTP:
         recipients: Sequence[str],
         options: Iterable[str],
         encoding: str = "ascii",
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> dict[str, SMTPResponse]:
         """
         Send the recipients given to the server. Used as part of
@@ -1387,14 +1446,14 @@ class SMTP:
 
     async def send_message(
         self,
-        message: Union[email.message.EmailMessage, email.message.Message],
+        message: email.message.EmailMessage | email.message.Message,
         /,
         *,
-        sender: Optional[str] = None,
-        recipients: Optional[Union[str, Sequence[str]]] = None,
-        mail_options: Optional[Iterable[str]] = None,
-        rcpt_options: Optional[Iterable[str]] = None,
-        timeout: Optional[Union[float, Literal[Default.token]]] = Default.token,
+        sender: str | None = None,
+        recipients: str | Sequence[str] | None = None,
+        mail_options: Iterable[str] | None = None,
+        rcpt_options: Iterable[str] | None = None,
+        timeout: float | Literal[Default.token] | None = Default.token,
     ) -> tuple[dict[str, SMTPResponse], str]:
         r"""
         Sends an :py:class:`email.message.EmailMessage` object.

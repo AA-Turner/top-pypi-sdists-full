@@ -9,6 +9,8 @@ class DeviceClass:
 	PHIDCLASS_ANALOG = 3
 	# PhidgetBridge device
 	PHIDCLASS_BRIDGE = 4
+	# PhidgetDataAdapter device
+	PHIDCLASS_DATAADAPTER = 25
 	# Dictionary device
 	PHIDCLASS_DICTIONARY = 24
 	# PhidgetEncoder device
@@ -25,6 +27,8 @@ class DeviceClass:
 	PHIDCLASS_IR = 10
 	# PhidgetLED device
 	PHIDCLASS_LED = 11
+	# PhidgetLEDArray device
+	PHIDCLASS_LEDARRAY = 12
 	# PhidgetMotorControl device
 	PHIDCLASS_MOTORCONTROL = 13
 	# PhidgetPHSensor device
@@ -54,6 +58,8 @@ class DeviceClass:
 			return "PHIDCLASS_ANALOG"
 		if val == self.PHIDCLASS_BRIDGE:
 			return "PHIDCLASS_BRIDGE"
+		if val == self.PHIDCLASS_DATAADAPTER:
+			return "PHIDCLASS_DATAADAPTER"
 		if val == self.PHIDCLASS_DICTIONARY:
 			return "PHIDCLASS_DICTIONARY"
 		if val == self.PHIDCLASS_ENCODER:
@@ -70,6 +76,8 @@ class DeviceClass:
 			return "PHIDCLASS_IR"
 		if val == self.PHIDCLASS_LED:
 			return "PHIDCLASS_LED"
+		if val == self.PHIDCLASS_LEDARRAY:
+			return "PHIDCLASS_LEDARRAY"
 		if val == self.PHIDCLASS_MOTORCONTROL:
 			return "PHIDCLASS_MOTORCONTROL"
 		if val == self.PHIDCLASS_PHSENSOR:

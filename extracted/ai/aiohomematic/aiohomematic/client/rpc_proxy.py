@@ -26,7 +26,7 @@ import asyncio
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from enum import Enum, IntEnum, StrEnum
+from enum import Enum, IntEnum, StrEnum, unique
 import errno
 import http.client
 import logging
@@ -64,6 +64,7 @@ _TLS: Final = "tls"
 _VERIFY_TLS: Final = "verify_tls"
 
 
+@unique
 class _RpcMethod(StrEnum):
     """Enum for Homematic json rpc methods types."""
 
@@ -95,6 +96,7 @@ _OS_ERROR_CODES: Final[dict[int, str]] = {
 }
 
 
+@unique
 class _XmlRpcFaultCode(IntEnum):
     """
     XML-RPC fault codes from the Homematic backend.
@@ -148,11 +150,16 @@ _EXPECTED_XMLRPC_FAULT_CODES: Final[frozenset[int]] = frozenset(
 
 
 class _TimeoutTransport(xmlrpc.client.Transport):
-    """HTTP Transport with configurable socket timeout."""
+    """HTTP Transport with configurable socket timeout and extra headers."""
 
-    def __init__(self, *, timeout: float | None = None) -> None:
-        """Initialize transport with timeout."""
-        super().__init__()
+    def __init__(
+        self,
+        *,
+        timeout: float | None = None,
+        headers: list[tuple[str, str]] | None = None,
+    ) -> None:
+        """Initialize transport with timeout and optional headers."""
+        super().__init__(headers=headers or [])
         self._timeout = timeout
 
     def make_connection(  # kwonly: disable
@@ -166,11 +173,17 @@ class _TimeoutTransport(xmlrpc.client.Transport):
 
 
 class _TimeoutSafeTransport(xmlrpc.client.SafeTransport):
-    """HTTPS Transport with configurable socket timeout."""
+    """HTTPS Transport with configurable socket timeout and extra headers."""
 
-    def __init__(self, *, timeout: float | None = None, context: SSLContext | None = None) -> None:
-        """Initialize transport with timeout and optional SSL context."""
-        super().__init__(context=context)
+    def __init__(
+        self,
+        *,
+        timeout: float | None = None,
+        context: SSLContext | None = None,
+        headers: list[tuple[str, str]] | None = None,
+    ) -> None:
+        """Initialize transport with timeout, optional SSL context, and headers."""
+        super().__init__(context=context, headers=headers or [])
         self._timeout = timeout
 
     def make_connection(  # kwonly: disable
@@ -386,15 +399,17 @@ class AioXmlRpcProxy(BaseRpcProxy, xmlrpc.client.ServerProxy):
 
         # Create transport with timeout support
         # ServerProxy doesn't accept timeout directly - it must be set on the transport
+        # IMPORTANT: When using a custom transport, headers must be passed to the transport
+        # directly, as ServerProxy won't add them to an existing transport.
         transport: xmlrpc.client.Transport | None = None
         if timeout is not None or tls:
             if tls:
-                # Use HTTPS transport with timeout and SSL context
+                # Use HTTPS transport with timeout, SSL context, and auth headers
                 ssl_context = self._kwargs.get(_CONTEXT)
-                transport = _TimeoutSafeTransport(timeout=timeout, context=ssl_context)
+                transport = _TimeoutSafeTransport(timeout=timeout, context=ssl_context, headers=headers)
             else:
-                # Use HTTP transport with timeout
-                transport = _TimeoutTransport(timeout=timeout)
+                # Use HTTP transport with timeout and auth headers
+                transport = _TimeoutTransport(timeout=timeout, headers=headers)
 
         xmlrpc.client.ServerProxy.__init__(
             self,

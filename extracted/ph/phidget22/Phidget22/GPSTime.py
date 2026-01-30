@@ -10,11 +10,11 @@ class GPSTime(ctypes.Structure):
 		("_tm_hour", ctypes.c_int16),
 	]
 
-	def __init__(self):
-		self.tm_ms = 0
-		self.tm_sec = 0
-		self.tm_min = 0
-		self.tm_hour = 0
+	def __init__(self, tm_ms = 0, tm_sec = 0, tm_min = 0, tm_hour = 0):
+		self.tm_ms = tm_ms
+		self.tm_sec = tm_sec
+		self.tm_min = tm_min
+		self.tm_hour = tm_hour
 
 	def fromPython(self):
 		self._tm_ms = self.tm_ms

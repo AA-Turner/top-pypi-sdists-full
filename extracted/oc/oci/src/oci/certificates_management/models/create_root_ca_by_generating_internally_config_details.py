@@ -47,7 +47,7 @@ class CreateRootCaByGeneratingInternallyConfigDetails(CreateCertificateAuthority
 
         :param config_type:
             The value to assign to the config_type property of this CreateRootCaByGeneratingInternallyConfigDetails.
-            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
+            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA", "ROOT_CA_MANAGED_EXTERNALLY", "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
         :type config_type: str
 
         :param version_name:

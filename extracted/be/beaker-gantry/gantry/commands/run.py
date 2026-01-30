@@ -565,7 +565,7 @@ def run(
     **kwargs,
 ):
     """
-    Run an experiment on Beaker.
+    Run a workload on Beaker.
 
     Example:
 
@@ -681,4 +681,5 @@ def run(
             start_timeout=start_timeout,
             inactive_timeout=inactive_timeout,
             inactive_soft_timeout=inactive_soft_timeout,
+            auto_cancel=True,
         )

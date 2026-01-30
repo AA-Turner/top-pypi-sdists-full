@@ -275,7 +275,7 @@ class TestPypiStats:
         # Assert
         assert output.strip() == expected.strip()
 
-    def test__sort(self) -> None:
+    def test__sort_by_downloads(self) -> None:
         # Arrange
         data = copy.deepcopy(SAMPLE_DATA)
         expected_output = [
@@ -292,10 +292,69 @@ class TestPypiStats:
         ]
 
         # Act
-        output = pypistats._sort(data)
+        output = pypistats._sort(data, sort="downloads")
 
         # Assert
         assert output == expected_output
+
+    def test__sort_by_downloads_default(self) -> None:
+        # Arrange: sort=True should behave like sort="downloads" for backwards compat
+        data = copy.deepcopy(SAMPLE_DATA)
+
+        # Act
+        output_true = pypistats._sort(data, sort=True)
+        output_downloads = pypistats._sort(data, sort="downloads")
+
+        # Assert
+        assert output_true == output_downloads
+
+    def test__sort_by_percent(self) -> None:
+        # Arrange: sort by percent descending (biggest first)
+        data = [
+            {"category": "3.6", "percent": "9.00%", "downloads": 90},
+            {"category": "3.7", "percent": "50.00%", "downloads": 500},
+            {"category": "3.8", "percent": "41.00%", "downloads": 410},
+        ]
+        expected_output = [
+            {"category": "3.7", "percent": "50.00%", "downloads": 500},
+            {"category": "3.8", "percent": "41.00%", "downloads": 410},
+            {"category": "3.6", "percent": "9.00%", "downloads": 90},
+        ]
+
+        # Act
+        output = pypistats._sort(data, sort="percent")
+
+        # Assert
+        assert output == expected_output
+
+    def test__sort_by_date(self) -> None:
+        # Arrange
+        data = [
+            {"category": "3.6", "date": "2018-08-17", "downloads": 100},
+            {"category": "3.6", "date": "2018-08-15", "downloads": 200},
+            {"category": "3.6", "date": "2018-08-16", "downloads": 150},
+        ]
+        expected_output = [
+            {"category": "3.6", "date": "2018-08-15", "downloads": 200},
+            {"category": "3.6", "date": "2018-08-16", "downloads": 150},
+            {"category": "3.6", "date": "2018-08-17", "downloads": 100},
+        ]
+
+        # Act
+        output = pypistats._sort(data, sort="date")
+
+        # Assert
+        assert output == expected_output
+
+    def test__sort_disabled(self) -> None:
+        # Arrange
+        data = copy.deepcopy(SAMPLE_DATA)
+
+        # Act
+        output = pypistats._sort(data, sort=False)
+
+        # Assert
+        assert output == SAMPLE_DATA
 
     def test__sort_recent(self) -> None:
         # Arrange
@@ -306,6 +365,19 @@ class TestPypiStats:
 
         # Assert
         assert output == SAMPLE_DATA_RECENT
+
+    def test__sort_key_not_in_data(self) -> None:
+        # Arrange: sort key doesn't exist in data, should return unchanged
+        data = [
+            {"category": "3.6", "downloads": 100},
+            {"category": "3.7", "downloads": 200},
+        ]
+
+        # Act
+        output = pypistats._sort(data, sort="date")
+
+        # Assert
+        assert output == data
 
     def test__monthly_total(self) -> None:
         # Arrange
@@ -773,11 +845,6 @@ Date range: 2020-05-01 - 2020-05-01
         numpy = pytest.importorskip("numpy", reason="NumPy is not installed")
         package = "pip"
         mocked_response = SAMPLE_RESPONSE_OVERALL
-        expected_output = """
-[['with_mirrors' '100.00%' 3587357]
- ['without_mirrors' '99.22%' 3559451]
- ['Total' None 3587357]]
-"""
 
         # Act
         mock_request.return_value = mock_urllib3_response(mocked_response)
@@ -785,7 +852,10 @@ Date range: 2020-05-01 - 2020-05-01
 
         # Assert
         assert isinstance(output, numpy.ndarray)
-        assert str(output).strip() == expected_output.strip()
+        assert output.shape == (3, 3)
+        assert list(output[:, 0]) == ["with_mirrors", "without_mirrors", "Total"]
+        assert list(output[:2, 1]) == ["100.00%", "99.22%"]
+        assert list(output[:, 2]) == [3587357, 3559451, 3587357]
         assert_called_with_url(
             mock_request, "https://pypistats.org/api/packages/pip/overall"
         )
@@ -796,12 +866,6 @@ Date range: 2020-05-01 - 2020-05-01
         pandas = pytest.importorskip("pandas", reason="pandas is not installed")
         package = "pip"
         mocked_response = SAMPLE_RESPONSE_OVERALL
-        expected_output = """
-          category  percent  downloads
-0     with_mirrors  100.00%    3587357
-1  without_mirrors   99.22%    3559451
-2            Total     None    3587357
-"""
 
         # Act
         mock_request.return_value = mock_urllib3_response(mocked_response)
@@ -809,7 +873,11 @@ Date range: 2020-05-01 - 2020-05-01
 
         # Assert
         assert isinstance(output, pandas.DataFrame)
-        assert str(output).strip() == expected_output.strip()
+        assert output.shape == (3, 3)
+        assert list(output.columns) == ["category", "percent", "downloads"]
+        assert list(output["category"]) == ["with_mirrors", "without_mirrors", "Total"]
+        assert list(output["percent"][:2]) == ["100.00%", "99.22%"]
+        assert list(output["downloads"]) == [3587357, 3559451, 3587357]
         assert_called_with_url(
             mock_request, "https://pypistats.org/api/packages/pip/overall"
         )

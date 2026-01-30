@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-models"
-version = "0.5.2"
+version = "0.6.3"
 description = "SCIM2 models serialization and validation with pydantic"
 authors = [{name="Yaal Coop", email="contact@yaal.coop"}]
 license = {file = "LICENSE"}
@@ -27,7 +27,7 @@ classifiers = [
 
 requires-python = ">= 3.10"
 dependencies = [
-    "pydantic[email]>=2.7.0"
+    "pydantic[email]>=2.12.0"
 ]
 
 [project.urls]

@@ -3,6 +3,7 @@ from adam.checks.check_utils import run_checks
 from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.repl_state import ReplState
+from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 
 class Issues(Command):
@@ -29,7 +30,7 @@ class Issues(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, ['-s', '--show']) as (args, show_out):
-                results = run_checks(state.sts, state.namespace, state.pod, show_out=show_out)
+                results = run_checks(state.sts, state.namespace, state.pod, ctx=Context(show_verbose=show_out))
 
                 issues = CheckResult.collect_issues(results)
                 IssuesUtils.show_issues(issues, in_repl=state.in_repl)

@@ -276,6 +276,8 @@ def make_tf_node_info(**kwargs):
 def print_node_info(func):
     @wraps(func)
     def print_wrapper_func(*args, **kwargs):
+        if kwargs.get('suppress_log', False):
+            return func(*args, **kwargs)
         input_onnx_file_path: str = kwargs.get('input_onnx_file_path', None)
         graph_input: gs.Variable = kwargs.get('graph_input', None)
         graph_node: gs.Variable = kwargs.get('graph_node', None)
@@ -894,6 +896,19 @@ def explicit_broadcast(
     const_or_var_2: Any
         gs.Variable or np.ndarray
     """
+    def _tf_broadcastable(shape_a, shape_b):
+        if shape_a is None or shape_b is None:
+            return False
+        if len(shape_a) != len(shape_b):
+            return False
+        for dim_a, dim_b in zip(shape_a, shape_b):
+            if dim_a is None or dim_b is None:
+                continue
+            if dim_a == dim_b or dim_a == 1 or dim_b == 1:
+                continue
+            return False
+        return True
+
     graph_node_input_name1 = None
     graph_node_input_name2 = None
     graph_node_input_shape1 = []
@@ -925,6 +940,29 @@ def explicit_broadcast(
     # If the input shape of ONNX is None, return without doing anything.
     if graph_node_input_shape1 is None or graph_node_input_shape2 is None:
         return const_or_var_1, const_or_var_2
+
+    # If one operand is 1D and matches the last dimension of the other operand,
+    # align it to the last axis to avoid unintended transpose.
+    if len(const_or_var_1.shape) == 1 and len(const_or_var_2.shape) > 1:
+        dim_1 = const_or_var_1.shape[0]
+        dim_2_last = const_or_var_2.shape[-1]
+        if isinstance(dim_1, int) and isinstance(dim_2_last, int) and dim_1 == dim_2_last:
+            target_shape = [1] * (len(const_or_var_2.shape) - 1) + [dim_1]
+            if isinstance(const_or_var_1, np.ndarray):
+                const_or_var_1 = const_or_var_1.reshape(target_shape)
+            else:
+                const_or_var_1 = tf.reshape(const_or_var_1, target_shape)
+            return const_or_var_1, const_or_var_2
+    if len(const_or_var_2.shape) == 1 and len(const_or_var_1.shape) > 1:
+        dim_2 = const_or_var_2.shape[0]
+        dim_1_last = const_or_var_1.shape[-1]
+        if isinstance(dim_2, int) and isinstance(dim_1_last, int) and dim_2 == dim_1_last:
+            target_shape = [1] * (len(const_or_var_1.shape) - 1) + [dim_2]
+            if isinstance(const_or_var_2, np.ndarray):
+                const_or_var_2 = const_or_var_2.reshape(target_shape)
+            else:
+                const_or_var_2 = tf.reshape(const_or_var_2, target_shape)
+            return const_or_var_1, const_or_var_2
 
     # If either operand have shape of all 1's, do not broadcast and return as is
     shape_for_judging_skip_processing_1 = [
@@ -2401,6 +2439,179 @@ def shape_unmatched_special_avoidance_workaround(
             return input_tensor_1, input_tensor_2
     except:
         pass
+
+    def _normalize_shape(shape):
+        if shape is None:
+            return None
+        return [dim if isinstance(dim, int) else None for dim in shape]
+
+    def _broadcastable(shape_a, shape_b):
+        if shape_a is None or shape_b is None:
+            return False
+        if len(shape_a) != len(shape_b):
+            return False
+        for dim_a, dim_b in zip(shape_a[::-1], shape_b[::-1]):
+            if dim_a is None or dim_b is None:
+                continue
+            if dim_a != dim_b and dim_a != 1 and dim_b != 1:
+                return False
+        return True
+
+    def _match_score(shape_a, shape_b):
+        score = 0
+        for dim_a, dim_b in zip(shape_a, shape_b):
+            if dim_a is None or dim_b is None:
+                continue
+            if dim_a == dim_b:
+                score += 1
+        return score
+
+    def _shape_matches(shape_a, shape_b):
+        if shape_a is None or shape_b is None:
+            return False
+        if len(shape_a) != len(shape_b):
+            return False
+        for dim_a, dim_b in zip(shape_a, shape_b):
+            if dim_a is None or dim_b is None:
+                continue
+            if dim_a != dim_b:
+                return False
+        return True
+
+    # Generic layout-alignment for channel-first/last in 3D/4D/5D.
+    # Try a small set of canonical perms and apply the best one if it makes broadcasting possible.
+    try:
+        if hasattr(input_tensor_1, "shape") and hasattr(input_tensor_2, "shape"):
+            input_shape_1 = _normalize_shape(input_tensor_1.shape)
+            input_shape_2 = _normalize_shape(input_tensor_2.shape)
+            if input_shape_1 is not None and input_shape_2 is not None \
+                and len(input_shape_1) == len(input_shape_2) \
+                and len(input_shape_1) in (3, 4, 5):
+                if not _broadcastable(input_shape_1, input_shape_2):
+                    rank = len(input_shape_1)
+                    perm_cf2cl = [0] + list(range(2, rank)) + [1]
+                    perm_cl2cf = [0, rank - 1] + list(range(1, rank - 1))
+                    perms = []
+                    if perm_cf2cl != list(range(rank)):
+                        perms.append(perm_cf2cl)
+                    if perm_cl2cf != list(range(rank)) and perm_cl2cf != perm_cf2cl:
+                        perms.append(perm_cl2cf)
+
+                    onnx_shape_1 = _normalize_shape(
+                        graph_node_input_1.shape if hasattr(graph_node_input_1, "shape") else None
+                    )
+                    onnx_shape_2 = _normalize_shape(
+                        graph_node_input_2.shape if hasattr(graph_node_input_2, "shape") else None
+                    )
+
+                    candidates = []
+                    for idx, (shape, other_shape) in enumerate(
+                        [(input_shape_1, input_shape_2), (input_shape_2, input_shape_1)]
+                    ):
+                        for perm in perms:
+                            permuted = [shape[p] for p in perm]
+                            if _broadcastable(permuted, other_shape):
+                                score = _match_score(permuted, other_shape)
+                                # Prefer transposing the input whose ONNX shape matches current layout.
+                                if idx == 0 and _shape_matches(onnx_shape_1, shape):
+                                    score += 2
+                                if idx == 1 and _shape_matches(onnx_shape_2, shape):
+                                    score += 2
+                                candidates.append((score, idx, perm))
+
+                    if candidates:
+                        candidates.sort(reverse=True)
+                        best_score, best_idx, best_perm = candidates[0]
+                        # Avoid ambiguous ties.
+                        if len(candidates) == 1 or best_score > candidates[1][0]:
+                            if best_idx == 0:
+                                input_tensor_1 = \
+                                    transpose_with_flexing_deterrence(
+                                        input_tensor=input_tensor_1,
+                                        perm=best_perm,
+                                        **kwargs,
+                                    )
+                            else:
+                                input_tensor_2 = \
+                                    transpose_with_flexing_deterrence(
+                                        input_tensor=input_tensor_2,
+                                        perm=best_perm,
+                                        **kwargs,
+                                    )
+    except Exception:
+        pass
+
+    # Heuristic for 3D tensors where one input is (N,1,C) and the other is (N,C,W).
+    # Align by transposing the (N,C,W) tensor to (N,W,C).
+    try:
+        if hasattr(input_tensor_1, "shape") and hasattr(input_tensor_2, "shape"):
+            s1 = list(input_tensor_1.shape)
+            s2 = list(input_tensor_2.shape)
+            if len(s1) == len(s2) == 3:
+                # Normalize unknown dims to None
+                s1 = [dim if isinstance(dim, int) else None for dim in s1]
+                s2 = [dim if isinstance(dim, int) else None for dim in s2]
+                if s1[1] == 1 and s1[2] is not None and s2[1] == s1[2]:
+                    input_tensor_2 = \
+                        transpose_with_flexing_deterrence(
+                            input_tensor=input_tensor_2,
+                            perm=[0, 2, 1],
+                            **kwargs,
+                        )
+                elif s2[1] == 1 and s2[2] is not None and s1[1] == s2[2]:
+                    input_tensor_1 = \
+                        transpose_with_flexing_deterrence(
+                            input_tensor=input_tensor_1,
+                            perm=[0, 2, 1],
+                            **kwargs,
+                        )
+    except Exception:
+        pass
+
+    # Layout mismatch mitigation based on ONNX shapes:
+    # If one input matches ONNX layout and the other matches the transposed layout,
+    # transpose the ONNX-layout input to align with the transposed one.
+    try:
+        if hasattr(input_tensor_1, "shape") and hasattr(input_tensor_2, "shape"):
+            input_shape_1 = list(input_tensor_1.shape)
+            input_shape_2 = list(input_tensor_2.shape)
+            if len(input_shape_1) == len(input_shape_2) and len(input_shape_1) in (3, 4, 5):
+                onnx_shape_1 = None
+                onnx_shape_2 = None
+                if hasattr(graph_node_input_1, "shape") and graph_node_input_1.shape is not None:
+                    onnx_shape_1 = [
+                        dim if not isinstance(dim, str) else None for dim in graph_node_input_1.shape
+                    ]
+                if hasattr(graph_node_input_2, "shape") and graph_node_input_2.shape is not None:
+                    onnx_shape_2 = [
+                        dim if not isinstance(dim, str) else None for dim in graph_node_input_2.shape
+                    ]
+                if onnx_shape_1 is not None and onnx_shape_2 is not None:
+                    perm = [0] + list(range(2, len(input_shape_1))) + [1]
+                    permuted_onnx_shape_1 = [onnx_shape_1[p] for p in perm]
+                    permuted_onnx_shape_2 = [onnx_shape_2[p] for p in perm]
+
+                    in1_matches_onnx = _shape_matches(input_shape_1, onnx_shape_1)
+                    in1_matches_perm = _shape_matches(input_shape_1, permuted_onnx_shape_1)
+                    in2_matches_onnx = _shape_matches(input_shape_2, onnx_shape_2)
+                    in2_matches_perm = _shape_matches(input_shape_2, permuted_onnx_shape_2)
+
+                    if in1_matches_perm and in2_matches_onnx and not in2_matches_perm:
+                        input_tensor_2 = \
+                            transpose_with_flexing_deterrence(
+                                input_tensor=input_tensor_2,
+                                perm=perm,
+                                **kwargs,
+                            )
+                    elif in2_matches_perm and in1_matches_onnx and not in1_matches_perm:
+                        input_tensor_1 = \
+                            transpose_with_flexing_deterrence(
+                                input_tensor=input_tensor_1,
+                                perm=perm,
+                                **kwargs,
+                            )
+    except Exception:
+        pass
     # At least one True value for same_input_shape_as_onnx
     # At least one True value in nhwc_flags
     # same_input_shape_as_onnx == True and nhwc_flags == False and 3D or 4D or 5D tensor is NHWC transposed
@@ -3640,6 +3851,7 @@ def dummy_onnx_inference(
     enable_ort_output_memmap: bool = False,
     ort_output_memmap_dir: Optional[str] = None,
     shape_hints: Optional[List[str]] = None,
+    input_datas_for_validation: Optional[Dict[str, np.ndarray]] = None,
 ) -> List[np.ndarray]:
     """Perform inference on ONNX subgraphs with an all-1 dummy tensor.
 
@@ -3675,6 +3887,9 @@ def dummy_onnx_inference(
     ort_output_memmap_dir: Optional[str]
         Directory to store memmap files. If not specified, a temporary
         directory is created and removed on exit.
+
+    input_datas_for_validation: Optional[Dict[str, np.ndarray]]
+        Optional dict to be filled with the input tensors used for inference.
 
     Returns
     ----------
@@ -3871,6 +4086,9 @@ def dummy_onnx_inference(
                         perm=[0,3,1,2],
                     ).numpy().astype(input_dtype)
 
+    if input_datas_for_validation is not None:
+        input_datas_for_validation.update(input_datas)
+
     dtype_sizes = {
         np.dtype('float16'): 2,
         np.dtype('float32'): 4,
@@ -4012,6 +4230,7 @@ def dummy_tf_inference(
     verification_datas: Optional[List[np.ndarray]] = None,
     custom_input_op_name_np_data_path: Optional[str] = None,
     shape_hints: Optional[List[str]] = None,
+    input_datas_for_validation: Optional[Dict[str, np.ndarray]] = None,
     keep_shape_absolutely_input_names: Optional[List[str]] = None,
     keep_ncw_or_nchw_or_ncdhw_input_names: Optional[List[str]] = None,
     keep_nwc_or_nhwc_or_ndhwc_input_names: Optional[List[str]] = None,
@@ -4034,6 +4253,8 @@ def dummy_tf_inference(
 
     custom_input_op_name_np_data_path
         Path to Numpy file for custom data used for dummy inference
+    input_datas_for_validation: Optional[Dict[str, np.ndarray]]
+        Optional dict to be filled with the input tensors used for inference.
 
     Returns
     ----------
@@ -4051,6 +4272,7 @@ def dummy_tf_inference(
             for idx, dim in enumerate(input_size):
                 if idx == 0 and input_sizes[0][0] is not None \
                     and len(input_sizes[0]) == len(input_size) \
+                    and len(input_size) >= 2 \
                     and dim is None:
                     # Batch size assignment for input OPs
                     new_input_size.append(input_sizes[0][0])
@@ -4171,6 +4393,10 @@ def dummy_tf_inference(
                         input_size,
                         dtype=TF_DTYPES_TO_NUMPY_DTYPES[input_dtype],
                     )
+
+    if input_datas_for_validation is not None:
+        input_datas_for_validation.update(input_datas)
+
     outputs = model(
         inputs={
             input.name: input_datas[input.name] for input in inputs

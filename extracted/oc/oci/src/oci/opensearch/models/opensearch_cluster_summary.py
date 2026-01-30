@@ -102,6 +102,10 @@ class OpensearchClusterSummary(object):
             The value to assign to the outbound_cluster_config property of this OpensearchClusterSummary.
         :type outbound_cluster_config: oci.opensearch.models.OutboundClusterConfig
 
+        :param load_balancer_config:
+            The value to assign to the load_balancer_config property of this OpensearchClusterSummary.
+        :type load_balancer_config: oci.opensearch.models.LoadBalancerConfig
+
         """
         self.swagger_types = {
             'id': 'str',
@@ -120,7 +124,8 @@ class OpensearchClusterSummary(object):
             'availability_domains': 'list[str]',
             'security_mode': 'str',
             'backup_policy': 'BackupPolicy',
-            'outbound_cluster_config': 'OutboundClusterConfig'
+            'outbound_cluster_config': 'OutboundClusterConfig',
+            'load_balancer_config': 'LoadBalancerConfig'
         }
         self.attribute_map = {
             'id': 'id',
@@ -139,7 +144,8 @@ class OpensearchClusterSummary(object):
             'availability_domains': 'availabilityDomains',
             'security_mode': 'securityMode',
             'backup_policy': 'backupPolicy',
-            'outbound_cluster_config': 'outboundClusterConfig'
+            'outbound_cluster_config': 'outboundClusterConfig',
+            'load_balancer_config': 'loadBalancerConfig'
         }
         self._id = None
         self._display_name = None
@@ -158,6 +164,7 @@ class OpensearchClusterSummary(object):
         self._security_mode = None
         self._backup_policy = None
         self._outbound_cluster_config = None
+        self._load_balancer_config = None
 
     @property
     def id(self):
@@ -592,6 +599,26 @@ class OpensearchClusterSummary(object):
         :type: oci.opensearch.models.OutboundClusterConfig
         """
         self._outbound_cluster_config = outbound_cluster_config
+
+    @property
+    def load_balancer_config(self):
+        """
+        Gets the load_balancer_config of this OpensearchClusterSummary.
+
+        :return: The load_balancer_config of this OpensearchClusterSummary.
+        :rtype: oci.opensearch.models.LoadBalancerConfig
+        """
+        return self._load_balancer_config
+
+    @load_balancer_config.setter
+    def load_balancer_config(self, load_balancer_config):
+        """
+        Sets the load_balancer_config of this OpensearchClusterSummary.
+
+        :param load_balancer_config: The load_balancer_config of this OpensearchClusterSummary.
+        :type: oci.opensearch.models.LoadBalancerConfig
+        """
+        self._load_balancer_config = load_balancer_config
 
     def __repr__(self):
         return formatted_flat_dict(self)

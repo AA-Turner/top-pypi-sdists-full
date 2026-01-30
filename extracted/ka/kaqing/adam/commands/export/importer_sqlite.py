@@ -5,6 +5,7 @@ from adam.commands.export.export_databases import export_db
 from adam.commands.export.importer import Importer
 from adam.repl_state import ReplState
 from adam.utils import GeneratorStream, bytes_generator_from_file, ing, log2
+from adam.utils_context import Context
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 from adam.utils_sqlite import SQLite, sqlite
@@ -22,8 +23,7 @@ class SqliteImporter(Importer):
                         columns: str,
                         multi_tables = True,
                         create_db = False,
-                        job_log: str = None):
-
+                        ctx: Context = Context.NULL):
         csv_file = self.csv_file(from_session, table, target_table)
         pod = state.pod
         namespace = state.namespace
@@ -31,7 +31,7 @@ class SqliteImporter(Importer):
 
         succeeded = False
         try:
-            with ing(f'[{to_session}] Uploading to Sqlite', suppress_log=multi_tables, job_log=job_log):
+            with ing(f'[{to_session}] Uploading to Sqlite', suppress_log=multi_tables, job_log=ctx.log_file):
                 # create a connection to single keyspace
                 with sqlite(to_session, keyspace) as conn:
                     bytes = PodFiles.read_file(pod, 'cassandra', namespace, csv_file)
@@ -45,14 +45,15 @@ class SqliteImporter(Importer):
             return to, to_session
         finally:
             if succeeded:
-                self.remove_csv(state, from_session, table, target_table, multi_tables, job_log=job_log)
+                self.remove_csv(state, from_session, table, target_table, multi_tables, ctx=ctx)
                 SQLite.clear_cache()
 
                 if multi_tables:
-                    log2(f'[{to_session}] {keyspace}.{target_table} OK', file=job_log)
+                    ctx.log2(f'[{to_session}] {keyspace}.{target_table} OK')
                 else:
+                    # test
                     with export_db(state) as dbs:
-                        dbs.sql(f'select * from {keyspace}.{target_table} limit 10', backgrounded=True, export_log=job_log)
+                        dbs.sql(f'select * from {keyspace}.{target_table} limit 10', ctx=ctx)
 
     def import_from_local_csv(self, state: ReplState,
                         keyspace: str, table: str, csv_file: str, multi_tables = True, create_db = False):

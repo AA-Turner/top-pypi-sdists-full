@@ -6,14 +6,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 import traceback
 
 from ansible.module_utils.basic import missing_required_lib
 from ansible.module_utils.common.text.converters import to_native, to_text
-
 
 try:
     import dns
@@ -110,10 +108,11 @@ class SimpleResolver(_Resolve):
         )
 
     def resolve(self, target, nxdomain_is_empty=True, server_addresses=None, target_can_be_relative=False, **kwargs):
-        if target_can_be_relative:
-            dnsname = dns.name.from_unicode(to_text(target), origin=None)
-        else:
-            dnsname = dns.name.from_unicode(to_text(target))
+        dnsname = (
+            dns.name.from_unicode(to_text(target), origin=None)
+            if target_can_be_relative else
+            dns.name.from_unicode(to_text(target))
+        )
 
         resolver = self.default_resolver
         if server_addresses:

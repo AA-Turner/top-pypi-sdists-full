@@ -1,12 +1,11 @@
 from django.utils.translation import gettext as _
 
 from wbcore.menus import ItemPermission, MenuItem
-from wbcore.permissions.shortcuts import is_internal_user
 
 YOUR_CONTACT_MENUITEM = MenuItem(
     label=_("Your Contact"),
     endpoint="wbcore:directory:clientmanagerrelationship-userclient-list",
-    permission=ItemPermission(method=lambda request: request.user.is_active and not request.user.profile.is_internal),
+    permission=ItemPermission(method=lambda request: request.user.is_active and not request.user.is_internal),
 )
 
 COMPANY_MENUITEM = MenuItem(
@@ -33,30 +32,22 @@ PERSON_MENUITEM = MenuItem(
 SYSTEMEMPLOYEE_MENUITEM = MenuItem(
     label=_("Employees"),
     endpoint="wbcore:directory:systememployee-list",
-    permission=ItemPermission(
-        method=lambda request: is_internal_user(request.user), permissions=["directory.view_person"]
-    ),
+    permission=ItemPermission(method=lambda request: request.user.is_internal, permissions=["directory.view_person"]),
 )
 
 BANK_MENUITEM = MenuItem(
     label=_("Banks"),
     endpoint="wbcore:directory:bank-list",
-    permission=ItemPermission(
-        method=lambda request: is_internal_user(request.user), permissions=["directory.view_bank"]
-    ),
+    permission=ItemPermission(method=lambda request: request.user.is_internal, permissions=["directory.view_bank"]),
     add=MenuItem(
         label=_("Create Bank"),
         endpoint="wbcore:directory:bank-list",
-        permission=ItemPermission(
-            method=lambda request: is_internal_user(request.user), permissions=["directory.add_bank"]
-        ),
+        permission=ItemPermission(method=lambda request: request.user.is_internal, permissions=["directory.add_bank"]),
     ),
 )
 
 USERISMANAGER_MENUITEM = MenuItem(
     label=_("Your Clients/Prospects/Contacts"),
     endpoint="wbcore:directory:clientmanagerrelationship-usermanager-list",
-    permission=ItemPermission(
-        method=lambda request: is_internal_user(request.user), permissions=["directory.view_person"]
-    ),
+    permission=ItemPermission(method=lambda request: request.user.is_internal, permissions=["directory.view_person"]),
 )

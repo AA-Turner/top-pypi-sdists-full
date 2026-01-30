@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mdtraj
-Version: 1.11.1
+Version: 1.11.1.post1
 Summary: MDTraj: A modern, open library for the analysis of molecular dynamics trajectories
 Home-page: http://mdtraj.org
 Download-URL: https://github.com/rmcgibbo/mdtraj/releases/latest
@@ -38,7 +38,7 @@ Provides-Extra: optional
 Requires-Dist: tables; extra == "optional"
 Requires-Dist: networkx; extra == "optional"
 Requires-Dist: netCDF4; extra == "optional"
-Requires-Dist: pandas; extra == "optional"
+Requires-Dist: pandas<3; extra == "optional"
 Provides-Extra: all
 Requires-Dist: pytest; extra == "all"
 Requires-Dist: pytest-rerunfailures; extra == "all"
@@ -46,7 +46,7 @@ Requires-Dist: pytest-xdist; extra == "all"
 Requires-Dist: tables; extra == "all"
 Requires-Dist: networkx; extra == "all"
 Requires-Dist: netCDF4; extra == "all"
-Requires-Dist: pandas; extra == "all"
+Requires-Dist: pandas<3; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

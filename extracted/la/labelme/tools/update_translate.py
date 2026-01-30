@@ -1,11 +1,11 @@
-import pathlib
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from loguru import logger
 
-here: pathlib.Path = pathlib.Path(__file__).parent
+here: Path = Path(__file__).parent
 
 
 def main():
@@ -20,13 +20,35 @@ def main():
         diagnose=False,
     )
 
-    labelme_path: pathlib.Path = here / ".." / "labelme"
-    labelme_files: list[pathlib.Path] = list(labelme_path.rglob("*.py"))
+    labelme_path: Path = here / ".." / "labelme"
+    labelme_files: list[Path] = list(labelme_path.rglob("*.py"))
 
-    LANGUAGES: list[str] = ["zh_CN"]
-    labelme_translate_path: pathlib.Path = labelme_path / "translate"
-    for lang in LANGUAGES:
-        ts_path: pathlib.Path = labelme_translate_path / f"{lang}.ts"
+    labelme_translate_path: Path = labelme_path / "translate"
+
+    pylupdate_version: str = (
+        subprocess.check_output(["pylupdate5", "-version"], stderr=subprocess.STDOUT)
+        .decode()
+        .split()[-1]
+        .lstrip("v")
+    )
+    logger.info("using pylupdate5 version: {}", pylupdate_version)
+    if pylupdate_version.split(".")[:2] != ["5", "15"]:
+        logger.warning("pylupdate5 version is not 5.15.x, skipping .ts generation")
+        return
+
+    lrelease_version: str = (
+        subprocess.check_output(["lrelease", "-version"]).decode().split()[-1]
+    )
+    logger.info("using lrelease version: {}", lrelease_version)
+    if lrelease_version.split(".")[:2] != ["5", "15"]:
+        logger.warning("lrelease version is not 5.15.x, skipping .qm generation")
+        return
+
+    languages: list[str] = sorted(
+        [ts_file.stem for ts_file in labelme_translate_path.glob("*.ts")]
+    )
+    for lang in languages:
+        ts_path: Path = labelme_translate_path / f"{lang}.ts"
         subprocess.check_call(
             [
                 "pylupdate5",
@@ -44,18 +66,7 @@ def main():
         ts_path.write_text(new_ts_content)
         logger.info("updated .ts file: {}", ts_path)
 
-        lrelease_version: str = (
-            subprocess.check_output(["lrelease", "-version"]).decode().split()[-1]
-        )
-        logger.info("using lrelease version: {}", lrelease_version)
-        if lrelease_version.split(".")[:2] != ["5", "15"]:
-            logger.warning(
-                "lrelease version is not 5.15.x, skipping .qm generation: lang={!r}",
-                lang,
-            )
-            continue
-
-        qm_path: pathlib.Path = labelme_translate_path / f"{lang}.qm"
+        qm_path: Path = labelme_translate_path / f"{lang}.qm"
         subprocess.check_call(
             ["lrelease", ts_path, "-qm", qm_path],
             stdout=subprocess.DEVNULL,

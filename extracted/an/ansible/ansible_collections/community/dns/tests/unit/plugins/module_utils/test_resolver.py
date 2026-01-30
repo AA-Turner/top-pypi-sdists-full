@@ -6,7 +6,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -29,7 +28,6 @@ from .resolver_helper import (
     mock_query_udp,
     mock_resolver,
 )
-
 
 # We need dnspython
 dns = pytest.importorskip('dns')
@@ -55,7 +53,7 @@ def test_assert_requirements_present():
             assert_requirements_present(module)
 
         assert 'dnspython' in exc.value.args[0]['msg']
-        assert 'asdf' == exc.value.args[0]['exception']
+        assert exc.value.args[0]['exception'] == 'asdf'
 
     finally:
         resolver.DNSPYTHON_IMPORTERROR = orig_importerror

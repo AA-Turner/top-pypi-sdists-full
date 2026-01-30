@@ -695,7 +695,7 @@ class TestDqcp(base_test.BaseTest):
         problem.solve(SOLVER, qcp=True)
         self.assertAlmostEqual(problem.value, 0, places=3)
 
-        problem = cp.Problem(cp.Minimize(cp.cumsum(1/x)))
+        problem = cp.Problem(cp.Minimize(cp.cumsum(1/x, axis=None)))
         problem.solve(SOLVER, qcp=True)
         self.assertAlmostEqual(problem.value, 0, places=3)
 
@@ -741,6 +741,9 @@ class TestDqcp(base_test.BaseTest):
 
         # solve
         assert problem.is_dqcp()
-        with pytest.raises(cp.SolverError, 
-                           match="Max iters hit during bisection."):
+        with pytest.raises(
+            cp.SolverError,
+            match="(Max iters hit during bisection|"
+                  "Unable to find suitable interval for bisection)"
+        ):
             problem.solve(qcp=True, solver=cp.SCS, max_iters=1)

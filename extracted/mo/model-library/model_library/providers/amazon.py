@@ -11,6 +11,7 @@ import botocore
 from botocore.client import BaseClient
 from typing_extensions import override
 
+from model_library import model_library_settings
 from model_library.base import (
     LLM,
     FileBase,
@@ -41,20 +42,46 @@ from model_library.register_models import register_provider
 @register_provider("amazon")
 @register_provider("bedrock")
 class AmazonModel(LLM):
-    _client: BaseClient | None = None
+    @override
+    def _get_default_api_key(self) -> str:
+        if getattr(model_library_settings, "AWS_ACCESS_KEY_ID", None):
+            return json.dumps(
+                {
+                    "AWS_ACCESS_KEY_ID": model_library_settings.AWS_ACCESS_KEY_ID,
+                    "AWS_SECRET_ACCESS_KEY": model_library_settings.AWS_SECRET_ACCESS_KEY,
+                    "AWS_DEFAULT_REGION": model_library_settings.AWS_DEFAULT_REGION,
+                }
+            )
+        return "using-environment"
 
     @override
-    def get_client(self) -> BaseClient:
-        if not AmazonModel._client:
-            AmazonModel._client = cast(
-                BaseClient,
-                boto3.client(
-                    "bedrock-runtime",
-                    # default connection pool is 10
-                    config=botocore.config.Config(max_pool_connections=1000),  # pyright: ignore[reportAttributeAccessIssue]
-                ),
-            )  # pyright: ignore[reportUnknownMemberType]
-        return AmazonModel._client
+    def get_client(self, api_key: str | None = None) -> BaseClient:
+        if not self.has_client():
+            assert api_key
+            if api_key != "using-environment":
+                creds = json.loads(api_key)
+                client = cast(
+                    BaseClient,
+                    boto3.client(
+                        "bedrock-runtime",
+                        aws_access_key_id=creds["AWS_ACCESS_KEY_ID"],
+                        aws_secret_access_key=creds["AWS_SECRET_ACCESS_KEY"],
+                        region_name=creds["AWS_DEFAULT_REGION"],
+                        config=botocore.config.Config(max_pool_connections=1000),  # pyright: ignore[reportAttributeAccessIssue]
+                    ),
+                )
+            else:
+                client = cast(
+                    BaseClient,
+                    boto3.client(
+                        "bedrock-runtime",
+                        # default connection pool is 10
+                        config=botocore.config.Config(max_pool_connections=1000),  # pyright: ignore[reportAttributeAccessIssue]
+                    ),
+                )
+
+            self.assign_client(client)
+        return super().get_client()
 
     def __init__(
         self,
@@ -69,6 +96,11 @@ class AmazonModel(LLM):
             self.supports_cache and "v2" not in self.model_name
         )  # supported but no access yet
         self.supports_tool_cache = self.supports_cache and "claude" in self.model_name
+
+        if config and config.custom_api_key:
+            raise Exception(
+                "custom_api_key is not currently supported for Amazon models"
+            )
 
     cache_control = {"type": "default"}
 
@@ -238,7 +270,7 @@ class AmazonModel(LLM):
             if self.supports_cache:
                 body["system"].append({"cachePoint": self.cache_control})
 
-        if self.reasoning:
+        if self.reasoning and self.max_tokens:
             if self.max_tokens < 1024:
                 self.max_tokens = 2048
             budget_tokens = kwargs.pop(
@@ -251,9 +283,10 @@ class AmazonModel(LLM):
                 }
             }
 
-        inference: dict[str, Any] = {
-            "maxTokens": self.max_tokens,
-        }
+        inference: dict[str, Any] = {}
+
+        if self.max_tokens:
+            inference["maxTokens"] = self.max_tokens
 
         # Only set temperature for models where supports_temperature is True.
         # For example, "thinking" models don't support temperature: https://docs.claude.com/en/docs/build-with-claude/extended-thinking#feature-compatibility

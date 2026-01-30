@@ -11,11 +11,12 @@ https://github.com/jquast/wcwidth
 from __future__ import annotations
 
 # std imports
+import io
 import os
 import re
-import sys
 import string
 import difflib
+import zipfile
 import argparse
 import datetime
 import functools
@@ -52,9 +53,10 @@ JINJA_ENV = jinja2.Environment(
 UTC_NOW = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 CONNECT_TIMEOUT = int(os.environ.get('CONNECT_TIMEOUT', '10'))
+READ_TIMEOUT = int(os.environ.get('READ_TIMEOUT', '30'))
 FETCH_BLOCKSIZE = int(os.environ.get('FETCH_BLOCKSIZE', '4096'))
 MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '10'))
-BACKOFF_FACTOR = float(os.environ.get('BACKOFF_FACTOR', '0.1'))
+BACKOFF_FACTOR = float(os.environ.get('BACKOFF_FACTOR', '1.0'))
 
 # Global flag set by main() from --check-last-modified CLI argument.
 # When True, perform HTTP HEAD requests to check if remote files are newer.
@@ -368,98 +370,127 @@ def fetch_source_headers() -> UnicodeVersionRstRenderCtx:
 
 
 def fetch_table_wide_data() -> UnicodeTableRenderCtx:
-    """Fetch east-asian tables."""
+    """Fetch east-asian tables for the latest Unicode version only."""
     table: dict[UnicodeVersion, TableDef] = {}
-    for version in fetch_unicode_versions():
-        # parse typical 'wide' characters by categories 'W' and 'F',
-        table[version] = parse_category(fname=UnicodeDataFile.EastAsianWidth(version),
-                                        wide=2)
+    version = fetch_unicode_versions()[-1]  # Only latest version
 
-        # subtract(!) wide characters that were defined above as 'W' category in EastAsianWidth,
-        # but also zero-width category 'Mn' or 'Mc' in DerivedGeneralCategory!
-        table[version].values = table[version].values.difference(parse_category(
-            fname=UnicodeDataFile.DerivedGeneralCategory(version),
-            wide=0).values)
+    # parse typical 'wide' characters by categories 'W' and 'F',
+    table[version] = parse_category(fname=UnicodeDataFile.EastAsianWidth(version),
+                                    wide=2)
 
-        # Also subtract Hangul Jamo Vowels and Hangul Trailing Consonants
-        table[version].values = table[version].values.difference(HANGUL_JAMO_ZEROWIDTH)
+    # subtract(!) wide characters that were defined above as 'W' category in EastAsianWidth,
+    # but also zero-width category 'Mn' or 'Mc' in DerivedGeneralCategory!
+    table[version].values = table[version].values.difference(parse_category(
+        fname=UnicodeDataFile.DerivedGeneralCategory(version),
+        wide=0).values)
 
-        # Subtract Default_Ignorable_Code_Point characters (they should be zero-width).
-        # Exception: U+115F HANGUL CHOSEONG FILLER remains wide for jamo composition.
-        # See https://github.com/jquast/wcwidth/issues/118
-        default_ignorable = parse_derived_core_property(
-            fname=UnicodeDataFile.DerivedCoreProperties(version),
-            property_name='Default_Ignorable_Code_Point')
-        default_ignorable.discard(0x115F)  # Keep HANGUL CHOSEONG FILLER as wide
-        table[version].values = table[version].values.difference(default_ignorable)
+    # Also subtract Hangul Jamo Vowels and Hangul Trailing Consonants
+    table[version].values = table[version].values.difference(HANGUL_JAMO_ZEROWIDTH)
 
-        # finally, join with atypical 'wide' characters defined by category 'Sk',
-        fname = UnicodeDataFile.DerivedGeneralCategory(version)
-        table[version].values.update(parse_category(fname=fname, wide=2).values)
+    # Subtract Default_Ignorable_Code_Point characters (they should be zero-width).
+    # Exception: U+115F HANGUL CHOSEONG FILLER remains wide for jamo composition.
+    # See https://github.com/jquast/wcwidth/issues/118
+    default_ignorable = parse_derived_core_property(
+        fname=UnicodeDataFile.DerivedCoreProperties(version),
+        property_name='Default_Ignorable_Code_Point')
+    default_ignorable.discard(0x115F)  # Keep HANGUL CHOSEONG FILLER as wide
+    table[version].values = table[version].values.difference(default_ignorable)
+
+    # finally, join with atypical 'wide' characters defined by category 'Sk',
+    fname = UnicodeDataFile.DerivedGeneralCategory(version)
+    table[version].values.update(parse_category(fname=fname, wide=2).values)
     return UnicodeTableRenderCtx('WIDE_EASTASIAN', table)
 
 
 def fetch_table_zero_data() -> UnicodeTableRenderCtx:
     """
-    Fetch zero width tables.
+    Fetch zero width tables for the latest Unicode version only.
 
     See also: https://unicode.org/L2/L2002/02368-default-ignorable.html
     """
     table: dict[UnicodeVersion, TableDef] = {}
-    for version in fetch_unicode_versions():
-        # Determine values of zero-width character lookup table by the following category codes
-        fname = UnicodeDataFile.DerivedGeneralCategory(version)
-        table[version] = parse_category(fname=fname, wide=0)
+    version = fetch_unicode_versions()[-1]  # Only latest version
 
-        # Include NULL
-        table[version].values.add(0)
+    # Determine values of zero-width character lookup table by the following category codes
+    fname = UnicodeDataFile.DerivedGeneralCategory(version)
+    table[version] = parse_category(fname=fname, wide=0)
 
-        # Add Hangul Jamo Vowels and Hangul Trailing Consonants
-        table[version].values.update(HANGUL_JAMO_ZEROWIDTH)
+    # Include NULL
+    table[version].values.add(0)
 
-        # Add Default_Ignorable_Code_Point characters
-        # Per Unicode Standard (https://www.unicode.org/faq/unsup_char.html):
-        # "All default-ignorable characters should be rendered as completely invisible
-        # (and non advancing, i.e. 'zero width'), if not explicitly supported in rendering."
-        #
-        # See also:
-        # - https://www.unicode.org/reports/tr44/#Default_Ignorable_Code_Point
-        # - https://github.com/jquast/wcwidth/issues/118
-        table[version].values.update(parse_derived_core_property(
-            fname=UnicodeDataFile.DerivedCoreProperties(version),
-            property_name='Default_Ignorable_Code_Point'))
+    # Add Hangul Jamo Vowels and Hangul Trailing Consonants
+    table[version].values.update(HANGUL_JAMO_ZEROWIDTH)
 
-        # Remove U+115F HANGUL CHOSEONG FILLER from zero-width table.
-        # Although it has Default_Ignorable_Code_Point property, it should remain
-        # width 2 because it combines with other Hangul Jamo to form width-2
-        # syllable blocks.
-        table[version].values.discard(0x115F)
+    # Add Default_Ignorable_Code_Point characters
+    # Per Unicode Standard (https://www.unicode.org/faq/unsup_char.html):
+    # "All default-ignorable characters should be rendered as completely invisible
+    # (and non advancing, i.e. 'zero width'), if not explicitly supported in rendering."
+    #
+    # See also:
+    # - https://www.unicode.org/reports/tr44/#Default_Ignorable_Code_Point
+    # - https://github.com/jquast/wcwidth/issues/118
+    table[version].values.update(parse_derived_core_property(
+        fname=UnicodeDataFile.DerivedCoreProperties(version),
+        property_name='Default_Ignorable_Code_Point'))
 
-        # Remove u+00AD categoryCode=Cf name="SOFT HYPHEN",
-        # > https://www.unicode.org/faq/casemap_charprop.html
-        #
-        # > Q: Unicode now treats the SOFT HYPHEN as format control (Cf)
-        # > character when formerly it was a punctuation character (Pd).
-        # > Doesn't this break ISO 8859-1 compatibility?
-        #
-        # > [..] In a terminal emulation environment, particularly in
-        # > ISO-8859-1 contexts, one could display the SOFT HYPHEN as a hyphen
-        # > in all circumstances.
-        #
-        # This value was wrongly measured as a width of '0' in this wcwidth
-        # versions 0.2.9 - 0.2.13. Fixed in 0.2.14
-        table[version].values.discard(0x00AD)  # SOFT HYPHEN
+    # Remove U+115F HANGUL CHOSEONG FILLER from zero-width table.
+    # Although it has Default_Ignorable_Code_Point property, it should remain
+    # width 2 because it combines with other Hangul Jamo to form width-2
+    # syllable blocks.
+    table[version].values.discard(0x115F)
 
-        # Remove Prepended_Concatenation_Mark characters from zero-width.
-        # Per Unicode Standard Annex #44, these format characters (General_Category=Cf) have
-        # mandatory visible display and should NOT be treated as invisible.
-        # See https://github.com/jquast/wcwidth/issues/119
-        table[version].values = table[version].values.difference(
-            parse_derived_core_property(
-                fname=UnicodeDataFile.PropList(version),
-                property_name='Prepended_Concatenation_Mark'))
+    # Remove u+00AD categoryCode=Cf name="SOFT HYPHEN",
+    # > https://www.unicode.org/faq/casemap_charprop.html
+    #
+    # > Q: Unicode now treats the SOFT HYPHEN as format control (Cf)
+    # > character when formerly it was a punctuation character (Pd).
+    # > Doesn't this break ISO 8859-1 compatibility?
+    #
+    # > [..] In a terminal emulation environment, particularly in
+    # > ISO-8859-1 contexts, one could display the SOFT HYPHEN as a hyphen
+    # > in all circumstances.
+    #
+    # This value was wrongly measured as a width of '0' in this wcwidth
+    # versions 0.2.9 - 0.2.13. Fixed in 0.2.14
+    table[version].values.discard(0x00AD)  # SOFT HYPHEN
+
+    # Remove Prepended_Concatenation_Mark characters from zero-width.
+    # Per Unicode Standard Annex #44, these format characters (General_Category=Cf) have
+    # mandatory visible display and should NOT be treated as invisible.
+    # See https://github.com/jquast/wcwidth/issues/119
+    table[version].values = table[version].values.difference(
+        parse_derived_core_property(
+            fname=UnicodeDataFile.PropList(version),
+            property_name='Prepended_Concatenation_Mark'))
 
     return UnicodeTableRenderCtx('ZERO_WIDTH', table)
+
+
+def fetch_table_category_mc_data() -> UnicodeTableRenderCtx:
+    """
+    Fetch Spacing Combining Mark (Mc) character table for the latest Unicode version.
+
+    Characters with General_Category=Mc are combining marks that typically occupy a cell width when
+    following a base character, but should be zero-width when standalone. This table is used for
+    context-aware width measurement.
+    """
+    table: dict[UnicodeVersion, TableDef] = {}
+    version = fetch_unicode_versions()[-1]
+
+    fname = UnicodeDataFile.DerivedGeneralCategory(version)
+    print(f'parsing {fname}, category=Mc: ', end='', flush=True)
+
+    with open(fname, encoding='utf-8') as f:
+        table_iter = parse_unicode_table(f)
+        file_version = next(table_iter).comment.strip()
+        date = next(table_iter).comment.split(':', 1)[1].strip()
+        values = {n
+                  for entry in table_iter
+                  if entry.code_range is not None and entry.properties[0] == 'Mc'
+                  for n in range(entry.code_range[0], entry.code_range[1])}
+    print('ok')
+    table[version] = TableDef(file_version, date, values)
+    return UnicodeTableRenderCtx('CATEGORY_MC', table)
 
 
 def fetch_table_ambiguous_data() -> UnicodeTableRenderCtx:
@@ -546,8 +577,8 @@ def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
                       hex_str_vs=HEX_STR_VS16).values)
 
     # perform culling on any values that are already understood as 'wide'
-    # without the variation-16 selector
-    wide_table = wide_tables[unicode_version].as_value_ranges()
+    # without the variation-16 selector (use latest wide table)
+    wide_table = wide_tables[unicode_latest].as_value_ranges()
     table[unicode_version].values = {
         ucs for ucs in table[unicode_version].values
         if not _bisearch(ucs, wide_table)
@@ -817,6 +848,7 @@ class UnicodeDataFile:
     URL_DERIVED_CORE_PROPS = 'https://www.unicode.org/Public/{version}/ucd/DerivedCoreProperties.txt'
     URL_PROP_LIST = 'https://www.unicode.org/Public/{version}/ucd/PropList.txt'
     URL_GRAPHEME_BREAK_TEST = 'https://www.unicode.org/Public/{version}/ucd/auxiliary/GraphemeBreakTest.txt'
+    URL_UDHR_ZIP = 'http://efele.net/udhr/assemblies/udhr_txt.zip'
 
     @classmethod
     def DerivedAge(cls) -> str:
@@ -895,6 +927,47 @@ class UnicodeDataFile:
         cls.do_retrieve(url=cls.URL_GRAPHEME_BREAK_TEST.format(version=version), fname=fname)
         return fname
 
+    @classmethod
+    def UDHRCombined(cls) -> str:
+        """
+        Fetch UDHR zip, extract and combine all translations into a single file.
+
+        Downloads http://efele.net/udhr/assemblies/udhr_txt.zip, extracts the text files,
+        and combines them with '--' separator between translations.
+        """
+        fname = os.path.join(PATH_TESTS, 'udhr_combined.txt')
+        cls.do_retrieve_udhr_combined(url=cls.URL_UDHR_ZIP, fname=fname)
+        return fname
+
+    @staticmethod
+    def do_retrieve_udhr_combined(url: str, fname: str) -> None:
+        """Fetch UDHR zip file, extract, and combine all translations."""
+        if not UnicodeDataFile.is_url_newer(url, fname):
+            return
+
+        session = UnicodeDataFile.get_http_session()
+        print(f"fetching {url}: ", end='', flush=True)
+        resp = session.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
+        resp.raise_for_status()
+        print('ok')
+
+        print(f"extracting and combining to {fname}: ", end='', flush=True)
+        combined_content = []
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            txt_files = sorted([n for n in zf.namelist() if n.endswith('.txt')])
+            for txt_name in txt_files:
+                with zf.open(txt_name) as f:
+                    content = f.read().decode('utf-8').rstrip()
+                    combined_content.append(f'----\n\n{content}\n')
+
+        folder = os.path.dirname(fname)
+        if folder and not os.path.exists(folder):
+            os.makedirs(folder)
+
+        with open(fname, 'w', encoding='utf-8', newline='\n') as fout:
+            fout.writelines(combined_content)
+        print('ok')
+
     @staticmethod
     def do_retrieve(url: str, fname: str) -> None:
         """Retrieve given url to target filepath fname."""
@@ -904,7 +977,7 @@ class UnicodeDataFile:
         if not UnicodeDataFile.is_url_newer(url, fname):
             return
         session = UnicodeDataFile.get_http_session()
-        resp = session.get(url, timeout=CONNECT_TIMEOUT)
+        resp = session.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
         resp.raise_for_status()
         print(f"saving {fname}: ", end='', flush=True)
         with open(fname, 'wb') as fout:
@@ -918,7 +991,7 @@ class UnicodeDataFile:
             return True
         if CHECK_LAST_MODIFIED:
             session = UnicodeDataFile.get_http_session()
-            resp = session.head(url, timeout=CONNECT_TIMEOUT)
+            resp = session.head(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
             resp.raise_for_status()
             remote_url_dt = dateutil.parser.parse(resp.headers['Last-Modified']).astimezone()
             local_file_dt = datetime.datetime.fromtimestamp(os.path.getmtime(fname)).astimezone()
@@ -928,10 +1001,23 @@ class UnicodeDataFile:
     @functools.cache
     def get_http_session() -> requests.Session:
         session = requests.Session()
-        retries = urllib3.util.Retry(total=MAX_RETRIES,
-                                     backoff_factor=BACKOFF_FACTOR,
-                                     status_forcelist=[500, 502, 503, 504, 520])
-        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
+        session.headers.update({
+            'User-Agent': 'wcwidth-update-tables/1.0 (https://github.com/jquast/wcwidth)'
+        })
+        retries = urllib3.util.Retry(
+            total=MAX_RETRIES,
+            connect=MAX_RETRIES,
+            read=MAX_RETRIES,
+            backoff_factor=BACKOFF_FACTOR,
+            backoff_jitter=BACKOFF_FACTOR,
+            status_forcelist=[408, 429, 500, 502, 503, 504, 520],
+            allowed_methods=['HEAD', 'GET'],
+            raise_on_status=False,
+            respect_retry_after_header=True,
+        )
+        adapter = requests.adapters.HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
         return session
 
     @staticmethod
@@ -1040,6 +1126,11 @@ def parse_args() -> dict[str, Any]:
         epilog='https://github.com/jquast/wcwidth'
     )
     parser.add_argument(
+        '--only-fetch',
+        action='store_true',
+        help='Only fetch data files without processing or code generation'
+    )
+    parser.add_argument(
         '--fetch-all-versions',
         action='store_true',
         help='Fetch emoji variation sequences and ZWJ sequences for all Unicode versions '
@@ -1053,11 +1144,52 @@ def parse_args() -> dict[str, Any]:
     return vars(parser.parse_args())
 
 
-def main(fetch_all_versions: bool = False, check_last_modified: bool = False) -> None:
+def fetch_all_data_files(fetch_all_versions: bool = False) -> None:
+    """
+    Fetch all required Unicode data files.
+
+    Fetches data files for code generation and test files. Files are only downloaded if they don't
+    exist locally or if CHECK_LAST_MODIFIED is True and the remote file is newer.
+    """
+    # Fetch DerivedAge first to determine available Unicode versions
+    UnicodeDataFile.DerivedAge()
+    version = fetch_unicode_versions()[-1]
+
+    # Fetch data files required for code generation
+    UnicodeDataFile.EastAsianWidth(version)
+    UnicodeDataFile.DerivedGeneralCategory(version)
+    UnicodeDataFile.EmojiVariationSequences(version)
+    UnicodeDataFile.LegacyEmojiVariationSequences()
+    UnicodeDataFile.GraphemeBreakProperty(version)
+    UnicodeDataFile.EmojiData(version)
+    UnicodeDataFile.DerivedCoreProperties(version)
+    UnicodeDataFile.PropList(version)
+
+    # Fetch test data files
+    UnicodeDataFile.TestEmojiVariationSequences()
+    UnicodeDataFile.TestEmojiZWJSequences()
+    UnicodeDataFile.TestGraphemeBreakTest()
+    UnicodeDataFile.UDHRCombined()
+
+    # Fetch all legacy emoji files if requested
+    if fetch_all_versions:
+        fetch_all_emoji_files()
+
+
+def main(only_fetch: bool = False, fetch_all_versions: bool = False,
+         check_last_modified: bool = False) -> None:
     """Update east-asian, combining and zero width tables."""
     # Set global flag for HTTP requests to check Last-Modified headers
     global CHECK_LAST_MODIFIED
     CHECK_LAST_MODIFIED = check_last_modified
+
+    # Always fetch data files first
+    fetch_all_data_files(fetch_all_versions)
+
+    # Exit early if only fetching was requested
+    if only_fetch:
+        print('Fetch complete (--only-fetch mode, skipping code generation)')
+        return
 
     # This defines which jinja source templates map to which output filenames,
     # and what function defines the source data. We hope to add more source
@@ -1065,11 +1197,12 @@ def main(fetch_all_versions: bool = False, check_last_modified: bool = False) ->
     # code.
     def get_codegen_definitions() -> Iterator[RenderDefinition]:
         yield UnicodeVersionPyRenderDef.new(
-            UnicodeVersionPyRenderCtx(fetch_unicode_versions())
+            UnicodeVersionPyRenderCtx([fetch_unicode_versions()[-1]])  # Only latest
         )
         yield UnicodeTableRenderDef.new('table_vs16.py', fetch_table_vs16_data())
         yield UnicodeTableRenderDef.new('table_wide.py', fetch_table_wide_data())
         yield UnicodeTableRenderDef.new('table_zero.py', fetch_table_zero_data())
+        yield UnicodeTableRenderDef.new('table_mc.py', fetch_table_category_mc_data())
         yield UnicodeTableRenderDef.new('table_ambiguous.py', fetch_table_ambiguous_data())
         yield GraphemeTableRenderDef.new(fetch_table_grapheme_data())
         yield UnicodeVersionRstRenderDef.new(fetch_source_headers())
@@ -1086,15 +1219,6 @@ def main(fetch_all_versions: bool = False, check_last_modified: bool = False) ->
         else:
             assert render_def.output_filename != 'table_vs16.py', ('table_vs16 not expected to change!')
             print('ok')
-
-    # fetch latest test data files, used by our automatic tests
-    UnicodeDataFile.TestEmojiVariationSequences()
-    UnicodeDataFile.TestEmojiZWJSequences()
-    UnicodeDataFile.TestGraphemeBreakTest()
-
-    # fetch all legacy emoji files if requested
-    if fetch_all_versions:
-        fetch_all_emoji_files()
 
 
 if __name__ == '__main__':

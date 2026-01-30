@@ -1,11 +1,11 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 5.22.2
+Version: 6.0.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
 Author-email: support@tinybird.co
-Requires-Python: >=3.9, <3.14
+Requires-Python: >=3.10, <3.14
 Description-Content-Type: text/x-rst
 Requires-Dist: aiofiles==24.1.0
 Requires-Dist: clickhouse-toolset==0.34.dev0
@@ -26,29 +26,11 @@ Requires-Dist: tornado~=6.0.0
 Requires-Dist: urllib3<2,>=1.26.14
 Requires-Dist: wheel
 Requires-Dist: packaging<24,>=23.1
-Provides-Extra: bigquery
-Requires-Dist: gsutil==4.58; extra == "bigquery"
-Requires-Dist: google-api-python-client==2.0.2; extra == "bigquery"
-Requires-Dist: google-auth==1.27.1; extra == "bigquery"
-Requires-Dist: google-auth-httplib2==0.1.0; extra == "bigquery"
-Requires-Dist: google-cloud-storage==2.4.0; extra == "bigquery"
-Requires-Dist: google-cloud-bigquery==2.11.0; extra == "bigquery"
-Provides-Extra: snowflake
-Requires-Dist: snowflake-connector-python~=3.12.3; extra == "snowflake"
-Requires-Dist: gsutil==4.58; extra == "snowflake"
-Requires-Dist: google-api-python-client==2.0.2; extra == "snowflake"
-Requires-Dist: google-auth==1.27.1; extra == "snowflake"
-Requires-Dist: google-auth-httplib2==0.1.0; extra == "snowflake"
-Requires-Dist: google-cloud-storage==2.4.0; extra == "snowflake"
-Requires-Dist: oauth2client==3.0.0; extra == "snowflake"
-Requires-Dist: chardet<4,>=3.0.2; extra == "snowflake"
-Requires-Dist: pyOpenSSL<20.0.0,>=16.2.0; extra == "snowflake"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -60,6 +42,17 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+6.0.1
+***********
+
+- `Fixed` false circular dependency detection when a shared datasource has the same name as a local pipe
+
+6.0.0
+***********
+
+- `Removed` support for Python 3.9. The minimum supported Python version is now 3.10.
+- `Removed` BigQuery and Snowflake CDK connector commands from `tb connection create`
 
 5.22.2
 ***********

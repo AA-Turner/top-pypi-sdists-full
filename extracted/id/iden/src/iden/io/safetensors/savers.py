@@ -6,7 +6,12 @@ __all__ = ["NumpySafetensorsSaver", "TorchSafetensorsSaver"]
 
 from typing import TYPE_CHECKING, Any
 
-from coola.utils import check_numpy, check_torch, is_numpy_available, is_torch_available
+from coola.utils.imports import (
+    check_numpy,
+    check_torch,
+    is_numpy_available,
+    is_torch_available,
+)
 
 from iden.io.base import BaseFileSaver
 from iden.utils.imports import check_safetensors, is_safetensors_available

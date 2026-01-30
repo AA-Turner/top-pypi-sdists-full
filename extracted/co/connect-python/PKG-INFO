@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connect-python
-Version: 0.8.0
+Version: 0.8.1
 Summary: Server and client runtime library for Connect RPC
 Keywords: rpc,grpc,connect,protobuf,http
 License-Expression: Apache-2.0

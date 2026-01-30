@@ -15,8 +15,7 @@ GOLINT := $(GO) tool golangci-lint
 UV ?= uv
 TOX := $(UV) run tox
 
-COG_GO_SOURCE := $(shell find cmd pkg -type f)
-COG_PYTHON_SOURCE := $(shell find python/cog -type f -name '*.py')
+COG_GO_SOURCE := $(shell find cmd pkg -type f -name '*.go')
 
 COG_BINARIES := cog base-image
 
@@ -25,30 +24,7 @@ default: all
 .PHONY: all
 all: cog
 
-.PHONY: wheel
-wheel: pkg/dockerfile/embed/.wheel
-
-ifdef COG_WHEEL
-pkg/dockerfile/embed/.wheel: $(COG_WHEEL)
-	@mkdir -p pkg/dockerfile/embed
-	@rm -f pkg/dockerfile/embed/*.whl # there can only be one embedded wheel
-	@echo "Using prebuilt COG_WHEEL $<"
-	cp $< pkg/dockerfile/embed/
-	@touch $@
-else
-pkg/dockerfile/embed/.wheel: $(COG_PYTHON_SOURCE)
-	@mkdir -p pkg/dockerfile/embed
-	@rm -f pkg/dockerfile/embed/*.whl # there can only be one embedded wheel
-	$(UV) build --wheel --out-dir=pkg/dockerfile/embed .
-	@touch $@
-
-define COG_WHEEL
-    $(shell find pkg/dockerfile/embed -type f -name '*.whl')
-endef
-
-endif
-
-$(COG_BINARIES): $(COG_GO_SOURCE) pkg/dockerfile/embed/.wheel
+$(COG_BINARIES): $(COG_GO_SOURCE) generate
 	@echo Building $@
 	@if git name-rev --name-only --tags HEAD | grep -qFx undefined; then \
 		GOFLAGS=-buildvcs=false $(GORELEASER) build --clean --snapshot --single-target --id $@ --output $@; \
@@ -61,38 +37,47 @@ install: $(COG_BINARIES)
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) $< $(DESTDIR)$(BINDIR)/$<
 
+.PHONY: wheel
+wheel:
+	script/build-wheels
+
 .PHONY: clean
-clean:
-	rm -rf .tox build dist pkg/dockerfile/embed
+clean: clean-coglet
+	rm -rf .tox build dist pkg/wheels/*.whl
 	rm -f $(COG_BINARIES)
 
 .PHONY: test-go
-test-go: pkg/dockerfile/embed/.wheel
-	$(GO) tool gotestsum -- -short -timeout 1200s -parallel 5 ./... $(ARGS)
+test-go: generate
+	$(GO) tool gotestsum -- -short -timeout 1200s -parallel 5 $$(go list ./...) $(ARGS)
 
+# Run Go-based integration tests (testscript)
+# Use TEST_PARALLEL to control concurrency (default 4 to avoid Docker overload)
+# CI with more cores can set TEST_PARALLEL=8 or higher
+TEST_PARALLEL ?= 4
 .PHONY: test-integration
 test-integration: $(COG_BINARIES)
 	$(GO) test ./pkg/docker/...
-	PATH="$(PWD):$(PATH)" $(TOX) -e integration
+	cd integration-tests && $(GO) test -v -parallel $(TEST_PARALLEL) -timeout 30m $(ARGS) ./...
 
 .PHONY: test-python
-test-python: pkg/dockerfile/embed/.wheel
-	$(TOX) run --installpkg $(COG_WHEEL) -f tests
+test-python: generate
+	$(TOX) run --installpkg $$(ls dist/cog-*.whl) -f tests
 
 .PHONY: test
-test: test-go test-python test-integration
+test: test-go test-python
 
 .PHONY: fmt
 fmt:
 	$(GOIMPORTS) -w -d .
 	uv run ruff format
+	cd crates && cargo fmt
 
 .PHONY: generate
 generate:
 	$(GO) generate ./...
 
 .PHONY: vet
-vet: pkg/dockerfile/embed/.wheel
+vet: generate
 	$(GO) vet ./...
 
 .PHONY: check-fmt
@@ -101,9 +86,10 @@ check-fmt:
 	@test -z $$($(GOIMPORTS) -l .)
 
 .PHONY: lint
-lint: pkg/dockerfile/embed/.wheel check-fmt vet
+lint: generate check-fmt vet
 	$(GOLINT) run ./...
-	$(TOX) run --installpkg $(COG_WHEEL) -e lint,typecheck-pydantic2
+	$(TOX) run --installpkg $$(ls dist/cog-*.whl) -e lint,typecheck-pydantic2
+	cd crates && cargo clippy -- -D warnings
 
 .PHONY: run-docs-server
 run-docs-server:
@@ -115,3 +101,36 @@ run-docs-server:
 .PHONY: gen-mocks
 gen-mocks:
 	mockery
+
+# =============================================================================
+# Coglet targets (Rust)
+# =============================================================================
+
+# Run coglet Rust tests
+.PHONY: test-coglet-rust
+test-coglet-rust:
+	cd crates && cargo test $(ARGS)
+
+# Run coglet Rust linter
+.PHONY: lint-coglet
+lint-coglet:
+	cd crates && cargo clippy -- -D warnings
+
+# Format coglet Rust code
+.PHONY: fmt-coglet
+fmt-coglet:
+	cd crates && cargo fmt
+
+# Check coglet Rust formatting
+.PHONY: check-fmt-coglet
+check-fmt-coglet:
+	cd crates && cargo fmt --check
+
+# Run all coglet tests
+.PHONY: test-coglet
+test-coglet: test-coglet-rust
+
+# Clean coglet build artifacts
+.PHONY: clean-coglet
+clean-coglet:
+	cd crates && cargo clean

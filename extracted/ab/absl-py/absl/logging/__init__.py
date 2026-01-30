@@ -77,10 +77,10 @@ The differences in behavior are historical and unfortunate.
 """
 
 import collections
-from collections import abc
+from collections.abc import Mapping
 import getpass
-import io
 import inspect
+import io
 import itertools
 import logging
 import os
@@ -92,7 +92,6 @@ import threading
 import time
 import timeit
 import traceback
-import types
 import warnings
 
 from absl import flags
@@ -236,7 +235,7 @@ class _LoggerLevelsParser(flags.ArgumentParser):
   """Parser for --logger_levels flag."""
 
   def parse(self, value):
-    if isinstance(value, abc.Mapping):
+    if isinstance(value, Mapping):
       return value
 
     pairs = [pair.strip() for pair in value.split(',') if pair.strip()]
@@ -491,7 +490,7 @@ def _get_next_log_count_per_token(token):
   return next(_log_counter_per_token.setdefault(token, itertools.count()))
 
 
-def log_every_n(level, msg, n, *args, use_call_stack=False):
+def log_every_n(level, msg, n, *args, use_call_stack=False, **kwargs):
   """Logs ``msg % args`` at level 'level' once per 'n' times.
 
   Logs the 1st call, (N+1)st call, (2N+1)st call,  etc.
@@ -504,13 +503,14 @@ def log_every_n(level, msg, n, *args, use_call_stack=False):
     *args: The args to be substituted into the msg.
     use_call_stack: bool, whether to include the call stack when counting the
       number of times the message is logged.
+    **kwargs: May contain exc_info to add exception traceback to message.
   """
   caller_info = get_absl_logger().findCaller()
   if use_call_stack:
     # To reduce storage costs, we hash the call stack.
     caller_info = (*caller_info[0:3], hash(_fast_stack_trace()))
   count = _get_next_log_count_per_token(caller_info)
-  log_if(level, msg, not (count % n), *args)
+  log_if(level, msg, not (count % n), *args, **kwargs)
 
 
 # Keeps track of the last log time of the given token.
@@ -544,7 +544,9 @@ def _seconds_have_elapsed(token, num_seconds):
     return False
 
 
-def log_every_n_seconds(level, msg, n_seconds, *args, use_call_stack=False):
+def log_every_n_seconds(
+    level, msg, n_seconds, *args, use_call_stack=False, **kwargs
+):
   """Logs ``msg % args`` at level ``level`` iff ``n_seconds`` elapsed since last call.
 
   Logs the first call, logs subsequent calls if 'n' seconds have elapsed since
@@ -557,16 +559,17 @@ def log_every_n_seconds(level, msg, n_seconds, *args, use_call_stack=False):
     *args: The args to be substituted into the msg.
     use_call_stack: bool, whether to include the call stack when counting the
       number of times the message is logged.
+    **kwargs: May contain exc_info to add exception traceback to message.
   """
   caller_info = get_absl_logger().findCaller()
   if use_call_stack:
     # To reduce storage costs, we hash the call stack.
     caller_info = (*caller_info[0:3], hash(_fast_stack_trace()))
   should_log = _seconds_have_elapsed(caller_info, n_seconds)
-  log_if(level, msg, should_log, *args)
+  log_if(level, msg, should_log, *args, **kwargs)
 
 
-def log_first_n(level, msg, n, *args, use_call_stack=False):
+def log_first_n(level, msg, n, *args, use_call_stack=False, **kwargs):
   """Logs ``msg % args`` at level ``level`` only first ``n`` times.
 
   Not threadsafe.
@@ -578,19 +581,20 @@ def log_first_n(level, msg, n, *args, use_call_stack=False):
     *args: The args to be substituted into the msg.
     use_call_stack: bool, whether to include the call stack when counting the
       number of times the message is logged.
+    **kwargs: May contain exc_info to add exception traceback to message.
   """
   caller_info = get_absl_logger().findCaller()
   if use_call_stack:
     # To reduce storage costs, we hash the call stack.
     caller_info = (*caller_info[0:3], hash(_fast_stack_trace()))
   count = _get_next_log_count_per_token(caller_info)
-  log_if(level, msg, count < n, *args)
+  log_if(level, msg, count < n, *args, **kwargs)
 
 
-def log_if(level, msg, condition, *args):
+def log_if(level, msg, condition, *args, **kwargs):
   """Logs ``msg % args`` at level ``level`` only if condition is fulfilled."""
   if condition:
-    log(level, msg, *args)
+    log(level, msg, *args, **kwargs)
 
 
 def log(level, msg, *args, **kwargs):
@@ -1189,7 +1193,7 @@ class ABSLLogger(logging.getLoggerClass()):
     self.log(logging.DEBUG, msg, *args, **kwargs)
 
   def log(self, level, msg, *args, **kwargs):
-    """Logs a message at a cetain level substituting in the supplied arguments.
+    """Logs a message at a certain level substituting in the supplied arguments.
 
     This method behaves differently in python and c++ modes.
 

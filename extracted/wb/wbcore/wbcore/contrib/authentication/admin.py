@@ -23,6 +23,8 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.debug import sensitive_post_parameters
 
+from wbcore.contrib.permission.internal.registry import UserBackendRegistry
+
 from .models import Token, User, UserActivity
 
 csrf_protect_m = method_decorator(csrf_protect)
@@ -93,8 +95,8 @@ class UserAdmin(admin.ModelAdmin):
     add_form = UserCreationForm
     change_password_form = AdminPasswordChangeForm
 
-    list_display = ("email", "username", "uuid", "is_staff", "is_active", "is_register")
-    list_filter = ("is_staff", "is_superuser", "is_active", "groups")
+    list_display = ("email", "username", "uuid", "is_staff", "is_active", "is_register", "is_internal")
+    list_filter = ("is_staff", "is_superuser", "is_active", "is_internal", "groups")
     search_fields = ("email", "username")
     ordering = ("email",)
     filter_horizontal = (
@@ -245,3 +247,14 @@ class UserAdmin(admin.ModelAdmin):
             request.POST = request.POST.copy()
             request.POST["_continue"] = 1
         return super(UserAdmin, self).response_add(request, obj, post_url_continue)
+
+    actions = ["reset_internal_user_cache"]
+
+    @admin.action(description=_("Reset Internal User Cache (select any user to activate)"))
+    def reset_internal_user_cache(self, request, queryset):
+        """
+        Generic action that does not depend on selected objects.
+        """
+
+        UserBackendRegistry().refresh_users(reset_all=True)
+        messages.success(request, _("User reset succesfully"))

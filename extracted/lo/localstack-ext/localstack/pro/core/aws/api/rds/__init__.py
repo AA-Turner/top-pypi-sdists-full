@@ -41,6 +41,7 @@ KmsKeyIdOrArn = str
 MajorEngineVersion = str
 Marker = str
 MaxRecords = int
+OperatorSensitiveString = str
 PotentiallySensitiveOptionSettingValue = str
 PotentiallySensitiveParameterValue = str
 SensitiveString = str
@@ -2190,7 +2191,7 @@ class ConnectionPoolConfiguration(TypedDict, total=False):
     MaxIdleConnectionsPercent: IntegerOptional | None
     ConnectionBorrowTimeout: IntegerOptional | None
     SessionPinningFilters: StringList | None
-    InitQuery: String | None
+    InitQuery: OperatorSensitiveString | None
 
 
 class ConnectionPoolConfigurationInfo(TypedDict, total=False):
@@ -2202,7 +2203,7 @@ class ConnectionPoolConfigurationInfo(TypedDict, total=False):
     MaxIdleConnectionsPercent: Integer | None
     ConnectionBorrowTimeout: Integer | None
     SessionPinningFilters: StringList | None
-    InitQuery: String | None
+    InitQuery: OperatorSensitiveString | None
 
 
 class ContextAttribute(TypedDict, total=False):
@@ -2431,8 +2432,8 @@ class DBSnapshot(TypedDict, total=False):
     DBSystemId: String | None
     MultiTenant: BooleanOptional | None
     DedicatedLogVolume: Boolean | None
-    SnapshotAvailabilityZone: String | None
     AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    SnapshotAvailabilityZone: String | None
 
 
 class CopyDBSnapshotResult(TypedDict, total=False):
@@ -2558,6 +2559,7 @@ class CreateCustomDBEngineVersionMessage(ServiceRequest):
     EngineVersion: CustomEngineVersion
     DatabaseInstallationFilesS3BucketName: BucketName | None
     DatabaseInstallationFilesS3Prefix: String255 | None
+    DatabaseInstallationFiles: StringList | None
     ImageId: String255 | None
     KMSKeyId: KmsKeyIdOrArn | None
     SourceCustomDbEngineVersionIdentifier: String255 | None
@@ -2565,7 +2567,6 @@ class CreateCustomDBEngineVersionMessage(ServiceRequest):
     Description: Description | None
     Manifest: CustomDBEngineVersionManifest | None
     Tags: TagList | None
-    DatabaseInstallationFiles: StringList | None
 
 
 class CreateDBClusterEndpointMessage(ServiceRequest):
@@ -2575,6 +2576,19 @@ class CreateDBClusterEndpointMessage(ServiceRequest):
     StaticMembers: StringList | None
     ExcludedMembers: StringList | None
     Tags: TagList | None
+
+
+class TagSpecification(TypedDict, total=False):
+    """The tags to apply to resources when creating or modifying a DB instance
+    or DB cluster. When you specify a tag, you must specify the resource
+    type to tag, otherwise the request will fail.
+    """
+
+    ResourceType: String | None
+    Tags: TagList | None
+
+
+TagSpecificationList = list[TagSpecification]
 
 
 class ServerlessV2ScalingConfiguration(TypedDict, total=False):
@@ -2669,6 +2683,7 @@ class CreateDBClusterMessage(ServiceRequest):
     MasterUserSecretKmsKeyId: String | None
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
+    TagSpecifications: TagSpecificationList | None
     MasterUserAuthenticationType: MasterUserAuthenticationType | None
     SourceRegion: String | None
 
@@ -3000,8 +3015,9 @@ class CreateDBInstanceMessage(ServiceRequest):
     MultiTenant: BooleanOptional | None
     DedicatedLogVolume: BooleanOptional | None
     EngineLifecycleSupport: String | None
-    MasterUserAuthenticationType: MasterUserAuthenticationType | None
     AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
 
 
 class CreateDBInstanceReadReplicaMessage(ServiceRequest):
@@ -3053,6 +3069,7 @@ class CreateDBInstanceReadReplicaMessage(ServiceRequest):
     UpgradeStorageConfig: BooleanOptional | None
     CACertificateIdentifier: String | None
     AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
     SourceRegion: String | None
 
 
@@ -3708,6 +3725,7 @@ class DBClusterAutomatedBackup(TypedDict, total=False):
     Iops: IntegerOptional | None
     StorageThroughput: IntegerOptional | None
     AwsBackupRecoveryPointArn: String | None
+    TagList: TagList | None
 
 
 DBClusterAutomatedBackupList = list[DBClusterAutomatedBackup]
@@ -3952,12 +3970,14 @@ class DBEngineVersion(TypedDict, total=False):
     EngineVersion: String | None
     DatabaseInstallationFilesS3BucketName: String | None
     DatabaseInstallationFilesS3Prefix: String | None
+    DatabaseInstallationFiles: StringList | None
     CustomDBEngineVersionManifest: CustomDBEngineVersionManifest | None
     DBParameterGroupFamily: String | None
     DBEngineDescription: String | None
     DBEngineVersionArn: String | None
     DBEngineVersionDescription: String | None
     DefaultCharacterSet: CharacterSet | None
+    FailureReason: String | None
     Image: CustomDBEngineVersionAMI | None
     DBEngineMediaType: String | None
     KMSKeyId: String | None
@@ -3982,8 +4002,6 @@ class DBEngineVersion(TypedDict, total=False):
     SupportsLocalWriteForwarding: BooleanOptional | None
     SupportsIntegrations: Boolean | None
     ServerlessV2FeaturesSupport: ServerlessV2FeaturesSupport | None
-    DatabaseInstallationFiles: StringList | None
-    FailureReason: String | None
 
 
 DBEngineVersionList = list[DBEngineVersion]
@@ -4034,6 +4052,7 @@ class DBInstanceAutomatedBackup(TypedDict, total=False):
     BackupTarget: String | None
     MultiTenant: BooleanOptional | None
     AwsBackupRecoveryPointArn: String | None
+    TagList: TagList | None
     DedicatedLogVolume: BooleanOptional | None
     AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
@@ -5588,8 +5607,9 @@ class ModifyDBInstanceMessage(ServiceRequest):
     MultiTenant: BooleanOptional | None
     DedicatedLogVolume: BooleanOptional | None
     Engine: String | None
-    MasterUserAuthenticationType: MasterUserAuthenticationType | None
     AdditionalStorageVolumes: ModifyAdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
+    MasterUserAuthenticationType: MasterUserAuthenticationType | None
 
 
 class ModifyDBInstanceResult(TypedDict, total=False):
@@ -5885,8 +5905,8 @@ class OrderableDBInstanceOption(TypedDict, total=False):
     SupportedNetworkTypes: StringList | None
     SupportsClusters: Boolean | None
     SupportsDedicatedLogVolume: Boolean | None
-    SupportsHttpEndpoint: Boolean | None
     SupportsAdditionalStorageVolumes: BooleanOptional | None
+    SupportsHttpEndpoint: Boolean | None
     AvailableAdditionalStorageVolumesOptions: AvailableAdditionalStorageVolumesOptionList | None
 
 
@@ -5924,6 +5944,7 @@ class PromoteReadReplicaMessage(ServiceRequest):
     DBInstanceIdentifier: String
     BackupRetentionPeriod: IntegerOptional | None
     PreferredBackupWindow: String | None
+    TagSpecifications: TagSpecificationList | None
 
 
 class PromoteReadReplicaResult(TypedDict, total=False):
@@ -6136,6 +6157,7 @@ class RestoreDBClusterFromS3Message(ServiceRequest):
     ManageMasterUserPassword: BooleanOptional | None
     MasterUserSecretKmsKeyId: String | None
     EngineLifecycleSupport: String | None
+    TagSpecifications: TagSpecificationList | None
 
 
 class RestoreDBClusterFromS3Result(TypedDict, total=False):
@@ -6178,6 +6200,7 @@ class RestoreDBClusterFromSnapshotMessage(ServiceRequest):
     PerformanceInsightsKMSKeyId: String | None
     PerformanceInsightsRetentionPeriod: IntegerOptional | None
     EngineLifecycleSupport: String | None
+    TagSpecifications: TagSpecificationList | None
 
 
 class RestoreDBClusterFromSnapshotResult(TypedDict, total=False):
@@ -6220,6 +6243,7 @@ class RestoreDBClusterToPointInTimeMessage(ServiceRequest):
     PerformanceInsightsKMSKeyId: String | None
     PerformanceInsightsRetentionPeriod: IntegerOptional | None
     EngineLifecycleSupport: String | None
+    TagSpecifications: TagSpecificationList | None
 
 
 class RestoreDBClusterToPointInTimeResult(TypedDict, total=False):
@@ -6269,9 +6293,10 @@ class RestoreDBInstanceFromDBSnapshotMessage(ServiceRequest):
     DedicatedLogVolume: BooleanOptional | None
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
     ManageMasterUserPassword: BooleanOptional | None
     MasterUserSecretKmsKeyId: String | None
-    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class RestoreDBInstanceFromDBSnapshotResult(TypedDict, total=False):
@@ -6332,6 +6357,7 @@ class RestoreDBInstanceFromS3Message(ServiceRequest):
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
     AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
 
 
 class RestoreDBInstanceFromS3Result(TypedDict, total=False):
@@ -6385,9 +6411,10 @@ class RestoreDBInstanceToPointInTimeMessage(ServiceRequest):
     DedicatedLogVolume: BooleanOptional | None
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
+    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
+    TagSpecifications: TagSpecificationList | None
     ManageMasterUserPassword: BooleanOptional | None
     MasterUserSecretKmsKeyId: String | None
-    AdditionalStorageVolumes: AdditionalStorageVolumesList | None
 
 
 class RestoreDBInstanceToPointInTimeResult(TypedDict, total=False):
@@ -6459,6 +6486,7 @@ class StartDBInstanceAutomatedBackupsReplicationMessage(ServiceRequest):
     BackupRetentionPeriod: IntegerOptional | None
     KmsKeyId: String | None
     PreSignedUrl: SensitiveString | None
+    Tags: TagList | None
     SourceRegion: String | None
 
 
@@ -6580,10 +6608,10 @@ class RdsApi:
         ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
         :param feature_name: The name of the feature for the DB cluster that the IAM role is to be
         associated with.
-        :raises DBClusterNotFoundFault:
-        :raises DBClusterRoleAlreadyExistsFault:
-        :raises InvalidDBClusterStateFault:
         :raises DBClusterRoleQuotaExceededFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBClusterRoleAlreadyExistsFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -6609,10 +6637,10 @@ class RdsApi:
         instance, for example ``arn:aws:iam::123456789012:role/AccessRole``.
         :param feature_name: The name of the feature for the DB instance that the IAM role is to be
         associated with.
-        :raises DBInstanceNotFoundFault:
-        :raises DBInstanceRoleAlreadyExistsFault:
-        :raises InvalidDBInstanceStateFault:
         :raises DBInstanceRoleQuotaExceededFault:
+        :raises DBInstanceNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises DBInstanceRoleAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -6631,8 +6659,8 @@ class RdsApi:
         source identifier to.
         :param source_identifier: The identifier of the event source to be added.
         :returns: AddSourceIdentifierToSubscriptionResult
-        :raises SubscriptionNotFoundFault:
         :raises SourceNotFoundFault:
+        :raises SubscriptionNotFoundFault:
         """
         raise NotImplementedError
 
@@ -6653,20 +6681,20 @@ class RdsApi:
 
         :param resource_name: The Amazon RDS resource that the tags are added to.
         :param tags: The tags to be assigned to the Amazon RDS resource.
-        :raises DBInstanceNotFoundFault:
-        :raises DBClusterNotFoundFault:
-        :raises DBSnapshotNotFoundFault:
         :raises DBProxyNotFoundFault:
-        :raises DBProxyEndpointNotFoundFault:
-        :raises DBProxyTargetGroupNotFoundFault:
-        :raises BlueGreenDeploymentNotFoundFault:
-        :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
         :raises IntegrationNotFoundFault:
-        :raises DBShardGroupNotFoundFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBInstanceStateFault:
+        :raises TenantDatabaseNotFoundFault:
+        :raises BlueGreenDeploymentNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises InvalidDBClusterEndpointStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises DBShardGroupNotFoundFault:
+        :raises DBClusterNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises DBProxyTargetGroupNotFoundFault:
+        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -6740,10 +6768,10 @@ class RdsApi:
         :param ec2_security_group_owner_id: Amazon Web Services account number of the owner of the EC2 security
         group specified in the ``EC2SecurityGroupName`` parameter.
         :returns: AuthorizeDBSecurityGroupIngressResult
-        :raises DBSecurityGroupNotFoundFault:
         :raises InvalidDBSecurityGroupStateFault:
-        :raises AuthorizationAlreadyExistsFault:
         :raises AuthorizationQuotaExceededFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises AuthorizationAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -6775,8 +6803,8 @@ class RdsApi:
         backtrack time when *BacktrackTo* is set to a timestamp earlier than the
         earliest backtrack time.
         :returns: DBClusterBacktrack
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -6819,8 +6847,8 @@ class RdsApi:
         :param tags: A list of tags.
         :returns: CopyDBClusterParameterGroupResult
         :raises DBParameterGroupNotFoundFault:
-        :raises DBParameterGroupQuotaExceededFault:
         :raises DBParameterGroupAlreadyExistsFault:
+        :raises DBParameterGroupQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -6897,11 +6925,11 @@ class RdsApi:
         :param tags: A list of tags.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBClusterSnapshotResult
-        :raises DBClusterSnapshotAlreadyExistsFault:
         :raises DBClusterSnapshotNotFoundFault:
-        :raises InvalidDBClusterStateFault:
         :raises InvalidDBClusterSnapshotStateFault:
+        :raises InvalidDBClusterStateFault:
         :raises SnapshotQuotaExceededFault:
+        :raises DBClusterSnapshotAlreadyExistsFault:
         :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
@@ -6986,12 +7014,12 @@ class RdsApi:
         snapshot.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBSnapshotResult
-        :raises DBSnapshotAlreadyExistsFault:
-        :raises DBSnapshotNotFoundFault:
-        :raises InvalidDBSnapshotStateFault:
         :raises SnapshotQuotaExceededFault:
-        :raises KMSKeyNotAccessibleFault:
+        :raises DBSnapshotNotFoundFault:
         :raises CustomAvailabilityZoneNotFoundFault:
+        :raises InvalidDBSnapshotStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBSnapshotAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -7012,9 +7040,9 @@ class RdsApi:
         :param target_option_group_description: The description for the copied option group.
         :param tags: A list of tags.
         :returns: CopyOptionGroupResult
-        :raises OptionGroupAlreadyExistsFault:
         :raises OptionGroupNotFoundFault:
         :raises OptionGroupQuotaExceededFault:
+        :raises OptionGroupAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -7079,18 +7107,18 @@ class RdsApi:
         instance.
         :param target_storage_throughput: The storage throughput value for the green DB instance.
         :returns: CreateBlueGreenDeploymentResponse
-        :raises DBInstanceNotFoundFault:
-        :raises DBClusterNotFoundFault:
+        :raises StorageQuotaExceededFault:
+        :raises DBParameterGroupNotFoundFault:
+        :raises BlueGreenDeploymentAlreadyExistsFault:
         :raises SourceDatabaseNotSupportedFault:
         :raises SourceClusterNotSupportedFault:
-        :raises BlueGreenDeploymentAlreadyExistsFault:
-        :raises DBParameterGroupNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
         :raises DBClusterParameterGroupNotFoundFault:
+        :raises DBClusterNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
         :raises InstanceQuotaExceededFault:
         :raises DBClusterQuotaExceededFault:
-        :raises StorageQuotaExceededFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -7102,6 +7130,7 @@ class RdsApi:
         engine_version: CustomEngineVersion,
         database_installation_files_s3_bucket_name: BucketName | None = None,
         database_installation_files_s3_prefix: String255 | None = None,
+        database_installation_files: StringList | None = None,
         image_id: String255 | None = None,
         kms_key_id: KmsKeyIdOrArn | None = None,
         source_custom_db_engine_version_identifier: String255 | None = None,
@@ -7109,7 +7138,6 @@ class RdsApi:
         description: Description | None = None,
         manifest: CustomDBEngineVersionManifest | None = None,
         tags: TagList | None = None,
-        database_installation_files: StringList | None = None,
         **kwargs,
     ) -> DBEngineVersion:
         """Creates a custom DB engine version (CEV).
@@ -7120,6 +7148,8 @@ class RdsApi:
         files for your CEV.
         :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files
         for your CEV.
+        :param database_installation_files: The database installation files (ISO and EXE) uploaded to Amazon S3 for
+        your database engine version to import to Amazon RDS.
         :param image_id: The ID of the Amazon Machine Image (AMI).
         :param kms_key_id: The Amazon Web Services KMS key identifier for an encrypted CEV.
         :param source_custom_db_engine_version_identifier: The ARN of a CEV to use as a source for creating a new CEV.
@@ -7129,16 +7159,14 @@ class RdsApi:
         :param manifest: The CEV manifest, which is a JSON document that describes the
         installation .
         :param tags: A list of tags.
-        :param database_installation_files: The database installation files (ISO and EXE) uploaded to Amazon S3 for
-        your database engine version to import to Amazon RDS.
         :returns: DBEngineVersion
-        :raises CustomDBEngineVersionAlreadyExistsFault:
-        :raises CustomDBEngineVersionQuotaExceededFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises Ec2ImagePropertiesNotSupportedFault:
-        :raises CreateCustomDBEngineVersionFault:
         :raises CustomDBEngineVersionNotFoundFault:
+        :raises Ec2ImagePropertiesNotSupportedFault:
         :raises InvalidCustomDBEngineVersionStateFault:
+        :raises CustomDBEngineVersionQuotaExceededFault:
+        :raises CreateCustomDBEngineVersionFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises CustomDBEngineVersionAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -7202,6 +7230,7 @@ class RdsApi:
         master_user_secret_kms_key_id: String | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         master_user_authentication_type: MasterUserAuthenticationType | None = None,
         source_region: String | None = None,
         **kwargs,
@@ -7318,33 +7347,34 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB cluster's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
+        :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
         :param source_region: The ID of the region that contains the source for the db cluster.
         :returns: CreateDBClusterResult
-        :raises DBClusterAlreadyExistsFault:
-        :raises InsufficientDBInstanceCapacityFault:
-        :raises InsufficientStorageClusterCapacityFault:
-        :raises DBClusterQuotaExceededFault:
-        :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBSubnetGroupFault:
-        :raises InvalidDBSubnetGroupStateFault:
-        :raises InvalidSubnet:
-        :raises InvalidDBInstanceStateFault:
-        :raises DBClusterParameterGroupNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises DBClusterNotFoundFault:
-        :raises DBInstanceNotFoundFault:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises GlobalClusterNotFoundFault:
-        :raises InvalidGlobalClusterStateFault:
-        :raises NetworkTypeNotSupported:
-        :raises DomainNotFoundFault:
+        :raises InvalidDBSubnetGroupFault:
+        :raises DBClusterParameterGroupNotFoundFault:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
         :raises StorageTypeNotSupportedFault:
         :raises OptionGroupNotFoundFault:
-        :raises VpcEncryptionControlViolationException:
+        :raises DBInstanceNotFoundFault:
+        :raises DBClusterAlreadyExistsFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises NetworkTypeNotSupported:
+        :raises GlobalClusterNotFoundFault:
+        :raises StorageQuotaExceededFault:
+        :raises DomainNotFoundFault:
+        :raises InsufficientStorageClusterCapacityFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBSubnetGroupStateFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises DBClusterQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -7375,12 +7405,12 @@ class RdsApi:
         group.
         :param tags: The tags to be assigned to the Amazon RDS resource.
         :returns: DBClusterEndpoint
-        :raises DBClusterEndpointQuotaExceededFault:
         :raises DBClusterEndpointAlreadyExistsFault:
-        :raises DBClusterNotFoundFault:
-        :raises InvalidDBClusterStateFault:
+        :raises DBClusterEndpointQuotaExceededFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -7441,8 +7471,8 @@ class RdsApi:
         :param description: The description for the DB cluster parameter group.
         :param tags: Tags to assign to the DB cluster parameter group.
         :returns: CreateDBClusterParameterGroupResult
-        :raises DBParameterGroupQuotaExceededFault:
         :raises DBParameterGroupAlreadyExistsFault:
+        :raises DBParameterGroupQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -7469,11 +7499,11 @@ class RdsApi:
         :param db_cluster_identifier: The identifier of the DB cluster to create a snapshot for.
         :param tags: The tags to be assigned to the DB cluster snapshot.
         :returns: CreateDBClusterSnapshotResult
-        :raises DBClusterSnapshotAlreadyExistsFault:
-        :raises InvalidDBClusterStateFault:
-        :raises DBClusterNotFoundFault:
-        :raises SnapshotQuotaExceededFault:
         :raises InvalidDBClusterSnapshotStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises SnapshotQuotaExceededFault:
+        :raises DBClusterSnapshotAlreadyExistsFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -7545,8 +7575,9 @@ class RdsApi:
         multi_tenant: BooleanOptional | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         engine_lifecycle_support: String | None = None,
-        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         additional_storage_volumes: AdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         **kwargs,
     ) -> CreateDBInstanceResult:
         """Creates a new DB instance.
@@ -7662,32 +7693,33 @@ class RdsApi:
         :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
         enabled.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
-        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: CreateDBInstanceResult
-        :raises DBInstanceAlreadyExistsFault:
-        :raises InsufficientDBInstanceCapacityFault:
+        :raises AuthorizationNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises DBSecurityGroupNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises NetworkTypeNotSupported:
         :raises InstanceQuotaExceededFault:
         :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidSubnet:
-        :raises InvalidVPCNetworkStateFault:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises DBClusterNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises AuthorizationNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises DomainNotFoundFault:
-        :raises NetworkTypeNotSupported:
         :raises BackupPolicyNotFoundFault:
+        :raises DomainNotFoundFault:
         :raises CertificateNotFoundFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBInstanceAlreadyExistsFault:
         :raises TenantDatabaseQuotaExceededFault:
-        :raises VpcEncryptionControlViolationException:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBSubnetGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -7743,6 +7775,7 @@ class RdsApi:
         upgrade_storage_config: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         additional_storage_volumes: AdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> CreateDBInstanceReadReplicaResult:
@@ -7844,33 +7877,34 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the read replica's server
         certificate.
         :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :param source_region: The ID of the region that contains the source for the read replica.
         :returns: CreateDBInstanceReadReplicaResult
-        :raises DBInstanceAlreadyExistsFault:
-        :raises InsufficientDBInstanceCapacityFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises DBSecurityGroupNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InvalidDBSubnetGroupFault:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
+        :raises VpcEncryptionControlViolationException:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises DBSubnetGroupNotAllowedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises NetworkTypeNotSupported:
         :raises InstanceQuotaExceededFault:
         :raises StorageQuotaExceededFault:
-        :raises DBInstanceNotFoundFault:
-        :raises DBClusterNotFoundFault:
+        :raises DomainNotFoundFault:
+        :raises CertificateNotFoundFault:
         :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises TenantDatabaseQuotaExceededFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
         :raises InvalidDBClusterStateFault:
         :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidSubnet:
-        :raises InvalidVPCNetworkStateFault:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises DBSubnetGroupNotAllowedFault:
-        :raises InvalidDBSubnetGroupFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises NetworkTypeNotSupported:
-        :raises DomainNotFoundFault:
-        :raises TenantDatabaseQuotaExceededFault:
-        :raises CertificateNotFoundFault:
-        :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
 
@@ -7902,8 +7936,8 @@ class RdsApi:
         :param description: The description for the DB parameter group.
         :param tags: Tags to assign to the DB parameter group.
         :returns: CreateDBParameterGroupResult
-        :raises DBParameterGroupQuotaExceededFault:
         :raises DBParameterGroupAlreadyExistsFault:
+        :raises DBParameterGroupQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -7949,8 +7983,8 @@ class RdsApi:
         :param endpoint_network_type: The network type of the DB proxy endpoint.
         :param target_connection_network_type: The network type that the proxy uses to connect to the target database.
         :returns: CreateDBProxyResponse
-        :raises InvalidSubnet:
         :raises DBProxyAlreadyExistsFault:
+        :raises InvalidSubnet:
         :raises DBProxyQuotaExceededFault:
         """
         raise NotImplementedError
@@ -7983,11 +8017,11 @@ class RdsApi:
         :param tags: A list of tags.
         :param endpoint_network_type: The network type of the DB proxy endpoint.
         :returns: CreateDBProxyEndpointResponse
-        :raises InvalidSubnet:
         :raises DBProxyNotFoundFault:
         :raises DBProxyEndpointAlreadyExistsFault:
-        :raises DBProxyEndpointQuotaExceededFault:
         :raises InvalidDBProxyStateFault:
+        :raises DBProxyEndpointQuotaExceededFault:
+        :raises InvalidSubnet:
         """
         raise NotImplementedError
 
@@ -8021,8 +8055,8 @@ class RdsApi:
         :param db_security_group_description: The description for the DB security group.
         :param tags: Tags to assign to the DB security group.
         :returns: CreateDBSecurityGroupResult
-        :raises DBSecurityGroupAlreadyExistsFault:
         :raises DBSecurityGroupQuotaExceededFault:
+        :raises DBSecurityGroupAlreadyExistsFault:
         :raises DBSecurityGroupNotSupportedFault:
         """
         raise NotImplementedError
@@ -8056,13 +8090,13 @@ class RdsApi:
         :param publicly_accessible: Specifies whether the DB shard group is publicly accessible.
         :param tags: A list of tags.
         :returns: DBShardGroup
-        :raises DBShardGroupAlreadyExistsFault:
-        :raises DBClusterNotFoundFault:
         :raises MaxDBShardGroupLimitReached:
-        :raises InvalidDBClusterStateFault:
-        :raises UnsupportedDBEngineVersionFault:
+        :raises DBShardGroupAlreadyExistsFault:
         :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
         :raises NetworkTypeNotSupported:
+        :raises UnsupportedDBEngineVersionFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8083,10 +8117,10 @@ class RdsApi:
         of.
         :param tags: A list of tags.
         :returns: CreateDBSnapshotResult
-        :raises DBSnapshotAlreadyExistsFault:
-        :raises InvalidDBInstanceStateFault:
         :raises DBInstanceNotFoundFault:
         :raises SnapshotQuotaExceededFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises DBSnapshotAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -8109,9 +8143,9 @@ class RdsApi:
         :param tags: Tags to assign to the DB subnet group.
         :returns: CreateDBSubnetGroupResult
         :raises DBSubnetGroupAlreadyExistsFault:
-        :raises DBSubnetGroupQuotaExceededFault:
-        :raises DBSubnetQuotaExceededFault:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises DBSubnetQuotaExceededFault:
+        :raises DBSubnetGroupQuotaExceededFault:
         :raises InvalidSubnet:
         """
         raise NotImplementedError
@@ -8173,13 +8207,13 @@ class RdsApi:
         :param enabled: Specifies whether to activate the subscription.
         :param tags: A list of tags.
         :returns: CreateEventSubscriptionResult
-        :raises EventSubscriptionQuotaExceededFault:
-        :raises SubscriptionAlreadyExistFault:
-        :raises SNSInvalidTopicFault:
-        :raises SNSNoAuthorizationFault:
         :raises SNSTopicArnNotFoundFault:
-        :raises SubscriptionCategoryNotFoundFault:
         :raises SourceNotFoundFault:
+        :raises SNSInvalidTopicFault:
+        :raises SubscriptionAlreadyExistFault:
+        :raises SubscriptionCategoryNotFoundFault:
+        :raises EventSubscriptionQuotaExceededFault:
+        :raises SNSNoAuthorizationFault:
         """
         raise NotImplementedError
 
@@ -8224,12 +8258,12 @@ class RdsApi:
         database cluster.
         :param tags: Tags to assign to the global cluster.
         :returns: CreateGlobalClusterResult
-        :raises GlobalClusterAlreadyExistsFault:
+        :raises ResourceNotFoundFault:
         :raises GlobalClusterQuotaExceededFault:
         :raises InvalidDBClusterStateFault:
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBShardGroupStateFault:
-        :raises ResourceNotFoundFault:
+        :raises GlobalClusterAlreadyExistsFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8262,12 +8296,12 @@ class RdsApi:
         :param data_filter: Data filtering options for the integration.
         :param description: A description of the integration.
         :returns: Integration
-        :raises DBClusterNotFoundFault:
+        :raises IntegrationQuotaExceededFault:
         :raises DBInstanceNotFoundFault:
         :raises IntegrationAlreadyExistsFault:
-        :raises IntegrationQuotaExceededFault:
         :raises KMSKeyNotAccessibleFault:
         :raises IntegrationConflictOperationFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8293,8 +8327,8 @@ class RdsApi:
         :param option_group_description: The description of the option group.
         :param tags: Tags to assign to the option group.
         :returns: CreateOptionGroupResult
-        :raises OptionGroupAlreadyExistsFault:
         :raises OptionGroupQuotaExceededFault:
+        :raises OptionGroupAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -8332,10 +8366,10 @@ class RdsApi:
         :param tags: A list of tags.
         :returns: CreateTenantDatabaseResult
         :raises DBInstanceNotFoundFault:
-        :raises InvalidDBInstanceStateFault:
         :raises TenantDatabaseAlreadyExistsFault:
-        :raises TenantDatabaseQuotaExceededFault:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises TenantDatabaseQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -8360,8 +8394,8 @@ class RdsApi:
         :param blue_green_deployment_identifier: The unique identifier of the blue/green deployment to delete.
         :param delete_target: Specifies whether to delete the resources in the green environment.
         :returns: DeleteBlueGreenDeploymentResponse
-        :raises BlueGreenDeploymentNotFoundFault:
         :raises InvalidBlueGreenDeploymentStateFault:
+        :raises BlueGreenDeploymentNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8440,14 +8474,14 @@ class RdsApi:
         :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB
         cluster is deleted.
         :returns: DeleteDBClusterResult
-        :raises DBClusterNotFoundFault:
+        :raises InvalidDBClusterSnapshotStateFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidGlobalClusterStateFault:
-        :raises DBClusterSnapshotAlreadyExistsFault:
         :raises SnapshotQuotaExceededFault:
-        :raises InvalidDBClusterSnapshotStateFault:
-        :raises DBClusterAutomatedBackupQuotaExceededFault:
+        :raises DBClusterSnapshotAlreadyExistsFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises DBClusterAutomatedBackupQuotaExceededFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8462,8 +8496,8 @@ class RdsApi:
         :param db_cluster_resource_id: The identifier for the source DB cluster, which can't be changed and
         which is unique to an Amazon Web Services Region.
         :returns: DeleteDBClusterAutomatedBackupResult
-        :raises InvalidDBClusterAutomatedBackupStateFault:
         :raises DBClusterAutomatedBackupNotFoundFault:
+        :raises InvalidDBClusterAutomatedBackupStateFault:
         """
         raise NotImplementedError
 
@@ -8478,9 +8512,9 @@ class RdsApi:
 
         :param db_cluster_endpoint_identifier: The identifier associated with the custom endpoint.
         :returns: DBClusterEndpoint
-        :raises InvalidDBClusterEndpointStateFault:
         :raises DBClusterEndpointNotFoundFault:
         :raises InvalidDBClusterStateFault:
+        :raises InvalidDBClusterEndpointStateFault:
         """
         raise NotImplementedError
 
@@ -8500,8 +8534,8 @@ class RdsApi:
         in the *Amazon RDS User Guide*.
 
         :param db_cluster_parameter_group_name: The name of the DB cluster parameter group.
-        :raises InvalidDBParameterGroupStateFault:
         :raises DBParameterGroupNotFoundFault:
+        :raises InvalidDBParameterGroupStateFault:
         """
         raise NotImplementedError
 
@@ -8525,8 +8559,8 @@ class RdsApi:
 
         :param db_cluster_snapshot_identifier: The identifier of the DB cluster snapshot to delete.
         :returns: DeleteDBClusterSnapshotResult
-        :raises InvalidDBClusterSnapshotStateFault:
         :raises DBClusterSnapshotNotFoundFault:
+        :raises InvalidDBClusterSnapshotStateFault:
         """
         raise NotImplementedError
 
@@ -8583,13 +8617,13 @@ class RdsApi:
         :param delete_automated_backups: Specifies whether to remove automated backups immediately after the DB
         instance is deleted.
         :returns: DeleteDBInstanceResult
-        :raises DBInstanceNotFoundFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises DBSnapshotAlreadyExistsFault:
-        :raises SnapshotQuotaExceededFault:
-        :raises InvalidDBClusterStateFault:
         :raises DBInstanceAutomatedBackupQuotaExceededFault:
+        :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises SnapshotQuotaExceededFault:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises DBSnapshotAlreadyExistsFault:
         """
         raise NotImplementedError
 
@@ -8624,8 +8658,8 @@ class RdsApi:
         deleted can't be associated with any DB instances.
 
         :param db_parameter_group_name: The name of the DB parameter group.
-        :raises InvalidDBParameterGroupStateFault:
         :raises DBParameterGroupNotFoundFault:
+        :raises InvalidDBParameterGroupStateFault:
         """
         raise NotImplementedError
 
@@ -8653,8 +8687,8 @@ class RdsApi:
 
         :param db_proxy_endpoint_name: The name of the DB proxy endpoint to delete.
         :returns: DeleteDBProxyEndpointResponse
-        :raises DBProxyEndpointNotFoundFault:
         :raises InvalidDBProxyEndpointStateFault:
+        :raises DBProxyEndpointNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8692,9 +8726,9 @@ class RdsApi:
 
         :param db_shard_group_identifier: The name of the DB shard group to delete.
         :returns: DBShardGroup
+        :raises InvalidDBClusterStateFault:
         :raises DBShardGroupNotFoundFault:
         :raises InvalidDBShardGroupStateFault:
-        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -8709,8 +8743,8 @@ class RdsApi:
 
         :param db_snapshot_identifier: The DB snapshot identifier.
         :returns: DeleteDBSnapshotResult
-        :raises InvalidDBSnapshotStateFault:
         :raises DBSnapshotNotFoundFault:
+        :raises InvalidDBSnapshotStateFault:
         """
         raise NotImplementedError
 
@@ -8724,8 +8758,8 @@ class RdsApi:
         instances.
 
         :param db_subnet_group_name: The name of the database subnet group to delete.
-        :raises InvalidDBSubnetGroupStateFault:
         :raises InvalidDBSubnetStateFault:
+        :raises InvalidDBSubnetGroupStateFault:
         :raises DBSubnetGroupNotFoundFault:
         """
         raise NotImplementedError
@@ -8754,8 +8788,8 @@ class RdsApi:
 
         :param global_cluster_identifier: The cluster identifier of the global database cluster being deleted.
         :returns: DeleteGlobalClusterResult
-        :raises GlobalClusterNotFoundFault:
         :raises InvalidGlobalClusterStateFault:
+        :raises GlobalClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8767,9 +8801,9 @@ class RdsApi:
 
         :param integration_identifier: The unique identifier of the integration.
         :returns: Integration
+        :raises InvalidIntegrationStateFault:
         :raises IntegrationNotFoundFault:
         :raises IntegrationConflictOperationFault:
-        :raises InvalidIntegrationStateFault:
         """
         raise NotImplementedError
 
@@ -8810,8 +8844,8 @@ class RdsApi:
         :param final_db_snapshot_identifier: The ``DBSnapshotIdentifier`` of the new ``DBSnapshot`` created when the
         ``SkipFinalSnapshot`` parameter is disabled.
         :returns: DeleteTenantDatabaseResult
-        :raises DBInstanceNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
+        :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
         :raises DBSnapshotAlreadyExistsFault:
         """
@@ -8836,10 +8870,10 @@ class RdsApi:
         :param db_instance_identifiers: One or more DB instance identifiers.
         :param db_cluster_identifiers: One or more DB cluster identifiers.
         :returns: DeregisterDBProxyTargetsResponse
-        :raises DBProxyTargetNotFoundFault:
-        :raises DBProxyTargetGroupNotFoundFault:
         :raises DBProxyNotFoundFault:
+        :raises DBProxyTargetGroupNotFoundFault:
         :raises InvalidDBProxyStateFault:
+        :raises DBProxyTargetNotFoundFault:
         """
         raise NotImplementedError
 
@@ -8975,8 +9009,8 @@ class RdsApi:
         :param marker: An optional pagination token provided by a previous
         ``DescribeDBClusterBacktracks`` request.
         :returns: DBClusterBacktrackMessage
-        :raises DBClusterNotFoundFault:
         :raises DBClusterBacktrackNotFoundFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -9476,9 +9510,9 @@ class RdsApi:
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeDBProxyTargetsResponse
         :raises DBProxyNotFoundFault:
-        :raises DBProxyTargetNotFoundFault:
         :raises DBProxyTargetGroupNotFoundFault:
         :raises InvalidDBProxyStateFault:
+        :raises DBProxyTargetNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10307,9 +10341,9 @@ class RdsApi:
         :param db_cluster_identifier: The identifier of the DB cluster to force a failover for.
         :param target_db_instance_identifier: The name of the DB instance to promote to the primary DB instance.
         :returns: FailoverDBClusterResult
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10379,9 +10413,9 @@ class RdsApi:
         operation.
         :param switchover: Specifies whether to switch over this global database cluster.
         :returns: FailoverGlobalClusterResult
-        :raises GlobalClusterNotFoundFault:
-        :raises InvalidGlobalClusterStateFault:
         :raises InvalidDBClusterStateFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises GlobalClusterNotFoundFault:
         :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
@@ -10406,17 +10440,17 @@ class RdsApi:
         :param resource_name: The Amazon RDS resource with tags to be listed.
         :param filters: This parameter isn't currently supported.
         :returns: TagListMessage
-        :raises DBInstanceNotFoundFault:
-        :raises DBSnapshotNotFoundFault:
-        :raises DBClusterNotFoundFault:
         :raises DBProxyNotFoundFault:
-        :raises DBProxyTargetGroupNotFoundFault:
-        :raises DBProxyEndpointNotFoundFault:
-        :raises BlueGreenDeploymentNotFoundFault:
-        :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
         :raises IntegrationNotFoundFault:
+        :raises TenantDatabaseNotFoundFault:
+        :raises BlueGreenDeploymentNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises DBShardGroupNotFoundFault:
+        :raises DBClusterNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises DBProxyTargetGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10443,9 +10477,9 @@ class RdsApi:
         Server DB instance.
         :param audit_policy_state: The audit policy state.
         :returns: ModifyActivityStreamResponse
-        :raises InvalidDBInstanceStateFault:
         :raises ResourceNotFoundFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
         """
         raise NotImplementedError
 
@@ -10541,9 +10575,9 @@ class RdsApi:
         :param timeout_action: The action to take when the timeout is reached, either
         ``ForceApplyCapacityChange`` or ``RollbackCapacityChange``.
         :returns: DBClusterCapacityInfo
-        :raises DBClusterNotFoundFault:
-        :raises InvalidDBClusterStateFault:
         :raises InvalidDBClusterCapacityFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10725,27 +10759,27 @@ class RdsApi:
         certificate.
         :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBClusterResult
-        :raises DBClusterNotFoundFault:
-        :raises InvalidDBClusterStateFault:
         :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidDBSubnetGroupStateFault:
-        :raises InvalidSubnet:
-        :raises DBClusterParameterGroupNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises InvalidDBSecurityGroupStateFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises DBClusterAlreadyExistsFault:
-        :raises DBInstanceAlreadyExistsFault:
-        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
-        :raises InvalidGlobalClusterStateFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises StorageTypeNotAvailableFault:
-        :raises OptionGroupNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises DBClusterParameterGroupNotFoundFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
         :raises VpcEncryptionControlViolationException:
+        :raises InvalidDBSecurityGroupStateFault:
+        :raises StorageTypeNotAvailableFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBClusterAlreadyExistsFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises NetworkTypeNotSupported:
+        :raises InvalidDBSubnetGroupStateFault:
+        :raises DBSubnetGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -10770,10 +10804,10 @@ class RdsApi:
         :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint
         group.
         :returns: DBClusterEndpoint
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBClusterEndpointStateFault:
         :raises DBClusterEndpointNotFoundFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBClusterEndpointStateFault:
         :raises InvalidDBInstanceStateFault:
         """
         raise NotImplementedError
@@ -10860,8 +10894,8 @@ class RdsApi:
         specified by ``AttributeName``.
         :returns: ModifyDBClusterSnapshotAttributeResult
         :raises DBClusterSnapshotNotFoundFault:
-        :raises InvalidDBClusterSnapshotStateFault:
         :raises SharedSnapshotQuotaExceededFault:
+        :raises InvalidDBClusterSnapshotStateFault:
         """
         raise NotImplementedError
 
@@ -10930,8 +10964,9 @@ class RdsApi:
         multi_tenant: BooleanOptional | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         engine: String | None = None,
-        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         additional_storage_volumes: ModifyAdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
+        master_user_authentication_type: MasterUserAuthenticationType | None = None,
         **kwargs,
     ) -> ModifyDBInstanceResult:
         """Modifies settings for a DB instance. You can change one or more database
@@ -11037,32 +11072,33 @@ class RdsApi:
         :param dedicated_log_volume: Indicates whether the DB instance has a dedicated log volume (DLV)
         enabled.
         :param engine: The target Oracle DB engine when you convert a non-CDB to a CDB.
-        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
         instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
+        :param master_user_authentication_type: Specifies the authentication type for the master user.
         :returns: ModifyDBInstanceResult
-        :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBSecurityGroupStateFault:
-        :raises DBInstanceAlreadyExistsFault:
-        :raises DBInstanceNotFoundFault:
-        :raises DBSecurityGroupNotFoundFault:
+        :raises AuthorizationNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
         :raises InsufficientDBInstanceCapacityFault:
-        :raises StorageQuotaExceededFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises DBUpgradeDependencyFailureFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises AuthorizationNotFoundFault:
-        :raises CertificateNotFoundFault:
-        :raises DomainNotFoundFault:
-        :raises BackupPolicyNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises NetworkTypeNotSupported:
-        :raises InvalidDBClusterStateFault:
-        :raises TenantDatabaseQuotaExceededFault:
         :raises VpcEncryptionControlViolationException:
+        :raises InvalidDBSecurityGroupStateFault:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises NetworkTypeNotSupported:
+        :raises StorageQuotaExceededFault:
+        :raises BackupPolicyNotFoundFault:
+        :raises DomainNotFoundFault:
+        :raises CertificateNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises DBUpgradeDependencyFailureFault:
+        :raises TenantDatabaseQuotaExceededFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -11156,9 +11192,9 @@ class RdsApi:
         :param new_db_proxy_endpoint_name: The new identifier for the ``DBProxyEndpoint``.
         :param vpc_security_group_ids: The VPC security group IDs for the DB proxy endpoint.
         :returns: ModifyDBProxyEndpointResponse
-        :raises DBProxyEndpointNotFoundFault:
-        :raises DBProxyEndpointAlreadyExistsFault:
         :raises InvalidDBProxyEndpointStateFault:
+        :raises DBProxyEndpointAlreadyExistsFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises InvalidDBProxyStateFault:
         """
         raise NotImplementedError
@@ -11230,8 +11266,8 @@ class RdsApi:
         :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard
         group.
         :returns: DBShardGroup
-        :raises InvalidDBClusterStateFault:
         :raises DBShardGroupAlreadyExistsFault:
+        :raises InvalidDBClusterStateFault:
         :raises DBShardGroupNotFoundFault:
         """
         raise NotImplementedError
@@ -11303,9 +11339,9 @@ class RdsApi:
         :param values_to_remove: A list of DB snapshot attributes to remove from the attribute specified
         by ``AttributeName``.
         :returns: ModifyDBSnapshotAttributeResult
+        :raises SharedSnapshotQuotaExceededFault:
         :raises DBSnapshotNotFoundFault:
         :raises InvalidDBSnapshotStateFault:
-        :raises SharedSnapshotQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -11325,11 +11361,11 @@ class RdsApi:
         :param subnet_ids: The EC2 subnet IDs for the DB subnet group.
         :param db_subnet_group_description: The description for the DB subnet group.
         :returns: ModifyDBSubnetGroupResult
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetQuotaExceededFault:
         :raises SubnetAlreadyInUse:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises DBSubnetQuotaExceededFault:
         :raises InvalidDBSubnetGroupStateFault:
+        :raises DBSubnetGroupNotFoundFault:
         :raises InvalidSubnet:
         """
         raise NotImplementedError
@@ -11365,12 +11401,12 @@ class RdsApi:
         want to subscribe to.
         :param enabled: Specifies whether to activate the subscription.
         :returns: ModifyEventSubscriptionResult
-        :raises EventSubscriptionQuotaExceededFault:
-        :raises SubscriptionNotFoundFault:
-        :raises SNSInvalidTopicFault:
-        :raises SNSNoAuthorizationFault:
         :raises SNSTopicArnNotFoundFault:
+        :raises SNSInvalidTopicFault:
         :raises SubscriptionCategoryNotFoundFault:
+        :raises SubscriptionNotFoundFault:
+        :raises EventSubscriptionQuotaExceededFault:
+        :raises SNSNoAuthorizationFault:
         """
         raise NotImplementedError
 
@@ -11401,11 +11437,11 @@ class RdsApi:
         :param engine_version: The version number of the database engine to which you want to upgrade.
         :param allow_major_version_upgrade: Specifies whether to allow major version upgrades.
         :returns: ModifyGlobalClusterResult
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
         :raises GlobalClusterNotFoundFault:
         :raises GlobalClusterAlreadyExistsFault:
-        :raises InvalidGlobalClusterStateFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBInstanceStateFault:
         """
         raise NotImplementedError
 
@@ -11426,8 +11462,8 @@ class RdsApi:
         :param data_filter: A new data filter for the integration.
         :param description: A new description for the integration.
         :returns: Integration
-        :raises IntegrationNotFoundFault:
         :raises InvalidIntegrationStateFault:
+        :raises IntegrationNotFoundFault:
         :raises IntegrationConflictOperationFault:
         """
         raise NotImplementedError
@@ -11452,8 +11488,8 @@ class RdsApi:
         :param apply_immediately: Specifies whether to apply the change immediately or during the next
         maintenance window for each instance associated with the option group.
         :returns: ModifyOptionGroupResult
-        :raises InvalidOptionGroupStateFault:
         :raises OptionGroupNotFoundFault:
+        :raises InvalidOptionGroupStateFault:
         """
         raise NotImplementedError
 
@@ -11489,8 +11525,8 @@ class RdsApi:
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
         :returns: ModifyTenantDatabaseResult
-        :raises DBInstanceNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
+        :raises DBInstanceNotFoundFault:
         :raises TenantDatabaseAlreadyExistsFault:
         :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
@@ -11504,6 +11540,7 @@ class RdsApi:
         db_instance_identifier: String,
         backup_retention_period: IntegerOptional | None = None,
         preferred_backup_window: String | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         **kwargs,
     ) -> PromoteReadReplicaResult:
         """Promotes a read replica DB instance to a standalone DB instance.
@@ -11525,9 +11562,10 @@ class RdsApi:
         :param preferred_backup_window: The daily time range during which automated backups are created if
         automated backups are enabled, using the ``BackupRetentionPeriod``
         parameter.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :returns: PromoteReadReplicaResult
-        :raises InvalidDBInstanceStateFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
         """
         raise NotImplementedError
 
@@ -11539,8 +11577,8 @@ class RdsApi:
 
         :param db_cluster_identifier: The identifier of the DB cluster read replica to promote.
         :returns: PromoteReadReplicaDBClusterResult
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -11561,8 +11599,8 @@ class RdsApi:
         :param db_instance_count: The number of instances to reserve.
         :param tags: A list of tags.
         :returns: PurchaseReservedDBInstancesOfferingResult
-        :raises ReservedDBInstancesOfferingNotFoundFault:
         :raises ReservedDBInstanceAlreadyExistsFault:
+        :raises ReservedDBInstancesOfferingNotFoundFault:
         :raises ReservedDBInstanceQuotaExceededFault:
         """
         raise NotImplementedError
@@ -11588,9 +11626,9 @@ class RdsApi:
 
         :param db_cluster_identifier: The DB cluster identifier.
         :returns: RebootDBClusterResult
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -11623,8 +11661,8 @@ class RdsApi:
         :param db_instance_identifier: The DB instance identifier.
         :param force_failover: Specifies whether the reboot is conducted through a Multi-AZ failover.
         :returns: RebootDBInstanceResult
-        :raises InvalidDBInstanceStateFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
@@ -11666,15 +11704,15 @@ class RdsApi:
         :param db_instance_identifiers: One or more DB instance identifiers.
         :param db_cluster_identifiers: One or more DB cluster identifiers.
         :returns: RegisterDBProxyTargetsResponse
-        :raises DBProxyNotFoundFault:
-        :raises DBProxyTargetGroupNotFoundFault:
-        :raises DBClusterNotFoundFault:
-        :raises DBInstanceNotFoundFault:
-        :raises DBProxyTargetAlreadyRegisteredFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBProxyStateFault:
         :raises InsufficientAvailableIPsInSubnetFault:
+        :raises DBProxyNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises DBProxyTargetGroupNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises InvalidDBProxyStateFault:
+        :raises DBProxyTargetAlreadyRegisteredFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -11698,9 +11736,9 @@ class RdsApi:
         :param db_cluster_identifier: The Amazon Resource Name (ARN) identifying the cluster that was detached
         from the Aurora global database cluster.
         :returns: RemoveFromGlobalClusterResult
-        :raises GlobalClusterNotFoundFault:
-        :raises InvalidGlobalClusterStateFault:
         :raises InvalidDBClusterStateFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises GlobalClusterNotFoundFault:
         :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
@@ -11731,9 +11769,9 @@ class RdsApi:
         ``arn:aws:iam::123456789012:role/AuroraAccessRole``.
         :param feature_name: The name of the feature for the DB cluster that the IAM role is to be
         disassociated from.
-        :raises DBClusterNotFoundFault:
-        :raises DBClusterRoleNotFoundFault:
         :raises InvalidDBClusterStateFault:
+        :raises DBClusterRoleNotFoundFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -11777,8 +11815,8 @@ class RdsApi:
         **DB instance identifier** for a DB instance or the name of a security
         group.
         :returns: RemoveSourceIdentifierFromSubscriptionResult
-        :raises SubscriptionNotFoundFault:
         :raises SourceNotFoundFault:
+        :raises SubscriptionNotFoundFault:
         """
         raise NotImplementedError
 
@@ -11797,20 +11835,20 @@ class RdsApi:
 
         :param resource_name: The Amazon RDS resource that the tags are removed from.
         :param tag_keys: The tag key (name) of the tag to be removed.
-        :raises DBInstanceNotFoundFault:
-        :raises DBSnapshotNotFoundFault:
-        :raises DBClusterNotFoundFault:
         :raises DBProxyNotFoundFault:
-        :raises DBProxyEndpointNotFoundFault:
-        :raises DBProxyTargetGroupNotFoundFault:
-        :raises BlueGreenDeploymentNotFoundFault:
-        :raises TenantDatabaseNotFoundFault:
         :raises DBSnapshotTenantDatabaseNotFoundFault:
         :raises IntegrationNotFoundFault:
-        :raises DBShardGroupNotFoundFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBInstanceStateFault:
+        :raises TenantDatabaseNotFoundFault:
+        :raises BlueGreenDeploymentNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
+        :raises DBProxyEndpointNotFoundFault:
         :raises InvalidDBClusterEndpointStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises DBShardGroupNotFoundFault:
+        :raises DBClusterNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises DBProxyTargetGroupNotFoundFault:
+        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -11849,8 +11887,8 @@ class RdsApi:
         :param parameters: A list of parameter names in the DB cluster parameter group to reset to
         the default values.
         :returns: DBClusterParameterGroupNameMessage
-        :raises InvalidDBParameterGroupStateFault:
         :raises DBParameterGroupNotFoundFault:
+        :raises InvalidDBParameterGroupStateFault:
         """
         raise NotImplementedError
 
@@ -11878,8 +11916,8 @@ class RdsApi:
         :param parameters: To reset the entire DB parameter group, specify the ``DBParameterGroup``
         name and ``ResetAllParameters`` parameters.
         :returns: DBParameterGroupNameMessage
-        :raises InvalidDBParameterGroupStateFault:
         :raises DBParameterGroupNotFoundFault:
+        :raises InvalidDBParameterGroupStateFault:
         """
         raise NotImplementedError
 
@@ -11924,6 +11962,7 @@ class RdsApi:
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
         engine_lifecycle_support: String | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         **kwargs,
     ) -> RestoreDBClusterFromS3Result:
         """Creates an Amazon Aurora DB cluster from MySQL data stored in an Amazon
@@ -12008,23 +12047,24 @@ class RdsApi:
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
+        :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterFromS3Result
-        :raises DBClusterAlreadyExistsFault:
-        :raises DBClusterQuotaExceededFault:
         :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidDBSubnetGroupStateFault:
-        :raises InvalidSubnet:
-        :raises InvalidS3BucketFault:
-        :raises DBClusterParameterGroupNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises DBClusterNotFoundFault:
-        :raises NetworkTypeNotSupported:
         :raises DomainNotFoundFault:
         :raises InsufficientStorageClusterCapacityFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBClusterParameterGroupNotFoundFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
         :raises StorageTypeNotSupportedFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBClusterAlreadyExistsFault:
+        :raises NetworkTypeNotSupported:
+        :raises InvalidDBSubnetGroupStateFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidS3BucketFault:
+        :raises DBClusterQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -12067,6 +12107,7 @@ class RdsApi:
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
         engine_lifecycle_support: String | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         **kwargs,
     ) -> RestoreDBClusterFromSnapshotResult:
         """Creates a new DB cluster from a DB snapshot or DB cluster snapshot.
@@ -12142,32 +12183,31 @@ class RdsApi:
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
+        :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterFromSnapshotResult
-        :raises DBClusterAlreadyExistsFault:
-        :raises DBClusterQuotaExceededFault:
-        :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSnapshotNotFoundFault:
         :raises DBClusterSnapshotNotFoundFault:
-        :raises InsufficientDBClusterCapacityFault:
-        :raises InsufficientStorageClusterCapacityFault:
-        :raises InvalidDBSnapshotStateFault:
-        :raises InvalidDBClusterSnapshotStateFault:
-        :raises StorageQuotaExceededFault:
-        :raises InvalidVPCNetworkStateFault:
         :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidRestoreFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises InvalidSubnet:
-        :raises OptionGroupNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises NetworkTypeNotSupported:
-        :raises DomainNotFoundFault:
+        :raises InvalidDBSnapshotStateFault:
         :raises DBClusterParameterGroupNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises InvalidDBInstanceStateFault:
         :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
         :raises VpcEncryptionControlViolationException:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises InvalidDBClusterSnapshotStateFault:
+        :raises DBClusterAlreadyExistsFault:
+        :raises NetworkTypeNotSupported:
+        :raises InsufficientDBClusterCapacityFault:
+        :raises StorageQuotaExceededFault:
+        :raises DomainNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
+        :raises InsufficientStorageClusterCapacityFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidRestoreFault:
+        :raises DBClusterQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -12210,6 +12250,7 @@ class RdsApi:
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
         engine_lifecycle_support: String | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         **kwargs,
     ) -> RestoreDBClusterToPointInTimeResult:
         """Restores a DB cluster to an arbitrary point in time. Users can restore
@@ -12287,30 +12328,31 @@ class RdsApi:
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
+        :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterToPointInTimeResult
-        :raises DBClusterAlreadyExistsFault:
-        :raises DBClusterNotFoundFault:
-        :raises DBClusterQuotaExceededFault:
         :raises DBClusterSnapshotNotFoundFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises InsufficientDBClusterCapacityFault:
-        :raises InsufficientStorageClusterCapacityFault:
-        :raises InvalidDBClusterSnapshotStateFault:
-        :raises InvalidDBClusterStateFault:
         :raises InvalidDBSnapshotStateFault:
-        :raises InvalidRestoreFault:
-        :raises InvalidSubnet:
-        :raises InvalidVPCNetworkStateFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises OptionGroupNotFoundFault:
-        :raises StorageQuotaExceededFault:
-        :raises NetworkTypeNotSupported:
-        :raises DomainNotFoundFault:
         :raises DBClusterParameterGroupNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
-        :raises DBClusterAutomatedBackupNotFoundFault:
         :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
         :raises VpcEncryptionControlViolationException:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises InvalidDBClusterSnapshotStateFault:
+        :raises DBClusterAlreadyExistsFault:
+        :raises NetworkTypeNotSupported:
+        :raises InsufficientDBClusterCapacityFault:
+        :raises StorageQuotaExceededFault:
+        :raises DomainNotFoundFault:
+        :raises InsufficientStorageClusterCapacityFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBClusterAutomatedBackupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidRestoreFault:
+        :raises DBClusterQuotaExceededFault:
         """
         raise NotImplementedError
 
@@ -12360,9 +12402,10 @@ class RdsApi:
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
-        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceFromDBSnapshotResult:
         """Creates a new DB instance from a DB snapshot. The target database is
@@ -12459,38 +12502,39 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager in the restored DB instance.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param additional_storage_volumes: A list of additional storage volumes to create for the DB instance.
         :returns: RestoreDBInstanceFromDBSnapshotResult
-        :raises DBInstanceAlreadyExistsFault:
-        :raises DBSnapshotNotFoundFault:
-        :raises InstanceQuotaExceededFault:
-        :raises InsufficientDBInstanceCapacityFault:
-        :raises InvalidDBSnapshotStateFault:
-        :raises StorageQuotaExceededFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidRestoreFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidSubnet:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
         :raises AuthorizationNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises DBSecurityGroupNotFoundFault:
-        :raises DomainNotFoundFault:
-        :raises DBParameterGroupNotFoundFault:
-        :raises NetworkTypeNotSupported:
-        :raises BackupPolicyNotFoundFault:
         :raises DBClusterSnapshotNotFoundFault:
-        :raises CertificateNotFoundFault:
-        :raises TenantDatabaseQuotaExceededFault:
+        :raises DBParameterGroupNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InvalidDBSnapshotStateFault:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
         :raises VpcEncryptionControlViolationException:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises NetworkTypeNotSupported:
+        :raises InstanceQuotaExceededFault:
+        :raises StorageQuotaExceededFault:
+        :raises BackupPolicyNotFoundFault:
+        :raises DomainNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
+        :raises CertificateNotFoundFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises TenantDatabaseQuotaExceededFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidRestoreFault:
         """
         raise NotImplementedError
 
@@ -12551,6 +12595,7 @@ class RdsApi:
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
         additional_storage_volumes: AdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceFromS3Result:
         """Amazon Relational Database Service (Amazon RDS) supports importing MySQL
@@ -12641,27 +12686,28 @@ class RdsApi:
         :param engine_lifecycle_support: The life cycle type for this DB instance.
         :param additional_storage_volumes: A list of additional storage volumes to modify or delete for the DB
         instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :returns: RestoreDBInstanceFromS3Result
-        :raises DBInstanceAlreadyExistsFault:
-        :raises InsufficientDBInstanceCapacityFault:
-        :raises DBParameterGroupNotFoundFault:
-        :raises DBSecurityGroupNotFoundFault:
-        :raises InstanceQuotaExceededFault:
-        :raises StorageQuotaExceededFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidSubnet:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidS3BucketFault:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
         :raises AuthorizationNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises NetworkTypeNotSupported:
+        :raises StorageQuotaExceededFault:
+        :raises DBParameterGroupNotFoundFault:
         :raises BackupPolicyNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
         :raises CertificateNotFoundFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises InvalidSubnet:
         :raises VpcEncryptionControlViolationException:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises NetworkTypeNotSupported:
+        :raises InstanceQuotaExceededFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidS3BucketFault:
         """
         raise NotImplementedError
 
@@ -12715,9 +12761,10 @@ class RdsApi:
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
+        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
+        tag_specifications: TagSpecificationList | None = None,
         manage_master_user_password: BooleanOptional | None = None,
         master_user_secret_kms_key_id: String | None = None,
-        additional_storage_volumes: AdditionalStorageVolumesList | None = None,
         **kwargs,
     ) -> RestoreDBInstanceToPointInTimeResult:
         """Restores a DB instance to an arbitrary point in time. You can restore to
@@ -12805,39 +12852,40 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param additional_storage_volumes: A list of additional storage volumes to restore to the DB instance.
+        :param tag_specifications: Tags to assign to resources associated with the DB instance.
         :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
         Services Secrets Manager in the restored DB instance.
         :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
         automatically generated and managed in Amazon Web Services Secrets
         Manager.
-        :param additional_storage_volumes: A list of additional storage volumes to restore to the DB instance.
         :returns: RestoreDBInstanceToPointInTimeResult
-        :raises DBInstanceAlreadyExistsFault:
-        :raises DBInstanceNotFoundFault:
-        :raises InstanceQuotaExceededFault:
-        :raises InsufficientDBInstanceCapacityFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises PointInTimeRestoreNotEnabledFault:
-        :raises StorageQuotaExceededFault:
-        :raises InvalidVPCNetworkStateFault:
-        :raises InvalidRestoreFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidSubnet:
-        :raises ProvisionedIopsNotAvailableInAZFault:
-        :raises OptionGroupNotFoundFault:
-        :raises StorageTypeNotSupportedFault:
         :raises AuthorizationNotFoundFault:
-        :raises KMSKeyNotAccessibleFault:
-        :raises DBSecurityGroupNotFoundFault:
-        :raises DomainNotFoundFault:
-        :raises BackupPolicyNotFoundFault:
         :raises DBParameterGroupNotFoundFault:
-        :raises NetworkTypeNotSupported:
-        :raises DBInstanceAutomatedBackupNotFoundFault:
-        :raises TenantDatabaseQuotaExceededFault:
-        :raises CertificateNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
         :raises VpcEncryptionControlViolationException:
+        :raises ProvisionedIopsNotAvailableInAZFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises OptionGroupNotFoundFault:
+        :raises DBInstanceNotFoundFault:
+        :raises DBInstanceAutomatedBackupNotFoundFault:
+        :raises NetworkTypeNotSupported:
+        :raises InstanceQuotaExceededFault:
+        :raises StorageQuotaExceededFault:
+        :raises BackupPolicyNotFoundFault:
+        :raises DomainNotFoundFault:
+        :raises CertificateNotFoundFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises DBInstanceAlreadyExistsFault:
+        :raises TenantDatabaseQuotaExceededFault:
+        :raises DBSecurityGroupNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises PointInTimeRestoreNotEnabledFault:
+        :raises DBSubnetGroupNotFoundFault:
+        :raises InvalidRestoreFault:
         """
         raise NotImplementedError
 
@@ -12876,9 +12924,9 @@ class RdsApi:
         :param ec2_security_group_owner_id: The Amazon Web Services account number of the owner of the EC2 security
         group specified in the ``EC2SecurityGroupName`` parameter.
         :returns: RevokeDBSecurityGroupIngressResult
-        :raises DBSecurityGroupNotFoundFault:
-        :raises AuthorizationNotFoundFault:
         :raises InvalidDBSecurityGroupStateFault:
+        :raises AuthorizationNotFoundFault:
+        :raises DBSecurityGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -12912,12 +12960,12 @@ class RdsApi:
         :param engine_native_audit_fields_included: Specifies whether the database activity stream includes engine-native
         audit fields.
         :returns: StartActivityStreamResponse
-        :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBClusterStateFault:
         :raises ResourceNotFoundFault:
-        :raises DBClusterNotFoundFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -12937,11 +12985,11 @@ class RdsApi:
 
         :param db_cluster_identifier: The DB cluster identifier of the Amazon Aurora DB cluster to be started.
         :returns: StartDBClusterResult
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBShardGroupStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises InvalidDBShardGroupStateFault:
+        :raises DBClusterNotFoundFault:
         :raises VpcEncryptionControlViolationException:
         """
         raise NotImplementedError
@@ -12964,18 +13012,18 @@ class RdsApi:
 
         :param db_instance_identifier: The user-supplied instance identifier.
         :returns: StartDBInstanceResult
-        :raises DBInstanceNotFoundFault:
-        :raises InvalidDBInstanceStateFault:
-        :raises InsufficientDBInstanceCapacityFault:
-        :raises DBSubnetGroupNotFoundFault:
-        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
-        :raises InvalidDBClusterStateFault:
-        :raises InvalidSubnet:
-        :raises InvalidVPCNetworkStateFault:
-        :raises DBClusterNotFoundFault:
         :raises AuthorizationNotFoundFault:
+        :raises DBSubnetGroupDoesNotCoverEnoughAZs:
+        :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
+        :raises InsufficientDBInstanceCapacityFault:
+        :raises InvalidSubnet:
+        :raises DBClusterNotFoundFault:
         :raises VpcEncryptionControlViolationException:
+        :raises DBInstanceNotFoundFault:
+        :raises InvalidVPCNetworkStateFault:
+        :raises InvalidDBClusterStateFault:
+        :raises DBSubnetGroupNotFoundFault:
         """
         raise NotImplementedError
 
@@ -12987,6 +13035,7 @@ class RdsApi:
         backup_retention_period: IntegerOptional | None = None,
         kms_key_id: String | None = None,
         pre_signed_url: SensitiveString | None = None,
+        tags: TagList | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> StartDBInstanceAutomatedBackupsReplicationResult:
@@ -13010,14 +13059,15 @@ class RdsApi:
         Signature Version 4 signed request for the
         ``StartDBInstanceAutomatedBackupsReplication`` operation to call in the
         Amazon Web Services Region of the source DB instance.
+        :param tags: A list of tags to associate with the replicated automated backups.
         :param source_region: The ID of the region that contains the source for the db instance.
         :returns: StartDBInstanceAutomatedBackupsReplicationResult
+        :raises InvalidDBInstanceAutomatedBackupStateFault:
+        :raises StorageTypeNotSupportedFault:
+        :raises DBInstanceAutomatedBackupQuotaExceededFault:
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
         :raises KMSKeyNotAccessibleFault:
-        :raises InvalidDBInstanceAutomatedBackupStateFault:
-        :raises DBInstanceAutomatedBackupQuotaExceededFault:
-        :raises StorageTypeNotSupportedFault:
         """
         raise NotImplementedError
 
@@ -13068,16 +13118,16 @@ class RdsApi:
         exported data.
         :param export_only: The data to be exported from the snapshot or cluster.
         :returns: ExportTask
-        :raises DBSnapshotNotFoundFault:
         :raises DBClusterSnapshotNotFoundFault:
-        :raises DBClusterNotFoundFault:
         :raises ExportTaskAlreadyExistsFault:
-        :raises InvalidS3BucketFault:
-        :raises IamRoleNotFoundFault:
+        :raises DBSnapshotNotFoundFault:
         :raises IamRoleMissingPermissionsFault:
-        :raises InvalidExportOnlyFault:
-        :raises KMSKeyNotAccessibleFault:
         :raises InvalidExportSourceStateFault:
+        :raises KMSKeyNotAccessibleFault:
+        :raises IamRoleNotFoundFault:
+        :raises InvalidExportOnlyFault:
+        :raises InvalidS3BucketFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -13106,11 +13156,11 @@ class RdsApi:
         :param apply_immediately: Specifies whether or not the database activity stream is to stop as soon
         as possible, regardless of the maintenance window for the database.
         :returns: StopActivityStreamResponse
-        :raises InvalidDBInstanceStateFault:
-        :raises InvalidDBClusterStateFault:
         :raises ResourceNotFoundFault:
-        :raises DBClusterNotFoundFault:
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises InvalidDBInstanceStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -13131,10 +13181,10 @@ class RdsApi:
 
         :param db_cluster_identifier: The DB cluster identifier of the Amazon Aurora DB cluster to be stopped.
         :returns: StopDBClusterResult
-        :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
         :raises InvalidDBShardGroupStateFault:
+        :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError
 
@@ -13164,10 +13214,10 @@ class RdsApi:
         immediately before the DB instance is stopped.
         :returns: StopDBInstanceResult
         :raises DBInstanceNotFoundFault:
+        :raises InvalidDBClusterStateFault:
+        :raises SnapshotQuotaExceededFault:
         :raises InvalidDBInstanceStateFault:
         :raises DBSnapshotAlreadyExistsFault:
-        :raises SnapshotQuotaExceededFault:
-        :raises InvalidDBClusterStateFault:
         """
         raise NotImplementedError
 
@@ -13219,8 +13269,8 @@ class RdsApi:
         :param blue_green_deployment_identifier: The resource ID of the blue/green deployment.
         :param switchover_timeout: The amount of time, in seconds, for the switchover to complete.
         :returns: SwitchoverBlueGreenDeploymentResponse
-        :raises BlueGreenDeploymentNotFoundFault:
         :raises InvalidBlueGreenDeploymentStateFault:
+        :raises BlueGreenDeploymentNotFoundFault:
         """
         raise NotImplementedError
 
@@ -13257,9 +13307,9 @@ class RdsApi:
         :param target_db_cluster_identifier: The identifier of the secondary Aurora DB cluster to promote to the new
         primary for the global database cluster.
         :returns: SwitchoverGlobalClusterResult
-        :raises GlobalClusterNotFoundFault:
-        :raises InvalidGlobalClusterStateFault:
         :raises InvalidDBClusterStateFault:
+        :raises InvalidGlobalClusterStateFault:
+        :raises GlobalClusterNotFoundFault:
         :raises DBClusterNotFoundFault:
         """
         raise NotImplementedError

@@ -167,7 +167,7 @@ def _define_format(args: argparse.Namespace) -> str:
 def _python_major_version(value: Any) -> int | None:
     pattern = r"^\d+$"  # x format
     if not re.match(pattern, value):
-        msg = "Invalid major version format. Expected a positive integer value"
+        msg = "Invalid major version format. Expected a positive integer value."
         raise argparse.ArgumentTypeError(msg)
     return value
 
@@ -176,8 +176,8 @@ def _python_minor_version(value: Any) -> int | None:
     pattern = r"^\d+\.\d+$"  # x.x format
     if not re.match(pattern, value):
         msg = (
-            "Invalid minor version format."
-            "Expected a positive float value in x.x pattern"
+            "Invalid minor version format. "
+            "Expected a positive float value in x.x pattern."
         )
         raise argparse.ArgumentTypeError(msg)
     return value
@@ -231,6 +231,12 @@ arg_color = argument(
 arg_verbose = argument(
     "-v", "--verbose", action="store_true", help="Print debug messages to stderr"
 )
+arg_sort = argument(
+    "-s",
+    "--sort",
+    default="downloads",
+    help="Column to sort by (for example: downloads, date, category)",
+)
 
 # These are used by all except the 'recent' subcommand
 package_argument = argument(
@@ -250,6 +256,7 @@ common_arguments = [
     arg_this_month,
     arg_daily,
     arg_monthly,
+    arg_sort,
     arg_color,
     arg_verbose,
 ]
@@ -291,6 +298,7 @@ def overall(args: argparse.Namespace) -> None:  # pragma: no cover
             end_date=args.end_date,
             format=args.format,
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
+            sort=args.sort,
             color="no",  # Coloured percentages not really helpful here
             verbose=args.verbose,
         )
@@ -313,6 +321,7 @@ def python_major(args: argparse.Namespace) -> None:  # pragma: no cover
             end_date=args.end_date,
             format=args.format,
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
+            sort=args.sort,
             color=args.color,
             verbose=args.verbose,
         )
@@ -335,6 +344,7 @@ def python_minor(args: argparse.Namespace) -> None:  # pragma: no cover
             end_date=args.end_date,
             format=args.format,
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
+            sort=args.sort,
             color=args.color,
             verbose=args.verbose,
         )
@@ -357,6 +367,7 @@ def system(args: argparse.Namespace) -> None:  # pragma: no cover
             end_date=args.end_date,
             format=args.format,
             total="daily" if args.daily else ("monthly" if args.monthly else "all"),
+            sort=args.sort,
             color=args.color,
             verbose=args.verbose,
         )

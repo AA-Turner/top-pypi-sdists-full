@@ -141,6 +141,7 @@ class MsgType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     AddCollectionFunction: _ClassVar[MsgType]
     AlterCollectionFunction: _ClassVar[MsgType]
     DropCollectionFunction: _ClassVar[MsgType]
+    TruncateCollection: _ClassVar[MsgType]
     CreatePartition: _ClassVar[MsgType]
     DropPartition: _ClassVar[MsgType]
     HasPartition: _ClassVar[MsgType]
@@ -508,6 +509,7 @@ AlterCollectionField: MsgType
 AddCollectionFunction: MsgType
 AlterCollectionFunction: MsgType
 DropCollectionFunction: MsgType
+TruncateCollection: MsgType
 CreatePartition: MsgType
 DropPartition: MsgType
 HasPartition: MsgType
@@ -994,10 +996,12 @@ class ReplicateCheckpoint(_message.Message):
     def __init__(self, cluster_id: _Optional[str] = ..., pchannel: _Optional[str] = ..., message_id: _Optional[_Union[MessageID, _Mapping]] = ..., time_tick: _Optional[int] = ...) -> None: ...
 
 class HighlightData(_message.Message):
-    __slots__ = ("fragments",)
+    __slots__ = ("fragments", "scores")
     FRAGMENTS_FIELD_NUMBER: _ClassVar[int]
+    SCORES_FIELD_NUMBER: _ClassVar[int]
     fragments: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, fragments: _Optional[_Iterable[str]] = ...) -> None: ...
+    scores: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, fragments: _Optional[_Iterable[str]] = ..., scores: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class HighlightResult(_message.Message):
     __slots__ = ("field_name", "datas")

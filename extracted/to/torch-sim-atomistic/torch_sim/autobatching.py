@@ -363,7 +363,15 @@ def calculate_memory_scaler(
     if memory_scales_with == "n_atoms":
         return state.n_atoms
     if memory_scales_with == "n_atoms_x_density":
-        volume = torch.abs(torch.linalg.det(state.cell[0])) / 1000
+        if all(state.pbc):
+            volume = torch.abs(torch.linalg.det(state.cell[0])) / 1000
+        else:
+            bbox = state.positions.max(dim=0).values - state.positions.min(dim=0).values
+            # add 2 A in non-periodic directions to account for 2D systems and slabs
+            for i, periodic in enumerate(state.pbc):
+                if not periodic:
+                    bbox[i] += 2.0
+            volume = bbox.prod() / 1000  # convert A^3 to nm^3
         number_density = state.n_atoms / volume.item()
         return state.n_atoms * number_density
     raise ValueError(
@@ -578,7 +586,9 @@ class BinningAutoBatcher[T: SimState]:
         self.index_to_scaler = dict(enumerate(self.memory_scalers))
         self.index_bins = to_constant_volume_bins(
             self.index_to_scaler, max_volume=self.max_memory_scaler
-        )
+        )  # list[dict[original_index: int, memory_scale:float]]
+        # Convert to list of lists of indices
+        self.index_bins = [list(batch.keys()) for batch in self.index_bins]
         self.batched_states = []
         for index_bin in self.index_bins:
             self.batched_states.append([self.state_slices[idx] for idx in index_bin])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fugue
-Version: 0.9.4
+Version: 0.9.5
 Summary: An abstraction layer for distributed computation
 Home-page: http://github.com/fugue-project/fugue
 Author: The Fugue Development Team
@@ -23,6 +23,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: triad>=1.0.0
 Requires-Dist: adagio>=0.2.6
+Requires-Dist: pandas<3
 Provides-Extra: sql
 Requires-Dist: qpd>=0.4.4; extra == "sql"
 Requires-Dist: fugue-sql-antlr>=0.2.0; extra == "sql"
@@ -32,6 +33,7 @@ Provides-Extra: cpp-sql-parser
 Requires-Dist: fugue-sql-antlr[cpp]>=0.2.0; extra == "cpp-sql-parser"
 Provides-Extra: spark
 Requires-Dist: pyspark>=3.1.1; extra == "spark"
+Requires-Dist: zstandard>=0.25.0; extra == "spark"
 Provides-Extra: dask
 Requires-Dist: dask[dataframe,distributed]>=2024.4.0; extra == "dask"
 Requires-Dist: pyarrow>=7.0.0; extra == "dask"

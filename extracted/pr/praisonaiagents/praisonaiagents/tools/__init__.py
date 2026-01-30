@@ -8,11 +8,20 @@ _tools_lazy_cache = {}
 # Export core tool items for organized imports (lightweight)
 from .base import BaseTool, ToolResult, ToolValidationError, validate_tool
 from .decorator import tool, FunctionTool
-from .registry import get_registry, register_tool, get_tool, ToolRegistry
+from .registry import get_registry, register_tool, get_tool, add_tool, has_tool, remove_tool, list_tools, ToolRegistry
 from .tools import Tools
 
 # Export Injected type directly for easy access
 from .injected import Injected, AgentState
+
+# Export validation and retry protocols
+from .validators import (
+    ValidationResult,
+    ToolValidatorProtocol,
+    AsyncToolValidatorProtocol,
+    PassthroughValidator,
+)
+from .retry import RetryPolicy, FallbackChain, ToolExecutionConfig
 
 # Map of function names to their module and class (if any)
 TOOL_MAPPINGS = {
@@ -125,7 +134,13 @@ TOOL_MAPPINGS = {
     
     # Unified Web Search (auto-fallback across providers)
     'search_web': ('.web_search', None),
+    'web_search': ('.web_search', None),  # Alias
     'get_available_providers': ('.web_search', None),
+    
+    # Unified Web Crawl (auto-fallback across providers)
+    'web_crawl': ('.web_crawl', None),
+    'crawl_web': ('.web_crawl', None),  # Alias
+    'get_available_crawl_providers': ('.web_crawl', None),
     
     # Skill Tools (for Agent Skills script execution)
     'run_skill_script': ('.skill_tools', None),
@@ -164,7 +179,8 @@ def __getattr__(name: str) -> Any:
             'exa_search_async', 'exa_search_contents_async', 'exa_answer_async',
             'crawl4ai', 'crawl4ai_many', 'crawl4ai_extract', 'crawl4ai_llm_extract',
             'crawl4ai_sync', 'crawl4ai_extract_sync',
-            'search_web', 'get_available_providers',
+            'search_web', 'web_search', 'get_available_providers',
+            'web_crawl', 'crawl_web', 'get_available_crawl_providers',
             'run_skill_script', 'read_skill_file', 'list_skill_scripts', 'create_skill_tools'
         ]:
             return getattr(module, name)
@@ -183,9 +199,12 @@ def __getattr__(name: str) -> Any:
         return method
 
 __all__ = list(TOOL_MAPPINGS.keys()) + [
-    'Injected',
+    'Injected', 'AgentState',
     'BaseTool', 'ToolResult', 'ToolValidationError', 'validate_tool',
     'tool', 'FunctionTool',
-    'get_registry', 'register_tool', 'get_tool', 'ToolRegistry',
-    'Tools'
+    'get_registry', 'register_tool', 'get_tool', 'add_tool', 'has_tool', 'remove_tool', 'list_tools', 'ToolRegistry',
+    'Tools',
+    # Validation and retry protocols
+    'ValidationResult', 'ToolValidatorProtocol', 'AsyncToolValidatorProtocol', 'PassthroughValidator',
+    'RetryPolicy', 'FallbackChain', 'ToolExecutionConfig',
 ]

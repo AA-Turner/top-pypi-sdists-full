@@ -84,6 +84,9 @@ class TokenType(Enum):
     AND = auto()
     OR = auto()
     NOT = auto()
+    TILDE = auto()  # ~ for destructors (v4.8.8)
+    CARET = auto()  # ^ for byte notation (v4.9.0)
+    QUESTION = auto()  # ? for pointer references (v4.9.0)
     AMPERSAND = auto()  # & for references
     BLOCK_START = auto()
     BLOCK_END = auto()
@@ -101,7 +104,10 @@ class TokenType(Enum):
     SELF_REF = auto()    # s@<name> self-reference to global struct
     SHARED_REF = auto()  # $<name> shared object reference
     CAPTURED_REF = auto()  # %<name> captured reference (for infusion)
+    POINTER_REF = auto()  # ?<name> pointer reference (v4.9.0)
+    POINTER_SNAPSHOT_REF = auto()  # ?%<name> pointer to snapshot reference (v4.9.4)
     THIS_REF = auto()      # this-><name> class member reference
+    LOCAL_REF = auto()     # local::<name> hooked function local variable access (v4.9.2)
     PACKAGE = auto()
     PACKAGE_INCLUDES = auto()
     AS = auto()
@@ -124,11 +130,11 @@ class TokenType(Enum):
 
 KEYWORDS = {
     # Service structure
-    'service-init', 'service-run', 'service-include', 'struct', 'define', 'main', 'class', 'constr', 'extends', 'overwrites', 'new', 'this', 'super', 'enum',
+    'service-init', 'service-run', 'service-include', 'struct', 'define', 'class', 'namespace', 'constr', 'extends', 'overwrites', 'new', 'this', 'super', 'enum',
     # Control flow
     'if', 'else', 'elif', 'while', 'for', 'foreach', 'in', 'range',
     'switch', 'case', 'default', 'break', 'continue', 'return',
-    'try', 'catch', 'finally', 'throw',
+    'try', 'catch', 'finally', 'throw', 'raise',
     'except', 'always',  # v4.2.5: param switch keywords
     # Literals
     'True', 'False', 'null', 'None', 'true', 'false',
@@ -136,11 +142,15 @@ KEYWORDS = {
     'and', 'or', 'not',
     # Async/Events
     'start', 'stop', 'wait_for', 'on_event', 'emit_event', 'await',
+    'async', 'yield', 'generator', 'future',  # v4.9.3: Full async/generator support
     # Package system
     'package', 'package-includes', 'exec', 'as', 'global',
     # CSSL Type Keywords
     'int', 'string', 'float', 'bool', 'void', 'json', 'array', 'vector', 'stack',
     'list', 'dictionary', 'dict', 'instance', 'map', 'queue',  # Python-like types + queue (v4.7)
+    'bit', 'byte', 'address', 'ptr', 'pointer',  # v4.9.0: Binary types, address, ptr/pointer
+    'local',  # v4.9.2: Hook local variable access (local::varname)
+    'freezed',  # v4.9.4: Immutable variable (cannot be reassigned)
     'dynamic',      # No type declaration (slow but flexible)
     'undefined',    # Function errors ignored
     'open',         # Accept any parameter type
@@ -165,10 +175,14 @@ KEYWORDS = {
     'embedded',     # Immediate &target replacement at registration (v4.2.5)
     'native',       # Force C++ execution (no Python fallback)
     'unative',      # Force Python execution (no C++ - opposite of native)
+    'secure',       # v4.8.8: Constructor runs only on exception
+    'callable',     # v4.8.8: Constructor must be manually called
     # CSSL Include Keywords
-    'include', 'get',
+    'include',  # v4.8.6: Removed 'get' from keywords - it's a builtin function, not keyword
     # Multi-language support (v4.1.0)
     'supports', 'libinclude',
+    # Memory binding (v4.9.0)
+    'uses', 'memory',
 }
 
 # Function modifiers that can appear in any order before function name
@@ -177,7 +191,8 @@ FUNCTION_MODIFIERS = {
     'sqlbased', 'const', 'public', 'static', 'global', 'shuffled', 'embedded',
     'native',  # Force C++ execution
     'unative',  # Force Python execution (opposite of native)
-    'bytearrayed'  # v4.7: Function-to-byte mapping with pattern matching
+    'bytearrayed',  # v4.7: Function-to-byte mapping with pattern matching
+    'async',  # v4.9.3: Async function modifier
 }
 
 # Type literals that create empty instances
@@ -187,7 +202,8 @@ TYPE_LITERALS = {'list', 'dict'}
 TYPE_GENERICS = {
     'datastruct', 'dataspace', 'shuffled', 'iterator', 'combo',
     'vector', 'stack', 'array', 'openquote', 'list', 'dictionary', 'map',
-    'queue'  # v4.7: Thread-safe queue with multi-iterator support
+    'queue',  # v4.7: Thread-safe queue with multi-iterator support
+    'generator', 'future',  # v4.9.3: Async types
 }
 
 # Functions that accept type parameters: FuncName<type>(args)
@@ -280,6 +296,14 @@ class CSSLLexer:
                 # s@<name> self-reference to global struct
                 self._read_self_ref()
             elif char.isalpha() or char == '_':
+                # v4.8.6: Detect f-string syntax and throw clear error
+                if char == 'f' and self._peek(1) in ('"', "'"):
+                    raise CSSLSyntaxError(
+                        f"f-string syntax is not supported in CSSL. Use string concatenation instead:\n"
+                        f"  Instead of: f\"Hello {{name}}\"\n"
+                        f"  Use: \"Hello \" + name",
+                        line=self.line
+                    )
                 self._read_identifier()
             elif char == '@':
                 self._add_token(TokenType.AT, '@')
@@ -390,6 +414,24 @@ class CSSLLexer:
                 else:
                     # v4.8.4: Single | is pipe operator
                     self._add_token(TokenType.PIPE, '|')
+                    self._advance()
+            elif char == '~':
+                # v4.8.8: Tilde for destructors (constr ~Name())
+                self._add_token(TokenType.TILDE, '~')
+                self._advance()
+            elif char == '^':
+                # v4.9.0: Caret for byte notation (1^250, 0^102)
+                self._add_token(TokenType.CARET, '^')
+                self._advance()
+            elif char == '?':
+                # v4.9.0: Check if this is ?<name> pointer reference
+                next_char = self._peek(1)
+                if next_char and (next_char.isalpha() or next_char == '_'):
+                    # ?<name> pointer reference
+                    self._read_pointer_ref()
+                else:
+                    # Just ? (ternary operator or other use)
+                    self._add_token(TokenType.QUESTION, '?')
                     self._advance()
             else:
                 self._advance()
@@ -551,6 +593,20 @@ class CSSLLexer:
             # NEW: 'as' keyword for foreach ... as ... syntax
             self._add_token(TokenType.AS, value)
         elif value in KEYWORDS:
+            # v4.9.2: Check for local:: syntax for hook local variable access
+            if value == 'local' and self.pos + 1 < len(self.source) and self.source[self.pos:self.pos+2] == '::':
+                self._advance()  # skip first :
+                self._advance()  # skip second :
+                # Read the local variable/function name
+                local_start = self.pos
+                while self.pos < len(self.source) and (self.source[self.pos].isalnum() or self.source[self.pos] == '_'):
+                    self._advance()
+                local_name = self.source[local_start:self.pos]
+                if local_name:
+                    self._add_token(TokenType.LOCAL_REF, local_name)
+                    return
+                # If no name, revert to keyword
+                self.pos = start + len(value)
             self._add_token(TokenType.KEYWORD, value)
         else:
             self._add_token(TokenType.IDENTIFIER, value)
@@ -646,6 +702,32 @@ class CSSLLexer:
         if not value:
             self.error("Expected identifier after '%'")
         self._add_token(TokenType.CAPTURED_REF, value)
+
+    def _read_pointer_ref(self):
+        """Read ?<name> pointer reference (v4.9.0) or ?%<name> pointer-snapshot reference (v4.9.4)"""
+        self._advance()  # skip '?'
+
+        # v4.9.4: Check for ?%<name> pointer-snapshot reference
+        if self.pos < len(self.source) and self.source[self.pos] == '%':
+            self._advance()  # skip '%'
+            name_start = self.pos
+            while self.pos < len(self.source) and (self.source[self.pos].isalnum() or self.source[self.pos] == '_'):
+                self._advance()
+            value = self.source[name_start:self.pos]
+            if not value:
+                self.error("Expected identifier after '?%'")
+            self._add_token(TokenType.POINTER_SNAPSHOT_REF, value)
+            return
+
+        # Read the identifier (pointer reference name)
+        name_start = self.pos
+        while self.pos < len(self.source) and (self.source[self.pos].isalnum() or self.source[self.pos] == '_'):
+            self._advance()
+
+        value = self.source[name_start:self.pos]
+        if not value:
+            self.error("Expected identifier after '?'")
+        self._add_token(TokenType.POINTER_REF, value)
 
     def _read_less_than(self):
         # Check for <<== (code infusion left)
@@ -827,7 +909,8 @@ class CSSLParser:
         return value in ('int', 'string', 'float', 'bool', 'void', 'json', 'array', 'vector', 'stack',
                         'list', 'dictionary', 'dict', 'instance', 'map', 'openquote', 'parameter',
                         'dynamic', 'datastruct', 'dataspace', 'shuffled', 'iterator', 'combo', 'structure',
-                        'queue')  # v4.7: Thread-safe queue
+                        'queue',  # v4.7: Thread-safe queue
+                        'bit', 'byte', 'address', 'ptr', 'pointer')  # v4.9.0: Binary types, address, ptr/pointer
 
     def _parse_generic_type_content(self) -> str:
         """Parse generic type content including nested generics.
@@ -848,6 +931,18 @@ class CSSLParser:
             elif self._check(TokenType.COMPARE_GT):
                 depth -= 1
                 if depth > 0:  # Only add > if not the final closing >
+                    parts.append('>')
+                self._advance()
+            # v4.9.4: Handle >> token (STREAM_IN) for nested generics like array<map<K,V>>
+            elif self._check(TokenType.STREAM_IN):
+                # >> is two > characters - handle both
+                # First > closes one level
+                depth -= 1
+                if depth > 0:
+                    parts.append('>')
+                # Second > closes another level
+                depth -= 1
+                if depth > 0:
                     parts.append('>')
                 self._advance()
             elif self._check(TokenType.COMMA):
@@ -905,7 +1000,9 @@ class CSSLParser:
                 return False  # Let _parse_define handle this
 
             # Check for type keyword (int, string, void, vector, datastruct, etc.)
-            if self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value):
+            # v4.8: Also handle TYPE_LITERAL (dict, list) and custom class types (IDENTIFIER)
+            if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
+               self._check(TokenType.TYPE_LITERAL):
                 self._advance()
                 has_type = True
 
@@ -919,6 +1016,31 @@ class CSSLParser:
                         elif self._check(TokenType.COMPARE_GT):
                             depth -= 1
                         self._advance()
+
+            # v4.8: Check for custom class type (IDENTIFIER followed by another IDENTIFIER)
+            # Pattern: CustomClass funcName() { } where CustomClass is a user-defined class
+            elif self._check(TokenType.IDENTIFIER):
+                # Save position and check if this is "Type Name(" pattern
+                inner_saved = self.pos
+                self._advance()  # Skip potential type
+
+                # Skip generic type parameters if present
+                if self._check(TokenType.COMPARE_LT):
+                    depth = 1
+                    self._advance()
+                    while depth > 0 and not self._is_at_end():
+                        if self._check(TokenType.COMPARE_LT):
+                            depth += 1
+                        elif self._check(TokenType.COMPARE_GT):
+                            depth -= 1
+                        self._advance()
+
+                # Check if followed by another identifier (function name)
+                if self._check(TokenType.IDENTIFIER):
+                    has_type = True
+                else:
+                    # Not a "Type Name" pattern, restore position
+                    self.pos = inner_saved
 
             # Check for * prefix (non-null) or *[type] (type exclusion)
             if self._check(TokenType.MULTIPLY):
@@ -970,13 +1092,17 @@ class CSSLParser:
         - int x;
         - stack<string> myStack;
         - vector<int> nums = [1,2,3];
+        - list<int> myList;  (v4.8.7: list/dict are TYPE_LITERAL tokens)
 
         Distinguishes from function declarations by checking for '(' after identifier.
         """
         saved_pos = self.pos
 
         # Check for type keyword
-        if self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value):
+        # v4.8.7: Also check TYPE_LITERAL (list, dict) which are tokenized differently
+        is_type_token = ((self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or
+                         (self._check(TokenType.TYPE_LITERAL) and self._current().value in ('list', 'dict')))
+        if is_type_token:
             self._advance()
 
             # Skip generic type parameters <T>
@@ -991,7 +1117,8 @@ class CSSLParser:
                     self._advance()
 
             # Check for identifier NOT followed by ( (that would be a function)
-            if self._check(TokenType.IDENTIFIER):
+            # v4.9.4: Also accept 'this' keyword for class member declarations like: ptr this->member = value
+            if self._check(TokenType.IDENTIFIER) or (self._check(TokenType.KEYWORD) and self._current().value == 'this'):
                 self._advance()
                 # If followed by '(' it's a function, not a variable
                 is_var = not self._check(TokenType.PAREN_START)
@@ -1055,7 +1182,9 @@ class CSSLParser:
                 continue
 
             # Check for type keyword (int, string, void, vector, datastruct, etc.)
-            if self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value) and return_type is None:
+            # v4.8: Also handle TYPE_LITERAL (dict, list) as return types
+            if ((self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or
+                self._check(TokenType.TYPE_LITERAL)) and return_type is None:
                 return_type = self._advance().value
 
                 # Check for generic type <T> or <T, U>
@@ -1078,6 +1207,32 @@ class CSSLParser:
                         self._advance()
                     generic_type = ''.join(generic_parts)
                 continue
+
+            # v4.8: Check for custom class type as return type (IDENTIFIER followed by another IDENTIFIER)
+            # Pattern: CustomClass funcName() { } where CustomClass is a user-defined class
+            if self._check(TokenType.IDENTIFIER) and return_type is None:
+                # Look ahead to see if this is "Type Name(" pattern
+                saved_inner = self.pos
+                potential_type = self._advance().value
+
+                # Skip generic type parameters if present
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()
+                    depth = 1
+                    while depth > 0 and not self._is_at_end():
+                        if self._check(TokenType.COMPARE_LT):
+                            depth += 1
+                        elif self._check(TokenType.COMPARE_GT):
+                            depth -= 1
+                        self._advance()
+
+                # Check if followed by another identifier (function name)
+                if self._check(TokenType.IDENTIFIER):
+                    return_type = potential_type
+                    continue
+                else:
+                    # Not a "Type Name" pattern, restore position
+                    self.pos = saved_inner
 
             # Check for * prefix (non-null) or *[type] (type exclusion)
             if self._check(TokenType.MULTIPLY):
@@ -1125,7 +1280,9 @@ class CSSLParser:
                 param_info['const'] = True
 
             # Handle type annotations (builtin types like int, string, etc.)
-            if self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value):
+            # v4.8: Also handle TYPE_LITERAL (dict, list) which are tokenized differently
+            if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
+               self._check(TokenType.TYPE_LITERAL):
                 param_info['type'] = self._advance().value
 
                 # Check for generic type parameter <T>
@@ -1345,12 +1502,20 @@ class CSSLParser:
     def _looks_like_typed_variable(self) -> bool:
         """Check if current position looks like a typed variable declaration:
         type_name varName; or type_name<T> varName; or type_name varName = value;
+        v4.9.4: Also supports local/static modifiers: local int x; static array<int> arr;
         """
         # Save position
         saved_pos = self.pos
 
+        # v4.9.4: Skip optional local/static/freezed modifiers
+        var_modifiers = {'local', 'static', 'freezed'}
+        while self._check(TokenType.KEYWORD) and self._current().value in var_modifiers:
+            self._advance()
+
         # Must start with a type keyword (int, string, stack, vector, etc.)
-        if not self._check(TokenType.KEYWORD):
+        # v4.8.7: Also check TYPE_LITERAL (list, dict) which are tokenized differently
+        if not self._check(TokenType.KEYWORD) and not self._check(TokenType.TYPE_LITERAL):
+            self.pos = saved_pos
             return False
 
         type_name = self._current().value
@@ -1360,25 +1525,36 @@ class CSSLParser:
                         'stack', 'vector', 'datastruct', 'dataspace', 'shuffled',
                         'iterator', 'combo', 'array', 'openquote', 'json',
                         'list', 'dictionary', 'dict', 'instance', 'map',
-                        'queue'}  # v4.7: Added queue
+                        'queue',  # v4.7: Added queue
+                        'bit', 'byte', 'address', 'ptr', 'pointer'}  # v4.9.0: Binary types, address, ptr/pointer
         if type_name not in type_keywords:
+            self.pos = saved_pos
             return False
 
         self._advance()
 
         # Check for optional generic <T>
         if self._match(TokenType.COMPARE_LT):
-            # Skip until >
+            # Skip until > - handle nested generics and >> token
             depth = 1
             while depth > 0 and not self._is_at_end():
                 if self._check(TokenType.COMPARE_LT):
                     depth += 1
                 elif self._check(TokenType.COMPARE_GT):
                     depth -= 1
+                # v4.9.4: Handle >> token (STREAM_IN) which is two > characters
+                # This happens with nested generics like array<map<K,V>>
+                elif self._check(TokenType.STREAM_IN):
+                    depth -= 2
                 self._advance()
 
-        # Next should be an identifier (variable name), not '(' (function) or ';'
-        result = self._check(TokenType.IDENTIFIER)
+        # v4.8.6: Check for @ prefix (global variable marker)
+        if self._check(TokenType.AT):
+            self._advance()
+
+        # Next should be an identifier (variable name) or 'this' (for this->member), not '(' (function) or ';'
+        # v4.9.4: Also accept 'this' keyword for class member declarations like: ptr this->member = value
+        result = self._check(TokenType.IDENTIFIER) or (self._check(TokenType.KEYWORD) and self._current().value == 'this')
 
         # Restore position
         self.pos = saved_pos
@@ -1390,7 +1566,27 @@ class CSSLParser:
         The * prefix indicates a non-nullable variable (can never be None/null).
         Example: vector<dynamic> *MyVector - can never contain None values.
         Supports nested generics: datastruct<map<string, dynamic>> zipped;
+
+        v4.9.4: Supports local/static modifiers:
+        - local: cannot be accessed via @varName (global ref), can be snapshotted via %varName
+        - static: can be accessed via @varName, cannot be snapshotted via %varName
+        - local static: forbids both @ and % access
+        - freezed: creates immutable variable (cannot be reassigned or modified)
         """
+        # v4.9.4: Parse optional local/static/freezed modifiers
+        is_local = False
+        is_static = False
+        is_freezed = False
+        var_modifiers = {'local', 'static', 'freezed'}
+        while self._check(TokenType.KEYWORD) and self._current().value in var_modifiers:
+            mod = self._advance().value
+            if mod == 'local':
+                is_local = True
+            elif mod == 'static':
+                is_static = True
+            elif mod == 'freezed':
+                is_freezed = True
+
         # Get type name
         type_name = self._advance().value  # Consume type keyword
 
@@ -1405,10 +1601,32 @@ class CSSLParser:
         if self._match(TokenType.MULTIPLY):
             non_null = True
 
-        # Get variable name
-        if not self._check(TokenType.IDENTIFIER):
+        # v4.8.6: Check for @ prefix (global variable marker)
+        is_global_ref = False
+        if self._match(TokenType.AT):
+            is_global_ref = True
+
+        # Get variable name - can be identifier or this->member
+        # v4.9.2: Support this->member syntax for class member declarations
+        is_this_member = False
+        if self._check(TokenType.KEYWORD) and self._current().value == 'this':
+            self._advance()  # consume 'this'
+            if self._match(TokenType.FLOW_RIGHT):
+                if self._check(TokenType.IDENTIFIER):
+                    var_name = self._advance().value
+                    is_this_member = True
+                else:
+                    return None
+            else:
+                return None
+        elif not self._check(TokenType.IDENTIFIER):
             return None
-        var_name = self._advance().value
+        else:
+            var_name = self._advance().value
+
+        # v4.8.6: Store @ prefix in var_name for global reference
+        if is_global_ref:
+            var_name = '@' + var_name
 
         # Check for assignment or just declaration
         value = None
@@ -1417,14 +1635,21 @@ class CSSLParser:
 
         self._match(TokenType.SEMICOLON)
 
-        # For instance<"name">, create a special node type
-        if type_name == 'instance':
+        # For instance<"name">, create a special UniversalInstance node
+        # But for plain "instance varName", treat as regular type annotation (like dynamic)
+        if type_name == 'instance' and element_type:
+            # instance<"containerName"> - creates/gets UniversalInstance
             return ASTNode('instance_declaration', value={
                 'instance_name': element_type,
                 'name': var_name,
                 'value': value,
-                'non_null': non_null
+                'non_null': non_null,
+                'is_local': is_local,    # v4.9.4: Cannot be accessed via @varName
+                'is_static': is_static,  # v4.9.4: Cannot be snapshotted via %varName
+                'is_freezed': is_freezed # v4.9.4: Immutable - cannot be reassigned
             })
+        # v4.8.8: Plain "instance varName = new Class()" is a type annotation
+        # allowing any CSSLInstance to be stored (like dynamic but for objects)
 
         # v4.7: For queue<type, size>, extract size from element_type string
         queue_size = 'dynamic'
@@ -1443,7 +1668,11 @@ class CSSLParser:
             'name': var_name,
             'value': value,
             'non_null': non_null,
-            'size': queue_size  # v4.7: For queue<T, size>
+            'size': queue_size,  # v4.7: For queue<T, size>
+            'is_this_member': is_this_member,  # v4.9.2: this->member declaration
+            'is_local': is_local,    # v4.9.4: Cannot be accessed via @varName
+            'is_static': is_static,  # v4.9.4: Cannot be snapshotted via %varName
+            'is_freezed': is_freezed # v4.9.4: Immutable - cannot be reassigned
         })
 
     def parse_program(self) -> ASTNode:
@@ -1455,6 +1684,8 @@ class CSSLParser:
                 root.children.append(self._parse_struct())
             elif self._match_keyword('class'):
                 root.children.append(self._parse_class())
+            elif self._match_keyword('namespace'):
+                root.children.append(self._parse_namespace())
             elif self._match_keyword('enum'):
                 root.children.append(self._parse_enum())
             # v4.7: bytearrayed can be a modifier (bytearrayed define) or standalone block
@@ -1492,10 +1723,28 @@ class CSSLParser:
                         is_global=is_global, is_embedded=is_embedded,
                         has_open_params=has_open_params, modifiers=modifiers
                     ))
+                elif self._match_keyword('class'):
+                    # v4.8.6: Support 'global class @ClassName' syntax
+                    root.children.append(self._parse_class(is_global=is_global, is_embedded=is_embedded))
                 elif self._looks_like_function_declaration():
                     root.children.append(self._parse_typed_function(modifiers=modifiers))
+                elif self._looks_like_typed_variable():
+                    # v4.8.6: Support 'global int @varname = value' syntax
+                    decl = self._parse_typed_variable()
+                    if decl and is_global:
+                        # Wrap in global_assignment to mark as global variable
+                        global_stmt = ASTNode('global_assignment', value=decl)
+                        root.children.append(global_stmt)
+                    elif decl:
+                        root.children.append(decl)
+                elif is_global:
+                    # v4.8.6: Handle 'global @varname = value' or 'global varname = value'
+                    stmt = self._parse_expression_statement()
+                    if stmt:
+                        global_stmt = ASTNode('global_assignment', value=stmt)
+                        root.children.append(global_stmt)
                 else:
-                    self.error(f"Expected 'define' or function declaration after modifiers: {modifiers}")
+                    self.error(f"Expected 'define', 'class', function, or variable declaration after modifiers: {modifiers}")
             # Check for C-style typed function declarations
             elif self._looks_like_function_declaration():
                 root.children.append(self._parse_typed_function())
@@ -1592,9 +1841,13 @@ class CSSLParser:
                 root.children.append(self._parse_switch())
             # Handle statements - keywords like 'instance', 'list', 'map' can be variable names
             # v4.2.1: Added LANG_INSTANCE_REF for lang$instance statements (js$GameData.score = 1337)
+            # v4.8.8: Added CAPTURED_REF for %snapshot(args) function calls
+            # v4.9.0: Added POINTER_REF for ?name = value pointer assignments
             elif (self._check(TokenType.IDENTIFIER) or self._check(TokenType.AT) or
                   self._check(TokenType.SELF_REF) or self._check(TokenType.SHARED_REF) or
-                  self._check(TokenType.KEYWORD) or self._check(TokenType.LANG_INSTANCE_REF)):
+                  self._check(TokenType.KEYWORD) or self._check(TokenType.LANG_INSTANCE_REF) or
+                  self._check(TokenType.CAPTURED_REF) or self._check(TokenType.POINTER_REF) or
+                  self._check(TokenType.POINTER_SNAPSHOT_REF)):
                 stmt = self._parse_expression_statement()
                 if stmt:
                     root.children.append(stmt)
@@ -2149,6 +2402,60 @@ class CSSLParser:
                     self._expect(TokenType.BLOCK_END)
                 default_block = body_children
 
+            # v4.9.4: Parse except block - matches when pattern does NOT match
+            # except {pattern}: statement;  (colon syntax)
+            # except {pattern} { statements }  (block syntax)
+            elif self._match_keyword('except'):
+                pattern = []
+                self._expect(TokenType.BLOCK_START)
+
+                # Parse pattern (same as case)
+                while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                    if self._check(TokenType.COMMA):
+                        self._advance()
+                        continue
+                    if self._check(TokenType.NEWLINE):
+                        self._advance()
+                        continue
+                    if self._check(TokenType.NUMBER):
+                        token = self._current()
+                        value = token.value
+                        if isinstance(value, dict) and 'value' in value:
+                            value = value['value']
+                        self._advance()
+                        pattern.append({'type': 'value', 'value': value})
+                    elif self._check(TokenType.STRING):
+                        value = self._advance().value
+                        pattern.append({'type': 'value', 'value': value})
+                    elif self._check(TokenType.KEYWORD):
+                        kw = self._current().value
+                        if kw in ('true', 'True'):
+                            pattern.append({'type': 'value', 'value': True})
+                        elif kw in ('false', 'False'):
+                            pattern.append({'type': 'value', 'value': False})
+                        self._advance()
+                    else:
+                        self._advance()
+
+                self._expect(TokenType.BLOCK_END)
+
+                # Parse except body
+                body_children = []
+                if self._match(TokenType.COLON):
+                    stmt = self._parse_statement()
+                    if stmt:
+                        body_children.append(stmt)
+                elif self._check(TokenType.BLOCK_START):
+                    self._advance()
+                    while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
+                    self._expect(TokenType.BLOCK_END)
+
+                # Mark as except (inverted match)
+                cases.append({'pattern': pattern, 'body': body_children, 'except': True})
+
             # Parse function reference: &funcName; or &funcName(arg1, arg2);
             elif self._check(TokenType.AMPERSAND):
                 self._advance()  # consume &
@@ -2211,6 +2518,7 @@ class CSSLParser:
                 func_refs = []
 
                 # Parse case values (comma-separated): case "en", "de": ...
+                # v4.8.8: Also support tuple patterns: case {0, 0}: for matching multiple byte values
                 while True:
                     if self._check(TokenType.STRING):
                         case_values.append(self._advance().value)
@@ -2220,6 +2528,25 @@ class CSSLParser:
                         case_values.append(self._advance().value)
                     elif self._check(TokenType.IDENTIFIER):
                         case_values.append(self._advance().value)
+                    elif self._check(TokenType.BLOCK_START):
+                        # v4.8.8: Tuple pattern {val1, val2, ...} for matching multiple byte values
+                        self._advance()  # consume {
+                        tuple_values = []
+                        while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                            if self._check(TokenType.NUMBER):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.STRING):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.BOOLEAN):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.IDENTIFIER):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.COMMA):
+                                self._advance()  # skip comma
+                            else:
+                                break
+                        self._expect(TokenType.BLOCK_END)  # consume }
+                        case_values.append(tuple(tuple_values))  # Store as tuple
                     else:
                         break
                     if not self._match(TokenType.COMMA):
@@ -2246,14 +2573,28 @@ class CSSLParser:
                     if not self._match(TokenType.COMMA):
                         break
 
-                # Parse case body block
+                # Parse case body - either block { } or inline statements until next case/default
                 body_children = []
-                self._expect(TokenType.BLOCK_START)
-                while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
-                    stmt = self._parse_statement()
-                    if stmt:
-                        body_children.append(stmt)
-                self._expect(TokenType.BLOCK_END)
+                if self._check(TokenType.BLOCK_START):
+                    # Block syntax: case val: { ... }
+                    self._advance()  # consume {
+                    while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
+                    self._expect(TokenType.BLOCK_END)
+                else:
+                    # v4.8.8: Inline syntax: case val: stmt1; stmt2; return x; (until next case/default/})
+                    while not self._is_at_end():
+                        # Stop at next case, default, except, or block end
+                        # v4.9.4: Added 'except' to stop keywords
+                        if self._check(TokenType.KEYWORD) and self._current().value in ('case', 'default', 'except'):
+                            break
+                        if self._check(TokenType.BLOCK_END):
+                            break
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
 
                 children.append(ASTNode('case', value={
                     'patterns': case_values,
@@ -2261,20 +2602,127 @@ class CSSLParser:
                     'body': body_children
                 }))
 
-            # Handle default block: default: { body } or default { body }
+            # Handle default block: default: { body } or default: stmt (inline)
             elif self._match_keyword('default'):
                 self._match(TokenType.COLON)  # Optional colon
                 body_children = []
-                self._expect(TokenType.BLOCK_START)
-                while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
-                    stmt = self._parse_statement()
-                    if stmt:
-                        body_children.append(stmt)
-                self._expect(TokenType.BLOCK_END)
+                if self._check(TokenType.BLOCK_START):
+                    # Block syntax
+                    self._advance()  # consume {
+                    while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
+                    self._expect(TokenType.BLOCK_END)
+                else:
+                    # v4.8.8: Inline syntax: default: stmt1; return x; (until block end)
+                    while not self._is_at_end():
+                        if self._check(TokenType.BLOCK_END):
+                            break
+                        # Also stop at next case/except (shouldn't happen after default, but be safe)
+                        # v4.9.4: Added 'except' to stop keywords
+                        if self._check(TokenType.KEYWORD) and self._current().value in ('case', 'except'):
+                            break
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
 
                 children.append(ASTNode('default', value={
                     'body': body_children
                 }))
+
+            # v4.9.4: Handle except block - matches when pattern does NOT match
+            # except {pattern}: { body } or except {pattern}: stmt (inline)
+            elif self._match_keyword('except'):
+                case_values = []
+
+                # Parse except values (same as case)
+                while True:
+                    if self._check(TokenType.STRING):
+                        case_values.append(self._advance().value)
+                    elif self._check(TokenType.NUMBER):
+                        case_values.append(self._advance().value)
+                    elif self._check(TokenType.BOOLEAN):
+                        case_values.append(self._advance().value)
+                    elif self._check(TokenType.IDENTIFIER):
+                        case_values.append(self._advance().value)
+                    elif self._check(TokenType.BLOCK_START):
+                        # Tuple pattern {val1, val2, ...}
+                        self._advance()  # consume {
+                        tuple_values = []
+                        while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                            if self._check(TokenType.NUMBER):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.STRING):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.BOOLEAN):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.IDENTIFIER):
+                                tuple_values.append(self._advance().value)
+                            elif self._check(TokenType.COMMA):
+                                self._advance()
+                            else:
+                                break
+                        self._expect(TokenType.BLOCK_END)
+                        case_values.append(tuple(tuple_values))
+                    else:
+                        break
+                    if not self._match(TokenType.COMMA):
+                        break
+
+                # Expect colon after except values
+                self._expect(TokenType.COLON)
+
+                # Parse except body
+                body_children = []
+                if self._check(TokenType.BLOCK_START):
+                    self._advance()
+                    while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
+                    self._expect(TokenType.BLOCK_END)
+                else:
+                    # Inline syntax
+                    while not self._is_at_end():
+                        if self._check(TokenType.KEYWORD) and self._current().value in ('case', 'default', 'except'):
+                            break
+                        if self._check(TokenType.BLOCK_END):
+                            break
+                        stmt = self._parse_statement()
+                        if stmt:
+                            body_children.append(stmt)
+
+                # Mark as except (inverted match) using 'case' node type with except flag
+                children.append(ASTNode('case', value={
+                    'patterns': case_values,
+                    'func_refs': [],
+                    'body': body_children,
+                    'except': True  # Inverted matching
+                }))
+
+            # v4.8.8: Handle func_ref statements (&func; or &func(args);)
+            elif self._check(TokenType.AMPERSAND):
+                self._advance()  # consume &
+                if self._check(TokenType.IDENTIFIER):
+                    func_name = self._advance().value
+                    func_args = []
+                    # Check for arguments
+                    if self._match(TokenType.PAREN_START):
+                        while not self._check(TokenType.PAREN_END) and not self._is_at_end():
+                            if self._check(TokenType.COMMA):
+                                self._advance()
+                                continue
+                            arg = self._parse_expression()
+                            func_args.append(arg)
+                        self._expect(TokenType.PAREN_END)
+                    self._match(TokenType.SEMICOLON)  # Optional semicolon
+                    children.append(ASTNode('func_ref', value={
+                        'name': func_name,
+                        'args': func_args
+                    }))
+                else:
+                    self.error("Expected identifier after '&' in bytearrayed body")
 
             # Handle other statements (e.g., expressions, function calls)
             else:
@@ -2283,6 +2731,56 @@ class CSSLParser:
                     children.append(stmt)
 
         return children
+
+    def _parse_namespace(self) -> ASTNode:
+        """Parse namespace definition.
+
+        Syntax:
+            namespace mylib {
+                void myFunc() { ... }
+                class MyClass { ... }
+                namespace nested { ... }
+            }
+
+        Access: mylib::myFunc(), mylib::MyClass, mylib::nested::innerFunc()
+        """
+        # Get namespace name
+        if not self._check(TokenType.IDENTIFIER):
+            self.error("Expected namespace name after 'namespace'")
+        name = self._advance().value
+
+        # Expect opening brace
+        if not self._match(TokenType.BLOCK_START):
+            self.error(f"Expected '{{' after 'namespace {name}'")
+
+        # Parse namespace contents
+        members = []
+        while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+            if self._match_keyword('namespace'):
+                # Nested namespace
+                members.append(self._parse_namespace())
+            elif self._match_keyword('class'):
+                members.append(self._parse_class())
+            elif self._match_keyword('struct'):
+                members.append(self._parse_struct())
+            elif self._match_keyword('enum'):
+                members.append(self._parse_enum())
+            elif self._match_keyword('define'):
+                members.append(self._parse_define())
+            elif self._looks_like_function_declaration():
+                members.append(self._parse_typed_function())
+            elif self._check(TokenType.COMMENT):
+                self._advance()  # Skip comments
+            else:
+                stmt = self._parse_expression_statement()
+                if stmt:
+                    members.append(stmt)
+
+        # Expect closing brace
+        if not self._match(TokenType.BLOCK_END):
+            self.error(f"Expected '}}' to close namespace '{name}'")
+
+        return ASTNode('namespace', value={'name': name}, children=members)
 
     def _parse_class(self, is_global: bool = False, is_embedded: bool = False) -> ASTNode:
         """Parse class declaration with members and methods.
@@ -2349,8 +2847,30 @@ class CSSLParser:
         overwrites_class = None
         overwrites_is_python = False
         supports_language = None  # v4.1.0: Multi-language syntax support
+        uses_memory = None  # v4.9.0: Memory binding for deferred execution
 
-        if self._match(TokenType.DOUBLE_COLON) or self._match(TokenType.COLON):
+        # v4.8.8: Support C++ style "class Child extends Parent" without colon
+        if self._match_keyword('extends'):
+            # Direct extends without colon: class Dog extends Animal
+            if self._check(TokenType.LANG_INSTANCE_REF):
+                ref = self._advance().value
+                extends_lang_ref = ref
+                extends_class = ref['instance']
+            elif self._check(TokenType.IDENTIFIER):
+                extends_class = self._advance().value
+            elif self._check(TokenType.SHARED_REF):
+                extends_class = self._advance().value
+                extends_is_python = True
+            else:
+                raise CSSLSyntaxError("Expected parent class name after 'extends'")
+            # Check for constructor arguments: extends Parent(arg1, arg2)
+            if self._match(TokenType.PAREN_START):
+                while not self._check(TokenType.PAREN_END):
+                    arg = self._parse_expression()
+                    extends_args.append(arg)
+                    self._match(TokenType.COMMA)
+                self._expect(TokenType.PAREN_END)
+        elif self._match(TokenType.DOUBLE_COLON) or self._match(TokenType.COLON):
             # Parse extends and/or overwrites (can be chained with : or ::)
             while True:
                 if self._match_keyword('extends'):
@@ -2396,8 +2916,18 @@ class CSSLParser:
                         supports_language = self._advance().value
                     else:
                         raise CSSLSyntaxError("Expected language identifier after 'supports'")
+                # v4.9.0: Parse 'uses' keyword for memory binding (deferred execution)
+                # Syntax: class MyClass : uses memory(address) { }
+                elif self._match_keyword('uses'):
+                    if (self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD)) and self._current().value == 'memory':
+                        self._advance()  # consume 'memory'
+                        self._expect(TokenType.PAREN_START)
+                        uses_memory = self._parse_expression()  # Parse the address expression
+                        self._expect(TokenType.PAREN_END)
+                    else:
+                        raise CSSLSyntaxError("Expected 'memory(address)' after 'uses'")
                 else:
-                    raise CSSLSyntaxError("Expected 'extends', 'overwrites', or 'supports' after ':' or '::' in class declaration")
+                    raise CSSLSyntaxError("Expected 'extends', 'overwrites', 'supports', or 'uses' after ':' or '::' in class declaration")
                 # Check for another : or :: for chaining
                 if not (self._match(TokenType.DOUBLE_COLON) or self._match(TokenType.COLON)):
                     break
@@ -2422,7 +2952,8 @@ class CSSLParser:
             'supports_language': supports_language,  # v4.1.0
             'raw_body': raw_body,  # v4.2.0: Raw body for language transformation
             'append_ref_class': append_ref_class,  # v4.2.5: &target class reference
-            'append_ref_member': append_ref_member  # v4.2.5: &target member reference
+            'append_ref_member': append_ref_member,  # v4.2.5: &target member reference
+            'uses_memory': uses_memory  # v4.9.0: Memory binding for deferred execution
         }, children=[])
 
         # v4.2.0: If we have raw_body for language transformation, skip regular parsing
@@ -2496,9 +3027,18 @@ class CSSLParser:
             # Check for constr keyword (constructor declaration)
             # Syntax: constr ConstructorName() { ... }
             # or: constr ConstructorName() : extends Parent::ConstructorName { ... }
+            # v4.8.8: Also supports: secure constr Name(), callable constr Name()
             elif self._match_keyword('constr'):
-                constructor = self._parse_constructor(class_name)
+                constructor = self._parse_constructor(class_name, modifiers=[])
                 node.children.append(constructor)
+            # v4.8.8: Check for secure/callable modifiers before constr
+            elif self._match_keyword('secure') or self._match_keyword('callable'):
+                constr_modifier = self.tokens[self.pos - 1].value  # 'secure' or 'callable'
+                if self._match_keyword('constr'):
+                    constructor = self._parse_constructor(class_name, modifiers=[constr_modifier])
+                    node.children.append(constructor)
+                else:
+                    self.error(f"Expected 'constr' after '{constr_modifier}'")
 
             else:
                 self._advance()
@@ -2506,23 +3046,39 @@ class CSSLParser:
         self._expect(TokenType.BLOCK_END)
         return node
 
-    def _parse_constructor(self, class_name: str) -> ASTNode:
-        """Parse constructor declaration inside a class.
+    def _parse_constructor(self, class_name: str, modifiers: list = None) -> ASTNode:
+        """Parse constructor or destructor declaration inside a class.
 
         Syntax:
             constr ConstructorName() { ... }
+            constr ~ClassName() { ... }  // v4.8.8: Destructor (cleanup code)
             constr ConstructorName() ++ { ... }  // Append: keeps parent constructor + adds new code
             constr ConstructorName() &ParentClass::constructors ++ { ... }  // Append specific parent constructor
             constr ConstructorName() : extends ParentClass::ConstructorName { ... }
             constr ConstructorName() : extends ParentClass::ConstructorName : overwrites ParentClass::ConstructorName { ... }
 
+        v4.8.8 Modifiers:
+            secure constr Name() { ... }   - Only runs on exception in class
+            callable constr Name() { ... } - Must be manually called, not auto-run
+
         The ++ operator means: execute parent's version first, then execute this code (append mode).
         The &ClassName::member syntax references a specific member from the overwritten class.
+        Destructor (~Name) is called when instance is deleted or goes out of scope.
         """
-        # Get constructor name
+        modifiers = modifiers or []
+        # v4.8.8: Check for destructor prefix ~
+        is_destructor = False
+        if self._match(TokenType.TILDE):  # ~ operator for destructors
+            is_destructor = True
+
+        # Get constructor/destructor name
         if not self._check(TokenType.IDENTIFIER):
-            raise CSSLSyntaxError("Expected constructor name after 'constr'")
+            raise CSSLSyntaxError("Expected constructor name after 'constr'" + (" ~" if is_destructor else ""))
         constr_name = self._advance().value
+
+        # v4.8.8: Destructor name should match class name
+        if is_destructor:
+            constr_name = f"~{constr_name}"  # Store with ~ prefix
 
         # Parse method-level extends/overwrites with :: syntax
         extends_target = None
@@ -2605,7 +3161,10 @@ class CSSLParser:
             'name': constr_name,
             'class_name': class_name,
             'params': params,
-            'is_constructor': True,
+            'is_constructor': not is_destructor,  # v4.8.8: False for destructors
+            'is_destructor': is_destructor,  # v4.8.8: True for ~Name()
+            'is_secure': 'secure' in modifiers,  # v4.8.8: Only run on exception
+            'is_callable': 'callable' in modifiers,  # v4.8.8: Manual call only
             'extends_target': extends_target,
             'extends_class': extends_class_ref,
             'extends_method': extends_method_ref,
@@ -2738,7 +3297,9 @@ class CSSLParser:
                 if self._match_keyword('open'):
                     param_info['open'] = True
                 # Handle type annotations (e.g., string, int, dynamic, etc.)
-                if self._check(TokenType.KEYWORD):
+                # v4.9.2: Also handle TYPE_LITERAL (dict, list) which are tokenized differently
+                if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
+                   self._check(TokenType.TYPE_LITERAL):
                     param_info['type'] = self._advance().value
                 # Handle reference operator &
                 if self._match(TokenType.AMPERSAND):
@@ -2786,6 +3347,7 @@ class CSSLParser:
         overwrites_class_ref = None
         overwrites_method_ref = None
         supports_language = None  # v4.1.0: Multi-language syntax support
+        uses_memory = None  # v4.9.0: Memory binding for deferred execution
 
         if self._match(TokenType.DOUBLE_COLON) or self._match(TokenType.COLON):
             # Parse extends and/or overwrites (supports :: method-level syntax)
@@ -2858,6 +3420,16 @@ class CSSLParser:
                         supports_language = self._advance().value
                     else:
                         raise CSSLSyntaxError("Expected language identifier after 'supports'")
+                # v4.9.0: Parse 'uses' keyword for memory binding (deferred execution)
+                # Syntax: define func() : uses memory(address) { }
+                elif self._match_keyword('uses'):
+                    if (self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD)) and self._current().value == 'memory':
+                        self._advance()  # consume 'memory'
+                        self._expect(TokenType.PAREN_START)
+                        uses_memory = self._parse_expression()  # Parse the address expression
+                        self._expect(TokenType.PAREN_END)
+                    else:
+                        raise CSSLSyntaxError("Expected 'memory(address)' after 'uses'")
                 else:
                     break
                 # Check for another :: or : for chaining extends/overwrites
@@ -2869,22 +3441,54 @@ class CSSLParser:
         append_mode = False
         append_ref_class = None
         append_ref_member = None
+        append_position = None  # v4.9.2: Optional position for hook placement (e.g., &name[-1])
 
-        # Check for &ClassName::member reference
+        # Check for &ClassName::member or &builtinName reference
+        # v4.9.2: Support &builtinName ++ for hooking into builtin functions
         if self._match(TokenType.AMPERSAND):
             if self._check(TokenType.IDENTIFIER):
-                append_ref_class = self._advance().value
+                ref_name = self._advance().value
+            elif self._check(TokenType.KEYWORD):
+                # v4.9.2: Allow keywords as function names (e.g., &reflect, &address)
+                ref_name = self._advance().value
             elif self._check(TokenType.SHARED_REF):
-                append_ref_class = f'${self._advance().value}'
+                ref_name = f'${self._advance().value}'
+            elif self._check(TokenType.AT):
+                # &@globalFunc reference
+                self._advance()  # consume @
+                if self._check(TokenType.IDENTIFIER):
+                    ref_name = '@' + self._advance().value
+                else:
+                    raise CSSLSyntaxError("Expected identifier after '&@'")
+            elif self._check(TokenType.TYPE_LITERAL):
+                # v4.9.2: Allow type literals as function names (dict, list)
+                ref_name = self._advance().value
             else:
-                raise CSSLSyntaxError("Expected class name after '&' in function reference")
+                # Debug: show what token we got
+                cur = self._current()
+                raise CSSLSyntaxError(f"Expected function/class name after '&' in function reference, got {cur.type.name}='{cur.value}'")
 
-            # Check for ::member
+            # Check for ::member (class method reference)
             if self._match(TokenType.DOUBLE_COLON):
+                # It's a class::member reference
+                append_ref_class = ref_name
                 if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
                     append_ref_member = self._advance().value
                 else:
                     raise CSSLSyntaxError("Expected member name after '::' in function reference")
+            else:
+                # v4.9.2: No ::, it's a builtin function reference like &reflect
+                # Store as special builtin reference (class=None, member=builtinName)
+                append_ref_class = '__builtins__'
+                append_ref_member = ref_name
+
+            # v4.9.2: Check for position syntax [index] (e.g., &name[-1] to place hook before last statement)
+            if self._match(TokenType.BRACKET_START):
+                # Parse the position expression (usually a number, can be negative)
+                pos_expr = self._parse_expression()
+                self._expect(TokenType.BRACKET_END)
+                # Store the position expression - will be evaluated at runtime
+                append_position = pos_expr
 
         # Check for ++ append operator
         if self._match(TokenType.PLUS_PLUS):
@@ -2945,12 +3549,15 @@ class CSSLParser:
             'append_mode': append_mode,
             'append_ref_class': append_ref_class,
             'append_ref_member': append_ref_member,
+            'append_position': append_position,  # v4.9.2: Position for hook placement
             # v4.1.0: Multi-language support
             'supports_language': supports_language,
             # v4.2.0: Raw body for language transformation
             'raw_body': raw_body,
             # v4.5.1: Function modifiers (private, const, static, etc.)
-            'modifiers': modifiers or []
+            'modifiers': modifiers or [],
+            # v4.9.0: Memory binding for deferred execution
+            'uses_memory': uses_memory
         }, children=children)
 
         return node
@@ -2977,16 +3584,38 @@ class CSSLParser:
         # v4.5.1: Add throw statement parsing
         elif self._match_keyword('throw'):
             return self._parse_throw()
+        # v4.8: Add raise statement (Python-style: raise ExceptionType("message"))
+        elif self._match_keyword('raise'):
+            return self._parse_raise()
         elif self._match_keyword('try'):
             return self._parse_try()
         elif self._match_keyword('await'):
             return self._parse_await()
+        elif self._match_keyword('yield'):
+            return self._parse_yield()
         elif self._match_keyword('supports'):
             # v4.2.0: Standalone supports block for multi-language syntax
             return self._parse_supports_block()
         elif self._match_keyword('define'):
             # Nested define function
             return self._parse_define()
+        elif self._match_keyword('global'):
+            # v4.9.2: Global variable inside function: global int x = 1; or global x = 1;
+            if self._looks_like_typed_variable():
+                # global type varName = value;
+                typed_node = self._parse_typed_variable()
+                if typed_node and typed_node.type == 'typed_declaration':
+                    # Add 'global' to modifiers
+                    modifiers = typed_node.value.get('modifiers', [])
+                    modifiers.append('global')
+                    typed_node.value['modifiers'] = modifiers
+                return typed_node
+            else:
+                # global varName = value; (dynamic type)
+                stmt = self._parse_expression_statement()
+                if stmt:
+                    return ASTNode('global_assignment', value=stmt)
+                return None
         elif self._looks_like_typed_variable():
             # Typed variable declaration (e.g., stack<string> myStack;)
             return self._parse_typed_variable()
@@ -3002,11 +3631,16 @@ class CSSLParser:
             # super() or super::method() call - calls parent constructor/method
             return self._parse_super_call()
         # v4.2.1: Added LANG_INSTANCE_REF for lang$instance statements
+        # v4.9.0: Allow KEYWORD tokens followed by ( to be treated as function calls (memory, uses, etc.)
+        # v4.9.0: Added POINTER_REF for ?name = value pointer assignments
+        # v4.9.4: Added POINTER_SNAPSHOT_REF for ?%name pointer-snapshot references
         elif (self._check(TokenType.IDENTIFIER) or self._check(TokenType.AT) or
               self._check(TokenType.CAPTURED_REF) or self._check(TokenType.SHARED_REF) or
+              self._check(TokenType.POINTER_REF) or self._check(TokenType.POINTER_SNAPSHOT_REF) or
               self._check(TokenType.GLOBAL_REF) or self._check(TokenType.SELF_REF) or
               self._check(TokenType.LANG_INSTANCE_REF) or
               (self._check(TokenType.KEYWORD) and self._current().value in ('this', 'new')) or
+              (self._check(TokenType.KEYWORD) and self._peek(1) and self._peek(1).type == TokenType.PAREN_START) or
               self._looks_like_namespace_call()):
             return self._parse_expression_statement()
         else:
@@ -3715,11 +4349,82 @@ class CSSLParser:
         self._match(TokenType.SEMICOLON)
         return ASTNode('throw', value=expr)
 
+    def _parse_raise(self) -> ASTNode:
+        """Parse raise statement (Python-style exceptions).
+
+        v4.8: Added raise statement for Python-style exception raising.
+
+        Syntax:
+            raise;                              # Re-raise current exception
+            raise "Error message";              # Simple message
+            raise ValueError("message");        # Python exception type
+            raise CustomError("msg", code);     # Custom exception with args
+
+        Supported Python exception types:
+            ValueError, TypeError, KeyError, IndexError, AttributeError,
+            RuntimeError, IOError, OSError, FileNotFoundError, NameError,
+            ZeroDivisionError, OverflowError, StopIteration, AssertionError
+        """
+        # Check for re-raise (just raise;)
+        if self._check(TokenType.SEMICOLON):
+            self._advance()
+            return ASTNode('raise', value={'type': None, 'message': None})
+
+        # Get the exception expression
+        # This could be: "message", ExceptionType("message"), or variable
+        expr = self._parse_expression()
+
+        self._match(TokenType.SEMICOLON)
+
+        # Check if it's a function call (ExceptionType("message"))
+        if isinstance(expr, ASTNode) and expr.type == 'call':
+            callee = expr.value.get('callee')
+            args = expr.value.get('args', [])
+            if isinstance(callee, ASTNode) and callee.type == 'identifier':
+                exc_type = callee.value
+                return ASTNode('raise', value={
+                    'type': exc_type,
+                    'args': args
+                })
+
+        # Simple expression (string or variable)
+        return ASTNode('raise', value={
+            'type': 'Error',  # Default exception type
+            'message': expr
+        })
+
     def _parse_await(self) -> ASTNode:
         """Parse await statement: await expression;"""
         expr = self._parse_expression()
         self._match(TokenType.SEMICOLON)
         return ASTNode('await', value=expr)
+
+    def _parse_yield(self) -> ASTNode:
+        """Parse yield statement: yield expression; or yield;
+
+        v4.9.3: Generator yield statement for lazy iteration.
+
+        Syntax:
+            yield value;     // Yield a value and pause
+            yield;           // Yield None and pause
+
+        Example:
+            generator<int> define CountUp(int limit) {
+                int i = 0;
+                while (i < limit) {
+                    yield i;
+                    i = i + 1;
+                }
+            }
+        """
+        # Check for yield with no value (yield;)
+        if self._check(TokenType.SEMICOLON):
+            self._advance()
+            return ASTNode('yield', value=None)
+
+        expr = self._parse_expression()
+        self._match(TokenType.SEMICOLON)
+        return ASTNode('yield', value=expr)
 
     def _parse_supports_block(self) -> ASTNode:
         """Parse standalone supports block for multi-language syntax.
@@ -3897,6 +4602,66 @@ class CSSLParser:
 
         self._expect(TokenType.BLOCK_END)
         return node
+
+    def _parse_local_injection(self, local_node: ASTNode) -> ASTNode:
+        """Parse local::func injection operations.
+
+        Syntax:
+            local::func -<<== { code }                    // Remove matching code
+            local::func +<<== { code }                    // Add code
+            local::func -<<==[injection::innerline(3)] null;  // Remove specific line
+            local::func +<<==[injection::innerline(3)] code;  // Add at specific line
+
+        Args:
+            local_node: The local_ref ASTNode (e.g., local::func)
+
+        Returns:
+            ASTNode for the local injection operation
+        """
+        local_name = local_node.value
+
+        # Determine injection mode
+        mode = None
+        if self._match(TokenType.INFUSE_MINUS_LEFT):
+            mode = 'remove'
+        elif self._match(TokenType.INFUSE_PLUS_LEFT):
+            mode = 'add'
+        elif self._match(TokenType.INFUSE_LEFT):
+            mode = 'replace'
+        else:
+            raise CSSLSyntaxError("Expected -<<==, +<<==, or <<== after local::func")
+
+        # Parse optional filter: [injection::innerline(n)]
+        filters = self._parse_injection_filter()
+
+        # Parse the value/code block
+        code_block = None
+        if self._check(TokenType.BLOCK_START):
+            # Block form: local::func +<<== { code }
+            self._advance()
+            children = []
+            while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                if self._check(TokenType.NEWLINE):
+                    self._advance()
+                    continue
+                stmt = self._parse_statement()
+                if stmt:
+                    children.append(stmt)
+            self._expect(TokenType.BLOCK_END)
+            code_block = ASTNode('block', children=children)
+        elif self._match_keyword('null') or self._match_keyword('None'):
+            # null; for removal without replacement
+            code_block = None
+        else:
+            # Expression form: local::func +<<== expression;
+            code_block = self._parse_expression()
+
+        return ASTNode('local_injection', value={
+            'target': local_name,
+            'mode': mode,
+            'filters': filters,
+            'code': code_block
+        }, line=local_node.line, column=local_node.column)
 
     def _parse_injection_filter(self) -> Optional[list]:
         """Parse injection filter(s): [type::helper=value] or [f1][f2][f3]...
@@ -4198,10 +4963,302 @@ class CSSLParser:
 
         return left
 
+    def _parse_conditional_pattern(self) -> ASTNode:
+        """Parse a condition pattern inside [condition]*[fallback] syntax.
+
+        v4.9.4: Supports multiple condition patterns:
+          - null                           - matches null/None
+          - int 2                          - matches specific int value
+          - string "hello"                 - matches specific string
+          - vector<int>                    - matches type
+          - vector<int> = {reflect(@x)}    - matches exact pattern
+
+        Returns an AST node representing the condition.
+        """
+        # Check for 'null' keyword
+        if self._check(TokenType.NULL) or (self._check(TokenType.KEYWORD) and self._current().value in ('null', 'None', 'none')):
+            self._advance()
+            return ASTNode('condition_null', value=None)
+
+        # Check for type with optional value: int 2, string "hello", vector<int>
+        if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+            type_name = self._current().value
+
+            if self._is_type_keyword(type_name) or self._check(TokenType.TYPE_LITERAL):
+                self._advance()  # consume type name
+
+                # Check for generic type: type<...>
+                element_type = None
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()  # consume <
+                    element_type = self._parse_generic_type_content()
+
+                # Check for = pattern value
+                if self._check(TokenType.EQUALS):
+                    self._advance()  # consume =
+                    # Parse value but stop at ] - use primary to avoid consuming too much
+                    pattern_value = self._parse_condition_value()
+                    return ASTNode('condition_typed_pattern', value={
+                        'type': type_name,
+                        'element_type': element_type,
+                        'pattern': pattern_value
+                    })
+
+                # Check for literal value after type (int 2, string "hello")
+                if not self._check(TokenType.BRACKET_END):
+                    # Parse value but stop at ] - use primary to avoid consuming too much
+                    match_value = self._parse_condition_value()
+                    return ASTNode('condition_type_value', value={
+                        'type': type_name,
+                        'element_type': element_type,
+                        'match_value': match_value
+                    })
+
+                # Just type check (vector<int>, string, etc.)
+                return ASTNode('condition_type', value={
+                    'type': type_name,
+                    'element_type': element_type
+                })
+
+        # Default: parse as expression (for complex conditions)
+        return self._parse_condition_value()
+
+    def _parse_condition_value(self) -> ASTNode:
+        """Parse a value inside [...] condition/fallback brackets.
+
+        v4.9.4: This is a restricted expression parser that stops at ] to avoid
+        consuming the bracket and subsequent operators like *.
+
+        Supports:
+          - Literals: "string", 123, true, null
+          - Identifiers: varName
+          - Function calls: reflect(%x), getDefault()
+          - Brace initializers: {1, 2, 3}
+          - Member access: obj.prop
+        """
+        # Handle brace initializers { ... }
+        if self._check(TokenType.BLOCK_START):
+            self._advance()  # consume {
+            elements = []
+            while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+                elements.append(self._parse_expression())
+                if not self._check(TokenType.BLOCK_END):
+                    if self._check(TokenType.COMMA):
+                        self._advance()
+                    else:
+                        break
+            self._expect(TokenType.BLOCK_END)
+            return ASTNode('array', value=elements)
+
+        # Handle literals
+        if self._check(TokenType.STRING):
+            return ASTNode('literal', value=self._advance().value)
+        if self._check(TokenType.NUMBER):
+            return ASTNode('literal', value=self._advance().value)
+        if self._check(TokenType.BOOLEAN):
+            return ASTNode('literal', value=self._advance().value)
+        if self._check(TokenType.NULL):
+            self._advance()
+            return ASTNode('literal', value=None)
+
+        # Handle captured reference %name
+        if self._check(TokenType.CAPTURED_REF):
+            token = self._advance()
+            node = ASTNode('captured_ref', value=token.value)
+            # Allow function call on captured ref: reflect(%x)
+            if self._check(TokenType.PAREN_START):
+                self._advance()
+                args, kwargs = self._parse_call_arguments()
+                self._expect(TokenType.PAREN_END)
+                node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+            return node
+
+        # Handle pointer reference ?name
+        if self._check(TokenType.POINTER_REF):
+            token = self._advance()
+            return ASTNode('pointer_ref', value=token.value)
+
+        # Handle identifiers and function calls
+        if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
+            name = self._advance().value
+            node = ASTNode('identifier', value=name)
+
+            # v4.9.4: Handle nameof() at parse time - like C#'s nameof operator
+            # nameof(identifier) returns the literal name as a string
+            if name == 'nameof' and self._check(TokenType.PAREN_START):
+                self._advance()  # consume (
+                # Get the identifier/expression inside nameof()
+                if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
+                    inner_name = self._advance().value
+                    # Handle member access: nameof(obj.member) -> "member"
+                    while self._check(TokenType.DOT):
+                        self._advance()  # consume .
+                        if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
+                            inner_name = self._advance().value
+                        else:
+                            break
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('literal', value=inner_name)
+                elif self._check(TokenType.POINTER_REF):
+                    # nameof(?ptr) -> "ptr"
+                    token = self._advance()
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('literal', value=token.value)
+                elif self._check(TokenType.GLOBAL_REF):
+                    # nameof(@global) -> "global"
+                    token = self._advance()
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('literal', value=token.value)
+                elif self._check(TokenType.SHARED_REF):
+                    # nameof($shared) -> "shared"
+                    token = self._advance()
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('literal', value=token.value)
+                elif self._check(TokenType.CAPTURED_REF):
+                    # nameof(%captured) -> "captured"
+                    token = self._advance()
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('literal', value=token.value)
+                else:
+                    # For complex expressions, fall through to runtime nameof
+                    args, kwargs = self._parse_call_arguments()
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+
+            # Check for function call
+            if self._check(TokenType.PAREN_START):
+                self._advance()
+                args, kwargs = self._parse_call_arguments()
+                self._expect(TokenType.PAREN_END)
+                node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+
+            # Check for member access
+            while self._check(TokenType.DOT):
+                self._advance()
+                member = self._advance().value
+                node = ASTNode('member_access', value={'object': node, 'member': member})
+                # Check for method call
+                if self._check(TokenType.PAREN_START):
+                    self._advance()
+                    args, kwargs = self._parse_call_arguments()
+                    self._expect(TokenType.PAREN_END)
+                    node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+
+            return node
+
+        # Fallback: try to parse primary expression
+        return self._parse_primary()
+
+    def _parse_non_null_fallback(self) -> ASTNode:
+        """Parse fallback value inside *[...] non-null assertion.
+
+        v4.9.4: Supports multiple fallback patterns:
+          - Simple value: 3, "default", true
+          - Function call: reflect(%NULLPTR), getDefault()
+          - Typed value: vector<int> = {0, 2}
+          - Typed value: datastruct<dynamic> = { 1, 2 }
+          - Tuple/object: (bit H=0, string n="j")
+
+        Returns an AST node representing the fallback value.
+        """
+        # Check if this looks like a typed fallback: type<...> = value
+        # Save position for backtracking
+        saved_pos = self.pos
+
+        # Try to parse as typed fallback first
+        if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD) or self._check(TokenType.TYPE_LITERAL):
+            type_name = self._current().value
+
+            # Check if it's a known type (including user types like vector, queue, list, dict)
+            if self._is_type_keyword(type_name) or self._check(TokenType.TYPE_LITERAL):
+                self._advance()  # consume type name
+
+                # Check for generic type: type<...>
+                element_type = None
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()  # consume <
+                    element_type = self._parse_generic_type_content()
+
+                # Check for = initializer
+                if self._check(TokenType.EQUALS):
+                    self._advance()  # consume =
+                    # Parse the initializer value - use restricted parser to stop at ]
+                    init_value = self._parse_condition_value()
+                    return ASTNode('typed_fallback', value={
+                        'type': type_name,
+                        'element_type': element_type,
+                        'init': init_value
+                    })
+
+                # Not a typed fallback with =, backtrack
+                self.pos = saved_pos
+
+        # Check for tuple/object literal: (bit H=0, string n="j")
+        if self._check(TokenType.PAREN_START):
+            # For parenthesized expressions, we need the full parser
+            # Save pos and consume (
+            self._advance()
+            expr = self._parse_expression()
+            self._expect(TokenType.PAREN_END)
+            return expr
+
+        # Parse as regular expression (simple value, function call, etc.)
+        # Use restricted parser to stop at ]
+        return self._parse_condition_value()
+
     def _parse_unary(self) -> ASTNode:
+        # v4.9.4: Conditional assertion with pattern: [condition]*[fallback]variable
+        # Examples:
+        #   [int 2]*[string "2"]x      - if x is int 2, return "2"
+        #   [null]*[{0}]x              - if x is null, return {0}
+        #   [vector<int>]*[{1,2}]x     - if x matches type, use fallback
+        if self._check(TokenType.BRACKET_START):
+            # Look ahead to see if this is [condition]*[fallback] pattern
+            saved_pos = self.pos
+            self._advance()  # consume [
+
+            # Parse the condition
+            condition = self._parse_conditional_pattern()
+
+            if self._check(TokenType.BRACKET_END):
+                self._advance()  # consume ]
+
+                # Check for *[ which indicates this is the conditional assertion pattern
+                if self._check(TokenType.MULTIPLY):
+                    next_tok = self._peek(1)
+                    if next_tok and next_tok.type == TokenType.BRACKET_START:
+                        self._advance()  # consume *
+                        self._advance()  # consume [
+
+                        # Parse the fallback value
+                        fallback = self._parse_non_null_fallback()
+
+                        self._expect(TokenType.BRACKET_END)
+                        operand = self._parse_unary()
+
+                        return ASTNode('conditional_assert', value={
+                            'condition': condition,
+                            'fallback': fallback,
+                            'operand': operand
+                        })
+
+            # Not a conditional assertion, backtrack
+            self.pos = saved_pos
+
         if self._match(TokenType.NOT) or self._match_keyword('not'):
             operand = self._parse_unary()
             return ASTNode('unary', value={'op': 'not', 'operand': operand})
+        # v4.9.3: await as unary prefix for expressions
+        if self._match_keyword('await'):
+            operand = self._parse_unary()
+            return ASTNode('await', value=operand)
+        # v4.9.3: yield as unary prefix for expressions (received = yield value)
+        if self._match_keyword('yield'):
+            # yield can be used with or without a value
+            if self._check(TokenType.SEMICOLON) or self._check(TokenType.PAREN_END) or self._check(TokenType.COMMA):
+                return ASTNode('yield_expr', value=None)
+            operand = self._parse_unary()
+            return ASTNode('yield_expr', value=operand)
         if self._match(TokenType.MINUS):
             operand = self._parse_unary()
             return ASTNode('unary', value={'op': '-', 'operand': operand})
@@ -4220,17 +5277,35 @@ class CSSLParser:
 
         # Non-null assertion: *$var, *@module, *identifier
         # Also type exclusion filter: *[type]expr - exclude type from return
+        # v4.9.0: Pointer syntax: *<expr> to get address
         if self._check(TokenType.MULTIPLY):
             next_token = self._peek(1)
 
-            # Check for type exclusion filter: *[string], *[int], etc.
+            # v4.9.0: Pointer address: *<expr> - get address of expression
+            if next_token and next_token.type == TokenType.COMPARE_LT:
+                self._advance()  # consume *
+                self._advance()  # consume <
+                operand = self._parse_expression()
+                self._expect(TokenType.COMPARE_GT)  # expect >
+                return ASTNode('pointer_address', value={'operand': operand})
+
+            # v4.9.4: Non-null assertion with fallback: *[fallback]variable
+            # Supports:
+            #   *[3]x                              - simple fallback value
+            #   *[datastruct<dynamic> = {1,2}]x   - typed fallback with init
+            #   *[vector<int> = {0, 2}]x          - generic type with init
+            #   *[reflect(%NULLPTR)]x             - function call as fallback
+            #   *[(bit H=0, string n="j")]x       - tuple/object literal
             if next_token and next_token.type == TokenType.BRACKET_START:
                 self._advance()  # consume *
                 self._advance()  # consume [
-                exclude_type = self._advance().value  # get type name
+
+                # Parse the fallback value inside brackets
+                fallback = self._parse_non_null_fallback()
+
                 self._expect(TokenType.BRACKET_END)
                 operand = self._parse_unary()
-                return ASTNode('type_exclude_assert', value={'exclude_type': exclude_type, 'operand': operand})
+                return ASTNode('non_null_assert_fallback', value={'fallback': fallback, 'operand': operand})
 
             # Non-null assertion when followed by $ (shared ref), @ (global), or identifier
             if next_token and next_token.type in (TokenType.SHARED_REF, TokenType.AT, TokenType.IDENTIFIER):
@@ -4446,6 +5521,79 @@ class CSSLParser:
                     break
             return node
 
+        # v4.9.0: Pointer reference: ?name (dereferences pointer)
+        if self._check(TokenType.POINTER_REF):
+            token = self._advance()
+            node = ASTNode('pointer_ref', value=token.value, line=token.line, column=token.column)
+            # Check for member access, calls, indexing
+            while True:
+                if self._match(TokenType.PAREN_START):
+                    args, kwargs = self._parse_call_arguments()
+                    self._expect(TokenType.PAREN_END)
+                    node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+                elif self._match(TokenType.DOT) or self._match(TokenType.FLOW_RIGHT):
+                    member = self._advance().value
+                    node = ASTNode('member_access', value={'object': node, 'member': member})
+                elif self._match(TokenType.BRACKET_START):
+                    index = self._parse_expression()
+                    self._expect(TokenType.BRACKET_END)
+                    node = ASTNode('index_access', value={'object': node, 'index': index})
+                else:
+                    break
+            return node
+
+        # v4.9.4: Pointer-snapshot reference: ?%name (pointer to snapshotted value)
+        if self._check(TokenType.POINTER_SNAPSHOT_REF):
+            token = self._advance()
+            node = ASTNode('pointer_snapshot_ref', value=token.value, line=token.line, column=token.column)
+            # Check for member access, calls, indexing
+            while True:
+                if self._match(TokenType.PAREN_START):
+                    args, kwargs = self._parse_call_arguments()
+                    self._expect(TokenType.PAREN_END)
+                    node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+                elif self._match(TokenType.DOT) or self._match(TokenType.FLOW_RIGHT):
+                    member = self._advance().value
+                    node = ASTNode('member_access', value={'object': node, 'member': member})
+                elif self._match(TokenType.BRACKET_START):
+                    index = self._parse_expression()
+                    self._expect(TokenType.BRACKET_END)
+                    node = ASTNode('index_access', value={'object': node, 'index': index})
+                else:
+                    break
+            return node
+
+        # v4.9.2: Local reference for hook variable access: local::varname, local::func
+        if self._check(TokenType.LOCAL_REF):
+            token = self._advance()
+            local_name = token.value  # The local variable/function name
+            node = ASTNode('local_ref', value=local_name, line=token.line, column=token.column)
+            # Check for injection operations on local::func
+            if self._check(TokenType.INFUSE_MINUS_LEFT) or self._check(TokenType.INFUSE_PLUS_LEFT) or \
+               self._check(TokenType.INFUSE_LEFT):
+                # local::func -<<== {...} or local::func +<<== {...}
+                return self._parse_local_injection(node)
+            # Check for assignment: local::varname = value
+            if self._match(TokenType.EQUALS):
+                value = self._parse_expression()
+                return ASTNode('local_assign', value={'name': local_name, 'value': value})
+            # Check for member access, calls, indexing
+            while True:
+                if self._match(TokenType.PAREN_START):
+                    args, kwargs = self._parse_call_arguments()
+                    self._expect(TokenType.PAREN_END)
+                    node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
+                elif self._match(TokenType.DOT) or self._match(TokenType.FLOW_RIGHT):
+                    member = self._advance().value
+                    node = ASTNode('member_access', value={'object': node, 'member': member})
+                elif self._match(TokenType.BRACKET_START):
+                    index = self._parse_expression()
+                    self._expect(TokenType.BRACKET_END)
+                    node = ASTNode('index_access', value={'object': node, 'index': index})
+                else:
+                    break
+            return node
+
         # v4.1.0: Cross-language instance reference: cpp$ClassName, py$Object
         if self._check(TokenType.LANG_INSTANCE_REF):
             token = self._advance()
@@ -4470,7 +5618,20 @@ class CSSLParser:
             return node
 
         if self._check(TokenType.NUMBER):
-            return ASTNode('literal', value=self._advance().value)
+            num_token = self._advance()
+            num_value = num_token.value
+            # v4.9.0: Check for byte notation x^y (0^102, 1^250)
+            if self._check(TokenType.CARET):
+                self._advance()  # consume ^
+                if not self._check(TokenType.NUMBER):
+                    raise CSSLSyntaxError("Expected number after '^' in byte literal", num_token.line)
+                weight = self._advance().value
+                if num_value not in (0, 1):
+                    raise CSSLSyntaxError(f"Byte base must be 0 or 1, got {num_value}", num_token.line)
+                if not (0 <= weight <= 255):
+                    raise CSSLSyntaxError(f"Byte weight must be 0-255, got {weight}", num_token.line)
+                return ASTNode('byte_literal', value={'base': num_value, 'weight': weight})
+            return ASTNode('literal', value=num_value)
 
         if self._check(TokenType.STRING):
             return ASTNode('literal', value=self._advance().value)
@@ -4488,16 +5649,66 @@ class CSSLParser:
             return ASTNode('type_literal', value=type_name)
 
         if self._match(TokenType.PAREN_START):
-            expr = self._parse_expression()
-            self._expect(TokenType.PAREN_END)
-            return expr
+            # v4.8.9: Check for typed expression: (type name = value)
+            # This creates a typed variable and returns its value
+            # Used with snapshot assignment: %xyz = (int number = 200)
+            saved_pos = self.pos
+            is_typed_expr = False
+
+            # Check pattern: type identifier =
+            if ((self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or
+                self._check(TokenType.IDENTIFIER)):
+                potential_type = self._current().value
+                self._advance()  # consume type
+
+                # Check for generic type like vector<int>
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()  # consume <
+                    self._parse_generic_type_content()  # consume generic content
+                    potential_type += '<...>'  # mark as generic
+
+                if self._check(TokenType.IDENTIFIER):
+                    var_name = self._advance().value
+                    if self._check(TokenType.EQUALS):
+                        # This is a typed expression!
+                        is_typed_expr = True
+                        self._advance()  # consume =
+                        value = self._parse_expression()
+                        self._expect(TokenType.PAREN_END)
+                        return ASTNode('typed_expression', value={
+                            'type': potential_type.replace('<...>', ''),  # clean generic marker
+                            'name': var_name,
+                            'value': value
+                        })
+
+            # Not a typed expression, restore position and parse normally
+            if not is_typed_expr:
+                self.pos = saved_pos
+                expr = self._parse_expression()
+                # v4.9.2: Check for tuple literal (expr, expr, ...)
+                if self._check(TokenType.COMMA):
+                    # This is a tuple - collect all elements
+                    elements = [expr]
+                    while self._match(TokenType.COMMA):
+                        if self._check(TokenType.PAREN_END):
+                            # Trailing comma allowed: (a, b,)
+                            break
+                        elements.append(self._parse_expression())
+                    self._expect(TokenType.PAREN_END)
+                    return ASTNode('tuple', value=elements)
+                self._expect(TokenType.PAREN_END)
+                return expr
 
         if self._match(TokenType.BLOCK_START):
-            # Distinguish between object literal { key = value } and action block { expr; }
-            # Object literal: starts with IDENTIFIER = or STRING =
-            # Action block: starts with expression (captured_ref, call, literal, etc.)
+            # Distinguish between:
+            # 1. Object literal { key = value } - for dict-like initialization
+            # 2. Array literal { 1, 2, 3 } - for vector/array initialization (v4.9.2)
+            # 3. Action block { expr; } - for code blocks that return last value
             if self._is_object_literal():
                 return self._parse_object()
+            elif self._is_array_literal():
+                # v4.9.2: Parse as array for vector<T> i = { 1, 2, 3 } initialization
+                return self._parse_brace_array()
             else:
                 return self._parse_action_block_expression()
 
@@ -4576,11 +5787,14 @@ class CSSLParser:
     def _parse_identifier_or_call(self) -> ASTNode:
         name = self._advance().value
 
-        # Check for namespace syntax: json::read, string::cut, etc.
-        if self._match(TokenType.DOUBLE_COLON):
+        # Check for namespace syntax: json::read, string::cut, namespace::inner::func, etc.
+        # v4.8: Support multiple levels of :: for nested namespace access
+        while self._match(TokenType.DOUBLE_COLON):
             if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
                 namespace_member = self._advance().value
                 name = f"{name}::{namespace_member}"
+            else:
+                break
 
         # Check for instance<"name"> syntax - gets/creates shared instance
         if name == 'instance' and self._check(TokenType.COMPARE_LT):
@@ -4722,6 +5936,48 @@ class CSSLParser:
                 'args': args
             })
 
+        # v4.9.4: Handle nameof() at parse time - like C#'s nameof operator
+        # nameof(identifier) returns the literal name as a string
+        if name == 'nameof' and self._check(TokenType.PAREN_START):
+            self._advance()  # consume (
+            # Get the identifier/expression inside nameof()
+            if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
+                inner_name = self._advance().value
+                # Handle member access: nameof(obj.member) -> "member"
+                while self._check(TokenType.DOT):
+                    self._advance()  # consume .
+                    if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
+                        inner_name = self._advance().value
+                    else:
+                        break
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('literal', value=inner_name)
+            elif self._check(TokenType.POINTER_REF):
+                # nameof(?ptr) -> "ptr"
+                token = self._advance()
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('literal', value=token.value)
+            elif self._check(TokenType.GLOBAL_REF):
+                # nameof(@global) -> "global"
+                token = self._advance()
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('literal', value=token.value)
+            elif self._check(TokenType.SHARED_REF):
+                # nameof($shared) -> "shared"
+                token = self._advance()
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('literal', value=token.value)
+            elif self._check(TokenType.CAPTURED_REF):
+                # nameof(%captured) -> "captured"
+                token = self._advance()
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('literal', value=token.value)
+            else:
+                # For complex expressions, fall through to runtime nameof
+                args, kwargs = self._parse_call_arguments()
+                self._expect(TokenType.PAREN_END)
+                return ASTNode('call', value={'callee': ASTNode('identifier', value=name), 'args': args, 'kwargs': kwargs})
+
         node = ASTNode('identifier', value=name)
 
         while True:
@@ -4753,10 +6009,13 @@ class CSSLParser:
 
         Object literal: { name = value } or { "key" = value } or { "key": value } (Python-style)
         Action block: { %version; } or { "1.0.0" } or { call(); }
+
+        v4.9.4: Empty block {} is treated as empty object/dict, not action block
         """
-        # Empty block is action block
+        # v4.9.4: Empty block is now empty object (dict), not action block
+        # This makes {} = {} work as expected for dict initialization
         if self._check(TokenType.BLOCK_END):
-            return False
+            return True
 
         # Save position for lookahead
         saved_pos = self.pos
@@ -4772,6 +6031,74 @@ class CSSLParser:
         # Restore position
         self.pos = saved_pos
         return is_object
+
+    def _is_array_literal(self) -> bool:
+        """Check if current position is an array literal { 1, 2, 3 } for vector/array initialization.
+
+        v4.9.2: Array literal: { value, value, ... } - comma-separated values
+        NOT array literal: { expr; } - semicolon-separated (action block)
+        """
+        # Empty block is not array literal
+        if self._check(TokenType.BLOCK_END):
+            return False
+
+        # Save position for lookahead
+        saved_pos = self.pos
+
+        is_array = False
+        # Try to parse first expression and check if followed by comma
+        try:
+            # Check for simple value followed by comma
+            if (self._check(TokenType.NUMBER) or self._check(TokenType.STRING) or
+                self._check(TokenType.BOOLEAN) or self._check(TokenType.IDENTIFIER) or
+                self._check(TokenType.BRACKET_START) or self._check(TokenType.PAREN_START)):
+                # Skip the first value (could be simple or complex)
+                depth = 0
+                while not self._is_at_end():
+                    if self._check(TokenType.PAREN_START) or self._check(TokenType.BRACKET_START) or self._check(TokenType.BLOCK_START):
+                        depth += 1
+                        self._advance()
+                    elif self._check(TokenType.PAREN_END) or self._check(TokenType.BRACKET_END) or self._check(TokenType.BLOCK_END):
+                        if depth > 0:
+                            depth -= 1
+                            self._advance()
+                        else:
+                            break
+                    elif self._check(TokenType.COMMA) and depth == 0:
+                        # Found comma at top level - this is an array literal
+                        is_array = True
+                        break
+                    elif self._check(TokenType.SEMICOLON) and depth == 0:
+                        # Found semicolon - this is an action block
+                        is_array = False
+                        break
+                    else:
+                        self._advance()
+        except Exception:
+            pass
+
+        # Restore position
+        self.pos = saved_pos
+        return is_array
+
+    def _parse_brace_array(self) -> ASTNode:
+        """Parse brace-enclosed array literal { 1, 2, 3 } for vector/array initialization.
+
+        v4.9.2: Returns an 'array' node, same as [ 1, 2, 3 ] bracket arrays.
+        """
+        elements = []
+
+        while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
+            # Parse expression
+            expr = self._parse_expression()
+            elements.append(expr)
+
+            # Expect comma or end
+            if not self._match(TokenType.COMMA):
+                break
+
+        self._expect(TokenType.BLOCK_END)
+        return ASTNode('array', value=elements)
 
     def _parse_action_block_expression(self) -> ASTNode:
         """Parse an action block expression: { expr; expr2; } returns last value

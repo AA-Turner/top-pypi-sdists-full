@@ -987,7 +987,9 @@ class Models(WMLResource):
                     details["entity"]["results_reference"]
                 )
                 results_reference_obj.set_client(self._client)
-                results_reference_obj._check_if_connection_asset_is_s3()
+                if results_reference_obj._is_connection_asset_s3:
+                    results_reference_obj._init_s3_connection()
+
                 results_reference = results_reference_obj._to_dict()
 
                 cos_client = init_cos_client(results_reference["connection"])
@@ -1175,7 +1177,9 @@ class Models(WMLResource):
                     details["entity"]["results_reference"]
                 )
                 results_reference_obj.set_client(self._client)
-                results_reference_obj._check_if_connection_asset_is_s3()
+                if results_reference_obj._is_connection_asset_s3:
+                    results_reference_obj._init_s3_connection()
+
                 results_reference = results_reference_obj._to_dict()
 
                 cos_client = init_cos_client(results_reference["connection"])
@@ -4548,6 +4552,8 @@ class Models(WMLResource):
             raise NotImplementedError(
                 "Updating model content from an object is not implemented."
             )
+        else:
+            path_to_archive = cast(Path, path_to_archive)
 
         with path_to_archive.open("rb") as file:
             if path_to_archive.suffix == ".xml":
@@ -4685,6 +4691,8 @@ class Models(WMLResource):
             raise NotImplementedError(
                 "Updating model content from an object is not implemented."
             )
+        else:
+            path_to_archive = cast(Path, path_to_archive)
 
         if path_to_archive.suffix == ".xml":
             response = await self._client.async_httpx_client.put(

@@ -250,8 +250,8 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.general.plugins.module_utils.gitlab import (
     auth_argument_spec,
     find_group,
-    gitlab_authentication,
     gitlab,
+    gitlab_authentication,
 )
 
 
@@ -317,7 +317,7 @@ class GitLabGroup:
             if options["avatar_path"]:
                 try:
                     group.avatar = open(options["avatar_path"], "rb")
-                except IOError as e:
+                except OSError as e:
                     self._module.fail_json(msg=f"Cannot open {options['avatar_path']}: {e}")
             changed = True
         else:

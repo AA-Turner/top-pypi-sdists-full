@@ -1,24 +1,34 @@
+from __future__ import annotations
+
+from . import fileutil
+from . import hookspecs
+from .interfaces import IIOFileFactory
+from .log import threadlog
+from devpi_common.types import cached_property
+from devpi_common.url import URL
+from functools import partial
+from operator import itemgetter
+from pathlib import Path
+from pluggy import HookimplMarker
+from pluggy import PluginManager
+from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING
 import argon2
-import base64
-import os.path
 import argparse
+import base64
+import devpi_server
+import json
+import os.path
+import py
 import secrets
 import sys
 import uuid
-from operator import itemgetter
-from pathlib import Path
-from tempfile import NamedTemporaryFile
-from pluggy import HookimplMarker, PluginManager
-import py
-from devpi_common.types import cached_property
-from functools import partial
-from .log import threadlog
-from . import fileutil
-from . import hookspecs
-import json
-import devpi_server
-from devpi_common.url import URL
 import warnings
+
+
+if TYPE_CHECKING:
+    from .interfaces import IStorageConnection4
+    from collections.abc import Callable
 
 
 log = threadlog
@@ -70,7 +80,7 @@ def traced_pluggy_call(hook, **caller_kwargs):
             if firstresult:
                 break
     if firstresult:
-        results = results[0] if results else None
+        return (results[0] if results else None, plugin_names)
     return (results, plugin_names)
 
 
@@ -458,9 +468,11 @@ def get_parser(pluginmanager):
 
 def find_config_file():
     import platformdirs
-    config_dirs = platformdirs.site_config_dir(
-        'devpi-server', 'devpi', multipath=True)
-    config_dirs = config_dirs.split(os.pathsep)
+
+    config_dirs_str: str = platformdirs.site_config_dir(
+        "devpi-server", "devpi", multipath=True
+    )
+    config_dirs: list[str] = config_dirs_str.split(os.pathsep)
     config_dirs.append(
         platformdirs.user_config_dir('devpi-server', 'devpi'))
     config_files = []
@@ -537,15 +549,18 @@ def parseoptions(pluginmanager, argv, parser=None):
     try:
         config_options = load_config_file(config_file)
     except InvalidConfigError as e:
-        log.error("Error in config file '%s':\n  %s" % (  # noqa: TRY400
-            config_file, e))
+        log.error(  # noqa: TRY400
+            "Error in config file '%s':\n  %s", config_file, e
+        )
         sys.exit(4)
     defaultget = partial(
         default_getter,
         config_options=config_options,
         environ=os.environ)
     parser.post_process_actions(defaultget=defaultget)
-    if args.help is True:
+    # the getattr is a workaround for a problem with 3.14t-dev
+    # weirdly enough it does not happen with 3.14-dev
+    if getattr(args, "help", False) is True:
         parser.print_help()
         parser.exit()
     args = parser.parse_args(argv[1:])
@@ -553,12 +568,11 @@ def parseoptions(pluginmanager, argv, parser=None):
     return config
 
 
-def get_action_long_name(action):
-    """ extract long name of action
+def get_action_long_option_string(action):
+    """extract long option string of action
 
-        Looks for the first option string that is long enough and
-        starts with two ``prefix_chars``.
-        For example ``--no-events`` would return ``no-events``.
+    Looks for the first option string that is long enough and
+    starts with two ``prefix_chars``.
     """
     for option_string in action.option_strings:
         if not len(option_string) > 2:
@@ -567,7 +581,8 @@ def get_action_long_name(action):
             continue
         if option_string[1] not in action.container.prefix_chars:
             continue
-        return option_string[2:]
+        return option_string
+    return None
 
 
 class MyArgumentParser(argparse.ArgumentParser):
@@ -584,25 +599,33 @@ class MyArgumentParser(argparse.ArgumentParser):
             get the current value if a global or user config file is loaded.
         """
         for action in self._actions:
-            if defaultget is not None:
+            if isinstance(action, argparse._HelpAction):
+                continue
+            default = action.default
+            option_string = get_action_long_option_string(action)
+            if defaultget is not None and option_string is not None:
                 try:
-                    action.default = defaultget(get_action_long_name(action))
+                    default = defaultget(option_string[2:])
                 except KeyError:
                     pass
                 else:
                     if isinstance(action, argparse._StoreTrueAction):
-                        action.default = bool(strtobool(action.default))
+                        default = bool(strtobool(default))
                     elif isinstance(action, argparse._StoreFalseAction):
-                        action.default = not bool(strtobool(action.default))
-            default = action.default
+                        default = not bool(strtobool(default))
+                    else:
+                        temp_args = argparse.Namespace()
+                        action(self, temp_args, default, option_string)
+                        default = getattr(temp_args, action.dest)
+                action.default = default
             if isinstance(action, argparse._StoreFalseAction):
                 default = not default
             if action.help and argparse.SUPPRESS not in (action.help, default):
                 action.help += " [%s]" % default
 
     def addgroup(self, *args, **kwargs):
-        grp = super(MyArgumentParser, self).add_argument_group(*args, **kwargs)
-        grp.addoption = grp.add_argument
+        grp = super().add_argument_group(*args, **kwargs)
+        grp.addoption = grp.add_argument  # type: ignore[attr-defined]
         return grp
 
     def add_all_options(self):
@@ -656,6 +679,36 @@ def new_secret():
 
 class ConfigurationError(Exception):
     """ incorrect configuration or environment settings. """
+
+
+def get_io_file_factory(storage_info: dict) -> IIOFileFactory:
+    from .interfaces import IIOFile
+    from zope.interface import provider
+    from zope.interface.verify import verifyObject
+
+    _io_file_factory: Callable
+    db_filestore = storage_info.setdefault("db_filestore", True)
+    settings = storage_info.setdefault("settings", {})
+    if db_filestore:
+        from .filestore_db import DBIOFile
+
+        _io_file_factory = DBIOFile
+    else:
+        fsbackend = settings.setdefault("fsbackend", "fs")
+        _io_file_factory = __import__(
+            f"filestore_{fsbackend}", globals=globals(), level=1
+        ).fsiofile_factory
+
+        storage_info.setdefault("_test_markers", []).append("storage_with_filesystem")
+    verifyObject(IIOFileFactory, _io_file_factory)
+
+    @provider(IIOFileFactory)
+    def io_file_factory(conn: IStorageConnection4) -> IIOFile:
+        result = IIOFile(_io_file_factory(conn, settings))
+        verifyObject(IIOFile, result)
+        return result
+
+    return io_file_factory
 
 
 class Config:
@@ -1004,7 +1057,11 @@ class Config:
         return self._storage_info_from_name(name, settings)
 
     @property
-    def storage(self):
+    def io_file_factory(self) -> IIOFileFactory:
+        return get_io_file_factory(self._storage_info())
+
+    @property
+    def storage(self) -> type:
         return self._storage_info()["storage"]
 
     def _determine_storage(self):
@@ -1047,7 +1104,9 @@ class Config:
                 return None
             log.warning(
                 "Using deprecated existing secret file at '%s', use "
-                "--secretfile to explicitly provide the location." % secretfile)
+                "--secretfile to explicitly provide the location.",
+                secretfile,
+            )
             return secretfile
         return Path(self.args.secretfile).expanduser()
 

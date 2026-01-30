@@ -35,6 +35,8 @@ from .connection_config import (
 )
 from .exceptions import (
     AuthenticationException,
+    GitAuthException,
+    GitUpstreamException,
     BuildException,
     FileUploadException,
     InvalidArgumentException,
@@ -58,6 +60,7 @@ from .sandbox.filesystem.watch_handle import (
     FilesystemEvent,
     FilesystemEventType,
 )
+from .sandbox.git_utils import GitBranches, GitFileStatus, GitStatus
 from .sandbox.network import ALL_TRAFFIC
 from .sandbox.sandbox_api import (
     GitHubMcpServer,
@@ -94,7 +97,14 @@ from .template.readycmd import (
     wait_for_timeout,
     wait_for_url,
 )
-from .template.types import BuildInfo, CopyItem
+from .template.types import (
+    BuildInfo,
+    BuildStatusReason,
+    CopyItem,
+    TemplateBuildStatus,
+    TemplateBuildStatusResponse,
+    TemplateTagInfo,
+)
 from .template_async.main import AsyncTemplate
 from .template_sync.main import Template
 
@@ -110,6 +120,8 @@ __all__ = [
     "TimeoutException",
     "NotFoundException",
     "AuthenticationException",
+    "GitAuthException",
+    "GitUpstreamException",
     "InvalidArgumentException",
     "NotEnoughSpaceException",
     "TemplateException",
@@ -122,6 +134,9 @@ __all__ = [
     "SandboxQuery",
     "SandboxState",
     "SandboxMetrics",
+    "GitStatus",
+    "GitBranches",
+    "GitFileStatus",
     # Command handle
     "CommandResult",
     "Stderr",
@@ -156,6 +171,10 @@ __all__ = [
     "TemplateClass",
     "CopyItem",
     "BuildInfo",
+    "BuildStatusReason",
+    "TemplateBuildStatus",
+    "TemplateBuildStatusResponse",
+    "TemplateTagInfo",
     "ReadyCmd",
     "wait_for_file",
     "wait_for_url",

@@ -1,12 +1,15 @@
+from devpi_server.keyfs_types import FilePathInfo
+from devpi_server.keyfs_types import RelPath
+from devpi_server.mirror import ProjectNamesCache
+from devpi_server.mirror import ProjectUpdateCache
+from devpi_server.mirror import URL
+from devpi_server.mirror import parse_index
+from test_devpi_server.simpypi import getmd5
+import hashlib
 import httpx
+import pytest
 import requests.exceptions
 import time
-import hashlib
-import pytest
-
-from devpi_server.mirror import URL, parse_index
-from devpi_server.mirror import ProjectNamesCache, ProjectUpdateCache
-from test_devpi_server.simpypi import getmd5
 
 
 def getlinks(text):
@@ -380,10 +383,22 @@ class TestExtPYPIDB:
     def test_get_versiondata_hash_spec(self, pypistage):
         pypistage.mock_simple("pytest", pkgver="pytest-1.0.zip", hash_type="sha256")
         data = pypistage.get_versiondata("Pytest", "1.0")
+        (elink,) = data["+elinks"]
+        assert (
+            elink["hash_spec"]
+            == "sha256=53ebe3d9e4253a63b3cd26f817eec3f5aeb606bcc8264b2b9b6f104d7d267205"
+        )
+        assert elink["hashes"] == dict(
+            sha256="53ebe3d9e4253a63b3cd26f817eec3f5aeb606bcc8264b2b9b6f104d7d267205"
+        )
         (elink,) = pypistage.get_linkstore_perstage("pytest", "1.0").get_links()
         assert elink.rel == "releasefile"
         assert (
             elink.best_available_hash_spec
+            == "sha256=53ebe3d9e4253a63b3cd26f817eec3f5aeb606bcc8264b2b9b6f104d7d267205"
+        )
+        assert (
+            elink.hashes.best_available_spec
             == "sha256=53ebe3d9e4253a63b3cd26f817eec3f5aeb606bcc8264b2b9b6f104d7d267205"
         )
         assert data["name"] == "Pytest"
@@ -717,6 +732,64 @@ class TestExtPYPIDB:
         assert 'max-age=0' in r.headers['Cache-Control']
         assert 'Expires' in r.headers
         assert r.headers['Pragma'] == 'no-cache'
+
+    @pytest.mark.notransaction
+    def test_removed_release_for_version(self, pypistage, testapp):
+        pypistage.mock_simple("foo", text='<a href="foo-1.0.tar.gz"></a>')
+        r = testapp.xget(200, "/root/pypi/+simple/foo/")
+        assert ".tar.gz" in r
+        assert ".whl" not in r
+        with pypistage.keyfs.read_transaction():
+            (link,) = pypistage.get_releaselinks("foo")
+            link.basename.endswith(".tar.gz")
+            assert pypistage.list_versions("foo") == {"1.0"}
+        pypistage.mock_simple("foo", text='<a href="foo-1.0-py3-none-any.whl"></a>')
+        r = testapp.xget(200, "/root/pypi/+simple/foo/")
+        assert ".tar.gz" not in r
+        assert ".whl" in r
+        with pypistage.keyfs.read_transaction():
+            (link,) = pypistage.get_releaselinks("foo")
+            link.basename.endswith(".whl")
+            assert pypistage.list_versions("foo") == {"1.0"}
+
+    @pytest.mark.notransaction
+    def test_new_release_for_version(self, pypistage, testapp):
+        pypistage.mock_simple("foo", text='<a href="foo-1.0.tar.gz"></a>')
+        testapp.xget(200, "/root/pypi/+simple/foo/")
+        with pypistage.keyfs.read_transaction():
+            assert len(pypistage.get_releaselinks("foo")) == 1
+            assert pypistage.list_versions("foo") == {"1.0"}
+        pypistage.mock_simple(
+            "foo",
+            text='<a href="foo-1.0.tar.gz"></a><a href="foo-1.0-py3-none-any.whl"></a>',
+        )
+        testapp.xget(200, "/root/pypi/+simple/foo/")
+        with pypistage.keyfs.read_transaction():
+            assert len(pypistage.get_releaselinks("foo")) == 2
+            assert pypistage.list_versions("foo") == {"1.0"}
+
+    @pytest.mark.notransaction
+    def test_yanked_release(self, pypistage, testapp):
+        pypistage.mock_simple("foo", text='<a href="foo-1.0.tar.gz"></a>')
+        r = testapp.xget(200, "/root/pypi/+simple/foo/")
+        assert "yanked" not in r.text
+        with pypistage.keyfs.read_transaction():
+            versiondata = pypistage.get_versiondata("foo", "1.0")
+            assert "yanked" not in versiondata
+            assert len(versiondata["+elinks"]) == 1
+            assert len(pypistage.get_releaselinks("foo")) == 1
+            assert pypistage.list_versions("foo") == {"1.0"}
+        pypistage.mock_simple(
+            "foo", text='<a href="foo-1.0.tar.gz" data-yanked="brownbag"></a>'
+        )
+        r = testapp.xget(200, "/root/pypi/+simple/foo/")
+        assert "yanked" in r.text
+        with pypistage.keyfs.read_transaction():
+            versiondata = pypistage.get_versiondata("foo", "1.0")
+            assert versiondata["yanked"] == "brownbag"
+            assert len(versiondata["+elinks"]) == 1
+            assert len(pypistage.get_releaselinks("foo")) == 1
+            assert pypistage.list_versions("foo") == {"1.0"}
 
 
 class TestMirrorStageprojects:
@@ -1115,7 +1188,7 @@ def test_requests_http_get_negative_status_code(xom, monkeypatch):
 
     monkeypatch.setattr(xom._http.client, "get", r)
     r = xom.http.get("http://notexists.qwe", allow_redirects=False)
-    assert r.status_code == -1
+    assert r.status_code == -1  # type: ignore[attr-defined]
     assert l
 
 
@@ -1130,7 +1203,7 @@ def test_requests_httpget_negative_status_code(xom, monkeypatch):
 
     monkeypatch.setattr(xom._httpsession, "get", r)
     r = xom.httpget("http://notexists.qwe", allow_redirects=False)
-    assert r.status_code == -1
+    assert r.status_code == -1  # type: ignore[attr-defined]
     assert l
 
 
@@ -1203,12 +1276,12 @@ def test_http_user_agent(monkeypatch, server_version, simpypi, xom):
     simpypi.requests.clear()
     xom.http.post(simpypi.simpleurl)
     ((_, headers), *_) = simpypi.requests
-    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    assert headers["User-Agent"].startswith(f"devpi-server/{server_version}")
     simpypi.requests.clear()
     with contextlib.ExitStack() as cstack:
         xom.http.stream(cstack, "GET", simpypi.simpleurl, allow_redirects=False).read()
     ((_, headers), *_) = simpypi.requests
-    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    assert headers["User-Agent"].startswith(f"devpi-server/{server_version}")
     simpypi.requests.clear()
 
 
@@ -1220,7 +1293,7 @@ async def test_async_get_error(exc, xom, monkeypatch):
         raise exc
 
     monkeypatch.setattr(httpx.AsyncClient, "get", async_get)
-    r = await xom.http.async_get("http://notexists.qwe", allow_redirects=False)
+    (r, _t) = await xom.http.async_get("http://notexists.qwe", allow_redirects=False)
     assert r.status_code == -1
 
 
@@ -1231,7 +1304,7 @@ async def test_http_async_user_agent(server_version, simpypi, xom):
     simpypi.add_release("pkg", pkgver="pkg-1.0.zip")
     await xom.http.async_get(simpypi.simpleurl, allow_redirects=False)
     ((_, headers), *_) = simpypi.requests
-    assert headers["User-Agent"] == f"devpi-server/{server_version}"
+    assert headers["User-Agent"].startswith(f"devpi-server/{server_version}")
     simpypi.requests.clear()
 
 
@@ -1247,7 +1320,7 @@ async def test_async_httpget_error(exc, xom, monkeypatch):
         raise exc
 
     monkeypatch.setattr(httpx.AsyncClient, "get", async_httpget)
-    r = await xom.async_httpget("http://notexists.qwe", allow_redirects=False)
+    (r, _t) = await xom.async_httpget("http://notexists.qwe", allow_redirects=False)
     assert r.status_code == -1
 
 
@@ -1375,33 +1448,63 @@ class TestProjectNamesCache:
 
 
 def test_ProjectUpdateCache(monkeypatch):
+    from devpi_server.normalized import normalize_name
+
     x = ProjectUpdateCache()
     expiry_time = 30
-    assert x.is_expired("x", expiry_time)
-    assert x.get_etag("x") is None
-    x.refresh("x", '"foo"')
-    assert not x.is_expired("x", expiry_time)
-    assert x.get_etag("x") == '"foo"'
+    assert x.is_expired(normalize_name("x"), expiry_time)
+    assert x.get_etag(normalize_name("x")) is None
+    x.refresh(normalize_name("x"), '"foo"')
+    assert not x.is_expired(normalize_name("x"), expiry_time)
+    assert x.get_etag(normalize_name("x")) == '"foo"'
     t = time.time() + 35
     monkeypatch.setattr("time.time", lambda: t)
-    assert x.is_expired("x", expiry_time)
-    assert x.get_etag("x") == '"foo"'
-    x.refresh("x", '"bar"')
-    assert not x.is_expired("x", expiry_time)
-    assert x.get_etag("x") == '"bar"'
-    x.expire("x")
-    assert x.is_expired("x", expiry_time)
-    assert x.get_etag("x") is None
+    assert x.is_expired(normalize_name("x"), expiry_time)
+    assert x.get_etag(normalize_name("x")) == '"foo"'
+    x.refresh(normalize_name("x"), '"bar"')
+    assert not x.is_expired(normalize_name("x"), expiry_time)
+    assert x.get_etag(normalize_name("x")) == '"bar"'
+    x.expire(normalize_name("x"))
+    assert x.is_expired(normalize_name("x"), expiry_time)
+    assert x.get_etag(normalize_name("x")) is None
 
-    x.refresh("y", None)
-    assert x.get_timestamp("y") == t
-    assert x.get_etag("y") is None
+    x.refresh(normalize_name("y"), None)
+    assert x.get_timestamp(normalize_name("y")) == t
+    assert x.get_etag(normalize_name("y")) is None
+
+
+@pytest.mark.notransaction
+@pytest.mark.nomocking
+def test_cleanup_after_last_entry_deletion(mapp, simpypi):
+    mapp.create_and_login_user("mirror")
+    indexconfig = dict(
+        type="mirror", mirror_url=simpypi.simpleurl, mirror_cache_expiry=0
+    )
+    mapp.create_index("mirror", indexconfig=indexconfig)
+    mapp.use("mirror/mirror")
+    content = b"14"
+    simpypi.add_release("pkg", pkgver="pkg-1.0.zip")
+    simpypi.add_file("/pkg/pkg-1.0.zip", content)
+    (release,) = mapp.getreleaseslist("pkg")
+    r = mapp.downloadrelease(200, release)
+    assert r == content
+    with mapp.xom.keyfs.write_transaction():
+        stage = mapp.xom.model.getstage("mirror/mirror")
+        assert stage.key_projects.get() == {"pkg"}
+        assert stage.key_projsimplelinks("pkg").exists()
+        ls = stage.get_linkstore_perstage("pkg", "1.0")
+        (link,) = ls.get_links()
+        stage.del_entry(link.entry)
+    with mapp.xom.keyfs.read_transaction():
+        stage = mapp.xom.model.getstage("mirror/mirror")
+        assert not stage.key_projects.get()
+        assert not stage.key_projsimplelinks("pkg").exists()
 
 
 @pytest.mark.notransaction
 @pytest.mark.with_notifier
 @pytest.mark.nomocking
-def test_redownload_locally_removed_release(mapp, simpypi):
+def test_redownload_locally_removed_release(file_digest, mapp, simpypi):
     from devpi_common.url import URL
     mapp.create_and_login_user('mirror')
     indexconfig = dict(
@@ -1414,23 +1517,25 @@ def test_redownload_locally_removed_release(mapp, simpypi):
     simpypi.add_release('pkg', pkgver='pkg-1.0.zip')
     simpypi.add_file('/pkg/pkg-1.0.zip', content)
     result = mapp.getreleaseslist("pkg")
-    file_relpath = '+files' + URL(result[0]).path
+    file_path_info = FilePathInfo(
+        RelPath(URL(result[0]).path[1:]), file_digest(content)
+    )
     assert len(result) == 1
     r = mapp.downloadrelease(200, result[0])
     assert r == content
     with mapp.xom.keyfs.read_transaction() as tx:
-        assert tx.conn.io_file_exists(file_relpath)
+        assert tx.io_file.exists(file_path_info)
     # now remove the local copy
     with mapp.xom.keyfs.write_transaction() as tx:
-        tx.conn.io_file_delete(file_relpath)
+        tx.io_file.delete(file_path_info)
     with mapp.xom.keyfs.read_transaction() as tx:
-        assert not tx.conn.io_file_exists(file_relpath)
+        assert not tx.io_file.exists(file_path_info)
     serial = mapp.xom.keyfs.get_current_serial()
     # and download again
     r = mapp.downloadrelease(200, result[0])
     assert r == content
     with mapp.xom.keyfs.read_transaction() as tx:
-        assert tx.conn.io_file_exists(file_relpath)
+        assert tx.io_file.exists(file_path_info)
     # the serial should not have increased
     assert serial == mapp.xom.keyfs.get_current_serial()
 

@@ -29,6 +29,7 @@ class TriggersCount:
         mqtt_count (Union[Unset, float]):
         gcp_count (Union[Unset, float]):
         sqs_count (Union[Unset, float]):
+        nextcloud_count (Union[Unset, float]):
     """
 
     primary_schedule: Union[Unset, "TriggersCountPrimarySchedule"] = UNSET
@@ -44,6 +45,7 @@ class TriggersCount:
     mqtt_count: Union[Unset, float] = UNSET
     gcp_count: Union[Unset, float] = UNSET
     sqs_count: Union[Unset, float] = UNSET
+    nextcloud_count: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -63,6 +65,7 @@ class TriggersCount:
         mqtt_count = self.mqtt_count
         gcp_count = self.gcp_count
         sqs_count = self.sqs_count
+        nextcloud_count = self.nextcloud_count
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,6 +96,8 @@ class TriggersCount:
             field_dict["gcp_count"] = gcp_count
         if sqs_count is not UNSET:
             field_dict["sqs_count"] = sqs_count
+        if nextcloud_count is not UNSET:
+            field_dict["nextcloud_count"] = nextcloud_count
 
         return field_dict
 
@@ -132,6 +137,8 @@ class TriggersCount:
 
         sqs_count = d.pop("sqs_count", UNSET)
 
+        nextcloud_count = d.pop("nextcloud_count", UNSET)
+
         triggers_count = cls(
             primary_schedule=primary_schedule,
             schedule_count=schedule_count,
@@ -146,6 +153,7 @@ class TriggersCount:
             mqtt_count=mqtt_count,
             gcp_count=gcp_count,
             sqs_count=sqs_count,
+            nextcloud_count=nextcloud_count,
         )
 
         triggers_count.additional_properties = d

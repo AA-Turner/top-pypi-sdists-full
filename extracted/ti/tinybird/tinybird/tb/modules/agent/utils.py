@@ -1,5 +1,6 @@
 import difflib
 import os
+import re
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +33,9 @@ try:
     COLORAMA_AVAILABLE = True
 except ImportError:
     COLORAMA_AVAILABLE = False
+
+# Pre-compiled regex pattern for diff hunk header parsing
+_PATTERN_DIFF_HUNK = re.compile(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 class TinybirdAgentContext(BaseModel):
@@ -504,9 +508,7 @@ def create_terminal_box(content: str, new_content: Optional[str] = None, title: 
             line = diff[i]
             if line.startswith("@@"):
                 # Parse hunk header to get line numbers
-                import re
-
-                match = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+                match = _PATTERN_DIFF_HUNK.match(line)
                 if match:
                     old_line_num = int(match.group(1))
                     new_line_num = int(match.group(2))

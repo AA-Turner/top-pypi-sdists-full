@@ -7,7 +7,7 @@ from yookassa.domain.common import BaseObject
 class PaymentOrderRecipientBankUtilities(BaseObject):
 
     __name = None
-    """Название банка получателя."""  # noqa: E501
+    """Название банка получателя. Максимум 45 символов."""  # noqa: E501
 
     __bic = None
     """БИК банка получателя."""  # noqa: E501
@@ -34,6 +34,10 @@ class PaymentOrderRecipientBankUtilities(BaseObject):
         :param value: name модели PaymentOrderRecipientBank.
         :type value: str
         """
+        if value is None:  # noqa: E501
+            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
+        if value is not None and len(value) > 45:
+            raise ValueError("Invalid value for `name`, length must be less than or equal to `45`")  # noqa: E501
         self.__name = value
 
     @property

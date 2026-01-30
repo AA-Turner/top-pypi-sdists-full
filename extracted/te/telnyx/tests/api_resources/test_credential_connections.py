@@ -16,7 +16,7 @@ from telnyx.types import (
     CredentialConnectionUpdateResponse,
     CredentialConnectionRetrieveResponse,
 )
-from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -53,6 +53,7 @@ class TestCredentialConnections:
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
                 "codecs": ["G722"],
+                "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
@@ -64,6 +65,11 @@ class TestCredentialConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -193,6 +199,7 @@ class TestCredentialConnections:
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
                 "codecs": ["G722"],
+                "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
@@ -204,6 +211,11 @@ class TestCredentialConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -275,7 +287,7 @@ class TestCredentialConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         credential_connection = client.credential_connections.list()
-        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -286,13 +298,11 @@ class TestCredentialConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -302,7 +312,7 @@ class TestCredentialConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         credential_connection = response.parse()
-        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -312,7 +322,9 @@ class TestCredentialConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             credential_connection = response.parse()
-            assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+            assert_matches_type(
+                SyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -393,6 +405,7 @@ class TestAsyncCredentialConnections:
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
                 "codecs": ["G722"],
+                "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
@@ -404,6 +417,11 @@ class TestAsyncCredentialConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -533,6 +551,7 @@ class TestAsyncCredentialConnections:
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
                 "codecs": ["G722"],
+                "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
@@ -544,6 +563,11 @@ class TestAsyncCredentialConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            jitter_buffer={
+                "enable_jitter_buffer": True,
+                "jitterbuffer_msec_max": 200,
+                "jitterbuffer_msec_min": 60,
+            },
             noise_suppression="both",
             noise_suppression_details={
                 "attenuation_limit": 80,
@@ -615,7 +639,7 @@ class TestAsyncCredentialConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         credential_connection = await async_client.credential_connections.list()
-        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -626,13 +650,11 @@ class TestAsyncCredentialConnections:
                 "fqdn": "fqdn",
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
             sort="connection_name",
         )
-        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -642,7 +664,7 @@ class TestAsyncCredentialConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         credential_connection = await response.parse()
-        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -652,7 +674,9 @@ class TestAsyncCredentialConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             credential_connection = await response.parse()
-            assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
+            assert_matches_type(
+                AsyncDefaultFlatPagination[CredentialConnection], credential_connection, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 

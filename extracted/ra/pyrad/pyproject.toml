@@ -1,40 +1,63 @@
 [build-system]
-requires = ["poetry>=1.0"]
-build-backend = "poetry.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
+[project]
 name = "pyrad"
-version= "2.4"
+dynamic = ["version"]
+description = "RADIUS tools"
 readme = "README.rst"
-license = "BSD-3-Clause"
-description="RADIUS tools"
+license = { text = "BSD-3-Clause" }
+requires-python = ">=3.8"
 authors = [
-  "Istvan Ruzman <istvan@ruzman.eu>",
-  "Christian Giese <developer@gicnet.de>",
+  { name = "Istvan Ruzman", email = "istvan@ruzman.eu" },
+  { name = "Christian Giese", email = "gic@gicnet.de" },
+  { name = "Stefan Lieberth", email = "stefan@lieberth.net" },
 ]
-keywords = ["AAA", "accounting", "authentication", "authorization", "RADIUS"]
+keywords = ["radius", "authentication", "AAA", "accounting", "authorization", "RADIUS"]
 classifiers = [
-    "Development Status :: 6 - Mature",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 2.7",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: System :: Systems Administration :: Authentication/Directory",
+  "Development Status :: 6 - Mature",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Systems Administration :: Authentication/Directory",
 ]
-include = [
-  "example/*"
+
+dependencies = [
+  "netaddr>=0.8.0",
+  "six>=1.16.0",
 ]
 
-[tool.poetry.urls]
-repository = "https://github.com/pyradius/pyrad"
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "mock; python_version<'3.10'",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-autodoc-typehints",
+    "sphinx-rtd-theme>=2.0"
+]
 
-[tool.poetry.dependencies]
-python = "^2.7 || ^3.6"
-six = "^1.15.0"
-netaddr = "^0.8"
+[project.urls]
+Repository = "https://github.com/pyradius/pyrad"
+Documentation = "https://pyradius-pyrad.readthedocs.io"
 
-[tool.poetry.dev-dependencies]
-nose = "^0.10.0b1"
+[tool.setuptools]
+packages = { find = { exclude = ["tests*"] } }
+include-package-data = true
+zip-safe = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.setuptools.dynamic]
+version = { attr = "pyrad.__version__" }

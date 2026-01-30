@@ -81,6 +81,16 @@ class SettingsTestCase(TestUtilsMixin, TransactionTestCase):
         SUPPORTED_DATABASE_ENGINES.remove(engine)
         with self.settings(CACHALOT_DATABASES=SUPPORTED_ONLY):
             self.assert_query_cached(qs, after=1)
+        invalidate(Test)
+
+        with self.settings(CACHALOT_USE_UNSUPPORTED_DATABASE=True):
+            self.assert_query_cached(qs)
+        invalidate(Test)
+
+        with self.settings(CACHALOT_ADDITIONAL_SUPPORTED_DATABASES={engine}):
+            self.assert_query_cached(qs)
+        invalidate(Test)
+
         SUPPORTED_DATABASE_ENGINES.add(engine)
         with self.settings(CACHALOT_DATABASES=SUPPORTED_ONLY):
             self.assert_query_cached(qs)
@@ -258,7 +268,9 @@ class SettingsTestCase(TestUtilsMixin, TransactionTestCase):
         warning003 = Warning(
             'Database engine %r is not supported by django-cachalot.'
             % 'django.db.backends.oracle',
-            hint='Switch to a supported database engine.',
+            hint='Switch to a supported database engine, '
+                 'add an entry in `CACHALOT_ADDITIONAL_SUPPORTED_DATABASES`'
+                 ', or set True to `CACHALOT_USE_UNSUPPORTED_DATABASE`.',
             id='cachalot.W003'
         )
         warning004 = Warning(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keeper-pam-webrtc-rs
-Version: 1.2.6
+Version: 1.6.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -212,9 +212,6 @@ cargo build --release
 
 # Run comprehensive test suite
 cargo test --release
-
-# Optional: Enable debug logging for troubleshooting
-cargo build --release --features production_debug
 ```
 
 ## Why This Implementation?

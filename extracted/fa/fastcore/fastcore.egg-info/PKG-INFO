@@ -1,24 +1,20 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 1.12.4
+Version: 1.12.10
 Summary: Python supercharged for fastai development
-Home-page: https://github.com/AnswerDotAI/fastcore/
-Author: Jeremy Howard and Sylvain Gugger
-Author-email: infos@fast.ai
-License: Apache Software License 2.0
+Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/AnswerDotAI/fastcore/
+Project-URL: Documentation, https://fastcore.fast.ai/
 Keywords: python
-Classifier: Development Status :: 6 - Mature
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: packaging
 Provides-Extra: dev
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: nbdev>=0.2.39; extra == "dev"
@@ -31,19 +27,7 @@ Requires-Dist: pysymbol_llm; extra == "dev"
 Requires-Dist: llms-txt; extra == "dev"
 Requires-Dist: plum-dispatch; extra == "dev"
 Requires-Dist: toolslm; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Welcome to fastcore
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docsig
-Version: 0.75.0
+Version: 0.76.0
 Summary: Check signature params for proper documentation
 License: MIT
 License-File: LICENSE
@@ -81,8 +81,8 @@ Description-Content-Type: text/x-rst
    :target: https://snyk.io/advisor/python/docsig
    :alt: docsig
 
-Check signature params for proper documentation
------------------------------------------------
+Check Python signature params for proper documentation
+-------------------------------------------------------
 
 Supports reStructuredText (``Sphinx``), ``NumPy``, and ``Google``
 
@@ -179,7 +179,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.3.0 (docsig: 0.75.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
+    7.3.0 (docsig: 0.76.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -265,7 +265,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.75.0
+        rev: v0.76.0
         hooks:
           - id: docsig
             args:
@@ -284,7 +284,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.75.0
+              - docsig==0.76.0
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

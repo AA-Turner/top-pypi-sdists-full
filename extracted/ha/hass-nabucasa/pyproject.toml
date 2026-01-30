@@ -28,7 +28,6 @@ dependencies = [
     "grpcio>=1.75.1,<2",
     "icmplib>=3,<4",
     "josepy>=2,<3",
-    "litellm>=1.80.0,<2",
     "pycognito==2024.5.1",
     "PyJWT>=2.8.0",
     "snitun==0.45.1",
@@ -42,7 +41,7 @@ license = "GPL-3.0-only"
 name = "hass-nabucasa"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "1.11.0"
+version = "1.12.0"
 
 [project.optional-dependencies]
 test = [
@@ -56,11 +55,11 @@ test = [
     "pytest-socket==0.7.0",
     "pytest-timeout==2.4.0",
     "pytest==9.0.2",
-    "ruff==0.14.13",
+    "ruff==0.14.14",
     "types_atomicwrites==1.4.5.1",
     "types_pyOpenSSL==24.1.0.20240722",
     "xmltodict==1.0.2",
-    "syrupy==5.0.0",
+    "syrupy==5.1.0",
     "tomli==2.4.0",
 ]
 

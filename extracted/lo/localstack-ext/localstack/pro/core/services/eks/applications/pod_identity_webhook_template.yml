@@ -104,6 +104,11 @@ spec:
         app: pod-identity-webhook
     spec:
       serviceAccountName: pod-identity-webhook
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
       containers:
       - name: pod-identity-webhook
         image: {image}

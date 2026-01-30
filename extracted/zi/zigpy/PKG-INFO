@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy
-Version: 0.90.0
+Version: 0.91.5
 Summary: Library implementing a Zigbee stack
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0
@@ -19,18 +19,6 @@ Requires-Dist: jsonschema
 Requires-Dist: pyserial-asyncio-fast
 Requires-Dist: typing_extensions
 Requires-Dist: frozendict
-Provides-Extra: testing
-Requires-Dist: tomli; extra == "testing"
-Requires-Dist: asynctest; extra == "testing"
-Requires-Dist: coveralls; extra == "testing"
-Requires-Dist: coverage[toml]; extra == "testing"
-Requires-Dist: filelock; extra == "testing"
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-asyncio<1.0.0; extra == "testing"
-Requires-Dist: pytest-cov; extra == "testing"
-Requires-Dist: pytest-timeout; extra == "testing"
-Requires-Dist: freezegun; extra == "testing"
-Requires-Dist: pysqlite3-binary; (platform_system == "Linux" and python_version < "3.12") and extra == "testing"
 Dynamic: license-file
 
 # zigpy

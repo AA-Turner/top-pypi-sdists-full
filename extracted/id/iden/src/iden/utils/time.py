@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
-from coola.utils import is_torch_available
+from coola.utils.imports import is_torch_available
 
 from iden.utils.format import human_time
 

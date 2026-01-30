@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: manageiq_alert_profiles
 
@@ -83,6 +82,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.general.plugins.module_utils.manageiq import ManageIQ, manageiq_argument_spec
 
 
@@ -184,7 +184,7 @@ class ManageIQAlertProfiles:
         # alert which currently exist in the profile
         if "alert_definitions" in old_profile:
             # we use get_alert_href to have a direct href to the alert
-            existing_alerts = set(self.get_alert_href(alert) for alert in old_profile["alert_definitions"])
+            existing_alerts = {self.get_alert_href(alert) for alert in old_profile["alert_definitions"]}
         else:
             # no alerts in this profile
             existing_alerts = set()

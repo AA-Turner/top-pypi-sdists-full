@@ -814,7 +814,7 @@ class SQLCompleter(Completer):
         self.special_commands.extend(special_commands)
 
     def extend_database_names(self, databases: list[str]) -> None:
-        self.databases.extend(databases)
+        self.databases.extend([self.escape_name(db) for db in databases])
 
     def extend_keywords(self, keywords: list[str], replace: bool = False) -> None:
         if replace:
@@ -924,6 +924,14 @@ class SQLCompleter(Completer):
             metadata[self.dbname][func[0]] = None
             self.all_completions.add(func[0])
 
+    def extend_procedures(self, procedure_data: Generator[tuple[str, str]]) -> None:
+        metadata = self.dbmetadata["procedures"]
+        if self.dbname not in metadata:
+            metadata[self.dbname] = {}
+
+        for elt in procedure_data:
+            metadata[self.dbname][elt[0]] = None
+
     def set_dbname(self, dbname: str | None) -> None:
         self.dbname = dbname or ''
 
@@ -932,7 +940,13 @@ class SQLCompleter(Completer):
         self.users: list[str] = []
         self.show_items: list[Completion] = []
         self.dbname = ""
-        self.dbmetadata: dict[str, Any] = {"tables": {}, "views": {}, "functions": {}, "enum_values": {}}
+        self.dbmetadata: dict[str, Any] = {
+            "tables": {},
+            "views": {},
+            "functions": {},
+            "procedures": {},
+            "enum_values": {},
+        }
         self.all_completions = set(self.keywords + self.functions)
 
     @staticmethod
@@ -961,7 +975,10 @@ class SQLCompleter(Completer):
         # unicode support not possible without adding the regex dependency
         case_change_pat = re.compile("(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
-        completions = []
+        completions: list[str] = []
+
+        if re.match(r'^[\d\.]', text):
+            return (Completion(x, -len(text)) for x in completions)
 
         if fuzzy:
             regex = ".{0,3}?".join(map(re.escape, text))
@@ -1024,7 +1041,7 @@ class SQLCompleter(Completer):
                     completions.append(item)
 
         if casing == "auto":
-            casing = "lower" if last and last[-1].islower() else "upper"
+            casing = "lower" if last and (last[0].islower() or last[-1].islower()) else "upper"
 
         def apply_case(kw: str) -> str:
             if casing == "upper":
@@ -1089,6 +1106,11 @@ class SQLCompleter(Completer):
                         word_before_cursor, self.functions, start_only=True, fuzzy=False, casing=self.keyword_casing
                     )
                     completions.extend(predefined_funcs)
+
+            elif suggestion["type"] == "procedure":
+                procs = self.populate_schema_objects(suggestion["schema"], "procedures")
+                procs_m = self.find_matches(word_before_cursor, procs)
+                completions.extend(procs_m)
 
             elif suggestion["type"] == "table":
                 tables = self.populate_schema_objects(suggestion["schema"], "tables")

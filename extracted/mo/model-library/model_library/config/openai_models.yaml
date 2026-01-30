@@ -35,6 +35,19 @@ gpt-5-models:
       training_cutoff: "2024-09"
       reasoning_model: true
 
+  openai/gpt-5.2-codex:
+    label: GPT 5.2 Codex
+    documentation_url: https://platform.openai.com/docs/models/gpt-5.2-codex
+    description: GPT 5.2 optimized for code
+    release_date: 2025-12-11
+    properties:
+      context_window: 400_000
+    costs_per_million_token:
+      input: 1.75
+      output: 14
+      cache:
+        read: 0.175
+
   openai/gpt-5.2-2025-12-11:
     label: GPT 5.2
     documentation_url: https://platform.openai.com/docs/models/gpt-5.2
@@ -70,7 +83,7 @@ gpt-5-models:
   openai/gpt-5.1-codex-max:
     label: GPT 5.1 Codex Max
     release_date: 2025-12-04
-    description: OpenAI's frontier agentic coding model. Good at long-running coding tasks.
+    description: GPT 5.1 optimized for code
     costs_per_million_token:
       input: 1.25
       output: 10.0
@@ -79,7 +92,7 @@ gpt-5-models:
   openai/gpt-5.1-codex:
     label: GPT 5.1 Codex
     documentation_url: https://platform.openai.com/docs/models/gpt-5.1-codex
-    description: OpenAI's latest coding model
+    description: GPT 5.1 optimized for code
     release_date: 2025-11-13
     costs_per_million_token:
       input: 1.25
@@ -841,24 +854,3 @@ gpt-3.5-models:
       input: 1.5
       output: 2.0
     documentation_url: https://platform.openai.com/docs/models/gpt-3.5-turbo-instruct
-
-databricks-models:
-  base-config:
-    company: Databricks
-
-  databricks/databricks-dbrx-instruct:
-    label: DBRX Instruct
-    description: Databricks Instruct model.
-    release_date: 2024-03-27
-    properties:
-      context_window: 32_768
-      max_tokens: 4_096
-      training_cutoff: "2023-12"
-    metadata:
-      available_for_everyone: false
-      deprecated: true
-    costs_per_million_token:
-      input: 2.25
-      output: 6.75
-    alternative_keys:
-      - databricks/dbrx-instruct

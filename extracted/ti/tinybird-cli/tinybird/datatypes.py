@@ -35,6 +35,7 @@ date_pattern = re.compile(r"\d\d\d\d-\d\d-\d\d$")
 
 datetime64_type_pattern = re.compile(r"^DateTime64(\([1-9](, ?'.+')?\))?$")
 datetime_type_pattern = re.compile(r"^DateTime(\(('.+')?)?\)?$")
+date_type_pattern = re.compile(r"^Date(\(('.+')?)?\)?$")
 
 # List from https://github.com/tinybirdco/ClickHousePrivate/blob/153473d9c1c871974688a1d72dcff7a13fc2076c/src/DataTypes/Serializations/SerializationBool.cpp#L216
 bool_allowed_values = {
@@ -93,6 +94,18 @@ def is_type_datetime(type_to_check: str) -> bool:
     False
     """
     return datetime_type_pattern.match(type_to_check) is not None
+
+
+def is_type_date(type_to_check: str) -> bool:
+    """
+    >>> is_type_date('Date')
+    True
+    >>> is_type_date('Date()')
+    True
+    >>> is_type_date("date")
+    False
+    """
+    return date_type_pattern.match(type_to_check) is not None
 
 
 def string_test(x: str) -> bool:

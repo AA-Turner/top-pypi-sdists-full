@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Any
-import os
 import platform
 from pathlib import Path
 import ctypes
@@ -26,39 +25,43 @@ def DLL(*args: Any, **kwargs: Any) -> _DLL:
     with os.add_dll_directory(os.path.dirname(args[0])):
         return _DLL(*args, **kwargs)
 
-found = False
+def _load_packet_dll(npcap_dir: Path) -> None:
+    import ctypes
+    ctypes.windll.kernel32.SetDllDirectoryA(str(npcap_dir).encode("utf-8"))
+    ctypes.cdll.LoadLibrary(str(npcap_dir/"packet.dll"))
+
 try:
     from ...__config__ import config  # type: ignore[attr-defined]
-    LIBPCAP = config.get("LIBPCAP", None)
+    config_var = config.get("LIBPCAP")
     del config
-    if LIBPCAP is None or LIBPCAP in ("", "None"):
-        raise ImportError()
+    if config_var in (None, "", "None"): raise ImportError()
 except ImportError:
-    if find_library(os.path.join("npcap", "wpcap")):
-        LIBPCAP = "npcap"
+    dll_path = find_library(str(Path("npcap")/"wpcap"))
+    if dll_path:  # npcap
+        DLL_PATH = Path(dll_path)
+        _load_packet_dll(DLL_PATH.parent)
     else:
-        LIBPCAP = find_library("wpcap")
-        if not LIBPCAP:
-            raise OSError("Cannot find wpcap.dll library") from None
-        found = True
-        DLL = _DLL
-
-if LIBPCAP == "npcap":
-    LIBPCAP = find_library(os.path.join("npcap", "wpcap"))
-    if not LIBPCAP:
-        raise OSError("Cannot find npcap/wpcap.dll library")
-    found = True
-    npcap_dir = os.path.dirname(LIBPCAP)
-    ctypes.windll.kernel32.SetDllDirectoryA(npcap_dir.encode("utf-8"))
-    ctypes.cdll.LoadLibrary(os.path.join(npcap_dir, "Packet.dll"))
-    del npcap_dir
-
-if found or os.path.isabs(LIBPCAP):
-    DLL_PATH = Path(LIBPCAP)
-elif LIBPCAP == "wpcap":
-    DLL_PATH = arch_dir/LIBPCAP/"wpcap.dll"
-elif LIBPCAP == "tcpdump":
-    DLL_PATH = arch_dir/LIBPCAP/"msys-pcap-1.dll"
+        dll_path = find_library("wpcap")
+        if dll_path:  # wpcap
+            DLL_PATH = Path(dll_path)
+            _load_packet_dll(DLL_PATH.parent)
+        else:
+            raise OSError("Cannot find npcap/wpcap.dll or wpcap.dll "
+                          "library") from None
 else:
-    raise ValueError("Improper value of the LIBPCAP "
-                     f"configuration variable: {LIBPCAP}")
+    if config_var == "npcap":
+        dll_path = find_library(str(Path("npcap")/"wpcap"))
+        if not dll_path:
+            raise OSError("Cannot find npcap/wpcap.dll library")
+        DLL_PATH = Path(dll_path)
+        _load_packet_dll(DLL_PATH.parent)
+    elif config_var == "wpcap":
+        DLL_PATH = arch_dir/config_var/"wpcap.dll"
+        _load_packet_dll(DLL_PATH.parent)
+    elif config_var == "tcpdump":
+        DLL_PATH = arch_dir/config_var/"pcap.dll"
+    elif Path(config_var).is_absolute():
+        DLL_PATH = Path(config_var)
+    else:
+        raise ValueError("Improper value of the LIBPCAP "
+                         f"configuration variable: {config_var}")

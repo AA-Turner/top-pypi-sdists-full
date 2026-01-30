@@ -232,4 +232,4 @@ class PersonAdmin(EntryAdmin):
         if telephone and telephone.get("number", None):
             TelephoneContact.objects.get_or_create(entry=obj, number=telephone["number"], defaults=telephone)
         if email and email.get("address", None):
-            EmailContact.objects.get_or_create(entry=obj, address=email["address"], defaults=email)
+            EmailContact.objects.get_or_create(address=email["address"], defaults={"entry": obj})

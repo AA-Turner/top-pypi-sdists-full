@@ -25,6 +25,7 @@ from rich.padding import Padding
 from rich.table import Table
 
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
+from semgrep import telemetry
 from semgrep.app import auth
 from semgrep.console import console
 from semgrep.console import Title
@@ -229,8 +230,7 @@ def _print_sca_parse_error(error: out.DependencyParserError) -> None:
         location = f"[bold]{path}[/bold] at [bold]{error.line}[/bold]"
 
         console.print(
-            f"Failed to parse {location} - {error.reason}\n"
-            f"{line_prefix}{error.text}\n"
+            f"Failed to parse {location} - {error.reason}\n{line_prefix}{error.text}\n"
         )
     elif error.line:
         location = f"[bold]{path}[/bold] at [bold]{error.line}[/bold]"
@@ -284,47 +284,10 @@ def _print_sca_resolution_errors(errors: List[out.ScaError]) -> None:
             _print_sca_resolution_error(e)
 
 
-def _print_sca_degenerate_table(plan: Plan, *, rule_count: int) -> None:
-    """
-    Prints a concise status message for SCA scans instead of a full table,
-    typically when there are few rules or target files. May also print a
-    subproject summary table if applicable.
-    """
-    has_subprojects = plan.all_subprojects is not None
-
-    # Determine if the scan configuration is effectively empty (no rules or no targets)
-    is_scan_empty = not rule_count or not plan.target_mappings
-
-    if is_scan_empty:
-        message = (
-            "No files to scan. Scanning dependency source(s) only."
-            if has_subprojects
-            else "Nothing to scan."
-        )
-    else:
-        file_count = len(
-            [task for task in plan.target_mappings if plan.product in task.products]
-        )
-
-        message = f"Scanning {unit_str(file_count, 'file')}"
-        if has_subprojects:
-            subproject_count = len(plan.all_subprojects) if plan.all_subprojects else 0
-            message += f" and {unit_str(subproject_count, 'dependency source')}"
-        message += "."
-
-    console.print(message)
-
-    if has_subprojects:
-        _print_tables([plan.table_by_subproject()])
-
-
 def _print_sca_table(sca_plan: Plan, rule_count: int) -> None:
     """
     Pretty print the sca plan to stdout with the legacy CLI UX.
     """
-    if rule_count <= 1 or not sca_plan.target_mappings:
-        _print_sca_degenerate_table(sca_plan, rule_count=rule_count)
-        return
 
     _print_tables([sca_plan.table_by_subproject()])
     console.print("\n")  # space intentional to force second table to be on its own line
@@ -392,6 +355,7 @@ def _print_detailed_sca_table(
 ##############################################################################
 
 
+@telemetry.trace()
 def print_scan_status(
     rules: Sequence[Rule],
     target_manager: TargetManager,
@@ -403,7 +367,7 @@ def print_scan_status(
     # TODO: Use an array of semgrep_output_v1.Product instead of booleans flags for secrets, code, and supply chain
     with_code_rules: bool = True,
     with_supply_chain: bool = False,
-) -> List[Plan]:
+) -> int:
     """
     Prints the scan status and returns the plans
     """
@@ -446,13 +410,19 @@ def print_scan_status(
         target_manager,
         all_subprojects,
         product=out.Product(out.SCA()),
+        # we don't use target info for printing the sca plan, and with dependency-only
+        # rules it gets very expensive to compute. We skip it.
+        make_target_info_and_unused_rules=False,
     )
 
     plans = [sast_plan, sca_plan]
 
+    executed_rule_count = sum(
+        max(0, len(plan.rules) - len(plan.unused_rules)) for plan in plans
+    )
     # We skip printing the remaining output for pattern invocations
     if minimal_ux:
-        return plans
+        return executed_rule_count
 
     # For CI / test runs or when legacy format is requested we print the scan title
     if legacy_ux:
@@ -468,7 +438,6 @@ def print_scan_status(
     # NOTE: There's some funky behavior with handling the rule counts
     # in which some functions require rule counts calculated in different ways.
     alt_sast_rule_count = sast_plan.rule_count_for_product(out.Product(out.SAST()))
-    alt_sca_rule_count = sca_plan.rule_count_for_product(out.Product(out.SCA()))
 
     secrets_rule_count = sast_plan.rule_count_for_product(out.Product(out.Secrets()))
     has_secret_rules = secrets_rule_count > 0
@@ -481,7 +450,7 @@ def print_scan_status(
             sast_enabled=with_code_rules,
             sca_enabled=with_supply_chain,
         )
-        return plans
+        return executed_rule_count
 
     if (
         not has_sca_rules
@@ -495,7 +464,7 @@ def print_scan_status(
             product=out.Product(out.SAST()),
             rule_count=alt_sast_rule_count,
         )
-        return plans
+        return executed_rule_count
 
     if legacy_ux:
         console.print(Padding(Title("Code Rules", order=2), (1, 0, 0, 0)))
@@ -535,13 +504,13 @@ def print_scan_status(
     elif legacy_ux:
         # Show the basic table for supply chain
         console.print(Title("Supply Chain Rules", order=2))
-        _print_sca_table(sca_plan=sca_plan, rule_count=alt_sca_rule_count)
+        _print_sca_table(sca_plan=sca_plan, rule_count=sca_rule_count)
     else:
         # Show the table with a supply chain nudge or supply chain
         console.print(Title("Supply Chain Rules", order=2))
         _print_detailed_sca_table(
             sca_plan=sca_plan,
-            rule_count=alt_sca_rule_count,
+            rule_count=sca_rule_count,
             # NOTE: `with_supply_chain` is only used for nudging `scan` command invocations
             # without supply-chain to upgrade their usage to the `ci` command
             with_supply_chain=with_supply_chain,
@@ -554,4 +523,4 @@ def print_scan_status(
         console.print(Title("Progress", order=2))
         console.print(" ")  # space intentional for progress bar padding
 
-    return plans
+    return executed_rule_count

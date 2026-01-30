@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: htpasswd
 short_description: Manage user files for basic authentication
@@ -103,8 +102,8 @@ import os
 import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.community.general.plugins.module_utils import deps
 
+from ansible_collections.community.general.plugins.module_utils import deps
 
 with deps.declare("passlib"):
     # Apparently the type infos don't know htpasswd_context, which *does* exist
@@ -204,7 +203,7 @@ def main():
     # TODO double check if this hack below is still needed.
     # Check file for blank lines in effort to avoid "need more than 1 value to unpack" error.
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             lines = f.readlines()
 
         # If the file gets edited, it returns true, so only edit the file if it has blank lines
@@ -222,7 +221,7 @@ def main():
             with open(path, "w") as f:
                 f.writelines(line for line in lines if line.strip())
 
-    except IOError:
+    except OSError:
         # No preexisting file to remove blank lines from
         pass
 

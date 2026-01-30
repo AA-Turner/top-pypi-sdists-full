@@ -41,7 +41,7 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
-- close (string; optional):
+- close (string | list of strings; optional):
     Closes one or more modals by ID. Accepts a single ID (string or
     dict) or a list of IDs.
 
@@ -66,7 +66,7 @@ Keyword arguments:
     - component_name (string; required):
         Holds the name of the component that is loading.
 
-- open (string; optional):
+- open (string | list of strings; optional):
     Opens one or more modals by ID. Accepts a single ID (string or
     dict) or a list of IDs.
 
@@ -79,7 +79,7 @@ Keyword arguments:
 - tabIndex (number; optional):
     tab-index.
 
-- toggle (string; optional):
+- toggle (string | list of strings; optional):
     Toggles one or more modals by ID. Accepts a single ID (string or
     dict) or a list of IDs."""
     _children_props: typing.List[str] = []
@@ -107,9 +107,9 @@ Keyword arguments:
         self,
         children: typing.Optional[ComponentType] = None,
         state: typing.Optional["State"] = None,
-        open: typing.Optional[typing.Union[str]] = None,
-        close: typing.Optional[typing.Union[str]] = None,
-        toggle: typing.Optional[typing.Union[str]] = None,
+        open: typing.Optional[typing.Union[str, typing.Sequence[typing.Union[str]]]] = None,
+        close: typing.Optional[typing.Union[str, typing.Sequence[typing.Union[str]]]] = None,
+        toggle: typing.Optional[typing.Union[str, typing.Sequence[typing.Union[str]]]] = None,
         closeAll: typing.Optional[bool] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,

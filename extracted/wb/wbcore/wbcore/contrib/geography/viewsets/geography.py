@@ -3,7 +3,7 @@ from django.db.models.expressions import Value
 from rest_framework.filters import OrderingFilter
 
 from wbcore import viewsets
-from wbcore.contrib.guardian.filters import ObjectPermissionsFilter
+from wbcore.contrib.permission.filters import ObjectPermissionsFilter
 from wbcore.viewsets.mixins import DjangoFilterBackend
 
 from ..models import Geography

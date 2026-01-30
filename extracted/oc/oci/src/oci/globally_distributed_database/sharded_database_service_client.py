@@ -172,7 +172,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/change_private_endpoint_compartment.py.html>`__ to see an example of how to use change_private_endpoint_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/change_private_endpoint_compartment.py.html>`__ to see an example of how to use change_private_endpoint_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateEndpointId']
@@ -299,7 +299,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/change_sharded_database_compartment.py.html>`__ to see an example of how to use change_sharded_database_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/change_sharded_database_compartment.py.html>`__ to see an example of how to use change_sharded_database_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -429,7 +429,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/configure_sharded_database_gsms.py.html>`__ to see an example of how to use configure_sharded_database_gsms API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/configure_sharded_database_gsms.py.html>`__ to see an example of how to use configure_sharded_database_gsms API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -561,7 +561,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/configure_sharding.py.html>`__ to see an example of how to use configure_sharding API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/configure_sharding.py.html>`__ to see an example of how to use configure_sharding API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -684,7 +684,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/create_private_endpoint.py.html>`__ to see an example of how to use create_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/create_private_endpoint.py.html>`__ to see an example of how to use create_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -789,7 +789,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/create_sharded_database.py.html>`__ to see an example of how to use create_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/create_sharded_database.py.html>`__ to see an example of how to use create_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -901,7 +901,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/delete_private_endpoint.py.html>`__ to see an example of how to use delete_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/delete_private_endpoint.py.html>`__ to see an example of how to use delete_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateEndpointId']
@@ -1023,7 +1023,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/delete_sharded_database.py.html>`__ to see an example of how to use delete_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/delete_sharded_database.py.html>`__ to see an example of how to use delete_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1148,7 +1148,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/download_gsm_certificate_signing_request.py.html>`__ to see an example of how to use download_gsm_certificate_signing_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/download_gsm_certificate_signing_request.py.html>`__ to see an example of how to use download_gsm_certificate_signing_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1272,7 +1272,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/fetch_connection_string.py.html>`__ to see an example of how to use fetch_connection_string API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/fetch_connection_string.py.html>`__ to see an example of how to use fetch_connection_string API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1389,7 +1389,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/fetch_shardable_cloud_autonomous_vm_clusters.py.html>`__ to see an example of how to use fetch_shardable_cloud_autonomous_vm_clusters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/fetch_shardable_cloud_autonomous_vm_clusters.py.html>`__ to see an example of how to use fetch_shardable_cloud_autonomous_vm_clusters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1506,7 +1506,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/generate_gsm_certificate_signing_request.py.html>`__ to see an example of how to use generate_gsm_certificate_signing_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/generate_gsm_certificate_signing_request.py.html>`__ to see an example of how to use generate_gsm_certificate_signing_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1639,7 +1639,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/generate_wallet.py.html>`__ to see an example of how to use generate_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/generate_wallet.py.html>`__ to see an example of how to use generate_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1758,7 +1758,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/get_private_endpoint.py.html>`__ to see an example of how to use get_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/get_private_endpoint.py.html>`__ to see an example of how to use get_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateEndpointId']
@@ -1876,7 +1876,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/get_sharded_database.py.html>`__ to see an example of how to use get_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/get_sharded_database.py.html>`__ to see an example of how to use get_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -1991,7 +1991,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2120,7 +2120,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/list_private_endpoints.py.html>`__ to see an example of how to use list_private_endpoints API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/list_private_endpoints.py.html>`__ to see an example of how to use list_private_endpoints API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2277,7 +2277,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/list_sharded_databases.py.html>`__ to see an example of how to use list_sharded_databases API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/list_sharded_databases.py.html>`__ to see an example of how to use list_sharded_databases API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2426,7 +2426,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2575,7 +2575,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2735,7 +2735,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2882,7 +2882,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/patch_sharded_database.py.html>`__ to see an example of how to use patch_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/patch_sharded_database.py.html>`__ to see an example of how to use patch_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -2999,7 +2999,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/prevalidate_sharded_database.py.html>`__ to see an example of how to use prevalidate_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/prevalidate_sharded_database.py.html>`__ to see an example of how to use prevalidate_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3118,7 +3118,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/reinstate_proxy_instance.py.html>`__ to see an example of how to use reinstate_proxy_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/reinstate_proxy_instance.py.html>`__ to see an example of how to use reinstate_proxy_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateEndpointId']
@@ -3240,7 +3240,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/start_sharded_database.py.html>`__ to see an example of how to use start_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/start_sharded_database.py.html>`__ to see an example of how to use start_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -3362,7 +3362,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/stop_sharded_database.py.html>`__ to see an example of how to use stop_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/stop_sharded_database.py.html>`__ to see an example of how to use stop_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -3487,7 +3487,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/update_private_endpoint.py.html>`__ to see an example of how to use update_private_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/update_private_endpoint.py.html>`__ to see an example of how to use update_private_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateEndpointId']
@@ -3609,7 +3609,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/update_sharded_database.py.html>`__ to see an example of how to use update_sharded_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/update_sharded_database.py.html>`__ to see an example of how to use update_sharded_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -3738,7 +3738,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/upload_signed_certificate_and_generate_wallet.py.html>`__ to see an example of how to use upload_signed_certificate_and_generate_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/upload_signed_certificate_and_generate_wallet.py.html>`__ to see an example of how to use upload_signed_certificate_and_generate_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']
@@ -3871,7 +3871,7 @@ class ShardedDatabaseServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/globallydistributeddatabase/validate_network.py.html>`__ to see an example of how to use validate_network API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/globallydistributeddatabase/validate_network.py.html>`__ to see an example of how to use validate_network API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['shardedDatabaseId']

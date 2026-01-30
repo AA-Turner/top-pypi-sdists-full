@@ -231,6 +231,18 @@ options:
     required: true
     vars:
       - name: wsl_distribution
+  wsl_remote_ssh_shell_type:
+    description:
+      - The shell type expected in the SSH session (not inside the WSL session).
+      - See also C(ansible_shell_type).
+    type: string
+    choices:
+      - cmd
+      - powershell
+    default: cmd
+    vars:
+      - name: wsl_remote_ssh_shell_type
+    version_added: 12.2.0
   wsl_user:
     description:
       - WSL distribution user.
@@ -312,25 +324,25 @@ import io
 import os
 import pathlib
 import shlex
-import socket
 import tempfile
 import traceback
 import typing as t
+from binascii import hexlify
+from subprocess import list2cmdline
 
 from ansible.errors import (
     AnsibleAuthenticationFailure,
     AnsibleConnectionFailure,
     AnsibleError,
 )
-from ansible_collections.community.general.plugins.module_utils._filelock import FileLock, LockTimeout
-from ansible_collections.community.general.plugins.module_utils.version import LooseVersion
 from ansible.module_utils.common.text.converters import to_bytes, to_native, to_text
 from ansible.playbook.play_context import PlayContext
 from ansible.plugins.connection import ConnectionBase
 from ansible.utils.display import Display
 from ansible.utils.path import makedirs_safe
-from binascii import hexlify
-from subprocess import list2cmdline
+
+from ansible_collections.community.general.plugins.module_utils._filelock import FileLock, LockTimeout
+from ansible_collections.community.general.plugins.module_utils.version import LooseVersion
 
 PARAMIKO_IMPORT_ERR: str | None
 try:
@@ -475,7 +487,7 @@ class Connection(ConnectionBase):
                 try:
                     ssh.load_system_host_keys(ssh_known_hosts)
                     break
-                except IOError:
+                except OSError:
                     pass  # file was not found, but not required to function
                 except paramiko.hostkeys.InvalidHostKey as e:
                     raise AnsibleConnectionFailure(f"Invalid host key: {to_text(e.line)}") from e
@@ -578,18 +590,32 @@ class Connection(ConnectionBase):
         wsl_distribution = self.get_option("wsl_distribution")
         become = self.get_option("become")
         become_user = self.get_option("become_user")
+        wsl_remote_ssh_shell_type = self.get_option("wsl_remote_ssh_shell_type")
+        is_integration_test = os.getenv("_ANSIBLE_TEST_WSL_CONNECTION_PLUGIN_WAERI5TEPHEESHA2FAE8")
+        if "%" in cmd:
+            if wsl_remote_ssh_shell_type == "powershell":
+                # there is no universal way to escape '%' here
+                # if this is raised, add a workaround to allow the specific situation (if possible)
+                raise AnsibleError("The command contains '%', cannot safely escape it for Powershell")
+            else:
+                cmd = cmd.replace("%", "^%")
         if become and become_user:
             wsl_user = become_user
         else:
             wsl_user = self.get_option("wsl_user")
-        args = ["wsl.exe", "--distribution", wsl_distribution]
+        args = ["wsl.exe"]
+        if wsl_remote_ssh_shell_type == "powershell" and not is_integration_test:
+            # Powershell stop-parsing token, treat the rest as arguments to the native command wsl.exe
+            args.append("--%")
+        args.extend(["--distribution", wsl_distribution])
         if wsl_user:
             args.extend(["--user", wsl_user])
         args.extend(["--"])
         args.extend(shlex.split(cmd))
-        if os.getenv("_ANSIBLE_TEST_WSL_CONNECTION_PLUGIN_WAERI5TEPHEESHA2FAE8"):
+        if is_integration_test:
             return shlex.join(args)
-        return list2cmdline(args)  # see https://github.com/python/cpython/blob/3.11/Lib/subprocess.py#L576
+        else:
+            return list2cmdline(args)  # see https://github.com/python/cpython/blob/3.11/Lib/subprocess.py#L576
 
     def exec_command(self, cmd: str, in_data: bytes | None = None, sudoable: bool = True) -> tuple[int, bytes, bytes]:
         """run a command on inside a WSL distribution"""
@@ -667,7 +693,7 @@ class Connection(ConnectionBase):
             elif in_data == b"":
                 chan.shutdown_write()
 
-        except socket.timeout as e:
+        except TimeoutError as e:
             raise AnsibleError(f"ssh timed out waiting for privilege escalation.\n{to_text(become_output)}") from e
 
         stdout = b"".join(chan.makefile("rb", bufsize))

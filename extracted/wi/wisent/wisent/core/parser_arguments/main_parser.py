@@ -42,6 +42,8 @@ from wisent.core.parser_arguments.check_linearity_parser import setup_check_line
 from wisent.core.parser_arguments.cluster_benchmarks_parser import setup_cluster_benchmarks_parser
 from wisent.core.parser_arguments.geometry_search_parser import setup_geometry_search_parser
 from wisent.core.parser_arguments.verify_steering_parser import setup_verify_steering_parser
+from wisent.core.parser_arguments.repscan_parser import setup_repscan_parser
+from wisent.core.parser_arguments.steering_viz_parser import setup_steering_viz_parser
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -240,5 +242,27 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Verify that steered model activations are correctly aligned with steering direction"
     )
     setup_verify_steering_parser(verify_steering_parser)
+
+    # RepScan command - geometry analysis with concept decomposition on database activations
+    repscan_parser = subparsers.add_parser(
+        "repscan",
+        help="Run RepScan geometry analysis with concept decomposition on database activations"
+    )
+    setup_repscan_parser(repscan_parser)
+
+    # Steering visualization command - show steering effect on activation space
+    steering_viz_parser = subparsers.add_parser(
+        "steering-viz",
+        help="Visualize steering effect on activation space (base vs steered relative to pos/neg)"
+    )
+    setup_steering_viz_parser(steering_viz_parser)
+
+    # Discover steering command - find optimal steering directions
+    from wisent.core.parser_arguments.discover_steering_parser import setup_discover_steering_parser
+    discover_steering_parser = subparsers.add_parser(
+        "discover-steering",
+        help="Discover optimal steering directions using behavioral probing, direction search, and layer search"
+    )
+    setup_discover_steering_parser(discover_steering_parser)
 
     return parser

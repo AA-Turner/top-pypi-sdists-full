@@ -108,6 +108,20 @@ def test_is_on_gce_ping_success():
     assert _metadata.is_on_gce(request)
 
 
+def test_is_on_gce_no_gce_check():
+    request = make_request("", headers=_metadata._METADATA_HEADERS)
+
+    os.environ[environment_vars.NO_GCE_CHECK] = "true"
+    importlib.reload(_metadata)
+
+    try:
+        assert not _metadata.is_on_gce(request)
+        assert request.call_count == 0
+    finally:
+        del os.environ[environment_vars.NO_GCE_CHECK]
+        importlib.reload(_metadata)
+
+
 @mock.patch("os.name", new="nt")
 def test_is_on_gce_windows_success():
     request = make_request("", headers={_metadata._METADATA_FLAVOR_HEADER: "meep"})
@@ -185,6 +199,24 @@ def test_ping_success_custom_root(mock_metrics_header_value):
         headers=MDS_PING_REQUEST_HEADER,
         timeout=_metadata._METADATA_DEFAULT_TIMEOUT,
     )
+
+
+@mock.patch("time.sleep", return_value=None)
+@mock.patch("google.auth.metrics.mds_ping", return_value=MDS_PING_METRICS_HEADER_VALUE)
+def test_ping_failure_custom_retry(mock_metrics_header_value, _mock_sleep):
+    request = make_request("")
+    request.side_effect = exceptions.TransportError()
+
+    os.environ[environment_vars.GCE_METADATA_DETECT_RETRIES] = "10"
+    importlib.reload(_metadata)
+
+    try:
+        _metadata.ping(request)
+    finally:
+        del os.environ[environment_vars.GCE_METADATA_DETECT_RETRIES]
+        importlib.reload(_metadata)
+
+    assert request.call_count == 10
 
 
 def test_get_success_json():
@@ -419,7 +451,8 @@ def test_get_failure_connection_failed(mock_sleep):
     assert request.call_count == 5
 
 
-def test_get_too_many_requests_retryable_error_failure():
+@mock.patch("time.sleep", return_value=None)
+def test_get_too_many_requests_retryable_error_failure(_mock_sleep):
     request = make_request("too many requests", status=http_client.TOO_MANY_REQUESTS)
 
     with pytest.raises(exceptions.TransportError) as excinfo:
@@ -515,7 +548,8 @@ def test_get_universe_domain_not_found():
     assert universe_domain == "googleapis.com"
 
 
-def test_get_universe_domain_retryable_error_failure():
+@mock.patch("time.sleep", return_value=None)
+def test_get_universe_domain_retryable_error_failure(_mock_sleep):
     # Test that if the universe domain endpoint returns a retryable error
     # we should retry.
     #

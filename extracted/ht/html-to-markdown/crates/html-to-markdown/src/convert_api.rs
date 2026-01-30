@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use crate::error::Result;
 use crate::options::{ConversionOptions, WhitespaceMode};
 use crate::text;
-use crate::validation::validate_input;
+use crate::validation::{Utf16Encoding, detect_utf16_encoding, validate_input};
 use crate::{ConversionError, ConversionOptionsUpdate};
 
 #[cfg(feature = "visitor")]
@@ -40,10 +40,9 @@ use crate::{HtmlExtraction, InlineImageConfig};
 ///
 /// Returns an error if HTML parsing fails or if the input contains invalid UTF-8.
 pub fn convert(html: &str, options: Option<ConversionOptions>) -> Result<String> {
-    validate_input(html)?;
     let options = options.unwrap_or_default();
 
-    let normalized_html = normalize_line_endings(html);
+    let normalized_html = normalize_input(html)?;
 
     if !options.wrap {
         if let Some(markdown) = fast_text_only(normalized_html.as_ref(), &options) {
@@ -84,10 +83,9 @@ pub fn convert_with_inline_images(
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    validate_input(html)?;
     let options = options.unwrap_or_default();
 
-    let normalized_html = normalize_line_endings(html);
+    let normalized_html = normalize_input(html)?;
 
     let collector = Rc::new(RefCell::new(crate::inline_images::InlineImageCollector::new(
         image_cfg,
@@ -257,10 +255,9 @@ pub fn convert_with_metadata(
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    validate_input(html)?;
     let options = options.unwrap_or_default();
+    let normalized_html = normalize_input(html)?;
     if !metadata_cfg.any_enabled() {
-        let normalized_html = normalize_line_endings(html);
         #[cfg(feature = "visitor")]
         let markdown = crate::converter::convert_html_impl(normalized_html.as_ref(), &options, None, None, visitor)?;
         #[cfg(not(feature = "visitor"))]
@@ -272,8 +269,6 @@ pub fn convert_with_metadata(
         };
         return Ok((markdown, ExtendedMetadata::default()));
     }
-
-    let normalized_html = normalize_line_endings(html);
 
     let metadata_collector = Rc::new(RefCell::new(crate::metadata::MetadataCollector::new(metadata_cfg)));
 
@@ -332,8 +327,8 @@ pub fn convert_with_metadata(
 ///     fn visit_code_block(
 ///         &mut self,
 ///         _ctx: &NodeContext,
-///         code: &str,
 ///         language: Option<&str>,
+///         code: &str,
 ///     ) -> VisitResult {
 ///         VisitResult::Custom(format!("```{}\n{}\n```", language.unwrap_or(""), code))
 ///     }
@@ -352,10 +347,9 @@ pub fn convert_with_visitor(
     options: Option<ConversionOptions>,
     visitor: Option<visitor::VisitorHandle>,
 ) -> Result<String> {
-    validate_input(html)?;
     let options = options.unwrap_or_default();
 
-    let normalized_html = normalize_line_endings(html);
+    let normalized_html = normalize_input(html)?;
 
     let markdown = crate::converter::convert_html_with_visitor(normalized_html.as_ref(), &options, visitor)?;
 
@@ -412,8 +406,8 @@ pub fn convert_with_visitor(
 ///     async fn visit_code_block(
 ///         &mut self,
 ///         _ctx: &NodeContext,
-///         code: &str,
 ///         language: Option<&str>,
+///         code: &str,
 ///     ) -> VisitResult {
 ///         // Can perform async operations here (e.g., syntax highlighting via service)
 ///         VisitResult::Custom(format!("```{}\n{}\n```", language.unwrap_or(""), code))
@@ -433,10 +427,9 @@ pub async fn convert_with_async_visitor(
     options: Option<ConversionOptions>,
     visitor: Option<visitor_helpers::AsyncVisitorHandle>,
 ) -> Result<String> {
-    validate_input(html)?;
     let options = options.unwrap_or_default();
 
-    let normalized_html = normalize_line_endings(html);
+    let normalized_html = normalize_input(html)?;
 
     // Use the async implementation that properly awaits visitor callbacks
     let markdown =
@@ -446,6 +439,88 @@ pub async fn convert_with_async_visitor(
         Ok(crate::wrapper::wrap_markdown(&markdown, &options))
     } else {
         Ok(markdown)
+    }
+}
+
+/// Validate and normalize HTML input for conversion.
+fn normalize_input(html: &str) -> Result<Cow<'_, str>> {
+    let decoded = decode_utf16_if_needed(html);
+    match decoded {
+        Cow::Borrowed(borrowed) => {
+            validate_input(borrowed)?;
+            let sanitized = strip_nul_bytes(borrowed);
+            match sanitized {
+                Cow::Borrowed(b) => Ok(normalize_line_endings(b)),
+                Cow::Owned(o) => Ok(Cow::Owned(normalize_line_endings(&o).into_owned())),
+            }
+        }
+        Cow::Owned(mut owned) => {
+            validate_input(&owned)?;
+            if owned.contains('\0') {
+                owned = owned.replace('\0', "");
+            }
+            if owned.contains('\r') {
+                owned = owned.replace("\r\n", "\n").replace('\r', "\n");
+            }
+            Ok(Cow::Owned(owned))
+        }
+    }
+}
+
+/// Attempt to decode UTF-16 HTML that was provided as a lossy UTF-8 string.
+///
+/// Some callers read raw bytes and convert with `from_utf8_lossy`, which preserves
+/// the NUL-byte pattern of UTF-16 input. When we detect that pattern, we can
+/// recover the original HTML instead of rejecting it as binary data.
+fn decode_utf16_if_needed(html: &str) -> Cow<'_, str> {
+    let bytes = html.as_bytes();
+    if !bytes.contains(&0) {
+        return Cow::Borrowed(html);
+    }
+
+    let Some(encoding) = detect_utf16_encoding(bytes) else {
+        return Cow::Borrowed(html);
+    };
+
+    let decoded = decode_utf16_bytes(bytes, encoding);
+    if decoded.is_empty() {
+        Cow::Borrowed(html)
+    } else {
+        Cow::Owned(decoded)
+    }
+}
+
+fn decode_utf16_bytes(bytes: &[u8], encoding: Utf16Encoding) -> String {
+    let (is_little_endian, skip_bom) = match encoding {
+        Utf16Encoding::BomLe => (true, true),
+        Utf16Encoding::BomBe => (false, true),
+        Utf16Encoding::NoBomLe => (true, false),
+        Utf16Encoding::NoBomBe => (false, false),
+    };
+
+    let mut units = Vec::with_capacity(bytes.len() / 2);
+    for chunk in bytes.chunks_exact(2) {
+        let unit = if is_little_endian {
+            u16::from_le_bytes([chunk[0], chunk[1]])
+        } else {
+            u16::from_be_bytes([chunk[0], chunk[1]])
+        };
+        units.push(unit);
+    }
+
+    let mut decoded = String::from_utf16_lossy(&units);
+    if skip_bom {
+        decoded = decoded.trim_start_matches('\u{FEFF}').to_string();
+    }
+    decoded
+}
+
+/// Strip NUL bytes that can appear in malformed HTML inputs.
+fn strip_nul_bytes(html: &str) -> Cow<'_, str> {
+    if html.contains('\0') {
+        Cow::Owned(html.replace('\0', ""))
+    } else {
+        Cow::Borrowed(html)
     }
 }
 

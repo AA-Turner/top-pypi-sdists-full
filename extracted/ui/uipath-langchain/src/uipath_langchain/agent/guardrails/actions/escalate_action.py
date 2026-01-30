@@ -13,7 +13,11 @@ from langchain_core.messages import (
 )
 from langgraph.types import Command, interrupt
 from uipath._utils import UiPathUrl
-from uipath.agent.models.agent import AgentEscalationRecipient
+from uipath.agent.models.agent import (
+    AgentEscalationRecipient,
+    AssetRecipient,
+    StandardRecipient,
+)
 from uipath.platform.common import CreateEscalation, UiPathConfig
 from uipath.platform.guardrails import (
     BaseGuardrail,
@@ -25,7 +29,6 @@ from ...exceptions import AgentStateException, AgentTerminationException
 from ...messages.message_utils import replace_tool_calls
 from ...react.types import AgentGuardrailsGraphState
 from ...react.utils import extract_current_tool_call_index, find_latest_ai_message
-from ...tools.escalation_tool import resolve_recipient_value
 from ..types import ExecutionStage
 from ..utils import _extract_tool_args_from_message, get_message_content
 from .base_action import GuardrailAction, GuardrailActionNode
@@ -59,6 +62,10 @@ class EscalateAction(GuardrailAction):
         self.version = version
         self.recipient = recipient
 
+    @property
+    def action_type(self) -> str:
+        return "Escalate"
+
     def action_node(
         self,
         *,
@@ -80,11 +87,31 @@ class EscalateAction(GuardrailAction):
         """
         node_name = _get_node_name(execution_stage, guardrail, scope)
 
+        metadata: Dict[str, Any] = {
+            "guardrail": guardrail,
+            "scope": scope,
+            "execution_stage": execution_stage,
+        }
+
         async def _node(
             state: AgentGuardrailsGraphState,
         ) -> Dict[str, Any] | Command[Any]:
+            # Import here to avoid circular dependency
+            from ...tools.escalation_tool import resolve_recipient_value
+
             # Resolve recipient value (handles both StandardRecipient and AssetRecipient)
             task_recipient = await resolve_recipient_value(self.recipient)
+
+            if isinstance(self.recipient, StandardRecipient):
+                metadata["assigned_to"] = (
+                    self.recipient.display_name
+                    if self.recipient.display_name
+                    else self.recipient.value
+                )
+            elif isinstance(self.recipient, AssetRecipient):
+                metadata["assigned_to"] = (
+                    task_recipient.value if task_recipient else None
+                )
 
             # Validate message count based on execution stage
             _validate_message_count(state, execution_stage)
@@ -94,6 +121,9 @@ class EscalateAction(GuardrailAction):
                 "GuardrailName": guardrail.name,
                 "GuardrailDescription": guardrail.description,
                 "Component": _build_component_name(scope, guarded_component_name),
+                # send Tool for backwards compatibility for agents that use old HITL app
+                "Tool": _build_component_name(scope, guarded_component_name),
+                "TenantName": UiPathConfig.tenant_name,
                 "ExecutionStage": _execution_stage_to_string(execution_stage),
                 "GuardrailResult": state.inner_state.guardrail_validation_details,
             }
@@ -101,7 +131,6 @@ class EscalateAction(GuardrailAction):
             # Add tenant and trace URL if base_url is configured
             cloud_base_url = UiPathConfig.base_url
             if cloud_base_url is not None:
-                data["TenantName"] = _get_tenant_name(cloud_base_url)
                 data["AgentTrace"] = _get_agent_execution_viewer_url(cloud_base_url)
 
             # Add stage-specific fields
@@ -115,6 +144,8 @@ class EscalateAction(GuardrailAction):
                     guarded_component_name,
                 )
                 data["Inputs"] = input_content
+                # send ToolInputs for backwards compatibility for agents that use old HITL app
+                data["ToolInputs"] = input_content
             else:  # POST_EXECUTION
                 if scope == GuardrailScope.AGENT:
                     input_message = state.messages[1]
@@ -139,6 +170,9 @@ class EscalateAction(GuardrailAction):
 
                 data["Inputs"] = input_content
                 data["Outputs"] = output_content
+                # send ToolInputs and ToolOutputs for backwards compatibility for agents that use old HITL app
+                data["ToolInputs"] = input_content
+                data["ToolOutputs"] = output_content
 
             escalation_result = interrupt(
                 CreateEscalation(
@@ -164,6 +198,8 @@ class EscalateAction(GuardrailAction):
                 title="Escalation rejected",
                 detail=f"Please contact your administrator. Action was rejected after reviewing the task created by guardrail [{guardrail.name}], with reason: {escalation_result.data['Reason']}",
             )
+
+        _node.__metadata__ = metadata  # type: ignore[attr-defined]
 
         return node_name, _node
 
@@ -689,19 +725,6 @@ def _execution_stage_to_string(
     return "PostExecution"
 
 
-def _get_tenant_name(cloud_base_url: str) -> str:
-    """Extract the tenant name from the UiPath base URL.
-
-    Args:
-        cloud_base_url: The UiPath cloud base URL to extract tenant name from.
-
-    Returns:
-        str: The tenant name extracted from the base URL.
-    """
-    uiPath_Url = UiPathUrl(cloud_base_url)
-    return uiPath_Url.tenant_name
-
-
 def _get_agent_execution_viewer_url(cloud_base_url: str) -> str:
     """Generate the agent execution viewer URL based on execution context.
 
@@ -717,15 +740,17 @@ def _get_agent_execution_viewer_url(cloud_base_url: str) -> str:
     """
     uiPath_Url = UiPathUrl(cloud_base_url)
     organization_id = UiPathConfig.organization_id
-    agent_id = UiPathConfig.project_id
+    project_id = UiPathConfig.project_id
 
     # Route to appropriate URL based on source
     if UiPathConfig.is_studio_project:
-        return f"{uiPath_Url.base_url}/{organization_id}/studio_/designer/{agent_id}"
+        solutionId = UiPathConfig.studio_solution_id
+        return f"{uiPath_Url.base_url}/{organization_id}/studio_/designer/{project_id}?solutionId={solutionId}"
     else:
         execution_folder_id = UiPathConfig.folder_key
         process_uuid = UiPathConfig.process_uuid
         trace_id = UiPathConfig.trace_id
         package_version = UiPathConfig.process_version
+        project_key = UiPathConfig.project_key
 
-        return f"{uiPath_Url.base_url}/{organization_id}/agents_/deployed/{execution_folder_id}/{process_uuid}/{agent_id}/{package_version}/traces/{trace_id}"
+        return f"{uiPath_Url.base_url}/{organization_id}/agents_/deployed/{execution_folder_id}/{process_uuid}/{project_key}/{package_version}/traces/{trace_id}"

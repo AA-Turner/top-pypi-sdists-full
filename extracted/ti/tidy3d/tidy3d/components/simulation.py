@@ -25,11 +25,18 @@ import pydantic.v1 as pydantic
 import xarray as xr
 
 from tidy3d.constants import C_0, SECOND, fp_eps, inf
-from tidy3d.exceptions import SetupError, Tidy3dError, Tidy3dImportError, ValidationError
+from tidy3d.exceptions import (
+    AdjointError,
+    SetupError,
+    Tidy3dError,
+    Tidy3dImportError,
+    ValidationError,
+)
 from tidy3d.log import log
 from tidy3d.packaging import disable_local_subpixel, supports_local_subpixel, tidy3d_extras
 from tidy3d.updater import Updater
 
+from .autograd.types import AutogradFieldMap
 from .base import cached_property, skip_if_fields_missing
 from .base_sim.simulation import AbstractSimulation
 from .boundary import (
@@ -2205,7 +2212,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     ) -> tuple[Box, int, str]:
         """Return pec bounding box, frame axis and object's direction"""
 
-        span_inds = np.array(self.grid.discretize_inds(obj))
+        span_inds = np.array(self.grid.discretize_inds(obj, relax_precision=True))
         coords = self.grid.boundaries.to_list
         direction = obj.direction
         if isinstance(obj, ModeSource):
@@ -2270,7 +2277,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         """Volumetric structures in the simulation, including automatic frames around mode sources and internal absorbers, and 2d strutures converted into volumetric analogues."""
         modal_frames = self._modal_plane_frames
         if not self._contains_converted_volumetric_structures:
-            return list(self.structures) + modal_frames
+            return list(self.static_structures) + modal_frames
         return list(self.volumetric_structures) + modal_frames
 
     @cached_property
@@ -4901,6 +4908,22 @@ class Simulation(AbstractYeeGridSimulation):
             adjoint_monitors_eps.append(mnt_eps)
 
         return adjoint_monitors_fld, adjoint_monitors_eps
+
+    def _check_custom_medium_geometry_overlap(self, sim_fields_keys: AutogradFieldMap) -> None:
+        index_to_keys = defaultdict(list)
+
+        for _, index, *fields in sim_fields_keys:
+            index_to_keys[index].append(fields)
+
+        for structure_index, gradient_paths in index_to_keys.items():
+            if self.structures[structure_index].medium.is_custom:
+                gradient_type_tags = [path[0] for path in gradient_paths]
+                if "geometry" in gradient_type_tags:
+                    raise AdjointError(
+                        f"Detected structure at index {structure_index} containing a CustomMedium type "
+                        "and traced geometry attributes. Combined shape and medium derivatives like this "
+                        "are not currently supported."
+                    )
 
     @property
     def _freqs_adjoint(self) -> list[float]:

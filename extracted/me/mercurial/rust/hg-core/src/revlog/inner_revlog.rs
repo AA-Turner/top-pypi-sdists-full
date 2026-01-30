@@ -6,7 +6,10 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -23,6 +26,8 @@ use super::compression::ZlibCompressor;
 use super::compression::ZstdCompressor;
 use super::compression::ZLIB_BYTE;
 use super::compression::ZSTD_BYTE;
+use super::diff;
+use super::diff::text_delta_with_offset;
 use super::file_io::DelayedBuffer;
 use super::file_io::FileHandle;
 use super::file_io::RandomAccessFile;
@@ -30,13 +35,16 @@ use super::file_io::WriteHandles;
 use super::index::Index;
 use super::index::IndexHeader;
 use super::index::INDEX_ENTRY_SIZE;
+use super::manifest;
 use super::node::NODE_BYTES_LENGTH;
 use super::node::NULL_NODE;
 use super::options::RevlogDataConfig;
 use super::options::RevlogDeltaConfig;
 use super::options::RevlogFeatureConfig;
+use super::patch;
+use super::patch::DeltaPiece;
+use super::patch::PlainDeltaPiece;
 use super::BaseRevision;
-use super::Node;
 use super::Revision;
 use super::RevlogEntry;
 use super::RevlogError;
@@ -48,10 +56,20 @@ use crate::dyn_bytes::DynBytes;
 use crate::errors::HgError;
 use crate::errors::IoResultExt;
 use crate::exit_codes;
+use crate::revlog::index::RevisionDataParams;
+use crate::revlog::nodemap::NodeMap;
+use crate::revlog::nodemap::NodeMapError;
+use crate::revlog::nodemap::NodeTree;
+use crate::revlog::RevlogIndexNodeLookup;
 use crate::revlog::RevlogType;
 use crate::transaction::Transaction;
+use crate::utils::u32_u;
+use crate::utils::u_i32;
 use crate::utils::ByTotalChunksSize;
+use crate::utils::RawData;
 use crate::vfs::Vfs;
+use crate::Node;
+use crate::NodePrefix;
 
 /// Matches the `_InnerRevlog` class in the Python code, as an arbitrary
 /// boundary to incrementally rewrite higher-level revlog functionality in
@@ -91,12 +109,14 @@ pub struct InnerRevlog {
     pub inline: bool,
     /// A cache of the last revision, which is usually accessed multiple
     /// times.
-    pub last_revision_cache: Mutex<Option<SingleRevisionCache>>,
+    last_revision_cache: Mutex<Option<SingleRevisionCache>>,
     /// The [`Compressor`] that this revlog uses by default to compress data.
     /// This does not mean that this revlog uses this compressor for reading
     /// data, as different revisions may have different compression modes.
     compressor: Mutex<Box<dyn Compressor>>,
     revlog_type: RevlogType,
+    /// The nodemap for this revlog, either lazy and in-memory or persistent
+    nodemap: RevlogNodeMap,
 }
 
 impl InnerRevlog {
@@ -110,6 +130,7 @@ impl InnerRevlog {
         delta_config: RevlogDeltaConfig,
         feature_config: RevlogFeatureConfig,
         revlog_type: RevlogType,
+        nodemap: Option<NodeTree>,
     ) -> Self {
         assert!(index_file.is_relative());
         assert!(data_file.is_relative());
@@ -138,6 +159,8 @@ impl InnerRevlog {
             );
 
         let inline = index.is_inline();
+        let nodemap =
+            RevlogNodeMap::from_nodetree_option(nodemap, index_file.to_owned());
         Self {
             index,
             vfs,
@@ -163,6 +186,7 @@ impl InnerRevlog {
                 CompressionConfig::None => Box::new(NoneCompressor),
             }),
             revlog_type,
+            nodemap,
         }
     }
 
@@ -192,6 +216,77 @@ impl InnerRevlog {
         }
     }
 
+    /// Set the "last revision cache" content
+    pub fn set_rev_cache(&self, rev: Revision, data: ForeignBytes) {
+        let mut last_revision_cache =
+            self.last_revision_cache.lock().expect("propagate mutex panic");
+        let data = CachedBytes::Foreign(data);
+        *last_revision_cache = Some(SingleRevisionCache { rev, data });
+    }
+
+    /// Set the "last revision cache" content from a Rust native type
+    pub fn set_rev_cache_native(&self, rev: Revision, data: &RawData) {
+        let mut last_revision_cache =
+            self.last_revision_cache.lock().expect("propagate mutex panic");
+        if let Some(cached) = &*last_revision_cache {
+            // same a Arc clone when possible
+            if cached.rev == rev {
+                return;
+            }
+        }
+        let data = CachedBytes::Native(data.clone());
+        *last_revision_cache = Some(SingleRevisionCache { rev, data });
+    }
+
+    /// Clear the revision cache for the given revision (if any)
+    pub fn clear_rev_cache(&self, rev: Revision) {
+        let mut last_revision_cache =
+            self.last_revision_cache.lock().expect("propagate mutex panic");
+        if let Some(cached) = &*last_revision_cache {
+            if cached.rev == rev {
+                last_revision_cache.take();
+            }
+        }
+    }
+
+    /// retrieve a owned copy of the cache
+    ///
+    /// The cache lock is only held for the duration of that function and the
+    /// cache value can then be used lock free.
+    pub fn get_rev_cache(&self) -> Option<SingleRevisionCache> {
+        let mutex_guard =
+            self.last_revision_cache.lock().expect("propagate mutex panic");
+        mutex_guard.as_ref().cloned()
+    }
+
+    /// Signal that we have seen a file this big
+    ///
+    /// This might update the limit of underlying cache.
+    pub fn seen_file_size(&self, size: usize) {
+        if let Some(Ok(mut cache)) =
+            self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
+        {
+            // Dynamically update the uncompressed_chunk_cache size to the
+            // largest revision we've seen in this revlog.
+            // Do it *before* restoration in case the current revision
+            // is the largest.
+            let limiter_mut = cache.limiter_mut();
+            let new_max = size;
+            limiter_mut.maybe_grow_max(new_max);
+        }
+    }
+
+    /// Record the uncompressed raw chunk for rev
+    ///
+    /// This is a noop if the cache is disabled.
+    pub fn record_uncompressed_chunk(&self, rev: Revision, data: RawData) {
+        if let Some(Ok(mut cache)) =
+            self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
+        {
+            cache.insert(rev, data.clone());
+        }
+    }
+
     /// Return an entry for the null revision
     pub fn make_null_entry(&self) -> RevlogEntry {
         RevlogEntry {
@@ -210,10 +305,7 @@ impl InnerRevlog {
         if rev == NULL_REVISION {
             return Ok(self.make_null_entry());
         }
-        let index_entry = self
-            .index
-            .get_entry(rev)
-            .ok_or_else(|| RevlogError::InvalidRevision(rev.to_string()))?;
+        let index_entry = self.index.get_entry(rev);
         let p1 =
             self.index.check_revision(index_entry.p1()).ok_or_else(|| {
                 RevlogError::corrupted(format!("p1 for rev {} is invalid", rev))
@@ -260,22 +352,13 @@ impl InnerRevlog {
     /// The offset of the data chunk for this revision
     #[inline(always)]
     pub fn data_start(&self, rev: Revision) -> usize {
-        self.index.start(
-            rev,
-            &self
-                .index
-                .get_entry(rev)
-                .unwrap_or_else(|| self.index.make_null_entry()),
-        )
+        self.index.start(rev, &self.index.get_entry(rev))
     }
 
     /// The length of the data chunk for this revision
     #[inline(always)]
     pub fn data_compressed_length(&self, rev: Revision) -> usize {
-        self.index
-            .get_entry(rev)
-            .unwrap_or_else(|| self.index.make_null_entry())
-            .compressed_len() as usize
+        self.index.get_entry(rev).compressed_len() as usize
     }
 
     /// The end of the data chunk for this revision
@@ -286,11 +369,8 @@ impl InnerRevlog {
 
     /// Return the delta parent of the given revision
     pub fn delta_parent(&self, rev: Revision) -> Revision {
-        let base = self
-            .index
-            .get_entry(rev)
-            .unwrap()
-            .base_revision_or_base_of_delta_chain();
+        let base =
+            self.index.get_entry(rev).base_revision_or_base_of_delta_chain();
         if base.0 == rev.0 {
             NULL_REVISION
         } else if self.delta_config.general_delta {
@@ -390,12 +470,10 @@ impl InnerRevlog {
         let start = if start_rev == NULL_REVISION {
             0
         } else {
-            let start_entry =
-                self.index.get_entry(start_rev).expect("null revision segment");
+            let start_entry = self.index.get_entry(start_rev);
             self.index.start(start_rev, &start_entry)
         };
-        let end_entry =
-            self.index.get_entry(end_rev).expect("null revision segment");
+        let end_entry = self.index.get_entry(end_rev);
         let end = self.index.start(end_rev, &end_entry)
             + self.data_compressed_length(end_rev);
 
@@ -407,7 +485,7 @@ impl InnerRevlog {
     }
 
     /// Return the uncompressed raw data for `rev`
-    pub fn chunk_for_rev(&self, rev: Revision) -> Result<Arc<[u8]>, HgError> {
+    pub fn chunk_for_rev(&self, rev: Revision) -> Result<RawData, HgError> {
         if let Some(Ok(mut cache)) =
             self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
         {
@@ -424,12 +502,8 @@ impl InnerRevlog {
                 None,
             )
         })?;
-        let uncompressed: Arc<[u8]> = Arc::from(uncompressed.into_owned());
-        if let Some(Ok(mut cache)) =
-            self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
-        {
-            cache.insert(rev, uncompressed.clone());
-        }
+        let uncompressed: RawData = RawData::from(uncompressed.into_owned());
+        self.record_uncompressed_chunk(rev, uncompressed.clone());
         Ok(uncompressed)
     }
 
@@ -490,30 +564,290 @@ impl InnerRevlog {
     {
         let entry = &self.get_entry(rev)?;
         let raw_size = entry.uncompressed_len();
-        let mut mutex_guard =
-            self.last_revision_cache.lock().expect("lock should not be held");
-        let cached_rev = if let Some((_node, rev, data)) = &*mutex_guard {
-            Some((*rev, data.deref().as_ref()))
-        } else {
-            None
-        };
-        if let (Some(size), Some(Ok(mut cache))) = (
-            raw_size,
-            self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write()),
-        ) {
-            // Dynamically update the uncompressed_chunk_cache size to the
-            // largest revision we've seen in this revlog.
-            // Do it *before* restoration in case the current revision
-            // is the largest.
-            let limiter_mut = cache.limiter_mut();
-            let new_max = size.try_into().expect("16 bit computer?");
-            limiter_mut.maybe_grow_max(new_max);
+        let cached_rev = self.get_rev_cache();
+        let cache = cached_rev.as_ref().map(|c| c.as_delta_base());
+        if let Some(size) = raw_size {
+            self.seen_file_size(u32_u(size));
         }
-        entry.rawdata(cached_rev, get_buffer)?;
-        // drop cache to save memory, the caller is expected to update
-        // the revision cache after validating the text
-        mutex_guard.take();
+        let stop_rev = cache.map(|(r, _)| r);
+        let (deltas, stopped) = self.chunks_for_chain(rev, stop_rev)?;
+        let (base_text, deltas) = if stopped {
+            (cache.expect("last revision should be cached").1, &deltas[..])
+        } else {
+            let (buf, deltas) = deltas.split_at(1);
+            (buf[0].as_ref(), deltas)
+        };
+        let size = entry
+            .uncompressed_len()
+            .map(|l| l as usize)
+            .unwrap_or(base_text.len());
+        get_buffer(size, &mut |buf| {
+            patch::build_data_from_deltas(buf, base_text, deltas)?;
+            Ok(())
+        })?;
         Ok(())
+    }
+
+    /// return a binary delta between two revisions + another delta
+    ///
+    /// The other delta is applied on rev_2.
+    pub fn rev_delta_extra(
+        &self,
+        rev_1: Revision,
+        rev_2: Revision,
+        delta: &[u8],
+    ) -> Result<Vec<u8>, RevlogError> {
+        let old_entry = self.get_entry(rev_1)?;
+        let old_empty = old_entry.uncompressed_len().is_some_and(|s| s == 0);
+
+        if rev_2 == NULL_REVISION || old_empty {
+            // restore the full text from the patch
+            let base_text = self.get_entry(rev_2)?.data_unchecked()?;
+            let d = patch::Delta::new(delta)?;
+            let target_size = u_i32(base_text.len()) + d.len_diff();
+            assert!(target_size > 0);
+            let target_size = target_size as u32;
+            let new_data = d.as_applied(&base_text, 0, target_size);
+
+            Ok(if old_empty {
+                // if the old version is empty, we can create a trivial "replace
+                // all" delta
+                let mut delta = vec![];
+                let patch = PlainDeltaPiece {
+                    start: 0,
+                    end: 0,
+                    data: new_data.as_ref(),
+                };
+                patch.write(&mut delta);
+                delta
+            } else {
+                // NULL_REVISION don't have a delta chain, this might confuse
+                // [`Self::rev_delta_non_null`] So deal with the
+                // diffing here.
+                assert!(rev_2 == NULL_REVISION);
+                let old_data = old_entry.data_unchecked()?;
+                if self.revlog_type == RevlogType::Manifestlog {
+                    manifest::manifest_delta(&old_data, &new_data)
+                } else {
+                    diff::text_delta(&old_data, &new_data)
+                }
+            })
+        } else {
+            assert!(
+                !delta.is_empty(),
+                "empty delta passed to `rev_delta_extra`"
+            );
+            self.rev_delta_non_null(rev_1, rev_2, Some(delta))
+        }
+    }
+
+    /// return a binary delta between two revisions (and an optional extra
+    /// delta)
+    pub fn rev_delta(
+        &self,
+        rev_1: Revision,
+        rev_2: Revision,
+    ) -> Result<Vec<u8>, RevlogError> {
+        match (rev_1, rev_2) {
+            (old, new) if old == new => Ok(vec![]), /* they are the same */
+            // picture
+            (old_rev, empty)
+                if (self
+                    .get_entry(empty)?
+                    .uncompressed_len()
+                    .is_some_and(|s| s == 0)
+                    && self
+                        .get_entry(old_rev)?
+                        .uncompressed_len()
+                        .is_some()) =>
+            {
+                let mut delta = vec![];
+                let entry = &self.get_entry(old_rev)?;
+                let deleted_size =
+                    entry.uncompressed_len().expect("checked above?");
+                let patch =
+                    PlainDeltaPiece { start: 0, end: deleted_size, data: &[] };
+                patch.write(&mut delta);
+                Ok(delta)
+            }
+            (empty, new_rev)
+                if self
+                    .get_entry(empty)?
+                    .uncompressed_len()
+                    .is_some_and(|s| s == 0) =>
+            {
+                let mut delta = vec![];
+                let entry = &self.get_entry(new_rev)?;
+                let data = entry.data_unchecked()?;
+                let patch =
+                    PlainDeltaPiece { start: 0, end: 0, data: data.as_ref() };
+                patch.write(&mut delta);
+                Ok(delta)
+            }
+            (old, new) => self.rev_delta_non_null(old, new, None),
+        }
+    }
+
+    /// inner part of `rev_delta` involving non null revision
+    fn rev_delta_non_null(
+        &self,
+        rev_1: Revision,
+        rev_2: Revision,
+        extra_delta: Option<&[u8]>,
+    ) -> Result<Vec<u8>, RevlogError> {
+        // Search for common part in the delta chain of the two revisions
+        //
+        // We also detect if an optionally cached revision is part of such
+        // common part.
+        let entry_1 = &self.get_entry(rev_1)?;
+        let entry_2 = &self.get_entry(rev_2)?;
+
+        let (delta_chain_1, _) = self.delta_chain(rev_1, None)?;
+        let (delta_chain_2, _) = self.delta_chain(rev_2, None)?;
+
+        let cached_entry = self.get_rev_cache();
+        let cached = cached_entry.as_ref().map(|c| c.as_delta_base());
+
+        let zipped = std::iter::zip(delta_chain_1.iter(), delta_chain_2.iter());
+        let (common_count, cached_idx) = match cached {
+            None => (zipped.take_while(|(l, r)| l == r).count(), None),
+            Some((cached_rev, _)) => {
+                let mut count = 0;
+                let mut cached_idx = None;
+                for (old_rev, new_rev) in zipped {
+                    if old_rev != new_rev {
+                        break;
+                    }
+                    if cached_rev == *old_rev && count > 0 {
+                        cached_idx = Some(count);
+                    }
+                    count += 1;
+                }
+                (count, cached_idx)
+            }
+        };
+
+        // fast path the identical case
+        //
+        // This case might happen when the revision are different, the only
+        // difference between them are empty delta (that got filtered
+        // when building the delta chain.
+        let delta = if common_count == delta_chain_1.len()
+            && common_count == delta_chain_2.len()
+        {
+            match extra_delta {
+                None => vec![],
+                Some(delta) => delta.into(),
+            }
+        } else if common_count == 0 {
+            let old_data = entry_1.data_unchecked()?;
+            let new_data = if let Some(delta) = extra_delta {
+                let base_text = entry_2.data_unchecked()?;
+                let d = patch::Delta::new(delta)?;
+                let target_size = u_i32(base_text.len()) + d.len_diff();
+                assert!(target_size > 0);
+                let target_size = target_size as u32;
+                d.as_applied(&base_text, 0, target_size).into()
+            } else {
+                entry_2.data_unchecked()?
+            };
+            // Actually compute the delta we are looking for
+            if self.revlog_type == RevlogType::Manifestlog {
+                manifest::manifest_delta(&old_data, &new_data)
+            } else {
+                diff::text_delta(&old_data, &new_data)
+            }
+        } else if self.revlog_type == RevlogType::Manifestlog {
+            let mut state = diff::RevDeltaState::new(
+                self,
+                cached_entry,
+                common_count,
+                cached_idx,
+                delta_chain_1,
+                delta_chain_2,
+                extra_delta,
+            )?;
+
+            let p: diff::Prepared<'_, patch::RichDeltaPiece> =
+                state.prepare()?;
+            let common_2 = p.common_delta.clone();
+            let new_delta = common_2.combine(p.new_delta);
+            let old_delta = p.common_delta.combine(p.old_delta);
+            let iter_old = old_delta.into_iter_from_base(p.base_text);
+            let iter_new = new_delta.into_iter_from_base(p.base_text);
+            manifest::manifest_delta_from_patches(iter_old, iter_new)
+        } else {
+            let mut state = diff::RevDeltaState::new(
+                self,
+                cached_entry,
+                common_count,
+                cached_idx,
+                delta_chain_1,
+                delta_chain_2,
+                extra_delta,
+            )?;
+
+            let p: diff::Prepared<'_, PlainDeltaPiece> = state.prepare()?;
+
+            let common_buff;
+            let old_buff;
+            let new_buff;
+
+            // find the commonly affected part
+            let Some((start, end)) = affected_range(&p.old_delta, &p.new_delta)
+            else {
+                return Ok(vec![]);
+            };
+
+            let skipped_size = p.common_size - (end - start);
+
+            // build the common part (if ≠ from base
+            let common_radix: &[u8] = if p.common_delta.is_empty() {
+                &p.base_text[u32_u(start)..u32_u(end)]
+            } else {
+                // TODO: We could only restore the affected windows in the
+                // common text.
+                //
+                // However it means we can no longer cache the result which has
+                // a negative effect of some benchmark.
+                // Restoring only the windows can have positive effect on
+                // benchmark, so it is a worthy pursuit, but it need to be done
+                // carefully while considering benchmark for
+                // high level operation.
+                common_buff = RawData::from(p.common_delta.as_applied(
+                    p.base_text,
+                    0,
+                    p.common_size,
+                ));
+                self.set_rev_cache_native(p.common_rev, &common_buff);
+                &common_buff[u32_u(start)..u32_u(end)]
+            };
+
+            // build the old text (if ≠ common)
+            let old_data = if p.old_delta.is_empty() {
+                common_radix
+            } else {
+                old_buff = p.old_delta.as_applied(
+                    common_radix,
+                    start,
+                    p.old_size - skipped_size,
+                );
+                &old_buff
+            };
+            // build the new text (if ≠ common)
+            let new_data = if p.new_delta.is_empty() {
+                common_radix
+            } else {
+                new_buff = p.new_delta.as_applied(
+                    common_radix,
+                    start,
+                    p.new_size - skipped_size,
+                );
+                &new_buff
+            };
+            text_delta_with_offset(start, old_data, new_data)
+        };
+        Ok(delta)
     }
 
     /// Only `pub` for `hg-pyo3`.
@@ -524,30 +858,31 @@ impl InnerRevlog {
     #[doc(hidden)]
     pub fn chunks(
         &self,
-        revs: Vec<Revision>,
+        revs: &[Revision],
         target_size: Option<u64>,
-    ) -> Result<Vec<Arc<[u8]>>, RevlogError> {
+    ) -> Result<Vec<RawData>, RevlogError> {
         if revs.is_empty() {
             return Ok(vec![]);
         }
-        let mut fetched_revs = vec![];
+        let mut fetched_revs_vec = vec![];
         let mut chunks = Vec::with_capacity(revs.len());
 
-        match self.uncompressed_chunk_cache.as_ref() {
+        let fetched_revs = match self.uncompressed_chunk_cache.as_ref() {
             Some(cache) => {
                 if let Ok(mut cache) = cache.try_write() {
                     for rev in revs.iter() {
                         match cache.get(rev) {
-                            Some(hit) => chunks.push((*rev, hit.to_owned())),
-                            None => fetched_revs.push(*rev),
+                            Some(hit) => chunks.push((*rev, hit.clone())),
+                            None => fetched_revs_vec.push(*rev),
                         }
                     }
+                    &fetched_revs_vec
                 } else {
-                    fetched_revs = revs
+                    revs
                 }
             }
-            None => fetched_revs = revs,
-        }
+            None => revs,
+        };
 
         let already_cached = chunks.len();
 
@@ -556,64 +891,88 @@ impl InnerRevlog {
         } else if !self.data_config.with_sparse_read || self.is_inline() {
             vec![fetched_revs]
         } else {
-            self.slice_chunk(&fetched_revs, target_size)?
+            self.slice_chunk(fetched_revs, target_size)?
         };
+        if !sliced_chunks.is_empty() {
+            self.with_read(|| {
+                for revs_chunk in sliced_chunks {
+                    let first_rev = revs_chunk[0];
+                    // Skip trailing revisions with empty diff
+                    let last_rev_idx = revs_chunk
+                        .iter()
+                        .rposition(|r| self.data_compressed_length(*r) != 0)
+                        .unwrap_or(revs_chunk.len() - 1);
 
-        self.with_read(|| {
-            for revs_chunk in sliced_chunks {
-                let first_rev = revs_chunk[0];
-                // Skip trailing revisions with empty diff
-                let last_rev_idx = revs_chunk
-                    .iter()
-                    .rposition(|r| self.data_compressed_length(*r) != 0)
-                    .unwrap_or(revs_chunk.len() - 1);
+                    let last_rev = revs_chunk[last_rev_idx];
 
-                let last_rev = revs_chunk[last_rev_idx];
+                    let (offset, data) =
+                        self.get_segment_for_revs(first_rev, last_rev)?;
 
-                let (offset, data) =
-                    self.get_segment_for_revs(first_rev, last_rev)?;
+                    let revs_chunk = &revs_chunk[..=last_rev_idx];
 
-                let revs_chunk = &revs_chunk[..=last_rev_idx];
+                    for rev in revs_chunk {
+                        let chunk_start = self.data_start(*rev);
+                        let chunk_length = self.data_compressed_length(*rev);
+                        // TODO revlogv2 should check the compression mode
+                        let bytes =
+                            &data[chunk_start - offset..][..chunk_length];
+                        let chunk = if !bytes.is_empty()
+                            && bytes[0] == ZSTD_BYTE
+                        {
+                            // If we're using `zstd`, we want to try a more
+                            // specialized decompression
+                            let entry = self.index.get_entry(*rev);
+                            let is_delta = entry
+                                .base_revision_or_base_of_delta_chain()
+                                != (*rev).into();
+                            let uncompressed = uncompressed_zstd_data(
+                                bytes,
+                                is_delta,
+                                entry.uncompressed_len(),
+                            )?;
+                            RawData::from(uncompressed)
+                        } else {
+                            // Otherwise just fallback to generic decompression.
+                            RawData::from(self.decompress(bytes)?)
+                        };
 
-                for rev in revs_chunk {
-                    let chunk_start = self.data_start(*rev);
-                    let chunk_length = self.data_compressed_length(*rev);
-                    // TODO revlogv2 should check the compression mode
-                    let bytes = &data[chunk_start - offset..][..chunk_length];
-                    let chunk = if !bytes.is_empty() && bytes[0] == ZSTD_BYTE {
-                        // If we're using `zstd`, we want to try a more
-                        // specialized decompression
-                        let entry = self.index.get_entry(*rev).unwrap();
-                        let is_delta = entry
-                            .base_revision_or_base_of_delta_chain()
-                            != (*rev).into();
-                        let uncompressed = uncompressed_zstd_data(
-                            bytes,
-                            is_delta,
-                            entry.uncompressed_len(),
-                        )?;
-                        Cow::Owned(uncompressed)
-                    } else {
-                        // Otherwise just fallback to generic decompression.
-                        self.decompress(bytes)?
-                    };
+                        chunks.push((*rev, chunk));
+                    }
+                }
+                Ok(())
+            })?;
 
-                    chunks.push((*rev, chunk.into()));
+            if let Some(Ok(mut cache)) =
+                self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
+            {
+                for (rev, chunk) in chunks.iter().skip(already_cached) {
+                    cache.insert(*rev, chunk.clone());
                 }
             }
-            Ok(())
-        })?;
-
-        if let Some(Ok(mut cache)) =
-            self.uncompressed_chunk_cache.as_ref().map(|c| c.try_write())
-        {
-            for (rev, chunk) in chunks.iter().skip(already_cached) {
-                cache.insert(*rev, chunk.clone());
-            }
+            // Use stable sort here since it's *mostly* sorted
+            chunks.sort_by(|a, b| a.0.cmp(&b.0));
         }
-        // Use stable sort here since it's *mostly* sorted
-        chunks.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(chunks.into_iter().map(|(_r, chunk)| chunk).collect())
+    }
+
+    /// Return the chunks of the delta-chain of a revision
+    ///
+    /// Only return the chunk for the chain above `cached_rev` if possible.
+    ///
+    /// return the chunks and a boolean stating if the cached_rev was reached.
+    pub(super) fn chunks_for_chain(
+        &self,
+        rev: Revision,
+        cached_rev: Option<Revision>,
+    ) -> Result<(Vec<RawData>, bool), RevlogError> {
+        let (delta_chain, stopped) = self.delta_chain(rev, cached_rev)?;
+        // TODO: adjust the target size depending of `stopped`
+        let target_size = self
+            .get_entry(rev)?
+            .uncompressed_len()
+            .map(|raw_size| 4 * raw_size as u64);
+        let deltas = self.chunks(&delta_chain, target_size)?;
+        Ok((deltas, stopped))
     }
 
     /// Slice revs to reduce the amount of unrelated data to be read from disk.
@@ -633,11 +992,11 @@ impl InnerRevlog {
     ///
     /// If individual revision chunks are larger than this limit, they will
     /// still be raised individually.
-    pub fn slice_chunk(
-        &self,
-        revs: &[Revision],
+    pub fn slice_chunk<'a>(
+        &'a self,
+        revs: &'a [Revision],
         target_size: Option<u64>,
-    ) -> Result<Vec<Vec<Revision>>, RevlogError> {
+    ) -> Result<Vec<&'a [Revision]>, RevlogError> {
         let target_size =
             target_size.map(|size| size.max(self.data_config.sr_min_gap_size));
 
@@ -653,9 +1012,7 @@ impl InnerRevlog {
 
         for chunk in to_density {
             sliced.extend(
-                self.slice_chunk_to_size(&chunk, target_size)?
-                    .into_iter()
-                    .map(ToOwned::to_owned),
+                self.slice_chunk_to_size(chunk, target_size)?.into_iter(),
             );
         }
 
@@ -780,16 +1137,8 @@ impl InnerRevlog {
         expected: &[u8],
         data: &[u8],
     ) -> bool {
-        let e1 = self.index.get_entry(p1);
-        let h1 = match e1 {
-            Some(ref entry) => entry.hash(),
-            None => &NULL_NODE,
-        };
-        let e2 = self.index.get_entry(p2);
-        let h2 = match e2 {
-            Some(ref entry) => entry.hash(),
-            None => &NULL_NODE,
-        };
+        let h1 = self.index.get_entry(p1).hash();
+        let h2 = self.index.get_entry(p2).hash();
 
         hash(data, h1.as_bytes(), h2.as_bytes()) == expected
     }
@@ -1006,13 +1355,7 @@ impl InnerRevlog {
         let mut new_data = Vec::with_capacity(self.len() * INDEX_ENTRY_SIZE);
         for r in 0..self.len() {
             let rev = Revision(r as BaseRevision);
-            let entry = self.index.entry_binary(rev).unwrap_or_else(|| {
-                panic!(
-                    "entry {} should exist in {}",
-                    r,
-                    self.index_file.display()
-                )
-            });
+            let entry = self.index.entry_binary(rev);
             if r == 0 {
                 new_data.extend(header.header_bytes);
             }
@@ -1302,18 +1645,428 @@ impl InnerRevlog {
         assert!(self.revlog_type == RevlogType::Filelog);
         self.feature_config.ignore_filelog_censored_revisions
     }
+
+    /// Finds the unique [`Revision`] whose [`Node`] starts with the given
+    /// binary prefix.
+    /// If no [`Revision`] matches the given prefix, Ok(None) is returned.
+    pub fn rev_from_node_prefix(
+        &self,
+        node_prefix: NodePrefix,
+    ) -> Result<Option<Revision>, RevlogError> {
+        self.nodemap
+            .rev_from_node_prefix(&self.index, node_prefix)
+            .map_err(|err| nodemap_error_to_revlog_error(err, node_prefix))
+    }
+
+    /// Returns the shortest length in bytes to uniquely identify this [`Node`].
+    /// If no [`Revision`] matches the given node, `Ok(None)`` is returned.
+    pub fn unique_prefix_len_node(
+        &self,
+        node: super::Node,
+    ) -> Result<Option<usize>, RevlogError> {
+        self.nodemap
+            .unique_prefix_len_node(&self.index, &node)
+            .map_err(|err| nodemap_error_to_revlog_error(err, node.into()))
+    }
+
+    /// `pub` only for `hg-pyo3`
+    /// If `node_tree_opt` is `None`, this creates an empty in-memory nodemap.
+    /// If it's `Some`, it creates a persistent nodemap.
+    #[doc(hidden)]
+    pub fn nodemap_set(
+        &mut self,
+        node_tree_opt: Option<NodeTree>,
+        index_file: PathBuf,
+    ) {
+        self.nodemap =
+            RevlogNodeMap::from_nodetree_option(node_tree_opt, index_file)
+    }
+
+    /// `pub` only for `hg-pyo3`
+    #[doc(hidden)]
+    pub fn nodemap_invalidate(&mut self) -> Result<(), NodeMapError> {
+        self.nodemap.invalidate(&self.index)
+    }
+
+    /// `pub` only for `hg-pyo3`
+    #[doc(hidden)]
+    pub fn nodemap_incremental_data(&mut self) -> (usize, Vec<u8>) {
+        self.nodemap.incremental_data()
+    }
+
+    /// `pub` only for `hg-pyo3`
+    /// Appends this new node to the in-memory index and its nodemap. This is
+    /// still needed because some places directly call the index instead of
+    /// going through the [`InnerRevlog`], and that would need a separate
+    /// cleanup.
+    #[doc(hidden)]
+    pub fn index_append(
+        &mut self,
+        params: RevisionDataParams,
+    ) -> Result<(), RevlogError> {
+        let node = Node::from(params.node_id);
+        let rev =
+            Revision(self.index.len().try_into().expect("revision too large"));
+        self.index.append(params)?;
+        self.nodemap
+            .insert(&self.index, &node, rev)
+            .map_err(|err| nodemap_error_to_revlog_error(err, node.into()))
+    }
+}
+
+fn nodemap_error_to_revlog_error(
+    err: NodeMapError,
+    node_prefix: NodePrefix,
+) -> RevlogError {
+    // Pretty awful but no worse than what we had before. This
+    // is being cleaned up in a separate effort for all errors, so we keep it
+    // in a self-contained function
+    match err {
+        NodeMapError::MultipleResults => {
+            RevlogError::AmbiguousPrefix(format!("{:x}", node_prefix))
+        }
+        NodeMapError::RevisionNotInIndex(rev) => {
+            RevlogError::InvalidRevision(rev.to_string())
+        }
+    }
+}
+
+/// Encapsulates the state of a revlog's nodemap
+enum RevlogNodeMapState {
+    /// Non-persistent nodemap, lazily constructed in-memory
+    InMemory {
+        /// How many lookups have failed
+        misses: AtomicUsize,
+        /// The in-memory tree
+        tree: NodeTree,
+        /// The smallest revision number from the index we've cached. This is
+        /// useful because (after a few misses) we lazily fill the nodemap from
+        /// the end, so every subsequent query would start over from the tip if
+        /// we didn't remember this.
+        smallest_cached_rev: Option<Revision>,
+    },
+    /// Nodemap stored on disk in an append-mostly format
+    Persistent(NodeTree),
+}
+
+/// The nodemap for a given revlog index. It only makes sense to use in the
+/// context of a single [`InnerRevlog`].
+struct RevlogNodeMap {
+    /// Holds the state of the nodemap in a thread-safe manner. Most access
+    /// patterns are reads, so we optimize for it.
+    state: RwLock<RevlogNodeMapState>,
+    /// The canonical index file for the target revlog, for debugging.
+    index_file: PathBuf,
+}
+
+impl std::fmt::Debug for RevlogNodeMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RevlogNodeMap")
+            .field("index_file", &self.index_file.display())
+            .finish()
+    }
+}
+
+impl RevlogNodeMap {
+    /// Main insertion method, see [`NodeTree::insert`].
+    pub fn insert(
+        &self,
+        idx: &impl RevlogIndex,
+        node: &Node,
+        rev: Revision,
+    ) -> Result<(), NodeMapError> {
+        let mut state = self.state.write().expect("propagate the panic");
+        let tree = match state.deref_mut() {
+            RevlogNodeMapState::InMemory {
+                tree,
+                // No need to adjust either of those
+                misses: _,
+                smallest_cached_rev: _,
+            } => tree,
+            RevlogNodeMapState::Persistent(tree) => tree,
+        };
+        tree.insert(idx, node, rev)
+    }
+
+    /// Find the unique [`Revision`] whose [`Node`] starts with the given
+    /// binary prefix. The `idx` must be the same one for all invocations
+    /// If no [`Revision`] matches the given prefix, Ok(None) is returned.
+    fn rev_from_node_prefix(
+        &self,
+        idx: &impl RevlogIndex,
+        node_prefix: NodePrefix,
+    ) -> Result<Option<Revision>, NodeMapError> {
+        if node_prefix == NULL_NODE {
+            // This ensures we don't count this trivial case as a query
+            return Ok(Some(NULL_REVISION));
+        }
+
+        // First check if we have it in cache
+        let (prev_misses, partial_lookup) =
+            match &*self.state.read().expect("propagate the panic") {
+                RevlogNodeMapState::Persistent(node_tree) => {
+                    return node_tree.find_bin(idx, node_prefix);
+                }
+                RevlogNodeMapState::InMemory {
+                    misses,
+                    tree,
+                    smallest_cached_rev: _,
+                } => {
+                    let partial_lookup = tree.find_bin(idx, node_prefix)?;
+                    if node_prefix.nybbles_len() == NULL_NODE.nybbles_len() {
+                        if let Some(rev) = partial_lookup {
+                            // In-memory cache hit of a full node
+                            return Ok(Some(rev));
+                        }
+                    }
+                    // In-memory cache miss, update the counter.
+                    let prev_misses = misses.fetch_add(1, Ordering::Relaxed);
+                    // The nodemap is not fully populated, so we can't give
+                    // back a prefix answer without scanning the full index.
+                    (prev_misses, partial_lookup)
+                }
+            };
+
+        // Cache miss: the tree is lazily built for performance reason, so look
+        // for a match in the index
+        if prev_misses <= 3 {
+            // Don't cache revisions we visit yet
+            let noop_visit = |_, _| {};
+
+            let opt =
+                idx.rev_from_prefix(node_prefix, noop_visit, None, None)?;
+            if let Some((node, rev)) = opt {
+                // Only cache the exact revision we've asked for
+                self.insert(idx, &node, rev)?;
+            }
+            return Ok(opt.map(|(_, rev)| rev));
+        }
+
+        // This revlog is getting queried often: cache every rev we visit
+        let mut state = self.state.write().expect("propagate the panic");
+        match state.deref_mut() {
+            RevlogNodeMapState::Persistent(_) => {
+                unreachable!("in a partial state")
+            }
+            RevlogNodeMapState::InMemory {
+                misses: _,
+                tree,
+                smallest_cached_rev,
+            } => {
+                let start_rev = *smallest_cached_rev;
+                let visit = |node, rev| {
+                    tree.insert(idx, &node, rev).expect("rev must be valid");
+                    // remember where we stopped to not insert top-most
+                    // revisions again
+                    *smallest_cached_rev = Some(rev);
+                };
+                let node_rev_pair = idx.rev_from_prefix(
+                    node_prefix,
+                    visit,
+                    start_rev,
+                    partial_lookup,
+                )?;
+                match node_rev_pair {
+                    Some((_node, revision)) => Ok(Some(revision)),
+                    None => Ok(None),
+                }
+            }
+        }
+    }
+
+    /// Empty the nodemap and return a pair of (`changed`, `new_data`), where
+    /// `changed` is the number of bytes from the readonly part that have been
+    /// masked by the new data (i.e. data added after what was on disk at load
+    /// time).
+    pub fn incremental_data(&self) -> (usize, Vec<u8>) {
+        let mut state = self.state.write().expect("propagate the panic");
+        let tree = match state.deref_mut() {
+            RevlogNodeMapState::InMemory {
+                misses,
+                tree,
+                smallest_cached_rev,
+            } => {
+                *misses = 0.into();
+                *smallest_cached_rev = None;
+                tree
+            }
+            RevlogNodeMapState::Persistent(tree) => tree,
+        };
+        let tree = std::mem::take(tree);
+        let masked_blocks = tree.masked_readonly_blocks();
+        let (_, data) = tree.into_readonly_and_added_bytes();
+        let changed =
+            masked_blocks * std::mem::size_of::<super::nodemap::Block>();
+        (changed, data)
+    }
+
+    /// Empty the nodemap and if it's persistent, reload it from scratch.
+    pub fn invalidate(
+        &self,
+        idx: &impl RevlogIndex,
+    ) -> Result<(), NodeMapError> {
+        let mut state = self.state.write().expect("propagate the panic");
+        match state.deref_mut() {
+            RevlogNodeMapState::InMemory {
+                misses,
+                tree,
+                smallest_cached_rev,
+            } => {
+                *misses = 0.into();
+                *smallest_cached_rev = None;
+                // Don't reload if it's in-memory, we don't know future access
+                // patterns.
+                tree.invalidate_all();
+                Ok(())
+            }
+            RevlogNodeMapState::Persistent(tree) => {
+                tree.invalidate_all();
+                tree.catch_up_to_index(idx, NULL_REVISION)
+            }
+        }
+    }
+
+    /// Internal constructor.
+    ///
+    /// The [`NodeTree`] must be fully populated, or there will be false
+    /// negatives.
+    fn from_nodetree_option(
+        node_tree_opt: Option<NodeTree>,
+        index_file: PathBuf,
+    ) -> Self {
+        let state = match node_tree_opt {
+            Some(node_tree) => RevlogNodeMapState::Persistent(node_tree),
+            None => RevlogNodeMapState::InMemory {
+                misses: 0.into(),
+                tree: Default::default(),
+                smallest_cached_rev: None,
+            },
+        };
+        Self { index_file, state: RwLock::new(state) }
+    }
+}
+
+impl NodeMap for RevlogNodeMap {
+    fn find_bin(
+        &self,
+        idx: &impl RevlogIndex,
+        prefix: NodePrefix,
+    ) -> Result<Option<Revision>, NodeMapError> {
+        self.rev_from_node_prefix(idx, prefix)
+    }
+
+    fn unique_prefix_len_bin(
+        &self,
+        idx: &impl RevlogIndex,
+        node_prefix: NodePrefix,
+    ) -> Result<Option<usize>, NodeMapError> {
+        let mut state = self.state.write().expect("propagate the panic");
+        let state = state.deref_mut();
+        match state {
+            RevlogNodeMapState::InMemory {
+                misses: _,
+                tree,
+                smallest_cached_rev,
+            } => {
+                // We need to fully populate the tree to answer this question
+                tree.catch_up_to_index(idx, NULL_REVISION)?;
+                *smallest_cached_rev = Some(NULL_REVISION);
+                tree.unique_prefix_len_bin(idx, node_prefix)
+            }
+            RevlogNodeMapState::Persistent(tree) => {
+                // The persistent nodemap should have been kept up to date
+                tree.unique_prefix_len_bin(idx, node_prefix)
+            }
+        }
+    }
+}
+
+/// Given two delta targeting the same base, find the affected window
+///
+/// This return the start and end offset of section in "base" affected by a
+/// change in any of the two deltas. Assume that at least one of the delta is
+/// non-empty.
+pub(super) fn affected_range<'a, P>(
+    left: &super::patch::Delta<'a, P>,
+    right: &super::patch::Delta<'a, P>,
+) -> Option<(u32, u32)>
+where
+    P: DeltaPiece<'a>,
+{
+    match (&left.chunks[..], &right.chunks[..]) {
+        ([], []) => None, // both delta chain cancelled themself out eventually
+        ([], chain) => Some((chain[0].start(), chain[chain.len() - 1].end())),
+        (chain, []) => Some((chain[0].start(), chain[chain.len() - 1].end())),
+        (old_chain, new_chain) => {
+            let start = old_chain[0].start().min(new_chain[0].start());
+            let end = old_chain[old_chain.len() - 1]
+                .end()
+                .max(new_chain[new_chain.len() - 1].end());
+            Some((start, end))
+        }
+    }
 }
 
 type UncompressedChunkCache =
-    RwLock<LruMap<Revision, Arc<[u8]>, ByTotalChunksSize>>;
+    RwLock<LruMap<Revision, RawData, ByTotalChunksSize>>;
 
-/// The node, revision and data for the last revision we've seen. Speeds up
+type ForeignBytes = Arc<dyn Deref<Target = [u8]> + Send + Sync>;
+
+#[derive(Clone)]
+enum CachedBytes {
+    Foreign(ForeignBytes),
+    Native(RawData),
+}
+
+impl std::ops::Deref for CachedBytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Foreign(data) => data,
+            Self::Native(data) => data,
+        }
+    }
+}
+
+/// The revision and data for the last revision we've seen. Speeds up
 /// a lot of sequential operations of the revlog.
 ///
 /// The data is not just bytes since it can come from Python and we want to
 /// avoid copies if possible.
-type SingleRevisionCache =
-    (Node, Revision, Box<dyn Deref<Target = [u8]> + Send>);
+#[derive(Clone)]
+pub struct SingleRevisionCache {
+    pub rev: Revision,
+    data: CachedBytes,
+}
+
+impl SingleRevisionCache {
+    pub(super) fn as_delta_base(&self) -> (Revision, &[u8]) {
+        match &self.data {
+            CachedBytes::Foreign(data) => (self.rev, data.as_ref()),
+            CachedBytes::Native(data) => (self.rev, data.as_ref()),
+        }
+    }
+
+    /// return a RawData if available
+    pub(super) fn as_data(&self) -> RawData {
+        match &self.data {
+            CachedBytes::Foreign(data) => {
+                let data: &[u8] = data;
+                RawData::from(data)
+            }
+            CachedBytes::Native(data) => data.clone(),
+        }
+    }
+}
+
+impl std::ops::Deref for SingleRevisionCache {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
 
 /// A way of progressively filling a buffer with revision data, then return
 /// that buffer. Used to abstract away Python-allocated code to reduce copying
@@ -1376,4 +2129,122 @@ pub fn hash(
     }
     hasher.update(data);
     *hasher.finalize().as_ref()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NODE_0: &[u8; 40] = b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabcd";
+    //                                                 different here ^^
+    const NODE_1: &[u8; 40] = b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabee";
+
+    struct FakeIndex([Node; 2]);
+
+    impl FakeIndex {
+        fn new() -> Self {
+            Self([
+                Node::from_hex(NODE_0).unwrap(),
+                Node::from_hex(NODE_1).unwrap(),
+            ])
+        }
+    }
+
+    impl RevlogIndex for FakeIndex {
+        fn len(&self) -> usize {
+            2
+        }
+
+        fn node(&self, rev: Revision) -> &Node {
+            &self.0[rev.0 as usize]
+        }
+    }
+
+    /// Tests that the [`RevlogNodeMap`] behaves correctly when partially built
+    /// in-memory
+    #[test]
+    fn test_revlog_nodemap_basic() {
+        let idx = FakeIndex::new();
+        let nodemap = RevlogNodeMap::from_nodetree_option(None, PathBuf::new());
+        // Test exact match first, to populate the nodemap and make sure...
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(NODE_0).unwrap()
+            ),
+            Ok(Some(Revision(0)))
+        );
+        // ... no partial match from an in-memory index without scanning the
+        // whole thing.
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(b"abcd").unwrap()
+            ),
+            Err(NodeMapError::MultipleResults)
+        );
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(
+                    // unambiguous prefix (removed the last byte)
+                    b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabc"
+                )
+                .unwrap()
+            ),
+            Ok(Some(Revision(0)))
+        );
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(b"abcde").unwrap()
+            ),
+            Ok(None)
+        );
+        // Test other exact match
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(NODE_1).unwrap()
+            ),
+            Ok(Some(Revision(1)))
+        );
+        // Test full node not matching
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(
+                    b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabaa"
+                )
+                .unwrap()
+            ),
+            Ok(None)
+        );
+    }
+
+    /// Test that we don't confuse previous full matches with an unambiguous
+    /// prefix
+    #[test]
+    fn test_revlog_nodemap_prefix() {
+        let idx = FakeIndex::new();
+        let nodemap = RevlogNodeMap::from_nodetree_option(None, PathBuf::new());
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(NODE_0).unwrap()
+            ),
+            Ok(Some(Revision(0)))
+        );
+        assert_eq!(
+            nodemap.rev_from_node_prefix(
+                &idx,
+                NodePrefix::from_hex(
+                    // Missing the last character, but still unambiguous
+                    b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabe"
+                )
+                .unwrap()
+            ),
+            Ok(Some(Revision(1)))
+        );
+    }
 }

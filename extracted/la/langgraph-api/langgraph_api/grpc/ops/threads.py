@@ -16,6 +16,9 @@ import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.types import StateSnapshot, StateUpdate
+from langgraph_grpc_common.proto import checkpointer_pb2
+from langgraph_grpc_common.proto import core_api_pb2 as pb
+from langgraph_grpc_common.proto import enum_thread_status_pb2 as enum_thread_status
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
@@ -27,9 +30,6 @@ from langgraph_api.encryption.middleware import encrypt_json_if_needed
 from langgraph_api.encryption.shared import get_encryption
 from langgraph_api.graph import get_graph
 from langgraph_api.grpc.client import get_shared_client
-from langgraph_api.grpc.generated import checkpointer_pb2
-from langgraph_api.grpc.generated import core_api_pb2 as pb
-from langgraph_api.grpc.generated import enum_thread_status_pb2 as enum_thread_status
 from langgraph_api.grpc.ops import (
     Authenticated,
     _map_sort_order,

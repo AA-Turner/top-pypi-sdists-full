@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libb-util
-Version: 0.0.30
+Version: 0.0.31
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -47,7 +47,6 @@ Requires-Dist: twisted ; extra == 'twd'
 Requires-Dist: service-identity ; extra == 'twd'
 Requires-Dist: twisted ; extra == 'web'
 Requires-Dist: service-identity ; extra == 'web'
-Requires-Dist: web-py ; extra == 'web'
 Requires-Dist: flask ; extra == 'web'
 Provides-Extra: deploy
 Provides-Extra: docs

@@ -340,17 +340,6 @@ def print_banner(label):
     print(f"=== {impl} {version} {label} ({sys.base_prefix}) ===", flush=True)
 
 
-def do_quietly(command):
-    """Run a command in a shell, and suppress all output."""
-    proc = subprocess.run(
-        command,
-        shell=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    return proc.returncode
-
-
 def get_release_facts():
     """Return an object with facts about the current release."""
     import coverage

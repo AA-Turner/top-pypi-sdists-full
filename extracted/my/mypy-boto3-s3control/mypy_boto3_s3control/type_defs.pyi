@@ -3,7 +3,7 @@ Type annotations for s3control service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3control/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -300,6 +300,7 @@ __all__ = (
     "NoncurrentVersionTransitionTypeDef",
     "ObjectEncryptionFilterOutputTypeDef",
     "ObjectEncryptionFilterTypeDef",
+    "ObjectEncryptionTypeDef",
     "ObjectLambdaAccessPointAliasTypeDef",
     "ObjectLambdaAccessPointTypeDef",
     "ObjectLambdaConfigurationOutputTypeDef",
@@ -379,6 +380,8 @@ __all__ = (
     "S3SetObjectTaggingOperationOutputTypeDef",
     "S3SetObjectTaggingOperationTypeDef",
     "S3TagTypeDef",
+    "S3UpdateObjectEncryptionOperationTypeDef",
+    "S3UpdateObjectEncryptionSSEKMSTypeDef",
     "SSEKMSEncryptionTypeDef",
     "SSEKMSFilterTypeDef",
     "SSEKMSTypeDef",
@@ -998,6 +1001,10 @@ class RegionReportTypeDef(TypedDict):
 
 class SSEKMSFilterTypeDef(TypedDict):
     KmsKeyArn: NotRequired[str]
+    BucketKeyEnabled: NotRequired[bool]
+
+class S3UpdateObjectEncryptionSSEKMSTypeDef(TypedDict):
+    KMSKeyArn: str
     BucketKeyEnabled: NotRequired[bool]
 
 class SelectionCriteriaTypeDef(TypedDict):
@@ -1623,6 +1630,9 @@ class ObjectEncryptionFilterTypeDef(TypedDict):
     SSEC: NotRequired[Mapping[str, Any]]
     NOTSSE: NotRequired[Mapping[str, Any]]
 
+class ObjectEncryptionTypeDef(TypedDict):
+    SSEKMS: NotRequired[S3UpdateObjectEncryptionSSEKMSTypeDef]
+
 class PrefixLevelStorageMetricsTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
     SelectionCriteria: NotRequired[SelectionCriteriaTypeDef]
@@ -1827,6 +1837,9 @@ class JobManifestGeneratorFilterTypeDef(TypedDict):
     ObjectSizeLessThanBytes: NotRequired[int]
     MatchAnyStorageClass: NotRequired[Sequence[S3StorageClassType]]
     MatchAnyObjectEncryption: NotRequired[Sequence[ObjectEncryptionFilterTypeDef]]
+
+class S3UpdateObjectEncryptionOperationTypeDef(TypedDict):
+    ObjectEncryption: NotRequired[ObjectEncryptionTypeDef]
 
 class PrefixLevelTypeDef(TypedDict):
     StorageMetrics: PrefixLevelStorageMetricsTypeDef
@@ -2187,6 +2200,7 @@ class JobOperationOutputTypeDef(TypedDict):
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationOutputTypeDef]
     S3ReplicateObject: NotRequired[dict[str, Any]]
     S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
+    S3UpdateObjectEncryption: NotRequired[S3UpdateObjectEncryptionOperationTypeDef]
 
 class JobOperationTypeDef(TypedDict):
     LambdaInvoke: NotRequired[LambdaInvokeOperationTypeDef]
@@ -2199,6 +2213,7 @@ class JobOperationTypeDef(TypedDict):
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationTypeDef]
     S3ReplicateObject: NotRequired[Mapping[str, Any]]
     S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
+    S3UpdateObjectEncryption: NotRequired[S3UpdateObjectEncryptionOperationTypeDef]
 
 LifecycleRuleUnionTypeDef = Union[LifecycleRuleTypeDef, LifecycleRuleOutputTypeDef]
 

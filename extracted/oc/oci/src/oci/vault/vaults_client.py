@@ -166,7 +166,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/cancel_secret_deletion.py.html>`__ to see an example of how to use cancel_secret_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/cancel_secret_deletion.py.html>`__ to see an example of how to use cancel_secret_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -280,7 +280,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/cancel_secret_rotation.py.html>`__ to see an example of how to use cancel_secret_rotation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/cancel_secret_rotation.py.html>`__ to see an example of how to use cancel_secret_rotation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -397,7 +397,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/cancel_secret_version_deletion.py.html>`__ to see an example of how to use cancel_secret_version_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/cancel_secret_version_deletion.py.html>`__ to see an example of how to use cancel_secret_version_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId', 'secretVersionNumber']
@@ -526,7 +526,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/change_secret_compartment.py.html>`__ to see an example of how to use change_secret_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/change_secret_compartment.py.html>`__ to see an example of how to use change_secret_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -646,7 +646,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/create_secret.py.html>`__ to see an example of how to use create_secret API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/create_secret.py.html>`__ to see an example of how to use create_secret API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -746,7 +746,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/get_secret.py.html>`__ to see an example of how to use get_secret API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/get_secret.py.html>`__ to see an example of how to use get_secret API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -856,7 +856,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/get_secret_version.py.html>`__ to see an example of how to use get_secret_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/get_secret_version.py.html>`__ to see an example of how to use get_secret_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId', 'secretVersionNumber']
@@ -981,7 +981,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/list_secret_versions.py.html>`__ to see an example of how to use list_secret_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/list_secret_versions.py.html>`__ to see an example of how to use list_secret_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -1145,7 +1145,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/list_secrets.py.html>`__ to see an example of how to use list_secrets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/list_secrets.py.html>`__ to see an example of how to use list_secrets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1297,7 +1297,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/rotate_secret.py.html>`__ to see an example of how to use rotate_secret API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/rotate_secret.py.html>`__ to see an example of how to use rotate_secret API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -1418,7 +1418,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/schedule_secret_deletion.py.html>`__ to see an example of how to use schedule_secret_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/schedule_secret_deletion.py.html>`__ to see an example of how to use schedule_secret_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']
@@ -1539,7 +1539,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/schedule_secret_version_deletion.py.html>`__ to see an example of how to use schedule_secret_version_deletion API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/schedule_secret_version_deletion.py.html>`__ to see an example of how to use schedule_secret_version_deletion API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId', 'secretVersionNumber']
@@ -1662,7 +1662,7 @@ class VaultsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/vault/update_secret.py.html>`__ to see an example of how to use update_secret API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/vault/update_secret.py.html>`__ to see an example of how to use update_secret API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['secretId']

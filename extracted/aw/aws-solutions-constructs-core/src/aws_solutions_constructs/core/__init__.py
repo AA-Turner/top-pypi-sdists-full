@@ -6453,6 +6453,7 @@ class ServiceEndpointTypes(enum.Enum):
     KENDRA = "KENDRA"
     TRANSCRIBE = "TRANSCRIBE"
     TRANSLATE = "TRANSLATE"
+    TEXTRACT = "TEXTRACT"
 
 
 @jsii.data_type(
@@ -6850,6 +6851,573 @@ class StateMachineProps:
 
     def __repr__(self) -> str:
         return "StateMachineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TextractBucketDetails",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_interface": "bucketInterface",
+        "bucket": "bucket",
+        "logging_bucket": "loggingBucket",
+    },
+)
+class TextractBucketDetails:
+    def __init__(
+        self,
+        *,
+        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    ) -> None:
+        '''
+        :param bucket_interface: -
+        :param bucket: -
+        :param logging_bucket: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff73e2b59e158243819f70de2095f272aacad7e7bad668c5772162d3732abc35)
+            check_type(argname="argument bucket_interface", value=bucket_interface, expected_type=type_hints["bucket_interface"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_interface": bucket_interface,
+        }
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if logging_bucket is not None:
+            self._values["logging_bucket"] = logging_bucket
+
+    @builtins.property
+    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+        result = self._values.get("bucket_interface")
+        assert result is not None, "Required property 'bucket_interface' is missing"
+        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    @builtins.property
+    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("logging_bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextractBucketDetails(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TextractConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "lambda_iam_actions_required": "lambdaIamActionsRequired",
+        "destination_bucket": "destinationBucket",
+        "notification_topic_encryption_key": "notificationTopicEncryptionKey",
+        "sns_notification_topic": "snsNotificationTopic",
+        "source_bucket": "sourceBucket",
+        "textract_role": "textractRole",
+    },
+)
+class TextractConfiguration:
+    def __init__(
+        self,
+        *,
+        lambda_iam_actions_required: typing.Sequence[builtins.str],
+        destination_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        source_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+        textract_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+    ) -> None:
+        '''
+        :param lambda_iam_actions_required: -
+        :param destination_bucket: -
+        :param notification_topic_encryption_key: -
+        :param sns_notification_topic: -
+        :param source_bucket: -
+        :param textract_role: -
+        '''
+        if isinstance(destination_bucket, dict):
+            destination_bucket = TextractBucketDetails(**destination_bucket)
+        if isinstance(source_bucket, dict):
+            source_bucket = TextractBucketDetails(**source_bucket)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f88caf80b26e775e9294246d1da6478902cd2cb31d66f96e95f705e75c78127)
+            check_type(argname="argument lambda_iam_actions_required", value=lambda_iam_actions_required, expected_type=type_hints["lambda_iam_actions_required"])
+            check_type(argname="argument destination_bucket", value=destination_bucket, expected_type=type_hints["destination_bucket"])
+            check_type(argname="argument notification_topic_encryption_key", value=notification_topic_encryption_key, expected_type=type_hints["notification_topic_encryption_key"])
+            check_type(argname="argument sns_notification_topic", value=sns_notification_topic, expected_type=type_hints["sns_notification_topic"])
+            check_type(argname="argument source_bucket", value=source_bucket, expected_type=type_hints["source_bucket"])
+            check_type(argname="argument textract_role", value=textract_role, expected_type=type_hints["textract_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lambda_iam_actions_required": lambda_iam_actions_required,
+        }
+        if destination_bucket is not None:
+            self._values["destination_bucket"] = destination_bucket
+        if notification_topic_encryption_key is not None:
+            self._values["notification_topic_encryption_key"] = notification_topic_encryption_key
+        if sns_notification_topic is not None:
+            self._values["sns_notification_topic"] = sns_notification_topic
+        if source_bucket is not None:
+            self._values["source_bucket"] = source_bucket
+        if textract_role is not None:
+            self._values["textract_role"] = textract_role
+
+    @builtins.property
+    def lambda_iam_actions_required(self) -> typing.List[builtins.str]:
+        result = self._values.get("lambda_iam_actions_required")
+        assert result is not None, "Required property 'lambda_iam_actions_required' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket(self) -> typing.Optional[TextractBucketDetails]:
+        result = self._values.get("destination_bucket")
+        return typing.cast(typing.Optional[TextractBucketDetails], result)
+
+    @builtins.property
+    def notification_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("notification_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def sns_notification_topic(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("sns_notification_topic")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    @builtins.property
+    def source_bucket(self) -> typing.Optional[TextractBucketDetails]:
+        result = self._values.get("source_bucket")
+        return typing.cast(typing.Optional[TextractBucketDetails], result)
+
+    @builtins.property
+    def textract_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+        result = self._values.get("textract_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextractConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TextractProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "async_jobs": "asyncJobs",
+        "create_customer_managed_output_bucket": "createCustomerManagedOutputBucket",
+        "data_access_role_arn_environment_variable_name": "dataAccessRoleArnEnvironmentVariableName",
+        "destination_bucket_environment_variable_name": "destinationBucketEnvironmentVariableName",
+        "destination_bucket_props": "destinationBucketProps",
+        "destination_logging_bucket_props": "destinationLoggingBucketProps",
+        "enable_notification_topic_encryption_with_customer_managed_key": "enableNotificationTopicEncryptionWithCustomerManagedKey",
+        "existing_destination_bucket_obj": "existingDestinationBucketObj",
+        "existing_notification_topic_encryption_key": "existingNotificationTopicEncryptionKey",
+        "existing_notification_topic_obj": "existingNotificationTopicObj",
+        "existing_source_bucket_obj": "existingSourceBucketObj",
+        "log_destination_s3_access_logs": "logDestinationS3AccessLogs",
+        "log_source_s3_access_logs": "logSourceS3AccessLogs",
+        "notification_topic_encryption_key": "notificationTopicEncryptionKey",
+        "notification_topic_encryption_key_props": "notificationTopicEncryptionKeyProps",
+        "notification_topic_props": "notificationTopicProps",
+        "sns_notification_topic_arn_environment_variable_name": "snsNotificationTopicArnEnvironmentVariableName",
+        "source_bucket_environment_variable_name": "sourceBucketEnvironmentVariableName",
+        "source_bucket_props": "sourceBucketProps",
+        "source_logging_bucket_props": "sourceLoggingBucketProps",
+        "use_same_bucket": "useSameBucket",
+    },
+)
+class TextractProps:
+    def __init__(
+        self,
+        *,
+        async_jobs: typing.Optional[builtins.bool] = None,
+        create_customer_managed_output_bucket: typing.Optional[builtins.bool] = None,
+        data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_notification_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
+        existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        existing_notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+        log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        sns_notification_topic_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+        source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        use_same_bucket: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param async_jobs: -
+        :param create_customer_managed_output_bucket: -
+        :param data_access_role_arn_environment_variable_name: -
+        :param destination_bucket_environment_variable_name: -
+        :param destination_bucket_props: -
+        :param destination_logging_bucket_props: -
+        :param enable_notification_topic_encryption_with_customer_managed_key: -
+        :param existing_destination_bucket_obj: -
+        :param existing_notification_topic_encryption_key: -
+        :param existing_notification_topic_obj: -
+        :param existing_source_bucket_obj: -
+        :param log_destination_s3_access_logs: -
+        :param log_source_s3_access_logs: -
+        :param notification_topic_encryption_key: -
+        :param notification_topic_encryption_key_props: -
+        :param notification_topic_props: -
+        :param sns_notification_topic_arn_environment_variable_name: -
+        :param source_bucket_environment_variable_name: -
+        :param source_bucket_props: -
+        :param source_logging_bucket_props: -
+        :param use_same_bucket: -
+        '''
+        if isinstance(destination_bucket_props, dict):
+            destination_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_bucket_props)
+        if isinstance(destination_logging_bucket_props, dict):
+            destination_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_logging_bucket_props)
+        if isinstance(notification_topic_encryption_key_props, dict):
+            notification_topic_encryption_key_props = _aws_cdk_aws_kms_ceddda9d.KeyProps(**notification_topic_encryption_key_props)
+        if isinstance(notification_topic_props, dict):
+            notification_topic_props = _aws_cdk_aws_sns_ceddda9d.TopicProps(**notification_topic_props)
+        if isinstance(source_bucket_props, dict):
+            source_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_bucket_props)
+        if isinstance(source_logging_bucket_props, dict):
+            source_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_logging_bucket_props)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1da7cf4b7374a2e816c7fe6e5e5b6c3fd403f27bdf55cdbd288dcda770df95a)
+            check_type(argname="argument async_jobs", value=async_jobs, expected_type=type_hints["async_jobs"])
+            check_type(argname="argument create_customer_managed_output_bucket", value=create_customer_managed_output_bucket, expected_type=type_hints["create_customer_managed_output_bucket"])
+            check_type(argname="argument data_access_role_arn_environment_variable_name", value=data_access_role_arn_environment_variable_name, expected_type=type_hints["data_access_role_arn_environment_variable_name"])
+            check_type(argname="argument destination_bucket_environment_variable_name", value=destination_bucket_environment_variable_name, expected_type=type_hints["destination_bucket_environment_variable_name"])
+            check_type(argname="argument destination_bucket_props", value=destination_bucket_props, expected_type=type_hints["destination_bucket_props"])
+            check_type(argname="argument destination_logging_bucket_props", value=destination_logging_bucket_props, expected_type=type_hints["destination_logging_bucket_props"])
+            check_type(argname="argument enable_notification_topic_encryption_with_customer_managed_key", value=enable_notification_topic_encryption_with_customer_managed_key, expected_type=type_hints["enable_notification_topic_encryption_with_customer_managed_key"])
+            check_type(argname="argument existing_destination_bucket_obj", value=existing_destination_bucket_obj, expected_type=type_hints["existing_destination_bucket_obj"])
+            check_type(argname="argument existing_notification_topic_encryption_key", value=existing_notification_topic_encryption_key, expected_type=type_hints["existing_notification_topic_encryption_key"])
+            check_type(argname="argument existing_notification_topic_obj", value=existing_notification_topic_obj, expected_type=type_hints["existing_notification_topic_obj"])
+            check_type(argname="argument existing_source_bucket_obj", value=existing_source_bucket_obj, expected_type=type_hints["existing_source_bucket_obj"])
+            check_type(argname="argument log_destination_s3_access_logs", value=log_destination_s3_access_logs, expected_type=type_hints["log_destination_s3_access_logs"])
+            check_type(argname="argument log_source_s3_access_logs", value=log_source_s3_access_logs, expected_type=type_hints["log_source_s3_access_logs"])
+            check_type(argname="argument notification_topic_encryption_key", value=notification_topic_encryption_key, expected_type=type_hints["notification_topic_encryption_key"])
+            check_type(argname="argument notification_topic_encryption_key_props", value=notification_topic_encryption_key_props, expected_type=type_hints["notification_topic_encryption_key_props"])
+            check_type(argname="argument notification_topic_props", value=notification_topic_props, expected_type=type_hints["notification_topic_props"])
+            check_type(argname="argument sns_notification_topic_arn_environment_variable_name", value=sns_notification_topic_arn_environment_variable_name, expected_type=type_hints["sns_notification_topic_arn_environment_variable_name"])
+            check_type(argname="argument source_bucket_environment_variable_name", value=source_bucket_environment_variable_name, expected_type=type_hints["source_bucket_environment_variable_name"])
+            check_type(argname="argument source_bucket_props", value=source_bucket_props, expected_type=type_hints["source_bucket_props"])
+            check_type(argname="argument source_logging_bucket_props", value=source_logging_bucket_props, expected_type=type_hints["source_logging_bucket_props"])
+            check_type(argname="argument use_same_bucket", value=use_same_bucket, expected_type=type_hints["use_same_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if async_jobs is not None:
+            self._values["async_jobs"] = async_jobs
+        if create_customer_managed_output_bucket is not None:
+            self._values["create_customer_managed_output_bucket"] = create_customer_managed_output_bucket
+        if data_access_role_arn_environment_variable_name is not None:
+            self._values["data_access_role_arn_environment_variable_name"] = data_access_role_arn_environment_variable_name
+        if destination_bucket_environment_variable_name is not None:
+            self._values["destination_bucket_environment_variable_name"] = destination_bucket_environment_variable_name
+        if destination_bucket_props is not None:
+            self._values["destination_bucket_props"] = destination_bucket_props
+        if destination_logging_bucket_props is not None:
+            self._values["destination_logging_bucket_props"] = destination_logging_bucket_props
+        if enable_notification_topic_encryption_with_customer_managed_key is not None:
+            self._values["enable_notification_topic_encryption_with_customer_managed_key"] = enable_notification_topic_encryption_with_customer_managed_key
+        if existing_destination_bucket_obj is not None:
+            self._values["existing_destination_bucket_obj"] = existing_destination_bucket_obj
+        if existing_notification_topic_encryption_key is not None:
+            self._values["existing_notification_topic_encryption_key"] = existing_notification_topic_encryption_key
+        if existing_notification_topic_obj is not None:
+            self._values["existing_notification_topic_obj"] = existing_notification_topic_obj
+        if existing_source_bucket_obj is not None:
+            self._values["existing_source_bucket_obj"] = existing_source_bucket_obj
+        if log_destination_s3_access_logs is not None:
+            self._values["log_destination_s3_access_logs"] = log_destination_s3_access_logs
+        if log_source_s3_access_logs is not None:
+            self._values["log_source_s3_access_logs"] = log_source_s3_access_logs
+        if notification_topic_encryption_key is not None:
+            self._values["notification_topic_encryption_key"] = notification_topic_encryption_key
+        if notification_topic_encryption_key_props is not None:
+            self._values["notification_topic_encryption_key_props"] = notification_topic_encryption_key_props
+        if notification_topic_props is not None:
+            self._values["notification_topic_props"] = notification_topic_props
+        if sns_notification_topic_arn_environment_variable_name is not None:
+            self._values["sns_notification_topic_arn_environment_variable_name"] = sns_notification_topic_arn_environment_variable_name
+        if source_bucket_environment_variable_name is not None:
+            self._values["source_bucket_environment_variable_name"] = source_bucket_environment_variable_name
+        if source_bucket_props is not None:
+            self._values["source_bucket_props"] = source_bucket_props
+        if source_logging_bucket_props is not None:
+            self._values["source_logging_bucket_props"] = source_logging_bucket_props
+        if use_same_bucket is not None:
+            self._values["use_same_bucket"] = use_same_bucket
+
+    @builtins.property
+    def async_jobs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("async_jobs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def create_customer_managed_output_bucket(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("create_customer_managed_output_bucket")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def data_access_role_arn_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("data_access_role_arn_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("destination_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("destination_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def destination_logging_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("destination_logging_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def enable_notification_topic_encryption_with_customer_managed_key(
+        self,
+    ) -> typing.Optional[builtins.bool]:
+        result = self._values.get("enable_notification_topic_encryption_with_customer_managed_key")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def existing_destination_bucket_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+        result = self._values.get("existing_destination_bucket_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+
+    @builtins.property
+    def existing_notification_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("existing_notification_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def existing_notification_topic_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("existing_notification_topic_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    @builtins.property
+    def existing_source_bucket_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+        result = self._values.get("existing_source_bucket_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+
+    @builtins.property
+    def log_destination_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_destination_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def log_source_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_source_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def notification_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("notification_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def notification_topic_encryption_key_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+        result = self._values.get("notification_topic_encryption_key_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+
+    @builtins.property
+    def notification_topic_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+        result = self._values.get("notification_topic_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+
+    @builtins.property
+    def sns_notification_topic_arn_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("sns_notification_topic_arn_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_bucket_environment_variable_name(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("source_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("source_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def source_logging_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("source_logging_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def use_same_bucket(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("use_same_bucket")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextractProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TextractSnsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "existing_notification_topic_obj": "existingNotificationTopicObj",
+        "existing_notification_topic_object": "existingNotificationTopicObject",
+        "notification_topic_encryption_key": "notificationTopicEncryptionKey",
+        "notification_topic_encryption_key_props": "notificationTopicEncryptionKeyProps",
+        "notification_topic_props": "notificationTopicProps",
+    },
+)
+class TextractSnsProps:
+    def __init__(
+        self,
+        *,
+        existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        existing_notification_topic_object: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param existing_notification_topic_obj: -
+        :param existing_notification_topic_object: -
+        :param notification_topic_encryption_key: -
+        :param notification_topic_encryption_key_props: -
+        :param notification_topic_props: -
+        '''
+        if isinstance(notification_topic_encryption_key_props, dict):
+            notification_topic_encryption_key_props = _aws_cdk_aws_kms_ceddda9d.KeyProps(**notification_topic_encryption_key_props)
+        if isinstance(notification_topic_props, dict):
+            notification_topic_props = _aws_cdk_aws_sns_ceddda9d.TopicProps(**notification_topic_props)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8289be0e8263b20724008c39fff73198e797d84709607b05eebde31cac6e3991)
+            check_type(argname="argument existing_notification_topic_obj", value=existing_notification_topic_obj, expected_type=type_hints["existing_notification_topic_obj"])
+            check_type(argname="argument existing_notification_topic_object", value=existing_notification_topic_object, expected_type=type_hints["existing_notification_topic_object"])
+            check_type(argname="argument notification_topic_encryption_key", value=notification_topic_encryption_key, expected_type=type_hints["notification_topic_encryption_key"])
+            check_type(argname="argument notification_topic_encryption_key_props", value=notification_topic_encryption_key_props, expected_type=type_hints["notification_topic_encryption_key_props"])
+            check_type(argname="argument notification_topic_props", value=notification_topic_props, expected_type=type_hints["notification_topic_props"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if existing_notification_topic_obj is not None:
+            self._values["existing_notification_topic_obj"] = existing_notification_topic_obj
+        if existing_notification_topic_object is not None:
+            self._values["existing_notification_topic_object"] = existing_notification_topic_object
+        if notification_topic_encryption_key is not None:
+            self._values["notification_topic_encryption_key"] = notification_topic_encryption_key
+        if notification_topic_encryption_key_props is not None:
+            self._values["notification_topic_encryption_key_props"] = notification_topic_encryption_key_props
+        if notification_topic_props is not None:
+            self._values["notification_topic_props"] = notification_topic_props
+
+    @builtins.property
+    def existing_notification_topic_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("existing_notification_topic_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    @builtins.property
+    def existing_notification_topic_object(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("existing_notification_topic_object")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    @builtins.property
+    def notification_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("notification_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def notification_topic_encryption_key_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+        result = self._values.get("notification_topic_encryption_key_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+
+    @builtins.property
+    def notification_topic_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+        result = self._values.get("notification_topic_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextractSnsProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7335,6 +7903,10 @@ __all__ = [
     "SnsProps",
     "SqsProps",
     "StateMachineProps",
+    "TextractBucketDetails",
+    "TextractConfiguration",
+    "TextractProps",
+    "TextractSnsProps",
     "TranslateConfiguration",
     "TranslateProps",
     "VpcPropsSet",
@@ -8186,6 +8758,65 @@ def _typecheckingstub__f08646452b145e569da8f0e193b37ccb2f89096eac1b603e02a301d09
     existing_state_machine_obj: typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine] = None,
     log_group_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
     state_machine_props: typing.Optional[typing.Union[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff73e2b59e158243819f70de2095f272aacad7e7bad668c5772162d3732abc35(
+    *,
+    bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f88caf80b26e775e9294246d1da6478902cd2cb31d66f96e95f705e75c78127(
+    *,
+    lambda_iam_actions_required: typing.Sequence[builtins.str],
+    destination_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    source_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    textract_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1da7cf4b7374a2e816c7fe6e5e5b6c3fd403f27bdf55cdbd288dcda770df95a(
+    *,
+    async_jobs: typing.Optional[builtins.bool] = None,
+    create_customer_managed_output_bucket: typing.Optional[builtins.bool] = None,
+    data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_notification_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
+    existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    existing_notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+    log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+    notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    sns_notification_topic_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+    source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    use_same_bucket: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8289be0e8263b20724008c39fff73198e797d84709607b05eebde31cac6e3991(
+    *,
+    existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    existing_notification_topic_object: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -216,6 +216,10 @@ files:
     maintainers: resmo
   $filters/to_time_unit.yml:
     maintainers: resmo
+  $filters/to_toml.py:
+    maintainers: milliams
+  $filters/to_toml.yml:
+    maintainers: milliams
   $filters/to_weeks.yml:
     maintainers: resmo
   $filters/to_yaml.py:
@@ -1333,6 +1337,8 @@ files:
     maintainers: farhan7500 gautamphegde
   $modules/ssh_config.py:
     maintainers: gaqzi Akasurde
+  $modules/sssd_info.py:
+    maintainers: a-gabidullin
   $modules/stacki_host.py:
     labels: stacki_host
     maintainers: bsanders bbyhuy
@@ -1498,14 +1504,14 @@ files:
     maintainers: vbotka
   $plugin_utils/unsafe.py:
     maintainers: felixfontein
+  $plugin_utils/_tags.py:
+    maintainers: felixfontein
   $tests/a_module.py:
     maintainers: felixfontein
   $tests/ansible_type.py:
     maintainers: vbotka
   $tests/fqdn_valid.py:
     maintainers: vbotka
-  $modules/sssd_info.py:
-    maintainers: a-gabidullin
   #########################
   docs/docsite/rst/filter_guide.rst: {}
   docs/docsite/rst/filter_guide_abstract_informations.rst: {}

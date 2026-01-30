@@ -2,7 +2,7 @@
 # pylint: disable=too-many-arguments
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2025
+# Copyright (C) 2015-2026
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -24,16 +24,13 @@ import contextlib
 import copy
 import datetime as dtm
 import pickle
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     NoReturn,
-    Optional,
     TypeVar,
-    Union,
     cast,
     no_type_check,
 )
@@ -106,17 +103,17 @@ from telegram._utils.types import (
     FileInput,
     JSONDict,
     ODVInput,
-    ReplyMarkup,
     TimePeriod,
 )
 from telegram._utils.warnings import warn
+from telegram._utils.warnings_transition import build_deprecation_warning_message
 from telegram._webhookinfo import WebhookInfo
 from telegram.constants import InlineQueryLimit, ReactionEmoji
 from telegram.error import EndPointNotFound, InvalidToken
 from telegram.request import BaseRequest, RequestData
 from telegram.request._httpxrequest import HTTPXRequest
 from telegram.request._requestparameter import RequestParameter
-from telegram.warnings import PTBUserWarning
+from telegram.warnings import PTBDeprecationWarning, PTBUserWarning
 
 if TYPE_CHECKING:
     from telegram import (
@@ -138,6 +135,7 @@ if TYPE_CHECKING:
         StoryArea,
         SuggestedPostParameters,
     )
+    from telegram._utils.types import ReplyMarkup
 
 BT = TypeVar("BT", bound="Bot")
 
@@ -305,11 +303,12 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     __slots__ = (
         "_base_file_url",
         "_base_url",
+        "_bot_initialized",
         "_bot_user",
-        "_initialized",
         "_local_mode",
         "_private_key",
         "_request",
+        "_requests_initialized",
         "_token",
     )
 
@@ -318,10 +317,10 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         token: str,
         base_url: BaseUrl = "https://api.telegram.org/bot",
         base_file_url: BaseUrl = "https://api.telegram.org/file/bot",
-        request: Optional[BaseRequest] = None,
-        get_updates_request: Optional[BaseRequest] = None,
-        private_key: Optional[bytes] = None,
-        private_key_password: Optional[bytes] = None,
+        request: BaseRequest | None = None,
+        get_updates_request: BaseRequest | None = None,
+        private_key: bytes | None = None,
+        private_key_password: bytes | None = None,
         local_mode: bool = False,
     ):
         super().__init__(api_kwargs=None)
@@ -335,9 +334,10 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         self._LOGGER.debug("Set Bot API File URL: %s", self._base_file_url)
 
         self._local_mode: bool = local_mode
-        self._bot_user: Optional[User] = None
-        self._private_key: Optional[bytes] = None
-        self._initialized: bool = False
+        self._bot_user: User | None = None
+        self._private_key: bytes | None = None
+        self._requests_initialized: bool = False
+        self._bot_initialized: bool = False
 
         self._request: tuple[BaseRequest, BaseRequest] = (
             (
@@ -412,9 +412,9 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """|async_context_manager| :meth:`shuts down <shutdown>` the Bot."""
         # Make sure not to return `True` so that exceptions are not suppressed
@@ -510,7 +510,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     # 1. cryptography doesn't have a nice base class, so it would get lengthy
     # 2. we can't import cryptography if it's not installed
     @property
-    def private_key(self) -> Optional[Any]:
+    def private_key(self) -> Any | None:
         """Deserialized private key for decryption of telegram passport data.
 
         .. versionadded:: 20.0
@@ -607,7 +607,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     @classmethod
     def _warn(
         cls,
-        message: Union[str, PTBUserWarning],
+        message: str | PTBUserWarning,
         category: type[Warning] = PTBUserWarning,
         stacklevel: int = 0,
     ) -> None:
@@ -618,11 +618,11 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     def _parse_file_input(
         self,
-        file_input: Union[FileInput, "TelegramObject"],
-        tg_type: Optional[type["TelegramObject"]] = None,
-        filename: Optional[str] = None,
+        file_input: "FileInput| TelegramObject",
+        tg_type: type["TelegramObject"] | None = None,
+        filename: str | None = None,
         attach: bool = False,
-    ) -> Union[str, "InputFile", Any]:
+    ) -> "str| InputFile| Any":
         return parse_file_input(
             file_input=file_input,
             tg_type=tg_type,
@@ -677,13 +677,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def _post(
         self,
         endpoint: str,
-        data: Optional[JSONDict] = None,
+        data: JSONDict | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Any:
         # We know that the return type is Union[bool, JSONDict, list[JSONDict]], but it's hard
         # to tell mypy which methods expects which of these return values and `Any` saves us a
@@ -718,7 +718,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-    ) -> Union[bool, JSONDict, list[JSONDict]]:
+    ) -> bool | JSONDict | list[JSONDict]:
         # This also converts datetimes into timestamps.
         # We don't do this earlier so that _insert_defaults (see above) has a chance to convert
         # to the default timezone in case this is called by ExtBot
@@ -748,27 +748,27 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         endpoint: str,
         data: JSONDict,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        caption: Optional[str] = None,
+        message_thread_id: int | None = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         link_preview_options: ODVInput["LinkPreviewOptions"] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Any:
         """Protected method to send or edit messages of any type.
 
@@ -840,18 +840,21 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
         .. versionadded:: 20.0
         """
-        if self._initialized:
+        if self._requests_initialized and self._bot_initialized:
             self._LOGGER.debug("This Bot is already initialized.")
             return
 
-        await asyncio.gather(self._request[0].initialize(), self._request[1].initialize())
-        # this needs to be set before we call get_me, since this can trigger an error in the
-        # request backend, which would then NOT lead to a proper shutdown if this flag isn't set
-        self._initialized = True
+        # Initialize request objects if not already done
+        if not self._requests_initialized:
+            await asyncio.gather(self._request[0].initialize(), self._request[1].initialize())
+            self._requests_initialized = True
+
+        # Initialize bot user
         # Since the bot is to be initialized only once, we can also use it for
         # verifying the token passed and raising an exception if it's invalid.
         try:
             await self.get_me()
+            self._bot_initialized = True
         except InvalidToken as exc:
             raise InvalidToken(f"The token `{self._token}` was rejected by the server.") from exc
 
@@ -863,18 +866,19 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
         .. versionadded:: 20.0
         """
-        if not self._initialized:
+        if not self._requests_initialized:
             self._LOGGER.debug("This Bot is already shut down. Returning.")
             return
 
         await asyncio.gather(self._request[0].shutdown(), self._request[1].shutdown())
-        self._initialized = False
+        self._requests_initialized = False
+        self._bot_initialized = False
 
     async def do_api_request(
         self,
         endpoint: str,
-        api_kwargs: Optional[JSONDict] = None,
-        return_type: Optional[type[TelegramObject]] = None,
+        api_kwargs: JSONDict | None = None,
+        return_type: type[TelegramObject] | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
@@ -946,7 +950,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
             #   2) correct tokens but non-existing method, e.g. api.tg.org/botTOKEN/unkonwnMethod
             # 2) is relevant only for Bot.do_api_request, that's why we have special handling for
             # that here rather than in BaseRequest._request_wrapper
-            if self._initialized:
+            if self._bot_initialized:
                 raise EndPointNotFound(
                     f"Endpoint '{camel_case_endpoint}' not found in Bot API"
                 ) from exc
@@ -970,7 +974,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> User:
         """A simple method for testing your bot's auth token. Requires no parameters.
 
@@ -995,30 +999,30 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_message(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         text: str,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        entities: Optional[Sequence["MessageEntity"]] = None,
+        entities: Sequence["MessageEntity"] | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        message_thread_id: Optional[int] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        message_thread_id: int | None = None,
         link_preview_options: ODVInput["LinkPreviewOptions"] = DEFAULT_NONE,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        disable_web_page_preview: Optional[bool] = None,
+        reply_to_message_id: int | None = None,
+        disable_web_page_preview: bool | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send text messages.
 
@@ -1141,14 +1145,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def delete_message(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete a message, including service messages, with the following
@@ -1197,16 +1201,79 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
             api_kwargs=api_kwargs,
         )
 
+    async def send_message_draft(
+        self,
+        chat_id: int,
+        draft_id: int,
+        text: str,
+        message_thread_id: int | None = None,
+        parse_mode: ODVInput[str] = DEFAULT_NONE,
+        entities: Sequence["MessageEntity"] | None = None,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> bool:
+        """Use this method to stream a partial message to a user while the message is being
+        generated; supported only for bots with forum topic mode enabled.
+
+        .. versionadded:: 22.6
+
+        Args:
+            chat_id (:obj:`int`): Unique identifier for the target private chat.
+            draft_id (:obj:`int`): Unique identifier of the message draft; must be non-zero.
+                Changes of drafts with the same identifier are animated.
+            text (:obj:`str`): Text of the message to be sent,
+                :tg-const:`telegram.constants.MessageLimit.MIN_TEXT_LENGTH`-
+                :tg-const:`telegram.constants.MessageLimit.MAX_TEXT_LENGTH` characters after
+                entities parsing.
+            parse_mode (:obj:`str`): |parse_mode|
+            entities (Sequence[:class:`telegram.MessageEntity`], optional): Sequence of special
+                entities that appear in message text, which can be specified instead of
+                :paramref:`parse_mode`.
+
+                    |sequenceargs|
+            message_thread_id (:obj:`int`, optional): Unique identifier for the target
+                message thread.
+
+
+        Returns:
+            :obj:`bool`: On success, :obj:`True` is returned.
+
+        Raises:
+            :class:`telegram.error.TelegramError`
+
+        """
+        data: JSONDict = {
+            "chat_id": chat_id,
+            "draft_id": draft_id,
+            "text": text,
+            "entities": entities,
+        }
+        return await self._send_message(
+            "sendMessageDraft",
+            data,
+            message_thread_id=message_thread_id,
+            parse_mode=parse_mode,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+
     async def delete_messages(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         message_ids: Sequence[int],
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete multiple messages simultaneously. If some of the specified
@@ -1241,21 +1308,22 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def forward_message(
         self,
-        chat_id: Union[int, str],
-        from_chat_id: Union[str, int],
+        chat_id: int | str,
+        from_chat_id: str | int,
         message_id: int,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to forward messages of any kind. Service messages can't be forwarded.
@@ -1295,6 +1363,10 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
                 forwarded to a direct messages chat.
 
                 .. versionadded:: 22.4
+            message_effect_id (:obj:`str`, optional): Unique identifier of the message effect to be
+                added to the message; only available when forwarding to private chats
+
+                .. versionadded:: 22.6
 
         Returns:
             :class:`telegram.Message`: On success, the sent Message is returned.
@@ -1322,23 +1394,24 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
             pool_timeout=pool_timeout,
             api_kwargs=api_kwargs,
             direct_messages_topic_id=direct_messages_topic_id,
+            message_effect_id=message_effect_id,
         )
 
     async def forward_messages(
         self,
-        chat_id: Union[int, str],
-        from_chat_id: Union[str, int],
+        chat_id: int | str,
+        from_chat_id: str | int,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[MessageId, ...]:
         """
         Use this method to forward messages of any kind. If some of the specified messages can't be
@@ -1395,32 +1468,32 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_photo(
         self,
-        chat_id: Union[int, str],
-        photo: Union[FileInput, "PhotoSize"],
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        photo: "FileInput | PhotoSize",
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send photos.
 
@@ -1558,34 +1631,34 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_audio(
         self,
-        chat_id: Union[int, str],
-        audio: Union[FileInput, "Audio"],
-        duration: Optional[TimePeriod] = None,
-        performer: Optional[str] = None,
-        title: Optional[str] = None,
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        audio: "FileInput | Audio",
+        duration: TimePeriod | None = None,
+        performer: str | None = None,
+        title: str | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send audio files, if you want Telegram clients to display them in the
@@ -1735,32 +1808,32 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_document(
         self,
-        chat_id: Union[int, str],
-        document: Union[FileInput, "Document"],
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        document: "FileInput | Document",
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        disable_content_type_detection: Optional[bool] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        disable_content_type_detection: bool | None = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send general files.
@@ -1901,27 +1974,27 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_sticker(
         self,
-        chat_id: Union[int, str],
-        sticker: Union[FileInput, "Sticker"],
+        chat_id: int | str,
+        sticker: "FileInput | Sticker",
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        emoji: Optional[str] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        emoji: str | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send static ``.WEBP``, animated ``.TGS``, or video ``.WEBM`` stickers.
@@ -2035,39 +2108,39 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_video(
         self,
-        chat_id: Union[int, str],
-        video: Union[FileInput, "Video"],
-        duration: Optional[TimePeriod] = None,
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        video: "FileInput | Video",
+        duration: TimePeriod | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        width: int | None = None,
+        height: int | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        supports_streaming: Optional[bool] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        supports_streaming: bool | None = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        cover: Optional[FileInput] = None,
-        start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        cover: "FileInput | None" = None,
+        start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send video files, Telegram clients support mp4 videos
         (other formats may be sent as Document).
@@ -2240,30 +2313,30 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_video_note(
         self,
-        chat_id: Union[int, str],
-        video_note: Union[FileInput, "VideoNote"],
-        duration: Optional[TimePeriod] = None,
-        length: Optional[int] = None,
+        chat_id: int | str,
+        video_note: "FileInput | VideoNote",
+        duration: TimePeriod | None = None,
+        length: int | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         As of v.4.0, Telegram clients support rounded square mp4 videos of up to 1 minute long.
@@ -2403,36 +2476,36 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_animation(
         self,
-        chat_id: Union[int, str],
-        animation: Union[FileInput, "Animation"],
-        duration: Optional[TimePeriod] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        animation: "FileInput | Animation",
+        duration: TimePeriod | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        has_spoiler: Optional[bool] = None,
-        thumbnail: Optional[FileInput] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        show_caption_above_media: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        has_spoiler: bool | None = None,
+        thumbnail: "FileInput | None" = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        show_caption_above_media: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send animation files (GIF or H.264/MPEG-4 AVC video without sound).
@@ -2589,31 +2662,31 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_voice(
         self,
-        chat_id: Union[int, str],
-        voice: Union[FileInput, "Voice"],
-        duration: Optional[TimePeriod] = None,
-        caption: Optional[str] = None,
+        chat_id: int | str,
+        voice: "FileInput | Voice",
+        duration: TimePeriod | None = None,
+        caption: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        filename: Optional[str] = None,
+        reply_to_message_id: int | None = None,
+        filename: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send audio files, if you want Telegram clients to display the file
@@ -2756,29 +2829,29 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_media_group(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         media: Sequence[
-            Union["InputMediaAudio", "InputMediaDocument", "InputMediaPhoto", "InputMediaVideo"]
+            "InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo"
         ],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-        caption: Optional[str] = None,
+        api_kwargs: JSONDict | None = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
     ) -> tuple[Message, ...]:
         """Use this method to send a group of photos, videos, documents or audios as an album.
         Documents and audio files can be only grouped in an album with messages of the same type.
@@ -2942,32 +3015,32 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_location(
         self,
-        chat_id: Union[int, str],
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        chat_id: int | str,
+        latitude: float | None = None,
+        longitude: float | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        live_period: Optional[TimePeriod] = None,
-        horizontal_accuracy: Optional[float] = None,
-        heading: Optional[int] = None,
-        proximity_alert_radius: Optional[int] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        live_period: TimePeriod | None = None,
+        horizontal_accuracy: float | None = None,
+        heading: int | None = None,
+        proximity_alert_radius: int | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        location: Optional[Location] = None,
+        reply_to_message_id: int | None = None,
+        location: "Location | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send point on the map.
 
@@ -3109,25 +3182,25 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def edit_message_live_location(
         self,
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        horizontal_accuracy: Optional[float] = None,
-        heading: Optional[int] = None,
-        proximity_alert_radius: Optional[int] = None,
-        live_period: Optional[TimePeriod] = None,
-        business_connection_id: Optional[str] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        horizontal_accuracy: float | None = None,
+        heading: int | None = None,
+        proximity_alert_radius: int | None = None,
+        live_period: TimePeriod | None = None,
+        business_connection_id: str | None = None,
         *,
-        location: Optional[Location] = None,
+        location: "Location | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """Use this method to edit live location messages sent by the bot or via the bot
         (for inline bots). A location can be edited until its :attr:`telegram.Location.live_period`
         expires or editing is explicitly disabled by a call to :meth:`stop_message_live_location`.
@@ -3223,18 +3296,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def stop_message_live_location(
         self,
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        business_connection_id: Optional[str] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """Use this method to stop updating a live location message sent by the bot or via the bot
         (for inline bots) before :paramref:`~telegram.Location.live_period` expires.
 
@@ -3275,34 +3348,34 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_venue(
         self,
-        chat_id: Union[int, str],
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
-        title: Optional[str] = None,
-        address: Optional[str] = None,
-        foursquare_id: Optional[str] = None,
+        chat_id: int | str,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        title: str | None = None,
+        address: str | None = None,
+        foursquare_id: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        foursquare_type: Optional[str] = None,
-        google_place_id: Optional[str] = None,
-        google_place_type: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        foursquare_type: str | None = None,
+        google_place_id: str | None = None,
+        google_place_type: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        venue: Optional[Venue] = None,
+        reply_to_message_id: int | None = None,
+        venue: "Venue | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send information about a venue.
 
@@ -3447,30 +3520,30 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_contact(
         self,
-        chat_id: Union[int, str],
-        phone_number: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
+        chat_id: int | str,
+        phone_number: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        vcard: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        vcard: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
-        contact: Optional[Contact] = None,
+        reply_to_message_id: int | None = None,
+        contact: "Contact | None" = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send phone contacts.
 
@@ -3599,21 +3672,21 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         chat_id: int,
         game_short_name: str,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send a game.
 
@@ -3696,16 +3769,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_chat_action(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         action: str,
-        message_thread_id: Optional[int] = None,
-        business_connection_id: Optional[str] = None,
+        message_thread_id: int | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method when you need to tell the user that something is happening on the bot's
@@ -3750,12 +3823,11 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     def _effective_inline_results(
         self,
-        results: Union[
-            Sequence["InlineQueryResult"], Callable[[int], Optional[Sequence["InlineQueryResult"]]]
-        ],
-        next_offset: Optional[str] = None,
-        current_offset: Optional[str] = None,
-    ) -> tuple[Sequence["InlineQueryResult"], Optional[str]]:
+        results: Sequence["InlineQueryResult"]
+        | (Callable[[int], Sequence["InlineQueryResult"] | None]),
+        next_offset: str | None = None,
+        current_offset: str | None = None,
+    ) -> tuple[Sequence["InlineQueryResult"], str | None]:
         """
         Builds the effective results from the results input.
         We make this a stand-alone method so tg.ext.ExtBot can wrap it.
@@ -3844,20 +3916,19 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def answer_inline_query(
         self,
         inline_query_id: str,
-        results: Union[
-            Sequence["InlineQueryResult"], Callable[[int], Optional[Sequence["InlineQueryResult"]]]
-        ],
-        cache_time: Optional[TimePeriod] = None,
-        is_personal: Optional[bool] = None,
-        next_offset: Optional[str] = None,
-        button: Optional[InlineQueryResultsButton] = None,
+        results: Sequence["InlineQueryResult"]
+        | (Callable[[int], Sequence["InlineQueryResult"] | None]),
+        cache_time: TimePeriod | None = None,
+        is_personal: bool | None = None,
+        next_offset: str | None = None,
+        button: InlineQueryResultsButton | None = None,
         *,
-        current_offset: Optional[str] = None,
+        current_offset: str | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to send answers to an inline query. No more than
@@ -3946,16 +4017,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         self,
         user_id: int,
         result: "InlineQueryResult",
-        allow_user_chats: Optional[bool] = None,
-        allow_bot_chats: Optional[bool] = None,
-        allow_group_chats: Optional[bool] = None,
-        allow_channel_chats: Optional[bool] = None,
+        allow_user_chats: bool | None = None,
+        allow_bot_chats: bool | None = None,
+        allow_group_chats: bool | None = None,
+        allow_channel_chats: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> PreparedInlineMessage:
         """Stores a message that can be sent by a user of a Mini App.
 
@@ -4004,15 +4075,15 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def get_user_profile_photos(
         self,
         user_id: int,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
+        offset: int | None = None,
+        limit: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> UserProfilePhotos:
+        api_kwargs: JSONDict | None = None,
+    ) -> "UserProfilePhotos":
         """Use this method to get a list of profile pictures for a user.
 
         Args:
@@ -4047,15 +4118,24 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_file(
         self,
-        file_id: Union[
-            str, Animation, Audio, ChatPhoto, Document, PhotoSize, Sticker, Video, VideoNote, Voice
-        ],
+        file_id: (
+            str
+            | Animation
+            | Audio
+            | ChatPhoto
+            | Document
+            | PhotoSize
+            | Sticker
+            | Video
+            | VideoNote
+            | Voice
+        ),
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> File:
         """
         Use this method to get basic info about a file and prepare it for downloading. For the
@@ -4112,16 +4192,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def ban_chat_member(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
-        until_date: Optional[Union[int, dtm.datetime]] = None,
-        revoke_messages: Optional[bool] = None,
+        until_date: int | dtm.datetime | None = None,
+        revoke_messages: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to ban a user from a group, supergroup or a channel. In the case of
@@ -4173,14 +4253,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def ban_chat_sender_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         sender_chat_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to ban a channel chat in a supergroup or a channel. Until the chat is
@@ -4216,15 +4296,15 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def unban_chat_member(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
-        only_if_banned: Optional[bool] = None,
+        only_if_banned: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to unban a previously kicked user in a supergroup or channel.
 
@@ -4260,14 +4340,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def unban_chat_sender_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         sender_chat_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to unban a previously banned channel in a supergroup or channel.
         The bot must be an administrator for this to work and must have the
@@ -4301,16 +4381,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def answer_callback_query(
         self,
         callback_query_id: str,
-        text: Optional[str] = None,
-        show_alert: Optional[bool] = None,
-        url: Optional[str] = None,
-        cache_time: Optional[TimePeriod] = None,
+        text: str | None = None,
+        show_alert: bool | None = None,
+        url: str | None = None,
+        cache_time: TimePeriod | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to send answers to callback queries sent from inline keyboards. The answer
@@ -4370,22 +4450,22 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def edit_message_text(
         self,
         text: str,
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        entities: Optional[Sequence["MessageEntity"]] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        entities: Sequence["MessageEntity"] | None = None,
         link_preview_options: ODVInput["LinkPreviewOptions"] = DEFAULT_NONE,
-        business_connection_id: Optional[str] = None,
+        business_connection_id: str | None = None,
         *,
-        disable_web_page_preview: Optional[bool] = None,
+        disable_web_page_preview: bool | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """
         Use this method to edit text and game messages.
 
@@ -4476,22 +4556,22 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def edit_message_caption(
         self,
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        caption: Optional[str] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        caption: str | None = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
-        show_caption_above_media: Optional[bool] = None,
-        business_connection_id: Optional[str] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
+        show_caption_above_media: bool | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """
         Use this method to edit captions of messages.
 
@@ -4557,18 +4637,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def edit_message_media(
         self,
         media: "InputMedia",
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        business_connection_id: Optional[str] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """
         Use this method to edit animation, audio, document, photo, or video messages, or to add
         media to text messages. If a message
@@ -4626,18 +4706,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def edit_message_reply_markup(
         self,
-        chat_id: Optional[Union[str, int]] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        business_connection_id: Optional[str] = None,
+        chat_id: str | int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """
         Use this method to edit only the reply markup of messages sent by the bot or via the bot
         (for inline bots).
@@ -4687,16 +4767,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_updates(
         self,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        timeout: Optional[TimePeriod] = None,
-        allowed_updates: Optional[Sequence[str]] = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        timeout: TimePeriod | None = None,
+        allowed_updates: Sequence[str] | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[Update, ...]:
         """Use this method to receive incoming updates using long polling.
 
@@ -4807,18 +4887,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def set_webhook(
         self,
         url: str,
-        certificate: Optional[FileInput] = None,
-        max_connections: Optional[int] = None,
-        allowed_updates: Optional[Sequence[str]] = None,
-        ip_address: Optional[str] = None,
-        drop_pending_updates: Optional[bool] = None,
-        secret_token: Optional[str] = None,
+        certificate: "FileInput | None" = None,
+        max_connections: int | None = None,
+        allowed_updates: Sequence[str] | None = None,
+        ip_address: str | None = None,
+        drop_pending_updates: bool | None = None,
+        secret_token: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to specify a url and receive incoming updates via an outgoing webhook.
@@ -4924,13 +5004,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def delete_webhook(
         self,
-        drop_pending_updates: Optional[bool] = None,
+        drop_pending_updates: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to remove webhook integration if you decide to switch back to
@@ -4961,13 +5041,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def leave_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method for your bot to leave a group, supergroup or channel.
 
@@ -4995,13 +5075,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_chat(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatFullInfo:
         """
         Use this method to get up to date information about the chat (current name of the user for
@@ -5036,13 +5116,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_chat_administrators(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[ChatMember, ...]:
         """
         Use this method to get a list of administrators in a chat.
@@ -5077,13 +5157,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_chat_member_count(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> int:
         """Use this method to get the number of members in a chat.
 
@@ -5112,14 +5192,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def get_chat_member(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatMember:
         """Use this method to get information about a member of a chat. The method is only
         guaranteed to work for other users if the bot is an administrator in the chat.
@@ -5149,14 +5229,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_sticker_set(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         sticker_set_name: str,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to set a new group sticker set for a supergroup.
         The bot must be an administrator in the chat for this to work and must have the appropriate
@@ -5184,13 +5264,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def delete_chat_sticker_set(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to delete a group sticker set from a supergroup. The bot must be an
         administrator in the chat for this to work and must have the appropriate admin rights.
@@ -5221,7 +5301,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> WebhookInfo:
         """Use this method to get current webhook status. Requires no parameters.
 
@@ -5246,18 +5326,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         self,
         user_id: int,
         score: int,
-        chat_id: Optional[int] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
-        force: Optional[bool] = None,
-        disable_edit_message: Optional[bool] = None,
+        chat_id: int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
+        force: bool | None = None,
+        disable_edit_message: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
-    ) -> Union[Message, bool]:
+        api_kwargs: JSONDict | None = None,
+    ) -> "Message | bool":
         """
         Use this method to set the score of the specified user in a game message.
 
@@ -5309,15 +5389,15 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def get_game_high_scores(
         self,
         user_id: int,
-        chat_id: Optional[int] = None,
-        message_id: Optional[int] = None,
-        inline_message_id: Optional[str] = None,
+        chat_id: int | None = None,
+        message_id: int | None = None,
+        inline_message_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[GameHighScore, ...]:
         """
         Use this method to get data for high score tables. Will return the score of the specified
@@ -5368,45 +5448,45 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def send_invoice(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         title: str,
         description: str,
         payload: str,
         currency: str,
         prices: Sequence["LabeledPrice"],
-        provider_token: Optional[str] = None,
-        start_parameter: Optional[str] = None,
-        photo_url: Optional[str] = None,
-        photo_size: Optional[int] = None,
-        photo_width: Optional[int] = None,
-        photo_height: Optional[int] = None,
-        need_name: Optional[bool] = None,
-        need_phone_number: Optional[bool] = None,
-        need_email: Optional[bool] = None,
-        need_shipping_address: Optional[bool] = None,
-        is_flexible: Optional[bool] = None,
+        provider_token: str | None = None,
+        start_parameter: str | None = None,
+        photo_url: str | None = None,
+        photo_size: int | None = None,
+        photo_width: int | None = None,
+        photo_height: int | None = None,
+        need_name: bool | None = None,
+        need_phone_number: bool | None = None,
+        need_email: bool | None = None,
+        need_shipping_address: bool | None = None,
+        is_flexible: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        provider_data: Optional[Union[str, object]] = None,
-        send_phone_number_to_provider: Optional[bool] = None,
-        send_email_to_provider: Optional[bool] = None,
-        max_tip_amount: Optional[int] = None,
-        suggested_tip_amounts: Optional[Sequence[int]] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        provider_data: str | object | None = None,
+        send_phone_number_to_provider: bool | None = None,
+        send_email_to_provider: bool | None = None,
+        max_tip_amount: int | None = None,
+        suggested_tip_amounts: Sequence[int] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send invoices.
 
@@ -5604,14 +5684,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         self,
         shipping_query_id: str,
         ok: bool,
-        shipping_options: Optional[Sequence["ShippingOption"]] = None,
-        error_message: Optional[str] = None,
+        shipping_options: Sequence["ShippingOption"] | None = None,
+        error_message: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         If you sent an invoice requesting a shipping address and the parameter
@@ -5662,13 +5742,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         self,
         pre_checkout_query_id: str,
         ok: bool,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Once the user has confirmed their payment and shipping details, the Bot API sends the final
@@ -5723,7 +5803,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> SentWebAppMessage:
         """Use this method to set the result of an interaction with a Web App and send a
         corresponding message on behalf of the user to the chat from which the query originated.
@@ -5762,17 +5842,17 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def restrict_chat_member(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
         permissions: ChatPermissions,
-        until_date: Optional[Union[int, dtm.datetime]] = None,
-        use_independent_chat_permissions: Optional[bool] = None,
+        until_date: int | dtm.datetime | None = None,
+        use_independent_chat_permissions: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to restrict a user in a supergroup. The bot must be an administrator in
@@ -5833,30 +5913,30 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def promote_chat_member(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
-        can_change_info: Optional[bool] = None,
-        can_post_messages: Optional[bool] = None,
-        can_edit_messages: Optional[bool] = None,
-        can_delete_messages: Optional[bool] = None,
-        can_invite_users: Optional[bool] = None,
-        can_restrict_members: Optional[bool] = None,
-        can_pin_messages: Optional[bool] = None,
-        can_promote_members: Optional[bool] = None,
-        is_anonymous: Optional[bool] = None,
-        can_manage_chat: Optional[bool] = None,
-        can_manage_video_chats: Optional[bool] = None,
-        can_manage_topics: Optional[bool] = None,
-        can_post_stories: Optional[bool] = None,
-        can_edit_stories: Optional[bool] = None,
-        can_delete_stories: Optional[bool] = None,
-        can_manage_direct_messages: Optional[bool] = None,
+        can_change_info: bool | None = None,
+        can_post_messages: bool | None = None,
+        can_edit_messages: bool | None = None,
+        can_delete_messages: bool | None = None,
+        can_invite_users: bool | None = None,
+        can_restrict_members: bool | None = None,
+        can_pin_messages: bool | None = None,
+        can_promote_members: bool | None = None,
+        is_anonymous: bool | None = None,
+        can_manage_chat: bool | None = None,
+        can_manage_video_chats: bool | None = None,
+        can_manage_topics: bool | None = None,
+        can_post_stories: bool | None = None,
+        can_edit_stories: bool | None = None,
+        can_delete_stories: bool | None = None,
+        can_manage_direct_messages: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to promote or demote a user in a supergroup or a channel. The bot must be
@@ -5895,7 +5975,9 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
             can_invite_users (:obj:`bool`, optional): Pass :obj:`True`, if the administrator can
                 invite new users to the chat.
             can_restrict_members (:obj:`bool`, optional): Pass :obj:`True`, if the administrator
-                can restrict, ban or unban chat members, or access supergroup statistics.
+                can restrict, ban or unban chat members, or access supergroup statistics. For
+                backward compatibility, defaults to :obj:`True` for promotions of channel
+                administrators.
             can_pin_messages (:obj:`bool`, optional): Pass :obj:`True`, if the administrator can
                 pin messages, for supergroups only.
             can_promote_members (:obj:`bool`, optional): Pass :obj:`True`, if the administrator can
@@ -5965,15 +6047,15 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_permissions(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         permissions: ChatPermissions,
-        use_independent_chat_permissions: Optional[bool] = None,
+        use_independent_chat_permissions: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to set default chat permissions for all members. The bot must be an
@@ -6023,7 +6105,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_administrator_custom_title(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         user_id: int,
         custom_title: str,
         *,
@@ -6031,7 +6113,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to set a custom title for administrators promoted by the bot in a
@@ -6065,13 +6147,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def export_chat_invite_link(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> str:
         """
         Use this method to generate a new primary invite link for a chat; any previously generated
@@ -6108,17 +6190,17 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def create_chat_invite_link(
         self,
-        chat_id: Union[str, int],
-        expire_date: Optional[Union[int, dtm.datetime]] = None,
-        member_limit: Optional[int] = None,
-        name: Optional[str] = None,
-        creates_join_request: Optional[bool] = None,
+        chat_id: str | int,
+        expire_date: int | dtm.datetime | None = None,
+        member_limit: int | None = None,
+        name: str | None = None,
+        creates_join_request: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatInviteLink:
         """
         Use this method to create an additional invite link for a chat. The bot must be an
@@ -6183,18 +6265,18 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def edit_chat_invite_link(
         self,
-        chat_id: Union[str, int],
-        invite_link: Union[str, "ChatInviteLink"],
-        expire_date: Optional[Union[int, dtm.datetime]] = None,
-        member_limit: Optional[int] = None,
-        name: Optional[str] = None,
-        creates_join_request: Optional[bool] = None,
+        chat_id: str | int,
+        invite_link: "str | ChatInviteLink",
+        expire_date: int | dtm.datetime | None = None,
+        member_limit: int | None = None,
+        name: str | None = None,
+        creates_join_request: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatInviteLink:
         """
         Use this method to edit a non-primary invite link created by the bot. The bot must be an
@@ -6262,14 +6344,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def revoke_chat_invite_link(
         self,
-        chat_id: Union[str, int],
-        invite_link: Union[str, "ChatInviteLink"],
+        chat_id: str | int,
+        invite_link: "str | ChatInviteLink",
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatInviteLink:
         """
         Use this method to revoke an invite link created by the bot. If the primary link is
@@ -6309,14 +6391,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def approve_chat_join_request(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to approve a chat join request.
 
@@ -6349,14 +6431,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def decline_chat_join_request(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to decline a chat join request.
 
@@ -6389,14 +6471,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_photo(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         photo: FileInput,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to set a new profile photo for the chat.
 
@@ -6435,13 +6517,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def delete_chat_photo(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete a chat photo. Photos can't be changed for private chats. The bot
@@ -6471,14 +6553,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_title(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         title: str,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the title of a chat. Titles can't be changed for private chats.
@@ -6511,14 +6593,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def set_chat_description(
         self,
-        chat_id: Union[str, int],
-        description: Optional[str] = None,
+        chat_id: str | int,
+        description: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the description of a group, a supergroup or a channel. The bot
@@ -6553,14 +6635,14 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
     async def set_user_emoji_status(
         self,
         user_id: int,
-        emoji_status_custom_emoji_id: Optional[str] = None,
-        emoji_status_expiration_date: Optional[Union[int, dtm.datetime]] = None,
+        emoji_status_custom_emoji_id: str | None = None,
+        emoji_status_expiration_date: int | dtm.datetime | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Changes the emoji status for a given user that previously allowed the bot to manage
         their emoji status via the Mini App method
@@ -6573,7 +6655,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
             user_id (:obj:`int`): Unique identifier of the target user
             emoji_status_custom_emoji_id (:obj:`str`, optional): Custom emoji identifier of the
                 emoji status to set. Pass an empty string to remove the status.
-            emoji_status_expiration_date (Union[:obj:`int`, :obj:`datetime.datetime`], optional):
+            emoji_status_expiration_date (:obj:`int` | :obj:`datetime.datetime`, optional):
                 Expiration date of the emoji status, if any, as unix timestamp or
                 :class:`datetime.datetime` object.
                 |tz-naive-dtms|
@@ -6602,16 +6684,16 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def pin_chat_message(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_id: int,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        business_connection_id: Optional[str] = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to add a message to the list of pinned messages in a chat. If the
@@ -6657,15 +6739,15 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def unpin_chat_message(
         self,
-        chat_id: Union[str, int],
-        message_id: Optional[int] = None,
-        business_connection_id: Optional[str] = None,
+        chat_id: str | int,
+        message_id: int | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to remove a message from the list of pinned messages in a chat. If the
@@ -6709,13 +6791,13 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
 
     async def unpin_all_chat_messages(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to clear the list of pinned messages in a chat. If the
@@ -6753,7 +6835,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> StickerSet:
         """Use this method to get a sticker set.
 
@@ -6787,7 +6869,7 @@ class Bot(TelegramObject, contextlib.AbstractAsyncContextManager["Bot"]):
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[Sticker, ...]:
         """
         Use this method to get information about emoji stickers by their identifiers.
@@ -6832,7 +6914,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> File:
         """
         Use this method to upload a file with a sticker for later use in the
@@ -6892,7 +6974,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to add a new sticker to a set created by the bot. The format of the added
@@ -6943,14 +7025,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_sticker_position_in_set(
         self,
-        sticker: Union[str, "Sticker"],
+        sticker: "str | Sticker",
         position: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to move a sticker in a set created by the bot to a specific position.
 
@@ -6989,14 +7071,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         name: str,
         title: str,
         stickers: Sequence["InputSticker"],
-        sticker_type: Optional[str] = None,
-        needs_repainting: Optional[bool] = None,
+        sticker_type: str | None = None,
+        needs_repainting: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to create new sticker set owned by a user.
@@ -7077,13 +7159,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def delete_sticker_from_set(
         self,
-        sticker: Union[str, "Sticker"],
+        sticker: "str | Sticker",
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to delete a sticker from a set created by the bot.
 
@@ -7120,7 +7202,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete a sticker set that was created by the bot.
@@ -7153,13 +7235,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         name: str,
         user_id: int,
         format: str,  # pylint: disable=redefined-builtin
-        thumbnail: Optional[FileInput] = None,
+        thumbnail: "FileInput | None" = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to set the thumbnail of a regular or mask sticker set. The format of the
         thumbnail file must match the format of the stickers in the set.
@@ -7190,12 +7272,12 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
                 **.TGS** animation with the thumbnail up to
                 :tg-const:`telegram.constants.StickerSetLimit.MAX_ANIMATED_THUMBNAIL_SIZE`
                 kilobytes in size; see
-                `the docs <https://core.telegram.org/stickers#animation-requirements>`_ for
+                `the docs <https://core.telegram.org/stickers#animated-stickers-and-emoji>`_ for
                 animated sticker technical requirements, or a ``.WEBM`` video with the thumbnail up
                 to :tg-const:`telegram.constants.StickerSetLimit.MAX_ANIMATED_THUMBNAIL_SIZE`
                 kilobytes in size; see
-                `this <https://core.telegram.org/stickers#video-requirements>`_ for video sticker
-                technical requirements.
+                `this <https://core.telegram.org/stickers#video-stickers-and-emoji>`_ for video
+                sticker technical requirements.
 
                 |fileinput|
 
@@ -7236,7 +7318,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to set the title of a created sticker set.
@@ -7269,14 +7351,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_sticker_emoji_list(
         self,
-        sticker: Union[str, "Sticker"],
+        sticker: "str | Sticker",
         emoji_list: Sequence[str],
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the list of emoji assigned to a regular or custom emoji sticker.
@@ -7317,14 +7399,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_sticker_keywords(
         self,
-        sticker: Union[str, "Sticker"],
-        keywords: Optional[Sequence[str]] = None,
+        sticker: "str | Sticker",
+        keywords: Sequence[str] | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change search keywords assigned to a regular or custom emoji sticker.
@@ -7365,14 +7447,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_sticker_mask_position(
         self,
-        sticker: Union[str, "Sticker"],
-        mask_position: Optional[MaskPosition] = None,
+        sticker: "str | Sticker",
+        mask_position: MaskPosition | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the mask position of a mask sticker.
@@ -7413,13 +7495,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
     async def set_custom_emoji_sticker_set_thumbnail(
         self,
         name: str,
-        custom_emoji_id: Optional[str] = None,
+        custom_emoji_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to set the thumbnail of a custom emoji sticker set.
@@ -7460,7 +7542,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Informs a user that some of the Telegram Passport elements they provided contains errors.
@@ -7499,37 +7581,37 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def send_poll(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         question: str,
-        options: Sequence[Union[str, "InputPollOption"]],
-        is_anonymous: Optional[bool] = None,
-        type: Optional[str] = None,  # pylint: disable=redefined-builtin
-        allows_multiple_answers: Optional[bool] = None,
-        correct_option_id: Optional[CorrectOptionID] = None,
-        is_closed: Optional[bool] = None,
+        options: Sequence["str | InputPollOption"],
+        is_anonymous: bool | None = None,
+        type: str | None = None,  # pylint: disable=redefined-builtin
+        allows_multiple_answers: bool | None = None,
+        correct_option_id: CorrectOptionID | None = None,
+        is_closed: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        explanation: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        explanation: str | None = None,
         explanation_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        open_period: Optional[TimePeriod] = None,
-        close_date: Optional[Union[int, dtm.datetime]] = None,
-        explanation_entities: Optional[Sequence["MessageEntity"]] = None,
+        open_period: TimePeriod | None = None,
+        close_date: int | dtm.datetime | None = None,
+        explanation_entities: Sequence["MessageEntity"] | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
         question_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        question_entities: Optional[Sequence["MessageEntity"]] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
+        question_entities: Sequence["MessageEntity"] | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send a native poll.
@@ -7695,16 +7777,16 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def stop_poll(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         message_id: int,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
-        business_connection_id: Optional[str] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Poll:
         """
         Use this method to stop a poll which was sent by the bot.
@@ -7750,17 +7832,17 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         checklist: InputChecklist,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_effect_id: Optional[str] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        message_effect_id: str | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send a checklist on behalf of a connected business account.
@@ -7829,13 +7911,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         chat_id: int,
         message_id: int,
         checklist: InputChecklist,
-        reply_markup: Optional["InlineKeyboardMarkup"] = None,
+        reply_markup: "InlineKeyboardMarkup | None" = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to edit a checklist on behalf of a connected business account.
@@ -7881,26 +7963,26 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def send_dice(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
-        emoji: Optional[str] = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        emoji: str | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        business_connection_id: Optional[str] = None,
-        message_effect_id: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        business_connection_id: str | None = None,
+        message_effect_id: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """
         Use this method to send an animated emoji that will display a random value.
@@ -8007,13 +8089,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_my_default_administrator_rights(
         self,
-        for_channels: Optional[bool] = None,
+        for_channels: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatAdministratorRights:
         """Use this method to get the current default administrator rights of the bot.
 
@@ -8048,14 +8130,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_my_default_administrator_rights(
         self,
-        rights: Optional[ChatAdministratorRights] = None,
-        for_channels: Optional[bool] = None,
+        rights: ChatAdministratorRights | None = None,
+        for_channels: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to change the default administrator rights requested by the bot when
         it's added as an administrator to groups or channels. These rights will be suggested to
@@ -8094,14 +8176,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_my_commands(
         self,
-        scope: Optional[BotCommandScope] = None,
-        language_code: Optional[str] = None,
+        scope: BotCommandScope | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[BotCommand, ...]:
         """
         Use this method to get the current list of the bot's commands for the given scope and user
@@ -8147,15 +8229,15 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_my_commands(
         self,
-        commands: Sequence[Union[BotCommand, tuple[str, str]]],
-        scope: Optional[BotCommandScope] = None,
-        language_code: Optional[str] = None,
+        commands: Sequence[BotCommand | tuple[str, str]],
+        scope: BotCommandScope | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the list of the bot's commands. See the
@@ -8211,14 +8293,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def delete_my_commands(
         self,
-        scope: Optional[BotCommandScope] = None,
-        language_code: Optional[str] = None,
+        scope: BotCommandScope | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete the list of the bot's commands for the given scope and user
@@ -8263,7 +8345,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to log out from the cloud Bot API server before launching the bot locally.
@@ -8295,7 +8377,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to close the bot instance before moving it from one local server to
@@ -8321,30 +8403,31 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def copy_message(
         self,
-        chat_id: Union[int, str],
-        from_chat_id: Union[str, int],
+        chat_id: int | str,
+        from_chat_id: str | int,
         message_id: int,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
-        reply_markup: Optional[ReplyMarkup] = None,
+        reply_markup: "ReplyMarkup | None" = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        show_caption_above_media: Optional[bool] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        video_start_timestamp: Optional[int] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
+        message_thread_id: int | None = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        show_caption_above_media: bool | None = None,
+        allow_paid_broadcast: bool | None = None,
+        video_start_timestamp: int | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_effect_id: str | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> MessageId:
         """Use this method to copy messages of any kind. Service messages, paid media messages,
         giveaway messages, giveaway winners messages, and invoice messages
@@ -8398,6 +8481,10 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
             direct_messages_topic_id (:obj:`int`, optional): |direct_messages_topic_id|
 
                 .. versionadded:: 22.4
+            message_effect_id (:obj:`str`, optional): Unique identifier of the message effect to be
+                added to the message; only available when copying to private chats
+
+                .. versionadded:: 22.6
 
         Keyword Args:
             allow_sending_without_reply (:obj:`bool`, optional): |allow_sending_without_reply|
@@ -8460,6 +8547,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
             "direct_messages_topic_id": direct_messages_topic_id,
             "video_start_timestamp": video_start_timestamp,
             "suggested_post_parameters": suggested_post_parameters,
+            "message_effect_id": message_effect_id,
         }
 
         result = await self._post(
@@ -8475,20 +8563,20 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def copy_messages(
         self,
-        chat_id: Union[int, str],
-        from_chat_id: Union[str, int],
+        chat_id: int | str,
+        from_chat_id: str | int,
         message_ids: Sequence[int],
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        message_thread_id: Optional[int] = None,
-        remove_caption: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
+        message_thread_id: int | None = None,
+        remove_caption: bool | None = None,
+        direct_messages_topic_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple["MessageId", ...]:
         """
         Use this method to copy messages of any kind. If some of the specified messages can't be
@@ -8554,14 +8642,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_chat_menu_button(
         self,
-        chat_id: Optional[int] = None,
-        menu_button: Optional[MenuButton] = None,
+        chat_id: int | None = None,
+        menu_button: MenuButton | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to change the bot's menu button in a private chat, or the default menu
         button.
@@ -8595,13 +8683,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_chat_menu_button(
         self,
-        chat_id: Optional[int] = None,
+        chat_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> MenuButton:
         """Use this method to get the current value of the bot's menu button in a private chat, or
         the default menu button.
@@ -8639,29 +8727,29 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         payload: str,
         currency: str,
         prices: Sequence["LabeledPrice"],
-        provider_token: Optional[str] = None,
-        max_tip_amount: Optional[int] = None,
-        suggested_tip_amounts: Optional[Sequence[int]] = None,
-        provider_data: Optional[Union[str, object]] = None,
-        photo_url: Optional[str] = None,
-        photo_size: Optional[int] = None,
-        photo_width: Optional[int] = None,
-        photo_height: Optional[int] = None,
-        need_name: Optional[bool] = None,
-        need_phone_number: Optional[bool] = None,
-        need_email: Optional[bool] = None,
-        need_shipping_address: Optional[bool] = None,
-        send_phone_number_to_provider: Optional[bool] = None,
-        send_email_to_provider: Optional[bool] = None,
-        is_flexible: Optional[bool] = None,
-        subscription_period: Optional[TimePeriod] = None,
-        business_connection_id: Optional[str] = None,
+        provider_token: str | None = None,
+        max_tip_amount: int | None = None,
+        suggested_tip_amounts: Sequence[int] | None = None,
+        provider_data: str | object | None = None,
+        photo_url: str | None = None,
+        photo_size: int | None = None,
+        photo_width: int | None = None,
+        photo_height: int | None = None,
+        need_name: bool | None = None,
+        need_phone_number: bool | None = None,
+        need_email: bool | None = None,
+        need_shipping_address: bool | None = None,
+        send_phone_number_to_provider: bool | None = None,
+        send_email_to_provider: bool | None = None,
+        is_flexible: bool | None = None,
+        subscription_period: TimePeriod | None = None,
+        business_connection_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> str:
         """Use this method to create a link for an invoice.
 
@@ -8796,7 +8884,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> tuple[Sticker, ...]:
         """Use this method to get custom emoji stickers, which can be used as a forum topic
         icon by any user. Requires no parameters.
@@ -8822,16 +8910,16 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def create_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         name: str,
-        icon_color: Optional[int] = None,
-        icon_custom_emoji_id: Optional[str] = None,
+        icon_color: int | None = None,
+        icon_custom_emoji_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ForumTopic:
         """
         Use this method to create a topic in a forum supergroup chat. The bot must be
@@ -8881,20 +8969,21 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def edit_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_thread_id: int,
-        name: Optional[str] = None,
-        icon_custom_emoji_id: Optional[str] = None,
+        name: str | None = None,
+        icon_custom_emoji_id: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
-        Use this method to edit name and icon of a topic in a forum supergroup chat. The bot must
-        be an administrator in the chat for this to work and must have the
+        Use this method to edit name and icon of a topic in a forum supergroup chat or a private
+        chat with a user. In the case of a supergroup chat the bot must be an administrator in the
+        chat for this to work and must have the
         :paramref:`~telegram.ChatAdministratorRights.can_manage_topics` administrator rights,
         unless it is the creator of the topic.
 
@@ -8937,14 +9026,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def close_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_thread_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to close an open topic in a forum supergroup chat. The bot must
@@ -8981,14 +9070,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def reopen_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_thread_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to reopen a closed topic in a forum supergroup chat. The bot must
@@ -9025,18 +9114,19 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def delete_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_thread_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to delete a forum topic along with all its messages in a forum supergroup
-        chat. The bot must be an administrator in the chat for this to work and must have
+        chat or a private chat with a user. In the case of a supergroup chat the bot must be an
+        administrator in the chat for this to work and must have the
         :paramref:`~telegram.ChatAdministratorRights.can_delete_messages` administrator rights.
 
         .. versionadded:: 20.0
@@ -9068,20 +9158,21 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def unpin_all_forum_topic_messages(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_thread_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
-        Use this method to clear the list of pinned messages in a forum topic. The bot must
-        be an administrator in the chat for this to work and must have
-        :paramref:`~telegram.ChatAdministratorRights.can_pin_messages` administrator rights
-        in the supergroup.
+        Use this method to clear the list of pinned messages in a forum topic in a forum supergroup
+        chat or a private chat with a user. In the case of a supergroup chat the bot must be an
+        administrator in the chat for this to work and must have the
+        :paramref:`~telegram.ChatAdministratorRights.can_pin_messages` administrator right in
+        the supergroup.
 
         .. versionadded:: 20.0
 
@@ -9112,13 +9203,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def unpin_all_general_forum_topic_messages(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to clear the list of pinned messages in a General forum topic. The bot must
@@ -9151,14 +9242,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def edit_general_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         name: str,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to edit the name of the 'General' topic in a forum supergroup chat. The bot
@@ -9194,13 +9285,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def close_general_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to close an open 'General' topic in a forum supergroup chat. The bot must
@@ -9233,13 +9324,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def reopen_general_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to reopen a closed 'General' topic in a forum supergroup chat. The bot must
@@ -9273,13 +9364,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def hide_general_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to hide the 'General' topic in a forum supergroup chat. The bot must
@@ -9313,13 +9404,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def unhide_general_forum_topic(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to unhide the 'General' topic in a forum supergroup chat. The bot must
@@ -9352,14 +9443,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_my_description(
         self,
-        description: Optional[str] = None,
-        language_code: Optional[str] = None,
+        description: str | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the bot's description, which is shown in the chat with the bot
@@ -9397,14 +9488,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_my_short_description(
         self,
-        short_description: Optional[str] = None,
-        language_code: Optional[str] = None,
+        short_description: str | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the bot's short description, which is shown on the bot's profile
@@ -9442,13 +9533,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_my_description(
         self,
-        language_code: Optional[str] = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> BotDescription:
         """
         Use this method to get the current bot description for the given user language.
@@ -9480,13 +9571,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_my_short_description(
         self,
-        language_code: Optional[str] = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> BotShortDescription:
         """
         Use this method to get the current bot short description for the given user language.
@@ -9519,14 +9610,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_my_name(
         self,
-        name: Optional[str] = None,
-        language_code: Optional[str] = None,
+        name: str | None = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the bot's name.
@@ -9567,13 +9658,13 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_my_name(
         self,
-        language_code: Optional[str] = None,
+        language_code: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> BotName:
         """
         Use this method to get the current bot name for the given user language.
@@ -9605,14 +9696,14 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def get_user_chat_boosts(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         user_id: int,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> UserChatBoosts:
         """
         Use this method to get the list of boosts added to a chat by a user. Requires
@@ -9647,16 +9738,16 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
 
     async def set_message_reaction(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         message_id: int,
-        reaction: Optional[Union[Sequence[Union[ReactionType, str]], ReactionType, str]] = None,
-        is_big: Optional[bool] = None,
+        reaction: Sequence[ReactionType | str] | ReactionType | str | None = None,
+        is_big: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to change the chosen reactions on a message. Service messages of some types
@@ -9706,9 +9797,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
                         else ReactionTypeCustomEmoji(custom_emoji_id=entry)
                     )
                 )
-                for entry in (
-                    [reaction] if isinstance(reaction, (ReactionType, str)) else reaction
-                )
+                for entry in ([reaction] if isinstance(reaction, ReactionType | str) else reaction)
             ]
             if reaction is not None
             else None
@@ -9736,15 +9825,15 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         user_id: int,
         month_count: int,
         star_count: int,
-        text: Optional[str] = None,
+        text: str | None = None,
         text_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        text_entities: Optional[Sequence["MessageEntity"]] = None,
+        text_entities: Sequence["MessageEntity"] | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Gifts a Telegram Premium subscription to the given user.
@@ -9816,7 +9905,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> BusinessConnection:
         """
         Use this method to get information about the connection of the bot with a business account.
@@ -9850,20 +9939,24 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
     async def get_business_account_gifts(
         self,
         business_connection_id: str,
-        exclude_unsaved: Optional[bool] = None,
-        exclude_saved: Optional[bool] = None,
-        exclude_unlimited: Optional[bool] = None,
-        exclude_limited: Optional[bool] = None,
-        exclude_unique: Optional[bool] = None,
-        sort_by_price: Optional[bool] = None,
-        offset: Optional[str] = None,
-        limit: Optional[int] = None,
+        exclude_unsaved: bool | None = None,
+        exclude_saved: bool | None = None,
+        exclude_unlimited: bool | None = None,
+        # tags: deprecated 22.6; bot api 9.3
+        exclude_limited: bool | None = None,
+        exclude_unique: bool | None = None,
+        sort_by_price: bool | None = None,
+        offset: str | None = None,
+        limit: int | None = None,
+        exclude_limited_upgradable: bool | None = None,
+        exclude_limited_non_upgradable: bool | None = None,
+        exclude_from_blockchain: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> OwnedGifts:
         """
         Returns the gifts received and owned by a managed business account. Requires the
@@ -9881,7 +9974,26 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
                 be purchased an unlimited number of times.
             exclude_limited (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that can be
                 purchased a limited number of times.
+
+                .. deprecated:: 22.6
+                    Bot API 9.3 deprecated this parameter in favor of
+                    :paramref:`exclude_limited_upgradabale` and
+                    :paramref:`exclude_limited_non_upgradable`.
+            exclude_limited_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts
+                that can be purchased a limited number of times and can be upgraded to unique.
+
+                .. versionadded:: 22.6
+            exclude_limited_non_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude
+                gifts that can be purchased a limited number of times and can't be upgraded to
+                unique
+
+                .. versionadded:: 22.6
             exclude_unique (:obj:`bool`, optional): Pass :obj:`True` to exclude unique gifts.
+            exclude_from_blockchain (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts
+                that were assigned from the TON blockchain and can't be resold or transferred in
+                Telegram.
+
+                .. versionadded:: 22.6
             sort_by_price (:obj:`bool`, optional): Pass :obj:`True` to sort results by gift price
                 instead of send date. Sorting is applied before pagination.
             offset (:obj:`str`, optional): Offset of the first entry to return as received from
@@ -9897,13 +10009,29 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         Raises:
             :class:`telegram.error.TelegramError`
         """
+        if exclude_limited is not None:
+            self._warn(
+                PTBDeprecationWarning(
+                    version="22.6",
+                    message=build_deprecation_warning_message(
+                        deprecated_name="exclude_limited",
+                        new_name="exclude_limited_(non_)upgradable",
+                        bot_api_version="9.3",
+                        object_type="parameter",
+                    ),
+                ),
+                stacklevel=2,
+            )
         data: JSONDict = {
             "business_connection_id": business_connection_id,
             "exclude_unsaved": exclude_unsaved,
             "exclude_saved": exclude_saved,
             "exclude_unlimited": exclude_unlimited,
             "exclude_limited": exclude_limited,
+            "exclude_limited_upgradable": exclude_limited_upgradable,
+            "exclude_limited_non_upgradable": exclude_limited_non_upgradable,
             "exclude_unique": exclude_unique,
+            "exclude_from_blockchain": exclude_from_blockchain,
             "sort_by_price": sort_by_price,
             "offset": offset,
             "limit": limit,
@@ -9929,7 +10057,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> StarAmount:
         """
         Returns the amount of Telegram Stars owned by a managed business account. Requires the
@@ -9970,7 +10098,7 @@ CUSTOM_EMOJI_IDENTIFIER_LIMIT` custom emoji identifiers can be specified.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Marks incoming message as read on behalf of a business account.
@@ -10017,7 +10145,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Delete messages on behalf of a business account. Requires the
@@ -10062,18 +10190,18 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         business_connection_id: str,
         content: "InputStoryContent",
         active_period: TimePeriod,
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
-        areas: Optional[Sequence["StoryArea"]] = None,
-        post_to_chat_page: Optional[bool] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
+        areas: Sequence["StoryArea"] | None = None,
+        post_to_chat_page: bool | None = None,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Story:
         """
         Posts a story on behalf of a managed business account. Requires the
@@ -10153,16 +10281,16 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         business_connection_id: str,
         story_id: int,
         content: "InputStoryContent",
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
-        areas: Optional[Sequence["StoryArea"]] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
+        areas: Sequence["StoryArea"] | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Story:
         """
         Edits a story previously posted by the bot on behalf of a managed business account.
@@ -10235,7 +10363,7 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Deletes a story previously posted by the bot on behalf of a managed business account.
@@ -10271,13 +10399,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         self,
         business_connection_id: str,
         first_name: str,
-        last_name: Optional[str] = None,
+        last_name: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Changes the first and last name of a managed business account. Requires the
@@ -10318,13 +10446,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
     async def set_business_account_username(
         self,
         business_connection_id: str,
-        username: Optional[str] = None,
+        username: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Changes the username of a managed business account. Requires the
@@ -10360,13 +10488,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
     async def set_business_account_bio(
         self,
         business_connection_id: str,
-        bio: Optional[str] = None,
+        bio: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Changes the bio of a managed business account. Requires the
@@ -10409,7 +10537,7 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Changes the privacy settings pertaining to incoming gifts in a managed business account.
@@ -10451,13 +10579,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         self,
         business_connection_id: str,
         photo: "InputProfilePhoto",
-        is_public: Optional[bool] = None,
+        is_public: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Changes the profile photo of a managed business account.
@@ -10498,13 +10626,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
     async def remove_business_account_profile_photo(
         self,
         business_connection_id: str,
-        is_public: Optional[bool] = None,
+        is_public: bool | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Removes the current profile photo of a managed business account.
@@ -10549,7 +10677,7 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Converts a given regular gift to Telegram Stars. Requires the
@@ -10587,14 +10715,14 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         self,
         business_connection_id: str,
         owned_gift_id: str,
-        keep_original_details: Optional[bool] = None,
-        star_count: Optional[int] = None,
+        keep_original_details: bool | None = None,
+        star_count: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Upgrades a given regular gift to a unique gift. Requires the
@@ -10645,13 +10773,13 @@ MAX_UNIQUE_GIFT_AREAS` of :class:`telegram.StoryAreaTypeUniqueGift`.
         business_connection_id: str,
         owned_gift_id: str,
         new_owner_chat_id: int,
-        star_count: Optional[int] = None,
+        star_count: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Transfers an owned unique gift to another user. Requires the
@@ -10706,7 +10834,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Transfers Telegram Stars from the business account balance to the bot's balance. Requires
@@ -10745,14 +10873,14 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         self,
         user_id: int,
         name: str,
-        old_sticker: Union[str, "Sticker"],
+        old_sticker: "str | Sticker",
         sticker: "InputSticker",
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Use this method to replace an existing sticker in a sticker set with a new one.
         The method is equivalent to calling :meth:`delete_sticker_from_set`,
@@ -10804,7 +10932,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Refunds a successful payment in |tg_stars|.
 
@@ -10838,14 +10966,14 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def get_star_transactions(
         self,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
+        offset: int | None = None,
+        limit: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> StarTransactions:
         """Returns the bot's Telegram Star transactions in chronological order.
 
@@ -10890,7 +11018,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Allows the bot to cancel or re-enable extension of a subscription paid in Telegram
         Stars.
@@ -10929,31 +11057,31 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def send_paid_media(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         star_count: int,
         media: Sequence["InputPaidMedia"],
-        caption: Optional[str] = None,
+        caption: str | None = None,
         parse_mode: ODVInput[str] = DEFAULT_NONE,
-        caption_entities: Optional[Sequence["MessageEntity"]] = None,
-        show_caption_above_media: Optional[bool] = None,
+        caption_entities: Sequence["MessageEntity"] | None = None,
+        show_caption_above_media: bool | None = None,
         disable_notification: ODVInput[bool] = DEFAULT_NONE,
         protect_content: ODVInput[bool] = DEFAULT_NONE,
-        reply_parameters: Optional["ReplyParameters"] = None,
-        reply_markup: Optional[ReplyMarkup] = None,
-        business_connection_id: Optional[str] = None,
-        payload: Optional[str] = None,
-        allow_paid_broadcast: Optional[bool] = None,
-        direct_messages_topic_id: Optional[int] = None,
-        suggested_post_parameters: Optional["SuggestedPostParameters"] = None,
-        message_thread_id: Optional[int] = None,
+        reply_parameters: "ReplyParameters | None" = None,
+        reply_markup: "ReplyMarkup | None" = None,
+        business_connection_id: str | None = None,
+        payload: str | None = None,
+        allow_paid_broadcast: bool | None = None,
+        direct_messages_topic_id: int | None = None,
+        suggested_post_parameters: "SuggestedPostParameters | None" = None,
+        message_thread_id: int | None = None,
         *,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
-        reply_to_message_id: Optional[int] = None,
+        reply_to_message_id: int | None = None,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Message:
         """Use this method to send paid media.
 
@@ -11053,16 +11181,16 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def create_chat_subscription_invite_link(
         self,
-        chat_id: Union[str, int],
+        chat_id: str | int,
         subscription_period: TimePeriod,
         subscription_price: int,
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatInviteLink:
         """
         Use this method to create a `subscription invite link <https://telegram.org/blog/\
@@ -11117,15 +11245,15 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def edit_chat_subscription_invite_link(
         self,
-        chat_id: Union[str, int],
-        invite_link: Union[str, "ChatInviteLink"],
-        name: Optional[str] = None,
+        chat_id: str | int,
+        invite_link: "str | ChatInviteLink",
+        name: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> ChatInviteLink:
         """
         Use this method to edit a subscription invite link created by the bot. The bot must have
@@ -11175,7 +11303,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> Gifts:
         """Returns the list of gifts that can be sent by the bot to users and channel chats.
         Requires no parameters.
@@ -11201,19 +11329,19 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def send_gift(
         self,
-        gift_id: Union[str, Gift],
-        text: Optional[str] = None,
+        gift_id: "str | Gift",
+        text: str | None = None,
         text_parse_mode: ODVInput[str] = DEFAULT_NONE,
-        text_entities: Optional[Sequence["MessageEntity"]] = None,
-        pay_for_upgrade: Optional[bool] = None,
-        chat_id: Optional[Union[str, int]] = None,
-        user_id: Optional[int] = None,
+        text_entities: Sequence["MessageEntity"] | None = None,
+        pay_for_upgrade: bool | None = None,
+        chat_id: str | int | None = None,
+        user_id: int | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Sends a gift to the given user or channel chat.
         The gift can't be converted to Telegram Stars by the receiver.
@@ -11225,7 +11353,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
         Args:
             gift_id (:obj:`str` | :class:`~telegram.Gift`): Identifier of the gift or a
-                :class:`~telegram.Gift` object
+                :class:`~telegram.Gift` object; limited gifts can't be sent to channel chats
             user_id (:obj:`int`, optional): Required if :paramref:`chat_id` is not specified.
                 Unique identifier of the target user that will receive the gift.
 
@@ -11282,14 +11410,14 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def verify_chat(
         self,
-        chat_id: Union[int, str],
-        custom_description: Optional[str] = None,
+        chat_id: int | str,
+        custom_description: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Verifies a chat |org-verify| which is represented by the bot.
 
@@ -11325,13 +11453,13 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
     async def verify_user(
         self,
         user_id: int,
-        custom_description: Optional[str] = None,
+        custom_description: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Verifies a user |org-verify| which is represented by the bot.
 
@@ -11366,13 +11494,13 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
 
     async def remove_chat_verification(
         self,
-        chat_id: Union[int, str],
+        chat_id: int | str,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Removes verification from a chat that is currently verified |org-verify|
         represented by the bot.
@@ -11409,7 +11537,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """Removes verification from a user who is currently verified |org-verify|
         represented by the bot.
@@ -11445,7 +11573,7 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> StarAmount:
         """A method to get the current Telegram Stars balance of the bot. Requires no parameters.
 
@@ -11472,13 +11600,13 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         self,
         chat_id: int,
         message_id: int,
-        send_date: Optional[Union[int, dtm.datetime]] = None,
+        send_date: int | dtm.datetime | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to approve a suggested post in a direct messages chat.
@@ -11524,13 +11652,13 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
         self,
         chat_id: int,
         message_id: int,
-        comment: Optional[str] = None,
+        comment: str | None = None,
         *,
         read_timeout: ODVInput[float] = DEFAULT_NONE,
         write_timeout: ODVInput[float] = DEFAULT_NONE,
         connect_timeout: ODVInput[float] = DEFAULT_NONE,
         pool_timeout: ODVInput[float] = DEFAULT_NONE,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ) -> bool:
         """
         Use this method to decline a suggested post in a direct messages chat.
@@ -11567,6 +11695,227 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
             api_kwargs=api_kwargs,
         )
 
+    async def repost_story(
+        self,
+        business_connection_id: str,
+        from_chat_id: int,
+        from_story_id: int,
+        active_period: TimePeriod,
+        post_to_chat_page: bool | None = None,
+        protect_content: ODVInput[bool] = DEFAULT_NONE,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> Story:
+        """
+        Reposts a story on behalf of a business account from another business account.
+        Both business accounts must be managed by the same bot, and the story on the source account
+        must have been posted (or reposted) by the bot. Requires the
+        :attr:`~telegram.BusinessBotRight.can_manage_stories` business bot right for both
+        business accounts.
+
+        .. versionadded:: 22.6
+
+        Args:
+            business_connection_id (:obj:`str`): Unique identifier of the business
+            from_chat_id (:obj:`int`): Unique identifier of the chat which posted the story that
+                should be reposted
+            from_story_id (:obj:`int`): Unique identifier of the story that should be reposted
+            active_period (:obj:`int` | :class:`datetime.timedelta`): Period after which the story
+                is moved to the archive, in seconds; must be one of
+                :tg-const:`telegram.constants.StoryLimit.SIX_HOURS`,
+                :tg-const:`telegram.constants.StoryLimit.TWELVE_HOURS`,
+                :tg-const:`telegram.constants.StoryLimit.ONE_DAY`, or
+                :tg-const:`telegram.constants.StoryLimit.TWO_DAYS`.
+            post_to_chat_page (:obj:`bool`, optional): Pass :obj:`True` to keep the story
+                accessible after it expires.
+            protect_content (:obj:`bool`, optional): Pass :obj:`True` if the content of the story
+                must be protected from forwarding and screenshotting
+
+        Returns:
+            :class:`telegram.Story`
+
+        Raises:
+            :class:`telegram.error.TelegramError`
+        """
+        data: JSONDict = {
+            "business_connection_id": business_connection_id,
+            "from_chat_id": from_chat_id,
+            "from_story_id": from_story_id,
+            "active_period": active_period,
+            "post_to_chat_page": post_to_chat_page,
+            "protect_content": protect_content,
+        }
+        return Story.de_json(
+            data=await self._post(
+                "repostStory",
+                data,
+                read_timeout=read_timeout,
+                write_timeout=write_timeout,
+                connect_timeout=connect_timeout,
+                pool_timeout=pool_timeout,
+                api_kwargs=api_kwargs,
+            ),
+            bot=self,
+        )
+
+    async def get_user_gifts(
+        self,
+        user_id: int,
+        exclude_unlimited: bool | None = None,
+        exclude_limited_upgradable: bool | None = None,
+        exclude_limited_non_upgradable: bool | None = None,
+        exclude_from_blockchain: bool | None = None,
+        exclude_unique: bool | None = None,
+        sort_by_price: bool | None = None,
+        offset: str | None = None,
+        limit: int | None = None,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> OwnedGifts:
+        """Returns the gifts owned and hosted by a user.
+
+        .. versionadded:: 22.6
+
+        user_id (:obj:`int`): Unique identifier of the user
+        exclude_unlimited (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that can be
+            purchased an unlimited number of times
+        exclude_limited_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that
+            can be purchased a limited number of times and can be upgraded to unique
+        exclude_limited_non_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts
+            that can be purchased a limited number of times and can't be upgraded to unique
+        exclude_from_blockchain (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that
+            were assigned from the TON blockchain and can't be resold or transferred in Telegram
+        exclude_unique (:obj:`bool`, optional): Pass :obj:`True` to exclude unique gifts
+        sort_by_price (:obj:`bool`, optional): Pass :obj:`True` to sort results by gift price
+            instead of send date. Sorting is applied before pagination.
+        offset (:obj:`str`, optional): Offset of the first entry to return as received from the
+            previous request; use an empty string to get the first chunk of results
+        limit (:obj:`int`, optional): The maximum number of gifts to be returned;
+            :tg-const:`~telegram.constants.BusinessLimit.MIN_GIFT_RESULTS` -
+            :tg-const:`~telegram.constants.BusinessLimit.MAX_GIFT_RESLUTS`.
+            Defaults to :tg-const:`~telegram.constants.BusinessLimit.MAX_GIFT_RESLUTS`
+
+        Returns:
+            :class:`telegram.OwnedGifts`: The owned gifts for the user.
+
+        Raises:
+            :class:`telegram.error.TelegramError`
+        """
+        data: JSONDict = {
+            "user_id": user_id,
+            "exclude_unlimited": exclude_unlimited,
+            "exclude_limited_upgradable": exclude_limited_upgradable,
+            "exclude_limited_non_upgradable": exclude_limited_non_upgradable,
+            "exclude_from_blockchain": exclude_from_blockchain,
+            "exclude_unique": exclude_unique,
+            "sort_by_price": sort_by_price,
+            "offset": offset,
+            "limit": limit,
+        }
+
+        result = await self._post(
+            "getUserGifts",
+            data,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+        return OwnedGifts.de_json(result, self)
+
+    async def get_chat_gifts(
+        self,
+        chat_id: int | str,
+        exclude_unsaved: bool | None = None,
+        exclude_saved: bool | None = None,
+        exclude_unlimited: bool | None = None,
+        exclude_limited_upgradable: bool | None = None,
+        exclude_limited_non_upgradable: bool | None = None,
+        exclude_from_blockchain: bool | None = None,
+        exclude_unique: bool | None = None,
+        sort_by_price: bool | None = None,
+        offset: str | None = None,
+        limit: int | None = None,
+        *,
+        read_timeout: ODVInput[float] = DEFAULT_NONE,
+        write_timeout: ODVInput[float] = DEFAULT_NONE,
+        connect_timeout: ODVInput[float] = DEFAULT_NONE,
+        pool_timeout: ODVInput[float] = DEFAULT_NONE,
+        api_kwargs: JSONDict | None = None,
+    ) -> OwnedGifts:
+        """Use this method to get gifts owned by a chat.
+
+        .. versionadded:: 22.6
+
+        Args:
+        chat_id (:obj:`int` | :obj:`str`): |chat_id_channel|
+        exclude_unsaved (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that aren't
+            saved to the chat's profile page. Always :obj:`True`, unless the bot has the
+            :attr:`~telegram.ChatAdministratorRights..can_post_messages` administrator right in the
+                channel.
+        exclude_saved (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that are saved to
+            the chat's profile page. Always :obj:`False`, unless the bot has the
+            :attr:`~telegram.ChatAdministratorRights..can_post_messages` administrator right in the
+                channel.
+        exclude_unlimited (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that can be
+            purchased an unlimited number of times
+        exclude_limited_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that
+            can be purchased a limited number of times and can be upgraded to unique
+        exclude_limited_non_upgradable (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts
+            that can be purchased a limited number of times and can't be upgraded to unique
+        exclude_from_blockchain (:obj:`bool`, optional): Pass :obj:`True` to exclude gifts that
+            were assigned from the TON blockchain and can't be resold or transferred in Telegram
+        exclude_unique (:obj:`bool`, optional): Pass :obj:`True` to exclude unique gifts
+        sort_by_price (:obj:`bool`, optional): Pass :obj:`True` to sort results by gift price
+            instead of send date. Sorting is applied before pagination.
+        offset (:obj:`str`, optional): Offset of the first entry to return as received from the
+            previous request; use an empty string to get the first chunk of results
+        limit (:obj:`int`, optional): The maximum number of gifts to be returned;
+            :tg-const:`~telegram.constants.BusinessLimit.MIN_GIFT_RESULTS` -
+            :tg-const:`~telegram.constants.BusinessLimit.MAX_GIFT_RESLUTS`.
+            Defaults to :tg-const:`~telegram.constants.BusinessLimit.MAX_GIFT_RESLUTS`
+
+        Returns:
+            :class:`telegram.OwnedGifts`: The owned gifts for the chat.
+
+        Raises:
+            :class:`telegram.error.TelegramError`
+        """
+
+        data: JSONDict = {
+            "chat_id": chat_id,
+            "exclude_unsaved": exclude_unsaved,
+            "exclude_saved": exclude_saved,
+            "exclude_unlimited": exclude_unlimited,
+            "exclude_limited_upgradable": exclude_limited_upgradable,
+            "exclude_limited_non_upgradable": exclude_limited_non_upgradable,
+            "exclude_from_blockchain": exclude_from_blockchain,
+            "exclude_unique": exclude_unique,
+            "sort_by_price": sort_by_price,
+            "offset": offset,
+            "limit": limit,
+        }
+
+        result = await self._post(
+            "getChatGifts",
+            data,
+            read_timeout=read_timeout,
+            write_timeout=write_timeout,
+            connect_timeout=connect_timeout,
+            pool_timeout=pool_timeout,
+            api_kwargs=api_kwargs,
+        )
+        return OwnedGifts.de_json(result, self)
+
     def to_dict(self, recursive: bool = True) -> JSONDict:  # noqa: ARG002
         """See :meth:`telegram.TelegramObject.to_dict`."""
         data: JSONDict = {"id": self.id, "username": self.username, "first_name": self.first_name}
@@ -11581,6 +11930,8 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
     """Alias for :meth:`get_me`"""
     sendMessage = send_message
     """Alias for :meth:`send_message`"""
+    sendMessageDraft = send_message_draft
+    """Alias for :meth:`send_message_draft`"""
     deleteMessage = delete_message
     """Alias for :meth:`delete_message`"""
     deleteMessages = delete_messages
@@ -11891,3 +12242,9 @@ CHAT_ACTIVITY_TIMEOUT` seconds.
     """Alias for :meth:`approve_suggested_post`"""
     declineSuggestedPost = decline_suggested_post
     """Alias for :meth:`decline_suggested_post`"""
+    repostStory = repost_story
+    """Alias for :meth:`repost_story`"""
+    getUserGifts = get_user_gifts
+    """Alias for :meth:`get_user_gifts`"""
+    getChatGifts = get_chat_gifts
+    """Alias for :meth:`get_chat_gifts`"""

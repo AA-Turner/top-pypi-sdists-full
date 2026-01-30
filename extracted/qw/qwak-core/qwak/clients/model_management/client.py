@@ -12,6 +12,7 @@ from _qwak_proto.qwak.models.models_pb2 import (
     ModelSpec,
 )
 from _qwak_proto.qwak.models.models_pb2_grpc import ModelsManagementServiceStub
+from _qwak_proto.qwak.projects.jfrog_project_spec_pb2 import ModelRepositoryJFrogSpec
 from dependency_injector.wiring import Provide
 from qwak.exceptions import QwakException
 from qwak.inner.di_configuration import QwakContainer
@@ -58,6 +59,7 @@ class ModelsManagementClient:
         project_id,
         model_name,
         model_description,
+        jfrog_project_key: Optional[str] = None,
     ):
         try:
             return self._models_management_service.CreateModel(
@@ -67,6 +69,9 @@ class ModelsManagementClient:
                         display_name=model_name,
                         project_id=project_id,
                         model_description=model_description,
+                    ),
+                    jfrog_project_spec=ModelRepositoryJFrogSpec(
+                        jfrog_project_key=jfrog_project_key,
                     ),
                 )
             )

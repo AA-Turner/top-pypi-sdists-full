@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-plugin-dotenv
-Version: 3.1.0
+Version: 3.1.1
 Summary: poetry-plugin-dotenv - is the plugin that automatically loads environment variables from a dotenv file into the environment before poetry commands are run.
 License: MIT
 License-File: LICENSE
@@ -101,9 +101,6 @@ Description-Content-Type: text/markdown
 <p align="center">
   <a href="https://stand-with-ukraine.pp.ua">
     <img alt="StandWithUkraine" src="https://img.shields.io/badge/Support-Ukraine-FFC93C?style=flat-square&labelColor=07689F">
-  </a>
-  <a href="https://stand-with-ukraine.pp.ua">
-    <img alt="StandWithUkraine" src="https://img.shields.io/badge/Made_in-Ukraine-FFC93C.svg?style=flat-square&labelColor=07689F">
   </a>
 </p>
 

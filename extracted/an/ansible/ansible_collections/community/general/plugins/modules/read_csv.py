@@ -146,11 +146,11 @@ list:
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.community.general.plugins.module_utils.csv import (
+    CSVError,
+    CustomDialectFailureError,
+    DialectNotAvailableError,
     initialize_dialect,
     read_csv,
-    CSVError,
-    DialectNotAvailableError,
-    CustomDialectFailureError,
 )
 
 
@@ -189,7 +189,7 @@ def main():
     try:
         with open(path, "rb") as f:
             data = f.read()
-    except (IOError, OSError) as e:
+    except OSError as e:
         module.fail_json(msg=f"Unable to open file: {e}")
 
     reader = read_csv(data, dialect, fieldnames)

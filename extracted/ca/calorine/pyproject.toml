@@ -23,6 +23,7 @@ authors = [
 maintainers = [
   {name = "The calorine developers team"}
 ]
+license = { file = "LICENSE" }
 readme = "README.rst"
 keywords = ["chemistry", "physics", "scientific"]
 classifiers = [
@@ -38,8 +39,25 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Physics"
 ]
 
-[project.license]
-file = "LICENSE"
+[project.optional-dependencies]
+test = [
+    "coverage",
+    "flake8",
+    "pytest",
+    "xdoctest",
+]
+documentation = [
+    "pydata-sphinx-theme",
+    "nbsphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx-design",
+    "sphinx-sitemap",
+]
+additional_features = [
+    "phonopy",
+    "tqdm",
+    "torch",
+]
 
 [project.urls]
 Documentation = "https://calorine.materialsmodeling.org"

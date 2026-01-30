@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: gunicorn
 short_description: Run gunicorn with various settings
@@ -109,7 +108,7 @@ from ansible.module_utils.basic import AnsibleModule
 def search_existing_config(config, option):
     """search in config file for specified option"""
     if config and os.path.isfile(config):
-        with open(config, "r") as f:
+        with open(config) as f:
             for line in f:
                 if option in line:
                     return line
@@ -196,7 +195,7 @@ def main():
         # wait for gunicorn to dump to log
         time.sleep(0.5)
         if os.path.isfile(pid):
-            with open(pid, "r") as f:
+            with open(pid) as f:
                 result = f.readline().strip()
 
             if not params["pid"]:
@@ -209,7 +208,7 @@ def main():
                 error = f"Please check your {error_log.strip()}"
             else:
                 if os.path.isfile(tmp_error_log):
-                    with open(tmp_error_log, "r") as f:
+                    with open(tmp_error_log) as f:
                         error = f.read()
                     # delete tmp log
                     os.remove(tmp_error_log)

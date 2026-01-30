@@ -37,6 +37,7 @@ class OrganizationConfiguration(object):
         'invite_code': 'str',
         'expires_at': 'datetime',
         'description': 'str',
+        'contract_end_date': 'datetime',
         'id': 'str',
         'created_at': 'datetime',
         'creator_id': 'str'
@@ -47,12 +48,13 @@ class OrganizationConfiguration(object):
         'invite_code': 'invite_code',
         'expires_at': 'expires_at',
         'description': 'description',
+        'contract_end_date': 'contract_end_date',
         'id': 'id',
         'created_at': 'created_at',
         'creator_id': 'creator_id'
     }
 
-    def __init__(self, customer_billing_type=None, invite_code=None, expires_at=None, description=None, id=None, created_at=None, creator_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, customer_billing_type=None, invite_code=None, expires_at=None, description=None, contract_end_date=None, id=None, created_at=None, creator_id=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationConfiguration - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class OrganizationConfiguration(object):
         self._invite_code = None
         self._expires_at = None
         self._description = None
+        self._contract_end_date = None
         self._id = None
         self._created_at = None
         self._creator_id = None
@@ -74,6 +77,8 @@ class OrganizationConfiguration(object):
             self.expires_at = expires_at
         if description is not None:
             self.description = description
+        if contract_end_date is not None:
+            self.contract_end_date = contract_end_date
         self.id = id
         self.created_at = created_at
         self.creator_id = creator_id
@@ -163,6 +168,27 @@ class OrganizationConfiguration(object):
         """
 
         self._description = description
+
+    @property
+    def contract_end_date(self):
+        """Gets the contract_end_date of this OrganizationConfiguration.  # noqa: E501
+
+
+        :return: The contract_end_date of this OrganizationConfiguration.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._contract_end_date
+
+    @contract_end_date.setter
+    def contract_end_date(self, contract_end_date):
+        """Sets the contract_end_date of this OrganizationConfiguration.
+
+
+        :param contract_end_date: The contract_end_date of this OrganizationConfiguration.  # noqa: E501
+        :type: datetime
+        """
+
+        self._contract_end_date = contract_end_date
 
     @property
     def id(self):

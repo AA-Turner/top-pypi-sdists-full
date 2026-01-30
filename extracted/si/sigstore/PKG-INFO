@@ -1,18 +1,18 @@
 Metadata-Version: 2.4
 Name: sigstore
-Version: 4.1.0
+Version: 4.2.0
 Summary: A tool for signing Python package distributions
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
@@ -29,7 +29,7 @@ Requires-Dist: requests
 Requires-Dist: rich >= 13,< 15
 Requires-Dist: rfc8785 ~= 0.1.2
 Requires-Dist: rfc3161-client >= 1.0.3,< 1.1.0
-Requires-Dist: sigstore-models == 0.0.5
+Requires-Dist: sigstore-models == 0.0.6
 Requires-Dist: sigstore-rekor-types == 0.0.18
 Requires-Dist: tuf ~= 6.0
 Requires-Dist: platformdirs ~= 4.2
@@ -40,7 +40,7 @@ Requires-Dist: mkdocs-material[imaging] ; extra == "doc"
 Requires-Dist: mkdocstrings-python ; extra == "doc"
 Requires-Dist: bandit ; extra == "lint"
 Requires-Dist: mypy ~= 1.1 ; extra == "lint"
-Requires-Dist: ruff < 0.14.1 ; extra == "lint"
+Requires-Dist: ruff < 0.14.15 ; extra == "lint"
 Requires-Dist: types-requests ; extra == "lint"
 Requires-Dist: types-pyOpenSSL ; extra == "lint"
 Requires-Dist: pytest ; extra == "test"
@@ -99,7 +99,7 @@ else!
 
 ## Installation
 
-`sigstore` requires Python 3.9 or newer, and can be installed directly via `pip`:
+`sigstore` requires Python 3.10 or newer, and can be installed directly via `pip`:
 
 ```console
 python -m pip install sigstore
@@ -139,7 +139,7 @@ positional arguments:
     trust-instance     Initialize trust for a Sigstore instance
     plumbing           developer-only plumbing operations
 
-optional arguments:
+options:
   -h, --help           show this help message and exit
   -v, --verbose        run with additional debug logging; supply multiple
                        times to increase verbosity (default: 0)
@@ -174,7 +174,7 @@ usage: sigstore sign [-h] [-v] [--rekor-version VERSION]
 positional arguments:
   FILE                  The file to sign
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -v, --verbose         run with additional debug logging; supply multiple
                         times to increase verbosity (default: 0)
@@ -234,7 +234,7 @@ usage: sigstore attest [-h] [-v] [--rekor-version VERSION] --predicate FILE
 positional arguments:
   FILE                  The file to sign
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -v, --verbose         run with additional debug logging; supply multiple
                         times to increase verbosity (default: 0)
@@ -286,7 +286,7 @@ usage: sigstore verify identity [-h] [-v] [--certificate FILE]
                                 URL
                                 FILE_OR_DIGEST [FILE_OR_DIGEST ...]
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -v, --verbose         run with additional debug logging; supply multiple
                         times to increase verbosity (default: 0)
@@ -325,7 +325,7 @@ usage: sigstore verify github [-h] [-v] [--certificate FILE]
                               [--ref REF]
                               FILE_OR_DIGEST [FILE_OR_DIGEST ...]
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -v, --verbose         run with additional debug logging; supply multiple
                         times to increase verbosity (default: 0)

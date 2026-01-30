@@ -2,11 +2,22 @@
 
 __author__ = """Qiusheng Wu"""
 __email__ = "giswqs@gmail.com"
-__version__ = "0.57.10"
+__version__ = "0.59.0"
 
 import os
 
 from .report import Report
+from .fire import (
+    get_fire_collections,
+    fire_gdf_from_bbox,
+    fire_gdf_from_place,
+    get_fire_by_id,
+    fire_timeseries,
+    search_fires,
+    FIRE_COLLECTIONS,
+    FIRE_COLLECTION_ALIASES,
+    DEFAULT_FIRE_STYLE,
+)
 
 
 def _in_colab_shell():

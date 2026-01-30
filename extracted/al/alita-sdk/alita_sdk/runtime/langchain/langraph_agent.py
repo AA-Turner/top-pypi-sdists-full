@@ -7,7 +7,7 @@ from typing import Dict
 import yaml
 import ast
 from langchain_core.callbacks import dispatch_custom_event
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage, RemoveMessage
 from langchain_core.runnables import Runnable
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, ToolException
@@ -195,7 +195,22 @@ Answer only with step name, no need to add descrip in case none of the steps are
         decision_input.append(HumanMessage(
             self.prompt.format(steps=self.steps, description=safe_format(self.description, state), additional_info=additional_info)))
         completion = self.client.invoke(decision_input)
-        result = clean_string(completion.content.strip())
+
+        # skip thinking steps if any
+        if hasattr(completion, 'content'):
+            if isinstance(completion.content, list):
+                # Filter out thinking blocks, keep only text responses
+                text_content = ''.join(
+                    block.get('text', '')
+                    for block in completion.content
+                    if isinstance(block, dict) and block.get('type') == 'text'
+                )
+                result = clean_string(text_content.strip())
+            else:
+                result = clean_string(completion.content.strip())
+        else:
+            result = clean_string(str(completion).strip())
+
         logger.info(f"Plan to transition to: {result}")
         if result not in self.steps or result == 'END':
             result = self.default_output
@@ -404,13 +419,16 @@ def prepare_output_schema(lg_builder, memory, store, debug=False, interrupt_befo
         interrupt_after = []
     if interrupt_before is None:
         interrupt_before = []
+    # Get output schema from schemas dict (LangGraph 0.4+ doesn't have output_schema attribute)
+    output_schema_key = getattr(lg_builder, 'output_schema', None) or list(lg_builder.schemas.keys())[0]
+    output_schema_channels = lg_builder.schemas[output_schema_key]
     output_channels = (
         "__root__"
-        if len(lg_builder.schemas[lg_builder.output_schema]) == 1
-           and "__root__" in lg_builder.schemas[lg_builder.output_schema]
+        if len(output_schema_channels) == 1
+           and "__root__" in output_schema_channels
         else [
             key
-            for key, val in lg_builder.schemas[lg_builder.output_schema].items()
+            for key, val in output_schema_channels.items()
             if not is_managed_value(val)
         ]
     )
@@ -422,13 +440,15 @@ def prepare_output_schema(lg_builder, memory, store, debug=False, interrupt_befo
         ]
     )
 
+    # Get input schema (same as output schema in typical StateGraph)
+    input_schema_key = getattr(lg_builder, 'input_schema', None) or output_schema_key
     compiled = LangGraphAgentRunnable(
         builder=lg_builder,
         nodes={},
         channels={
             **lg_builder.channels,
             **lg_builder.managed,
-            START: EphemeralValue(lg_builder.input_schema),
+            START: EphemeralValue(input_schema_key),
         },
         input_channels=START,
         stream_mode="updates",
@@ -1217,6 +1237,20 @@ class LangGraphAgentRunnable(CompiledStateGraph):
                     # Previous run completed - start fresh run with new input
                     # Don't use invoke(None) as that just returns current state without running
                     logger.info(f"[CHECKPOINT] Previous run completed (at END), starting fresh turn for thread {thread_id}")
+
+                    # FIX: When input contains 'messages' (e.g., regeneration scenario),
+                    # clear old checkpoint messages first to prevent duplication.
+                    # The add_messages reducer would otherwise APPEND new messages to existing ones.
+                    if input.get('messages'):
+                        existing_messages = checkpoint_state.values.get('messages', [])
+                        if existing_messages:
+                            logger.info(f"[CHECKPOINT] Clearing {len(existing_messages)} existing checkpoint messages")
+                            # Create RemoveMessage objects for all existing messages
+                            remove_msgs = [RemoveMessage(id=msg.id) for msg in existing_messages if hasattr(msg, 'id') and msg.id]
+                            if remove_msgs:
+                                # Update state to remove old messages before invoking
+                                self.update_state(config, {'messages': remove_msgs})
+
                     result = super().invoke(input, config=config, *args, **kwargs)
                 else:
                     # Interrupted mid-execution - update state and continue from where we left off

@@ -124,6 +124,7 @@ class IDTypes(Enum):
     user_groups = "ug"
     user_group_memberships = "ugm"
     resource_permissions = "rperm"
+    workload_connections = "wlc"
 
 
 _default_id_length: int = 26

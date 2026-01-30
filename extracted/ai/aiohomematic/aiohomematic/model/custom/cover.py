@@ -9,9 +9,9 @@ Public API of this module is defined by __all__.
 from __future__ import annotations
 
 import asyncio
-from enum import IntEnum, StrEnum
+from enum import IntEnum, StrEnum, unique
 import logging
-from typing import Final, Unpack
+from typing import Final, Unpack, override
 
 from aiohomematic.const import DataPointCategory, DataPointUsage, DeviceProfile, Field, Parameter
 from aiohomematic.converter import convert_hm_level_to_cpv
@@ -40,6 +40,7 @@ _OPEN_TILT_LEVEL: Final = 1.0
 _WD_CLOSED_LEVEL: Final = -0.005
 
 
+@unique
 class _CoverActivity(StrEnum):
     """Enum with cover activities."""
 
@@ -47,6 +48,7 @@ class _CoverActivity(StrEnum):
     OPENING = "UP"
 
 
+@unique
 class _CoverPosition(IntEnum):
     """Enum with cover positions."""
 
@@ -55,6 +57,7 @@ class _CoverPosition(IntEnum):
     CLOSED = 0
 
 
+@unique
 class _GarageDoorActivity(IntEnum):
     """Enum with garage door commands."""
 
@@ -62,6 +65,7 @@ class _GarageDoorActivity(IntEnum):
     OPENING = 2
 
 
+@unique
 class _GarageDoorCommand(StrEnum):
     """Enum with garage door commands."""
 
@@ -72,6 +76,7 @@ class _GarageDoorCommand(StrEnum):
     STOP = "STOP"
 
 
+@unique
 class _GarageDoorState(StrEnum):
     """Enum with garage door states."""
 
@@ -81,6 +86,7 @@ class _GarageDoorState(StrEnum):
     POSITION_UNKNOWN = "_POSITION_UNKNOWN"
 
 
+@unique
 class _StateChangeArg(StrEnum):
     """Enum with cover state change arguments."""
 
@@ -159,6 +165,7 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
             return
         await self._set_level(level=self._closed_level, collector=collector)
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if kwargs.get(_StateChangeArg.OPEN) is not None and self._group_level != self._open_level:
@@ -199,6 +206,7 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
         """Stop the device if in motion."""
         await self._dp_stop.send_value(value=True, collector=collector)
 
+    @override
     def _post_init(self) -> None:
         """Post action after initialisation of the data point fields."""
         super()._post_init()
@@ -322,6 +330,7 @@ class CustomDpBlind(CustomDpCover):
             return
         await self._set_level(tilt_level=self._closed_level, collector=collector)
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if (
@@ -571,6 +580,7 @@ class CustomDpGarage(PositionMixin, CustomDataPoint):
             return
         await self._dp_door_command.send_value(value=_GarageDoorCommand.CLOSE, collector=collector)
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if kwargs.get(_StateChangeArg.OPEN) is not None and self.current_position != _CoverPosition.OPEN:

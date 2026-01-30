@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
-// Copyright ijl (2021-2025), Baul (2020)
+// Copyright ijl (2021-2026), Baul (2020)
 
 use crate::ffi::{Py_buffer, Py_hash_t, Py_ssize_t, PyObject, PyVarObject};
 use core::ffi::c_int;
 
-#[cfg(CPython)]
 #[repr(C)]
 pub(crate) struct _PyManagedBufferObject {
     pub ob_base: *mut PyObject,
@@ -13,7 +12,6 @@ pub(crate) struct _PyManagedBufferObject {
     pub master: *mut Py_buffer,
 }
 
-#[cfg(CPython)]
 #[repr(C)]
 pub(crate) struct PyMemoryViewObject {
     pub ob_base: PyVarObject,
@@ -26,9 +24,8 @@ pub(crate) struct PyMemoryViewObject {
     pub ob_array: [Py_ssize_t; 1],
 }
 
-#[cfg(CPython)]
 #[allow(non_snake_case)]
 #[inline(always)]
 pub(crate) unsafe fn PyMemoryView_GET_BUFFER(op: *mut PyObject) -> *const Py_buffer {
-    unsafe { &(*op.cast::<PyMemoryViewObject>()).view }
+    unsafe { &raw const (*op.cast::<PyMemoryViewObject>()).view }
 }

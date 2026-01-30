@@ -782,7 +782,7 @@ class CreateApiRequest(ServiceRequest):
     name: ApiName
     ownerContact: String | None
     tags: TagMap | None
-    eventConfig: EventConfig | None
+    eventConfig: EventConfig
 
 
 class CreateApiResponse(TypedDict, total=False):
@@ -1852,7 +1852,7 @@ class UpdateApiRequest(ServiceRequest):
     apiId: String
     name: ApiName
     ownerContact: String | None
-    eventConfig: EventConfig | None
+    eventConfig: EventConfig
 
 
 class UpdateApiResponse(TypedDict, total=False):
@@ -2064,9 +2064,9 @@ class AppsyncApi:
         self,
         context: RequestContext,
         name: ApiName,
+        event_config: EventConfig,
         owner_contact: String | None = None,
         tags: TagMap | None = None,
-        event_config: EventConfig | None = None,
         **kwargs,
     ) -> CreateApiResponse:
         """Creates an ``Api`` object. Use this operation to create an AppSync API
@@ -2074,10 +2074,10 @@ class AppsyncApi:
         real-time message publishing and message subscriptions over WebSockets.
 
         :param name: The name for the ``Api``.
+        :param event_config: The Event API configuration.
         :param owner_contact: The owner contact information for the ``Api``.
         :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue``
         objects.
-        :param event_config: The Event API configuration.
         :returns: CreateApiResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:
@@ -3456,16 +3456,16 @@ class AppsyncApi:
         context: RequestContext,
         api_id: String,
         name: ApiName,
+        event_config: EventConfig,
         owner_contact: String | None = None,
-        event_config: EventConfig | None = None,
         **kwargs,
     ) -> UpdateApiResponse:
         """Updates an ``Api``.
 
         :param api_id: The ``Api`` ID.
         :param name: The name of the Api.
-        :param owner_contact: The owner contact information for the ``Api``.
         :param event_config: The new event configuration.
+        :param owner_contact: The owner contact information for the ``Api``.
         :returns: UpdateApiResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:

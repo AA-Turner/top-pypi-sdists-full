@@ -1,7 +1,9 @@
+from adam.commands import extract_trailing_options
 from adam.commands.bash import bash
 from adam.commands.command import Command
 from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import Context
 
 class Bash(Command):
     COMMAND = 'bash'
@@ -26,8 +28,9 @@ class Bash(Command):
             return super().run(cmd, s0)
 
         with self.validate(args, s0) as (args, s1):
-            with bash(s0, s1) as exec:
-                return exec(args)
+            with extract_trailing_options(args, '&') as (args, backgrounded):
+                with bash(s0, s1) as exec:
+                    return exec(args, Context.new(cmd, backgrounded=backgrounded))
 
     def completion(self, state: ReplState):
         return super().completion(state, {c : {'&': None} for c in ['ls', 'cat', 'head']}, pods=Devices.of(state).pods(state, '-'))

@@ -5,11 +5,11 @@
 
 from typing import TYPE_CHECKING, cast
 
-import graspologic as glc
 import networkx as nx
 import numpy as np
 
 import graphrag.data_model.schemas as schemas
+from graphrag.index.utils.graphs import largest_connected_component
 
 if TYPE_CHECKING:
     from networkx.classes.reportviews import DegreeView
@@ -50,7 +50,8 @@ def prune_graph(
     graph.remove_nodes_from([
         node
         for node, data in graph.nodes(data=True)
-        if data[schemas.NODE_FREQUENCY] < min_node_freq
+        if schemas.NODE_FREQUENCY not in data
+        or data[schemas.NODE_FREQUENCY] < min_node_freq
     ])
     if max_node_freq_std is not None:
         upper_threshold = _get_upper_threshold_by_std(
@@ -64,6 +65,9 @@ def prune_graph(
         ])
 
     # remove edges by min weight
+    if len(graph.edges) == 0:
+        return graph
+
     if min_edge_weight_pct > 0:
         min_edge_weight = np.percentile(
             [data[schemas.EDGE_WEIGHT] for _, _, data in graph.edges(data=True)],
@@ -78,7 +82,7 @@ def prune_graph(
         ])
 
     if lcc_only:
-        return glc.utils.largest_connected_component(graph)  # type: ignore
+        return largest_connected_component(graph)
 
     return graph
 

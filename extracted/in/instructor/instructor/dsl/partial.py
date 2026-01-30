@@ -445,21 +445,16 @@ class PartialBase(Generic[T_Model]):
         # Always use trailing-strings mode to preserve incomplete data during streaming
         # PartialLiteralMixin is deprecated - completeness-based validation handles Literals
         partial_mode = "trailing-strings"
-        chunk_buffer = []
         final_obj = None
         for chunk in json_chunks:
-            chunk_buffer += chunk
-            if len(chunk_buffer) < 2:
+            if chunk is None:
                 continue
-            potential_object += remove_control_chars("".join(chunk_buffer))
-            chunk_buffer = []
-            obj = process_potential_object(
-                potential_object, partial_mode, partial_model, **kwargs
-            )
-            final_obj = obj
-            yield obj
-        if chunk_buffer:
-            potential_object += remove_control_chars(chunk_buffer[0])
+            if not isinstance(chunk, str):
+                try:
+                    chunk = str(chunk)
+                except Exception:
+                    continue
+            potential_object += remove_control_chars(chunk)
             obj = process_potential_object(
                 potential_object, partial_mode, partial_model, **kwargs
             )
@@ -487,7 +482,14 @@ class PartialBase(Generic[T_Model]):
         partial_mode = "trailing-strings"
         final_obj = None
         async for chunk in json_chunks:
-            potential_object += chunk
+            if chunk is None:
+                continue
+            if not isinstance(chunk, str):
+                try:
+                    chunk = str(chunk)
+                except Exception:
+                    continue
+            potential_object += remove_control_chars(chunk)
             obj = process_potential_object(
                 potential_object, partial_mode, partial_model, **kwargs
             )

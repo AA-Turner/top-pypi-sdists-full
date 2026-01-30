@@ -1,6 +1,5 @@
 """LLM-as-a-judge evaluator for subjective quality assessment of agent outputs."""
 
-import json
 from typing import Any, Optional
 
 from pydantic import field_validator
@@ -9,12 +8,14 @@ from uipath.eval.models import NumericEvaluationResult
 
 from ..._utils.constants import COMMUNITY_agents_SUFFIX
 from ...platform.chat import UiPathLlmChatService
+from ...platform.chat.llm_gateway import RequiredToolChoice
 from ..models.models import AgentExecution, EvaluationResult, LLMResponse
 from .legacy_base_evaluator import (
     LegacyBaseEvaluator,
     LegacyEvaluationCriteria,
     LegacyEvaluatorConfig,
 )
+from .legacy_llm_helpers import create_evaluation_tool, extract_tool_call_response
 
 
 class LegacyLlmAsAJudgeEvaluatorConfig(LegacyEvaluatorConfig):
@@ -35,12 +36,42 @@ class LegacyLlmAsAJudgeEvaluator(LegacyBaseEvaluator[LegacyLlmAsAJudgeEvaluatorC
     @field_validator("prompt")
     @classmethod
     def validate_prompt_placeholders(cls, v: str) -> str:
-        """Validate that prompt contains required placeholders."""
-        if "{{ActualOutput}}" not in v or "{{ExpectedOutput}}" not in v:
-            raise ValueError(
-                "Prompt must contain both {ActualOutput} and {ExpectedOutput} placeholders"
+        """Auto-add missing placeholders to prompt if not present.
+
+        If both {{ActualOutput}} and {{ExpectedOutput}} are present, returns prompt as-is.
+        If one is missing, appends the missing one at the end in a new section with tags.
+        If both are missing, appends both at the end in separate sections with tags.
+
+        Tags are added to help the LLM distinguish between outputs, especially for large JSONs.
+        """
+        has_actual = "{{ActualOutput}}" in v
+        has_expected = "{{ExpectedOutput}}" in v
+
+        # If both are present, return as-is
+        if has_actual and has_expected:
+            return v
+
+        # Build the sections to add with opening and closing tags
+        sections_to_add = []
+
+        if not has_actual:
+            sections_to_add.append(
+                "\n\n## Actual Output\n"
+                "<ActualOutput>\n"
+                "{{ActualOutput}}\n"
+                "</ActualOutput>"
             )
-        return v
+
+        if not has_expected:
+            sections_to_add.append(
+                "\n\n## Expected Output\n"
+                "<ExpectedOutput>\n"
+                "{{ExpectedOutput}}\n"
+                "</ExpectedOutput>"
+            )
+
+        # Add missing sections to the end of the prompt
+        return v + "".join(sections_to_add)
 
     def model_post_init(self, __context: Any):
         """Initialize the evaluator after model creation."""
@@ -105,7 +136,7 @@ class LegacyLlmAsAJudgeEvaluator(LegacyBaseEvaluator[LegacyLlmAsAJudgeEvaluatorC
         return formatted_prompt
 
     async def _get_llm_response(self, evaluation_prompt: str) -> LLMResponse:
-        """Get response from the LLM.
+        """Get response from the LLM using universal function calling.
 
         Args:
             evaluation_prompt: The formatted prompt to send to the LLM
@@ -118,34 +149,18 @@ class LegacyLlmAsAJudgeEvaluator(LegacyBaseEvaluator[LegacyLlmAsAJudgeEvaluatorC
         if model.endswith(COMMUNITY_agents_SUFFIX):
             model = model.replace(COMMUNITY_agents_SUFFIX, "")
 
-        # Prepare the request
+        # Create evaluation tool for function calling (works across all models)
+        evaluation_tool = create_evaluation_tool()
+        tool_choice = RequiredToolChoice()
+
+        # Prepare the request with function calling
         request_data = {
             "model": model,
             "messages": [{"role": "user", "content": evaluation_prompt}],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "evaluation_response",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "score": {
-                                "type": "number",
-                                "minimum": 0,
-                                "maximum": 100,
-                                "description": "Score between 0 and 100",
-                            },
-                            "justification": {
-                                "type": "string",
-                                "description": "Explanation for the score",
-                            },
-                        },
-                        "required": ["score", "justification"],
-                    },
-                },
-            },
+            "tools": [evaluation_tool],
+            "tool_choice": tool_choice,
         }
 
         assert self.llm, "LLM should be initialized before calling this method."
         response = await self.llm.chat_completions(**request_data)
-        return LLMResponse(**json.loads(response.choices[-1].message.content or "{}"))
+        return extract_tool_call_response(response, model)

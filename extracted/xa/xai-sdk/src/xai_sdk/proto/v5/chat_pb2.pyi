@@ -1,5 +1,6 @@
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from . import deferred_pb2 as _deferred_pb2
+from . import documents_pb2 as _documents_pb2
 from . import image_pb2 as _image_pb2
 from . import sample_pb2 as _sample_pb2
 from . import usage_pb2 as _usage_pb2
@@ -31,6 +32,7 @@ class MessageRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ROLE_SYSTEM: _ClassVar[MessageRole]
     ROLE_FUNCTION: _ClassVar[MessageRole]
     ROLE_TOOL: _ClassVar[MessageRole]
+    ROLE_DEVELOPER: _ClassVar[MessageRole]
 
 class ReasoningEffort(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -92,6 +94,7 @@ ROLE_ASSISTANT: MessageRole
 ROLE_SYSTEM: MessageRole
 ROLE_FUNCTION: MessageRole
 ROLE_TOOL: MessageRole
+ROLE_DEVELOPER: MessageRole
 INVALID_EFFORT: ReasoningEffort
 EFFORT_LOW: ReasoningEffort
 EFFORT_MEDIUM: ReasoningEffort
@@ -366,20 +369,22 @@ class FileContent(_message.Message):
     def __init__(self, file_id: _Optional[str] = ...) -> None: ...
 
 class Message(_message.Message):
-    __slots__ = ("content", "reasoning_content", "role", "name", "tool_calls", "encrypted_content")
+    __slots__ = ("content", "reasoning_content", "role", "name", "tool_calls", "encrypted_content", "tool_call_id")
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     REASONING_CONTENT_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TOOL_CALLS_FIELD_NUMBER: _ClassVar[int]
     ENCRYPTED_CONTENT_FIELD_NUMBER: _ClassVar[int]
+    TOOL_CALL_ID_FIELD_NUMBER: _ClassVar[int]
     content: _containers.RepeatedCompositeFieldContainer[Content]
     reasoning_content: str
     role: MessageRole
     name: str
     tool_calls: _containers.RepeatedCompositeFieldContainer[ToolCall]
     encrypted_content: str
-    def __init__(self, content: _Optional[_Iterable[_Union[Content, _Mapping]]] = ..., reasoning_content: _Optional[str] = ..., role: _Optional[_Union[MessageRole, str]] = ..., name: _Optional[str] = ..., tool_calls: _Optional[_Iterable[_Union[ToolCall, _Mapping]]] = ..., encrypted_content: _Optional[str] = ...) -> None: ...
+    tool_call_id: str
+    def __init__(self, content: _Optional[_Iterable[_Union[Content, _Mapping]]] = ..., reasoning_content: _Optional[str] = ..., role: _Optional[_Union[MessageRole, str]] = ..., name: _Optional[str] = ..., tool_calls: _Optional[_Iterable[_Union[ToolCall, _Mapping]]] = ..., encrypted_content: _Optional[str] = ..., tool_call_id: _Optional[str] = ...) -> None: ...
 
 class ToolChoice(_message.Message):
     __slots__ = ("mode", "function_name")
@@ -431,14 +436,28 @@ class MCP(_message.Message):
     def __init__(self, server_label: _Optional[str] = ..., server_description: _Optional[str] = ..., server_url: _Optional[str] = ..., allowed_tool_names: _Optional[_Iterable[str]] = ..., authorization: _Optional[str] = ..., extra_headers: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class WebSearch(_message.Message):
-    __slots__ = ("excluded_domains", "allowed_domains", "enable_image_understanding")
+    __slots__ = ("excluded_domains", "allowed_domains", "enable_image_understanding", "user_location")
     EXCLUDED_DOMAINS_FIELD_NUMBER: _ClassVar[int]
     ALLOWED_DOMAINS_FIELD_NUMBER: _ClassVar[int]
     ENABLE_IMAGE_UNDERSTANDING_FIELD_NUMBER: _ClassVar[int]
+    USER_LOCATION_FIELD_NUMBER: _ClassVar[int]
     excluded_domains: _containers.RepeatedScalarFieldContainer[str]
     allowed_domains: _containers.RepeatedScalarFieldContainer[str]
     enable_image_understanding: bool
-    def __init__(self, excluded_domains: _Optional[_Iterable[str]] = ..., allowed_domains: _Optional[_Iterable[str]] = ..., enable_image_understanding: bool = ...) -> None: ...
+    user_location: WebSearchUserLocation
+    def __init__(self, excluded_domains: _Optional[_Iterable[str]] = ..., allowed_domains: _Optional[_Iterable[str]] = ..., enable_image_understanding: bool = ..., user_location: _Optional[_Union[WebSearchUserLocation, _Mapping]] = ...) -> None: ...
+
+class WebSearchUserLocation(_message.Message):
+    __slots__ = ("country", "city", "region", "timezone")
+    COUNTRY_FIELD_NUMBER: _ClassVar[int]
+    CITY_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    TIMEZONE_FIELD_NUMBER: _ClassVar[int]
+    country: str
+    city: str
+    region: str
+    timezone: str
+    def __init__(self, country: _Optional[str] = ..., city: _Optional[str] = ..., region: _Optional[str] = ..., timezone: _Optional[str] = ...) -> None: ...
 
 class XSearch(_message.Message):
     __slots__ = ("from_date", "to_date", "allowed_x_handles", "excluded_x_handles", "enable_image_understanding", "enable_video_understanding")

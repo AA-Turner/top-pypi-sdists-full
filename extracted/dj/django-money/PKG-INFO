@@ -1,61 +1,35 @@
 Metadata-Version: 2.4
 Name: django-money
-Version: 3.5.4
+Version: 3.6.0
 Summary: Adds support for using money and currency fields in django models and forms. Uses py-moneyed as the money implementation.
-Home-page: https://github.com/django-money/django-money
-Maintainer: Greg Reinbach
-Maintainer-email: greg@reinbach.com
+Maintainer-email: Greg Reinbach <greg@reinbach.com>, Benjamin Balder Bach <benjamin@overtag.dk>, Dmitry Dygalo <dmitry@dygalo.dev>
 License: BSD
-Keywords: django,py-money,money
-Platform: Any
+Project-URL: Homepage, https://github.com/django-money/django-money
+Keywords: django,money,py-money
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Operating System :: OS Independent
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
-Requires-Dist: Django>=2.2
+Requires-Dist: Django>=4.2
 Requires-Dist: py-moneyed<3.1,>=2.0
-Provides-Extra: test
-Requires-Dist: pytest<8.3,>=8.2; extra == "test"
-Requires-Dist: pytest-django; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: mixer; extra == "test"
-Requires-Dist: mypy; extra == "test"
-Requires-Dist: django-stubs; extra == "test"
 Provides-Extra: exchange
 Requires-Dist: certifi; extra == "exchange"
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 django-money
 ============
@@ -158,6 +132,65 @@ The default currency code length is `3` but you can change it with the `CURRENCY
 Caution: this setting also affects the initial migration of the `exchange` plugin, so changing it after running
 the initial migration has no effect. (You'd need to `manage migrate exchange zero` and migrate again if you want
 to change it).
+
+Callable defaults
+-----------------
+
+**Added in version 3.6.0: Callables were introduced in 3.6.0 and did not work before.**
+
+To make things configurable through project settings (especially useful for third-party applications using
+django-money), you can wrap configurable defaults in a callable. This avoids generating migrations on models when the
+defaults change!
+
+You can define a `default callable <https://docs.djangoproject.com/en/5.2/ref/models/fields/#default>`__ for your
+MoneyField defaults, both money and separate currency. Here is an example:
+
+.. code:: python
+
+        from django.conf import settings
+        from django.db import models
+        from djmoney.models.fields import MoneyField
+        from djmoney.money import Money
+
+        def get_default_currency():
+            return settings.MY_DEFAULT_CURRENCY
+
+        def get_default_zero():
+            return Money("0.00", settings.MY_DEFAULT_CURRENCY)
+
+        class Product(models.Model):
+            # The price has no default value, but a default currency is defined!
+            price = MoneyField(max_digits=10, decimals=2, currency_default=get_default_currency)
+            # Discount field defaults to 0 Money and thus does not need a default currency (it's in the Money
+            # value supplied by get_default_zero
+            discount = MoneyField(max_digits=10, decimals=2, default=get_default_zero)
+
+
+Note that the supplied callables are subject to Django's internals and the fact that they need to be serializable for
+the migration framework.
+
+Configuring currency choices
+----------------------------
+
+It's possible to supply a global Django project setting for ``CURRENCY_CHOICES``, but you may also supply this as an
+individual ``currency_choices`` option for MoneyFields:
+
+.. code:: python
+
+        from django.conf import settings
+        from django.db import models
+        from djmoney.models.fields import MoneyField
+
+        class Invoice(models.Model):
+            # Allow 2 different currencies for total amount
+            total_amount = MoneyField(max_digits=15, decimal_places=2, currency_choices=[("CLY", "CLY"), ("USD", "USD")])
+            # Only allow 1 currency in the accounted field
+            converted_amount = MoneyField(max_digits=15, decimal_places=2, currency_choices=[("CLY", "CLY")])
+
+As with other Django Field ``choices`` kwargs, you can also supply a callable for ``currency_choices`` (but not a
+lambda). Please note that - similar to other ``choices`` fields - there are NO database constraints implied by this
+option, so you need may need additional validation safeguards and
+`adding your own db constraints <https://adamj.eu/tech/2020/01/22/djangos-field-choices-dont-constrain-your-data/>`__.
 
 Field validation
 ----------------

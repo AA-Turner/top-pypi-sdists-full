@@ -6,7 +6,7 @@
 import numpy as np
 
 import pyboy
-from pyboy.plugins.base_plugin import PyBoyWindowPlugin
+from pyboy.plugins.window_openal import WindowOpenAL
 from pyboy.utils import WindowEvent, PyBoyException, PyBoyDependencyError
 
 logger = pyboy.logging.get_logger(__name__)
@@ -53,7 +53,7 @@ except (ImportError, AttributeError):
 ROWS, COLS = 144, 160
 
 
-class WindowOpenGL(PyBoyWindowPlugin):
+class WindowOpenGL(WindowOpenAL):
     def __init__(self, pyboy, mb, pyboy_argv):
         super().__init__(pyboy, mb, pyboy_argv)
 
@@ -140,6 +140,8 @@ class WindowOpenGL(PyBoyWindowPlugin):
                 self.events.append(WindowEvent(WindowEvent.PRESS_BUTTON_A))
             elif c == "s":
                 self.events.append(WindowEvent(WindowEvent.PRESS_BUTTON_B))
+            elif c == "p":
+                self.events.append(WindowEvent(WindowEvent.PAUSE_TOGGLE))
             elif c == chr(27):
                 self.events.append(WindowEvent(WindowEvent.QUIT))
             elif c == " ":
@@ -177,6 +179,7 @@ class WindowOpenGL(PyBoyWindowPlugin):
     def post_tick(self):
         self._gldraw()
         OpenGL.GLUT.freeglut.glutMainLoopEvent()
+        WindowOpenAL.post_tick(self)
 
     def stop(self):
         glutDestroyWindow(glutGetWindow())

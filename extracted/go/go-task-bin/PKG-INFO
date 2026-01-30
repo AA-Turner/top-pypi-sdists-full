@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: go-task-bin
-Version: 3.46.4
+Version: 3.48.0
 Summary: A task runner / simpler Make alternative written in Go
 Keywords: build,build-tool,devops,go,make,makefile,runner,task,task-runner,taskfile,tool
 Author-Email: dowon <ks2515@naver.com>

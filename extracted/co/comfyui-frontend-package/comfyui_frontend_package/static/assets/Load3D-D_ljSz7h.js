@@ -1,1 +1,0 @@
-import{n as e,t}from"./Load3D-iaCklC0D.js";e();export{t as default};

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: jenkins_credential
 short_description: Manage Jenkins credentials and domains through API
@@ -317,14 +316,15 @@ token_uuid:
   returned: success
 """
 
-from urllib.parse import urlencode
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import fetch_url, basic_auth_header
-from ansible_collections.community.general.plugins.module_utils import deps
-
+import base64
 import json
 import os
-import base64
+from urllib.parse import urlencode
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.urls import basic_auth_header, fetch_url
+
+from ansible_collections.community.general.plugins.module_utils import deps
 
 with deps.declare("urllib3", reason="urllib3 is required to embed files into requests"):
     import urllib3
@@ -465,7 +465,7 @@ def delete_target(module, headers):
 # Function to read the private key for types texts and ssh_key
 def read_privateKey(module):
     try:
-        with open(module.params["private_key_path"], "r") as f:
+        with open(module.params["private_key_path"]) as f:
             private_key = f.read().strip()
             return private_key
     except Exception as e:
@@ -738,9 +738,9 @@ def run_module():
 
                 elif ext.lower() in [".pem", ".crt"]:  # PEM mode
                     try:
-                        with open(filePath, "r") as f:
+                        with open(filePath) as f:
                             cert_chain = f.read()
-                        with open(private_key_path, "r") as f:
+                        with open(private_key_path) as f:
                             private_key = f.read()
                     except Exception as e:
                         module.fail_json(msg=f"Failed to read PEM files: {e}")

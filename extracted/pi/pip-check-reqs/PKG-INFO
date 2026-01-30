@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-check-reqs
-Version: 2.5.5
+Version: 2.5.6
 Summary: Find packages that should or should not be in requirements for a project
 Author-email: Adam Dangoor <adamdangoor@gmail.com>, Richard Jones <r1chardj0n3s@gmail.com>
 Maintainer-email: Adam Dangoor <adamdangoor@gmail.com>, Richard Jones <r1chardj0n3s@gmail.com>
@@ -40,6 +40,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
@@ -47,17 +48,17 @@ License-File: LICENSE
 Requires-Dist: packaging>=22
 Requires-Dist: pip>=23.2
 Provides-Extra: dev
-Requires-Dist: actionlint-py==1.7.7.23; extra == "dev"
-Requires-Dist: mypy==1.15.0; extra == "dev"
-Requires-Dist: pyenchant==3.2.2; extra == "dev"
-Requires-Dist: pylint==3.3.7; extra == "dev"
-Requires-Dist: pyproject-fmt==2.6.0; extra == "dev"
-Requires-Dist: pyright==1.1.400; extra == "dev"
-Requires-Dist: pyroma==4.2; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
-Requires-Dist: pytest-cov==6.1.1; extra == "dev"
-Requires-Dist: ruamel.yaml==0.18.10; extra == "dev"
-Requires-Dist: ruff==0.11.11; extra == "dev"
+Requires-Dist: actionlint-py==1.7.10.24; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: pyenchant==3.3.0; extra == "dev"
+Requires-Dist: pylint==3.3.9; extra == "dev"
+Requires-Dist: pyproject-fmt==2.8.0; extra == "dev"
+Requires-Dist: pyright==1.1.408; extra == "dev"
+Requires-Dist: pyroma==5.0.1; extra == "dev"
+Requires-Dist: pytest==8.4.2; extra == "dev"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev"
+Requires-Dist: ruamel.yaml==0.19.1; extra == "dev"
+Requires-Dist: ruff==0.14.14; extra == "dev"
 Dynamic: license-file
 
 |Build Status| |PyPI|

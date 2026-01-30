@@ -300,13 +300,13 @@ class CentralConfigBuilder:
         """
         Add CUxD interface.
 
-        CUxD uses JSON-RPC only and does not require an XML-RPC port.
+        CUxD uses JSON-RPC only and does not have an XML-RPC port.
 
         Returns:
             Self for method chaining.
 
         """
-        return self.add_interface(interface=Interface.CUXD, port=0)
+        return self.add_interface(interface=Interface.CUXD)
 
     def add_hmip_interface(self, *, port: int | None = None) -> Self:
         """
@@ -380,17 +380,17 @@ class CentralConfigBuilder:
         interface_configs: set[InterfaceConfig] = set()
         for interface, port, remote_path in self._interfaces:
             # Use explicit port if provided, otherwise get default
-            # port=0 is valid for JSON-RPC-only interfaces (CUxD, CCU-Jack)
+            # JSON-RPC-only interfaces (CUxD, CCU-Jack) don't have an XML-RPC port
             resolved_port = port if port is not None else get_interface_default_port(interface=interface, tls=self._tls)
-            if resolved_port is not None:
-                config_kwargs: dict[str, Any] = {
-                    "central_name": self._name,
-                    "interface": interface,
-                    "port": resolved_port,
-                }
-                if remote_path:
-                    config_kwargs["remote_path"] = remote_path
-                interface_configs.add(InterfaceConfig(**config_kwargs))
+            # InterfaceConfig validates: XML-RPC interfaces require port > 0, JSON-RPC-only use None
+            config_kwargs: dict[str, Any] = {
+                "central_name": self._name,
+                "interface": interface,
+                "port": resolved_port,
+            }
+            if remote_path:
+                config_kwargs["remote_path"] = remote_path
+            interface_configs.add(InterfaceConfig(**config_kwargs))
 
         # Determine central_id
         central_id = self._central_id or f"{self._name}-{self._host}"
@@ -402,7 +402,7 @@ class CentralConfigBuilder:
             # Required
             central_id=central_id,
             host=self._host,  # type: ignore[arg-type]
-            interface_configs=interface_configs,
+            interface_configs=frozenset(interface_configs),
             name=self._name,  # type: ignore[arg-type]
             password=self._password,  # type: ignore[arg-type]
             username=self._username,  # type: ignore[arg-type]
@@ -430,7 +430,7 @@ class CentralConfigBuilder:
             ignore_custom_device_definition_models=self._ignore_custom_device_definition_models,
             interfaces_requiring_periodic_refresh=self._interfaces_requiring_periodic_refresh,
             max_read_workers=self._max_read_workers,
-            optional_settings=self._optional_settings,
+            optional_settings=frozenset(self._optional_settings),
             schedule_timer_config=self._schedule_timer_config,
             start_direct=self._start_direct,
             timeout_config=self._timeout_config,

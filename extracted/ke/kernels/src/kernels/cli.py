@@ -1,19 +1,16 @@
 import argparse
 import dataclasses
 import json
-import re
 import sys
 from pathlib import Path
 
-from huggingface_hub import create_repo, upload_folder, create_branch
-
 from kernels.compat import tomllib
 from kernels.lockfile import KernelLock, get_kernel_locks
+from kernels.upload import upload_kernels_dir
 from kernels.utils import install_kernel, install_kernel_all_variants
+from kernels.versions_cli import print_kernel_versions
 
 from .doc import generate_readme_for_kernel
-
-BUILD_VARIANT_REGEX = re.compile(r"^(torch\d+\d+|torch-(cpu|cuda|metal|rocm|xpu))")
 
 
 def main():
@@ -60,6 +57,10 @@ def main():
     )
     download_parser.set_defaults(func=download_kernels)
 
+    versions_parser = subparsers.add_parser("versions", help="Show kernel versions")
+    versions_parser.add_argument("repo_id", type=str, help="The kernel repo ID")
+    versions_parser.set_defaults(func=kernel_versions)
+
     upload_parser = subparsers.add_parser("upload", help="Upload kernels to the Hub")
     upload_parser.add_argument(
         "kernel_dir",
@@ -69,11 +70,13 @@ def main():
     upload_parser.add_argument(
         "--repo-id",
         type=str,
+        required=True,
         help="Repository ID to use to upload to the Hugging Face Hub",
     )
     upload_parser.add_argument(
         "--branch",
-        type=None,
+        type=str,
+        default=None,
         help="If set, the upload will be made to a particular branch of the provided `repo-id`.",
     )
     upload_parser.add_argument(
@@ -112,6 +115,36 @@ def main():
             repo_id=args.repo_id, revision=args.revision
         )
     )
+
+    benchmark_parser = subparsers.add_parser(
+        "benchmark",
+        help="Run and submit benchmark results for a kernel",
+    )
+    benchmark_parser.add_argument(
+        "repo_id",
+        type=str,
+        help="Kernel repo ID (e.g., kernels-community/activation)",
+    )
+    benchmark_parser.add_argument(
+        "--branch", type=str, help="Kernel branch to benchmark"
+    )
+    benchmark_parser.add_argument(
+        "--version", type=int, help="Kernel version to benchmark"
+    )
+    benchmark_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Save JSON results to file",
+    )
+    benchmark_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print full JSON results to stdout (in addition to table)",
+    )
+    benchmark_parser.add_argument("--iterations", type=int, default=100)
+    benchmark_parser.add_argument("--warmup", type=int, default=10)
+    benchmark_parser.set_defaults(func=run_benchmark)
 
     args = parser.parse_args()
     args.func(args)
@@ -154,6 +187,10 @@ def download_kernels(args):
         sys.exit(1)
 
 
+def kernel_versions(args):
+    print_kernel_versions(args.repo_id)
+
+
 def lock_kernels(args):
     with open(args.project_dir / "pyproject.toml", "rb") as f:
         data = tomllib.load(f)
@@ -169,46 +206,12 @@ def lock_kernels(args):
 
 
 def upload_kernels(args):
-    # Resolve `kernel_dir` to be uploaded.
-    kernel_dir = Path(args.kernel_dir).resolve()
-
-    build_dir = None
-    for candidate in [kernel_dir / "build", kernel_dir]:
-        variants = [
-            variant_path
-            for variant_path in candidate.glob("torch*")
-            if BUILD_VARIANT_REGEX.match(variant_path.name) is not None
-        ]
-        if variants:
-            build_dir = candidate
-            break
-    if build_dir is None:
-        raise ValueError(
-            f"Couldn't find any build variants in: {kernel_dir.absolute()} or {(kernel_dir / 'build').absolute()}"
-        )
-
-    repo_id = create_repo(
-        repo_id=args.repo_id, private=args.private, exist_ok=True
-    ).repo_id
-
-    if args.branch is not None:
-        create_branch(repo_id=repo_id, branch=args.branch, exist_ok=True)
-
-    delete_patterns: set[str] = set()
-    for build_variant in build_dir.iterdir():
-        if build_variant.is_dir():
-            delete_patterns.add(f"{build_variant.name}/**")
-
-    upload_folder(
-        repo_id=repo_id,
-        folder_path=build_dir,
-        revision=args.branch,
-        path_in_repo="build",
-        delete_patterns=list(delete_patterns),
-        commit_message="Build uploaded using `kernels`.",
-        allow_patterns=["torch*"],
+    upload_kernels_dir(
+        Path(args.kernel_dir).resolve(),
+        repo_id=args.repo_id,
+        branch=args.branch,
+        private=args.private,
     )
-    print(f"✅ Kernel upload successful. Find the kernel in https://hf.co/{repo_id}.")
 
 
 class _JSONEncoder(json.JSONEncoder):
@@ -236,4 +239,18 @@ def check_kernel(
         python_abi=python_abi,
         repo_id=repo_id,
         revision=revision,
+    )
+
+
+def run_benchmark(args):
+    from kernels import benchmark
+
+    benchmark.run_benchmark(
+        repo_id=args.repo_id,
+        branch=args.branch,
+        version=args.version,
+        iterations=args.iterations,
+        warmup=args.warmup,
+        output=args.output,
+        print_json=args.json,
     )

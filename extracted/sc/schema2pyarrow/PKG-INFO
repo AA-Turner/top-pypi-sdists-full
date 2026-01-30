@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schema2pyarrow
-Version: 1.1.6
+Version: 1.2.0
 Summary: A schema converter for asyncapi to pyarrow and jsonschema to pyarrow
 Project-URL: Homepage, https://github.com/trustedshops-public/schema2pyarrow
 Project-URL: Issues, https://github.com/trustedshops-public/schema2pyarrow/issues

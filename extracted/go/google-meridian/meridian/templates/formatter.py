@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import dataclasses
 import math
 import os
+import re
 
 import altair as alt
 import immutabledict
@@ -46,6 +47,9 @@ class ChartSpec:
   id: str
   chart_json: str
   description: str | None = None
+  errors: Sequence[str] | None = None
+  warnings: Sequence[str] | None = None
+  infos: Sequence[str] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,6 +59,9 @@ class TableSpec:
   column_headers: Sequence[str]
   row_values: Sequence[Sequence[str]]
   description: str | None = None
+  errors: Sequence[str] | None = None
+  warnings: Sequence[str] | None = None
+  infos: Sequence[str] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -198,6 +205,25 @@ def format_monetary_num(num: float, currency: str) -> str:
   return compact_number(num, precision=precision, currency=currency)
 
 
+def format_col_names(headers: Sequence[str]) -> Sequence[str]:
+  """Turns underscores to spaces and capitalizes words.
+
+  Ex. ['col_name', ...] to ['Col Name', ...])
+
+  Args:
+    headers: The list of column names to format.
+
+  Returns:
+    Human readable list of column names.
+  """
+  # \b matches the start of a word
+  # [a-z] matches only if the first letter is lowercase
+  return [
+      re.sub(r'\b[a-z]', lambda m: m.group().upper(), header.replace('_', ' '))
+      for header in headers
+  ]
+
+
 def create_template_env() -> jinja2.Environment:
   """Creates a Jinja2 template environment."""
   return jinja2.Environment(
@@ -220,19 +246,20 @@ def create_summary_html(
 def create_card_html(
     template_env: jinja2.Environment,
     card_spec: CardSpec,
-    insights: str,
+    insights: str | None = None,
     chart_specs: Sequence[ChartSpec | TableSpec] | None = None,
     stats_specs: Sequence[StatsSpec] | None = None,
 ) -> str:
   """Creates a card's HTML snippet that includes given card and chart specs."""
-  insights_html = template_env.get_template('insights.html.jinja').render(
-      text_html=insights
-  )
   card_params = dataclasses.asdict(card_spec)
   card_params[c.CARD_CHARTS] = (
       _create_charts_htmls(template_env, chart_specs) if chart_specs else None
   )
-  card_params[c.CARD_INSIGHTS] = insights_html
+  if insights:
+    insights_html = template_env.get_template('insights.html.jinja').render(
+        text_html=insights
+    )
+    card_params[c.CARD_INSIGHTS] = insights_html
   card_params[c.CARD_STATS] = (
       _create_stats_htmls(template_env, stats_specs) if stats_specs else None
   )
@@ -267,3 +294,12 @@ def _create_charts_htmls(
     else:
       htmls.append(table_template.render(dataclasses.asdict(spec)))
   return htmls
+
+
+def create_finding_html(
+    template_env: jinja2.Environment, text: str, finding_type: str
+) -> str:
+  """Generates an HTML tag for the table finding."""
+  return template_env.get_template('finding.html.jinja').render(
+      finding_class=finding_type, text=text
+  )

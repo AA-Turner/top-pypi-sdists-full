@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: starlette-compress
-Version: 1.6.1
+Version: 1.7.0
 Summary: Compression middleware for Starlette - supporting ZStd, Brotli, and GZip
-Project-URL: Repository, https://github.com/Zaczero/starlette-compress
-Project-URL: Issues, https://github.com/Zaczero/starlette-compress/issues
+Project-URL: Issues, https://github.com/Zaczero/pkgs/issues
+Project-URL: Repository, https://github.com/Zaczero/pkgs/tree/main/starlette-compress
 Author-email: Kamil Monicz <kamil@monicz.dev>
 License-Expression: 0BSD
-License-File: LICENSE
 Keywords: asgi,brotli,compression,deflate,encoding,fastapi,gzip,http,middleware,performance,response,starlette,web,zstandard,zstd
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -37,8 +36,6 @@ Description-Content-Type: text/markdown
 # starlette-compress
 
 [![PyPI - Python Version](https://shields.monicz.dev/pypi/pyversions/starlette-compress)](https://pypi.org/project/starlette-compress)
-[![Liberapay Patrons](https://shields.monicz.dev/liberapay/patrons/Zaczero?logo=liberapay&label=Patrons)](https://liberapay.com/Zaczero/)
-[![GitHub Sponsors](https://shields.monicz.dev/github/sponsors/Zaczero?logo=github&label=Sponsors&color=%23db61a2)](https://github.com/sponsors/Zaczero)
 
 **starlette-compress** is a fast and simple middleware for compressing responses in [Starlette](https://www.starlette.io). It supports more compression algorithms than Starlette's built-in GZipMiddleware, and has more sensible defaults.
 
@@ -116,7 +113,7 @@ app.add_middleware(CompressMiddleware, zstd_level=6, brotli_quality=6, gzip_leve
 
 ### Supporting Custom Content-Types
 
-Manage the supported content-types. Unknown response types are not compressed. [Check here](https://github.com/Zaczero/starlette-compress/blob/main/starlette_compress/__init__.py) for the default configuration.
+Manage the supported content-types. Unknown response types are not compressed. [Check here](https://github.com/Zaczero/pkgs/blob/main/starlette-compress/starlette_compress/_utils.py) for the default configuration.
 
 ```py
 from starlette_compress import add_compress_type, remove_compress_type
@@ -124,3 +121,8 @@ from starlette_compress import add_compress_type, remove_compress_type
 add_compress_type("application/my-custom-type")
 remove_compress_type("application/json")
 ```
+
+### Dropping Accept-Encoding Header
+
+By default, starlette-compress leaves the request `Accept-Encoding` header intact. Set
+`remove_accept_encoding=True` to remove it before calling downstream middleware/application.

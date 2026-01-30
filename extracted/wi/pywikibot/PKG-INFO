@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.7.4
+Version: 10.7.5
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -290,7 +290,7 @@ Roadmap
 Current Release Changes
 =======================
 
-* Fix extracting password line (T412191)
+* Add support for kajwiki. (T415040)
 
 
 Deprecations

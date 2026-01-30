@@ -10,11 +10,11 @@ class LEDArrayColor(ctypes.Structure):
 		("_w", ctypes.c_uint8),
 	]
 
-	def __init__(self):
-		self.r = 0
-		self.g = 0
-		self.b = 0
-		self.w = 0
+	def __init__(self, r = 0, g = 0, b = 0, w = 0):
+		self.r = r
+		self.g = g
+		self.b = b
+		self.w = w
 
 	def fromPython(self):
 		self._r = self.r

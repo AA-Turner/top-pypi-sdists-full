@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plotnine
-Version: 0.15.2
+Version: 0.15.3
 Summary: A Grammar of Graphics for Python
 Author-email: Hassan Kibirige <has2k1@gmail.com>
 License: The MIT License (MIT)
@@ -49,7 +49,7 @@ Requires-Dist: pandas>=2.2.0
 Requires-Dist: mizani~=0.14.0
 Requires-Dist: numpy>=1.23.5
 Requires-Dist: scipy>=1.8.0
-Requires-Dist: statsmodels>=0.14.5
+Requires-Dist: statsmodels>=0.14.6
 Provides-Extra: all
 Requires-Dist: plotnine[extra]; extra == "all"
 Requires-Dist: plotnine[doc]; extra == "all"

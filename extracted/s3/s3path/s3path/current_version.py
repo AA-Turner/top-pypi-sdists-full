@@ -26,19 +26,17 @@ def register_configuration_parameter(
         path: PureS3Path,
         *,
         parameters: dict | None = None,
-        resource: ServiceResource | None = None,
-        glob_new_algorithm: bool | None = None):
+        resource: ServiceResource | None = None):
     if not isinstance(path, PureS3Path):
         raise TypeError(f'path argument have to be a {PurePath} type. got {type(path)}')
     if parameters and not isinstance(parameters, dict):
         raise TypeError(f'parameters argument have to be a dict type. got {type(path)}')
-    if parameters is None and resource is None and glob_new_algorithm is None:
+    if parameters is None and resource is None:
         raise ValueError('user have to specify parameters or resource arguments')
     accessor.configuration_map.set_configuration(
         path,
         resource=resource,
-        arguments=parameters,
-        glob_new_algorithm=glob_new_algorithm)
+        arguments=parameters)
 
 
 class _S3Parser:

@@ -4,6 +4,7 @@ from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.exporter import export
 from adam.commands.export.utils_export import state_with_pod
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import Context
 
 class ImportCSVFiles(Command):
     COMMAND = 'import files'

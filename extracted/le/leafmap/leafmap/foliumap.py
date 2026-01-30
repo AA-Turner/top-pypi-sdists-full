@@ -265,7 +265,6 @@ class Map(folium.Map):
         import pandas as pd
 
         if isinstance(asset_id, str):
-
             df = pd.read_csv(
                 "https://raw.githubusercontent.com/opengeos/ee-tile-layers/main/datasets.tsv",
                 sep="\t",
@@ -542,7 +541,7 @@ class Map(folium.Map):
                         right: 50px;
                         z-index:9999;
                         ">
-                <img src="{ url }" alt="legend" style="width: 100%; height: 100%;">
+                <img src="{url}" alt="legend" style="width: 100%; height: 100%;">
             </div>
             {{% endmacro %}}
         """
@@ -837,8 +836,7 @@ class Map(folium.Map):
         """
 
         class _OpacityControl(JSCSSMixin, Layer):
-            _template = Template(
-                """
+            _template = Template("""
                 {% macro head(this, kwargs) %}
                     <style>
                         .leaflet-control.leafmap-opacity-control {
@@ -1022,8 +1020,7 @@ class Map(folium.Map):
                         }
                     })();
                 {% endmacro %}
-                """
-            )
+                """)
 
             def __init__(
                 self,
@@ -1712,6 +1709,113 @@ class Map(folium.Map):
             self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
             common.arc_zoom_to_extent(bounds[0], bounds[1], bounds[2], bounds[3])
 
+    def add_cmr_layer(
+        self,
+        concept_id: str,
+        datetime: Optional[str] = None,
+        backend: str = "rasterio",
+        variable: Optional[str] = None,
+        bands: Optional[Union[str, List[str]]] = None,
+        bands_regex: Optional[str] = None,
+        expression: Optional[str] = None,
+        name: Optional[str] = "CMR Layer",
+        attribution: Optional[str] = "NASA Earthdata",
+        opacity: Optional[float] = 1.0,
+        shown: Optional[bool] = True,
+        rescale: Optional[Union[str, List]] = None,
+        colormap_name: Optional[str] = None,
+        color_formula: Optional[str] = None,
+        titiler_cmr_endpoint: Optional[str] = None,
+        zoom_to_layer: Optional[bool] = True,
+        **kwargs,
+    ) -> None:
+        """Adds a NASA Earthdata CMR layer to the map using TiTiler CMR.
+
+        This method allows you to visualize NASA Earthdata collections directly
+        on the map using the TiTiler CMR endpoint.
+
+        Args:
+            concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+            datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or
+                '2024-01-01/2024-01-31'). Defaults to None.
+            backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for
+                NetCDF/Zarr. Defaults to 'rasterio'.
+            variable (str, optional): Variable name for xarray backend datasets. Required
+                when using backend='xarray'.
+            bands (str | list, optional): Band name(s) for rasterio backend.
+            bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+            expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+            name (str, optional): The layer name. Defaults to 'CMR Layer'.
+            attribution (str, optional): Attribution text. Defaults to 'NASA Earthdata'.
+            opacity (float, optional): Layer opacity (0.0 to 1.0). Defaults to 1.0.
+            shown (bool, optional): Whether the layer is visible. Defaults to True.
+            rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305'
+                or [[270, 305]]).
+            colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+            color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+            titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+            zoom_to_layer (bool, optional): Whether to zoom to the layer extent. Defaults to True.
+            **kwargs: Additional arguments passed to the TiTiler CMR endpoint.
+
+        Examples:
+            >>> import leafmap.foliumap as leafmap
+            >>> m = leafmap.Map()
+            >>> m.add_cmr_layer(
+            ...     concept_id="C2036881735-POCLOUD",
+            ...     datetime="2024-01-15",
+            ...     backend="xarray",
+            ...     variable="analysed_sst",
+            ...     rescale="270,305",
+            ...     colormap_name="thermal",
+            ...     name="Sea Surface Temperature"
+            ... )
+        """
+        from .stac import cmr_tile, cmr_bounds
+
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
+        tile_url = cmr_tile(
+            concept_id=concept_id,
+            datetime=datetime,
+            backend=backend,
+            variable=variable,
+            bands=bands,
+            bands_regex=bands_regex,
+            expression=expression,
+            rescale=rescale,
+            colormap_name=colormap_name,
+            color_formula=color_formula,
+            titiler_cmr_endpoint=titiler_cmr_endpoint,
+            **kwargs,
+        )
+
+        if tile_url is None:
+            print("Failed to get CMR tile URL")
+            return
+
+        self.add_tile_layer(
+            url=tile_url,
+            name=name,
+            attribution=attribution,
+            opacity=opacity,
+            shown=shown,
+        )
+
+        if zoom_to_layer:
+            bounds = cmr_bounds(
+                concept_id=concept_id,
+                datetime=datetime,
+                backend=backend,
+                variable=variable,
+                titiler_cmr_endpoint=titiler_cmr_endpoint,
+            )
+            # Skip zooming if bounds are global (TiTiler CMR returns global bounds
+            # when actual data bounds are not available)
+            if bounds is not None and not common.is_global_bounds(bounds):
+                self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
+                common.arc_zoom_to_extent(bounds[0], bounds[1], bounds[2], bounds[3])
+
     def add_mosaic_layer(
         self,
         url: str,
@@ -2067,6 +2171,150 @@ class Map(folium.Map):
             info_mode=info_mode,
             opacity=opacity,
             zoom_to_layer=zoom_to_layer,
+            **kwargs,
+        )
+
+    def add_polars(
+        self,
+        df,
+        geometry: Optional[str] = "geometry",
+        crs: Optional[str] = None,
+        layer_name: Optional[str] = "Untitled",
+        zoom_to_layer: Optional[bool] = True,
+        info_mode: Optional[str] = "on_hover",
+        opacity: Optional[float] = 1.0,
+        **kwargs,
+    ) -> None:
+        """Adds a Polars DataFrame with geometry to the map.
+
+        This method supports Polars-ST DataFrames with spatial geometry columns
+        and enables direct visualization of Polars-based geospatial data without
+        manual conversion to GeoPandas.
+
+        Args:
+            df: A Polars DataFrame with a geometry column (e.g., from Polars-ST).
+            geometry (str, optional): The name of the geometry column. Defaults to "geometry".
+            crs (str, optional): The CRS of the geometry data (e.g., "EPSG:4326").
+                If None, will try to detect from Polars-ST metadata or default to EPSG:4326.
+            layer_name (str, optional): The layer name to be used. Defaults to "Untitled".
+            zoom_to_layer (bool, optional): Whether to zoom to the layer. Defaults to True.
+            info_mode (str, optional): Displays the attributes by either on_hover or on_click.
+                Any value other than "on_hover" or "on_click" will be treated as None.
+                Defaults to "on_hover".
+            opacity (float, optional): The opacity of the layer. Defaults to 1.0.
+            **kwargs: Additional keyword arguments to pass to add_gdf.
+
+        Raises:
+            ImportError: If polars or required dependencies are not installed.
+            ValueError: If the specified geometry column is not found.
+            TypeError: If the input is not a Polars DataFrame.
+
+        Examples:
+            >>> import polars as pl
+            >>> # With Polars-ST
+            >>> df = pl.read_parquet("data.geoparquet")
+            >>> m = leafmap.Map()
+            >>> m.add_polars(df, geometry="geometry", crs="EPSG:4326")
+        """
+        try:
+            import polars as pl
+        except ImportError:
+            raise ImportError(
+                "polars is required for add_polars(). "
+                "Install it with: pip install polars"
+            )
+
+        try:
+            import geopandas as gpd
+            from shapely import wkb
+        except ImportError:
+            raise ImportError(
+                "geopandas and shapely are required. "
+                "Install them with: pip install geopandas shapely"
+            )
+
+        # Validate input
+        if not isinstance(df, pl.DataFrame):
+            raise TypeError(
+                f"Expected a Polars DataFrame, got {type(df).__name__}. "
+                "Use add_gdf() for GeoPandas DataFrames."
+            )
+
+        # Check if geometry column exists
+        if geometry not in df.columns:
+            raise ValueError(
+                f"Geometry column '{geometry}' not found. "
+                f"Available columns: {df.columns}"
+            )
+
+        # Convert Polars DataFrame to GeoPandas
+        # Strategy: Convert to pandas first, then create GeoDataFrame
+        pdf = df.to_pandas()
+
+        # Handle geometry column - could be WKB binary or WKT string
+        geom_col = pdf[geometry]
+
+        # Try to convert geometries
+        try:
+            # Check if it's binary (WKB from Polars-ST)
+            if pdf[geometry].dtype == object:
+                # Try WKB first (most common for Polars-ST)
+                try:
+                    geometries = geom_col.apply(
+                        lambda x: wkb.loads(bytes(x)) if x is not None else None
+                    )
+                except Exception:
+                    # Try WKT
+                    try:
+                        from shapely import wkt
+
+                        geometries = geom_col.apply(
+                            lambda x: wkt.loads(str(x)) if x is not None else None
+                        )
+                    except Exception:
+                        # Assume it's already shapely geometry
+                        geometries = geom_col
+            else:
+                # Might be serialized as bytes
+                geometries = geom_col.apply(
+                    lambda x: wkb.loads(x) if x is not None else None
+                )
+        except Exception as e:
+            raise ValueError(
+                f"Failed to parse geometry column '{geometry}'. "
+                f"Expected WKB binary or WKT string format. Error: {e}"
+            )
+
+        # Drop the original geometry column and create GeoDataFrame
+        pdf = pdf.drop(columns=[geometry])
+        gdf = gpd.GeoDataFrame(pdf, geometry=geometries)
+
+        # Set CRS
+        if crs is not None:
+            gdf.crs = crs
+        elif gdf.crs is None:
+            # Try to detect CRS from Polars-ST metadata
+            # Polars-ST stores CRS in column metadata
+            try:
+                # Check if the original Polars column has metadata
+                if (
+                    hasattr(df[geometry], "_metadata")
+                    and "crs" in df[geometry]._metadata
+                ):
+                    gdf.crs = df[geometry]._metadata["crs"]
+                else:
+                    # Default to EPSG:4326
+                    gdf.crs = "EPSG:4326"
+            except Exception:
+                gdf.crs = "EPSG:4326"
+
+        # Now use the existing add_gdf method
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            zoom_to_layer=zoom_to_layer,
+            info_mode=info_mode,
+            opacity=opacity,
             **kwargs,
         )
 
@@ -2436,15 +2684,11 @@ class Map(folium.Map):
         if style is None:
             title_html = """
                     <h3 align={} style="font-size:{}"><b>{}</b></h3>
-                    """.format(
-                align, font_size, title
-            )
+                    """.format(align, font_size, title)
         else:
             title_html = """
                 <h3 align={} style={}><b>{}</b></h3>
-                """.format(
-                align, style, title
-            )
+                """.format(align, style, title)
         self.get_root().html.add_child(folium.Element(title_html))
 
     def static_map(
@@ -3496,11 +3740,11 @@ class Map(folium.Map):
         """
 
         if background:
-            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {'bold' if bold else 'normal'};
+            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {"bold" if bold else "normal"};
             padding: {padding}; background-color: {bg_color};
             border-radius: {border_radius};">{text}</div>"""
         else:
-            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {'bold' if bold else 'normal'};
+            text = f"""<div style="font-size: {fontsize}px; color: {fontcolor}; font-weight: {"bold" if bold else "normal"};
             padding: {padding};">{text}</div>"""
 
         self.add_html(text, position=position, **kwargs)
@@ -3739,7 +3983,6 @@ class Map(folium.Map):
         )
 
         if "colormap" not in kwargs:
-
             kwargs["colormap"] = {
                 "11": "#466b9f",
                 "12": "#d1def8",
@@ -3963,6 +4206,271 @@ class Map(folium.Map):
         """
         print(f"The folium plotting backend does not support this function.")
 
+    def add_fire_data(
+        self,
+        data: Optional[Union[str, "gpd.GeoDataFrame"]] = None,
+        bbox: Optional[List[float]] = None,
+        place: Optional[str] = None,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        farea_min: Optional[float] = None,
+        layer_name: str = "Fire Perimeters",
+        style: Optional[Dict] = None,
+        style_callback: Optional[Callable] = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
+        **kwargs,
+    ) -> None:
+        """Add NASA fire perimeter data to the map.
+
+        This method fetches and displays fire perimeter data from the NASA Fire
+        Event Data Suite (FEDs) via the OpenVEDA OGC API Features.
+
+        Args:
+            data: Pre-loaded fire data as a file path or GeoDataFrame. If provided,
+                bbox and place are ignored.
+            bbox: Bounding box [west, south, east, north] in EPSG:4326.
+            place: Place name to geocode (e.g., "California").
+            collection: Fire collection ID. Options:
+                - "snapshot_perimeter_nrt": 20-day recent fire perimeters (default)
+                - "lf_perimeter_nrt": Current year large fires (>5 km²)
+                - "lf_perimeter_archive": 2018-2021 Western US archived fires
+                - "lf_fireline_nrt": Active fire lines
+                - "lf_newfirepix_nrt": New fire pixels
+            datetime: ISO 8601 date/time or interval (e.g., "2024-07-01/2024-07-31").
+            farea_min: Minimum fire area in km² to filter results.
+            layer_name: Name for the layer. Defaults to "Fire Perimeters".
+            style: Style dictionary for the fire perimeters. Defaults to orange/red.
+            style_callback: Styling function called for each feature.
+            info_mode: Display attributes "on_hover" or "on_click".
+            zoom_to_layer: Whether to zoom to the layer bounds.
+            **kwargs: Additional keyword arguments for add_gdf().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_data(place="California", datetime="2024-07-01/2024-07-31")
+            >>> m
+        """
+        from . import fire as fire_module
+
+        if data is not None:
+            # Use provided data
+            if isinstance(data, str):
+                import geopandas as gpd
+
+                gdf = gpd.read_file(data)
+            else:
+                gdf = data
+        elif bbox is not None or place is not None:
+            # Fetch fire data
+            gdf = fire_module.search_fires(
+                bbox=bbox,
+                place=place,
+                collection=collection,
+                datetime=datetime,
+                farea_min=farea_min,
+            )
+        else:
+            raise ValueError("Either data, bbox, or place must be provided")
+
+        if gdf.empty:
+            print("No fire data found for the specified parameters.")
+            return
+
+        # Default fire styling
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            style=style,
+            style_callback=style_callback,
+            info_mode=info_mode,
+            zoom_to_layer=zoom_to_layer,
+            **kwargs,
+        )
+
+    def add_fire_perimeters(
+        self,
+        bbox: Optional[List[float]] = None,
+        place: Optional[str] = None,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        farea_min: Optional[float] = None,
+        color_column: Optional[str] = "farea",
+        cmap: str = "YlOrRd",
+        layer_name: str = "Fire Perimeters",
+        style: Optional[Dict] = None,
+        info_mode: str = "on_hover",
+        zoom_to_layer: bool = True,
+        add_legend: bool = True,
+        legend_title: str = "Fire Area (km²)",
+        **kwargs,
+    ) -> None:
+        """Add fire perimeters with color scaling based on fire attributes.
+
+        Args:
+            bbox: Bounding box [west, south, east, north] in EPSG:4326.
+            place: Place name to geocode (e.g., "California").
+            collection: Fire collection ID. Defaults to "snapshot_perimeter_nrt".
+            datetime: ISO 8601 date/time or interval.
+            farea_min: Minimum fire area in km² to filter results.
+            color_column: Column to use for color scaling. Defaults to "farea".
+            cmap: Colormap name for color scaling. Defaults to "YlOrRd".
+            layer_name: Name for the layer.
+            style: Base style dictionary (color will be overridden by colormap).
+            info_mode: Display attributes "on_hover" or "on_click".
+            zoom_to_layer: Whether to zoom to the layer bounds.
+            add_legend: Whether to add a legend. Defaults to True.
+            legend_title: Title for the legend.
+            **kwargs: Additional keyword arguments for add_gdf().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_perimeters(
+            ...     place="California",
+            ...     datetime="2024-07-01/2024-07-31",
+            ...     color_column="farea"
+            ... )
+            >>> m
+        """
+        from . import fire as fire_module
+
+        gdf = fire_module.search_fires(
+            bbox=bbox,
+            place=place,
+            collection=collection,
+            datetime=datetime,
+            farea_min=farea_min,
+        )
+
+        if gdf.empty:
+            print("No fire data found for the specified parameters.")
+            return
+
+        # Create color-scaled styling based on the specified column
+        if color_column and color_column in gdf.columns:
+            try:
+                import matplotlib.pyplot as plt
+                import matplotlib.colors as mcolors
+
+                colormap = plt.get_cmap(cmap)
+                values = gdf[color_column].fillna(0)
+                vmin, vmax = values.min(), values.max()
+
+                if vmax > vmin:
+                    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+                    def style_callback(feature):
+                        value = feature["properties"].get(color_column, 0)
+                        if value is None:
+                            value = 0
+                        rgba = colormap(norm(value))
+                        hex_color = mcolors.rgb2hex(rgba)
+                        base_style = style or {}
+                        return {
+                            "color": hex_color,
+                            "weight": base_style.get("weight", 2),
+                            "fillColor": hex_color,
+                            "fillOpacity": base_style.get("fillOpacity", 0.5),
+                        }
+
+                    self.add_gdf(
+                        gdf,
+                        layer_name=layer_name,
+                        style_callback=style_callback,
+                        info_mode=info_mode,
+                        zoom_to_layer=zoom_to_layer,
+                        **kwargs,
+                    )
+
+                    if add_legend:
+                        self.add_colormap(
+                            cmap=cmap,
+                            vmin=vmin,
+                            vmax=vmax,
+                            label=legend_title,
+                        )
+                    return
+            except ImportError:
+                pass
+
+        # Fallback to default styling
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        self.add_gdf(
+            gdf,
+            layer_name=layer_name,
+            style=style,
+            info_mode=info_mode,
+            zoom_to_layer=zoom_to_layer,
+            **kwargs,
+        )
+
+    def add_fire_timeseries(
+        self,
+        fire_id: str,
+        collection: str = "snapshot_perimeter_nrt",
+        datetime: Optional[str] = None,
+        time_column: str = "t",
+        layer_name: str = "Fire Evolution",
+        style: Optional[Dict] = None,
+        **kwargs,
+    ) -> None:
+        """Add fire perimeter evolution over time.
+
+        Note: Time slider functionality is not supported in the folium backend.
+        This method displays all perimeters as a single layer.
+
+        Args:
+            fire_id: The fire ID to track over time.
+            collection: Fire collection ID. Defaults to "snapshot_perimeter_nrt".
+            datetime: ISO 8601 date/time or interval to filter by.
+            time_column: Column containing timestamps. Defaults to "t".
+            layer_name: Name for the layer.
+            style: Style dictionary for the fire perimeters.
+            **kwargs: Additional keyword arguments for add_gdf().
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_fire_timeseries(fire_id="2024_CA_001")
+            >>> m
+        """
+        from . import fire as fire_module
+
+        gdf = fire_module.fire_timeseries(
+            fire_id=fire_id,
+            collection=collection,
+            datetime=datetime,
+        )
+
+        if gdf.empty:
+            print(f"No fire data found for fire ID: {fire_id}")
+            return
+
+        # Default fire styling
+        if style is None:
+            style = {
+                "color": "#FF4500",
+                "weight": 2,
+                "fillColor": "#FF6347",
+                "fillOpacity": 0.5,
+            }
+
+        self.add_gdf(gdf, layer_name=layer_name, style=style, **kwargs)
+
 
 class SplitControl(Layer):
     """
@@ -3990,15 +4498,13 @@ class SplitControl(Layer):
     >>> sidebyside.add_to(m)
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.control.sideBySide(
                 {{ this.layer_left.get_name() }}, {{ this.layer_right.get_name() }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self, layer_left, layer_right, name=None, overlay=True, control=True, show=True
@@ -4014,9 +4520,9 @@ class SplitControl(Layer):
         super(SplitControl, self).render()
 
         figure = self.get_root()
-        assert isinstance(figure, Figure), (
-            "You cannot render this Element " "if it is not in a Figure."
-        )
+        assert isinstance(
+            figure, Figure
+        ), "You cannot render this Element if it is not in a Figure."
 
         figure.header.add_child(
             JavascriptLink(
@@ -4046,15 +4552,13 @@ class SideBySideLayers(JSCSSMixin, Layer):
     >>> sidebyside.add_to(m)
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.control.sideBySide(
                 {{ this.layer_left.get_name() }}, {{ this.layer_right.get_name() }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -4076,8 +4580,7 @@ class CustomControl(MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         L.Control.CustomControl = L.Control.extend({
             onAdd: function(map) {
@@ -4096,8 +4599,7 @@ class CustomControl(MacroElement):
             { position: "{{ this.position }}" }
         ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-    """
-    )
+    """)
 
     def __init__(self, html, position="bottomleft"):
         def escape_backticks(text):
@@ -4114,8 +4616,7 @@ class CustomControl(MacroElement):
 class FloatText(MacroElement):
     """Adds a floating image in HTML canvas on top of the map."""
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro header(this,kwargs) %}
                 <style>
                     #{{this.get_name()}} {
@@ -4153,8 +4654,7 @@ class FloatText(MacroElement):
                 }
             </style>
             {% endmacro %}
-            """
-    )
+            """)
 
     def __init__(self, text, bottom=75, left=75):
         super(FloatText, self).__init__()
@@ -4347,8 +4847,7 @@ def geojson_layer(
 class GeoTIFFLayer(JSCSSMixin, Layer):
     """Leaflet layer that renders Cloud Optimized GeoTIFFs client-side."""
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.layerGroup();
             {% if this.control %}
@@ -4540,8 +5039,7 @@ class GeoTIFFLayer(JSCSSMixin, Layer):
                 }
             })();
             {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         ("proj4", "https://cdn.jsdelivr.net/npm/proj4@2.8.1/dist/proj4.js"),
@@ -4621,8 +5119,7 @@ class PMTilesLayer(JSCSSMixin, Layer):
     Adapted from https://github.com/jtmiclat/folium-pmtiles. Credits to @jtmiclat.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) -%}
             var protocol = new pmtiles.Protocol();
             maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -4639,8 +5136,7 @@ class PMTilesLayer(JSCSSMixin, Layer):
             }).addTo({{ this._parent.get_name() }});
 
             {%- endmacro %}
-            """
-    )
+            """)
     default_css = [
         ("maplibre_css", "https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css")
     ]
@@ -4705,8 +5201,7 @@ class PMTilesMapLibreTooltip(JSCSSMixin, MacroElement):
     Adapted from https://github.com/jtmiclat/folium-pmtiles. Credits to @jtmiclat.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro header(this, kwargs) %}
             <style>
             .maplibregl-popup {
@@ -4773,8 +5268,7 @@ class PMTilesMapLibreTooltip(JSCSSMixin, MacroElement):
                     setTooltipForPMTilesMapLibreLayer_{{ this.get_name() }}({{ this._parent.get_name() }});
                 });
             {%- endmacro %}
-            """
-    )
+            """)
 
     def __init__(self, name=None, **kwargs):
         # super().__init__(name=name if name else "PMTilesTooltip", **kwargs)

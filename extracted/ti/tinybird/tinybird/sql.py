@@ -39,6 +39,7 @@ _RE_INDEX_ENTRY = re.compile(
     r"(\w+)\s+([\w\s*\[\]\*\(\),\'\"-><.]+)\s+TYPE\s+(\w+)(?:\(([\w\s*.,]+)\))?(?:\s+GRANULARITY\s+(\d+))?"
 )
 _RE_REPLICATED_MT = re.compile(r"Replicated(.*)MergeTree\(([^\)]*)\)(.*)")
+_RE_REPLICATED_ENGINE_SPLIT = re.compile(r"(Replicated.*MergeTree\(')([^']*)('.*)")
 
 
 @dataclass
@@ -836,7 +837,7 @@ def engine_can_be_replicated(engine: Optional[str]) -> bool:
     """
     >>> engine_can_be_replicated('MergeTree() order by tuple()')
     True
-    >>> engine_can_be_replicated('JOIN(ANY, LEFT, foo)')
+    >>> engine_can_be_replicated('Null')
     False
     >>> engine_can_be_replicated('ReplicatingMergeTree() order by tuple()')
     True
@@ -855,7 +856,7 @@ def engine_supports_delete(engine: Optional[str]) -> bool:
     """
     >>> engine_supports_delete('MergeTree() order by tuple()')
     True
-    >>> engine_supports_delete('JOIN(ANY, LEFT, foo)')
+    >>> engine_supports_delete('Null')
     False
     >>> engine_supports_delete('ReplicatingMergeTree() order by tuple()')
     True
@@ -873,8 +874,8 @@ def engine_replicated_to_local(engine: str) -> str:
     'MergeTree() order by (test)'
     >>> engine_replicated_to_local("ReplicatedReplacingMergeTree('/clickhouse/tables/{layer}-{shard}/test.foo', '{replica}', timestamp) order by (test)")
     'ReplacingMergeTree(timestamp) order by (test)'
-    >>> engine_replicated_to_local("Join(ANY, LEFT, test)")
-    'Join(ANY, LEFT, test)'
+    >>> engine_replicated_to_local("Null")
+    'Null'
     >>> engine_replicated_to_local("ReplicatedVersionedCollapsingMergeTree('/clickhouse/tables/{layer}-{shard}/test.foo', '{replica}', sign,version) ORDER BY pk TTL toDate(local_timeplaced) + toIntervalDay(3) SETTINGS index_granularity = 8192")
     'VersionedCollapsingMergeTree(sign, version) ORDER BY pk TTL toDate(local_timeplaced) + toIntervalDay(3) SETTINGS index_granularity = 8192'
     """
@@ -911,7 +912,7 @@ def engine_patch_replicated_engine(engine: str, engine_full: Optional[str], new_
     if not engine_full:
         return None
     if engine.lower().startswith("Replicated".lower()):
-        parts = re.split(r"(Replicated.*MergeTree\(')([^']*)('.*)", engine_full)
+        parts = _RE_REPLICATED_ENGINE_SPLIT.split(engine_full)
         paths = parts[2].split("/")
         paths[-1] = new_table_name
         zoo_path = "/".join(paths)

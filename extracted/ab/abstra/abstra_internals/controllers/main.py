@@ -32,6 +32,7 @@ from abstra_internals.entities.execution_context import (
     ScriptContext,
 )
 from abstra_internals.interface.cli.deploy import deploy_without_git
+from abstra_internals.interface.cli.deploy_messages import DeployMessages
 from abstra_internals.interface.contract import ExecutionStartedMessage
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.email import EmailRepository
@@ -67,8 +68,6 @@ from abstra_internals.templates import (
     new_job_code,
     new_script_code,
 )
-from abstra_internals.utils.code_check import code_check
-from abstra_internals.utils.diff import compute_updated_code_from_replacements
 from abstra_internals.utils.file import path2module
 from abstra_internals.utils.validate import validate_json
 
@@ -148,6 +147,9 @@ class MainController:
         self.linter_repository = repositories.linter
 
     def deploy_without_git(self):
+        DeployMessages.start(method="upload")
+        DeployMessages.checking_linters()
+
         self.linter_repository.update_checks()
         issues = self.linter_repository.get_blocking_checks()
 
@@ -156,7 +158,7 @@ class MainController:
                 "Please fix all linter issues before deploying your project."
             )
 
-        deploy_without_git()
+        deploy_without_git(show_start_message=False)
 
     def reset_execution_repository(self):
         self.execution_repository.clear()
@@ -1036,227 +1038,6 @@ class MainController:
             "truncated": truncated,
             "matches": result_matches,
         }
-
-    def replace_code_context(self, file: str, replacements: List[Dict[str, str]]):
-        """
-        Replace specific code sections using exact context matching (RECOMMENDED).
-
-        This is the most reliable and efficient method for code updates. Instead of
-        replacing entire file content, it performs surgical edits by finding exact
-        context matches and replacing them atomically.
-
-        **When to use**:
-        - Single line changes, function updates, variable modifications
-        - Small to medium changes (<50% of file)
-        - When you want maximum reliability and minimal payload size
-        - 90%+ reduction in data transfer compared to full content replacement
-
-        Args:
-            file (str): Relative path to the file from the project root directory MUST INCLUDE THE EXTENSION (e.g. "script.py")
-            replacements (List[Dict[str, str]]): List of replacement operations, each containing:
-                - 'old_context': Exact string to find and replace (must match exactly)
-                - 'new_context': String to replace it with
-                - 'max_occurrences' (optional): Limit replacements (default: unlimited)
-
-        Returns:
-            Dict[str, Any]: Operation result with success status and details.
-                If ty type checking fails, returns success=False with observation.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Single function update
-            controller.replace_code_context("utils.py", [
-                {
-                    "old_context": "def process_data():\\n    return 'old logic'",
-                    "new_context": "def process_data():\\n    return 'new improved logic'"
-                }
-            ])
-
-            # Multiple replacements in one operation (atomic)
-            controller.replace_code_context("config.py", [
-                {
-                    "old_context": "DEBUG = False",
-                    "new_context": "DEBUG = True"
-                },
-                {
-                    "old_context": "API_URL = 'staging'",
-                    "new_context": "API_URL = 'production'"
-                }
-            ])
-
-            # Replace with occurrence limit
-            controller.replace_code_context("form.py", [
-                {
-                    "old_context": "temp_var = None",
-                    "new_context": "temp_var = []",
-                    "max_occurrences": 2  # Only replace first 2 occurrences
-                }
-            ])
-
-            # Atomic replacements example
-            controller.replace_code_context("script.py", [
-                {
-                    "old_context": "aaabbb",
-                    "new_context": "cccddd"
-                },
-                {
-                    "old_context": "cccddd",
-                    "new_context": "xxxkkk"
-                }
-            ])
-            # Result: Both patterns matched against original text simultaneously
-            ```
-
-        Safety Features:
-            - Atomic operation: all replacements applied simultaneously from original text
-            - No cascading effects between replacements
-            - Rollback capability if any operation fails
-            - Context matching prevents positioning errors
-            - Type checking with ty in strict mode before confirming success
-
-        Copywritings:
-            Replace code sections using exact context matching
-            Performing atomic context-based code replacements...
-        """
-
-        original_file_path = Settings.root_path.joinpath(file)
-        if not original_file_path.is_file():
-            raise Exception(f"File {file} does not exist")
-
-        original_content = original_file_path.read_text(encoding="utf-8")
-
-        try:
-            modified_content = compute_updated_code_from_replacements(
-                original_content, replacements
-            )
-
-            temp_file = Path(mkdtemp()) / file
-            temp_file.parent.mkdir(parents=True, exist_ok=True)
-            temp_file.write_text(modified_content, encoding="utf-8")
-            move(str(temp_file), str(original_file_path))
-
-            type_check_result = code_check(original_file_path)
-
-            if not type_check_result.success:
-                all_errors = ""
-                if type_check_result.stdout:
-                    all_errors += type_check_result.stdout
-                if type_check_result.stderr:
-                    if all_errors:
-                        all_errors += "\n"
-                    all_errors += type_check_result.stderr
-
-                return {
-                    "success": True,
-                    "file": file,
-                    "total_operations": len(replacements),
-                    "warning": f"Type checking failed:\n{all_errors}\n\nPlease review the changes made and double check the correct usage of Abstra SDK functions and classes.",
-                }
-
-            return {
-                "success": True,
-                "file": file,
-                "total_operations": len(replacements),
-            }
-
-        except Exception as e:
-            print(f"[DEBUG] Exception during replacement: {type(e).__name__}: {str(e)}")
-            raise Exception(f"Atomic context replacement failed: {str(e)}")
-
-    def replace_file_content(self, file: str, content: str):
-        """
-        Replace entire file content (use sparingly).
-
-        This method performs a complete file content replacement. While sometimes
-        necessary, it should be avoided for small changes.
-
-        **When to use**:
-        - Complete file rewrites or major refactoring (>50% changes)
-        - New file creation with substantial content
-        - When context-based operations aren't feasible
-
-        **When not to use**:
-        - Avoid for small changes (use replace_code_context instead)
-
-        **Drawbacks**:
-        - High latency for large files
-        - Bandwidth inefficient for small changes
-
-        Args:
-            file (str): Relative path to the file from the project root directory, MUST INCLUDE THE EXTENSION (e.g. "script.py")
-            content (str): Complete new file content.
-
-        Returns:
-            Dict[str, Any]: Operation result with success status and file info.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Complete file replacement (use only when necessary)
-            content = '''
-            from abstra.forms import NumberInput, TextInput, run
-
-            personal_details = [
-                TextInput("First Name"),
-                NumberInput("Age")
-            ]
-            company_details = [
-                TextInput("Company"),
-                TextInput("Job Title")
-            ]
-
-            state = run([personal_details, company_details])
-            print(state)
-            '''
-
-            controller.replace_file_content("new_form.py", content)
-            ```
-
-        Note:
-            - Creates file if it doesn't exist
-            - Completely overwrites existing content
-            - Consider using replace_code_context for targeted changes
-            - Use atomic write operation for safety
-
-        Copywritings:
-            Replace entire file content
-            Replacing complete file content...
-        """
-        try:
-            temp_file = Path(mkdtemp()) / file
-            temp_file.parent.mkdir(parents=True, exist_ok=True)
-
-            original_file_path = Settings.root_path.joinpath(file)
-            original_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with temp_file.open("w", encoding="utf-8") as f:
-                f.write(content)
-            move(str(temp_file), str(original_file_path))
-
-            if temp_file.suffix == ".py":
-                type_check_result = code_check(original_file_path)
-
-                if not type_check_result.success:
-                    all_errors = ""
-                    if type_check_result.stdout:
-                        all_errors += type_check_result.stdout
-                    if type_check_result.stderr:
-                        if all_errors:
-                            all_errors += "\n"
-                        all_errors += type_check_result.stderr
-
-                    return {
-                        "success": True,
-                        "file": file,
-                        "warning": f"Type checking failed:\n{all_errors}\n\nPlease review the changes made and double check the correct usage of Abstra SDK functions and classes.",
-                    }
-
-            return {"success": True, "file": file}
-        except Exception as e:
-            raise Exception(f"File content replacement failed: {str(e)}")
 
     def update_workspace(self, changes: Dict[str, Any]):
         project = self.repositories.project.load()

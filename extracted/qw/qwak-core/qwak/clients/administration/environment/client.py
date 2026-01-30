@@ -2,6 +2,9 @@ import grpc
 from _qwak_proto.qwak.administration.v0.environments.environment_pb2 import (
     QwakEnvironmentStatus,
 )
+from _qwak_proto.qwak.administration.v0.environments.configuration_pb2 import (
+    QwakEnvironmentConfiguration,
+)
 from _qwak_proto.qwak.administration.v0.environments.environment_service_pb2 import (
     GetEnvironmentApplicationUserCredentialsRequest,
     GetEnvironmentApplicationUserCredentialsResponse,
@@ -9,6 +12,8 @@ from _qwak_proto.qwak.administration.v0.environments.environment_service_pb2 imp
     ListEnvironmentsResponse,
     GetEnvironmentResponse,
     GetEnvironmentRequest,
+    UpdateEnvironmentConfigurationRequest,
+    UpdateEnvironmentConfigurationResponse,
 )
 from _qwak_proto.qwak.administration.v0.environments.environment_service_pb2_grpc import (
     EnvironmentServiceStub,
@@ -16,6 +21,7 @@ from _qwak_proto.qwak.administration.v0.environments.environment_service_pb2_grp
 from dependency_injector.wiring import Provide
 from qwak.exceptions import QwakException
 from qwak.inner.di_configuration import QwakContainer
+from qwak.inner.tool.grpc.grpc_try_wrapping import grpc_try_catch_wrapper
 
 
 class EnvironmentClient:
@@ -90,3 +96,25 @@ class EnvironmentClient:
             raise QwakException(
                 f"Failed to get environment {environment_id}, error is {e}"
             )
+
+    @grpc_try_catch_wrapper(
+        "Failed to update environment configuration for {environment_id}"
+    )
+    def update_environment_configuration(
+        self, environment_id: str, configuration: QwakEnvironmentConfiguration
+    ) -> UpdateEnvironmentConfigurationResponse:
+        """
+        Update environment configuration.
+
+        Args:
+            environment_id: The environment ID to update.
+            configuration: The new environment configuration.
+
+        Returns:
+            UpdateEnvironmentConfigurationResponse
+        """
+        request = UpdateEnvironmentConfigurationRequest(
+            environment_id=environment_id,
+            configuration=configuration,
+        )
+        return self._environment_service.UpdateEnvironmentConfiguration(request)

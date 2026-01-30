@@ -1,6 +1,6 @@
 [project]
 name = "flet-cli"
-version = "0.80.4"
+version = "0.80.5"
 description = "Flet CLI"
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"

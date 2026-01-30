@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import parse_obj_as
 
+from dstack._internal.core.compatibility.events import get_list_events_excludes
 from dstack._internal.core.models.events import Event, EventTargetType
 from dstack._internal.server.schemas.events import LIST_EVENTS_DEFAULT_LIMIT, ListEventsRequest
 from dstack.api.server._group import APIClientGroup
@@ -27,6 +28,11 @@ class EventsAPIClient(APIClientGroup):
         prev_id: Optional[UUID] = None,
         limit: int = LIST_EVENTS_DEFAULT_LIMIT,
         ascending: bool = False,
+        *,
+        # NOTE: New parameters go here. Avoid positional parameters, they can break compatibility.
+        target_volumes: Optional[list[UUID]] = None,
+        target_gateways: Optional[list[UUID]] = None,
+        target_secrets: Optional[list[UUID]] = None,
     ) -> list[Event]:
         if prev_recorded_at is not None:
             # Time zones other than UTC are misinterpreted by the server:
@@ -39,6 +45,9 @@ class EventsAPIClient(APIClientGroup):
             target_instances=target_instances,
             target_runs=target_runs,
             target_jobs=target_jobs,
+            target_volumes=target_volumes,
+            target_gateways=target_gateways,
+            target_secrets=target_secrets,
             within_projects=within_projects,
             within_fleets=within_fleets,
             within_runs=within_runs,
@@ -49,5 +58,7 @@ class EventsAPIClient(APIClientGroup):
             limit=limit,
             ascending=ascending,
         )
-        resp = self._request("/api/events/list", body=req.json())
+        resp = self._request(
+            "/api/events/list", body=req.json(exclude=get_list_events_excludes(req))
+        )
         return parse_obj_as(list[Event.__response__], resp.json())

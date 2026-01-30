@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 1.4.74
+Version: 1.4.79
 Summary: Goldman Sachs Quant
-Home-page: https://marquee.gs.com
-Author: Goldman Sachs
-Author-email: developer@gs.com
-License: http://www.apache.org/licenses/LICENSE-2.0
+Author-email: Goldman Sachs <developer@gs.com>
+License: Apache-2.0
+Project-URL: Homepage, https://marquee.gs.com
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -14,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
@@ -42,8 +42,6 @@ Requires-Dist: scipy>=1.2.0
 Requires-Dist: statsmodels>=0.13.0
 Requires-Dist: tqdm
 Requires-Dist: websockets
-Provides-Extra: internal
-Requires-Dist: gs_quant_internal>=1.7.0; extra == "internal"
 Provides-Extra: turbo
 Requires-Dist: quant-extensions; extra == "turbo"
 Provides-Extra: notebook
@@ -73,17 +71,7 @@ Requires-Dist: pytest-cov; extra == "develop"
 Requires-Dist: pytest-mock; extra == "develop"
 Requires-Dist: pytest-order; extra == "develop"
 Requires-Dist: testfixtures; extra == "develop"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 # GS Quant
 

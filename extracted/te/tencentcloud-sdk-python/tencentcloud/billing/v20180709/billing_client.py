@@ -1298,6 +1298,31 @@ class BillingClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeRenewInstances(self, request):
+        r"""注意事项：
+        1、本接口支持查询已接入续费管理页的包年包月实例，包括运行中、已隔离（部分产品不支持）
+        2、子用户使用该接口时，应具备QcloudFinanceRenewManageFullAccess权限策略。
+
+        :param request: Request instance for DescribeRenewInstances.
+        :type request: :class:`tencentcloud.billing.v20180709.models.DescribeRenewInstancesRequest`
+        :rtype: :class:`tencentcloud.billing.v20180709.models.DescribeRenewInstancesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeRenewInstances", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeRenewInstancesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeSavingPlanResourceInfo(self, request):
         r"""查询节省计划详情
 
@@ -1542,6 +1567,32 @@ class BillingClient(AbstractClient):
             body = self.call("RenewInstance", params, headers=headers)
             response = json.loads(body)
             model = models.RenewInstanceResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetRenewal(self, request):
+        r"""注意事项：
+        1、本接口支持对包年包月实例设置自动续费模式及周期
+        2、可通过实例查询接口获取到产品编码、地域编码
+        3、子用户使用该接口时，应具备QcloudFinanceRenewManageFullAccess权限策略。
+
+        :param request: Request instance for SetRenewal.
+        :type request: :class:`tencentcloud.billing.v20180709.models.SetRenewalRequest`
+        :rtype: :class:`tencentcloud.billing.v20180709.models.SetRenewalResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetRenewal", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetRenewalResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

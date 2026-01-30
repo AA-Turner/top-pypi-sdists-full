@@ -67,13 +67,16 @@ options:
     location:
         description:
             - Hetzner Cloud Location (name or ID) to create the server in.
-            - Required if no O(datacenter) is given and server does not exist.
+            - Required if the server does not exist.
             - Only used during the server creation.
         type: str
     datacenter:
         description:
+            - B(Deprecated:) The O(datacenter) argument is deprecated and will be removed
+              after 1 July 2026. Please use the O(location) argument instead.
+              See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters.
             - Hetzner Cloud Datacenter (name or ID) to create the server in.
-            - Required if no O(location) is given and server does not exist.
+            - Required if no O(location) is given and the server does not exist.
             - Only used during the server creation.
         type: str
     backups:
@@ -122,7 +125,8 @@ options:
     user_data:
         description:
             - User Data to be passed to the server on creation.
-            - Only used during the server creation.
+            - C(cloud-init), C(ignition) or similar provisioning tools may retrieve user configuration from the Server's C(user_data).
+            - Used during the server creation or server rebuild.
         type: str
     rescue_mode:
         description:
@@ -173,6 +177,16 @@ EXAMPLES = """
     location: fsn1
     ssh_keys:
       - me@myorganisation
+    state: present
+
+- name: Create a basic server with additional cloud-init data disabling SSH password authentication
+  hetzner.hcloud.server:
+    name: my-server
+    server_type: cpx22
+    image: ubuntu-22.04
+    user_data: |
+      #cloud-config
+      ssh_pwauth: false
     state: present
 
 - name: Resize an existing server
@@ -242,7 +256,7 @@ RETURN = """
 hcloud_server:
     description: The server instance
     returned: Always
-    type: complex
+    type: dict
     contains:
         id:
             description: Numeric identifier of the server
@@ -303,7 +317,12 @@ hcloud_server:
             sample: 4711
             version_added: "1.5.0"
         datacenter:
-            description: Name of the datacenter of the server
+            description: |
+                Name of the datacenter of the server.
+
+                B(Deprecated:) The RV(hcloud_server.datacenter) value is deprecated and will be removed
+                after 1 July 2026. Please use the RV(hcloud_server.location) value instead.
+                See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters.
             returned: always
             type: str
             sample: fsn1-dc14
@@ -345,23 +364,23 @@ from typing import TYPE_CHECKING, Literal
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ..module_utils.deprecation import deprecated_server_type_warning
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.firewalls import FirewallResource
-from ..module_utils.vendor.hcloud.servers import (
+from ..module_utils._base import AnsibleHCloud
+from ..module_utils._deprecation import deprecated_server_type_warning
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.firewalls import FirewallResource
+from ..module_utils._vendor.hcloud.servers import (
     BoundServer,
     Server,
     ServerCreatePublicNetwork,
 )
 
 if TYPE_CHECKING:
-    from ..module_utils.vendor.hcloud.actions import BoundAction
-    from ..module_utils.vendor.hcloud.firewalls import BoundFirewall
-    from ..module_utils.vendor.hcloud.networks import BoundNetwork
-    from ..module_utils.vendor.hcloud.placement_groups import BoundPlacementGroup
-    from ..module_utils.vendor.hcloud.primary_ips import PrimaryIP
-    from ..module_utils.vendor.hcloud.server_types import ServerType
+    from ..module_utils._vendor.hcloud.actions import BoundAction
+    from ..module_utils._vendor.hcloud.firewalls import BoundFirewall
+    from ..module_utils._vendor.hcloud.networks import BoundNetwork
+    from ..module_utils._vendor.hcloud.placement_groups import BoundPlacementGroup
+    from ..module_utils._vendor.hcloud.primary_ips import PrimaryIP
+    from ..module_utils._vendor.hcloud.server_types import ServerType
 
 
 class AnsibleHCloudServer(AnsibleHCloud):
@@ -384,8 +403,8 @@ class AnsibleHCloudServer(AnsibleHCloud):
             ],
             "image": self.hcloud_server.image.name if self.hcloud_server.image is not None else None,
             "server_type": self.hcloud_server.server_type.name,
-            "datacenter": self.hcloud_server.datacenter.name,
-            "location": self.hcloud_server.datacenter.location.name,
+            "datacenter": self.hcloud_server.datacenter and self.hcloud_server.datacenter.name,
+            "location": self.hcloud_server.location.name,
             "placement_group": (
                 self.hcloud_server.placement_group.name if self.hcloud_server.placement_group is not None else None
             ),
@@ -469,8 +488,22 @@ class AnsibleHCloudServer(AnsibleHCloud):
             params["location"] = self._client_get_by_name_or_id("locations", self.module.params.get("location"))
             server_type_location = params["location"]
         elif self.module.params.get("location") is None and self.module.params.get("datacenter") is not None:
-            params["datacenter"] = self._client_get_by_name_or_id("datacenters", self.module.params.get("datacenter"))
-            server_type_location = params["datacenter"].location
+            self.module.warn(
+                "The `datacenter` argument is deprecated and will be removed "
+                "after 1 July 2026. Please use the `location` argument instead. "
+                "See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters."
+            )
+            value: str = self.module.params.get("datacenter")
+            # Backward compatible datacenter argument.
+            # datacenter hel1-dc2 => location hel1
+            if value and not value.isdigit():
+                # pylint: disable=disallowed-name
+                part1, _, _ = value.partition("-")
+                params["location"] = self.client.locations.get_by_name(part1)
+                server_type_location = params["location"]
+            else:
+                params["datacenter"] = self._client_get_by_name_or_id("datacenters", value)
+                server_type_location = params["datacenter"].location
 
         if self.module.params.get("state") == "stopped" or self.module.params.get("state") == "created":
             params["start_after_create"] = False
@@ -489,7 +522,7 @@ class AnsibleHCloudServer(AnsibleHCloud):
                     deprecated_server_type_warning(
                         self.module,
                         resp.server.server_type,
-                        resp.server.datacenter.location,
+                        resp.server.location,
                     )
 
                 self.result["root_password"] = resp.root_password
@@ -679,7 +712,7 @@ class AnsibleHCloudServer(AnsibleHCloud):
             deprecated_server_type_warning(
                 self.module,
                 self.hcloud_server.server_type,
-                self.hcloud_server.datacenter.location,
+                self.hcloud_server.location,
             )
             return
 
@@ -689,7 +722,7 @@ class AnsibleHCloudServer(AnsibleHCloud):
         deprecated_server_type_warning(
             self.module,
             server_type,
-            self.hcloud_server.datacenter.location,
+            self.hcloud_server.location,
         )
 
         self.stop_server_if_forced()
@@ -897,8 +930,13 @@ class AnsibleHCloudServer(AnsibleHCloud):
             self.module.fail_on_missing_params(required_params=["image"])
             try:
                 if not self.module.check_mode:
-                    image = self._get_image(self.hcloud_server.server_type)
-                    resp = self.client.servers.rebuild(self.hcloud_server, image)
+                    params = {
+                        "image": self._get_image(self.hcloud_server.server_type),
+                    }
+                    if (value := self.module.params.get("user_data")) is not None:
+                        params["user_data"] = value
+
+                    resp = self.client.servers.rebuild(self.hcloud_server, **params)
                     # When we rebuild the server progress takes some more time.
                     resp.action.wait_until_finished(max_retries=202)  # 202 retries >= 1002 seconds
                 self._mark_as_changed()
@@ -936,7 +974,11 @@ class AnsibleHCloudServer(AnsibleHCloud):
                 image_allow_deprecated={"type": "bool", "default": False, "aliases": ["allow_deprecated_image"]},
                 server_type={"type": "str"},
                 location={"type": "str"},
-                datacenter={"type": "str"},
+                datacenter={
+                    "type": "str",
+                    "removed_at_date": "2026-07-01",
+                    "removed_from_collection": "hetzner.hcloud",
+                },
                 user_data={"type": "str"},
                 ssh_keys={"type": "list", "elements": "str", "no_log": False},
                 volumes={"type": "list", "elements": "str"},

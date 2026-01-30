@@ -4,20 +4,22 @@
 """Basic Context Builder implementation."""
 
 import logging
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
+from graphrag_llm.tokenizer import Tokenizer
+from graphrag_vectors import VectorStore
 
 from graphrag.data_model.text_unit import TextUnit
-from graphrag.language_model.protocol.base import EmbeddingModel
 from graphrag.query.context_builder.builders import (
     BasicContextBuilder,
     ContextBuilderResult,
 )
 from graphrag.query.context_builder.conversation_history import ConversationHistory
 from graphrag.tokenizer.get_tokenizer import get_tokenizer
-from graphrag.tokenizer.tokenizer import Tokenizer
-from graphrag.vector_stores.base import BaseVectorStore
+
+if TYPE_CHECKING:
+    from graphrag_llm.embedding import LLMEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +29,8 @@ class BasicSearchContext(BasicContextBuilder):
 
     def __init__(
         self,
-        text_embedder: EmbeddingModel,
-        text_unit_embeddings: BaseVectorStore,
+        text_embedder: "LLMEmbedding",
+        text_unit_embeddings: VectorStore,
         text_units: list[TextUnit] | None = None,
         tokenizer: Tokenizer | None = None,
         embedding_vectorstore_key: str = "id",
@@ -38,7 +40,6 @@ class BasicSearchContext(BasicContextBuilder):
         self.text_units = text_units
         self.text_unit_embeddings = text_unit_embeddings
         self.embedding_vectorstore_key = embedding_vectorstore_key
-        self.text_id_map = self._map_ids()
 
     def build_context(
         self,
@@ -48,7 +49,7 @@ class BasicSearchContext(BasicContextBuilder):
         max_context_tokens: int = 12_000,
         context_name: str = "Sources",
         column_delimiter: str = "|",
-        text_id_col: str = "source_id",
+        text_id_col: str = "id",
         text_col: str = "text",
         **kwargs,
     ) -> ContextBuilderResult:
@@ -56,17 +57,20 @@ class BasicSearchContext(BasicContextBuilder):
         if query != "":
             related_texts = self.text_unit_embeddings.similarity_search_by_text(
                 text=query,
-                text_embedder=lambda t: self.text_embedder.embed(t),
+                text_embedder=lambda t: (
+                    self.text_embedder.embedding(input=[t]).first_embedding
+                ),
                 k=k,
             )
-            related_text_list = [
-                {
-                    text_id_col: self.text_id_map[f"{chunk.document.id}"],
-                    text_col: chunk.document.text,
-                }
-                for chunk in related_texts
+
+            text_unit_ids = {t.document.id for t in related_texts}
+            text_units_filtered = []
+            text_units_filtered = [
+                {text_id_col: t.short_id, text_col: t.text}
+                for t in self.text_units or []
+                if t.id in text_unit_ids
             ]
-            related_text_df = pd.DataFrame(related_text_list)
+            related_text_df = pd.DataFrame(text_units_filtered)
         else:
             related_text_df = pd.DataFrame({
                 text_id_col: [],
@@ -101,13 +105,5 @@ class BasicSearchContext(BasicContextBuilder):
 
         return ContextBuilderResult(
             context_chunks=final_text,
-            context_records={context_name: final_text_df},
+            context_records={context_name.lower(): final_text_df},
         )
-
-    def _map_ids(self) -> dict[str, str]:
-        """Map id to short id in the text units."""
-        id_map = {}
-        text_units = self.text_units or []
-        for unit in text_units:
-            id_map[unit.id] = unit.short_id
-        return id_map

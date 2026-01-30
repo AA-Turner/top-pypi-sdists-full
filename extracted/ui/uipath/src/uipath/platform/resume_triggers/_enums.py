@@ -2,6 +2,8 @@
 
 from enum import Enum
 
+from pydantic import BaseModel, Field
+
 
 class PropertyName(str, Enum):
     """UiPath trigger property names."""
@@ -16,3 +18,25 @@ class TriggerMarker(str, Enum):
     """
 
     NO_CONTENT = "NO_CONTENT"
+
+
+class ExternalTriggerType(str, Enum):
+    """External trigger types."""
+
+    DEEP_RAG = "deepRag"
+    BATCH_TRANSFORM = "batchTransform"
+    IXP_EXTRACTION = "ixpExtraction"
+    INDEX_INGESTION = "indexIngestion"
+    IXP_VS_ESCALATION = "IxpVsEscalation"
+
+
+class ExternalTrigger(BaseModel):
+    """Model representing an external trigger entity."""
+
+    type: ExternalTriggerType
+    external_id: str = Field(alias="externalId")
+
+    model_config = {
+        "validate_by_name": True,
+        "validate_by_alias": True,
+    }

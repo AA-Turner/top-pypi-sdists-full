@@ -1,25 +1,39 @@
-# flake8: noqa
-
-import os.path as osp
+import pathlib
+from typing import TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 
-here = osp.dirname(osp.abspath(__file__))
+_here: pathlib.Path = pathlib.Path(__file__).parent
 
 
-def voc():
-    data_file = osp.join(here, "data.npz")
-    data = dict(np.load(data_file))
+class _VocData(TypedDict):
+    rgb: NDArray[np.uint8]
+    bboxes: NDArray[np.floating]
+    labels: NDArray[np.int32]
+    masks: NDArray[np.bool_]
+    class_label: NDArray[np.int32]
+    class_names: list[str]
+
+
+def voc() -> _VocData:
+    data_file: pathlib.Path = _here / "data.npz"
+    data: dict = dict(np.load(data_file))
 
     # compose masks to class label image
-    class_label = np.full(data["rgb"].shape[:2], 0, dtype=np.int32)
-    for l, mask in zip(data["labels"], data["masks"]):
-        class_label[mask == 1] = l
-    data["class_label"] = class_label
+    class_label: NDArray[np.int32] = np.full(data["rgb"].shape[:2], 0, dtype=np.int32)
+    for label_id, mask in zip(data["labels"], data["masks"]):
+        class_label[mask == 1] = label_id
 
-    names_file = osp.join(here, "class_names.txt")
+    names_file: pathlib.Path = _here / "class_names.txt"
     with open(names_file) as f:
         class_names = [name.strip() for name in f]
-    data["class_names"] = class_names
 
-    return data
+    return _VocData(
+        rgb=data["rgb"],
+        bboxes=data["bboxes"],
+        labels=data["labels"],
+        masks=data["masks"],
+        class_label=class_label,
+        class_names=class_names,
+    )

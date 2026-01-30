@@ -1,21 +1,25 @@
-Metadata-Version: 2.1
-Name: exa_py
-Version: 2.1.1
+Metadata-Version: 2.3
+Name: exa-py
+Version: 2.2.0
 Summary: Python SDK for Exa API.
-Home-page: https://github.com/exa-labs/exa-py
-Author: Exa
+License: MIT
+Author: Exa AI
 Author-email: hello@exa.ai
-License: UNKNOWN
-Platform: UNKNOWN
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Typing :: Typed
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: httpcore (>=1.0.9)
+Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: openai (>=1.48)
+Requires-Dist: pydantic (>=2.10.6)
+Requires-Dist: python-dotenv (>=1.0.1)
+Requires-Dist: requests (>=2.32.3)
+Requires-Dist: typing-extensions (>=4.12.2)
 Description-Content-Type: text/markdown
 
 # Exa
@@ -122,5 +126,4 @@ exa = Exa(api_key="your-api-key")
       output_schema=OUTPUT_SCHEMA,
   )
 ```
-
 

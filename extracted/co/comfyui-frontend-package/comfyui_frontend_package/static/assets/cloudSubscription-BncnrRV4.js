@@ -1,2 +1,0 @@
-import{i as e,n as t}from"./rolldown-runtime-BKYq3fBv.js";import{Fr as n,Nn as r}from"./vendor-primevue-CZblVCtn.js";import{Co as i,_i as a,gi as o,mo as s,po as c,wo as l}from"./dialogService-Dd9T0a5b.js";t((()=>{r(),c(),i(),o(),a().registerExtension({name:`Comfy.Cloud.Subscription`,setup:async()=>{let{isLoggedIn:e}=s(),{requireActiveSubscription:t}=l(),checkSubscriptionStatus=()=>{e.value&&t()};n(()=>e.value,checkSubscriptionStatus,{immediate:!0})}})}))();
-//# sourceMappingURL=cloudSubscription-BncnrRV4.js.map

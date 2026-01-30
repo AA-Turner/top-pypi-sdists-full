@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 from copy import deepcopy
-from json import dumps
 
 from langchain_core.callbacks import dispatch_custom_event
 from langchain_core.messages import ToolCall
@@ -13,9 +12,31 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ValidationError
 
 from ..langchain.utils import propagate_the_input_mapping
-from ..utils.serialization import safe_serialize
 
 logger = logging.getLogger(__name__)
+
+
+def safe_serialize(obj: Any) -> str:
+    """
+    Safely serialize any object to a JSON string.
+    Falls back to str() conversion if json.dumps fails.
+
+    Args:
+        obj: Any object to serialize
+
+    Returns:
+        JSON string representation of the object
+    """
+    try:
+        return json.dumps(obj, ensure_ascii=False)
+    except (TypeError, ValueError) as e:
+        # If json.dumps fails, convert to string
+        logger.debug(f"JSON serialization failed for {type(obj).__name__}: {e}. Falling back to str() conversion.")
+        try:
+            return json.dumps(str(obj), ensure_ascii=False)
+        except Exception:
+            # Ultimate fallback - just return string representation
+            return str(obj)
 
 
 def replace_escaped_newlines(data):
@@ -41,8 +62,12 @@ class FunctionTool(BaseTool):
     structured_output: Optional[bool] = False
     alita_client: Optional[Any] = None
 
-    def _prepare_pyodide_input(self, state: Union[str, dict, ToolCall]) -> str:
+    def _prepare_pyodide_input(self, state: Union[str, dict, ToolCall], input_variables: Optional[list[str]] = None) -> str:
         """Prepare input for PyodideSandboxTool by injecting state into the code block.
+
+        Logic for state variable injection:
+        - If input_variables is None, empty, or only contains 'messages': inject ALL state variables
+        - If input_variables contains specific variable names: inject ONLY those variables (excluding 'messages')
 
         Uses base64 encoding to avoid string escaping issues when passing JSON
         through multiple layers of parsing (Python -> Deno -> Pyodide) and compression to minimize args list
@@ -51,11 +76,28 @@ class FunctionTool(BaseTool):
         import zlib
 
         state_copy = replace_escaped_newlines(deepcopy(state))
+
+        # Always remove 'messages' from state injection
         if 'messages' in state_copy:
             del state_copy['messages']
 
+        # Filter state variables based on input_variables
+        # If no input_variables specified or only 'messages', include all state vars
+        # Otherwise, include only specified variables (excluding 'messages')
+        if input_variables is None or len(input_variables) == 0 or (len(input_variables) == 1 and input_variables[0] == 'messages'):
+            # Include all state variables (messages already removed above)
+            filtered_state = state_copy
+            logger.debug("Code node: injecting ALL state variables into alita_state")
+        else:
+            # Include only specified variables, excluding 'messages'
+            filtered_state = {}
+            for var in input_variables:
+                if var != 'messages' and var in state_copy:
+                    filtered_state[var] = state_copy[var]
+            logger.debug(f"Code node: injecting ONLY specified variables into alita_state: {list(filtered_state.keys())}")
+
         # Use safe_serialize to handle Pydantic models, datetime, and other non-JSON types
-        state_json = safe_serialize(state_copy)
+        state_json = safe_serialize(filtered_state)
 
         # Use base64 encoding to avoid all string escaping issues
         # This is more robust than repr() when the code passes through multiple parsers
@@ -82,7 +124,7 @@ alita_state = json.loads(state_json)
             for var in self.output_variables:
                 if var == "messages":
                     tool_result_converted.update(
-                        {"messages": [{"role": "assistant", "content": dumps(tool_result)}]})
+                        {"messages": [{"role": "assistant", "content": safe_serialize(tool_result)}]})
                     continue
                 if isinstance(tool_result, dict) and var in tool_result:
                     tool_result_converted[var] = tool_result[var]
@@ -92,7 +134,7 @@ alita_state = json.loads(state_json)
                                                                  tool_result.get('error') if tool_result.get('error')
                                                                  else 'Execution result is missing')
         else:
-            tool_result_converted.update({"messages": [{"role": "assistant", "content": dumps(tool_result)}]})
+            tool_result_converted.update({"messages": [{"role": "assistant", "content": safe_serialize(tool_result)}]})
 
         if self.structured_output:
             # execute code tool and update state variables
@@ -132,7 +174,7 @@ alita_state = json.loads(state_json)
         if self._is_pyodide_tool():
             # replace new lines in strings in code block
             code = func_args['code'].replace('\\n', '\\\\n')
-            func_args['code'] = f"{self._prepare_pyodide_input(state)}\n{code}"
+            func_args['code'] = f"{self._prepare_pyodide_input(state, self.input_variables)}\n{code}"
         try:
             tool_result = self.tool.invoke(func_args, config, **kwargs)
             dispatch_custom_event(
@@ -150,17 +192,17 @@ alita_state = json.loads(state_json)
                 return self._handle_pyodide_output(tool_result)
 
             if not self.output_variables:
-                return {"messages": [{"role": "assistant", "content": dumps(tool_result)}]}
+                return {"messages": [{"role": "assistant", "content": safe_serialize(tool_result)}]}
             else:
                 if "messages" in self.output_variables:
-                    if 'messages' in tool_result:
+                    if isinstance(tool_result, dict) and 'messages' in tool_result:
                         # case when the sub-graph has been executed
                         messages_dict = {"messages": tool_result['messages']}
                     else:
                         messages_dict = {
                             "messages": [{
                                 "role": "assistant",
-                                "content": dumps(tool_result)
+                                "content": safe_serialize(tool_result)
                                 if not isinstance(tool_result, ToolException) and not isinstance(tool_result, str)
                                 else str(tool_result)
                             }]
@@ -177,7 +219,7 @@ alita_state = json.loads(state_json)
         except ValidationError:
             return {"messages": [
                 {"role": "assistant", "content": f"""Tool input to the {self.tool.name} with value {func_args} raised ValidationError. 
-        \n\nTool schema is {dumps(params)} \n\nand the input to LLM was 
+        \n\nTool schema is {safe_serialize(params)} \n\nand the input to LLM was 
         {func_args}"""}]}
 
     def _run(self, *args, **kwargs):

@@ -3,73 +3,43 @@
 
 """Common default configuration values."""
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
+from graphrag_cache import CacheType
+from graphrag_chunking.chunk_strategy_type import ChunkerType
+from graphrag_input import InputType
+from graphrag_llm.config import AuthMethod
+from graphrag_storage import StorageType
+from graphrag_vectors import VectorStoreType
+
 from graphrag.config.embeddings import default_embeddings
 from graphrag.config.enums import (
     AsyncType,
-    AuthType,
-    CacheType,
-    ChunkStrategyType,
-    InputFileType,
-    ModelType,
     NounPhraseExtractorType,
     ReportingType,
-    StorageType,
-    VectorStoreType,
 )
 from graphrag.index.operations.build_noun_graph.np_extractors.stop_words import (
     EN_STOP_WORDS,
 )
-from graphrag.language_model.providers.litellm.services.rate_limiter.rate_limiter import (
-    RateLimiter,
-)
-from graphrag.language_model.providers.litellm.services.rate_limiter.static_rate_limiter import (
-    StaticRateLimiter,
-)
-from graphrag.language_model.providers.litellm.services.retry.exponential_retry import (
-    ExponentialRetry,
-)
-from graphrag.language_model.providers.litellm.services.retry.incremental_wait_retry import (
-    IncrementalWaitRetry,
-)
-from graphrag.language_model.providers.litellm.services.retry.native_wait_retry import (
-    NativeRetry,
-)
-from graphrag.language_model.providers.litellm.services.retry.random_wait_retry import (
-    RandomWaitRetry,
-)
-from graphrag.language_model.providers.litellm.services.retry.retry import Retry
 
+DEFAULT_INPUT_BASE_DIR = "input"
 DEFAULT_OUTPUT_BASE_DIR = "output"
-DEFAULT_CHAT_MODEL_ID = "default_chat_model"
-DEFAULT_CHAT_MODEL_TYPE = ModelType.Chat
-DEFAULT_CHAT_MODEL = "gpt-4-turbo-preview"
-DEFAULT_CHAT_MODEL_AUTH_TYPE = AuthType.APIKey
+DEFAULT_CACHE_BASE_DIR = "cache"
+DEFAULT_UPDATE_OUTPUT_BASE_DIR = "update_output"
+DEFAULT_COMPLETION_MODEL_ID = "default_completion_model"
+DEFAULT_COMPLETION_MODEL_AUTH_TYPE = AuthMethod.ApiKey
+DEFAULT_COMPLETION_MODEL = "gpt-4.1"
 DEFAULT_EMBEDDING_MODEL_ID = "default_embedding_model"
-DEFAULT_EMBEDDING_MODEL_TYPE = ModelType.Embedding
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
-DEFAULT_EMBEDDING_MODEL_AUTH_TYPE = AuthType.APIKey
+DEFAULT_EMBEDDING_MODEL_AUTH_TYPE = AuthMethod.ApiKey
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
 DEFAULT_MODEL_PROVIDER = "openai"
-DEFAULT_VECTOR_STORE_ID = "default_vector_store"
 
-ENCODING_MODEL = "cl100k_base"
+ENCODING_MODEL = "o200k_base"
 COGNITIVE_SERVICES_AUDIENCE = "https://cognitiveservices.azure.com/.default"
 
-
-DEFAULT_RETRY_SERVICES: dict[str, Callable[..., Retry]] = {
-    "native": NativeRetry,
-    "exponential_backoff": ExponentialRetry,
-    "random_wait": RandomWaitRetry,
-    "incremental_wait": IncrementalWaitRetry,
-}
-
-DEFAULT_RATE_LIMITER_SERVICES: dict[str, Callable[..., RateLimiter]] = {
-    "static": StaticRateLimiter,
-}
+DEFAULT_ENTITY_TYPES = ["organization", "person", "geo", "event"]
 
 
 @dataclass
@@ -79,33 +49,19 @@ class BasicSearchDefaults:
     prompt: None = None
     k: int = 10
     max_context_tokens: int = 12_000
-    chat_model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
     embedding_model_id: str = DEFAULT_EMBEDDING_MODEL_ID
 
 
 @dataclass
-class CacheDefaults:
-    """Default values for cache."""
+class ChunkingDefaults:
+    """Default values for chunking."""
 
-    type: ClassVar[CacheType] = CacheType.file
-    base_dir: str = "cache"
-    connection_string: None = None
-    container_name: None = None
-    storage_account_blob_url: None = None
-    cosmosdb_account_url: None = None
-
-
-@dataclass
-class ChunksDefaults:
-    """Default values for chunks."""
-
+    type: str = ChunkerType.Tokens
     size: int = 1200
     overlap: int = 100
-    group_by_columns: list[str] = field(default_factory=lambda: ["id"])
-    strategy: ClassVar[ChunkStrategyType] = ChunkStrategyType.tokens
-    encoding_model: str = "cl100k_base"
-    prepend_metadata: bool = False
-    chunk_size_includes_metadata: bool = False
+    encoding_model: str = ENCODING_MODEL
+    prepend_metadata: None = None
 
 
 @dataclass
@@ -125,8 +81,8 @@ class CommunityReportDefaults:
     text_prompt: None = None
     max_length: int = 2000
     max_input_length: int = 8000
-    strategy: None = None
-    model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
+    model_instance_name: str = "community_reporting"
 
 
 @dataclass
@@ -154,35 +110,19 @@ class DriftSearchDefaults:
     local_search_n: int = 1
     local_search_llm_max_gen_tokens: int | None = None
     local_search_llm_max_gen_completion_tokens: int | None = None
-    chat_model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
     embedding_model_id: str = DEFAULT_EMBEDDING_MODEL_ID
-
-
-@dataclass
-class EmbedGraphDefaults:
-    """Default values for embedding graph."""
-
-    enabled: bool = False
-    dimensions: int = 1536
-    num_walks: int = 10
-    walk_length: int = 40
-    window_size: int = 2
-    iterations: int = 3
-    random_seed: int = 597832
-    use_lcc: bool = True
 
 
 @dataclass
 class EmbedTextDefaults:
     """Default values for embedding text."""
 
-    model: str = "text-embedding-3-small"
+    embedding_model_id: str = DEFAULT_EMBEDDING_MODEL_ID
+    model_instance_name: str = "text_embedding"
     batch_size: int = 16
     batch_max_tokens: int = 8191
-    model_id: str = DEFAULT_EMBEDDING_MODEL_ID
     names: list[str] = field(default_factory=lambda: default_embeddings)
-    strategy: None = None
-    vector_store_id: str = DEFAULT_VECTOR_STORE_ID
 
 
 @dataclass
@@ -195,8 +135,8 @@ class ExtractClaimsDefaults:
         "Any claims or facts that could be relevant to information discovery."
     )
     max_gleanings: int = 1
-    strategy: None = None
-    model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
+    model_instance_name: str = "extract_claims"
 
 
 @dataclass
@@ -208,8 +148,8 @@ class ExtractGraphDefaults:
         default_factory=lambda: ["organization", "person", "geo", "event"]
     )
     max_gleanings: int = 1
-    strategy: None = None
-    model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
+    model_instance_name: str = "extract_graph"
 
 
 @dataclass
@@ -266,75 +206,54 @@ class GlobalSearchDefaults:
     dynamic_search_num_repeats: int = 1
     dynamic_search_use_summary: bool = False
     dynamic_search_max_level: int = 2
-    chat_model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
 
 
 @dataclass
 class StorageDefaults:
     """Default values for storage."""
 
-    type: ClassVar[StorageType] = StorageType.file
-    base_dir: str = DEFAULT_OUTPUT_BASE_DIR
-    connection_string: None = None
-    container_name: None = None
-    storage_account_blob_url: None = None
-    cosmosdb_account_url: None = None
-
-
-@dataclass
-class InputStorageDefaults(StorageDefaults):
-    """Default values for input storage."""
-
-    base_dir: str = "input"
+    type: str = StorageType.File
+    encoding: str | None = None
+    base_dir: str | None = None
+    azure_connection_string: None = None
+    azure_container_name: None = None
+    azure_account_url: None = None
+    azure_cosmosdb_account_url: None = None
 
 
 @dataclass
 class InputDefaults:
     """Default values for input."""
 
-    storage: InputStorageDefaults = field(default_factory=InputStorageDefaults)
-    file_type: ClassVar[InputFileType] = InputFileType.text
-    encoding: str = "utf-8"
-    file_pattern: str = ""
-    file_filter: None = None
-    text_column: str = "text"
+    type: ClassVar[InputType] = InputType.Text
+    encoding: str | None = None
+    file_pattern: None = None
+    id_column: None = None
     title_column: None = None
-    metadata: None = None
+    text_column: None = None
 
 
 @dataclass
-class LanguageModelDefaults:
-    """Default values for language model."""
+class InputStorageDefaults(StorageDefaults):
+    """Default values for input storage."""
 
-    api_key: None = None
-    auth_type: ClassVar[AuthType] = AuthType.APIKey
-    model_provider: str | None = None
-    encoding_model: str = ""
-    max_tokens: int | None = None
-    temperature: float = 0
-    max_completion_tokens: int | None = None
-    reasoning_effort: str | None = None
-    top_p: float = 1
-    n: int = 1
-    frequency_penalty: float = 0.0
-    presence_penalty: float = 0.0
-    request_timeout: float = 180.0
-    api_base: None = None
-    api_version: None = None
-    deployment_name: None = None
-    organization: None = None
-    proxy: None = None
-    audience: None = None
-    model_supports_json: None = None
-    tokens_per_minute: None = None
-    requests_per_minute: None = None
-    rate_limit_strategy: str | None = "static"
-    retry_strategy: str = "exponential_backoff"
-    max_retries: int = 10
-    max_retry_wait: float = 10.0
-    concurrent_requests: int = 25
-    responses: None = None
-    async_mode: AsyncType = AsyncType.Threaded
+    base_dir: str | None = DEFAULT_INPUT_BASE_DIR
+
+
+@dataclass
+class CacheStorageDefaults(StorageDefaults):
+    """Default values for cache storage."""
+
+    base_dir: str | None = DEFAULT_CACHE_BASE_DIR
+
+
+@dataclass
+class CacheDefaults:
+    """Default values for cache."""
+
+    type: CacheType = CacheType.Json
+    storage: CacheStorageDefaults = field(default_factory=CacheStorageDefaults)
 
 
 @dataclass
@@ -348,15 +267,15 @@ class LocalSearchDefaults:
     top_k_entities: int = 10
     top_k_relationships: int = 10
     max_context_tokens: int = 12_000
-    chat_model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
     embedding_model_id: str = DEFAULT_EMBEDDING_MODEL_ID
 
 
 @dataclass
-class OutputDefaults(StorageDefaults):
+class OutputStorageDefaults(StorageDefaults):
     """Default values for output."""
 
-    base_dir: str = DEFAULT_OUTPUT_BASE_DIR
+    base_dir: str | None = DEFAULT_OUTPUT_BASE_DIR
 
 
 @dataclass
@@ -399,22 +318,15 @@ class SummarizeDescriptionsDefaults:
     prompt: None = None
     max_length: int = 500
     max_input_tokens: int = 4_000
-    strategy: None = None
-    model_id: str = DEFAULT_CHAT_MODEL_ID
+    completion_model_id: str = DEFAULT_COMPLETION_MODEL_ID
+    model_instance_name: str = "summarize_descriptions"
 
 
 @dataclass
-class UmapDefaults:
-    """Default values for UMAP."""
-
-    enabled: bool = False
-
-
-@dataclass
-class UpdateIndexOutputDefaults(StorageDefaults):
+class UpdateOutputStorageDefaults(StorageDefaults):
     """Default values for update index output."""
 
-    base_dir: str = "update_output"
+    base_dir: str | None = DEFAULT_UPDATE_OUTPUT_BASE_DIR
 
 
 @dataclass
@@ -423,33 +335,28 @@ class VectorStoreDefaults:
 
     type: ClassVar[str] = VectorStoreType.LanceDB.value
     db_uri: str = str(Path(DEFAULT_OUTPUT_BASE_DIR) / "lancedb")
-    container_name: str = "default"
-    overwrite: bool = True
-    url: None = None
-    api_key: None = None
-    audience: None = None
-    database_name: None = None
-    schema: None = None
 
 
 @dataclass
 class GraphRagConfigDefaults:
     """Default values for GraphRAG."""
 
-    root_dir: str = ""
     models: dict = field(default_factory=dict)
+    completion_models: dict = field(default_factory=dict)
+    embedding_models: dict = field(default_factory=dict)
+    concurrent_requests: int = 25
+    async_mode: AsyncType = AsyncType.Threaded
     reporting: ReportingDefaults = field(default_factory=ReportingDefaults)
-    storage: StorageDefaults = field(default_factory=StorageDefaults)
-    output: OutputDefaults = field(default_factory=OutputDefaults)
-    outputs: None = None
-    update_index_output: UpdateIndexOutputDefaults = field(
-        default_factory=UpdateIndexOutputDefaults
+    input_storage: InputStorageDefaults = field(default_factory=InputStorageDefaults)
+    output_storage: OutputStorageDefaults = field(default_factory=OutputStorageDefaults)
+    update_output_storage: UpdateOutputStorageDefaults = field(
+        default_factory=UpdateOutputStorageDefaults
     )
     cache: CacheDefaults = field(default_factory=CacheDefaults)
     input: InputDefaults = field(default_factory=InputDefaults)
-    embed_graph: EmbedGraphDefaults = field(default_factory=EmbedGraphDefaults)
+
     embed_text: EmbedTextDefaults = field(default_factory=EmbedTextDefaults)
-    chunks: ChunksDefaults = field(default_factory=ChunksDefaults)
+    chunking: ChunkingDefaults = field(default_factory=ChunkingDefaults)
     snapshots: SnapshotsDefaults = field(default_factory=SnapshotsDefaults)
     extract_graph: ExtractGraphDefaults = field(default_factory=ExtractGraphDefaults)
     extract_graph_nlp: ExtractGraphNLPDefaults = field(
@@ -464,17 +371,15 @@ class GraphRagConfigDefaults:
     extract_claims: ExtractClaimsDefaults = field(default_factory=ExtractClaimsDefaults)
     prune_graph: PruneGraphDefaults = field(default_factory=PruneGraphDefaults)
     cluster_graph: ClusterGraphDefaults = field(default_factory=ClusterGraphDefaults)
-    umap: UmapDefaults = field(default_factory=UmapDefaults)
     local_search: LocalSearchDefaults = field(default_factory=LocalSearchDefaults)
     global_search: GlobalSearchDefaults = field(default_factory=GlobalSearchDefaults)
     drift_search: DriftSearchDefaults = field(default_factory=DriftSearchDefaults)
     basic_search: BasicSearchDefaults = field(default_factory=BasicSearchDefaults)
-    vector_store: dict[str, VectorStoreDefaults] = field(
-        default_factory=lambda: {DEFAULT_VECTOR_STORE_ID: VectorStoreDefaults()}
+    vector_store: VectorStoreDefaults = field(
+        default_factory=lambda: VectorStoreDefaults()
     )
     workflows: None = None
 
 
-language_model_defaults = LanguageModelDefaults()
 vector_store_defaults = VectorStoreDefaults()
 graphrag_config_defaults = GraphRagConfigDefaults()

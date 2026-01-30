@@ -2,6 +2,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pymilvus import DataType
 from pymilvus.exceptions import ParamError
 from pymilvus.milvus_client.index import IndexParams
 from pymilvus.milvus_client.milvus_client import MilvusClient
@@ -14,19 +15,22 @@ class TestMilvusClient:
     def test_create_index_invalid_params(self, index_params):
         mock_handler = MagicMock()
         mock_handler.get_server_type.return_value = "milvus"
-        
-        with patch('pymilvus.milvus_client.milvus_client.create_connection', return_value="test"), \
-             patch('pymilvus.orm.connections.Connections._fetch_handler', return_value=mock_handler):
+
+        with patch(
+            "pymilvus.milvus_client.milvus_client.create_connection", return_value="test"
+        ), patch("pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler):
             client = MilvusClient()
 
             if isinstance(index_params, IndexParams):
-                with pytest.raises(ParamError, match="IndexParams is empty, no index can be created"):
+                with pytest.raises(
+                    ParamError, match="IndexParams is empty, no index can be created"
+                ):
                     client.create_index("test_collection", index_params)
             elif index_params is None:
-                with pytest.raises(ParamError, match="missing required argument:.*"):
+                with pytest.raises(ParamError, match=r"missing required argument:.*"):
                     client.create_index("test_collection", index_params)
             else:
-                with pytest.raises(ParamError, match="wrong type of argument .*"):
+                with pytest.raises(ParamError, match=r"wrong type of argument .*"):
                     client.create_index("test_collection", index_params)
 
     def test_index_params(self):
@@ -47,9 +51,10 @@ class TestMilvusClient:
     def test_connection_reuse(self):
         mock_handler = MagicMock()
         mock_handler.get_server_type.return_value = "milvus"
-        
-        with patch("pymilvus.orm.connections.Connections.connect", return_value=None), \
-             patch("pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler):
+
+        with patch("pymilvus.orm.connections.Connections.connect", return_value=None), patch(
+            "pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler
+        ):
             client = MilvusClient()
             assert client._using == "http://localhost:19530"
             client = MilvusClient(user="test", password="foobar")
@@ -70,22 +75,20 @@ class TestMilvusClient:
     )
     def test_add_collection_field_vector_requires_nullable(self, data_type):
         """Test that adding vector field to collection requires nullable=True"""
-        from pymilvus.orm.types import DataType
 
         mock_handler = MagicMock()
         mock_handler.get_server_type.return_value = "milvus"
 
         with patch(
             "pymilvus.milvus_client.milvus_client.create_connection", return_value="test"
-        ), patch(
-            "pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler
-        ):
+        ), patch("pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler):
             client = MilvusClient()
             dtype = getattr(DataType, data_type)
 
             # Should raise ParamError when nullable is not set or False
             with pytest.raises(
-                ParamError, match="Adding vector field to existing collection requires nullable=True"
+                ParamError,
+                match="Adding vector field to existing collection requires nullable=True",
             ):
                 client.add_collection_field(
                     collection_name="test_collection",
@@ -96,7 +99,8 @@ class TestMilvusClient:
 
             # Should raise ParamError when nullable is explicitly False
             with pytest.raises(
-                ParamError, match="Adding vector field to existing collection requires nullable=True"
+                ParamError,
+                match="Adding vector field to existing collection requires nullable=True",
             ):
                 client.add_collection_field(
                     collection_name="test_collection",
@@ -108,8 +112,6 @@ class TestMilvusClient:
 
     def test_add_collection_field_vector_with_nullable_true(self):
         """Test that adding vector field with nullable=True passes validation"""
-        from pymilvus.orm.types import DataType
-
         mock_handler = MagicMock()
         mock_handler.get_server_type.return_value = "milvus"
         mock_conn = MagicMock()
@@ -135,8 +137,6 @@ class TestMilvusClient:
 
     def test_add_collection_field_non_vector_no_nullable_required(self):
         """Test that non-vector fields don't require nullable=True"""
-        from pymilvus.orm.types import DataType
-
         mock_handler = MagicMock()
         mock_handler.get_server_type.return_value = "milvus"
         mock_conn = MagicMock()
@@ -157,3 +157,102 @@ class TestMilvusClient:
                 data_type=DataType.INT64,
             )
             mock_conn.add_collection_field.assert_called_once()
+
+    def test_client_db_isolation(self):
+        """
+        Test that two clients sharing the same connection but using different databases
+        remain isolated when one switches database.
+        """
+        mock_handler = MagicMock()
+        mock_handler.get_server_type.return_value = "milvus"
+
+        with patch(
+            "pymilvus.milvus_client._utils.create_connection", return_value="shared_alias"
+        ), patch(
+            "pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler
+        ), patch(
+            "pymilvus.orm.connections.Connections.has_connection", return_value=True
+        ):
+            client_a = MilvusClient(uri="http://localhost:19530", db_name="default")
+            client_b = MilvusClient(uri="http://localhost:19530", db_name="testdb")
+
+            assert client_a._db_name == "default"
+            assert client_b._db_name == "testdb"
+
+            # Mock describe_database to simulate that 'db1' exists
+            # use_database now validates database existence by calling describe_database
+            with patch.object(client_a, "describe_database", return_value={}):
+                client_a.use_database("db1")
+
+            assert client_a._db_name == "db1"
+            assert client_b._db_name == "testdb"
+
+            client_b.list_collections()
+
+            assert mock_handler.list_collections.called
+            _, kwargs = mock_handler.list_collections.call_args
+            context = kwargs.get("context")
+
+            assert context is not None
+            assert context.get_db_name() == "testdb"
+
+    @pytest.mark.parametrize(
+        "uri, db_name, expected_db_name",
+        [
+            # Issue #3236: db_name passed in URI path should be used when no explicit db_name
+            ("http://localhost:19530/test_db", "", "test_db"),
+            ("http://localhost:19530/production_db", "", "production_db"),
+            ("https://localhost:19530/test_db", "", "test_db"),
+            ("http://localhost:19530/mydb", "", "mydb"),
+            # URI ending with slash should still extract db_name correctly
+            ("http://localhost:19530/mydb/", "", "mydb"),
+            ("https://localhost:19530/test_db/", "", "test_db"),
+            # Mixed scenarios: explicit db_name takes precedence over URI path
+            ("http://localhost:19530/uri_db", "explicit_db", "explicit_db"),
+            ("http://localhost:19530/uri_db/", "explicit_db", "explicit_db"),
+            # URI without path, no explicit db_name (should remain empty)
+            ("http://localhost:19530", "", ""),
+            ("https://localhost:19530", "", ""),
+            # Multiple path segments - only first should be used as db_name
+            ("http://localhost:19530/db1/collection1", "", "db1"),
+            ("http://localhost:19530/db1/collection1/", "", "db1"),
+            # Empty path segments should be handled correctly
+            ("http://localhost:19530//", "", ""),
+            ("http://localhost:19530///", "", ""),
+        ],
+    )
+    def test_milvus_client_extract_db_name_from_uri(
+        self, uri: str, db_name: str, expected_db_name: str
+    ):
+        """
+        Test that MilvusClient extracts db_name from URI path when db_name is not explicitly provided.
+        This fixes issue #3236: v2.6.7 db name do not work
+        """
+        mock_handler = MagicMock()
+        mock_handler.get_server_type.return_value = "milvus"
+
+        with patch(
+            "pymilvus.milvus_client._utils.create_connection", return_value="test_alias"
+        ), patch(
+            "pymilvus.orm.connections.Connections._fetch_handler", return_value=mock_handler
+        ), patch(
+            "pymilvus.orm.connections.Connections.has_connection", return_value=False
+        ), patch(
+            "pymilvus.orm.connections.Connections.connect"
+        ), patch.object(
+            MilvusClient, "get_server_type", return_value="milvus"
+        ):
+            client = MilvusClient(uri=uri, db_name=db_name)
+            assert client._db_name == expected_db_name, (
+                f"Expected db_name to be '{expected_db_name}', "
+                f"but got '{client._db_name}' for uri='{uri}' and db_name='{db_name}'"
+            )
+
+            # Verify that the extracted db_name is used in requests (only if db_name was extracted)
+            if expected_db_name:
+                client.list_collections()
+                assert mock_handler.list_collections.called
+                _, kwargs = mock_handler.list_collections.call_args
+                context = kwargs.get("context")
+                assert context is not None
+                assert context.get_db_name() == expected_db_name

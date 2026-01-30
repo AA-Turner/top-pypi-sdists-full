@@ -2,9 +2,9 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
+
 import os
 
 import numpy as np
@@ -19,7 +19,7 @@ def cleanup_files():
         "test_estore.b2e",
         "external_node3.b2nd",
     ]
-    yield
+    yield files
     for f in files:
         if os.path.exists(f):
             os.remove(f)
@@ -201,3 +201,19 @@ def test_store_and_retrieve_schunk():
     assert value.nbytes == len(data)
     assert value[:] == data
     assert value.vlmeta["description"] == vlmeta
+
+
+def test_open_context_manager(cleanup_files):
+    """Test opening via blosc2.open as a context manager."""
+    path = "test_embed_open.b2e"
+    cleanup_files.append(path)
+
+    # Create an EmbedStore
+    estore = blosc2.EmbedStore(path, mode="w")
+    estore["/node1"] = np.arange(10)
+
+    # Test opening via blosc2.open as a context manager
+    with blosc2.open(path, mode="r") as estore_read:
+        assert isinstance(estore_read, blosc2.EmbedStore)
+        assert "/node1" in estore_read
+        assert np.array_equal(estore_read["/node1"][:], np.arange(10))

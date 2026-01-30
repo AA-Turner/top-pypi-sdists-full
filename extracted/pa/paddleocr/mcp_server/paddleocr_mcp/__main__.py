@@ -38,9 +38,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--ppocr_source",
-        choices=["local", "aistudio", "self_hosted"],
+        choices=["local", "aistudio", "qianfan", "self_hosted"],
         default=os.getenv("PADDLEOCR_MCP_PPOCR_SOURCE", "local"),
-        help="Source of PaddleOCR functionality: local (local library), aistudio (AI Studio service), self_hosted (self-hosted server).",
+        help="Source of PaddleOCR functionality: local (local library), aistudio (AI Studio service), qianfan (Qianfan service), self_hosted (self-hosted server).",
     )
     parser.add_argument(
         "--http",
@@ -86,6 +86,11 @@ def _parse_args() -> argparse.Namespace:
         help="AI Studio access token (required for AI Studio).",
     )
     parser.add_argument(
+        "--qianfan_api_key",
+        default=os.getenv("PADDLEOCR_MCP_QIANFAN_API_KEY"),
+        help="Qianfan API key (required for Qianfan).",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=int(os.getenv("PADDLEOCR_MCP_TIMEOUT", "60")),
@@ -105,7 +110,7 @@ def _validate_args(args: argparse.Namespace) -> None:
         )
         sys.exit(2)
 
-    if args.ppocr_source in ["aistudio", "self_hosted"]:
+    if args.ppocr_source in ["aistudio", "qianfan", "self_hosted"]:
         if not args.server_url:
             print("Error: The server base URL is required.", file=sys.stderr)
             print(
@@ -154,6 +159,7 @@ async def async_main() -> None:
             device=args.device,
             server_url=args.server_url,
             aistudio_access_token=args.aistudio_access_token,
+            qianfan_api_key=args.qianfan_api_key,
             timeout=args.timeout,
         )
     except Exception as e:

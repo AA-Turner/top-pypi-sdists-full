@@ -1,6 +1,6 @@
 [project]
 name = "sentence-transformers"
-version = "5.2.0"
+version = "5.2.2"
 description = "Embeddings, Retrieval, and Reranking"
 license = { text = "Apache 2.0" }
 readme = "README.md"
@@ -33,12 +33,13 @@ classifiers = [
 ]
 dependencies = [
     "transformers>=4.41.0,<6.0.0",
-    "tqdm",
+    "huggingface-hub>=0.20.0",
     "torch>=1.11.0",
+    "numpy",
     "scikit-learn",
     "scipy",
-    "huggingface-hub>=0.20.0",
     "typing_extensions>=4.5.0",
+    "tqdm",
 ]
 
 [project.urls]

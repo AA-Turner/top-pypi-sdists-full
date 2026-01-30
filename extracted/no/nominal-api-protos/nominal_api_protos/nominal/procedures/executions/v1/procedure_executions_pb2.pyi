@@ -265,10 +265,11 @@ class ConditionObservation(_message.Message):
     def __init__(self, user_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., procedure_execution_rid: _Optional[str] = ..., step_id: _Optional[str] = ..., success_condition: _Optional[_Union[_procedures_pb2.SuccessCondition, _Mapping]] = ...) -> None: ...
 
 class SuccessConditionStatus(_message.Message):
-    __slots__ = ("timer", "ingest_job", "in_progress", "satisfied", "failed", "canceled", "submitted")
+    __slots__ = ("timer", "ingest_job", "channel_validation", "in_progress", "satisfied", "failed", "canceled", "submitted")
     AND_FIELD_NUMBER: _ClassVar[int]
     TIMER_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_VALIDATION_FIELD_NUMBER: _ClassVar[int]
     IN_PROGRESS_FIELD_NUMBER: _ClassVar[int]
     SATISFIED_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
@@ -276,12 +277,13 @@ class SuccessConditionStatus(_message.Message):
     SUBMITTED_FIELD_NUMBER: _ClassVar[int]
     timer: _procedures_pb2.TimerSuccessCondition
     ingest_job: _procedures_pb2.IngestJobSuccessCondition
+    channel_validation: _procedures_pb2.ChannelValidationSuccessCondition
     in_progress: SuccessConditionInProgress
     satisfied: SuccessConditionSatisfied
     failed: SuccessConditionFailed
     canceled: SuccessConditionCanceled
     submitted: SuccessConditionSubmitted
-    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[_procedures_pb2.IngestJobSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., submitted: _Optional[_Union[SuccessConditionSubmitted, _Mapping]] = ..., **kwargs) -> None: ...
+    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[_procedures_pb2.IngestJobSuccessCondition, _Mapping]] = ..., channel_validation: _Optional[_Union[_procedures_pb2.ChannelValidationSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., submitted: _Optional[_Union[SuccessConditionSubmitted, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)

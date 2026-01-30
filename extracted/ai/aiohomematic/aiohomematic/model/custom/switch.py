@@ -9,7 +9,7 @@ Public API of this module is defined by __all__.
 from __future__ import annotations
 
 import logging
-from typing import Final, Unpack
+from typing import Final, Unpack, override
 
 from aiohomematic.const import DataPointCategory, DeviceProfile, Field, Parameter
 from aiohomematic.model.custom.data_point import CustomDataPoint
@@ -37,6 +37,7 @@ class CustomDpSwitch(StateChangeTimerMixin, GroupStateMixin, CustomDataPoint):
 
     value: Final = DelegatedProperty[bool | None](path="_dp_state.value", kind=Kind.STATE)
 
+    @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
         if self.is_state_change_for_on_off(**kwargs):
@@ -92,6 +93,7 @@ _IP_SWITCH_REGISTRATIONS: Final[tuple[tuple[str | tuple[str, ...], tuple[int, ..
     ("HmIP-SCTH230", (8,)),
     ("HmIP-WGT", (4,)),
     ("HmIP-WHS2", (2, 6)),
+    ("HmIP-WRC6-230", (9,)),
     ("HmIPW-DRS", (2, 6, 10, 14, 18, 22, 26, 30)),
     ("HmIPW-FIO6", (8, 12, 16, 20, 24, 28)),
 )

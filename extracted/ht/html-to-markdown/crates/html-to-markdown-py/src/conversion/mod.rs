@@ -10,9 +10,7 @@ pub mod metadata;
 
 // Re-export all pyfunction-decorated conversion functions
 #[cfg(feature = "inline-images")]
-pub use inline_images::{
-    convert_with_inline_images, convert_with_inline_images_handle, convert_with_inline_images_json,
-};
+pub use inline_images::{convert_with_inline_images, convert_with_inline_images_handle};
 
 #[cfg(feature = "metadata")]
-pub use metadata::{convert_with_metadata, convert_with_metadata_handle, convert_with_metadata_json};
+pub use metadata::{convert_with_metadata, convert_with_metadata_handle};

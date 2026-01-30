@@ -272,6 +272,25 @@ def test_constraint_only_schema_object_additional_properties():
     assert result == {"name": "Alice"}
 
 
+def test_object_without_additional_properties_key():
+    """Test that object without additionalProperties key allows additional properties by default."""
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+
+    adapter = create_type_adapter(schema)
+
+    # Should accept object with only defined properties
+    result = adapter.validate_python({"name": "Alice"})
+    assert result.name == "Alice"
+
+    # Should accept object with additional properties (default behavior)
+    result_with_extra = adapter.validate_python({"name": "Bob", "age": 30})
+    assert result_with_extra.name == "Bob"
+    assert result_with_extra.age == 30
+
+
 def test_empty_schema():
     """Test completely empty schema."""
     adapter = create_type_adapter({})
@@ -352,5 +371,65 @@ def test_enum_with_type_integer():
         adapter.validate_python(4)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+def test_schema_with_definitions_and_rooted_ref():
+    """Test schema with definitions and reference to a definition."""
+    schema = {
+        "definitions": {
+            "root": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                },
+            }
+        },
+        "properties": {
+            "Root": {
+                "$ref": "#/definitions/root",
+            }
+        },
+        "type": "object",
+    }
+
+    res = create_type_adapter(schema)
+
+    # Should accept valid object with Root property
+    result = res.validate_python({"Root": {"name": "Alice", "age": 30}})
+    assert result.Root.name == "Alice"
+    assert result.Root.age == 30
+
+    # Should reject invalid types
+    with pytest.raises(ValidationError):
+        res.validate_python({"Root": {"name": "Bob", "age": "not_an_int"}})
+
+
+def test_schema_with_definitions_and_ref():
+    """Test schema with definitions and reference to a definition."""
+    schema = {
+        "definitions": {
+            "root": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                },
+            }
+        },
+        "properties": {
+            "Root": {
+                "$ref": "root",
+            }
+        },
+        "type": "object",
+    }
+
+    res = create_type_adapter(schema)
+
+    # Should accept valid object with Root property
+    result = res.validate_python({"Root": {"name": "Alice", "age": 30}})
+    assert result.Root.name == "Alice"
+    assert result.Root.age == 30
+
+    # Should reject invalid types
+    with pytest.raises(ValidationError):
+        res.validate_python({"Root": {"name": "Bob", "age": "not_an_int"}})

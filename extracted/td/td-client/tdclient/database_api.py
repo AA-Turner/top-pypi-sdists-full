@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-from .util import create_url, get_or_else, parse_date
+from contextlib import AbstractContextManager
+from typing import Any
+
+import urllib3
+
+from tdclient.util import create_url, get_or_else, parse_date
 
 
 class DatabaseAPI:
@@ -9,7 +14,27 @@ class DatabaseAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    def list_databases(self):
+    # Methods from API class
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+
+    def list_databases(self) -> dict[str, Any]:
         """Get the list of all the databases of the account.
 
         Returns:
@@ -20,7 +45,7 @@ class DatabaseAPI:
             if code != 200:
                 self.raise_error("List databases failed", res, body)
             js = self.checked_json(body, ["databases"])
-            result = {}
+            result: dict[str, dict[str, Any]] = {}
             for m in js["databases"]:
                 name = m.get("name")
                 m = dict(m)
@@ -34,7 +59,7 @@ class DatabaseAPI:
                 result[name] = m
             return result
 
-    def delete_database(self, db):
+    def delete_database(self, db: str) -> bool:
         """Delete a database.
 
         Args:
@@ -48,7 +73,7 @@ class DatabaseAPI:
                 self.raise_error("Delete database failed", res, body)
             return True
 
-    def create_database(self, db, params=None):
+    def create_database(self, db: str, params: dict[str, Any] | None = None) -> bool:
         """Create a new database with the given name.
 
         Args:

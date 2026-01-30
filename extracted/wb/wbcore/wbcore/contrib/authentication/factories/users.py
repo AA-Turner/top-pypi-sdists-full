@@ -5,7 +5,7 @@ from dynamic_preferences.registries import global_preferences_registry
 
 from wbcore.contrib.directory.factories import CompanyFactory, PersonFactory
 from wbcore.contrib.directory.models import Company
-from wbcore.permissions.registry import user_registry
+from wbcore.contrib.permission.internal.registry import UserBackendRegistry
 
 from ..models import Group, User
 
@@ -45,6 +45,8 @@ class UserFactory(factory.django.DjangoModelFactory):
 
 
 class InternalUserFactory(UserFactory):
+    is_internal = True
+
     @factory.post_generation
     def add_internal_profile(self, create, extracted, **kwargs):
         main_company_id = global_preferences_registry.manager()["directory__main_company"]
@@ -59,7 +61,7 @@ class InternalUserFactory(UserFactory):
         self.user_permissions.add(
             Permission.objects.get(content_type__app_label="authentication", codename="is_internal_user")
         )
-        user_registry.reset_cache()
+        UserBackendRegistry().refresh_users()
 
 
 class SuperUserFactory(UserFactory):

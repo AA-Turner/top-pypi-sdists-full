@@ -33,6 +33,8 @@ restored.
 import argparse
 import contextlib
 import functools
+import os
+import sys
 import types
 from typing import Any, Sequence, Text, TextIO, Tuple, Type, Optional, Union
 from typing import Callable, ContextManager, Generator
@@ -45,6 +47,7 @@ from argparse import *  # noqa
 _HelpFormatter = argparse.HelpFormatter
 
 _color_attr = '_autopage_color'
+_original_stream_attr = '_autopage_original_stream'
 
 
 def help_pager(out_stream: Optional[TextIO] = None) -> autopage.AutoPager:
@@ -58,7 +61,20 @@ def help_pager(out_stream: Optional[TextIO] = None) -> autopage.AutoPager:
 def use_color_for_parser(parser: argparse.ArgumentParser,
                          color: bool) -> None:
     """Configure a parser whether to output in color from HelpFormatters."""
-    setattr(parser, _color_attr, color)
+    if os.getenv('FORCE_COLOR') is None:
+        if (os.getenv('NO_COLOR') is not None or
+            os.getenv('TERM') == 'dumb' or
+            (not sys.flags.ignore_environment and
+             os.getenv('PYTHON_COLORS') == '0')):
+            color = False
+        elif sys.platform == 'win32':
+            try:
+                import nt
+                if not nt._supports_virtual_terminal():
+                    color = False
+            except (ImportError, AttributeError):
+                color = False
+    parser.color = color
 
 
 class ColorHelpFormatter(_HelpFormatter):
@@ -129,7 +145,10 @@ class _HelpAction(argparse._HelpAction):
                  option_string: Optional[Text] = None) -> None:
         pager = help_pager()
         with pager as out:
-            use_color_for_parser(parser, pager.to_terminal())
+            if out is not pager._out:
+                setattr(out, _original_stream_attr, pager._out)
+            use_color_for_parser(parser, (pager.to_terminal() and
+                                          getattr(parser, 'color', True)))
             parser.print_help(out)
         parser.exit(pager.exit_code())
 
@@ -144,29 +163,41 @@ def _substitute_formatter(
             get_fmtr: Callable[[Any], _HelpFormatter]
         ) -> Callable[[argparse.ArgumentParser], _HelpFormatter]:
     @functools.wraps(get_fmtr)
-    def _get_formatter(parser: argparse.ArgumentParser) -> _HelpFormatter:
+    def _get_formatter(parser: argparse.ArgumentParser,
+                       file: Optional[TextIO] = None) -> _HelpFormatter:
         if parser.formatter_class is _HelpFormatter:
-            parser.formatter_class = ColorHelpFormatter
-        formatter = get_fmtr(parser)
+            parser.formatter_class = HelpFormatter
+        kwargs = {}
+        if file is not None:
+            kwargs['file'] = getattr(file, _original_stream_attr, file)
+        formatter = get_fmtr(parser, **kwargs)
         if isinstance(formatter, ColorHelpFormatter):
             setattr(formatter, _color_attr,
-                    getattr(parser, _color_attr, False))
+                    getattr(parser, 'color', False))
         return formatter
     return _get_formatter
 
 
 class AutoPageArgumentParser(argparse.ArgumentParser, _ActionsContainer):
     @_substitute_formatter
-    def _get_formatter(self) -> _HelpFormatter:
-        return super()._get_formatter()
+    def _get_formatter(self, file: Optional[TextIO] = None) -> _HelpFormatter:
+        kwargs = {}
+        if file is not None:
+            kwargs['file'] = file
+        return super()._get_formatter(**kwargs)
 
 
-ArgumentParser = AutoPageArgumentParser                         # type: ignore
-HelpFormatter = ColorHelpFormatter                              # type: ignore
-RawDescriptionHelpFormatter = ColorRawDescriptionHelpFormatter  # type: ignore
-RawTextHelpFormatter = ColorRawTextHelpFormatter                # type: ignore
-ArgumentDefaultsHelpFormatter = ColorArgDefaultsHelpFormatter   # type: ignore
-MetavarTypeHelpFormatter = ColorMetavarTypeHelpFormatter        # type: ignore
+ArgumentParser = AutoPageArgumentParser   # type: ignore
+if sys.version_info < (3, 14):
+    HelpFormatter = ColorHelpFormatter    # type: ignore
+    RawDescriptionHelpFormatter = \
+        ColorRawDescriptionHelpFormatter  # type: ignore
+    RawTextHelpFormatter = \
+        ColorRawTextHelpFormatter         # type: ignore
+    ArgumentDefaultsHelpFormatter = \
+        ColorArgDefaultsHelpFormatter     # type: ignore
+    MetavarTypeHelpFormatter = \
+        ColorMetavarTypeHelpFormatter     # type: ignore
 
 
 def monkey_patch() -> ContextManager:

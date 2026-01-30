@@ -22,6 +22,8 @@ from .kafka_cluster_config_version import KafkaClusterConfigVersion
 from .kafka_cluster_config_version_collection import KafkaClusterConfigVersionCollection
 from .kafka_cluster_config_version_summary import KafkaClusterConfigVersionSummary
 from .kafka_cluster_summary import KafkaClusterSummary
+from .node_shape_collection import NodeShapeCollection
+from .node_shape_summary import NodeShapeSummary
 from .subnet_set import SubnetSet
 from .update_kafka_cluster_config_details import UpdateKafkaClusterConfigDetails
 from .update_kafka_cluster_details import UpdateKafkaClusterDetails
@@ -52,6 +54,8 @@ managed_kafka_type_mapping = {
     "KafkaClusterConfigVersionCollection": KafkaClusterConfigVersionCollection,
     "KafkaClusterConfigVersionSummary": KafkaClusterConfigVersionSummary,
     "KafkaClusterSummary": KafkaClusterSummary,
+    "NodeShapeCollection": NodeShapeCollection,
+    "NodeShapeSummary": NodeShapeSummary,
     "SubnetSet": SubnetSet,
     "UpdateKafkaClusterConfigDetails": UpdateKafkaClusterConfigDetails,
     "UpdateKafkaClusterDetails": UpdateKafkaClusterDetails,

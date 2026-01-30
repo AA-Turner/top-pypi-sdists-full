@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
@@ -467,6 +468,38 @@ class JobState(ModelEnum):
     }
 
 
+class JobSortField(ModelEnum):
+    """Fields available for sorting jobs."""
+
+    STATUS = "STATUS"
+    CREATED_AT = "CREATED_AT"
+    LAST_UPDATED_AT = "LAST_UPDATED_AT"
+    ENDED_AT = "ENDED_AT"
+    NAME = "NAME"
+    ID = "ID"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        STATUS: "Sort by job status.",
+        CREATED_AT: "Sort by creation timestamp.",
+        LAST_UPDATED_AT: "Sort by last update timestamp.",
+        ENDED_AT: "Sort by end timestamp.",
+        NAME: "Sort by job name.",
+        ID: "Sort by job ID.",
+    }
+
+
+class JobSortOrder(ModelEnum):
+    """Enum for sort order directions."""
+
+    ASC = "ASC"
+    DESC = "DESC"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        ASC: "Sort in ascending order.",
+        DESC: "Sort in descending order.",
+    }
+
+
 @dataclass(frozen=True)
 class JobStatus(ModelBase):
     """Current status of a job."""
@@ -533,6 +566,14 @@ state: STARTING
     def _validate_creator_id(self, creator_id: str):
         if creator_id is not None and not isinstance(creator_id, str):
             raise TypeError("'creator_id' must be a string.")
+
+    created_at: Optional[datetime] = field(
+        default=None, metadata={"docstring": "Timestamp when the job was created."},
+    )
+
+    def _validate_created_at(self, created_at: Optional[datetime]):
+        if created_at is not None and not isinstance(created_at, datetime):
+            raise TypeError("'created_at' must be a datetime or None.")
 
 
 class JobLogMode(ModelEnum):

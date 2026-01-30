@@ -30,6 +30,8 @@ from .literals import (
     CapacityProviderScalingModeType,
     CapacityProviderStateType,
     CodeSigningPolicyType,
+    EventSourceMappingMetricType,
+    EventSourceMappingSystemLogLevelType,
     EventSourcePositionType,
     EventTypeType,
     ExecutionStatusType,
@@ -162,6 +164,7 @@ __all__ = (
     "EventResultTypeDef",
     "EventSourceMappingConfigurationResponseTypeDef",
     "EventSourceMappingConfigurationTypeDef",
+    "EventSourceMappingLoggingConfigTypeDef",
     "EventSourceMappingMetricsConfigOutputTypeDef",
     "EventSourceMappingMetricsConfigTypeDef",
     "EventSourceMappingMetricsConfigUnionTypeDef",
@@ -550,6 +553,10 @@ class DocumentDBEventSourceConfigTypeDef(TypedDict):
     FullDocument: NotRequired[FullDocumentType]
 
 
+class EventSourceMappingLoggingConfigTypeDef(TypedDict):
+    SystemLogLevel: NotRequired[EventSourceMappingSystemLogLevelType]
+
+
 class ProvisionedPollerConfigTypeDef(TypedDict):
     MinimumPollers: NotRequired[int]
     MaximumPollers: NotRequired[int]
@@ -688,7 +695,7 @@ class ErrorObjectTypeDef(TypedDict):
 
 
 class EventSourceMappingMetricsConfigOutputTypeDef(TypedDict):
-    Metrics: NotRequired[list[Literal["EventCount"]]]
+    Metrics: NotRequired[list[EventSourceMappingMetricType]]
 
 
 class FilterCriteriaErrorTypeDef(TypedDict):
@@ -701,7 +708,7 @@ class SelfManagedEventSourceOutputTypeDef(TypedDict):
 
 
 class EventSourceMappingMetricsConfigTypeDef(TypedDict):
-    Metrics: NotRequired[Sequence[Literal["EventCount"]]]
+    Metrics: NotRequired[Sequence[EventSourceMappingMetricType]]
 
 
 class WaitStartedDetailsTypeDef(TypedDict):
@@ -2357,6 +2364,7 @@ class EventSourceMappingConfigurationResponseTypeDef(TypedDict):
     FilterCriteriaError: FilterCriteriaErrorTypeDef
     EventSourceMappingArn: str
     MetricsConfig: EventSourceMappingMetricsConfigOutputTypeDef
+    LoggingConfig: EventSourceMappingLoggingConfigTypeDef
     ProvisionedPollerConfig: ProvisionedPollerConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2395,6 +2403,7 @@ class EventSourceMappingConfigurationTypeDef(TypedDict):
     FilterCriteriaError: NotRequired[FilterCriteriaErrorTypeDef]
     EventSourceMappingArn: NotRequired[str]
     MetricsConfig: NotRequired[EventSourceMappingMetricsConfigOutputTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
 
 
@@ -2474,6 +2483,7 @@ class CreateEventSourceMappingRequestTypeDef(TypedDict):
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
     KMSKeyArn: NotRequired[str]
     MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
 
 
@@ -2500,4 +2510,5 @@ class UpdateEventSourceMappingRequestTypeDef(TypedDict):
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
     KMSKeyArn: NotRequired[str]
     MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]

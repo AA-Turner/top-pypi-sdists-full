@@ -215,6 +215,8 @@ def export_from_registry() -> export_pb.Export:
                 completion_deadline=timedelta_to_proto_duration(cron.completion_deadline)
                 if cron.completion_deadline is not None
                 else cron.completion_deadline,
+                num_shards=cron.num_shards,
+                num_workers=cron.num_workers,
             )
         )
 

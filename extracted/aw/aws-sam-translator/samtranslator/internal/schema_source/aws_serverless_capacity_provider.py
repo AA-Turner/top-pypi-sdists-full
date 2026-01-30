@@ -24,21 +24,21 @@ scalingconfig = get_prop(SCALING_CONFIG_STEM)
 
 class VpcConfig(BaseModel):
     # Optional list of security group IDs - supports intrinsic functions for dynamic references
-    SecurityGroupIds: Optional[List[SamIntrinsicable[str]]] = vpcconfig("SecurityGroupIds")
+    SecurityGroupIds: Optional[SamIntrinsicable[List[SamIntrinsicable[str]]]] = vpcconfig("SecurityGroupIds")
     # Required list of subnet IDs - supports intrinsic functions for dynamic VPC configuration
-    SubnetIds: List[SamIntrinsicable[str]] = vpcconfig("SubnetIds")
+    SubnetIds: SamIntrinsicable[List[SamIntrinsicable[str]]] = vpcconfig("SubnetIds")
 
 
 class InstanceRequirements(BaseModel):
     # Optional list of CPU architectures - maps to CFN InstanceRequirements.Architecture
-    # Uses List[SamIntrinsicable[str]] to support intrinsic functions like !Ref for dynamic architecture values
-    Architectures: Optional[List[SamIntrinsicable[str]]] = instancerequirements("Architectures")
+    # Uses SamIntrinsicable[List[SamIntrinsicable[str]]] to support intrinsic functions like !Ref for both list and list item
+    Architectures: Optional[SamIntrinsicable[List[SamIntrinsicable[str]]]] = instancerequirements("Architectures")
     # Optional list of allowed EC2 instance types - maps to CFN InstanceRequirements.AllowedInstanceTypes
-    # Uses List[SamIntrinsicable[str]] to support intrinsic functions like !Ref for dynamic instance types
-    AllowedTypes: Optional[List[SamIntrinsicable[str]]] = instancerequirements("AllowedTypes")
+    # Uses SamIntrinsicable[List[SamIntrinsicable[str]]] to support intrinsic functions like !Ref for both list and list item
+    AllowedTypes: Optional[SamIntrinsicable[List[SamIntrinsicable[str]]]] = instancerequirements("AllowedTypes")
     # Optional list of excluded EC2 instance types - maps to CFN InstanceRequirements.ExcludedInstanceTypes
-    # Uses List[SamIntrinsicable[str]] to support intrinsic functions like !Ref for dynamic instance types
-    ExcludedTypes: Optional[List[SamIntrinsicable[str]]] = instancerequirements("ExcludedTypes")
+    # Uses SamIntrinsicable[List[SamIntrinsicable[str]]] to support intrinsic functions like !Ref for both list and list item
+    ExcludedTypes: Optional[SamIntrinsicable[List[SamIntrinsicable[str]]]] = instancerequirements("ExcludedTypes")
 
 
 class ScalingConfig(BaseModel):
@@ -88,12 +88,12 @@ class Properties(BaseModel):
     # TODO: Change back to passthrough_prop after CloudFormation schema is updated with AWS::Lambda::CapacityProvider
     # Optional KMS key ARN - passes through directly to CFN for encryption configuration
     # Uses PassThroughProp because it's a direct 1:1 mapping with no SAM transformation
-    # KMSKeyArn: Optional[PassThroughProp] = passthrough_prop(
+    # KmsKeyArn: Optional[PassThroughProp] = passthrough_prop(
     #     PROPERTIES_STEM,
-    #     "KMSKeyArn",
-    #     ["AWS::Lambda::CapacityProvider", "Properties", "KMSKeyArn"],
+    #     "KmsKeyArn",
+    #     ["AWS::Lambda::CapacityProvider", "Properties", "KmsKeyArn"],
     # )
-    KMSKeyArn: Optional[PassThroughProp]  # TODO: add documentation
+    KmsKeyArn: Optional[PassThroughProp]  # TODO: add documentation
 
 
 class Globals(BaseModel):
@@ -120,7 +120,7 @@ class Globals(BaseModel):
     # Uses custom ScalingConfig class because SAM renames construct (CapacityProviderScalingConfig→ScalingConfig)
     ScalingConfig: Optional[ScalingConfig] = properties("ScalingConfig")
 
-    KMSKeyArn: Optional[PassThroughProp]  # TODO: add documentation
+    KmsKeyArn: Optional[PassThroughProp]  # TODO: add documentation
 
 
 class Resource(ResourceAttributes):

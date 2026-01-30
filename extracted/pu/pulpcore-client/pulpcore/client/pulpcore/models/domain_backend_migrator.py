@@ -28,7 +28,7 @@ class DomainBackendMigrator(BaseModel):
     """
     Special serializer for performing a storage backend migration on a Domain.
     """ # noqa: E501
-    storage_class: StorageClassEnum = Field(description="The new backend storage class to migrate to.  * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage")
+    storage_class: StorageClassEnum = Field(description="The new backend storage class to migrate to.  * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage [deprecated] * `storages.backends.s3.S3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage")
     storage_settings: Dict[str, Any] = Field(description="The settings for the new storage class to migrate to.")
     __properties: ClassVar[List[str]] = ["storage_class", "storage_settings"]
 

@@ -6,13 +6,11 @@
 import logging
 
 import pandas as pd
+from graphrag_input import InputReader, create_input_reader
 
 from graphrag.config.models.graph_rag_config import GraphRagConfig
-from graphrag.config.models.input_config import InputConfig
-from graphrag.index.input.factory import create_input
 from graphrag.index.typing.context import PipelineRunContext
 from graphrag.index.typing.workflow import WorkflowFunctionOutput
-from graphrag.storage.pipeline_storage import PipelineStorage
 from graphrag.utils.storage import write_table_to_storage
 
 logger = logging.getLogger(__name__)
@@ -23,10 +21,14 @@ async def run_workflow(
     context: PipelineRunContext,
 ) -> WorkflowFunctionOutput:
     """Load and parse input documents into a standard format."""
-    output = await load_input_documents(
-        config.input,
-        context.input_storage,
-    )
+    input_reader = create_input_reader(config.input, context.input_storage)
+
+    output = await load_input_documents(input_reader)
+
+    if len(output) == 0:
+        msg = "Error reading documents, please see logs."
+        logger.error(msg)
+        raise ValueError(msg)
 
     logger.info("Final # of rows loaded: %s", len(output))
     context.stats.num_documents = len(output)
@@ -36,8 +38,6 @@ async def run_workflow(
     return WorkflowFunctionOutput(result=output)
 
 
-async def load_input_documents(
-    config: InputConfig, storage: PipelineStorage
-) -> pd.DataFrame:
+async def load_input_documents(input_reader: InputReader) -> pd.DataFrame:
     """Load and parse input documents into a standard format."""
-    return await create_input(config, storage)
+    return pd.DataFrame(await input_reader.read_files())

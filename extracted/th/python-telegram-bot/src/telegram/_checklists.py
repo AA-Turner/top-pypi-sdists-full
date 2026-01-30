@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2025
+# Copyright (C) 2015-2026
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@ import datetime as dtm
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional
 
+from telegram._chat import Chat
 from telegram._messageentity import MessageEntity
 from telegram._telegramobject import TelegramObject
 from telegram._user import User
@@ -51,6 +52,10 @@ class ChecklistTask(TelegramObject):
             entities that appear in the task text.
         completed_by_user (:class:`telegram.User`, optional): User that completed the task; omitted
             if the task wasn't completed
+        completed_by_chat (:class:`telegram.Chat`, optional): Chat that completed the task; omitted
+            if the task wasn't completed by a chat
+
+            .. versionadded:: 22.6
         completion_date (:class:`datetime.datetime`, optional): Point in time when
             the task was completed; :attr:`~telegram.constants.ZERO_DATE` if the task wasn't
             completed
@@ -64,6 +69,10 @@ class ChecklistTask(TelegramObject):
             entities that appear in the task text.
         completed_by_user (:class:`telegram.User`): Optional. User that completed the task; omitted
             if the task wasn't completed
+        completed_by_chat (:class:`telegram.Chat`): Optional. Chat that completed the task; omitted
+            if the task wasn't completed by a chat
+
+            .. versionadded:: 22.6
         completion_date (:class:`datetime.datetime`): Optional. Point in time when
             the task was completed; :attr:`~telegram.constants.ZERO_DATE` if the task wasn't
             completed
@@ -72,6 +81,7 @@ class ChecklistTask(TelegramObject):
     """
 
     __slots__ = (
+        "completed_by_chat",
         "completed_by_user",
         "completion_date",
         "id",
@@ -83,18 +93,20 @@ class ChecklistTask(TelegramObject):
         self,
         id: int,  # pylint: disable=redefined-builtin
         text: str,
-        text_entities: Optional[Sequence[MessageEntity]] = None,
-        completed_by_user: Optional[User] = None,
-        completion_date: Optional[dtm.datetime] = None,
+        text_entities: Sequence[MessageEntity] | None = None,
+        completed_by_user: User | None = None,
+        completion_date: dtm.datetime | None = None,
+        completed_by_chat: Chat | None = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(api_kwargs=api_kwargs)
         self.id: int = id
         self.text: str = text
         self.text_entities: tuple[MessageEntity, ...] = parse_sequence_arg(text_entities)
-        self.completed_by_user: Optional[User] = completed_by_user
-        self.completion_date: Optional[dtm.datetime] = completion_date
+        self.completed_by_user: User | None = completed_by_user
+        self.completed_by_chat: Chat | None = completed_by_chat
+        self.completion_date: dtm.datetime | None = completion_date
 
         self._id_attrs = (self.id,)
 
@@ -114,6 +126,7 @@ class ChecklistTask(TelegramObject):
             data["completion_date"] = from_timestamp(date, tzinfo=loc_tzinfo)
 
         data["completed_by_user"] = de_json_optional(data.get("completed_by_user"), User, bot)
+        data["completed_by_chat"] = de_json_optional(data.get("completed_by_chat"), Chat, bot)
         data["text_entities"] = de_list_optional(data.get("text_entities"), MessageEntity, bot)
 
         return super().de_json(data=data, bot=bot)
@@ -136,7 +149,7 @@ class ChecklistTask(TelegramObject):
         """
         return parse_message_entity(self.text, entity)
 
-    def parse_entities(self, types: Optional[list[str]] = None) -> dict[MessageEntity, str]:
+    def parse_entities(self, types: list[str] | None = None) -> dict[MessageEntity, str]:
         """
         Returns a :obj:`dict` that maps :class:`telegram.MessageEntity` to :obj:`str`.
         It contains entities from this checklist task filtered by their ``type`` attribute as
@@ -201,18 +214,18 @@ class Checklist(TelegramObject):
         self,
         title: str,
         tasks: Sequence[ChecklistTask],
-        title_entities: Optional[Sequence[MessageEntity]] = None,
-        others_can_add_tasks: Optional[bool] = None,
-        others_can_mark_tasks_as_done: Optional[bool] = None,
+        title_entities: Sequence[MessageEntity] | None = None,
+        others_can_add_tasks: bool | None = None,
+        others_can_mark_tasks_as_done: bool | None = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(api_kwargs=api_kwargs)
         self.title: str = title
         self.title_entities: tuple[MessageEntity, ...] = parse_sequence_arg(title_entities)
         self.tasks: tuple[ChecklistTask, ...] = parse_sequence_arg(tasks)
-        self.others_can_add_tasks: Optional[bool] = others_can_add_tasks
-        self.others_can_mark_tasks_as_done: Optional[bool] = others_can_mark_tasks_as_done
+        self.others_can_add_tasks: bool | None = others_can_add_tasks
+        self.others_can_mark_tasks_as_done: bool | None = others_can_mark_tasks_as_done
 
         self._id_attrs = (self.tasks,)
 
@@ -246,7 +259,7 @@ class Checklist(TelegramObject):
         """
         return parse_message_entity(self.title, entity)
 
-    def parse_entities(self, types: Optional[list[str]] = None) -> dict[MessageEntity, str]:
+    def parse_entities(self, types: list[str] | None = None) -> dict[MessageEntity, str]:
         """
         Returns a :obj:`dict` that maps :class:`telegram.MessageEntity` to :obj:`str`.
         It contains entities from this checklist's title filtered by their ``type`` attribute as
@@ -309,13 +322,13 @@ class ChecklistTasksDone(TelegramObject):
     def __init__(
         self,
         checklist_message: Optional["Message"] = None,
-        marked_as_done_task_ids: Optional[Sequence[int]] = None,
-        marked_as_not_done_task_ids: Optional[Sequence[int]] = None,
+        marked_as_done_task_ids: Sequence[int] | None = None,
+        marked_as_not_done_task_ids: Sequence[int] | None = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(api_kwargs=api_kwargs)
-        self.checklist_message: Optional[Message] = checklist_message
+        self.checklist_message: Message | None = checklist_message
         self.marked_as_done_task_ids: tuple[int, ...] = parse_sequence_arg(marked_as_done_task_ids)
         self.marked_as_not_done_task_ids: tuple[int, ...] = parse_sequence_arg(
             marked_as_not_done_task_ids
@@ -369,10 +382,10 @@ class ChecklistTasksAdded(TelegramObject):
         tasks: Sequence[ChecklistTask],
         checklist_message: Optional["Message"] = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(api_kwargs=api_kwargs)
-        self.checklist_message: Optional[Message] = checklist_message
+        self.checklist_message: Message | None = checklist_message
         self.tasks: tuple[ChecklistTask, ...] = parse_sequence_arg(tasks)
 
         self._id_attrs = (self.tasks,)

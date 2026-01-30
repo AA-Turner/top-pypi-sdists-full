@@ -209,9 +209,9 @@ class FinancialTable:
 
         html = df.to_html(classes=classes, na_rep="-", float_format=format_float)
 
-        # Insert caption after <table> tag
+        # Insert caption after opening <table ...> tag
         if caption:
-            html = html.replace("<table", f"<table>{caption}", 1).replace(f">{caption}", f">\n{caption}", 1)
+            html = re.sub(r'(<table[^>]*>)', rf'\1\n{caption}', html, count=1)
 
         return html
 
@@ -830,7 +830,7 @@ def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
     labels = []
     for row in table_node.rows[:10]:
         for cell in row.cells:
-            content = cell.content.strip()
+            content = (cell.content or "").strip()
             if content and len(content) > 3:
                 labels.append(content.lower())
                 break
@@ -892,6 +892,74 @@ def _extract_title(table_node) -> Optional[str]:
     return None
 
 
+def _extract_date_headers_from_rows(table_node) -> List[str]:
+    """
+    Extract date column headers from early data rows.
+
+    Some tables don't use <thead> - dates appear in regular rows.
+    This scans the first several rows looking for date patterns without
+    numeric data values. Extended range (8 rows) handles tables with
+    title/subtitle rows before the actual headers.
+
+    Also handles split date rows where month/day is on one row and
+    year is on the next (e.g., Nvidia's "October 26," + "2025").
+    """
+    # Month pattern for detecting partial dates (month + day, no year)
+    month_pattern = re.compile(
+        r'^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d+',
+        re.IGNORECASE
+    )
+
+    rows = table_node.rows[:10]  # Scan first 10 rows
+
+    for i, row in enumerate(rows):
+        cells = row.cells
+        non_empty = [c.content.strip() for c in cells if c.content.strip()]
+
+        if not non_empty:
+            continue
+
+        # Check if this row contains dates but no numeric values
+        dates_found = []
+        partial_dates = []
+        has_numeric = False
+
+        for content in non_empty:
+            # Skip scale descriptions
+            if content.startswith("(In ") or content.startswith("(Dollars"):
+                continue
+
+            # Check for complete date pattern (contains year)
+            if _YEAR_PATTERN.search(content):
+                dates_found.append(content)
+            # Check for partial date pattern (month + day, no year)
+            elif month_pattern.match(content):
+                partial_dates.append(content)
+            # Check for numeric values (actual data, not headers)
+            elif _is_numeric_or_currency(content) and content not in ('$', '—', '-', '–'):
+                has_numeric = True
+                break
+
+        # If we found complete dates without numeric data, use them
+        if dates_found and not has_numeric:
+            return dates_found
+
+        # If we found partial dates, check if next row has years to combine
+        if partial_dates and not has_numeric and i + 1 < len(rows):
+            next_row = rows[i + 1]
+            next_non_empty = [c.content.strip() for c in next_row.cells if c.content.strip()]
+
+            # Check if next row contains only years (4-digit numbers starting with 19 or 20)
+            years = [c for c in next_non_empty if re.match(r'^(19|20)\d{2}$', c)]
+
+            if years and len(years) == len(partial_dates):
+                # Combine partial dates with years
+                combined = [f"{date} {year}" for date, year in zip(partial_dates, years)]
+                return combined
+
+    return []
+
+
 def _extract_clean_dataframe(table_node) -> pd.DataFrame:
     """
     Extract a clean DataFrame from a TableNode using Cell metadata.
@@ -900,17 +968,55 @@ def _extract_clean_dataframe(table_node) -> pd.DataFrame:
     - Collapsing empty spacer cells (colspan=3 patterns)
     - Merging $ symbols with adjacent numbers
     - Building proper column headers from multi-row headers
+    - Detecting date headers from early data rows (no <thead>)
     """
     header_cols = _extract_header_columns(table_node)
 
+    # Fallback: try to extract date headers from early data rows
+    date_headers_from_rows = []
+    if not header_cols:
+        date_headers_from_rows = _extract_date_headers_from_rows(table_node)
+
     row_labels = []
     row_data = []
+
+    # Track if we should skip date-header rows from data
+    skip_date_rows = bool(date_headers_from_rows)
 
     for row in table_node.rows:
         cells = row.cells
         non_empty = [c for c in cells if c.content.strip()]
         if not non_empty:
             continue
+
+        # Skip rows that only contain dates (already used as headers)
+        if skip_date_rows:
+            non_empty_contents = [c.content.strip() for c in cells if c.content.strip()]
+
+            # Pattern for partial dates (month + day)
+            month_pattern = re.compile(
+                r'^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d+',
+                re.IGNORECASE
+            )
+            # Pattern for year-only cells
+            year_only_pattern = re.compile(r'^(19|20)\d{2}$')
+
+            is_date_only_row = (
+                all(
+                    _YEAR_PATTERN.search(c) or
+                    month_pattern.match(c) or
+                    year_only_pattern.match(c) or
+                    c.startswith("(In ") or
+                    c.startswith("(Dollars")
+                    for c in non_empty_contents
+                )
+                and any(
+                    _YEAR_PATTERN.search(c) or month_pattern.match(c) or year_only_pattern.match(c)
+                    for c in non_empty_contents
+                )
+            )
+            if is_date_only_row:
+                continue
 
         label_cell = None
         data_cells = []
@@ -945,6 +1051,12 @@ def _extract_clean_dataframe(table_node) -> pd.DataFrame:
 
     if header_cols:
         columns = [c.full_header for c in header_cols][:num_cols]
+    elif date_headers_from_rows:
+        # Use dates extracted from early data rows
+        columns = date_headers_from_rows[:num_cols]
+        # Pad with Col_N if we need more columns
+        while len(columns) < num_cols:
+            columns.append(f"Col_{len(columns)}")
     else:
         columns = [f"Col_{i}" for i in range(num_cols)]
 
@@ -957,8 +1069,13 @@ def _extract_clean_dataframe(table_node) -> pd.DataFrame:
         df.index = row_labels[:len(df)]
         df.index.name = "Item"
 
-    for col in df.columns:
-        df[col] = df[col].apply(_parse_numeric)
+    # Ensure object dtype so mixed types (str, float, None) can coexist after conversion.
+    # Without this, pandas StringDtype columns reject non-string values on assignment.
+    df = df.astype(object)
+
+    # Convert numeric columns (using positional indexing to handle duplicate column names)
+    for i, col in enumerate(df.columns):
+        df.iloc[:, i] = df.iloc[:, i].apply(_parse_numeric)
 
     return df
 
@@ -970,15 +1087,26 @@ def _extract_header_columns(table_node) -> List[_CleanColumn]:
     if not table_node.headers:
         return columns
 
-    parent_headers = {}
-    if len(table_node.headers) >= 1:
-        col_pos = 0
+    # For single header row, extract date columns directly
+    if len(table_node.headers) == 1:
         for cell in table_node.headers[0]:
             content = cell.content.strip()
-            if content:
-                for i in range(cell.colspan):
-                    parent_headers[col_pos + i] = content
-            col_pos += cell.colspan
+            # Skip scale/unit descriptions and empty cells
+            if content and not content.startswith("(In ") and not content.startswith("(Dollars"):
+                # Check if it looks like a date (contains year pattern)
+                if _YEAR_PATTERN.search(content):
+                    columns.append(_CleanColumn(header=content))
+        return columns
+
+    # For multi-row headers, use parent/child logic
+    parent_headers = {}
+    col_pos = 0
+    for cell in table_node.headers[0]:
+        content = cell.content.strip()
+        if content:
+            for i in range(cell.colspan):
+                parent_headers[col_pos + i] = content
+        col_pos += cell.colspan
 
     if len(table_node.headers) >= 2:
         col_pos = 0
@@ -1058,7 +1186,8 @@ def _parse_numeric(val) -> Union[float, str, None]:
     if s in ('—', '-', '–', '', '*'):
         return None
 
-    negative = '(' in s and ')' in s
+    s_no_currency = s.lstrip('$€£¥')
+    negative = s_no_currency.startswith('(') and s_no_currency.endswith(')')
     cleaned = s.replace(',', '').replace('$', '').replace('(', '').replace(')', '').replace('%', '').replace('*', '')
 
     try:

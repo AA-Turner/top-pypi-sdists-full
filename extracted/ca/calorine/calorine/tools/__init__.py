@@ -5,6 +5,7 @@ from .analysis import (
     get_error_estimate,
     get_rtc_from_hac,
 )
+from .entropy import get_entropy
 from .phonons import get_force_constants
 from .structures import (
     get_spacegroup,
@@ -18,6 +19,7 @@ __all__ = [
     'analyze_data',
     'get_autocorrelation_function',
     'get_correlation_length',
+    'get_entropy',
     'get_error_estimate',
     'get_elastic_stiffness_tensor',
     'get_force_constants',

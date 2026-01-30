@@ -32,13 +32,213 @@ Keyword arguments:
 
     `boxWrapperProps` is a dict with keys:
 
-    - top (string | number; optional)
+    - hiddenFrom (string; optional):
+        Breakpoint above which the component is hidden with `display:
+        none`.
 
-    - right (string | number; optional)
+    - visibleFrom (string; optional):
+        Breakpoint below which the component is hidden with `display:
+        none`.
 
-    - bottom (string | number; optional)
+    - mod (string | dict | list of string | dicts; optional):
+        Element modifiers transformed into `data-` attributes. For
+        example: \"xl\" or {\"data-size\": \"xl\"}. Can also be a list
+        of strings or dicts for multiple modifiers. Falsy values are
+        removed.
 
-    - left (string | number; optional)
+    - m (string | number | dict; optional):
+        Margin – Accepts theme spacing keys, CSS values, or a dict for
+        responsive styles.
+
+    - my (string | number | dict; optional):
+        Margin block – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - mx (string | number | dict; optional):
+        Margin inline – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - mt (string | number | dict; optional):
+        Margin top – Accepts theme spacing keys, CSS values, or a dict
+        for responsive styles.
+
+    - mb (string | number | dict; optional):
+        Margin bottom – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - ms (string | number | dict; optional):
+        Margin inline start – Accepts theme spacing keys, CSS values,
+        or a dict for responsive styles.
+
+    - me (string | number | dict; optional):
+        Margin inline end – Accepts theme spacing keys, CSS values, or
+        a dict for responsive styles.
+
+    - ml (string | number | dict; optional):
+        Margin left – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - mr (string | number | dict; optional):
+        Margin right – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - p (string | number | dict; optional):
+        Padding – Accepts theme spacing keys, CSS values, or a dict
+        for responsive styles.
+
+    - py (string | number | dict; optional):
+        Padding block – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - px (string | number | dict; optional):
+        Padding inline – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - pt (string | number | dict; optional):
+        Padding top – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - pb (string | number | dict; optional):
+        Padding bottom – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - ps (string | number | dict; optional):
+        Padding inline start – Accepts theme spacing keys, CSS values,
+        or a dict for responsive styles.
+
+    - pe (string | number | dict; optional):
+        Padding inline end – Accepts theme spacing keys, CSS values,
+        or a dict for responsive styles.
+
+    - pl (string | number | dict; optional):
+        Padding left – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - pr (string | number | dict; optional):
+        Padding right – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - bd (string | number | dict; optional):
+        Border – Accepts CSS values or a dict for responsive styles.
+
+    - bdrs (string | number | dict; optional):
+        Border radius – Accepts theme radius keys, CSS values, or a
+        dict for responsive styles.
+
+    - bg (string | dict; optional):
+        Background – Accepts theme color keys, CSS values, or a dict
+        for responsive styles.
+
+    - c (string | dict; optional):
+        Color – Accepts theme color keys, CSS values, or a dict for
+        responsive styles.
+
+    - opacity (string | number | dict; optional):
+        Opacity – Accepts CSS values or a dict for responsive styles.
+
+    - ff (string | dict; optional):
+        Font family – Accepts CSS values or a dict for responsive
+        styles.
+
+    - fz (string | number | dict; optional):
+        Font size – Accepts theme font size keys, CSS values, or a
+        dict for responsive styles.
+
+    - fw (number | dict; optional):
+        Font weight – Accepts CSS values or a dict for responsive
+        styles.
+
+    - lts (string | number | dict; optional):
+        Letter spacing – Accepts CSS values or a dict for responsive
+        styles.
+
+    - ta (dict; optional):
+        Text align – Accepts CSS values or a dict for responsive
+        styles.
+
+    - lh (string | number | dict; optional):
+        Line height – Accepts theme line height keys, CSS values, or a
+        dict for responsive styles.
+
+    - fs (dict; optional):
+        Font style – Accepts CSS values or a dict for responsive
+        styles.
+
+    - tt (dict; optional):
+        Text transform – Accepts CSS values or a dict for responsive
+        styles.
+
+    - td (string | number | dict; optional):
+        Text decoration – Accepts CSS values or a dict for responsive
+        styles.
+
+    - w (string | number | dict; optional):
+        Width – Accepts theme spacing keys, CSS values, or a dict for
+        responsive styles.
+
+    - miw (string | number | dict; optional):
+        Minimum width – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - maw (string | number | dict; optional):
+        Maximum width – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - h (string | number | dict; optional):
+        Height – Accepts theme spacing keys, CSS values, or a dict for
+        responsive styles.
+
+    - mih (string | number | dict; optional):
+        Minimum height – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - mah (string | number | dict; optional):
+        Maximum height – Accepts theme spacing keys, CSS values, or a
+        dict for responsive styles.
+
+    - bgsz (string | number | dict; optional):
+        Background size – Accepts CSS values or a dict for responsive
+        styles.
+
+    - bgp (string | number | dict; optional):
+        Background position – Accepts CSS values or a dict for
+        responsive styles.
+
+    - bgr (dict; optional):
+        Background repeat – Accepts CSS values or a dict for
+        responsive styles.
+
+    - bga (dict; optional):
+        Background attachment – Accepts CSS values or a dict for
+        responsive styles.
+
+    - pos (dict; optional):
+        Position – Accepts CSS values or a dict for responsive styles.
+
+    - top (string | number | dict; optional):
+        Top offset – Accepts CSS values or a dict for responsive
+        styles.
+
+    - left (string | number | dict; optional):
+        Left offset – Accepts CSS values or a dict for responsive
+        styles.
+
+    - bottom (string | number | dict; optional):
+        Bottom offset – Accepts CSS values or a dict for responsive
+        styles.
+
+    - right (string | number | dict; optional):
+        Right offset – Accepts CSS values or a dict for responsive
+        styles.
+
+    - inset (string | number | dict; optional):
+        Inset – Accepts CSS values or a dict for responsive styles.
+
+    - display (dict; optional):
+        Display – Accepts CSS values or a dict for responsive styles.
+
+    - flex (string | number | dict; optional):
+        Flex – Accepts CSS values or a dict for responsive styles.
 
     - className (string; optional):
         Class added to the root element, if applicable.
@@ -47,159 +247,13 @@ Keyword arguments:
         Inline style added to root component element, can subscribe to
         theme defined on MantineProvider.
 
-    - hiddenFrom (optional):
-        Breakpoint above which the component is hidden with `display:
-        none`.
-
-    - visibleFrom (optional):
-        Breakpoint below which the component is hidden with `display:
-        none`.
-
     - lightHidden (boolean; optional):
         Determines whether component should be hidden in light color
         scheme with `display: none`.
 
     - darkHidden (boolean; optional):
         Determines whether component should be hidden in dark color
-        scheme with `display: none`.
-
-    - mod (string; optional):
-        Element modifiers transformed into `data-` attributes, for
-        example, `{ 'data-size': 'xl' }`, falsy values are removed.
-
-    - m (number; optional):
-        Margin, theme key: theme.spacing.
-
-    - my (number; optional):
-        MarginBlock, theme key: theme.spacing.
-
-    - mx (number; optional):
-        MarginInline, theme key: theme.spacing.
-
-    - mt (number; optional):
-        MarginTop, theme key: theme.spacing.
-
-    - mb (number; optional):
-        MarginBottom, theme key: theme.spacing.
-
-    - ms (number; optional):
-        MarginInlineStart, theme key: theme.spacing.
-
-    - me (number; optional):
-        MarginInlineEnd, theme key: theme.spacing.
-
-    - ml (number; optional):
-        MarginLeft, theme key: theme.spacing.
-
-    - mr (number; optional):
-        MarginRight, theme key: theme.spacing.
-
-    - p (number; optional):
-        Padding, theme key: theme.spacing.
-
-    - py (number; optional):
-        PaddingBlock, theme key: theme.spacing.
-
-    - px (number; optional):
-        PaddingInline, theme key: theme.spacing.
-
-    - pt (number; optional):
-        PaddingTop, theme key: theme.spacing.
-
-    - pb (number; optional):
-        PaddingBottom, theme key: theme.spacing.
-
-    - ps (number; optional):
-        PaddingInlineStart, theme key: theme.spacing.
-
-    - pe (number; optional):
-        PaddingInlineEnd, theme key: theme.spacing.
-
-    - pl (number; optional):
-        PaddingLeft, theme key: theme.spacing.
-
-    - pr (number; optional):
-        PaddingRight, theme key: theme.spacing.
-
-    - bd (string | number; optional):
-        Border.
-
-    - bdrs (number; optional):
-        BorderRadius, theme key: theme.radius.
-
-    - bg (optional):
-        Background, theme key: theme.colors.
-
-    - c (optional):
-        Color.
-
-    - opacity (optional)
-
-    - ff (optional):
-        FontFamily.
-
-    - fz (number; optional):
-        FontSize, theme key: theme.fontSizes.
-
-    - fw (optional):
-        FontWeight.
-
-    - lts (string | number; optional):
-        LetterSpacing.
-
-    - ta (optional):
-        TextAlign.
-
-    - lh (number; optional):
-        LineHeight, theme key: lineHeights.
-
-    - fs (optional):
-        FontStyle.
-
-    - tt (optional):
-        TextTransform.
-
-    - td (string | number; optional):
-        TextDecoration.
-
-    - w (string | number; optional):
-        Width, theme key: theme.spacing.
-
-    - miw (string | number; optional):
-        MinWidth, theme key: theme.spacing.
-
-    - maw (string | number; optional):
-        MaxWidth, theme key: theme.spacing.
-
-    - h (string | number; optional):
-        Height, theme key: theme.spacing.
-
-    - mih (string | number; optional):
-        MinHeight, theme key: theme.spacing.
-
-    - mah (string | number; optional):
-        MaxHeight, theme key: theme.spacing.
-
-    - bgsz (string | number; optional):
-        BackgroundSize.
-
-    - bgp (string | number; optional):
-        BackgroundPosition.
-
-    - bgr (optional):
-        BackgroundRepeat.
-
-    - bga (optional):
-        BackgroundAttachment.
-
-    - pos (optional):
-        Position.
-
-    - inset (string | number; optional)
-
-    - display (optional)
-
-    - flex (string | number; optional)"""
+        scheme with `display: none`."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
@@ -207,63 +261,63 @@ Keyword arguments:
     BoxWrapperProps = TypedDict(
         "BoxWrapperProps",
             {
-            "top": NotRequired[typing.Union[str, NumberType]],
-            "right": NotRequired[typing.Union[str, NumberType]],
-            "bottom": NotRequired[typing.Union[str, NumberType]],
-            "left": NotRequired[typing.Union[str, NumberType]],
+            "hiddenFrom": NotRequired[str],
+            "visibleFrom": NotRequired[str],
+            "mod": NotRequired[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]],
+            "m": NotRequired[typing.Union[str, NumberType, dict]],
+            "my": NotRequired[typing.Union[str, NumberType, dict]],
+            "mx": NotRequired[typing.Union[str, NumberType, dict]],
+            "mt": NotRequired[typing.Union[str, NumberType, dict]],
+            "mb": NotRequired[typing.Union[str, NumberType, dict]],
+            "ms": NotRequired[typing.Union[str, NumberType, dict]],
+            "me": NotRequired[typing.Union[str, NumberType, dict]],
+            "ml": NotRequired[typing.Union[str, NumberType, dict]],
+            "mr": NotRequired[typing.Union[str, NumberType, dict]],
+            "p": NotRequired[typing.Union[str, NumberType, dict]],
+            "py": NotRequired[typing.Union[str, NumberType, dict]],
+            "px": NotRequired[typing.Union[str, NumberType, dict]],
+            "pt": NotRequired[typing.Union[str, NumberType, dict]],
+            "pb": NotRequired[typing.Union[str, NumberType, dict]],
+            "ps": NotRequired[typing.Union[str, NumberType, dict]],
+            "pe": NotRequired[typing.Union[str, NumberType, dict]],
+            "pl": NotRequired[typing.Union[str, NumberType, dict]],
+            "pr": NotRequired[typing.Union[str, NumberType, dict]],
+            "bd": NotRequired[typing.Union[str, NumberType, dict]],
+            "bdrs": NotRequired[typing.Union[str, NumberType, dict]],
+            "bg": NotRequired[typing.Union[str, dict]],
+            "c": NotRequired[typing.Union[str, dict]],
+            "opacity": NotRequired[typing.Union[str, NumberType, dict]],
+            "ff": NotRequired[typing.Union[str, dict]],
+            "fz": NotRequired[typing.Union[str, NumberType, dict]],
+            "fw": NotRequired[typing.Union[NumberType, dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["bold"], Literal["normal"], Literal["bolder"], Literal["lighter"]]],
+            "lts": NotRequired[typing.Union[str, NumberType, dict]],
+            "ta": NotRequired[typing.Union[dict, Literal["right"], Literal["left"], Literal["end"], Literal["start"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["center"], Literal["-webkit-match-parent"], Literal["justify"], Literal["match-parent"]]],
+            "lh": NotRequired[typing.Union[str, NumberType, dict]],
+            "fs": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["normal"], Literal["italic"], Literal["oblique"]]],
+            "tt": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["capitalize"], Literal["full-size-kana"], Literal["full-width"], Literal["lowercase"], Literal["uppercase"]]],
+            "td": NotRequired[typing.Union[str, NumberType, dict]],
+            "w": NotRequired[typing.Union[str, NumberType, dict]],
+            "miw": NotRequired[typing.Union[str, NumberType, dict]],
+            "maw": NotRequired[typing.Union[str, NumberType, dict]],
+            "h": NotRequired[typing.Union[str, NumberType, dict]],
+            "mih": NotRequired[typing.Union[str, NumberType, dict]],
+            "mah": NotRequired[typing.Union[str, NumberType, dict]],
+            "bgsz": NotRequired[typing.Union[str, NumberType, dict]],
+            "bgp": NotRequired[typing.Union[str, NumberType, dict]],
+            "bgr": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]],
+            "bga": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"], Literal["scroll"]]],
+            "pos": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["absolute"], Literal["fixed"], Literal["-webkit-sticky"], Literal["relative"], Literal["static"], Literal["sticky"]]],
+            "top": NotRequired[typing.Union[str, NumberType, dict]],
+            "left": NotRequired[typing.Union[str, NumberType, dict]],
+            "bottom": NotRequired[typing.Union[str, NumberType, dict]],
+            "right": NotRequired[typing.Union[str, NumberType, dict]],
+            "inset": NotRequired[typing.Union[str, NumberType, dict]],
+            "display": NotRequired[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["flex"], Literal["block"], Literal["inline"], Literal["run-in"], Literal["-ms-flexbox"], Literal["-ms-grid"], Literal["-webkit-flex"], Literal["flow"], Literal["flow-root"], Literal["grid"], Literal["ruby"], Literal["table"], Literal["ruby-base"], Literal["ruby-base-container"], Literal["ruby-text"], Literal["ruby-text-container"], Literal["table-caption"], Literal["table-cell"], Literal["table-column"], Literal["table-column-group"], Literal["table-footer-group"], Literal["table-header-group"], Literal["table-row"], Literal["table-row-group"], Literal["-ms-inline-flexbox"], Literal["-ms-inline-grid"], Literal["-webkit-inline-flex"], Literal["inline-block"], Literal["inline-flex"], Literal["inline-grid"], Literal["inline-list-item"], Literal["inline-table"], Literal["contents"], Literal["list-item"]]],
+            "flex": NotRequired[typing.Union[str, NumberType, dict]],
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],
-            "hiddenFrom": NotRequired[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "visibleFrom": NotRequired[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "lightHidden": NotRequired[bool],
-            "darkHidden": NotRequired[bool],
-            "mod": NotRequired[typing.Union[str]],
-            "m": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "my": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "mx": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "mt": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "mb": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "ms": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "me": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "ml": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "mr": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "p": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "py": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "px": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "pt": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "pb": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "ps": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "pe": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "pl": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "pr": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "bd": NotRequired[typing.Union[str, NumberType]],
-            "bdrs": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "bg": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
-            "c": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
-            "opacity": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]],
-            "ff": NotRequired[typing.Union[Literal["monospace"], Literal["text"], Literal["heading"]]],
-            "fz": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"], Literal["h1"], Literal["h2"], Literal["h3"], Literal["h4"], Literal["h5"], Literal["h6"]]],
-            "fw": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["bold"], Literal["normal"], Literal["bolder"], Literal["lighter"]]],
-            "lts": NotRequired[typing.Union[str, NumberType]],
-            "ta": NotRequired[typing.Union[Literal["right"], Literal["left"], Literal["end"], Literal["start"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["center"], Literal["-webkit-match-parent"], Literal["justify"], Literal["match-parent"]]],
-            "lh": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"], Literal["h1"], Literal["h2"], Literal["h3"], Literal["h4"], Literal["h5"], Literal["h6"]]],
-            "fs": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["normal"], Literal["italic"], Literal["oblique"]]],
-            "tt": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["capitalize"], Literal["full-size-kana"], Literal["full-width"], Literal["lowercase"], Literal["uppercase"]]],
-            "td": NotRequired[typing.Union[str, NumberType]],
-            "w": NotRequired[typing.Union[str, NumberType]],
-            "miw": NotRequired[typing.Union[str, NumberType]],
-            "maw": NotRequired[typing.Union[str, NumberType]],
-            "h": NotRequired[typing.Union[str, NumberType]],
-            "mih": NotRequired[typing.Union[str, NumberType]],
-            "mah": NotRequired[typing.Union[str, NumberType]],
-            "bgsz": NotRequired[typing.Union[str, NumberType]],
-            "bgp": NotRequired[typing.Union[str, NumberType]],
-            "bgr": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]],
-            "bga": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"], Literal["scroll"]]],
-            "pos": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["absolute"], Literal["fixed"], Literal["-webkit-sticky"], Literal["relative"], Literal["static"], Literal["sticky"]]],
-            "inset": NotRequired[typing.Union[str, NumberType]],
-            "display": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["flex"], Literal["block"], Literal["inline"], Literal["run-in"], Literal["-ms-flexbox"], Literal["-ms-grid"], Literal["-webkit-flex"], Literal["flow"], Literal["flow-root"], Literal["grid"], Literal["ruby"], Literal["table"], Literal["ruby-base"], Literal["ruby-base-container"], Literal["ruby-text"], Literal["ruby-text-container"], Literal["table-caption"], Literal["table-cell"], Literal["table-column"], Literal["table-column-group"], Literal["table-footer-group"], Literal["table-header-group"], Literal["table-row"], Literal["table-row-group"], Literal["-ms-inline-flexbox"], Literal["-ms-inline-grid"], Literal["-webkit-inline-flex"], Literal["inline-block"], Literal["inline-flex"], Literal["inline-grid"], Literal["inline-list-item"], Literal["inline-table"], Literal["contents"], Literal["list-item"]]],
-            "flex": NotRequired[typing.Union[str, NumberType]]
+            "darkHidden": NotRequired[bool]
         }
     )
 

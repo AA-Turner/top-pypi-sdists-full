@@ -16,6 +16,7 @@
 
 import collections
 from collections.abc import Mapping, Sequence
+import dataclasses
 import functools
 import os
 import warnings
@@ -84,7 +85,7 @@ class Meridian:
     input_data: An `InputData` object containing the input data for the model.
     model_spec: A `ModelSpec` object containing the model specification.
     model_context: A `ModelContext` object containing the model context.
-    equations: A `ModelEquations` object containing stateless mathematical
+    model_equations: A `ModelEquations` object containing stateless mathematical
       functions and utilities for Meridian MMM.
     inference_data: A _mutable_ `arviz.InferenceData` object containing the
       resulting data from fitting the model.
@@ -164,7 +165,7 @@ class Meridian:
         input_data=input_data,
         model_spec=model_spec if model_spec else spec.ModelSpec(),
     )
-    self._equations = equations.ModelEquations(self._model_context)
+    self._model_equations = equations.ModelEquations(self._model_context)
 
     self._eda_spec = eda_spec
 
@@ -190,8 +191,8 @@ class Meridian:
     return self._model_context
 
   @property
-  def equations(self) -> equations.ModelEquations:
-    return self._equations
+  def model_equations(self) -> equations.ModelEquations:
+    return self._model_equations
 
   @property
   def inference_data(self) -> az.InferenceData:
@@ -199,57 +200,59 @@ class Meridian:
 
   @functools.cached_property
   def eda_engine(self) -> eda_engine.EDAEngine:
-    return eda_engine.EDAEngine(self, spec=self._eda_spec)
+    return eda_engine.EDAEngine(
+        spec=self._eda_spec, model_context=self.model_context
+    )
 
   @property
   def eda_spec(self) -> eda_spec_module.EDASpec:
     return self._eda_spec
 
   @property
-  def eda_outcomes(self) -> Sequence[eda_outcome.EDAOutcome]:
+  def eda_outcomes(self) -> eda_outcome.CriticalCheckEDAOutcomes:
     return self.eda_engine.run_all_critical_checks()
 
-  @functools.cached_property
+  @property
   def media_tensors(self) -> media.MediaTensors:
     return self._model_context.media_tensors
 
-  @functools.cached_property
+  @property
   def rf_tensors(self) -> media.RfTensors:
     return self._model_context.rf_tensors
 
-  @functools.cached_property
+  @property
   def organic_media_tensors(self) -> media.OrganicMediaTensors:
     return self._model_context.organic_media_tensors
 
-  @functools.cached_property
+  @property
   def organic_rf_tensors(self) -> media.OrganicRfTensors:
     return self._model_context.organic_rf_tensors
 
-  @functools.cached_property
+  @property
   def kpi(self) -> backend.Tensor:
     return self._model_context.kpi
 
-  @functools.cached_property
+  @property
   def revenue_per_kpi(self) -> backend.Tensor | None:
     return self._model_context.revenue_per_kpi
 
-  @functools.cached_property
+  @property
   def controls(self) -> backend.Tensor | None:
     return self._model_context.controls
 
-  @functools.cached_property
+  @property
   def non_media_treatments(self) -> backend.Tensor | None:
     return self._model_context.non_media_treatments
 
-  @functools.cached_property
+  @property
   def population(self) -> backend.Tensor:
     return self._model_context.population
 
-  @functools.cached_property
+  @property
   def total_spend(self) -> backend.Tensor:
     return self._model_context.total_spend
 
-  @functools.cached_property
+  @property
   def total_outcome(self) -> backend.Tensor:
     return self._model_context.total_outcome
 
@@ -293,31 +296,31 @@ class Meridian:
   def is_national(self) -> bool:
     return self._model_context.is_national
 
-  @functools.cached_property
+  @property
   def knot_info(self) -> knots.KnotInfo:
     return self._model_context.knot_info
 
-  @functools.cached_property
+  @property
   def controls_transformer(
       self,
   ) -> transformers.CenteringAndScalingTransformer | None:
     return self._model_context.controls_transformer
 
-  @functools.cached_property
+  @property
   def non_media_transformer(
       self,
   ) -> transformers.CenteringAndScalingTransformer | None:
     return self._model_context.non_media_transformer
 
-  @functools.cached_property
+  @property
   def kpi_transformer(self) -> transformers.KpiTransformer:
     return self._model_context.kpi_transformer
 
-  @functools.cached_property
+  @property
   def controls_scaled(self) -> backend.Tensor | None:
     return self._model_context.controls_scaled
 
-  @functools.cached_property
+  @property
   def non_media_treatments_normalized(self) -> backend.Tensor | None:
     """Normalized non-media treatments.
 
@@ -327,33 +330,33 @@ class Meridian:
     """
     return self._model_context.non_media_treatments_normalized
 
-  @functools.cached_property
+  @property
   def kpi_scaled(self) -> backend.Tensor:
     return self._model_context.kpi_scaled
 
-  @functools.cached_property
+  @property
   def media_effects_dist(self) -> str:
     return self._model_context.media_effects_dist
 
-  @functools.cached_property
+  @property
   def unique_sigma_for_each_geo(self) -> bool:
     return self._model_context.unique_sigma_for_each_geo
 
-  @functools.cached_property
+  @property
   def baseline_geo_idx(self) -> int:
     """Returns the index of the baseline geo."""
     return self._model_context.baseline_geo_idx
 
-  @functools.cached_property
+  @property
   def holdout_id(self) -> backend.Tensor | None:
     return self._model_context.holdout_id
 
-  @functools.cached_property
+  @property
   def adstock_decay_spec(self) -> adstock_hill.AdstockDecaySpec:
     """Returns `AdstockDecaySpec` object with correctly mapped channels."""
     return self._model_context.adstock_decay_spec
 
-  @functools.cached_property
+  @property
   def prior_broadcast(self) -> prior_distribution.PriorDistribution:
     """Returns broadcasted `PriorDistribution` object."""
     return self._model_context.prior_broadcast
@@ -361,17 +364,20 @@ class Meridian:
   @functools.cached_property
   def prior_sampler_callable(self) -> prior_sampler.PriorDistributionSampler:
     """A `PriorDistributionSampler` callable bound to this model."""
-    return prior_sampler.PriorDistributionSampler(self)
+    return prior_sampler.PriorDistributionSampler(
+        model_context=self.model_context,
+    )
 
   @functools.cached_property
   def posterior_sampler_callable(
       self,
   ) -> posterior_sampler.PosteriorMCMCSampler:
     """A `PosteriorMCMCSampler` callable bound to this model."""
-    return posterior_sampler.PosteriorMCMCSampler(self)
+    return posterior_sampler.PosteriorMCMCSampler(
+        model_context=self.model_context,
+    )
 
-  # TODO: Deprecate this method in favor of the one in
-  # `equations.py`.
+  # TODO: Remove this method.
   def compute_non_media_treatments_baseline(
       self,
       non_media_baseline_values: Sequence[str | float] | None = None,
@@ -394,10 +400,18 @@ class Meridian:
       A tensor of shape `(n_non_media_channels,)` containing the
       baseline values for each non-media treatment channel.
     """
-    return self.equations.compute_non_media_treatments_baseline(
+    warnings.warn(
+        "Meridian.compute_non_media_treatments_baseline() is deprecated and"
+        " will be removed in a future version. Use"
+        " `ModelEquations.compute_non_media_treatments_baseline()` instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self.model_equations.compute_non_media_treatments_baseline(
         non_media_baseline_values=non_media_baseline_values
     )
 
+  # TODO: Remove this method.
   def expand_selected_time_dims(
       self,
       start_date: tc.Date = None,
@@ -425,12 +439,16 @@ class Meridian:
       ValueError if `start_date` or `end_date` is not in the input data time
       dimensions.
     """
-    expanded = self.input_data.time_coordinates.expand_selected_time_dims(
+    warnings.warn(
+        "Meridian.expand_selected_time_dims() is deprecated and will be removed"
+        " in a future version. Use `ModelContext.expand_selected_time_dims()`"
+        " instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self._model_context.expand_selected_time_dims(
         start_date=start_date, end_date=end_date
     )
-    if expanded is None:
-      return None
-    return [date.strftime(constants.DATE_FORMAT) for date in expanded]
 
   def _validate_injected_inference_data(self):
     """Validates that the injected inference data has correct shapes.
@@ -598,7 +616,7 @@ class Meridian:
           f' "{self.model_spec.non_media_treatments_prior_type}".'
       )
 
-  # TODO: Deprecate in favor of ModelEquations.adstock_hill_rf.
+  # TODO: Remove this method.
   def linear_predictor_counterfactual_difference_media(
       self,
       media_transformed: backend.Tensor,
@@ -627,15 +645,24 @@ class Meridian:
       The linear predictor difference between the treatment variable and its
       counterfactual.
     """
-    return self.equations.linear_predictor_counterfactual_difference_media(
-        media_transformed=media_transformed,
-        alpha_m=alpha_m,
-        ec_m=ec_m,
-        slope_m=slope_m,
+    warnings.warn(
+        "Meridian.linear_predictor_counterfactual_difference_media() is"
+        " deprecated and will be removed in a future version. Use "
+        "`ModelEquations.linear_predictor_counterfactual_difference_media()`"
+        " instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return (
+        self.model_equations.linear_predictor_counterfactual_difference_media(
+            media_transformed=media_transformed,
+            alpha_m=alpha_m,
+            ec_m=ec_m,
+            slope_m=slope_m,
+        )
     )
 
-  # TODO: Deprecate in favor of
-  # ModelEquations.linear_predictor_counterfactual_difference_rf.
+  # TODO: Remove this method.
   def linear_predictor_counterfactual_difference_rf(
       self,
       rf_transformed: backend.Tensor,
@@ -664,14 +691,21 @@ class Meridian:
       The linear predictor difference between the treatment variable and its
       counterfactual.
     """
-    return self.equations.linear_predictor_counterfactual_difference_rf(
+    warnings.warn(
+        "Meridian.linear_predictor_counterfactual_difference_rf() is deprecated"
+        " and will be removed in a future version. Use `ModelEquations."
+        "linear_predictor_counterfactual_difference_rf()` instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self.model_equations.linear_predictor_counterfactual_difference_rf(
         rf_transformed=rf_transformed,
         alpha_rf=alpha_rf,
         ec_rf=ec_rf,
         slope_rf=slope_rf,
     )
 
-  # TODO: Deprecate in favor of ModelEquations.calculate_beta_x.
+  # TODO: Remove this method.
   def calculate_beta_x(
       self,
       is_non_media: bool,
@@ -717,7 +751,14 @@ class Meridian:
       The coefficient mean parameter of the treatment variable, which has
       dimension equal to the number of treatment channels..
     """
-    return self.equations.calculate_beta_x(
+    warnings.warn(
+        "Meridian.calculate_beta_x() is deprecated and will be removed in a"
+        " future version. Use `ModelEquations.calculate_beta_x()`"
+        " instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self.model_equations.calculate_beta_x(
         is_non_media=is_non_media,
         incremental_outcome_x=incremental_outcome_x,
         linear_predictor_counterfactual_difference=linear_predictor_counterfactual_difference,
@@ -725,7 +766,7 @@ class Meridian:
         beta_gx_dev=beta_gx_dev,
     )
 
-  # TODO: Deprecate in favor of ModelEquations.adstock_hill_media.
+  # TODO: Remove this method.
   def adstock_hill_media(
       self,
       media: backend.Tensor,  # pylint: disable=redefined-outer-name
@@ -756,7 +797,14 @@ class Meridian:
       Tensor with dimensions `[..., n_geos, n_times, n_media_channels]`
       representing Adstock and Hill-transformed media.
     """
-    return self.equations.adstock_hill_media(
+    warnings.warn(
+        "Meridian.adstock_hill_media() is deprecated and will be removed in a"
+        " future version. Use `ModelEquations.adstock_hill_media()`"
+        " instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self.model_equations.adstock_hill_media(
         media=media,
         alpha=alpha,
         ec=ec,
@@ -765,7 +813,7 @@ class Meridian:
         n_times_output=n_times_output,
     )
 
-  # TODO: Deprecate in favor of ModelEquations.adstock_hill_rf.
+  # TODO: Remove this method.
   def adstock_hill_rf(
       self,
       reach: backend.Tensor,
@@ -797,7 +845,14 @@ class Meridian:
       Tensor with dimensions `[..., n_geos, n_times, n_rf_channels]`
       representing Hill and Adstock-transformed RF.
     """
-    return self.equations.adstock_hill_rf(
+    warnings.warn(
+        "Meridian.adstock_hill_rf() is deprecated and will be removed in a"
+        " future version. Use `ModelEquations.adstock_hill_rf()`"
+        " instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self.model_equations.adstock_hill_rf(
         reach=reach,
         frequency=frequency,
         alpha=alpha,
@@ -827,66 +882,30 @@ class Meridian:
     for attr in cached_properties:
       _ = getattr(self, attr)
 
+  # TODO: Remove this method.
   def create_inference_data_coords(
       self, n_chains: int, n_draws: int
   ) -> Mapping[str, np.ndarray | Sequence[str]]:
     """Creates data coordinates for inference data."""
-    media_channel_names = (
-        self.input_data.media_channel
-        if self.input_data.media_channel is not None
-        else np.array([])
+    warnings.warn(
+        "Meridian.create_inference_data_coords() is deprecated and will be"
+        " removed in a future version. Use"
+        " `ModelContext.create_inference_data_coords()` instead.",
+        DeprecationWarning,
+        stacklevel=2,
     )
-    rf_channel_names = (
-        self.input_data.rf_channel
-        if self.input_data.rf_channel is not None
-        else np.array([])
-    )
-    organic_media_channel_names = (
-        self.input_data.organic_media_channel
-        if self.input_data.organic_media_channel is not None
-        else np.array([])
-    )
-    organic_rf_channel_names = (
-        self.input_data.organic_rf_channel
-        if self.input_data.organic_rf_channel is not None
-        else np.array([])
-    )
-    non_media_channel_names = (
-        self.input_data.non_media_channel
-        if self.input_data.non_media_channel is not None
-        else np.array([])
-    )
-    control_variable_names = (
-        self.input_data.control_variable
-        if self.input_data.control_variable is not None
-        else np.array([])
-    )
-    return {
-        constants.CHAIN: np.arange(n_chains),
-        constants.DRAW: np.arange(n_draws),
-        constants.GEO: self.input_data.geo,
-        constants.TIME: self.input_data.time,
-        constants.MEDIA_TIME: self.input_data.media_time,
-        constants.KNOTS: np.arange(self.knot_info.n_knots),
-        constants.CONTROL_VARIABLE: control_variable_names,
-        constants.NON_MEDIA_CHANNEL: non_media_channel_names,
-        constants.MEDIA_CHANNEL: media_channel_names,
-        constants.RF_CHANNEL: rf_channel_names,
-        constants.ORGANIC_MEDIA_CHANNEL: organic_media_channel_names,
-        constants.ORGANIC_RF_CHANNEL: organic_rf_channel_names,
-    }
+    return self._model_context.create_inference_data_coords(n_chains, n_draws)
 
+  # TODO: Remove this method.
   def create_inference_data_dims(self) -> Mapping[str, Sequence[str]]:
-    inference_dims = dict(constants.INFERENCE_DIMS)
-    if self.unique_sigma_for_each_geo:
-      inference_dims[constants.SIGMA] = [constants.GEO]
-    else:
-      inference_dims[constants.SIGMA] = []
-
-    return {
-        param: [constants.CHAIN, constants.DRAW] + list(dims)
-        for param, dims in inference_dims.items()
-    }
+    warnings.warn(
+        "Meridian.create_inference_data_dims() is deprecated and will be"
+        " removed in a future version. Use"
+        " `ModelContext.create_inference_data_dims()` instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return self._model_context.create_inference_data_dims()
 
   def sample_prior(self, n_draws: int, seed: int | None = None):
     """Draws samples from the prior distributions.
@@ -899,14 +918,25 @@ class Meridian:
         see [PRNGS and seeds]
         (https://github.com/tensorflow/probability/blob/main/PRNGS.md).
     """
-    self.prior_sampler_callable(n_draws=n_draws, seed=seed)
+    prior_draws = self.prior_sampler_callable(n_draws=n_draws, seed=seed)
+    # Create Arviz InferenceData for prior draws.
+    prior_coords = self._model_context.create_inference_data_coords(1, n_draws)
+    prior_dims = self._model_context.create_inference_data_dims()
+    prior_inference_data = az.convert_to_inference_data(
+        prior_draws,
+        coords=prior_coords,
+        dims=prior_dims,
+        group=constants.PRIOR,
+    )
+    self.inference_data.extend(prior_inference_data, join="right")
 
   def _run_model_fitting_guardrail(self):
     """Raises an error if the model has critical EDA issues."""
     error_findings_by_type: dict[eda_outcome.EDACheckType, list[str]] = (
         collections.defaultdict(list)
     )
-    for outcome in self.eda_outcomes:
+    for field in dataclasses.fields(self.eda_outcomes):
+      outcome = getattr(self.eda_outcomes, field.name)
       error_findings = [
           finding
           for finding in outcome.findings
@@ -1010,7 +1040,7 @@ class Meridian:
     """
     self._run_model_fitting_guardrail()
 
-    self.posterior_sampler_callable(
+    posterior_inference_data = self.posterior_sampler_callable(
         n_chains=n_chains,
         n_adapt=n_adapt,
         n_burnin=n_burnin,
@@ -1025,6 +1055,7 @@ class Meridian:
         seed=seed,
         **pins,
     )
+    self.inference_data.extend(posterior_inference_data, join="right")
 
 
 def save_mmm(mmm: Meridian, file_path: str):
@@ -1038,6 +1069,15 @@ def save_mmm(mmm: Meridian, file_path: str):
     mmm: Model object to save.
     file_path: File path to save a pickled model object.
   """
+  warnings.warn(
+      "save_mmm is deprecated and will be removed in a future release. Please"
+      " use `schema.serde.meridian_serde.save_meridian` instead. See"
+      " https://developers.google.com/meridian/docs/user-guide/saving-model-object"
+      " for details.",
+      DeprecationWarning,
+      stacklevel=2,
+  )
+
   if not os.path.exists(os.path.dirname(file_path)):
     os.makedirs(os.path.dirname(file_path))
 
@@ -1061,6 +1101,15 @@ def load_mmm(file_path: str) -> Meridian:
   Raises:
       FileNotFoundError: If `file_path` does not exist.
   """
+  warnings.warn(
+      "load_mmm is deprecated and will be removed in a future release. Please"
+      " use `meridian.schema.serde.meridian_serde.load_meridian` instead. See"
+      " https://developers.google.com/meridian/docs/user-guide/saving-model-object"
+      " for details.",
+      DeprecationWarning,
+      stacklevel=2,
+  )
+
   try:
     with open(file_path, "rb") as f:
       mmm = joblib.load(f)

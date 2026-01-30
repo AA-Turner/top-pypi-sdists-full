@@ -1,6 +1,7 @@
 import yaml
 
 from adam.utils import ExecResult, log_exc
+from adam.utils_context import Context
 
 class PodExecResult(ExecResult):
     # {
@@ -46,6 +47,15 @@ class PodExecResult(ExecResult):
 
     def header(self) -> str:
         return self.job_id
+
+    def log(self, ctx: Context):
+        # ctx.log(self.command)
+        if self.stdout:
+            ctx.log(self.stdout)
+        if self.stderr:
+            ctx.log2(self.stderr)
+        if not self.stdout and not self.stderr:
+            ctx.log(self.error if self.exit_code() else 'OK')
 
     def __str__(self):
         return f'{"OK" if self.exit_code() == 0 else self.exit_code()} {self.command}'

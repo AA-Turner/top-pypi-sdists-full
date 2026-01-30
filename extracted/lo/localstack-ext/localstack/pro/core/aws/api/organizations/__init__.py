@@ -206,6 +206,7 @@ class EffectivePolicyType(StrEnum):
     UPGRADE_ROLLOUT_POLICY = "UPGRADE_ROLLOUT_POLICY"
     BEDROCK_POLICY = "BEDROCK_POLICY"
     S3_POLICY = "S3_POLICY"
+    NETWORK_SECURITY_DIRECTOR_POLICY = "NETWORK_SECURITY_DIRECTOR_POLICY"
 
 
 class HandshakeConstraintViolationExceptionReason(StrEnum):
@@ -332,6 +333,7 @@ class PolicyType(StrEnum):
     UPGRADE_ROLLOUT_POLICY = "UPGRADE_ROLLOUT_POLICY"
     BEDROCK_POLICY = "BEDROCK_POLICY"
     S3_POLICY = "S3_POLICY"
+    NETWORK_SECURITY_DIRECTOR_POLICY = "NETWORK_SECURITY_DIRECTOR_POLICY"
 
 
 class PolicyTypeStatus(StrEnum):
@@ -2232,7 +2234,9 @@ class OrganizationsApi:
 
         -  `BEDROCK_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_bedrock.html>`__
 
-        -  `S3_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_S3.html>`__
+        -  `S3_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_s3.html>`__
+
+        -  `NETWORK_SECURITY_DIRECTOR_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_network_security_director.html>`__
 
         You can only call this operation from the management account or a member
         account that is a delegated administrator.

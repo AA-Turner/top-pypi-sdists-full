@@ -81,6 +81,7 @@ class Health(Enum):
     BUSY = auto()
     SETUP_FAILED = auto()
     DEFUNCT = auto()
+    UNHEALTHY = auto()
 
 
 class MyState:
@@ -358,10 +359,31 @@ def create_app(  # pylint: disable=too-many-arguments,too-many-locals,too-many-s
     async def healthcheck() -> Any:
         if app.state.health == Health.READY:
             health = Health.BUSY if runner.is_busy() else Health.READY
+
+            # Run custom healthcheck. If it doesn't exist, this will
+            # always return healthy (healthcheck_result.error = False)
+            healthcheck_result = await runner.healthcheck()
+            custom_health_ok = not healthcheck_result.error
+            custom_health_error = healthcheck_result.error_detail
+
+            if not custom_health_ok:
+                health = Health.UNHEALTHY
         else:
             health = app.state.health
+            custom_health_ok = True
+            custom_health_error = None
+
         setup = app.state.setup_result.to_dict() if app.state.setup_result else {}
-        return jsonable_encoder({"status": health.name, "setup": setup})
+
+        response = {
+            "status": health.name,
+            "setup": setup,
+        }
+
+        if not custom_health_ok:
+            response["user_healthcheck_error"] = custom_health_error
+
+        return jsonable_encoder(response)
 
     @limited
     @app.post(
@@ -609,6 +631,75 @@ def _cpu_count() -> int:
 
 
 if __name__ == "__main__":
+    # Try to use Rust coglet server if available
+    try:
+        import coglet  # type: ignore
+
+        # Parse minimal args needed for Rust server
+        parser = argparse.ArgumentParser(description="Cog HTTP server")
+        parser.add_argument(
+            "-v", "--version", action="store_true", help="Show version and exit"
+        )
+        parser.add_argument(
+            "--host",
+            dest="host",
+            type=str,
+            default="0.0.0.0",
+            help="Host to bind to",
+        )
+        parser.add_argument(
+            "--await-explicit-shutdown",
+            dest="await_explicit_shutdown",
+            type=bool,
+            default=False,
+            help="Ignore SIGTERM and wait for a request to /shutdown (or a SIGINT) before exiting",
+        )
+        parser.add_argument(
+            "--x-mode",
+            dest="mode",
+            type=Mode,
+            default=Mode.PREDICT,
+            choices=list(Mode),
+            help="Experimental: Run in 'predict' or 'train' mode",
+        )
+        # Accept but ignore other args for compatibility
+        parser.add_argument("--threads", dest="threads", type=int, default=None)
+        parser.add_argument("--upload-url", dest="upload_url", type=str, default=None)
+        args = parser.parse_args()
+
+        if args.version:
+            print(f"coglet (Rust) {coglet.__version__}")  # type: ignore[attr-defined]
+            sys.exit(0)
+
+        port = int(os.getenv("PORT", "5000"))
+        is_train = args.mode == Mode.TRAIN
+
+        # Get predictor ref from config
+        config = Config()
+        try:
+            predictor_ref = config.get_predictor_ref(args.mode)
+        except ValueError as e:
+            log.error(f"Configuration error: {e}")
+            log.error(
+                f"Please add '{args.mode}' to your cog.yaml file. "
+                f"Example: {args.mode}: predict.py:Predictor"
+            )
+            sys.exit(1)
+
+        log.info("Using Rust coglet server")
+        coglet.serve(  # type: ignore[attr-defined]
+            predictor_ref=predictor_ref,
+            host=args.host,
+            port=port,
+            await_explicit_shutdown=args.await_explicit_shutdown,
+            is_train=is_train,
+        )
+        sys.exit(0)
+    except ImportError:
+        # Fall back to Python HTTP server
+        log.info("Rust coglet not available, using Python HTTP server")
+        pass
+
     parser = argparse.ArgumentParser(description="Cog HTTP server")
     parser.add_argument(
         "-v", "--version", action="store_true", help="Show version and exit"

@@ -96,8 +96,8 @@ repo:
   sample: copr.fedorainfracloud.org/group_copr/integration_tests
 """
 
-import stat
 import os
+import stat
 import traceback
 from urllib.error import HTTPError
 
@@ -113,10 +113,9 @@ except ImportError:
     DNF_IMP_ERR = traceback.format_exc()
     HAS_DNF_PACKAGES = False
 
-from ansible.module_utils.common import respawn
-from ansible.module_utils.basic import missing_required_lib
 from ansible.module_utils import distro
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from ansible.module_utils.common import respawn
 from ansible.module_utils.urls import open_url
 
 
@@ -348,7 +347,7 @@ class CoprModule:
             repo = self._get_copr_repo()
         for repo_id in repo.cfg.sections():
             repo_content_api = self._download_repo_info()
-            with open(repo_filename_path, "r") as file:
+            with open(repo_filename_path) as file:
                 repo_content_file = file.read()
             if repo_content_file != repo_content_api:
                 if not self.resolve_differences(repo_content_file, repo_content_api, repo_filename_path):
@@ -449,7 +448,7 @@ class CoprModule:
         """
         if not os.path.isfile(repo_filename_path):
             return False
-        with open(repo_filename_path, "r") as file:
+        with open(repo_filename_path) as file:
             repo_content_file = file.read()
         return repo_content_file == repo_content_api
 

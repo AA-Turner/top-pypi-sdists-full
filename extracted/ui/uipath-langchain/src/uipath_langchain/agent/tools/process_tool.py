@@ -10,6 +10,7 @@ from uipath.agent.models.agent import AgentProcessToolResourceConfig
 from uipath.eval.mocks import mockable
 from uipath.platform.common import InvokeProcess
 
+from uipath_langchain.agent.react.job_attachments import get_job_attachments
 from uipath_langchain.agent.react.jsonschema_pydantic_converter import create_model
 from uipath_langchain.agent.react.types import AgentGraphState
 from uipath_langchain.agent.tools.static_args import handle_static_args
@@ -19,13 +20,15 @@ from uipath_langchain.agent.tools.structured_tool_with_argument_properties impor
 from uipath_langchain.agent.tools.tool_node import (
     ToolWrapperReturnType,
 )
-from uipath_langchain.agent.wrappers import get_job_attachment_wrapper
 
 from .utils import sanitize_tool_name
 
 
 def create_process_tool(resource: AgentProcessToolResourceConfig) -> StructuredTool:
     """Uses interrupt() to suspend graph execution until process completes (handled by runtime)."""
+    # Import here to avoid circular dependency
+    from uipath_langchain.agent.wrappers import get_job_attachment_wrapper
+
     tool_name: str = sanitize_tool_name(resource.name)
     process_name = resource.properties.process_name
     folder_path = resource.properties.folder_path
@@ -41,12 +44,14 @@ def create_process_tool(resource: AgentProcessToolResourceConfig) -> StructuredT
         example_calls=resource.properties.example_calls,
     )
     async def process_tool_fn(**kwargs: Any):
+        attachments = get_job_attachments(input_model, kwargs)
         return interrupt(
             InvokeProcess(
                 name=process_name,
                 input_arguments=kwargs,
                 process_folder_path=folder_path,
                 process_folder_key=None,
+                attachments=attachments,
             )
         )
 

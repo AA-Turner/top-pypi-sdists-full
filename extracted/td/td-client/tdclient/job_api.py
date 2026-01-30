@@ -6,12 +6,16 @@ import json
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager
+from typing import Any, Literal
 
 import msgpack
+import urllib3
 
-from .util import create_url, get_or_else, parse_date
-
+from tdclient.types import Priority
+from tdclient.util import create_url, get_or_else, parse_date
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +26,26 @@ class JobAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    JOB_PRIORITY = {
+    # Methods from API class
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes | str
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+
+    JOB_PRIORITY: dict[str, int] = {
         "VERY LOW": -2,
         "VERY-LOW": -2,
         "VERY_LOW": -2,
@@ -35,7 +58,13 @@ class JobAPI:
         "VERY_HIGH": 2,
     }
 
-    def list_jobs(self, _from=0, to=None, status=None, conditions=None):
+    def list_jobs(
+        self,
+        _from: int = 0,
+        to: int | None = None,
+        status: str | None = None,
+        conditions: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Show the list of Jobs.
 
         Args:
@@ -43,15 +72,14 @@ class JobAPI:
             to (int, optional): Gets the Job up to the nth index in the list.
                 By default, the first 20 jobs in the list are displayed
             status (str, optional): Filter by given status. {"queued", "running", "success", "error"}
-            conditions (str, optional): Condition for ``TIMESTAMPDIFF()`` to search for slow queries.
+            conditions (dict[str, Any], optional): Condition for ``TIMESTAMPDIFF()`` to search for slow queries.
                 Avoid using this parameter as it can be dangerous.
 
         Returns:
              a list of :class:`dict` which represents a job
         """
-        params = {}
-        if _from is not None:
-            params["from"] = str(_from)
+        params: dict[str, Any] = {}
+        params["from"] = str(_from)
         if to is not None:
             params["to"] = str(to)
         if status is not None:
@@ -63,7 +91,7 @@ class JobAPI:
             if code != 200:
                 self.raise_error("List jobs failed", res, body)
             js = self.checked_json(body, ["jobs"])
-            jobs = []
+            jobs: list[dict[str, Any]] = []
             for m in js["jobs"]:
                 if m.get("result") is not None and 0 < len(str(m["result"])):
                     result = m["result"]
@@ -109,7 +137,7 @@ class JobAPI:
                 jobs.append(job)
             return jobs
 
-    def show_job(self, job_id):
+    def show_job(self, job_id: str) -> dict[str, Any]:
         """Return detailed information of a Job.
 
         Args:
@@ -167,7 +195,7 @@ class JobAPI:
             }
             return job
 
-    def job_status(self, job_id):
+    def job_status(self, job_id: str) -> str:
         """Show job status
         Args:
             job_id (str): job ID
@@ -183,7 +211,7 @@ class JobAPI:
             js = self.checked_json(body, ["status"])
             return js["status"]
 
-    def job_result(self, job_id):
+    def job_result(self, job_id: str) -> list[dict[str, Any]]:
         """Return the job result.
 
         Args:
@@ -192,12 +220,12 @@ class JobAPI:
         Returns:
              Job result in :class:`list`
         """
-        result = []
+        result: list[dict[str, Any]] = []
         for row in self.job_result_format_each(job_id, "msgpack"):
             result.append(row)
         return result
 
-    def job_result_each(self, job_id):
+    def job_result_each(self, job_id: str) -> Iterator[dict[str, Any]]:
         """Yield a row of the job result.
 
         Args:
@@ -206,10 +234,11 @@ class JobAPI:
         Yields:
              Row in a result
         """
-        for row in self.job_result_format_each(job_id, "msgpack"):
-            yield row
+        yield from self.job_result_format_each(job_id, "msgpack")
 
-    def job_result_format(self, job_id, format, header=False):
+    def job_result_format(
+        self, job_id: str, format: str, header: bool = False
+    ) -> list[dict[str, Any]]:
         """Return the job result with specified format.
 
         Args:
@@ -222,14 +251,19 @@ class JobAPI:
         Returns:
              The query result of the specified job in.
         """
-        result = []
+        result: list[dict[str, Any]] = []
         for row in self.job_result_format_each(job_id, format, header):
             result.append(row)
         return result
 
     def job_result_format_each(
-        self, job_id, format, header=False, store_tmpfile=False, num_threads=4
-    ):
+        self,
+        job_id: str,
+        format: str,
+        header: bool = False,
+        store_tmpfile: bool = False,
+        num_threads: int = 4,
+    ) -> Iterator[dict[str, Any]]:
         """Yield a row of the job result with specified format.
 
         Args:
@@ -264,7 +298,9 @@ class JobAPI:
                 self.download_job_result(job_id, path, num_threads)
                 with gzip.GzipFile(path, "rb") as f:
                     unpacker = msgpack.Unpacker(
-                        f, raw=False, max_buffer_size=1000 * 1024**2
+                        f,  # type: ignore[arg-type]
+                        raw=False,
+                        max_buffer_size=1000 * 1024**2,  # type: ignore[arg-type]
                     )
                     for row in unpacker:
                         yield row
@@ -282,9 +318,7 @@ class JobAPI:
             if code != 200:
                 self.raise_error("Get job result failed", res, "")
             if format == "msgpack":
-                unpacker = msgpack.Unpacker(
-                    raw=False, max_buffer_size=1000 * 1024**2
-                )
+                unpacker = msgpack.Unpacker(raw=False, max_buffer_size=1000 * 1024**2)
                 for chunk in res.stream(1024**2):
                     unpacker.feed(chunk)
                     for row in unpacker:
@@ -295,7 +329,7 @@ class JobAPI:
             else:
                 yield res.read()
 
-    def download_job_result(self, job_id, path, num_threads=4):
+    def download_job_result(self, job_id: str, path: str, num_threads: int = 4) -> bool:
         """Download the job result to the specified path.
 
         Args:
@@ -312,13 +346,17 @@ class JobAPI:
             format="msgpack.gz",
         )
 
-        def get_chunk(url, start, end):
+        def get_chunk(
+            url: str, start: int, end: int
+        ) -> AbstractContextManager[urllib3.BaseHTTPResponse]:
             chunk_headers = {"Range": f"bytes={start}-{end}"}
 
             response = self.get(url, headers=chunk_headers)
             return response
 
-        def download_chunk(url, start, end, index, file_name):
+        def download_chunk(
+            url: str, start: int, end: int, index: int, file_name: str
+        ) -> bool:
             with get_chunk(url, start, end) as response:
                 if response.status == 206:  # Partial content (range supported)
                     with open(f"{file_name}.part{index}", "wb") as f:
@@ -331,7 +369,7 @@ class JobAPI:
                     )
                     return False
 
-        def combine_chunks(file_name, total_parts):
+        def combine_chunks(file_name: str, total_parts: int) -> None:
             with open(file_name, "wb") as final_file:
                 for i in range(total_parts):
                     with open(f"{file_name}.part{i}", "rb") as part_file:
@@ -339,8 +377,12 @@ class JobAPI:
                     os.remove(f"{file_name}.part{i}")
 
         def download_file_multithreaded(
-            url, file_name, file_size, num_threads=4, chunk_size=100 * 1024**2
-        ):
+            url: str,
+            file_name: str,
+            file_size: int,
+            num_threads: int = 4,
+            chunk_size: int = 100 * 1024**2,
+        ) -> None:
             start = 0
             part_index = 0
 
@@ -359,7 +401,7 @@ class JobAPI:
         download_file_multithreaded(url, path, file_size, num_threads=num_threads)
         return True
 
-    def kill(self, job_id):
+    def kill(self, job_id: str) -> str | None:
         """Stop the specific job if it is running.
 
         Args:
@@ -378,14 +420,14 @@ class JobAPI:
 
     def query(
         self,
-        q,
-        type="hive",
-        db=None,
-        result_url=None,
-        priority=None,
-        retry_limit=None,
-        **kwargs,
-    ):
+        q: str,
+        type: Literal["hive", "presto", "trino", "bulkload"] = "hive",
+        db: str | None = None,
+        result_url: str | None = None,
+        priority: Priority | None = None,
+        retry_limit: int | None = None,
+        **kwargs: Any,
+    ) -> str:
         """Create a job for given query.
 
         Args:
@@ -403,18 +445,21 @@ class JobAPI:
         Returns:
             str: Job ID issued for the query
         """
-        params = {"query": q}
+        params: dict[str, Any] = {"query": q}
         params.update(kwargs)
         if result_url is not None:
             params["result"] = result_url
         if priority is not None:
+            priority_value: int
             if not isinstance(priority, int):
                 priority_name = str(priority).upper()
                 if priority_name in self.JOB_PRIORITY:
-                    priority = self.JOB_PRIORITY[priority_name]
+                    priority_value = self.JOB_PRIORITY[priority_name]
                 else:
-                    raise (ValueError("unknown job priority: %s" % (priority_name,)))
-            params["priority"] = priority
+                    raise ValueError(f"unknown job priority: {priority_name}")
+            else:
+                priority_value = priority
+            params["priority"] = priority_value
         if retry_limit is not None:
             params["retry_limit"] = retry_limit
         with self.post(

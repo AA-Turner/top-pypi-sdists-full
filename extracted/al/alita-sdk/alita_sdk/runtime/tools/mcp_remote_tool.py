@@ -20,7 +20,8 @@ from ..utils.mcp_oauth import (
     fetch_resource_metadata_async,
     infer_authorization_servers_from_realm,
 )
-from ..utils.mcp_client import McpClient
+# Migration: Use UnifiedMcpClient (wraps langchain-mcp-adapters) instead of custom McpClient
+from ..utils.mcp_adapter import UnifiedMcpClient as McpClient
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class McpRemoteTool(McpServerTool):
     is_prompt: bool = False  # Flag to indicate if this is a prompt tool
     prompt_name: Optional[str] = None  # Original prompt name if this is a prompt
     session_id: Optional[str] = Field(default=None, description="MCP session ID for stateful SSE servers")
+    ssl_verify: bool = Field(default=True, description="Whether to verify SSL certificates")
     
     def model_post_init(self, __context: Any) -> None:
         """Update metadata with session info after model initialization."""
@@ -124,7 +126,8 @@ class McpRemoteTool(McpServerTool):
                 url=self.server_url,
                 session_id=self.session_id,
                 headers=headers,
-                timeout=self.tool_timeout_sec
+                timeout=self.tool_timeout_sec,
+                ssl_verify=self.ssl_verify
             )
             
             # Execute tool call (client auto-detects SSE vs Streamable HTTP)

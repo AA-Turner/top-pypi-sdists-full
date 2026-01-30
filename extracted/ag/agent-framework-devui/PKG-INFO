@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-devui
-Version: 1.0.0b260123
+Version: 1.0.0b260128
 Summary: Debug UI for Microsoft Agent Framework with OpenAI-compatible API server.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10

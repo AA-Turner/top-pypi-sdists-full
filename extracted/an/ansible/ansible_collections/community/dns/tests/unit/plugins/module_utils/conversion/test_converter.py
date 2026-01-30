@@ -6,7 +6,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -19,6 +18,9 @@ from ansible_collections.community.dns.plugins.module_utils.conversion.converter
     RecordConverter,
 )
 from ansible_collections.community.dns.plugins.module_utils.record import DNSRecord
+from ansible_collections.community.dns.plugins.module_utils.record_set import (
+    DNSRecordSet,
+)
 
 from ..helper import CustomProvideOptions, CustomProviderInformation
 
@@ -87,6 +89,12 @@ def test_user_quoted():
     assert exc.value.error_message == (
         u'While processing record from the user: A backslash must not be followed by "o" (index 4)'
     )
+
+    rrset = DNSRecordSet()
+    rrset.records.append(record)
+    record.target = u'"foo"'
+    converter.process_set_from_user(rrset)
+    assert record.target == u'foo'
 
 
 def test_user_unquoted():
@@ -191,6 +199,12 @@ def test_api_encoded():
     assert record.target == u'xyz \\ö'
     assert record_2.target == u'"xyz \\\\\\195\\182"'
     converter.process_to_api(record)
+    assert record.target == u'"xyz \\\\\\195\\182"'
+
+    rrset = DNSRecordSet()
+    rrset.records.append(record)
+    record.target = u'xyz \\ö'
+    converter.process_set_to_api(rrset)
     assert record.target == u'"xyz \\\\\\195\\182"'
 
     record.target = u'xyz \\ö'

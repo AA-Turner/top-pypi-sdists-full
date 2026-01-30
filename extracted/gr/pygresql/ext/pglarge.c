@@ -8,6 +8,10 @@
  * Please see the LICENSE.TXT file for specific restrictions.
  */
 
+/* Shared headers */
+#include "pginternal.h"
+#include "pgmodule.h"
+
 /* Deallocate large object. */
 static void
 large_dealloc(largeObject *self)
@@ -28,10 +32,10 @@ static PyObject *
 large_str(largeObject *self)
 {
     char str[80];
-    sprintf(str,
-            self->lo_fd >= 0 ? "Opened large object, oid %ld"
-                             : "Closed large object, oid %ld",
-            (long)self->lo_oid);
+    snprintf(str, sizeof(str),
+             self->lo_fd >= 0 ? "Opened large object, oid %ld"
+                              : "Closed large object, oid %ld",
+             (long)self->lo_oid);
     return PyUnicode_FromString(str);
 }
 
@@ -69,6 +73,8 @@ static PyObject *
 large_getattr(largeObject *self, PyObject *nameobj)
 {
     const char *name = PyUnicode_AsUTF8(nameobj);
+    if (!name)
+        return NULL;
 
     /* list postgreSQL large object fields */
 
@@ -423,7 +429,7 @@ static struct PyMethodDef large_methods[] = {
 static char large__doc__[] = "PostgreSQL large object";
 
 /* Large object type definition */
-static PyTypeObject largeType = {
+PyTypeObject largeType = {
     PyVarObject_HEAD_INIT(NULL, 0) "pg.LargeObject", /* tp_name */
     sizeof(largeObject),                             /* tp_basicsize */
     0,                                               /* tp_itemsize */

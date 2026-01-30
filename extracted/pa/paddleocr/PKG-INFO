@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: paddleocr
-Version: 3.3.3
+Version: 3.4.0
 Summary: Awesome multilingual OCR and document parsing toolkits based on PaddlePaddle
 Author-email: PaddlePaddle <paddleocr@baidu.com>
 Maintainer-email: PaddlePaddle <paddleocr@baidu.com>
@@ -18,18 +18,18 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: paddlex[ocr-core]<3.4.0,>=3.3.0
+Requires-Dist: paddlex[ocr-core]<3.5.0,>=3.4.0
 Requires-Dist: PyYAML>=6
 Requires-Dist: requests
 Requires-Dist: typing-extensions>=4.12
 Provides-Extra: doc-parser
-Requires-Dist: paddlex[genai-client,ocr]<3.4.0,>=3.3.0; extra == "doc-parser"
+Requires-Dist: paddlex[genai-client,ocr]<3.5.0,>=3.4.0; extra == "doc-parser"
 Provides-Extra: ie
-Requires-Dist: paddlex[ie]<3.4.0,>=3.3.0; extra == "ie"
+Requires-Dist: paddlex[ie]<3.5.0,>=3.4.0; extra == "ie"
 Provides-Extra: trans
-Requires-Dist: paddlex[trans]<3.4.0,>=3.3.0; extra == "trans"
+Requires-Dist: paddlex[trans]<3.5.0,>=3.4.0; extra == "trans"
 Provides-Extra: all
-Requires-Dist: paddlex[genai-client,ie,ocr,trans]<3.4.0,>=3.3.0; extra == "all"
+Requires-Dist: paddlex[genai-client,ie,ocr,trans]<3.5.0,>=3.4.0; extra == "all"
 
 <div align="center">
   <p>

@@ -7,20 +7,21 @@ from collections import defaultdict
 from typing import Any
 
 from botocore.model import OperationModel, ServiceModel
-from plux.core.plugin import PluginDisabled
 
 from localstack import config
 from localstack.http import Response
 
-from ...utils.coverage_docs import get_coverage_link_for_service
+from ...utils.catalog.plugins import get_aws_catalog
 from ..api import CommonServiceException, RequestContext, ServiceException
 from ..api.core import ServiceOperation
+from ..catalog_exceptions import get_service_availability_exception
 from ..chain import CompositeResponseHandler, ExceptionHandler, Handler, HandlerChain
 from ..client import parse_response, parse_service_exception
 from ..protocol.parser import RequestParser, create_parser
 from ..protocol.serializer import create_serializer
 from ..protocol.service_router import determine_aws_protocol, determine_aws_service_model
 from ..skeleton import Skeleton, create_skeleton
+from .exceptions import PluginNotIncludedInUserLicenseError
 
 LOG = logging.getLogger(__name__)
 
@@ -190,12 +191,27 @@ class ServiceExceptionSerializer(ExceptionHandler):
         error = exception
 
         if operation and isinstance(exception, NotImplementedError):
-            action_name = operation.name
+            operation_name = operation.name
             exception_message: str | None = exception.args[0] if exception.args else None
-            message = exception_message or get_coverage_link_for_service(service_name, action_name)
-            error = CommonServiceException("InternalFailure", message, status_code=501)
+            if exception_message:
+                message = exception_message
+                error = CommonServiceException("InternalFailure", message, status_code=501)
+            else:
+                catalog = get_aws_catalog()
+                if isinstance(exception, PluginNotIncludedInUserLicenseError):
+                    # Operation name is provided when a plugin fails to load, although it is not relevant.
+                    # In such cases, we should return an error without the operation name
+                    service_status = catalog.get_aws_service_status(
+                        service_name, operation_name=None
+                    )
+                else:
+                    service_status = catalog.get_aws_service_status(service_name, operation_name)
+                error = get_service_availability_exception(
+                    service_name, operation_name, service_status
+                )
+                message = error.message
             LOG.info(message)
-
+            context.service_exception = error
         elif isinstance(exception, self._moto_service_exception):
             # Translate Moto ServiceException to native ServiceException if Moto is available.
             # This allows handler chain to gracefully handles Moto errors when provider handlers invoke Moto methods directly.
@@ -232,16 +248,7 @@ class ServiceExceptionSerializer(ExceptionHandler):
                 operation = context.service.operation_model(context.service.operation_names[0])
                 msg = f"exception while calling {service_name} with unknown operation: {message}"
 
-            # Check for license restricted plugin message and set status code to 501
-            if (
-                isinstance(exception, PluginDisabled)
-                and "not part of the active license agreement"
-                in str(getattr(exception, "reason", "")).lower()
-            ):
-                status_code = 501
-                msg = f"exception while calling {service_name}.{operation.name}: {str(getattr(exception, 'reason', ''))}"
-            else:
-                status_code = 501 if config.FAIL_FAST else 500
+            status_code = 501 if config.FAIL_FAST else 500
 
             error = CommonServiceException(
                 "InternalError", msg, status_code=status_code

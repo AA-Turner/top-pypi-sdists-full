@@ -1370,7 +1370,7 @@ class StrategyExecutor(Thread):
                 # Second with 0 in front if less than 10
                 kwargs["second"] = f"0{second}" if second < 10 else str(second)
 
-                self.strategy.logger.warning(
+                self.strategy.logger.info(
                     f"The strategy will run at {kwargs['hour']}:{kwargs['minute']}:{kwargs['second']} every day. "
                     f"If instead you want to start right now and run every {time_raw} days then set "
                     f"force_start_immediately=True in the strategy's class initialization code. Or set "
@@ -1858,6 +1858,27 @@ class StrategyExecutor(Thread):
         if self.strategy.is_backtesting:
             self._run_backtesting_loop(is_continuous_market, time_to_close)
 
+            # If the backtest ended because we advanced past the configured end bound, do not
+            # advance the clock to "market close". This is especially important for futures
+            # sessions that cross midnight: awaiting the session close can jump far beyond the
+            # backtest window and trigger out-of-range data refreshes (and queue submits) in what
+            # should be a warm-cache, bounded run.
+            try:
+                datetime_end = getattr(getattr(self.broker, "data_source", None), "datetime_end", None)
+                if datetime_end is not None and self.broker.datetime > datetime_end:
+                    # Still run the close lifecycle once so stats/tearsheets have a final mark-to-market
+                    # snapshot, but avoid advancing time beyond the configured backtest window.
+                    if self.broker.is_market_open():
+                        self._before_market_closes()
+
+                    if hasattr(self.broker, "process_expired_option_contracts"):
+                        self.broker.process_expired_option_contracts(self.strategy)
+
+                    self._after_market_closes()
+                    return
+            except Exception:
+                pass
+
         self.strategy.await_market_to_close()
         if self.broker.is_market_open():
             self._before_market_closes()  # perhaps the user could set the time of day based on their data that the market closes?
@@ -1927,7 +1948,36 @@ class StrategyExecutor(Thread):
             if is_pure_pandas_data_source:
                 self.broker.initialize_market_calendars(data_source.get_trading_days_pandas())
             else:
-                self.broker.initialize_market_calendars(get_trading_days(market))
+                # PERFORMANCE: default get_trading_days() spans 1950->today, which can cost 10s+
+                # in option-heavy backtests. For backtesting, bound the calendar to the backtest
+                # window (+/- a small buffer) so schedule generation is O(window) instead of
+                # O(75 years).
+                if self.strategy.is_backtesting:
+                    try:
+                        start = getattr(self.strategy, "_backtesting_start", None) or getattr(
+                            self.strategy, "backtesting_start", None
+                        )
+                        end = getattr(self.strategy, "_backtesting_end", None) or getattr(
+                            self.strategy, "backtesting_end", None
+                        )
+                        tzinfo = getattr(getattr(self.broker, "data_source", None), "tzinfo", None) or LUMIBOT_DEFAULT_PYTZ
+
+                        if start is not None and end is not None:
+                            buffer = timedelta(days=14)
+                            self.broker.initialize_market_calendars(
+                                get_trading_days(
+                                    market=market,
+                                    start_date=start - buffer,
+                                    end_date=end + buffer,
+                                    tzinfo=tzinfo,
+                                )
+                            )
+                        else:
+                            self.broker.initialize_market_calendars(get_trading_days(market))
+                    except Exception:
+                        self.broker.initialize_market_calendars(get_trading_days(market))
+                else:
+                    self.broker.initialize_market_calendars(get_trading_days(market))
 
             #####
             # Main strategy execution loop

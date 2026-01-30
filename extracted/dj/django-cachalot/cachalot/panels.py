@@ -54,12 +54,12 @@ class CachalotPanel(Panel):
                 invalidation = datetime.fromtimestamp(timestamp)
                 model = model_cache_keys[cache_key]
                 data[db_alias].append(
-                    (model._meta.app_label, model.__name__, invalidation))
+                    (model._meta.app_label, model.__name__, timesince(invalidation)))
                 if self.last_invalidation is None \
                         or invalidation > self.last_invalidation:
                     self.last_invalidation = invalidation
             data[db_alias].sort(key=lambda row: row[2], reverse=True)
-        self.record_stats({'invalidations_per_db': data.items()})
+        self.record_stats({'invalidations_per_db': list(data.items())})
 
     @property
     def nav_subtitle(self):

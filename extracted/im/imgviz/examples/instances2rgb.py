@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import imgviz
 
 
-def instances2rgb():
+def instances2rgb() -> None:
     data = imgviz.data.voc()
 
     captions = [data["class_names"][label_id] for label_id in data["labels"]]
@@ -32,22 +32,17 @@ def instances2rgb():
     plt.axis("off")
 
     plt.subplot(132)
-    plt.title("instances\n(bboxes)")
+    plt.title("instances (bboxes)")
     plt.imshow(insviz1)
     plt.axis("off")
 
     plt.subplot(133)
-    plt.title("instances\n(masks)")
+    plt.title("instances (masks)")
     plt.imshow(insviz2)
     plt.axis("off")
 
-    img = imgviz.io.pyplot_to_numpy()
-    plt.close()
-
-    return img
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(instances2rgb)

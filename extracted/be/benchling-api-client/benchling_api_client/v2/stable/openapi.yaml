@@ -23669,9 +23669,10 @@ components:
           type: string
         gcContent:
           default: ANY
-          description: 'The amount of GC content in the back-translated sequence.
-            If not specified, the back-translation will default to ANY (0-1). LOW
-            is defined as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66.
+          description: 'The amount of GC content in the optimized sequence. LOW is
+            defined as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66. If
+            neither gcContent nor gcContentRange is specified, the optimization will
+            default to ANY (0-1). Cannot be specified together with gcContentRange.
 
             '
           enum:
@@ -23680,6 +23681,25 @@ components:
           - MEDIUM
           - HIGH
           type: string
+        gcContentRange:
+          additionalProperties: false
+          description: 'Custom GC content range for the optimized sequence, specified
+            as decimal values between 0 and 1. The maximum must be greater than the
+            minimum. Cannot be specified together with gcContent.
+
+            '
+          properties:
+            max:
+              description: Maximum GC content ratio (e.g., 0.6 for 60%)
+              maximum: 1
+              minimum: 0
+              type: number
+            min:
+              description: Minimum GC content ratio (e.g., 0.4 for 40%)
+              maximum: 1
+              minimum: 0
+              type: number
+          type: object
         hairpinParameters:
           additionalProperties: false
           description: 'These parameters are applied in the AvoidHairpins specification
@@ -23695,6 +23715,18 @@ components:
               default: 200
               type: integer
           type: object
+        method:
+          default: MATCH_CODON_USAGE
+          description: 'The codon optimization algorithm to use. Requires codonUsageTableId
+            to be specified. MATCH_CODON_USAGE selects codons probabilistically based
+            on the organism''s codon usage frequencies. USE_BEST_CODON always selects
+            the most frequently used codon for each amino acid.
+
+            '
+          enum:
+          - MATCH_CODON_USAGE
+          - USE_BEST_CODON
+          type: string
         reducedPatterns:
           description: 'List of patterns to avoid when creating the back-translated
             sequence, on the coding strand only.
@@ -31383,9 +31415,10 @@ components:
           type: string
         gcContent:
           default: ANY
-          description: 'The amount of GC content in the optimized sequence. If not
-            specified, the optimization will default to ANY (0-1). LOW is defined
-            as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66.
+          description: 'The amount of GC content in the optimized sequence. LOW is
+            defined as below 0.33, MEDIUM as 0.33-0.66, and HIGH as above 0.66. If
+            neither gcContent nor gcContentRange is specified, the optimization will
+            default to ANY (0-1). Cannot be specified together with gcContentRange.
 
             '
           enum:
@@ -31394,6 +31427,25 @@ components:
           - MEDIUM
           - HIGH
           type: string
+        gcContentRange:
+          additionalProperties: false
+          description: 'Custom GC content range for the optimized sequence, specified
+            as decimal values between 0 and 1. The maximum must be greater than the
+            minimum. Cannot be specified together with gcContent.
+
+            '
+          properties:
+            max:
+              description: Maximum GC content ratio (e.g., 0.6 for 60%)
+              maximum: 1
+              minimum: 0
+              type: number
+            min:
+              description: Minimum GC content ratio (e.g., 0.4 for 40%)
+              maximum: 1
+              minimum: 0
+              type: number
+          type: object
         hairpinParameters:
           additionalProperties: false
           description: 'These parameters are applied in the AvoidHairpins specification
@@ -31409,6 +31461,18 @@ components:
               default: 200
               type: integer
           type: object
+        method:
+          default: MATCH_CODON_USAGE
+          description: 'The codon optimization algorithm to use. Requires codonUsageTableId
+            to be specified. MATCH_CODON_USAGE selects codons probabilistically based
+            on the organism''s codon usage frequencies. USE_BEST_CODON always selects
+            the most frequently used codon for each amino acid.
+
+            '
+          enum:
+          - MATCH_CODON_USAGE
+          - USE_BEST_CODON
+          type: string
         reducedPatterns:
           description: 'List of patterns to avoid when creating the optimized sequence,
             on the coding strand only.
@@ -31924,11 +31988,14 @@ components:
       type: object
     ReducedPattern:
       additionalProperties: false
-      description: 'Patterns must consist of ATGC bases only, and are case-insensitive
-        ("gat" will reduce usage of "GAT"). If avoidReverseComplement is true, then
-        the pattern''s reverse complement will also be avoided.
-
-        '
+      description: "DNA patterns to avoid during optimization. Supports two formats:\
+        \ 1) DNA base patterns: strings of ATGC bases (case-insensitive, e.g., \"\
+        ATGC\" or \"gat\") 2) Repeat patterns: format \"nxkmer\" specifying n repeats\
+        \ of k-sized sequences (e.g., \"3x4mer\" matches 3 consecutive 4-base repeats).\
+        \ Maximum total length for repeat patterns is 50 bases (n * k \u2264 50).\n\
+        If avoidReverseComplement is true, the pattern's reverse complement will also\
+        \ be avoided. Note: avoidReverseComplement cannot be true for repeat patterns\
+        \ (nxkmer format).\n"
       properties:
         avoidReverseComplement:
           default: false

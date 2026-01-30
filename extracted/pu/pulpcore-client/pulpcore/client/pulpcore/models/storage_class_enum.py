@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class StorageClassEnum(str, Enum):
     """
-    * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage
+    * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage [deprecated] * `storages.backends.s3.S3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage
     """
 
     """
@@ -29,6 +29,7 @@ class StorageClassEnum(str, Enum):
     """
     PULPCORE_DOT_APP_DOT_MODELS_DOT_STORAGE_DOT_FILE_SYSTEM = 'pulpcore.app.models.storage.FileSystem'
     STORAGES_DOT_BACKENDS_DOT_S3BOTO3_DOT_S3_BOTO3_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STORAGES_DOT_BACKENDS_DOT_S3_DOT_S3_STORAGE = 'storages.backends.s3.S3Storage'
     STORAGES_DOT_BACKENDS_DOT_AZURE_STORAGE_DOT_AZURE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
 
     @classmethod

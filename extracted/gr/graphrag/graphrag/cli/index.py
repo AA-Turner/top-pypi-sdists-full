@@ -9,9 +9,11 @@ import sys
 import warnings
 from pathlib import Path
 
+from graphrag_cache.cache_type import CacheType
+
 import graphrag.api as api
 from graphrag.callbacks.console_workflow_callbacks import ConsoleWorkflowCallbacks
-from graphrag.config.enums import CacheType, IndexingMethod
+from graphrag.config.enums import IndexingMethod
 from graphrag.config.load_config import load_config
 from graphrag.index.validate_config import validate_config_names
 from graphrag.utils.cli import redact
@@ -43,26 +45,17 @@ def index_cli(
     root_dir: Path,
     method: IndexingMethod,
     verbose: bool,
-    memprofile: bool,
     cache: bool,
-    config_filepath: Path | None,
     dry_run: bool,
     skip_validation: bool,
-    output_dir: Path | None,
 ):
     """Run the pipeline with the given config."""
-    cli_overrides = {}
-    if output_dir:
-        cli_overrides["output.base_dir"] = str(output_dir)
-        cli_overrides["reporting.base_dir"] = str(output_dir)
-        cli_overrides["update_index_output.base_dir"] = str(output_dir)
-    config = load_config(root_dir, config_filepath, cli_overrides)
+    config = load_config(root_dir=root_dir)
     _run_index(
         config=config,
         method=method,
         is_update_run=False,
         verbose=verbose,
-        memprofile=memprofile,
         cache=cache,
         dry_run=dry_run,
         skip_validation=skip_validation,
@@ -73,27 +66,19 @@ def update_cli(
     root_dir: Path,
     method: IndexingMethod,
     verbose: bool,
-    memprofile: bool,
     cache: bool,
-    config_filepath: Path | None,
     skip_validation: bool,
-    output_dir: Path | None,
 ):
     """Run the pipeline with the given config."""
-    cli_overrides = {}
-    if output_dir:
-        cli_overrides["output.base_dir"] = str(output_dir)
-        cli_overrides["reporting.base_dir"] = str(output_dir)
-        cli_overrides["update_index_output.base_dir"] = str(output_dir)
-
-    config = load_config(root_dir, config_filepath, cli_overrides)
+    config = load_config(
+        root_dir=root_dir,
+    )
 
     _run_index(
         config=config,
         method=method,
         is_update_run=True,
         verbose=verbose,
-        memprofile=memprofile,
         cache=cache,
         dry_run=False,
         skip_validation=skip_validation,
@@ -105,7 +90,6 @@ def _run_index(
     method,
     is_update_run,
     verbose,
-    memprofile,
     cache,
     dry_run,
     skip_validation,
@@ -120,7 +104,7 @@ def _run_index(
     )
 
     if not cache:
-        config.cache.type = CacheType.none
+        config.cache.type = CacheType.Noop
 
     if not skip_validation:
         validate_config_names(config)
@@ -142,20 +126,10 @@ def _run_index(
             config=config,
             method=method,
             is_update_run=is_update_run,
-            memory_profile=memprofile,
             callbacks=[ConsoleWorkflowCallbacks(verbose=verbose)],
             verbose=verbose,
         )
     )
-    encountered_errors = any(
-        output.errors and len(output.errors) > 0 for output in outputs
-    )
-
-    if encountered_errors:
-        logger.error(
-            "Errors occurred during the pipeline run, see logs for more details."
-        )
-    else:
-        logger.info("All workflows completed successfully.")
+    encountered_errors = any(output.error is not None for output in outputs)
 
     sys.exit(1 if encountered_errors else 0)

@@ -5,13 +5,13 @@ use std::ops::BitAndAssign;
 use std::ops::BitOrAssign;
 use std::ops::BitXorAssign;
 
-use crate::allocator::{len_for_value, Allocator, NodePtr, NodeVisitor, SExp};
-use crate::cost::{check_cost, Cost};
+use crate::allocator::{Allocator, NodePtr, NodeVisitor, SExp, len_for_value};
+use crate::cost::{Cost, check_cost};
 use crate::error::EvalErr;
 use crate::number::Number;
 use crate::op_utils::{
-    atom, atom_len, get_args, get_varargs, i32_atom, int_atom, match_args, mod_group_order,
-    new_atom_and_cost, nilp, u32_from_u8, MALLOC_COST_PER_BYTE,
+    MALLOC_COST_PER_BYTE, atom, atom_len, get_args, get_varargs, i32_atom, int_atom, match_args,
+    mod_group_order, new_atom_and_cost, nilp, u32_from_u8,
 };
 use crate::reduction::{Reduction, Response};
 use chia_bls::G1Element;
@@ -375,18 +375,17 @@ pub const PRECOMPUTED_HASHES: [[u8; 32]; 37] = [
 pub fn op_sha256(a: &mut Allocator, mut input: NodePtr, max_cost: Cost) -> Response {
     let mut cost = SHA256_BASE_COST;
 
-    if let Some([v0, v1]) = match_args::<2>(a, input) {
-        if a.small_number(v0) == Some(1) {
-            if let Some(val) = a.small_number(v1) {
-                // in this case, we're hashing 1 concatenated with a small
-                // integer, we may have a pre-computed hash for this
-                if (val as usize) < PRECOMPUTED_HASHES.len() {
-                    let num_bytes = if val > 0 { 2 } else { 1 };
-                    cost += num_bytes * SHA256_COST_PER_BYTE + 2 as Cost * SHA256_COST_PER_ARG;
-                    check_cost(cost, max_cost)?;
-                    return new_atom_and_cost(a, cost, &PRECOMPUTED_HASHES[val as usize]);
-                }
-            }
+    if let Some([v0, v1]) = match_args::<2>(a, input)
+        && a.small_number(v0) == Some(1)
+        && let Some(val) = a.small_number(v1)
+    {
+        // in this case, we're hashing 1 concatenated with a small
+        // integer, we may have a pre-computed hash for this
+        if (val as usize) < PRECOMPUTED_HASHES.len() {
+            let num_bytes = if val > 0 { 2 } else { 1 };
+            cost += num_bytes * SHA256_COST_PER_BYTE + 2 as Cost * SHA256_COST_PER_ARG;
+            check_cost(cost, max_cost)?;
+            return new_atom_and_cost(a, cost, &PRECOMPUTED_HASHES[val as usize]);
         }
     }
 
@@ -514,50 +513,83 @@ pub fn op_multiply(a: &mut Allocator, mut input: NodePtr, max_cost: Cost) -> Res
     Ok(malloc_cost(a, cost, total))
 }
 
-pub fn op_div(a: &mut Allocator, input: NodePtr, _max_cost: Cost) -> Response {
+pub fn op_div(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_div_impl(a, input, max_cost, false)
+}
+
+pub fn op_div_limit(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_div_impl(a, input, max_cost, true)
+}
+
+fn op_div_impl(a: &mut Allocator, input: NodePtr, max_cost: Cost, limit: bool) -> Response {
     let [v0, v1] = get_args::<2>(a, input, "/")?;
     let (a0, a0_len) = int_atom(a, v0, "/")?;
     let (a1, a1_len) = int_atom(a, v1, "/")?;
-    let cost = DIV_BASE_COST + ((a0_len + a1_len) as Cost) * DIV_COST_PER_BYTE;
-    if a1.sign() == Sign::NoSign {
-        Err(EvalErr::DivisionByZero(input))
-    } else {
-        let q = a0.div_floor(&a1);
-        let q = a.new_number(q)?;
-        Ok(malloc_cost(a, cost, q))
+    if limit && a0_len > 2048 {
+        return Err(EvalErr::InvalidOpArg(input, "div".to_string()));
     }
+    let cost = DIV_BASE_COST + ((a0_len + a1_len) as Cost) * DIV_COST_PER_BYTE;
+    check_cost(cost, max_cost)?;
+    if a1.sign() == Sign::NoSign {
+        return Err(EvalErr::DivisionByZero(input));
+    }
+    let q = a0.div_floor(&a1);
+    let q = a.new_number(q)?;
+    Ok(malloc_cost(a, cost, q))
 }
 
-pub fn op_divmod(a: &mut Allocator, input: NodePtr, _max_cost: Cost) -> Response {
+fn op_divmod_impl(a: &mut Allocator, input: NodePtr, max_cost: Cost, limit: bool) -> Response {
     let [v0, v1] = get_args::<2>(a, input, "divmod")?;
     let (a0, a0_len) = int_atom(a, v0, "divmod")?;
     let (a1, a1_len) = int_atom(a, v1, "divmod")?;
-    let cost = DIVMOD_BASE_COST + ((a0_len + a1_len) as Cost) * DIVMOD_COST_PER_BYTE;
-    if a1.sign() == Sign::NoSign {
-        Err(EvalErr::DivisionByZero(input))
-    } else {
-        let (q, r) = a0.div_mod_floor(&a1);
-        let q1 = a.new_number(q)?;
-        let r1 = a.new_number(r)?;
-
-        let c = (a.atom_len(q1) + a.atom_len(r1)) as Cost * MALLOC_COST_PER_BYTE;
-        let r: NodePtr = a.new_pair(q1, r1)?;
-        Ok(Reduction(cost + c, r))
+    if limit && a0_len > 2048 {
+        return Err(EvalErr::InvalidOpArg(input, "divmod".to_string()));
     }
+    let cost = DIVMOD_BASE_COST + ((a0_len + a1_len) as Cost) * DIVMOD_COST_PER_BYTE;
+    check_cost(cost, max_cost)?;
+    if a1.sign() == Sign::NoSign {
+        return Err(EvalErr::DivisionByZero(input));
+    }
+    let (q, r) = a0.div_mod_floor(&a1);
+    let q1 = a.new_number(q)?;
+    let r1 = a.new_number(r)?;
+
+    let c = (a.atom_len(q1) + a.atom_len(r1)) as Cost * MALLOC_COST_PER_BYTE;
+    let r: NodePtr = a.new_pair(q1, r1)?;
+    Ok(Reduction(cost + c, r))
 }
 
-pub fn op_mod(a: &mut Allocator, input: NodePtr, _max_cost: Cost) -> Response {
+pub fn op_divmod(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_divmod_impl(a, input, max_cost, false)
+}
+
+pub fn op_divmod_limit(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_divmod_impl(a, input, max_cost, true)
+}
+
+fn op_mod_impl(a: &mut Allocator, input: NodePtr, max_cost: Cost, limit: bool) -> Response {
     let [v0, v1] = get_args::<2>(a, input, "mod")?;
     let (a0, a0_len) = int_atom(a, v0, "mod")?;
     let (a1, a1_len) = int_atom(a, v1, "mod")?;
-    let cost = DIV_BASE_COST + ((a0_len + a1_len) as Cost) * DIV_COST_PER_BYTE;
-    if a1.sign() == Sign::NoSign {
-        Err(EvalErr::DivisionByZero(input))
-    } else {
-        let q = a.new_number(a0.mod_floor(&a1))?;
-        let c = a.atom_len(q) as Cost * MALLOC_COST_PER_BYTE;
-        Ok(Reduction(cost + c, q))
+    if limit && a0_len > 2048 {
+        return Err(EvalErr::InvalidOpArg(input, "mod".to_string()));
     }
+    let cost = DIV_BASE_COST + ((a0_len + a1_len) as Cost) * DIV_COST_PER_BYTE;
+    check_cost(cost, max_cost)?;
+    if a1.sign() == Sign::NoSign {
+        return Err(EvalErr::DivisionByZero(input));
+    }
+    let q = a.new_number(a0.mod_floor(&a1))?;
+    let c = a.atom_len(q) as Cost * MALLOC_COST_PER_BYTE;
+    Ok(Reduction(cost + c, q))
+}
+
+pub fn op_mod(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_mod_impl(a, input, max_cost, false)
+}
+
+pub fn op_mod_limit(a: &mut Allocator, input: NodePtr, max_cost: Cost) -> Response {
+    op_mod_impl(a, input, max_cost, true)
 }
 
 pub fn op_gr(a: &mut Allocator, input: NodePtr, _max_cost: Cost) -> Response {
@@ -634,7 +666,7 @@ pub fn op_concat(a: &mut Allocator, mut input: NodePtr, max_cost: Cost) -> Respo
         check_cost(cost + total_size as Cost * CONCAT_COST_PER_BYTE, max_cost)?;
         let len = match a.sexp(arg) {
             SExp::Pair(_, _) => {
-                return Err(EvalErr::InvalidOpArg(arg, "concat on list".to_string()))?
+                return Err(EvalErr::InvalidOpArg(arg, "concat on list".to_string()))?;
             }
             SExp::Atom => a.atom_len(arg),
         };

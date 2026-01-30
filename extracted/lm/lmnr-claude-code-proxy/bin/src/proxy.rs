@@ -1,8 +1,9 @@
 use crate::anthropic::request::PostMessagesRequest;
 use crate::anthropic::response::MessageResponse;
+use crate::spans::utils::{is_gzip_encoded, parse_span_id, parse_sse_events, parse_trace_id};
 use crate::spans::{
     CompletedSpawningToolSpan, CompletedToolSpan, NestedContext, RegistrationContext,
-    SpanProcessor, build_tool_span_request, create_span_request,
+    ResponseFailure, ResponseInfo, SpanProcessor, build_tool_span_request, create_span_request,
 };
 use crate::state::{CurrentTraceAndLaminarContext, SharedState};
 
@@ -123,6 +124,7 @@ struct SpanCapturingStream<S> {
     span_processor: Arc<SpanProcessor>,
     nested_context: Option<NestedContext>,
     has_gzip_content_encoding: bool,
+    response_status: StatusCode,
 }
 
 impl<S> Stream for SpanCapturingStream<S>
@@ -211,13 +213,11 @@ where
         let parsed_response: Option<MessageResponse> = parsed_request.as_ref().and_then(|req| {
             if req.stream {
                 // Streaming response: parse SSE events
-                use crate::spans::utils::parse_sse_events;
                 let response_str = String::from_utf8_lossy(&response_bytes);
                 let events = parse_sse_events(&response_str);
                 MessageResponse::try_from_stream_events(events).ok()
             } else {
                 // Non-streaming response: may be gzip-encoded
-                use crate::spans::utils::is_gzip_encoded;
                 if is_gzip_encoded(&response_bytes, has_gzip_content_encoding) {
                     return None;
                 }
@@ -229,8 +229,6 @@ where
         // If response contains tool calls, register them with the processor SYNCHRONOUSLY
         let server_tool_spans: Vec<CompletedToolSpan> =
             if let (Some(trace_ctx), Some(response)) = (&trace, &parsed_response) {
-                use crate::spans::utils::{parse_span_id, parse_trace_id};
-
                 if let (Ok(trace_id_bytes), Ok(span_id_bytes)) = (
                     parse_trace_id(&trace_ctx.trace_id),
                     parse_span_id(&trace_ctx.span_id),
@@ -276,6 +274,15 @@ where
             span_processor.update_child_end_time(&ctx.parent_tool_use_id, end_time_unix_nano);
         }
 
+        let response_info = if !self.response_status.is_success() {
+            Some(ResponseInfo::Failure(ResponseFailure {
+                status_code: self.response_status,
+                body: response_bytes,
+            }))
+        } else {
+            parsed_response.map(|resp| ResponseInfo::Success(resp))
+        };
+
         // ============================================================
         // ASYNC SECTION: Only network I/O runs in background
         // ============================================================
@@ -307,34 +314,33 @@ where
                         )
                     };
 
-                    // Send LLM span
-                    match create_span_request(
-                        request_body,
-                        response_bytes,
-                        trace.trace_id.clone(),
-                        effective_parent_span_id,
-                        effective_span_ids_path,
-                        start_time_unix_nano,
-                        end_time_unix_nano,
-                        effective_span_path,
-                        has_gzip_content_encoding,
-                    ) {
-                        Ok(Some(span_request)) => {
-                            if let Err(e) = send_trace_to_lmnr(
-                                span_request,
-                                client.clone(),
-                                trace.project_api_key.clone(),
-                                trace.laminar_url.clone(),
-                            )
-                            .await
-                            {
-                                eprintln!("Failed to send trace to LMNR: {}", e);
+                    if let (Some(req), Some(response_info)) = (parsed_request, response_info) {
+                        match create_span_request(
+                            trace.trace_id.clone(),
+                            effective_parent_span_id,
+                            effective_span_ids_path,
+                            start_time_unix_nano,
+                            end_time_unix_nano,
+                            effective_span_path,
+                            req,
+                            response_info,
+                        ) {
+                            Ok(span_request) => {
+                                if let Err(e) = send_trace_to_lmnr(
+                                    span_request,
+                                    client.clone(),
+                                    trace.project_api_key.clone(),
+                                    trace.laminar_url.clone(),
+                                )
+                                .await
+                                {
+                                    eprintln!("Failed to send trace to LMNR: {}", e);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to create span request: {}", e);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("Failed to create span request: {}", e);
-                        }
-                        Ok(None) => {}
                     }
 
                     // Send server tool spans (web_search, etc.)
@@ -409,7 +415,7 @@ async fn handle_span_context(
         Ok(trace) => {
             let state_guard = state.lock();
             if let Ok(mut state_guard) = state_guard {
-                *state_guard = Some(trace.clone());
+                state_guard.trace_context = Some(trace.clone());
                 drop(state_guard);
             } else {
                 eprintln!("Failed to lock state for span context");
@@ -434,6 +440,81 @@ async fn handle_span_context(
     }
 }
 
+/// Attempts to infer the correct scheme (http or https) for a URL without a scheme.
+/// Tries HTTPS first (preferred), then HTTP if HTTPS fails with a connection error.
+///
+/// Returns the successful scheme and response, or an error if both fail.
+async fn try_infer_scheme(
+    parts: hyper::http::request::Parts,
+    body_bytes: Bytes,
+    base_url: &str,
+    path_and_query: &str,
+    client: &Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, hyper::Error>>,
+) -> Result<(String, Response<hyper::body::Incoming>), Box<dyn std::error::Error + Send + Sync>> {
+    // Try HTTPS first (preferred)
+    let https_url = format!("https://{}", base_url);
+    let https_uri = format!("{}{}", https_url, path_and_query).parse();
+
+    if let Ok(https_uri) = https_uri {
+        let mut https_parts = parts.clone();
+        https_parts.uri = https_uri;
+
+        // Recreate body for HTTPS attempt
+        let https_body = Full::new(body_bytes.clone())
+            .map_err(|never| match never {})
+            .boxed();
+
+        if is_azure_endpoint(&https_url) {
+            https_parts.version = hyper::Version::HTTP_2;
+            https_parts.headers.remove(hyper::header::HOST);
+            https_parts.headers.remove(hyper::header::CONNECTION);
+        }
+
+        let https_req = Request::from_parts(https_parts, https_body);
+
+        if let Ok(response) = client.request(https_req).await {
+            return Ok(("https".to_string(), response));
+        }
+        // else fall through to try HTTP
+    }
+
+    // Try HTTP as fallback
+    let http_url = format!("http://{}", base_url);
+    let http_uri = format!("{}{}", http_url, path_and_query)
+        .parse()
+        .map_err(|e| {
+            eprintln!("Failed to parse HTTP URI: {}", e);
+            e
+        })?;
+
+    let mut http_parts = parts;
+    http_parts.uri = http_uri;
+
+    let http_body = Full::new(body_bytes)
+        .map_err(|never| match never {})
+        .boxed();
+
+    if is_azure_endpoint(&http_url) {
+        http_parts.version = hyper::Version::HTTP_2;
+        http_parts.headers.remove(hyper::header::HOST);
+        http_parts.headers.remove(hyper::header::CONNECTION);
+    }
+
+    let http_req = Request::from_parts(http_parts, http_body);
+
+    match client.request(http_req).await {
+        Ok(response) => {
+            // HTTP worked! Return it.
+            Ok(("http".to_string(), response))
+        }
+        Err(e) => {
+            // Both HTTPS and HTTP failed with connection errors.
+            // Return the HTTP error (most recent one)
+            Err(e.into())
+        }
+    }
+}
+
 async fn forward_request(
     req: Request<Incoming>,
     client: Client<HttpsConnector<HttpConnector>, BoxBody<Bytes, hyper::Error>>,
@@ -442,32 +523,18 @@ async fn forward_request(
     span_processor: Arc<SpanProcessor>,
     background_tasks: Arc<Mutex<JoinSet<()>>>,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, Box<dyn std::error::Error + Send + Sync>> {
-    let uri = req.uri();
+    let (parts, body) = req.into_parts();
+    let uri = &parts.uri;
     let path_and_query = uri.path_and_query().map(|x| x.as_str()).unwrap_or("/");
     let uri_path = uri.path().to_string();
-    let target_uri = format!("{}{}", target_url, path_and_query)
-        .parse()
-        .map_err(|e| {
-            eprintln!("Failed to parse target URI: {}", e);
-            e
-        })?;
 
-    let (mut parts, body) = req.into_parts();
-    parts.uri = target_uri;
+    // Determine if we need to infer the scheme
+    let needs_scheme_inference = !(target_url.to_lowercase().starts_with("http://")
+        || target_url.to_lowercase().starts_with("https://"));
 
-    // Collect request body
+    // Collect request body early as we might need it for scheme inference
     let req_body_bytes = body.collect().await?.to_bytes();
     let req_body_str = String::from_utf8_lossy(&req_body_bytes).to_string();
-    let new_body = Full::new(req_body_bytes.clone())
-        .map_err(|never| match never {})
-        .boxed();
-    if is_azure_endpoint(&target_url) {
-        // Azure requires HTTP/2 and is strict about the extra headers
-        parts.version = hyper::Version::HTTP_2;
-        parts.headers.remove(hyper::header::HOST);
-        parts.headers.remove(hyper::header::CONNECTION);
-    }
-    let proxy_req = Request::from_parts(parts, new_body);
 
     // Parse request to check for tool results and subagent context
     let parsed_request: Option<PostMessagesRequest> = serde_json::from_str(&req_body_str).ok();
@@ -495,8 +562,100 @@ async fn forward_request(
     // Capture start time right before sending request
     let start_time_unix_nano = get_unix_nano();
 
-    // Send request
-    let resp = client.request(proxy_req).await?;
+    // Handle scheme inference or use provided URL
+    let resp = if needs_scheme_inference {
+        // Check cache first
+        let cached_scheme = {
+            let state_guard = state.lock();
+            match state_guard {
+                Ok(state) => state
+                    .inferred_schemes
+                    .get(&target_url)
+                    .map(|x| x.value().clone()),
+                Err(e) => {
+                    eprintln!("Failed to lock state for scheme cache: {}", e);
+                    None
+                }
+            }
+        };
+
+        if let Some(scheme) = cached_scheme {
+            // Use cached scheme
+            let url_with_scheme = format!("{}://{}", scheme, target_url);
+            let target_uri = format!("{}{}", url_with_scheme, path_and_query)
+                .parse()
+                .map_err(|e| {
+                    eprintln!("Failed to parse target URI: {}", e);
+                    e
+                })?;
+
+            let mut parts_clone = parts.clone();
+            parts_clone.uri = target_uri;
+
+            let new_body = Full::new(req_body_bytes.clone())
+                .map_err(|never| match never {})
+                .boxed();
+
+            if is_azure_endpoint(&url_with_scheme) {
+                parts_clone.version = hyper::Version::HTTP_2;
+                parts_clone.headers.remove(hyper::header::HOST);
+                parts_clone.headers.remove(hyper::header::CONNECTION);
+            }
+
+            let proxy_req = Request::from_parts(parts_clone, new_body);
+            client.request(proxy_req).await?
+        } else {
+            eprintln!("Inferring scheme for target URL: {}", target_url);
+            // Need to infer the scheme
+            let (inferred_scheme, resp) = try_infer_scheme(
+                parts.clone(),
+                req_body_bytes.clone(),
+                &target_url,
+                path_and_query,
+                &client,
+            )
+            .await?;
+
+            // Cache the inferred scheme (only if not already cached to avoid race conditions)
+            // Use entry().or_insert() to ensure first successful inference wins
+            let state_guard = state.lock();
+            if let Ok(mut state) = state_guard {
+                state
+                    .inferred_schemes
+                    .entry(target_url.clone())
+                    .or_insert(inferred_scheme.clone());
+            } else {
+                eprintln!("Failed to lock state to cache inferred scheme");
+            }
+
+            resp
+        }
+    } else {
+        // URL already has scheme, use it directly
+        let target_uri = format!("{}{}", target_url, path_and_query)
+            .parse()
+            .map_err(|e| {
+                eprintln!("Failed to parse target URI: {}", e);
+                e
+            })?;
+
+        let mut parts_clone = parts.clone();
+        parts_clone.uri = target_uri;
+
+        let new_body = Full::new(req_body_bytes.clone())
+            .map_err(|never| match never {})
+            .boxed();
+
+        if is_azure_endpoint(&target_url) {
+            parts_clone.version = hyper::Version::HTTP_2;
+            parts_clone.headers.remove(hyper::header::HOST);
+            parts_clone.headers.remove(hyper::header::CONNECTION);
+        }
+
+        let proxy_req = Request::from_parts(parts_clone, new_body);
+        client.request(proxy_req).await?
+    };
+
     let (parts, body) = resp.into_parts();
 
     // Check if response is gzip-encoded
@@ -507,9 +666,11 @@ async fn forward_request(
         .map(|v| v.eq_ignore_ascii_case("gzip"))
         .unwrap_or(false);
 
+    let response_status = parts.status;
+
     // Get trace context
     let trace = match state.lock() {
-        Ok(state) => state.clone(),
+        Ok(state) => state.trace_context.clone(),
         Err(e) => {
             eprintln!("Failed to lock state for trace context: {}", e);
             None
@@ -562,6 +723,7 @@ async fn forward_request(
         span_processor,
         nested_context,
         has_gzip_content_encoding: is_gzip_encoded,
+        response_status,
     };
 
     let streaming_body =

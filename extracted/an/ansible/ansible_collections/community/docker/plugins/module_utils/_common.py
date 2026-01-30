@@ -34,7 +34,6 @@ from ansible_collections.community.docker.plugins.module_utils._version import (
     LooseVersion,
 )
 
-
 HAS_DOCKER_PY_2 = False  # pylint: disable=invalid-name
 HAS_DOCKER_PY_3 = False  # pylint: disable=invalid-name
 HAS_DOCKER_ERROR: None | str  # pylint: disable=invalid-name
@@ -141,25 +140,24 @@ def get_connect_params(
 
     if auth_data["tls_verify"]:
         # TLS with verification
-        tls_config = {
+        tls_config: dict[str, t.Any] = {
             "verify": True,
-            "assert_hostname": auth_data["tls_hostname"],
-            "fail_function": fail_function,
         }
+        if auth_data["tls_hostname"] is not None:
+            tls_config["assert_hostname"] = auth_data["tls_hostname"]
         if auth_data["cert_path"] and auth_data["key_path"]:
             tls_config["client_cert"] = (auth_data["cert_path"], auth_data["key_path"])
         if auth_data["cacert_path"]:
             tls_config["ca_cert"] = auth_data["cacert_path"]
-        result["tls"] = _get_tls_config(**tls_config)
+        result["tls"] = _get_tls_config(fail_function=fail_function, **tls_config)
     elif auth_data["tls"]:
         # TLS without verification
         tls_config = {
             "verify": False,
-            "fail_function": fail_function,
         }
         if auth_data["cert_path"] and auth_data["key_path"]:
             tls_config["client_cert"] = (auth_data["cert_path"], auth_data["key_path"])
-        result["tls"] = _get_tls_config(**tls_config)
+        result["tls"] = _get_tls_config(fail_function=fail_function, **tls_config)
 
     if auth_data.get("use_ssh_client"):
         if LooseVersion(docker_version) < LooseVersion("4.4.0"):
@@ -373,7 +371,8 @@ class AnsibleDockerClientBase(Client):
             ),
         }
 
-        update_tls_hostname(result)
+        if LooseVersion(docker_version) < LooseVersion("7.0.0b1"):
+            update_tls_hostname(result)
 
         return result
 

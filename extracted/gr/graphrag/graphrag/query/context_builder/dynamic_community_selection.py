@@ -8,14 +8,17 @@ import logging
 from collections import Counter
 from copy import deepcopy
 from time import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from graphrag_llm.tokenizer import Tokenizer
 
 from graphrag.data_model.community import Community
 from graphrag.data_model.community_report import CommunityReport
-from graphrag.language_model.protocol.base import ChatModel
 from graphrag.query.context_builder.rate_prompt import RATE_QUERY
 from graphrag.query.context_builder.rate_relevancy import rate_relevancy
-from graphrag.tokenizer.tokenizer import Tokenizer
+
+if TYPE_CHECKING:
+    from graphrag_llm.completion import LLMCompletion
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +33,7 @@ class DynamicCommunitySelection:
         self,
         community_reports: list[CommunityReport],
         communities: list[Community],
-        model: ChatModel,
+        model: "LLMCompletion",
         tokenizer: Tokenizer,
         rate_query: str = RATE_QUERY,
         use_summary: bool = False,
@@ -123,8 +126,10 @@ class DynamicCommunitySelection:
                     # TODO check why some sub_communities are NOT in report_df
                     if community in self.communities:
                         for child in self.communities[community].children:
-                            if child in self.reports:
-                                communities_to_rate.append(child)
+                            # Convert child to string to match self.reports key type
+                            child_str = str(child)
+                            if child_str in self.reports:
+                                communities_to_rate.append(child_str)
                             else:
                                 logger.debug(
                                     "dynamic community selection: cannot find community %s in reports",

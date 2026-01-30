@@ -3,7 +3,7 @@ import inspect
 from inspect import Parameter, Signature
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable, Optional, Protocol, Type
+from typing import TYPE_CHECKING, Callable, Protocol, Type
 
 from kernels.layer.repos import RepositoryProtocol
 
@@ -35,9 +35,9 @@ class FuncRepository:
             The name of the function within the kernel repository.
         revision (`str`, *optional*, defaults to `"main"`):
             The specific revision (branch, tag, or commit) to download. Cannot be used together with `version`.
-        version (`str`, *optional*):
-            The kernel version to download. This can be a Python version specifier, such as `">=1.0.0,<2.0.0"`.
-            Cannot be used together with `revision`.
+        version (`int|str`, *optional*):
+            The kernel version to download as an integer. The `str` variant is deprecated and will be
+            removed in a future release. Cannot be used together with `revision`.
 
     Example:
         ```python
@@ -49,11 +49,11 @@ class FuncRepository:
             func_name="silu_and_mul",
         )
 
-        # Reference a layer by version constraint
+        # Reference a layer by version
         layer_repo_versioned = FuncRepository(
-            repo_id="kernels-community/activation",
-            func_name="silu_and_mul",
-            version=">=0.0.3,<0.1"
+            repo_id="kernels-community/relu",
+            func_name="relu",
+            version=1
         )
         ```
     """
@@ -63,8 +63,8 @@ class FuncRepository:
         repo_id: str,
         *,
         func_name: str,
-        revision: Optional[str] = None,
-        version: Optional[str] = None,
+        revision: str | None = None,
+        version: int | str | None = None,
     ):
         if revision is not None and version is not None:
             raise ValueError(
@@ -82,7 +82,9 @@ class FuncRepository:
     @functools.lru_cache()
     def _resolve_revision(self) -> str:
         return select_revision_or_version(
-            repo_id=self._repo_id, revision=self._revision, version=self._version
+            repo_id=self._repo_id,
+            revision=self._revision,
+            version=self._version,
         )
 
     def load(self) -> Type["nn.Module"]:
@@ -229,7 +231,7 @@ class LockedFuncRepository:
         self,
         repo_id: str,
         *,
-        lockfile: Optional[Path] = None,
+        lockfile: Path | None = None,
         func_name: str,
     ):
         """
@@ -244,8 +246,8 @@ class LockedFuncRepository:
         self._repo_id = repo_id
         self._lockfile = lockfile
         self.func_name = func_name
+        self._revision = self._resolve_revision()
 
-    @functools.lru_cache()
     def _resolve_revision(self) -> str:
         if self._lockfile is None:
             locked_sha = _get_caller_locked_kernel(self._repo_id)
@@ -259,7 +261,7 @@ class LockedFuncRepository:
         return locked_sha
 
     def load(self) -> Type["nn.Module"]:
-        kernel = get_kernel(repo_id=self._repo_id, revision=self._resolve_revision())
+        kernel = get_kernel(repo_id=self._repo_id, revision=self._revision)
         return _get_kernel_func(self, kernel)
 
     def __eq__(self, other):
@@ -267,13 +269,14 @@ class LockedFuncRepository:
             isinstance(other, LockedFuncRepository)
             and self.func_name == other.func_name
             and self._repo_id == other._repo_id
+            and self._revision == other._revision
         )
 
     def __hash__(self):
-        return hash((self.func_name, self._repo_id))
+        return hash((self.func_name, self._repo_id, self._revision))
 
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._resolve_revision()}), function `{self.func_name}`"
+        return f"`{self._repo_id}` (revision: {self._revision}), function `{self.func_name}`"
 
 
 def _get_kernel_func(

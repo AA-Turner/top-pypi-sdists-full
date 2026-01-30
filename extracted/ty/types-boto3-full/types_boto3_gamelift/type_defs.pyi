@@ -76,6 +76,7 @@ from .literals import (
     ScalingStatusTypeType,
     SortOrderType,
     TerminationModeType,
+    ZeroCapacityStrategyType,
 )
 
 if sys.version_info >= (3, 12):
@@ -329,6 +330,7 @@ __all__ = (
     "LocationStateTypeDef",
     "LocationalDeploymentTypeDef",
     "LogConfigurationTypeDef",
+    "ManagedCapacityConfigurationTypeDef",
     "MatchedPlayerSessionTypeDef",
     "MatchmakingConfigurationTypeDef",
     "MatchmakingRuleSetTypeDef",
@@ -956,6 +958,10 @@ class GameServerContainerGroupCountsTypeDef(TypedDict):
     IDLE: NotRequired[int]
     TERMINATING: NotRequired[int]
 
+class ManagedCapacityConfigurationTypeDef(TypedDict):
+    ZeroCapacityStrategy: NotRequired[ZeroCapacityStrategyType]
+    ScaleInAfterInactivityMinutes: NotRequired[int]
+
 class TargetTrackingConfigurationTypeDef(TypedDict):
     TargetValue: float
 
@@ -1153,13 +1159,6 @@ class UpdateBuildInputTypeDef(TypedDict):
     Name: NotRequired[str]
     Version: NotRequired[str]
 
-class UpdateFleetCapacityInputTypeDef(TypedDict):
-    FleetId: str
-    DesiredInstances: NotRequired[int]
-    MinSize: NotRequired[int]
-    MaxSize: NotRequired[int]
-    Location: NotRequired[str]
-
 class UpdateGameServerInputTypeDef(TypedDict):
     GameServerGroupName: str
     GameServerId: str
@@ -1276,12 +1275,6 @@ class UpdateBuildOutputTypeDef(TypedDict):
 class UpdateFleetAttributesOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateFleetCapacityOutputTypeDef(TypedDict):
-    FleetId: str
-    FleetArn: str
-    Location: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateFleetPortSettingsOutputTypeDef(TypedDict):
@@ -1866,6 +1859,22 @@ class FleetCapacityTypeDef(TypedDict):
     InstanceCounts: NotRequired[EC2InstanceCountsTypeDef]
     Location: NotRequired[str]
     GameServerContainerGroupCounts: NotRequired[GameServerContainerGroupCountsTypeDef]
+    ManagedCapacityConfiguration: NotRequired[ManagedCapacityConfigurationTypeDef]
+
+class UpdateFleetCapacityInputTypeDef(TypedDict):
+    FleetId: str
+    DesiredInstances: NotRequired[int]
+    MinSize: NotRequired[int]
+    MaxSize: NotRequired[int]
+    Location: NotRequired[str]
+    ManagedCapacityConfiguration: NotRequired[ManagedCapacityConfigurationTypeDef]
+
+class UpdateFleetCapacityOutputTypeDef(TypedDict):
+    FleetId: str
+    FleetArn: str
+    Location: str
+    ManagedCapacityConfiguration: ManagedCapacityConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GameServerGroupAutoScalingPolicyTypeDef(TypedDict):
     TargetTrackingConfiguration: TargetTrackingConfigurationTypeDef

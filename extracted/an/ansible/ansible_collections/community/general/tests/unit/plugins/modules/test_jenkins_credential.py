@@ -4,16 +4,15 @@
 
 from __future__ import annotations
 
-
-from ansible_collections.community.general.plugins.modules import jenkins_credential
-from unittest.mock import (
-    MagicMock,
-    patch,
-    mock_open,
-)
-
 import builtins
 import json
+from unittest.mock import (
+    MagicMock,
+    mock_open,
+    patch,
+)
+
+from ansible_collections.community.general.plugins.modules import jenkins_credential
 
 
 def test_validate_file_exist_passes_when_file_exists():
@@ -248,14 +247,14 @@ def test_read_privateKey_returns_trimmed_contents():
     expected = "-----BEGIN PRIVATE KEY-----\nKEYDATA\n-----END PRIVATE KEY-----"
 
     assert result == expected
-    mocked_file.assert_called_once_with("/fake/path/key.pem", "r")
+    mocked_file.assert_called_once_with("/fake/path/key.pem")
 
 
 def test_read_privateKey_handles_file_read_error():
     module = MagicMock()
     module.params = {"private_key_path": "/invalid/path.pem"}
 
-    with patch("builtins.open", side_effect=IOError("cannot read file")):
+    with patch("builtins.open", side_effect=OSError("cannot read file")):
         jenkins_credential.read_privateKey(module)
 
     module.fail_json.assert_called_once()
@@ -286,7 +285,7 @@ def test_embed_file_into_body_fails_when_file_unreadable():
     file_path = "/fake/path/missing.pem"
     credentials = {"id": "something"}
 
-    with patch("builtins.open", side_effect=IOError("can't read file")):
+    with patch("builtins.open", side_effect=OSError("can't read file")):
         jenkins_credential.embed_file_into_body(module, file_path, credentials)
 
     module.fail_json.assert_called_once()

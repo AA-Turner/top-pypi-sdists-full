@@ -40,7 +40,6 @@ from wbcore.contrib.directory.models.relationships import (
 from wbcore.contrib.directory.signals import deactivate_profile
 from wbcore.contrib.directory.typings import Person as PersonDTO
 from wbcore.models import WBModel
-from wbcore.permissions.shortcuts import get_internal_users
 from wbcore.utils.models import (
     ActiveObjectManager,
     ComplexToStringMixin,
@@ -233,7 +232,7 @@ class EntryDefaultQueryset(models.QuerySet):
             )
 
     def filter_only_internal(self) -> models.QuerySet:
-        return self.filter(id__in=get_internal_users().values("profile"))
+        return self.filter(id__in=User.objects.filter_internal().values("profile"))
 
     def annotate_all(self) -> models.QuerySet:
         qs = self
@@ -620,7 +619,7 @@ class Person(Entry):
         verbose_name = _("Person")
         verbose_name_plural = _("Persons")
 
-    @cached_property
+    @property
     def is_internal(self) -> bool:
         if user := getattr(self, "user_account", None):
             return user.is_internal
@@ -720,28 +719,18 @@ class Person(Entry):
         if profile := getattr(user, "profile", None):
             return profile
         else:
-            associated_emails = EmailContact.objects.filter(
-                address=user.email, entry__isnull=False, entry__entry_type="Person", entry__is_active=True
-            )
-            if (
-                associated_emails.exists()
-                and (person := Person.objects.get(id=associated_emails.first().entry.id))
-                and getattr(person, "user_account", None) is None
-            ):
-                return person
-            else:
-                usernames = user.username.split("-")
-                if not first_name:
-                    first_name = usernames[0]
-                if not last_name and len(usernames) > 1:
-                    last_name = usernames[1]
-                person = cls.objects.create(first_name=first_name, last_name=last_name)
-                EmailContact.objects.create(
-                    primary=True,
-                    location=ContactLocationChoices.WORK.name,
-                    entry=person,
-                    address=user.email,
-                )
+            contact = EmailContact.objects.get_or_create(address=user.email)[0]
+            if contact.entry:
+                with suppress(Person.DoesNotExist):
+                    return Person.objects.get(id=contact.entry.id)
+            usernames = user.username.split("-")
+            if not first_name:
+                first_name = usernames[0]
+            if not last_name and len(usernames) > 1:
+                last_name = usernames[1]
+            person = cls.objects.create(first_name=first_name.title(), last_name=last_name.title())
+            contact.entry_id = person.id
+            contact.save()
             return person
 
     @classmethod
@@ -753,13 +742,15 @@ class Person(Entry):
             user {User} -- The user used to generate the profile
         """
 
-        person = cls.objects.create(first_name=first_name, last_name=last_name)
+        person = cls.objects.create(first_name=first_name.title(), last_name=last_name.title())
         if email:
-            EmailContact.objects.create(
-                primary=True,
-                location=ContactLocationChoices.WORK.name,
-                entry=person,
+            EmailContact.objects.get_or_create(
                 address=email,
+                defaults={
+                    "primary": True,
+                    "location": ContactLocationChoices.WORK.name,
+                    "entry": person,
+                },
             )
 
         return person

@@ -1,18 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pycpfcnpj
-Version: 1.8
+Version: 1.9
 Summary: Python module for brazilian register numbers for persons (CPF) and companies (CNPJ).
-License: MIT
 Author: Matheus CAS
-Author-email: matheus.mcas@gmail.com
-Requires-Python: >=3.8,<4.0
-Classifier: License :: OSI Approved :: MIT License
+Author-email: Matheus CAS <matheus.mcas@gmail.com>
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.8, <4
 Description-Content-Type: text/markdown
 
 Pycpfcnpj
@@ -35,7 +36,7 @@ Python module for brazilian register numbers for persons (CPF) and companies (CN
 Now you can install this module with pip! Yeah! :D
 
 ```
-pip install pycpfcnpj
+uv add pycpfcnpj
 ```
 
 ### Quick Start
@@ -47,13 +48,16 @@ cpf_number = '11144477735'
 masked_cpf_number = '111.444.777-35'
 cnpj_number = '11444777000161'
 masked_cnpj_number = '11.444.777/0001-61'
+alphanumeric_cnpj = '12ABC34501DE35'
 
 print(cpfcnpj.validate(cpf_number))
 print(cpfcnpj.validate(masked_cpf_number))
 print(cpfcnpj.validate(cnpj_number))
 print(cpfcnpj.validate(masked_cnpj_number))
+print(cpfcnpj.validate(alphanumeric_cnpj))
 
 Expected output:
+>>>True
 >>>True
 >>>True
 >>>True
@@ -102,7 +106,7 @@ Módulo python para validar números de CPF e CNPJ.
 Agora você pode instalar o pycpfcnpj usando o pip!\m/
 
 ```
-pip install pycpfcnpj
+uv add pycpfcnpj
 ```
 
 #### Projetos relacionados
@@ -115,13 +119,16 @@ cpf_number = '11144477735'
 masked_cpf_number = '111.444.777-35'
 cnpj_number = '11444777000161'
 masked_cnpj_number = '11.444.777/0001-61'
+alphanumeric_cnpj = '12ABC34501DE35'
 
 print(cpfcnpj.validate(cpf_number))
 print(cpfcnpj.validate(masked_cpf_number))
 print(cpfcnpj.validate(cnpj_number))
 print(cpfcnpj.validate(masked_cnpj_number))
+print(cpfcnpj.validate(alphanumeric_cnpj))
 
 Expected output:
+>>>True
 >>>True
 >>>True
 >>>True
@@ -162,6 +169,9 @@ Divirta-se!
 
 Changelog
 -----------
+1.9
+- Added official support for alphanumeric CNPJ (2026+)
+
 1.8
 - Dropped travis and python versions under 3.8
 
@@ -199,7 +209,10 @@ Changelog
 
 Log de mudanças
 -----------
-1,8
+1.9
+- Suporte oficial ao CNPJ alfanumérico (2026+)
+
+1.8
 - Travis fora e versões do Python abaixo de 3.8 não são mais suportadas
 
 1.7.2
@@ -232,4 +245,3 @@ Log de mudanças
 
 1.5.1
 - Regex para remover a pontuação.
-

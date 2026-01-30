@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: kdeconfig
 short_description: Manage KDE configuration files
@@ -160,7 +159,7 @@ def run_module(module, tmpdir, kwriteconfig):
             try:
                 with open(b_path, "rb") as src:
                     b_data = src.read()
-            except IOError:
+            except OSError:
                 result["changed"] = True
             else:
                 dst.write(b_data)
@@ -168,7 +167,7 @@ def run_module(module, tmpdir, kwriteconfig):
                     diff["before"] = to_text(b_data)
                 except UnicodeError:
                     diff["before"] = repr(b_data)
-    except IOError:
+    except OSError:
         module.fail_json(msg="Unable to create temporary file", traceback=traceback.format_exc())
 
     for row in module.params["values"]:
@@ -211,7 +210,7 @@ def run_module(module, tmpdir, kwriteconfig):
             result["backup_file"] = module.backup_local(result["path"])
         try:
             module.atomic_move(b_tmpfile, os.path.abspath(b_path))
-        except IOError:
+        except OSError:
             module.ansible.fail_json(
                 msg=f"Unable to move temporary file {tmpfile} to {result['path']}, IOError",
                 traceback=traceback.format_exc(),

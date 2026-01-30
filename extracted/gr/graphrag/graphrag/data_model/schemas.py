@@ -13,8 +13,6 @@ TYPE = "type"
 NODE_DEGREE = "degree"
 NODE_FREQUENCY = "frequency"
 NODE_DETAILS = "node_details"
-NODE_X = "x"
-NODE_Y = "y"
 
 # POST-PREP EDGE TABLE SCHEMA
 EDGE_SOURCE = "source"
@@ -54,7 +52,7 @@ ENTITY_IDS = "entity_ids"
 RELATIONSHIP_IDS = "relationship_ids"
 TEXT_UNIT_IDS = "text_unit_ids"
 COVARIATE_IDS = "covariate_ids"
-DOCUMENT_IDS = "document_ids"
+DOCUMENT_ID = "document_id"
 
 PERIOD = "period"
 SIZE = "size"
@@ -66,7 +64,7 @@ TEXT = "text"
 N_TOKENS = "n_tokens"
 
 CREATION_DATE = "creation_date"
-METADATA = "metadata"
+RAW_DATA = "raw_data"
 
 # the following lists define the final content and ordering of columns in the data model parquet outputs
 ENTITIES_FINAL_COLUMNS = [
@@ -78,8 +76,6 @@ ENTITIES_FINAL_COLUMNS = [
     TEXT_UNIT_IDS,
     NODE_FREQUENCY,
     NODE_DEGREE,
-    NODE_X,
-    NODE_Y,
 ]
 
 RELATIONSHIPS_FINAL_COLUMNS = [
@@ -146,7 +142,7 @@ TEXT_UNITS_FINAL_COLUMNS = [
     SHORT_ID,
     TEXT,
     N_TOKENS,
-    DOCUMENT_IDS,
+    DOCUMENT_ID,
     ENTITY_IDS,
     RELATIONSHIP_IDS,
     COVARIATE_IDS,
@@ -159,5 +155,5 @@ DOCUMENTS_FINAL_COLUMNS = [
     TEXT,
     TEXT_UNIT_IDS,
     CREATION_DATE,
-    METADATA,
+    RAW_DATA,
 ]

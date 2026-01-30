@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.1.22
+Version: 2026.1.27
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -28,27 +29,27 @@ Requires-Dist: check-manifest==0.51; extra == "dev"
 Requires-Dist: click==8.3.1; extra == "dev"
 Requires-Dist: deptry==0.24.0; extra == "dev"
 Requires-Dist: doc8==2.0.0; extra == "dev"
-Requires-Dist: docformatter==1.7.7; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
 Requires-Dist: mypy[faster-cache]==1.19.1; extra == "dev"
 Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
-Requires-Dist: prek==0.2.30; extra == "dev"
+Requires-Dist: prek==0.3.0; extra == "dev"
+Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
 Requires-Dist: pydocstyle==6.3; extra == "dev"
 Requires-Dist: pylint[spelling]==4.0.4; extra == "dev"
 Requires-Dist: pylint-per-file-ignores==3.2.0; extra == "dev"
 Requires-Dist: pyproject-fmt==2.11.1; extra == "dev"
-Requires-Dist: pyrefly==0.49.0; extra == "dev"
+Requires-Dist: pyrefly==0.50.0; extra == "dev"
 Requires-Dist: pyright==1.1.408; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
 Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-cov==7.0.0; extra == "dev"
-Requires-Dist: ruff==0.14.13; extra == "dev"
+Requires-Dist: ruff==0.14.14; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sybil==9.3.0; extra == "dev"
-Requires-Dist: ty==0.0.12; extra == "dev"
-Requires-Dist: uv==0.9.26; extra == "dev"
+Requires-Dist: ty==0.0.14; extra == "dev"
+Requires-Dist: uv==0.9.27; extra == "dev"
 Requires-Dist: vulture==2.14; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
 Requires-Dist: zizmor==1.22.0; extra == "dev"
@@ -112,17 +113,26 @@ ShellCommandEvaluator
     """Use ShellCommandEvaluator to run shell commands against the code block."""
 
     import sys
+    import uuid
+    from pathlib import Path
 
     from sybil import Sybil
+    from sybil.example import Example
     from sybil.parsers.rest.codeblock import CodeBlockParser
 
     from sybil_extras.evaluators.shell_evaluator import ShellCommandEvaluator
 
+
+    def temp_file_path_maker(*, example: Example) -> Path:
+        """Create a temporary file path for an example."""
+        return Path(example.path).parent / f"temp_{uuid.uuid4().hex[:8]}.py"
+
+
     evaluator = ShellCommandEvaluator(
         args=[sys.executable, "-m", "mypy"],
         # The code block is written to a temporary file
-        # with these suffixes.
-        tempfile_suffixes=[".example", ".py"],
+        # created by the temp_file_path_maker callable.
+        temp_file_path_maker=temp_file_path_maker,
         # Pad the temporary file with newlines so that the
         # line numbers in the error messages match the
         # line numbers in the source document.

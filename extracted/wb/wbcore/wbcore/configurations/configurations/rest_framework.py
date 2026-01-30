@@ -17,7 +17,7 @@ class Restframework:
             ),
             "DEFAULT_PERMISSION_CLASSES": (
                 "rest_framework.permissions.IsAuthenticated",
-                "wbcore.permissions.permissions.RestAPIModelPermissions",
+                "wbcore.contrib.permission.permissions.RestAPIModelPermissions",
             ),
             "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S%z",
             "DEFAULT_THROTTLE_CLASSES": [

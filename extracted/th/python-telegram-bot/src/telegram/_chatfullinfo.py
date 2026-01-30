@@ -2,7 +2,7 @@
 # pylint: disable=redefined-builtin
 #
 # A library that provides a Python interface to the Telegram Bot API
-# Copyright (C) 2015-2025
+# Copyright (C) 2015-2026
 # Leandro Toledo de Souza <devs@python-telegram-bot.org>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 import datetime as dtm
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from telegram._birthdate import Birthdate
 from telegram._chat import Chat, _ChatBase
@@ -30,6 +30,8 @@ from telegram._chatpermissions import ChatPermissions
 from telegram._files.chatphoto import ChatPhoto
 from telegram._gifts import AcceptedGiftTypes
 from telegram._reaction import ReactionType
+from telegram._uniquegift import UniqueGiftColors
+from telegram._userrating import UserRating
 from telegram._utils.argumentparsing import (
     de_json_optional,
     de_list_optional,
@@ -232,6 +234,19 @@ class ChatFullInfo(_ChatBase):
             chat; for direct messages chats only.
 
             .. versionadded:: 22.4
+        rating (:class:`telegram.UserRating`, optional): For private chats, the rating of the user
+            if any.
+
+            .. versionadded:: 22.6
+        unique_gift_colors (:class:`telegram.UniqueGiftColors`, optional): The color scheme based
+            on a unique gift that must be used for the chat's name, message replies and link
+            previews
+
+            .. versionadded:: 22.6
+        paid_message_star_count (:obj:`int`, optional): The number of Telegram Stars a general user
+            have to pay to send a message to the chat
+
+            .. versionadded:: 22.6
 
     Attributes:
         id (:obj:`int`): Unique identifier for this chat.
@@ -404,6 +419,19 @@ class ChatFullInfo(_ChatBase):
             chat; for direct messages chats only.
 
             .. versionadded:: 22.4
+        rating (:class:`telegram.UserRating`): Optional. For private chats, the rating of the user
+            if any.
+
+            .. versionadded:: 22.6
+        unique_gift_colors (:class:`telegram.UniqueGiftColors`): Optional. The color scheme based
+            on a unique gift that must be used for the chat's name, message replies and link
+            previews
+
+            .. versionadded:: 22.6
+        paid_message_star_count (:obj:`int`): Optional. The number of Telegram Stars a general user
+            have to pay to send a message to the chat
+
+            .. versionadded:: 22.6
 
     .. _accent colors: https://core.telegram.org/bots/api#accent-colors
     .. _topics: https://telegram.org/blog/topics-in-groups-collectible-usernames#topics-in-groups
@@ -440,6 +468,7 @@ class ChatFullInfo(_ChatBase):
         "linked_chat_id",
         "location",
         "max_reaction_count",
+        "paid_message_star_count",
         "parent_chat",
         "permissions",
         "personal_chat",
@@ -447,7 +476,9 @@ class ChatFullInfo(_ChatBase):
         "pinned_message",
         "profile_accent_color_id",
         "profile_background_custom_emoji_id",
+        "rating",
         "sticker_set_name",
+        "unique_gift_colors",
         "unrestrict_boost_count",
     )
 
@@ -458,50 +489,53 @@ class ChatFullInfo(_ChatBase):
         accent_color_id: int,
         max_reaction_count: int,
         accepted_gift_types: AcceptedGiftTypes,
-        title: Optional[str] = None,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        is_forum: Optional[bool] = None,
-        photo: Optional[ChatPhoto] = None,
-        active_usernames: Optional[Sequence[str]] = None,
-        birthdate: Optional[Birthdate] = None,
-        business_intro: Optional["BusinessIntro"] = None,
-        business_location: Optional["BusinessLocation"] = None,
-        business_opening_hours: Optional["BusinessOpeningHours"] = None,
-        personal_chat: Optional["Chat"] = None,
-        available_reactions: Optional[Sequence[ReactionType]] = None,
-        background_custom_emoji_id: Optional[str] = None,
-        profile_accent_color_id: Optional[int] = None,
-        profile_background_custom_emoji_id: Optional[str] = None,
-        emoji_status_custom_emoji_id: Optional[str] = None,
-        emoji_status_expiration_date: Optional[dtm.datetime] = None,
-        bio: Optional[str] = None,
-        has_private_forwards: Optional[bool] = None,
-        has_restricted_voice_and_video_messages: Optional[bool] = None,
-        join_to_send_messages: Optional[bool] = None,
-        join_by_request: Optional[bool] = None,
-        description: Optional[str] = None,
-        invite_link: Optional[str] = None,
-        pinned_message: Optional["Message"] = None,
-        permissions: Optional[ChatPermissions] = None,
-        slow_mode_delay: Optional[TimePeriod] = None,
-        unrestrict_boost_count: Optional[int] = None,
-        message_auto_delete_time: Optional[TimePeriod] = None,
-        has_aggressive_anti_spam_enabled: Optional[bool] = None,
-        has_hidden_members: Optional[bool] = None,
-        has_protected_content: Optional[bool] = None,
-        has_visible_history: Optional[bool] = None,
-        sticker_set_name: Optional[str] = None,
-        can_set_sticker_set: Optional[bool] = None,
-        custom_emoji_sticker_set_name: Optional[str] = None,
-        linked_chat_id: Optional[int] = None,
-        location: Optional[ChatLocation] = None,
-        can_send_paid_media: Optional[bool] = None,
-        is_direct_messages: Optional[bool] = None,
-        parent_chat: Optional[Chat] = None,
+        title: str | None = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        is_forum: bool | None = None,
+        photo: ChatPhoto | None = None,
+        active_usernames: Sequence[str] | None = None,
+        birthdate: Birthdate | None = None,
+        business_intro: "BusinessIntro | None" = None,
+        business_location: "BusinessLocation | None" = None,
+        business_opening_hours: "BusinessOpeningHours | None" = None,
+        personal_chat: "Chat | None" = None,
+        available_reactions: Sequence[ReactionType] | None = None,
+        background_custom_emoji_id: str | None = None,
+        profile_accent_color_id: int | None = None,
+        profile_background_custom_emoji_id: str | None = None,
+        emoji_status_custom_emoji_id: str | None = None,
+        emoji_status_expiration_date: dtm.datetime | None = None,
+        bio: str | None = None,
+        has_private_forwards: bool | None = None,
+        has_restricted_voice_and_video_messages: bool | None = None,
+        join_to_send_messages: bool | None = None,
+        join_by_request: bool | None = None,
+        description: str | None = None,
+        invite_link: str | None = None,
+        pinned_message: "Message | None" = None,
+        permissions: ChatPermissions | None = None,
+        slow_mode_delay: TimePeriod | None = None,
+        unrestrict_boost_count: int | None = None,
+        message_auto_delete_time: TimePeriod | None = None,
+        has_aggressive_anti_spam_enabled: bool | None = None,
+        has_hidden_members: bool | None = None,
+        has_protected_content: bool | None = None,
+        has_visible_history: bool | None = None,
+        sticker_set_name: str | None = None,
+        can_set_sticker_set: bool | None = None,
+        custom_emoji_sticker_set_name: str | None = None,
+        linked_chat_id: int | None = None,
+        location: ChatLocation | None = None,
+        can_send_paid_media: bool | None = None,
+        is_direct_messages: bool | None = None,
+        parent_chat: Chat | None = None,
+        rating: UserRating | None = None,
+        unique_gift_colors: UniqueGiftColors | None = None,
+        paid_message_star_count: int | None = None,
         *,
-        api_kwargs: Optional[JSONDict] = None,
+        api_kwargs: JSONDict | None = None,
     ):
         super().__init__(
             id=id,
@@ -517,69 +551,68 @@ class ChatFullInfo(_ChatBase):
         # Required and unique to this class-
         with self._unfrozen():
             self.max_reaction_count: int = max_reaction_count
-            self.photo: Optional[ChatPhoto] = photo
-            self.bio: Optional[str] = bio
-            self.has_private_forwards: Optional[bool] = has_private_forwards
-            self.description: Optional[str] = description
-            self.invite_link: Optional[str] = invite_link
-            self.pinned_message: Optional[Message] = pinned_message
-            self.permissions: Optional[ChatPermissions] = permissions
-            self._slow_mode_delay: Optional[dtm.timedelta] = to_timedelta(slow_mode_delay)
-            self._message_auto_delete_time: Optional[dtm.timedelta] = to_timedelta(
+            self.photo: ChatPhoto | None = photo
+            self.bio: str | None = bio
+            self.has_private_forwards: bool | None = has_private_forwards
+            self.description: str | None = description
+            self.invite_link: str | None = invite_link
+            self.pinned_message: Message | None = pinned_message
+            self.permissions: ChatPermissions | None = permissions
+            self._slow_mode_delay: dtm.timedelta | None = to_timedelta(slow_mode_delay)
+            self._message_auto_delete_time: dtm.timedelta | None = to_timedelta(
                 message_auto_delete_time
             )
-            self.has_protected_content: Optional[bool] = has_protected_content
-            self.has_visible_history: Optional[bool] = has_visible_history
-            self.sticker_set_name: Optional[str] = sticker_set_name
-            self.can_set_sticker_set: Optional[bool] = can_set_sticker_set
-            self.linked_chat_id: Optional[int] = linked_chat_id
-            self.location: Optional[ChatLocation] = location
-            self.join_to_send_messages: Optional[bool] = join_to_send_messages
-            self.join_by_request: Optional[bool] = join_by_request
-            self.has_restricted_voice_and_video_messages: Optional[bool] = (
+            self.has_protected_content: bool | None = has_protected_content
+            self.has_visible_history: bool | None = has_visible_history
+            self.sticker_set_name: str | None = sticker_set_name
+            self.can_set_sticker_set: bool | None = can_set_sticker_set
+            self.linked_chat_id: int | None = linked_chat_id
+            self.location: ChatLocation | None = location
+            self.join_to_send_messages: bool | None = join_to_send_messages
+            self.join_by_request: bool | None = join_by_request
+            self.has_restricted_voice_and_video_messages: bool | None = (
                 has_restricted_voice_and_video_messages
             )
             self.active_usernames: tuple[str, ...] = parse_sequence_arg(active_usernames)
-            self.emoji_status_custom_emoji_id: Optional[str] = emoji_status_custom_emoji_id
-            self.emoji_status_expiration_date: Optional[dtm.datetime] = (
-                emoji_status_expiration_date
-            )
-            self.has_aggressive_anti_spam_enabled: Optional[bool] = (
-                has_aggressive_anti_spam_enabled
-            )
-            self.has_hidden_members: Optional[bool] = has_hidden_members
-            self.available_reactions: Optional[tuple[ReactionType, ...]] = parse_sequence_arg(
+            self.emoji_status_custom_emoji_id: str | None = emoji_status_custom_emoji_id
+            self.emoji_status_expiration_date: dtm.datetime | None = emoji_status_expiration_date
+            self.has_aggressive_anti_spam_enabled: bool | None = has_aggressive_anti_spam_enabled
+            self.has_hidden_members: bool | None = has_hidden_members
+            self.available_reactions: tuple[ReactionType, ...] | None = parse_sequence_arg(
                 available_reactions
             )
-            self.accent_color_id: Optional[int] = accent_color_id
-            self.background_custom_emoji_id: Optional[str] = background_custom_emoji_id
-            self.profile_accent_color_id: Optional[int] = profile_accent_color_id
-            self.profile_background_custom_emoji_id: Optional[str] = (
+            self.accent_color_id: int | None = accent_color_id
+            self.background_custom_emoji_id: str | None = background_custom_emoji_id
+            self.profile_accent_color_id: int | None = profile_accent_color_id
+            self.profile_background_custom_emoji_id: str | None = (
                 profile_background_custom_emoji_id
             )
-            self.unrestrict_boost_count: Optional[int] = unrestrict_boost_count
-            self.custom_emoji_sticker_set_name: Optional[str] = custom_emoji_sticker_set_name
-            self.birthdate: Optional[Birthdate] = birthdate
-            self.personal_chat: Optional[Chat] = personal_chat
-            self.business_intro: Optional[BusinessIntro] = business_intro
-            self.business_location: Optional[BusinessLocation] = business_location
-            self.business_opening_hours: Optional[BusinessOpeningHours] = business_opening_hours
-            self.can_send_paid_media: Optional[bool] = can_send_paid_media
+            self.unrestrict_boost_count: int | None = unrestrict_boost_count
+            self.custom_emoji_sticker_set_name: str | None = custom_emoji_sticker_set_name
+            self.birthdate: Birthdate | None = birthdate
+            self.personal_chat: Chat | None = personal_chat
+            self.business_intro: BusinessIntro | None = business_intro
+            self.business_location: BusinessLocation | None = business_location
+            self.business_opening_hours: BusinessOpeningHours | None = business_opening_hours
+            self.can_send_paid_media: bool | None = can_send_paid_media
             self.accepted_gift_types: AcceptedGiftTypes = accepted_gift_types
-            self.parent_chat: Optional[Chat] = parent_chat
+            self.parent_chat: Chat | None = parent_chat
+            self.rating: UserRating | None = rating
+            self.unique_gift_colors: UniqueGiftColors | None = unique_gift_colors
+            self.paid_message_star_count: int | None = paid_message_star_count
 
     @property
-    def slow_mode_delay(self) -> Optional[Union[int, dtm.timedelta]]:
+    def slow_mode_delay(self) -> int | dtm.timedelta | None:
         return get_timedelta_value(self._slow_mode_delay, attribute="slow_mode_delay")
 
     @property
-    def message_auto_delete_time(self) -> Optional[Union[int, dtm.timedelta]]:
+    def message_auto_delete_time(self) -> int | dtm.timedelta | None:
         return get_timedelta_value(
             self._message_auto_delete_time, attribute="message_auto_delete_time"
         )
 
     @classmethod
-    def de_json(cls, data: JSONDict, bot: Optional["Bot"] = None) -> "ChatFullInfo":
+    def de_json(cls, data: JSONDict, bot: "Bot | None" = None) -> "ChatFullInfo":
         """See :meth:`telegram.TelegramObject.de_json`."""
         data = cls._parse_data(data)
 
@@ -618,5 +651,10 @@ class ChatFullInfo(_ChatBase):
             data.get("business_opening_hours"), BusinessOpeningHours, bot
         )
         data["parent_chat"] = de_json_optional(data.get("parent_chat"), Chat, bot)
+
+        data["rating"] = de_json_optional(data.get("rating"), UserRating, bot)
+        data["unique_gift_colors"] = de_json_optional(
+            data.get("unique_gift_colors"), UniqueGiftColors, bot
+        )
 
         return super().de_json(data=data, bot=bot)

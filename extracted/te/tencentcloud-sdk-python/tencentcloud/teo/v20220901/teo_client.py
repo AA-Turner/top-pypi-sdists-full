@@ -2988,7 +2988,7 @@ class TeoClient(AbstractClient):
 
 
     def DescribeTimingL4Data(self, request):
-        r"""本接口（DescribeTimingL4Data）用于查询四层时序流量数据列表。
+        r"""<p>本接口（<code>DescribeTimingL4Data</code>）用于查询四层时序数据列表。</p>
 
         :param request: Request instance for DescribeTimingL4Data.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeTimingL4DataRequest`
@@ -4583,6 +4583,29 @@ class TeoClient(AbstractClient):
             body = self.call("ModifyZoneStatus", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyZoneStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyZoneWorkMode(self, request):
+        r"""本接口用于修改站点下各配置模块的工作模式。站点各配置模块可按照配置组维度开启「版本管理模式」或「即时生效模式」，详情请参考 [版本管理](https://cloud.tencent.com/document/product/1552/113690)。
+
+        :param request: Request instance for ModifyZoneWorkMode.
+        :type request: :class:`tencentcloud.teo.v20220901.models.ModifyZoneWorkModeRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ModifyZoneWorkModeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyZoneWorkMode", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyZoneWorkModeResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

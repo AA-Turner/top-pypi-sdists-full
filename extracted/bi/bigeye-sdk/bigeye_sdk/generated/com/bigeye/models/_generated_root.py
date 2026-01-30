@@ -1601,6 +1601,7 @@ class MetricConfiguration(betterproto.Message):
         betterproto.message_field(26)
     )
     monitor_type: "MonitorType" = betterproto.enum_field(27)
+    create_issue_on_absent_groups: bool = betterproto.bool_field(28)
 
 
 @dataclass
@@ -6815,6 +6816,7 @@ class ScanJob(betterproto.Message):
     distinct_warehouses: List["Warehouse"] = betterproto.message_field(21)
     next_run_at: int = betterproto.int64_field(22)
     schedule: "ScanSchedule" = betterproto.message_field(23)
+    creator: "User" = betterproto.message_field(24)
 
 
 @dataclass
@@ -6992,6 +6994,7 @@ class CreateOrUpdateDataClassRequest(betterproto.Message):
     name: str = betterproto.string_field(2)
     sensitivity: "DataSensitivity" = betterproto.enum_field(3)
     color_hex: str = betterproto.string_field(4)
+    description: str = betterproto.string_field(5)
 
 
 @dataclass
@@ -7006,6 +7009,7 @@ class DataClass(betterproto.Message):
     provided_by_bigeye: bool = betterproto.bool_field(8)
     can_reset_to_default: bool = betterproto.bool_field(9)
     number_of_classifiers: int = betterproto.int32_field(10)
+    description: str = betterproto.string_field(11)
 
 
 @dataclass
@@ -7017,6 +7021,10 @@ class GetDataClassListRequest(betterproto.Message):
     workspace_id: int = betterproto.int32_field(5)
     sensitivities: List["DataSensitivity"] = betterproto.enum_field(6)
     creator_ids: List[int] = betterproto.int32_field(8)
+    # Filter to data classes used by these classifiers
+    classifier_ids: List[int] = betterproto.int64_field(9)
+    # Filter to data classes used by classifiers in these scan jobs
+    scan_job_ids: List[int] = betterproto.int64_field(10)
 
 
 @dataclass
@@ -7881,6 +7889,8 @@ class ScanJobRequest(betterproto.Message):
     # using the configuration values from the start of the scan job.
     scan_job_id: int = betterproto.int64_field(1)
     invoking_user: int = betterproto.int32_field(2)
+    is_retry: bool = betterproto.bool_field(3)
+    retry_scan_run_id: int = betterproto.int64_field(4)
 
 
 @dataclass
@@ -8326,6 +8336,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
         metric_observed_column_response: List["MetricObservedColumnResponse"] = [],
         monitor_type: "MonitorType" = 0,
+        create_issue_on_absent_groups: bool = False,
     ) -> MetricConfiguration:
         """Create or update metric"""
 
@@ -8368,6 +8379,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         if metric_observed_column_response is not None:
             request.metric_observed_column_response = metric_observed_column_response
         request.monitor_type = monitor_type
+        request.create_issue_on_absent_groups = create_issue_on_absent_groups
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/CreateMetric",
@@ -8592,6 +8604,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
         metric_observed_column_response: List["MetricObservedColumnResponse"] = [],
         monitor_type: "MonitorType" = 0,
+        create_issue_on_absent_groups: bool = False,
     ) -> MetricValidationResult:
         """Validate a metric configuration"""
 
@@ -8634,6 +8647,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         if metric_observed_column_response is not None:
             request.metric_observed_column_response = metric_observed_column_response
         request.monitor_type = monitor_type
+        request.create_issue_on_absent_groups = create_issue_on_absent_groups
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/ValidateMetric",

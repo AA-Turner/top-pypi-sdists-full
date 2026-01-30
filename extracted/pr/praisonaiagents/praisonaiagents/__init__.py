@@ -6,6 +6,25 @@ Heavy dependencies like litellm are only loaded when actually needed.
 """
 
 # =============================================================================
+# NAMING CONVENTION GUIDE (Simplified patterns for consistency)
+# =============================================================================
+# | Pattern       | When to Use             | Examples                        |
+# |---------------|-------------------------|----------------------------------|
+# | add_X         | Register something      | add_hook, add_tool, add_profile |
+# | get_X         | Retrieve something      | get_tool, get_profile           |
+# | remove_X      | Unregister something    | remove_hook, remove_tool        |
+# | has_X         | Check existence         | has_hook, has_tool              |
+# | list_X        | List all items          | list_tools, list_profiles       |
+# | enable_X      | Turn on feature         | enable_telemetry                |
+# | disable_X     | Turn off feature        | disable_telemetry               |
+# | XConfig       | Configuration class     | MemoryConfig, HooksConfig       |
+# | @decorator    | Decorator               | @tool, @add_hook                |
+# |---------------|-------------------------|----------------------------------|
+# | set_default_X | Internal/advanced only  | (don't simplify - internal)     |
+# | create_X      | Factory function        | (already well-named)            |
+# =============================================================================
+
+# =============================================================================
 # NAMESPACE PACKAGE GUARD
 # =============================================================================
 # Detect if we're loaded as a namespace package (which indicates stale artifacts
@@ -194,6 +213,14 @@ _LAZY_IMPORTS = {
     'PromptExpanderAgent': ('praisonaiagents.agent.prompt_expander_agent', 'PromptExpanderAgent'),
     'ExpandStrategy': ('praisonaiagents.agent.prompt_expander_agent', 'ExpandStrategy'),
     'ExpandResult': ('praisonaiagents.agent.prompt_expander_agent', 'ExpandResult'),
+    'VisionAgent': ('praisonaiagents.agent.vision_agent', 'VisionAgent'),
+    'VisionConfig': ('praisonaiagents.agent.vision_agent', 'VisionConfig'),
+    'EmbeddingAgent': ('praisonaiagents.agent.embedding_agent', 'EmbeddingAgent'),
+    'EmbeddingConfig': ('praisonaiagents.agent.embedding_agent', 'EmbeddingConfig'),
+    'RealtimeAgent': ('praisonaiagents.agent.realtime_agent', 'RealtimeAgent'),
+    'RealtimeConfig': ('praisonaiagents.agent.realtime_agent', 'RealtimeConfig'),
+    'CodeAgent': ('praisonaiagents.agent.code_agent', 'CodeAgent'),
+    'CodeConfig': ('praisonaiagents.agent.code_agent', 'CodeConfig'),
     
     # Agents
     'Agents': ('praisonaiagents.agents.agents', 'Agents'),
@@ -249,6 +276,18 @@ _LAZY_IMPORTS = {
     'ApprovalCallback': ('praisonaiagents.planning', 'ApprovalCallback'),
     'READ_ONLY_TOOLS': ('praisonaiagents.planning', 'READ_ONLY_TOOLS'),
     'RESTRICTED_TOOLS': ('praisonaiagents.planning', 'RESTRICTED_TOOLS'),
+    
+    # Trace (protocol-driven, for custom sinks) - AGENTS.md naming: XProtocol
+    'ContextTraceSinkProtocol': ('praisonaiagents.trace', 'ContextTraceSinkProtocol'),
+    'ContextTraceSink': ('praisonaiagents.trace', 'ContextTraceSink'),  # Backward compat alias
+    'TraceSinkProtocol': ('praisonaiagents.trace', 'TraceSinkProtocol'),
+    'TraceSink': ('praisonaiagents.trace', 'TraceSink'),  # Backward compat alias
+    'ContextTraceEmitter': ('praisonaiagents.trace', 'ContextTraceEmitter'),
+    'ContextEvent': ('praisonaiagents.trace', 'ContextEvent'),
+    'ContextEventType': ('praisonaiagents.trace', 'ContextEventType'),
+    'trace_context': ('praisonaiagents.trace', 'trace_context'),
+    'ContextListSink': ('praisonaiagents.trace', 'ContextListSink'),
+    'ContextNoOpSink': ('praisonaiagents.trace', 'ContextNoOpSink'),
     
     # Telemetry
     'get_telemetry': ('praisonaiagents.telemetry', 'get_telemetry'),
@@ -342,6 +381,38 @@ _LAZY_IMPORTS = {
     # db and obs modules
     'db': ('praisonaiagents.db', 'db'),
     'obs': ('praisonaiagents.obs', 'obs'),
+    
+    # Gateway protocols and config (implementations in praisonai wrapper)
+    'GatewayProtocol': ('praisonaiagents.gateway.protocols', 'GatewayProtocol'),
+    'GatewaySessionProtocol': ('praisonaiagents.gateway.protocols', 'GatewaySessionProtocol'),
+    'GatewayClientProtocol': ('praisonaiagents.gateway.protocols', 'GatewayClientProtocol'),
+    'GatewayEvent': ('praisonaiagents.gateway.protocols', 'GatewayEvent'),
+    'GatewayMessage': ('praisonaiagents.gateway.protocols', 'GatewayMessage'),
+    'EventType': ('praisonaiagents.gateway.protocols', 'EventType'),
+    'GatewayConfig': ('praisonaiagents.gateway.config', 'GatewayConfig'),
+    'SessionConfig': ('praisonaiagents.gateway.config', 'SessionConfig'),
+    
+    # Bot protocols and config (implementations in praisonai wrapper)
+    'BotProtocol': ('praisonaiagents.bots.protocols', 'BotProtocol'),
+    'BotMessage': ('praisonaiagents.bots.protocols', 'BotMessage'),
+    'BotUser': ('praisonaiagents.bots.protocols', 'BotUser'),
+    'BotChannel': ('praisonaiagents.bots.protocols', 'BotChannel'),
+    'MessageType': ('praisonaiagents.bots.protocols', 'MessageType'),
+    'BotConfig': ('praisonaiagents.bots.config', 'BotConfig'),
+    
+    # Sandbox protocols and config (implementations in praisonai wrapper)
+    'SandboxProtocol': ('praisonaiagents.sandbox.protocols', 'SandboxProtocol'),
+    'SandboxResult': ('praisonaiagents.sandbox.protocols', 'SandboxResult'),
+    'SandboxStatus': ('praisonaiagents.sandbox.protocols', 'SandboxStatus'),
+    'ResourceLimits': ('praisonaiagents.sandbox.protocols', 'ResourceLimits'),
+    'SandboxConfig': ('praisonaiagents.sandbox.config', 'SandboxConfig'),
+    'SecurityPolicy': ('praisonaiagents.sandbox.config', 'SecurityPolicy'),
+    
+    # Model failover
+    'AuthProfile': ('praisonaiagents.llm.failover', 'AuthProfile'),
+    'ProviderStatus': ('praisonaiagents.llm.failover', 'ProviderStatus'),
+    'FailoverConfig': ('praisonaiagents.llm.failover', 'FailoverConfig'),
+    'FailoverManager': ('praisonaiagents.llm.failover', 'FailoverManager'),
 }
 
 

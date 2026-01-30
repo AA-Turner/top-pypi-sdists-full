@@ -10,11 +10,11 @@ class SpatialQuaternion(ctypes.Structure):
 		("_w", ctypes.c_double),
 	]
 
-	def __init__(self):
-		self.x = 0
-		self.y = 0
-		self.z = 0
-		self.w = 0
+	def __init__(self, x = 0, y = 0, z = 0, w = 0):
+		self.x = x
+		self.y = y
+		self.z = z
+		self.w = w
 
 	def fromPython(self):
 		self._x = self.x

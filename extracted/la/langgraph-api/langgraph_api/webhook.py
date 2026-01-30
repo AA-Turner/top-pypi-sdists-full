@@ -18,6 +18,12 @@ if TYPE_CHECKING:
 logger = structlog.stdlib.get_logger(__name__)
 
 
+def _filter_webhook_payload(payload: dict, allowed_fields: set[str] | None) -> dict:
+    if not allowed_fields:
+        return payload
+    return {key: value for key, value in payload.items() if key in allowed_fields}
+
+
 async def validate_webhook_url_or_raise(url: str) -> None:
     """Validate a user-provided webhook URL against configured policy.
 
@@ -130,6 +136,10 @@ async def call_webhook(result: "WorkerResult") -> None:
     }
     if exception := result["exception"]:
         payload["error"] = str(exception)
+
+    allowed_fields = WEBHOOKS_CONFIG.get("allowed_fields") if WEBHOOKS_CONFIG else None
+    payload = _filter_webhook_payload(payload, allowed_fields)
+
     webhook = result.get("webhook")
     if webhook:
         try:

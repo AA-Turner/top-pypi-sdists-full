@@ -175,7 +175,7 @@ def get_symetric_difference(obj_1,obj_2):
     unique_elements = set1.symmetric_difference(set2)
     # Convert the set back to a list, if needed
     return list(unique_elements)
-def make_list(obj:any) -> list:
+def make_list(obj:any,commaparse=True) -> list:
     """
     Converts the input object to a list. If the object is already a list, it is returned as is.
     
@@ -186,7 +186,7 @@ def make_list(obj:any) -> list:
         list: The object as a list.
     """
     if isinstance(obj,str):
-        if ',' in obj:
+        if ',' in obj and commaparse ==True:
             obj = obj.split(',')
     if isinstance(obj,set) or isinstance(obj,tuple):
         return list(obj)

@@ -1,3 +1,9 @@
+"""Browser manager skill for GPT Researcher.
+
+This module provides the BrowserManager class that handles web scraping
+and content extraction from URLs.
+"""
+
 from gpt_researcher.utils.workers import WorkerPool
 
 from ..actions.utils import stream_output
@@ -6,11 +12,27 @@ from ..scraper.utils import get_image_hash
 
 
 class BrowserManager:
-    """Manages context for the researcher agent."""
+    """Manages web browsing and content scraping for research.
+
+    This class handles URL scraping, content extraction, and image
+    selection during the research process.
+
+    Attributes:
+        researcher: The parent GPTResearcher instance.
+        worker_pool: Pool of workers for parallel scraping.
+    """
 
     def __init__(self, researcher):
+        """Initialize the BrowserManager.
+
+        Args:
+            researcher: The GPTResearcher instance that owns this manager.
+        """
         self.researcher = researcher
-        self.worker_pool = WorkerPool(researcher.cfg.max_scraper_workers)
+        self.worker_pool = WorkerPool(
+            researcher.cfg.max_scraper_workers,
+            researcher.cfg.scraper_rate_limit_delay
+        )
 
     async def browse_urls(self, urls: list[str]) -> list[dict]:
         """

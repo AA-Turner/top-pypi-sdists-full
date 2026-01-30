@@ -22,7 +22,7 @@ from anyscale.job_queue.models import JobQueueStatus
 class PrivateJobQueueSDK(WorkloadSDK):
     """Internal SDK logic for Job Queue operations."""
 
-    def list(
+    def list(  # noqa: PLR0913
         self,
         *,
         job_queue_id: Optional[str] = None,
@@ -86,9 +86,23 @@ class PrivateJobQueueSDK(WorkloadSDK):
             parse_fn=_parse_decorated_jq_to_status,
         )
 
-    def status(self, job_queue_id: str) -> JobQueueStatus:
-        """Get the status and details for a specific job queue."""
-        raw = self._resolve_to_job_queue_model(job_queue_id=job_queue_id)
+    def status(
+        self, job_queue_id: Optional[str] = None, *, name: Optional[str] = None,
+    ) -> JobQueueStatus:
+        """Get the status and details for a specific job queue.
+
+        Args:
+            job_queue_id: The ID of the job queue.
+            name: The name of the job queue (alternative to job_queue_id).
+
+        Returns:
+            JobQueueStatus with queue details.
+
+        Raises:
+            ValueError: If neither job_queue_id nor name is provided.
+        """
+        # Validation happens in _resolve_to_job_queue_model
+        raw = self._resolve_to_job_queue_model(job_queue_id=job_queue_id, name=name)
         return _parse_decorated_jq_to_status(raw)
 
     def update(
@@ -166,9 +180,24 @@ class PrivateJobQueueSDK(WorkloadSDK):
         )
 
     def _resolve_to_job_queue_model(
-        self, *, job_queue_id: Optional[str] = None, name: Optional[str] = None,
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        require_project_and_cloud_with_name: bool = False,
     ) -> DecoratedJobQueue:
         """Finds the specific Job Queue API model by ID or name.
+
+        Args:
+            job_queue_id: The ID of the job queue.
+            name: The name of the job queue (alternative to job_queue_id).
+            project: The project name to filter by when using name.
+            cloud: The cloud name to filter by when using name.
+            require_project_and_cloud_with_name: If True, raises ValueError when name
+                is provided without project or cloud. Used by archive/terminate to
+                prevent ambiguous name resolution.
         """
         if job_queue_id is None and name is None:
             raise ValueError("Either 'job_queue_id' or 'name' must be provided.")
@@ -179,8 +208,28 @@ class PrivateJobQueueSDK(WorkloadSDK):
                 raise ValueError(f"Job Queue with ID '{job_queue_id}' not found.")
             return job_queue
         else:
-            job_queues_response = self.client.list_job_queues(name=name, count=1)
+            if require_project_and_cloud_with_name:
+                if project is None:
+                    raise ValueError(
+                        "'project' is required when using 'name' for this operation."
+                    )
+                if cloud is None:
+                    raise ValueError(
+                        "'cloud' is required when using 'name' for this operation."
+                    )
+            job_queues_response = self.client.list_job_queues(
+                name=name, project=project, cloud=cloud, count=1
+            )
             if len(job_queues_response.results) == 0:
+                if project and cloud:
+                    raise ValueError(
+                        f"Job Queue with name '{name}' in project '{project}' "
+                        f"and cloud '{cloud}' not found."
+                    )
+                if project:
+                    raise ValueError(
+                        f"Job Queue with name '{name}' in project '{project}' not found."
+                    )
                 raise ValueError(f"Job Queue with name '{name}' not found.")
             return job_queues_response.results[0]
 
@@ -199,6 +248,80 @@ class PrivateJobQueueSDK(WorkloadSDK):
             ResourceTagResourceType.JOB_QUEUE, resource_id
         )
         return {r.key: r.value for r in records if r and r.key is not None}
+
+    def archive(
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> str:
+        """Archive (seal) a job queue. No new jobs can be submitted after archiving.
+
+        Args:
+            job_queue_id: The ID of the job queue to archive.
+            name: The name of the job queue (alternative to job_queue_id).
+            project: The project name (required when using name).
+            cloud: The cloud name (required when using name).
+
+        Returns:
+            The ID of the archived job queue.
+
+        Raises:
+            ValueError: If neither job_queue_id nor name is provided, or if name
+                is provided without project or cloud.
+        """
+        jq = self._resolve_to_job_queue_model(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            require_project_and_cloud_with_name=True,
+        )
+        assert jq.id is not None
+
+        self.client.archive_job_queue(jq.id)
+        self.logger.info(f"Job queue '{jq.name}' (ID: {jq.id}) has been archived.")
+        return jq.id
+
+    def terminate(
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+    ) -> str:
+        """Terminate a job queue and all its pending/running jobs.
+
+        Args:
+            job_queue_id: The ID of the job queue to terminate.
+            name: The name of the job queue (alternative to job_queue_id).
+            project: The project name (required when using name).
+            cloud: The cloud name (required when using name).
+
+        Returns:
+            The ID of the terminated job queue.
+
+        Raises:
+            ValueError: If neither job_queue_id nor name is provided, or if name
+                is provided without project or cloud.
+        """
+        jq = self._resolve_to_job_queue_model(
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            require_project_and_cloud_with_name=True,
+        )
+        assert jq.id is not None
+
+        self.client.terminate_job_queue(jq.id)
+        self.logger.info(
+            f"Job queue '{jq.name}' (ID: {jq.id}) has been marked for termination."
+        )
+        return jq.id
 
 
 def _parse_decorated_jq_to_status(decorated_jq: DecoratedJobQueue) -> JobQueueStatus:

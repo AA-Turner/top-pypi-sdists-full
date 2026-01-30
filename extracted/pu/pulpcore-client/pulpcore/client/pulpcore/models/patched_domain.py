@@ -32,7 +32,7 @@ class PatchedDomain(BaseModel):
     name: Optional[Annotated[str, Field(min_length=1, strict=True, max_length=50)]] = Field(default=None, description="A name for this domain.")
     description: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="An optional description.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    storage_class: Optional[StorageClassEnum] = Field(default=None, description="Backend storage class for domain.  * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage")
+    storage_class: Optional[StorageClassEnum] = Field(default=None, description="Backend storage class for domain.  * `pulpcore.app.models.storage.FileSystem` - Use local filesystem as storage * `storages.backends.s3boto3.S3Boto3Storage` - Use Amazon S3 as storage [deprecated] * `storages.backends.s3.S3Storage` - Use Amazon S3 as storage * `storages.backends.azure_storage.AzureStorage` - Use Azure Blob as storage")
     storage_settings: Optional[Dict[str, Any]] = Field(default=None, description="Settings for storage class.")
     redirect_to_object_storage: Optional[StrictBool] = Field(default=True, description="Boolean to have the content app redirect to object storage.")
     hide_guarded_distributions: Optional[StrictBool] = Field(default=False, description="Boolean to hide distributions with a content guard in the content app.")

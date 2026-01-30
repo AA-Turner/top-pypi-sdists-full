@@ -1,6 +1,6 @@
 [project]
 name = "flet"
-version = "0.80.4"
+version = "0.80.5"
 description = "Flet for Python - easily build interactive multi-platform apps in Python"
 authors = [{name = "Appveyor Systems Inc.", email = "hello@flet.dev"}]
 license = "Apache-2.0"

@@ -69,12 +69,39 @@ class DjangoQLLexerTest(TestCase):
         for val in ('-0.5e+42', '42.0', '2E64', '2.71e-0002'):
             self.assert_output(self.lexer.input(val), [('FLOAT_VALUE', val)])
 
-    def test_string(self):
+    def test_string_double_quotes(self):
         for s in ('""', u'""', '"42"', r'"\t\n\u0042 ^"'):
             self.assert_output(
                 self.lexer.input(s),
                 [('STRING_VALUE', s.strip('"'))],
             )
+
+    def test_string_single_quotes(self):
+        for s in ("''", u"''", "'42'", r"'\t\n\u0042 ^'"):
+            self.assert_output(
+                self.lexer.input(s),
+                [('STRING_VALUE', s.strip("'"))],
+            )
+
+    def test_string_mixed_quotes(self):
+        self.assert_output(
+            self.lexer.input("""'He said "hello"'"""),
+            [('STRING_VALUE', 'He said "hello"')],
+        )
+        self.assert_output(
+            self.lexer.input('''"It's working"'''),
+            [('STRING_VALUE', "It's working")],
+        )
+
+    def test_string_escaped_quotes(self):
+        self.assert_output(
+            self.lexer.input(r"'It\'s working'"),
+            [('STRING_VALUE', r"It\'s working")],
+        )
+        self.assert_output(
+            self.lexer.input(r'"He said \"hello\""'),
+            [('STRING_VALUE', r'He said \"hello\"')],
+        )
 
     def test_illegal_chars(self):
         for s in ('"', '^'):

@@ -130,6 +130,44 @@ class TestOsOpsCommon:
         assert type(response) == bytes  # noqa: E721
         assert response == b'\n'
 
+    def test_exec_command_with_exec_env__2(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        C_ENV_NAME = "TESTGRES_TEST__EXEC_ENV_20250414"
+
+        tmp_file_content = "echo ${{{}}}".format(C_ENV_NAME)
+
+        logging.info("content is [{}]".format(tmp_file_content))
+
+        tmp_file = os_ops.mkstemp()
+        assert type(tmp_file) == str  # noqa: E721
+        assert tmp_file != ""
+
+        logging.info("file is [{}]".format(tmp_file))
+        assert os_ops.path_exists(tmp_file)
+
+        os_ops.write(tmp_file, tmp_file_content)
+
+        cmd = ["sh", tmp_file]
+
+        exec_env = {C_ENV_NAME: "Hello!"}
+
+        response = os_ops.exec_command(cmd, exec_env=exec_env)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'Hello!\n'
+
+        response = os_ops.exec_command(cmd)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'\n'
+
+        os_ops.remove_file(tmp_file)
+        assert not os_ops.path_exists(tmp_file)
+        return
+
     def test_exec_command_with_cwd(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
@@ -876,8 +914,16 @@ class TestOsOpsCommon:
         actual_dir = os_ops.get_tempdir()
         assert actual_dir is not None
         assert type(actual_dir) == str  # noqa: E721
-        expected_dir = str(tempfile.tempdir)
-        assert actual_dir == expected_dir
+
+        # --------
+        cmd = [sys.executable, "-c", "import tempfile;print(tempfile.gettempdir());"]
+
+        expected_dir_b = os_ops.exec_command(cmd)
+        assert type(expected_dir_b) == bytes  # noqa: E721
+        expected_dir = expected_dir_b.decode()
+        assert type(expected_dir) == str  # noqa: E721
+        assert actual_dir + "\n" == expected_dir
+        return
 
     class tagData_OS_OPS__NUMS:
         os_ops_descr: OsOpsDescr

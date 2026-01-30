@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
-# Generated on 2026-01-22T21:50:04.918180                                                            #
+# MF version: 2.19.18.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-28T23:54:14.483773                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ class ArgoEvent(object, metaclass=type):
     
     Parameters
     ----------
-    name : str,
-        Name of the event
+    name : Union[str, Callable[[], str]]
+        Name of the event, or a callable (invoked with no arguments) that returns the event name (e.g., `namespaced_event_name('foo')`).
     url : str, optional
         Override the event endpoint from `ARGO_EVENTS_WEBHOOK_URL`.
     payload : Dict, optional

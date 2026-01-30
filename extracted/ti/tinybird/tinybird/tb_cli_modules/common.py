@@ -71,6 +71,9 @@ from tinybird.tb_cli_modules.telemetry import (
     is_ci_environment,
 )
 
+# Pre-compiled regex pattern for name normalization
+_PATTERN_NORMALIZE_NAME = re.compile(r"[^0-9a-zA-Z_]")
+
 SUPPORTED_FORMATS = ["csv", "ndjson", "json", "parquet"]
 OLDEST_ROLLBACK = "oldest_rollback"
 MAIN_BRANCH = "main"
@@ -118,7 +121,7 @@ def echo_safe_humanfriendly_tables_format_smart_table(data: Iterable[Any], colum
 
 
 def normalize_datasource_name(s: str) -> str:
-    s = re.sub(r"[^0-9a-zA-Z_]", "_", s)
+    s = _PATTERN_NORMALIZE_NAME.sub("_", s)
     if s[0] in "0123456789":
         return "c_" + s
     return s
@@ -1169,7 +1172,7 @@ def validate_kafka_bootstrap_servers(bootstrap_servers):
             try:
                 sock.settimeout(3)
                 sock.connect((host, port))
-            except socket.timeout:
+            except TimeoutError:
                 raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn_timeout())
             except Exception:
                 raise CLIException(FeedbackManager.error_kafka_bootstrap_server_conn())

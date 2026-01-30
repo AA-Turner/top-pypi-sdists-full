@@ -29,6 +29,7 @@ class TokenCategory(Enum):
     SELF_REF = auto()         # s@StructName, s@Backend.Loop
     GLOBAL_REF = auto()       # r@globalVar
     THIS_REF = auto()         # this->member
+    SNAPSHOT_REF = auto()     # %varName - snapshot reference (v4.8.8)
     IDENTIFIER = auto()       # variable names
     PROPERTY = auto()         # service-name:, service-version:
     BOOLEAN = auto()          # True, False, true, false
@@ -109,6 +110,7 @@ PACKAGE_KEYWORDS = {'package', 'package-includes'}
 FUNCTION_MODIFIERS = {
     'undefined', 'open', 'meta', 'super', 'closed', 'private', 'virtual',
     'sqlbased', 'const', 'public', 'static', 'shuffled', 'embedded',
+    'secure', 'callable',  # v4.8.8: Constructor modifiers
 }
 
 # Type keywords
@@ -174,6 +176,8 @@ BUILTINS_UTILITY = {
     'cppimport', 'include', 'sizeof', 'memcpy', 'memset', 'pipe', 'contains_fast',
     # C++ stream manipulators
     'setprecision', 'setw', 'setfill', 'fixed', 'scientific',
+    # v4.8.8: Snapshot functions
+    'snapshot', 'get_snapshot', 'has_snapshot', 'clear_snapshot', 'clear_snapshots', 'list_snapshots', 'restore_snapshot',
 }
 
 BUILTINS_SYSTEM = {'createcmd', 'signal', 'appexec', 'initpy', 'initsh', 'wait_for_booted', 'emit', 'cso_root', 'isLinux', 'isWindows', 'isMac'}
@@ -201,7 +205,9 @@ BUILTINS_CONSTRUCTOR = {
 # Namespace functions
 NAMESPACE_JSON = {'json::read', 'json::write', 'json::parse', 'json::stringify', 'json::pretty', 'json::keys', 'json::values', 'json::get', 'json::set', 'json::has', 'json::merge'}
 NAMESPACE_INSTANCE = {'instance::getMethods', 'instance::getClasses', 'instance::getVars', 'instance::getAll', 'instance::call', 'instance::has', 'instance::type', 'instance::exists'}
-NAMESPACE_PYTHON = {'python::pythonize', 'python::wrap', 'python::export', 'python::csslize', 'python::import'}
+NAMESPACE_PYTHON = {'python::pythonize', 'python::wrap', 'python::export', 'python::csslize', 'python::import',
+                    'python::param_get', 'python::param_return', 'python::param_count',
+                    'python::param_all', 'python::param_has'}
 # v4.6.5: Watcher namespace for live Python instance access
 NAMESPACE_WATCHER = {'watcher::get', 'watcher::set', 'watcher::list', 'watcher::exists', 'watcher::refresh'}
 
@@ -270,6 +276,9 @@ class CSSLSyntaxRules:
         # Global references (r@name)
         rules.append(HighlightRule(pattern=r'r@[A-Za-z_][A-Za-z0-9_]*', category=TokenCategory.GLOBAL_REF))
 
+        # v4.8.8: Snapshot references (%name) - access snapshotted values
+        rules.append(HighlightRule(pattern=r'%[A-Za-z_][A-Za-z0-9_]*', category=TokenCategory.SNAPSHOT_REF))
+
         # Module references (@Module, @VSRAM.Read)
         rules.append(HighlightRule(pattern=r'@[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*', category=TokenCategory.MODULE_REF))
 
@@ -298,7 +307,7 @@ class CSSLSyntaxRules:
         # Namespace functions
         rules.append(HighlightRule(pattern=r'\bjson::(read|write|parse|stringify|pretty|keys|values|get|set|has|merge)\b', category=TokenCategory.FUNCTION_NAMESPACE))
         rules.append(HighlightRule(pattern=r'\binstance::(getMethods|getClasses|getVars|getAll|call|has|type|exists)\b', category=TokenCategory.FUNCTION_NAMESPACE))
-        rules.append(HighlightRule(pattern=r'\bpython::(pythonize|wrap|export|csslize|import)\b', category=TokenCategory.FUNCTION_NAMESPACE))
+        rules.append(HighlightRule(pattern=r'\bpython::(pythonize|wrap|export|csslize|import|param_get|param_return|param_count|param_all|param_has)\b', category=TokenCategory.FUNCTION_NAMESPACE))
 
         # Builtin functions by category (require parenthesis)
         def add_builtin_rules(builtins, category):
@@ -358,6 +367,7 @@ class ColorScheme:
         TokenCategory.SELF_REF: '#60c8dc',          # Cyan
         TokenCategory.GLOBAL_REF: '#ff79c6',        # Pink
         TokenCategory.THIS_REF: '#bd93f9',          # Purple
+        TokenCategory.SNAPSHOT_REF: '#ffd700',      # Gold - for %snapshot refs (v4.8.8)
         TokenCategory.IDENTIFIER: '#f0f0f5',        # White
         TokenCategory.PROPERTY: '#c8a8ff',          # Purple
         TokenCategory.BOOLEAN: '#ff8c00',           # Orange
@@ -408,6 +418,7 @@ class ColorScheme:
         TokenCategory.SELF_REF: '#008b8b',          # Dark cyan
         TokenCategory.GLOBAL_REF: '#d63384',        # Dark pink
         TokenCategory.THIS_REF: '#800080',          # Purple
+        TokenCategory.SNAPSHOT_REF: '#b8860b',      # DarkGoldenrod - for %snapshot refs (v4.8.8)
         TokenCategory.IDENTIFIER: '#000000',        # Black
         TokenCategory.PROPERTY: '#800080',          # Purple
         TokenCategory.BOOLEAN: '#c65d00',           # Dark orange
@@ -675,6 +686,7 @@ def export_textmate_grammar() -> dict:
             {"name": "variable.language.this.cssl", "match": "\\bthis->\\w+|\\bthis\\b"},
             {"name": "variable.other.self-reference.cssl", "match": "s@[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*"},
             {"name": "variable.other.global-reference.cssl", "match": "r@[A-Za-z_][A-Za-z0-9_]*"},
+            {"name": "variable.other.snapshot.cssl", "match": "%[A-Za-z_][A-Za-z0-9_]*"},
             {"name": "variable.other.module-reference.cssl", "match": "@[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*"},
             {"name": "keyword.other.package.cssl", "match": "\\b(package|package-includes)\\b"},
             {"name": "storage.modifier.cssl", "match": "\\b(undefined|open|meta|super|closed|private|virtual|sqlbased|const|public|static|shuffled|embedded)\\b"},

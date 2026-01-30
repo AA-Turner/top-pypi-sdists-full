@@ -1,0 +1,1370 @@
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+- name: Create test_user in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    password: querty
+
+- name: Check ret values in 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements == ["CREATE USER 'test_user' IDENTIFIED WITH sha256_password BY '********'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"] is not defined
+
+- name: Create test_user
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+    limit:
+    - users
+
+- name: Test 2 - Check result
+  ansible.builtin.assert:
+    that:
+    - result["users"]["test_user"] != {}
+
+- name: Create test_user if it exists
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result["users"]["test_user"] is not defined
+
+- name: Drop test_user if it does not exists
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Create test_user
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    password: querty
+
+- name: Create test_user again with update_password always
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    password: querty
+    update_password: always
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements == ["ALTER USER 'test_user' IDENTIFIED WITH sha256_password BY '********'"]
+
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Create test_user with settings
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    password: querty
+    settings:
+      - max_memory_usage = 15000 READONLY
+      - max_memory_usage_for_all_queries = 15000 MIN 15000 MAX 16000 WRITABLE
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements != []
+
+- name: Update user settings in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    settings:
+      - max_memory_usage = 20000 READONLY
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "ALTER USER 'test_user' SETTINGS max_memory_usage = 20000 READONLY"
+
+- name: Update user settings in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    settings:
+      - max_memory_usage = 20000 READONLY
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "ALTER USER 'test_user' SETTINGS max_memory_usage = 20000 READONLY"
+
+- name: Verify settings in database using clickhouse_client
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: "SHOW CREATE USER test_user"
+
+- name: Debug - show CREATE USER output
+  ansible.builtin.debug:
+    var: result.result
+
+- name: Check that settings are present in CREATE USER statement
+  ansible.builtin.assert:
+    that:
+    - result.result[0][0] is search("SETTINGS")
+    - result.result[0][0] is search("max_memory_usage")
+    - result.result[0][0] is search("20000")
+
+- name: Update user settings again with same values
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    settings:
+      - max_memory_usage = 20000 READONLY
+
+- name: Check that settings update is idempotent (no change when same)
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Update user without specifying settings
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+
+- name: Check that not specifying settings does not update them
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Update user settings with multiple settings
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    settings:
+      - max_memory_usage = 25000 READONLY
+      - max_threads = 8
+      - PROFILE 'readonly'
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "ALTER USER 'test_user' SETTINGS max_memory_usage = 25000 READONLY, max_threads = 8, PROFILE 'readonly'"
+
+- name: Verify multiple settings in database using clickhouse_client
+  register: result
+  community.clickhouse.clickhouse_client:
+    execute: "SHOW CREATE USER test_user"
+
+- name: Check that all settings are present in CREATE USER statement
+  ansible.builtin.assert:
+    that:
+    - result.result[0][0] is search("SETTINGS")
+    - result.result[0][0] is search("max_memory_usage")
+    - result.result[0][0] is search("25000")
+    - result.result[0][0] is search("max_threads")
+    - result.result[0][0] is search("8")
+    - result.result[0][0] is search("readonly")
+
+# Test roles and default_roles argument
+- name: Create test roles
+  loop:
+  - accountant
+  - manager
+  - sales
+  - test_listed_only
+  community.clickhouse.clickhouse_role:
+    name: "{{ item }}"
+  
+- name: Set default role in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - accountant
+    - manager
+    default_roles:
+    - accountant
+    - manager
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "GRANT accountant, manager TO 'test_user'" or result.executed_statements[0] == "GRANT manager, accountant TO 'test_user'"
+    - result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE accountant, manager" or result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE manager, accountant"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == []
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Set default role in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - accountant
+    - manager
+    default_roles:
+    - accountant
+    - manager
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "GRANT accountant, manager TO 'test_user'" or result.executed_statements[0] == "GRANT manager, accountant TO 'test_user'"
+    - result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE accountant, manager" or result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE manager, accountant"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["accountant", "manager"] or result["users"]["test_user"]["roles"] == ["manager", "accountant"]
+    - result["users"]["test_user"]["default_roles_list"] == ["accountant", "manager"]
+
+- name: Grant and set another role as default in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - sales
+    default_roles:
+    - sales
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "GRANT sales TO 'test_user'"
+    - result.executed_statements[1] == "REVOKE accountant, manager FROM 'test_user'" or result.executed_statements[1] == "REVOKE manager, accountant FROM 'test_user'"
+    - result.executed_statements[2] == "ALTER USER 'test_user' DEFAULT ROLE sales"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check the state has not been changed
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["accountant", "manager"] or result["users"]["test_user"]["roles"] == ["manager", "accountant"]
+    - result["users"]["test_user"]["default_roles_list"] == ["accountant", "manager"] or result["users"]["test_user"]["default_roles_list"] == ["manager", "accountant"]
+
+- name: Set another role as default in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles: sales
+    default_roles: sales
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "GRANT sales TO 'test_user'"
+    - result.executed_statements[1] == "REVOKE accountant, manager FROM 'test_user'" or result.executed_statements[1] == "REVOKE manager, accountant FROM 'test_user'"
+    - result.executed_statements[2] == "ALTER USER 'test_user' DEFAULT ROLE sales"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["sales"]
+    - result["users"]["test_user"]["default_roles_list"] == ["sales"]
+
+- name: Set the role again
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - sales
+    default_roles:
+    - sales
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Set the role again in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - sales
+    default_roles:
+    - sales
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Append the first role in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - accountant
+    default_roles:
+    - accountant
+    roles_mode: append
+    default_roles_mode: append
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "GRANT accountant TO 'test_user'"
+    - result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE sales, accountant" or result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE accountant, sales"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["sales", "accountant"] or result["users"]["test_user"]["roles"] == ["accountant", "sales"]
+    - result["users"]["test_user"]["default_roles_list"] == ["sales", "accountant"] or result["users"]["test_user"]["default_roles_list"] == ["accountant", "sales"]
+
+- name: Unset all default roles in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    default_roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "SET DEFAULT ROLE NONE TO 'test_user'"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["sales", "accountant"] or result["users"]["test_user"]["roles"] == ["accountant", "sales"]
+    - result["users"]["test_user"]["default_roles_list"] == ["sales", "accountant"] or result["users"]["test_user"]["default_roles_list"] == ["accountant", "sales"]
+
+- name: Unset all default roles in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    default_roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "SET DEFAULT ROLE NONE TO 'test_user'"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["sales", "accountant"] or result["users"]["test_user"]["roles"] == ["accountant", "sales"]
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Revoke all roles in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "REVOKE accountant, sales FROM 'test_user'" or result.executed_statements[0] == "REVOKE sales, accountant FROM 'test_user'"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["sales", "accountant"] or result["users"]["test_user"]["roles"] == ["accountant", "sales"]
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Revoke all roles in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "REVOKE accountant, sales FROM 'test_user'" or result.executed_statements[0] == "REVOKE sales, accountant FROM 'test_user'"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == []
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Revoke all roles and unset all default roles in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles: []
+    default_roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == []
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Revoke all roles and unset all default roles in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles: []
+    default_roles: []
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == []
+    - result["users"]["test_user"]["default_roles_list"] == []
+
+- name: Set default role in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - accountant
+    - manager
+    default_roles:
+    - accountant
+    - manager
+
+- name: Remove role and default role in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - manager
+    default_roles:
+    - manager
+    roles_mode: remove
+    default_roles_mode: remove
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "REVOKE manager FROM 'test_user'"
+    - result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE accountant"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["accountant", "manager"] or result["users"]["test_user"]["roles"] == ["manager", "accountant"]
+    - result["users"]["test_user"]["default_roles_list"] == ["accountant", "manager"]
+
+- name: Remove role and default role in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - manager
+    default_roles:
+    - manager
+    roles_mode: remove
+    default_roles_mode: remove
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "REVOKE manager FROM 'test_user'"
+    - result.executed_statements[1] == "ALTER USER 'test_user' DEFAULT ROLE accountant"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["accountant"]
+    - result["users"]["test_user"]["default_roles_list"] == ["accountant"]
+
+- name: Remove role and default role in real mode again
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    roles:
+    - manager
+    default_roles:
+    - manager
+    roles_mode: remove
+    default_roles_mode: remove
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result.executed_statements == []
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user"]["roles"] == ["accountant"]
+    - result["users"]["test_user"]["default_roles_list"] == ["accountant"]
+
+# https://github.com/ansible-collections/community.clickhouse/issues/97
+- name: Grant listed only roles in real mode for a new user
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user_1
+    roles:
+    - test_listed_only
+    default_roles:
+    - test_listed_only
+    roles_mode: listed_only
+    default_roles_mode: listed_only
+
+- name: Check ret values 
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements[0] == "CREATE USER 'test_user_1'"
+    - result.executed_statements[1] == "GRANT test_listed_only TO 'test_user_1'"
+    - result.executed_statements[2] == "ALTER USER 'test_user_1' DEFAULT ROLE test_listed_only"
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+    - result is not changed
+    - result["users"]["test_user_1"]["roles"] == ["test_listed_only"]
+    - result["users"]["test_user_1"]["default_roles_list"] == ["test_listed_only"]
+
+# Test for bug: usernames with dots should be properly quoted
+# https://github.com/ansible-collections/community.clickhouse/issues/110
+- name: Create user with dots in username
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: user.with.dots
+    password: testpass
+
+- name: Check that user with dots was created
+  ansible.builtin.assert:
+    that:
+    - result is changed
+    - result.executed_statements | length > 0
+
+- name: Verify user with dots exists in the database
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check that user with dots is present
+  ansible.builtin.assert:
+    that:
+    - result["users"]["user.with.dots"] is defined
+
+- name: Update user with dots - set password
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: user.with.dots
+    password: newpass
+    update_password: always
+
+- name: Check that update worked
+  ansible.builtin.assert:
+    that:
+    - result is changed
+
+- name: Create role for testing
+  community.clickhouse.clickhouse_role:
+    name: test_role_for_dotted_user
+
+- name: Grant role to user with dots
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: user.with.dots
+    roles:
+    - test_role_for_dotted_user
+    default_roles:
+    - test_role_for_dotted_user
+
+- name: Check that role was granted
+  ansible.builtin.assert:
+    that:
+    - result is changed
+
+- name: Verify role grant in the database
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check that user with dots has the role
+  ansible.builtin.assert:
+    that:
+    - result["users"]["user.with.dots"]["roles"] == ["test_role_for_dotted_user"]
+    - result["users"]["user.with.dots"]["default_roles_list"] == ["test_role_for_dotted_user"]
+
+- name: Update settings for user with dots
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: user.with.dots
+    settings:
+      - max_memory_usage = 10000 READONLY
+
+- name: Check that settings update worked
+  ansible.builtin.assert:
+    that:
+    - result is changed
+
+- name: Drop user with dots
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: user.with.dots
+
+- name: Check that user with dots was dropped
+  ansible.builtin.assert:
+    that:
+    - result is changed
+
+- name: Verify user with dots no longer exists
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    limit:
+    - users
+
+- name: Check that user with dots is gone
+  ansible.builtin.assert:
+    that:
+    - result["users"]["user.with.dots"] is not defined
+
+# Test creating users with host restrictions
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Create test_user in check mode with host restrictions in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host1
+          - host2
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST NAME 'host1', 'host2'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"] is not defined
+
+- name: Create test_user with host restrictions in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host1
+          - host2
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST NAME 'host1', 'host2'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result["users"]["test_user"]["host_names"] == ['host1', 'host2']
+
+- name: Update user host restrictions to the same values in check mode (should be idempotent)
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host1
+          - host2
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Update user host restrictions to the same values but not in alphabetical order in check mode (should be idempotent)
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host2
+          - host1
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Update user host restrictions to the same values in real mode (should be idempotent)
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host1
+          - host2
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Update user host restrictions to the same values but not in alphabetical order in real mode (should be idempotent)
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host2
+          - host1
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Update user host restrictions to host type ANY in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: ANY
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["ALTER USER 'test_user' HOST ANY"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_ip"] == ['::/0']
+      - result["users"]["test_user"]["host_names"] == []
+      - result["users"]["test_user"]["host_names_regexp"] == []
+      - result["users"]["test_user"]["host_names_like"] == []
+
+
+- name: Ensure idempotency works correctly with host type ANY in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: ANY
+      - type: LIKE
+        hosts:
+          - "%.mysite1.com"
+      - type: REGEXP
+        hosts:
+          - ".*\\.mysite2\\.com"
+      - type: NAME
+        hosts:
+          - hostA
+      - type: IP
+        hosts:
+          - 192.168.0.0/16
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Ensure idempotency works correctly with host type ANY in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: ANY
+      - type: LIKE
+        hosts:
+          - "%.mysite1.com"
+      - type: REGEXP
+        hosts:
+          - ".*\\.mysite2\\.com"
+      - type: NAME
+        hosts:
+          - hostA
+      - type: IP
+        hosts:
+          - 192.168.0.0/16
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result.executed_statements == []
+
+- name: Update user host restrictions in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host3
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["ALTER USER 'test_user' HOST NAME 'host3'"]
+
+- name: Update user host restrictions in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host3
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["ALTER USER 'test_user' HOST NAME 'host3'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_names"] == ['host3']
+
+- name: Update user host restrictions to another host_type in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LIKE
+        hosts:
+          - "%.mysite.com"
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["ALTER USER 'test_user' HOST LIKE '%.mysite.com'"]
+
+- name: Update user host restrictions to another host_type in real mode (should replace previous host restrictions)
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LIKE
+        hosts:
+          - "%.mysite.com"
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["ALTER USER 'test_user' HOST LIKE '%.mysite.com'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_names_like"] == ["%.mysite.com"]
+      - result["users"]["test_user"]["host_names"] == []
+
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Create test_user with multiple host restriction types in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LIKE
+        hosts:
+          - "%.mysite1.com"
+      - type: REGEXP
+        hosts:
+          - .*\.mysite2\.com
+      - type: NAME
+        hosts:
+          - hostA
+      - type: IP
+        hosts:
+          - 192.168.0.0/16
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST LIKE '%.mysite1.com' HOST REGEXP '.*\\.mysite2\\.com' HOST NAME 'hostA' HOST IP '192.168.0.0/16'"]
+
+- name: Create test_user with multiple host restriction types in real mode
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LIKE
+        hosts:
+          - "%.mysite1.com"
+      - type: REGEXP
+        hosts:
+          - .*\.mysite2\.com
+      - type: NAME
+        hosts:
+          - hostA
+      - type: IP
+        hosts:
+          - 192.168.0.0/16
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST LIKE '%.mysite1.com' HOST REGEXP '.*\\.mysite2\\.com' HOST NAME 'hostA' HOST IP '192.168.0.0/16'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_names_like"] == ["%.mysite1.com"]
+      - result["users"]["test_user"]["host_names_regexp"] == [".*\\.mysite2\\.com"]
+      - result["users"]["test_user"]["host_names"] == ["hostA"]
+      - result["users"]["test_user"]["host_ip"] == ["192.168.0.0/16"]
+
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Create test_user with type hosts that don't require hosts in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LOCAL
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST LOCAL"]
+
+- name: Create test_user with type hosts that don't require hosts in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LOCAL
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST LOCAL"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_names"] == ['localhost']
+
+- name: Drop test_user
+  community.clickhouse.clickhouse_user:
+    state: absent
+    name: test_user
+
+- name: Create test_user with hosts containing special characters in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host-name
+          - host.name
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST NAME 'host-name', 'host.name'"]
+
+- name: Create test_user with hosts containing special characters in real mode
+  register: result
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: NAME
+        hosts:
+          - host-name
+          - host.name
+
+- name: Check ret values
+  ansible.builtin.assert:
+    that:
+      - result is changed
+      - result.executed_statements == ["CREATE USER 'test_user' HOST NAME 'host-name', 'host.name'"]
+
+- name: Check the actual state
+  register: result
+  community.clickhouse.clickhouse_info:
+    login_host: localhost
+    client_kwargs:
+      connect_timeout: 20
+
+- name: Check result
+  ansible.builtin.assert:
+    that:
+      - result is not changed
+      - result["users"]["test_user"]["host_names"] == ['host-name', 'host.name']
+
+- name: Update test_user with hosts containing special characters in check mode
+  register: result
+  check_mode: true
+  community.clickhouse.clickhouse_user:
+    state: present
+    name: test_user
+    user_hosts:
+      - type: LIKE
+        hosts:
+          - "%.mysite1.com"
+      - type: REGEXP
+        hosts:
+          - .*\.mysite2\.com
+          - ".*\\.mysite3\\.com"
+      - type: NAME
+        hosts:
+          - host-with-dash
+          - host.with.dot
+      - type: IP
+        hosts:
+          - 192.168.0.0/16

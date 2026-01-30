@@ -18,28 +18,52 @@ from judgeval.logger import judgeval_logger
 
 
 class Evaluation:
-    __slots__ = ("_client",)
+    __slots__ = ("_client", "_project_id", "_project_name")
 
-    def __init__(self, client: JudgmentSyncClient):
+    def __init__(
+        self,
+        client: JudgmentSyncClient,
+        project_id: str,
+        project_name: str,
+    ):
         self._client = client
+        self._project_id = project_id
+        self._project_name = project_name
+
+    def _validate_scorer_project(self, scorer: BaseScorer) -> None:
+        scorer_project_id = getattr(scorer, "_project_id", None)
+        if scorer_project_id is not None and scorer_project_id != self._project_id:
+            judgeval_logger.warning(
+                f"Rejecting scorer '{scorer.get_name()}' with different project_id: "
+                f"{scorer_project_id} != {self._project_id}"
+            )
+            raise ValueError(
+                f"Scorer '{scorer.get_name()}' belongs to project '{scorer_project_id}', "
+                f"but this evaluation is bound to project '{self._project_name}' ({self._project_id})"
+            )
 
     def run(
         self,
         examples: List[Example],
         scorers: List[BaseScorer],
-        project_name: str,
         eval_run_name: str,
         model: Optional[str] = None,
         assert_test: bool = False,
         timeout_seconds: int = 300,
     ) -> List[ScoringResult]:
+        project_id = self._project_id
+
+        # Validate all scorers belong to the same project
+        for scorer in scorers:
+            self._validate_scorer_project(scorer)
+
         console = Console()
         eval_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc).isoformat()
 
         console.print("\n[bold cyan]Starting Evaluation[/bold cyan]")
         console.print(f"[dim]Run:[/dim] {eval_run_name}")
-        console.print(f"[dim]Project:[/dim] {project_name}")
+        console.print(f"[dim]Project:[/dim] {self._project_name}")
         console.print(
             f"[dim]Examples:[/dim] {len(examples)} | [dim]Scorers:[/dim] {len(scorers)}"
         )
@@ -51,7 +75,7 @@ class Evaluation:
 
         payload: ExampleEvaluationRun = {
             "id": eval_id,
-            "project_name": project_name,
+            "project_id": project_id,
             "eval_name": eval_run_name,
             "created_at": created_at,
             "examples": [e.to_dict() for e in examples],
@@ -67,7 +91,10 @@ class Evaluation:
             console=console,
         ) as progress:
             task = progress.add_task("Submitting evaluation...", total=None)
-            self._client.add_to_run_eval_queue_examples(payload)
+            self._client.post_projects_eval_queue_examples(
+                project_id=project_id,
+                payload=payload,
+            )
             judgeval_logger.info(f"Evaluation submitted: {eval_id}")
 
             progress.update(task, description="Running evaluation...")
@@ -79,8 +106,9 @@ class Evaluation:
                 if elapsed > timeout_seconds:
                     raise TimeoutError(f"Evaluation timed out after {timeout_seconds}s")
 
-                response = self._client.fetch_experiment_run(
-                    {"experiment_run_id": eval_id, "project_name": project_name}
+                response = self._client.get_projects_experiments_by_run_id(
+                    project_id=project_id,
+                    run_id=eval_id,
                 )
                 results_data = response.get("results", []) or []
                 poll_count += 1
@@ -117,21 +145,22 @@ class Evaluation:
             for scorer_dict in scorers_raw:
                 judgeval_logger.debug(f"Scorer data fields: {scorer_dict.keys()}")
 
-                scorer_fields = {
-                    "name": scorer_dict.get("name"),
-                    "threshold": scorer_dict.get("threshold"),
-                    "success": scorer_dict.get("success"),
-                    "score": scorer_dict.get("score"),
-                    "minimum_score_range": scorer_dict.get("minimum_score_range", 0),
-                    "maximum_score_range": scorer_dict.get("maximum_score_range", 1),
-                    "reason": scorer_dict.get("reason"),
-                    "strict_mode": scorer_dict.get("strict_mode"),
-                    "evaluation_model": scorer_dict.get("evaluation_model"),
-                    "error": scorer_dict.get("error"),
-                    "additional_metadata": scorer_dict.get("additional_metadata", {}),
-                    "id": scorer_dict.get("scorer_data_id") or scorer_dict.get("id"),
-                }
-                scorers_data.append(ScorerData(**scorer_fields))
+                scorers_data.append(
+                    ScorerData(
+                        name=scorer_dict["name"],
+                        threshold=scorer_dict["threshold"],
+                        success=bool(scorer_dict["success"]),
+                        score=scorer_dict["score"],
+                        minimum_score_range=scorer_dict.get("minimum_score_range", 0),
+                        maximum_score_range=scorer_dict.get("maximum_score_range", 1),
+                        reason=scorer_dict.get("reason"),
+                        evaluation_model=scorer_dict.get("evaluation_model"),
+                        error=scorer_dict.get("error"),
+                        additional_metadata=scorer_dict.get("additional_metadata")
+                        or {},
+                        id=scorer_dict.get("scorer_data_id"),
+                    )
+                )
 
             success = all(s.success for s in scorers_data)
 
@@ -159,6 +188,7 @@ class Evaluation:
                 ScoringResult(
                     success=success,
                     scorers_data=scorers_data,
+                    data_object=examples[i],
                 )
             )
 

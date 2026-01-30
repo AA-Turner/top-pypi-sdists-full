@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 author: James Hogarth (@hogarthj)
 module: jenkins_script
@@ -103,11 +102,12 @@ output:
 
 import json
 from http import cookiejar
+from string import Template
 from urllib.parse import urlencode
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import fetch_url
 from ansible.module_utils.common.text.converters import to_native
+from ansible.module_utils.urls import fetch_url
 
 
 def is_csrf_protection_enabled(module):
@@ -153,8 +153,6 @@ def main():
         module.params["force_basic_auth"] = True
 
     if module.params["args"] is not None:
-        from string import Template
-
         try:
             script_contents = Template(module.params["script"]).substitute(module.params["args"])
         except KeyError as err:

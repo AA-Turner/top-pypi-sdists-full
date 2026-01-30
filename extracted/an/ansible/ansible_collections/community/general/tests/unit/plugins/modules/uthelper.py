@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
-import json
 
-import yaml
 import pytest
+import yaml
 
 
 class UTHelper:
@@ -34,7 +34,7 @@ class UTHelper:
         for ext in extensions:
             test_spec_filename = test_module.__file__.replace(".py", ext)
             if os.path.exists(test_spec_filename):
-                with open(test_spec_filename, "r") as test_spec_filehandle:
+                with open(test_spec_filename) as test_spec_filehandle:
                     return UTHelper.from_file(ansible_module, test_module, test_spec_filehandle, mocks=mocks)
 
         raise Exception(

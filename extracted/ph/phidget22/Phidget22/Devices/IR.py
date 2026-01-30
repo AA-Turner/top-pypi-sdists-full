@@ -30,9 +30,9 @@ class IR(Phidget):
 		self._onLearn = None
 
 		if sys.platform == 'win32':
-			self._RawDataFactory = ctypes.WINFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int32), ctypes.c_int32)
+			self._RawDataFactory = ctypes.WINFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int32), ctypes.c_size_t)
 		else:
-			self._RawDataFactory = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int32), ctypes.c_int32)
+			self._RawDataFactory = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int32), ctypes.c_size_t)
 		self._RawData = None
 		self._onRawData = None
 
@@ -111,7 +111,7 @@ class IR(Phidget):
 
 	def getLastCode(self):
 		_code = (ctypes.c_char * 33)()
-		_codeLen = ctypes.c_int32(33)
+		_codeLen = ctypes.c_size_t(33)
 		_bitCount = ctypes.c_uint32()
 
 		__func = PhidgetSupport.getDll().PhidgetIR_getLastCode
@@ -125,7 +125,7 @@ class IR(Phidget):
 
 	def getLastLearnedCode(self):
 		_code = (ctypes.c_char * 33)()
-		_codeLen = ctypes.c_int32(33)
+		_codeLen = ctypes.c_size_t(33)
 		_codeInfo = CodeInfo()
 
 		__func = PhidgetSupport.getDll().PhidgetIR_getLastLearnedCode
@@ -151,7 +151,7 @@ class IR(Phidget):
 
 	def transmitRaw(self, data, carrierFrequency, dutyCycle, gap):
 		_data = (ctypes.c_uint32 * len(data))(*data)
-		_dataLen = ctypes.c_int32(len(data))
+		_dataLen = ctypes.c_size_t(len(data))
 		_carrierFrequency = ctypes.c_uint32(carrierFrequency)
 		_dutyCycle = ctypes.c_double(dutyCycle)
 		_gap = ctypes.c_uint32(gap)

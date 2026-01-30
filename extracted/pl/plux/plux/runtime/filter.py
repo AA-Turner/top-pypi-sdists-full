@@ -13,7 +13,7 @@ class PluginFilter(t.Protocol):
         """
         Returns True if the plugin should be filtered (disabled), or False otherwise.
 
-        :param spec: the spec to check
+        :param spec: The spec to check
         :return: True if the plugin should be disabled
         """
         ...
@@ -54,7 +54,7 @@ class MatchingPluginFilter:
     A MatchingPluginFilter can be used to exclude specific plugins from loading.
     """
 
-    exclusions: t.List[PluginSpecMatcher]
+    exclusions: list[PluginSpecMatcher]
 
     def __init__(self):
         self.exclusions = []

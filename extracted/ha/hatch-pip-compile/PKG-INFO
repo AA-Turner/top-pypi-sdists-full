@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatch-pip-compile
-Version: 1.11.5
+Version: 1.11.6
 Summary: hatch plugin to use pip-compile to manage project dependencies
 Project-URL: Documentation, https://juftin.github.io/hatch-pip-compile
 Project-URL: Issues, https://juftin.github.io/hatch-pip-compile/issues
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.8

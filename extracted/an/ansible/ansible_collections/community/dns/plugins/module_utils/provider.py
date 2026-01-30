@@ -6,7 +6,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -20,6 +19,7 @@ from ansible.module_utils.common.validation import (
     check_type_list,
     check_type_str,
 )
+
 from ansible_collections.community.dns.plugins.module_utils._six import (
     add_metaclass,
 )
@@ -110,3 +110,13 @@ class ProviderInformation(object):
         Note: the default return value changed from 'octal' to 'decimal' in community.dns 3.0.0.
         """
         return 'decimal'
+
+    def txt_always_quote(self):
+        """
+        Return whether TXT records sent to the API should always be quoted.
+
+        Returns a boolean.
+
+        This return value is only used if txt_record_handling does not return 'decoded'.
+        """
+        return False

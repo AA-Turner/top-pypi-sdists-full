@@ -1471,6 +1471,14 @@ class RoleRoleSpec:
     
     * application ID for SERVICE_PRINCIPAL * user email for USER * group name for GROUP"""
 
+    postgres_role: Optional[str] = None
+    """The name of the Postgres role.
+    
+    This expects a valid Postgres identifier as specified in the link below.
+    https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
+    
+    Required when creating the Role."""
+
     def as_dict(self) -> dict:
         """Serializes the RoleRoleSpec into a dictionary suitable for use as a JSON request body."""
         body = {}
@@ -1478,6 +1486,8 @@ class RoleRoleSpec:
             body["auth_method"] = self.auth_method.value
         if self.identity_type is not None:
             body["identity_type"] = self.identity_type.value
+        if self.postgres_role is not None:
+            body["postgres_role"] = self.postgres_role
         return body
 
     def as_shallow_dict(self) -> dict:
@@ -1487,6 +1497,8 @@ class RoleRoleSpec:
             body["auth_method"] = self.auth_method
         if self.identity_type is not None:
             body["identity_type"] = self.identity_type
+        if self.postgres_role is not None:
+            body["postgres_role"] = self.postgres_role
         return body
 
     @classmethod
@@ -1495,6 +1507,7 @@ class RoleRoleSpec:
         return cls(
             auth_method=_enum(d, "auth_method", RoleAuthMethod),
             identity_type=_enum(d, "identity_type", RoleIdentityType),
+            postgres_role=d.get("postgres_role", None),
         )
 
 
@@ -1505,6 +1518,9 @@ class RoleRoleStatus:
     identity_type: Optional[RoleIdentityType] = None
     """The type of the role."""
 
+    postgres_role: Optional[str] = None
+    """The name of the Postgres role."""
+
     def as_dict(self) -> dict:
         """Serializes the RoleRoleStatus into a dictionary suitable for use as a JSON request body."""
         body = {}
@@ -1512,6 +1528,8 @@ class RoleRoleStatus:
             body["auth_method"] = self.auth_method.value
         if self.identity_type is not None:
             body["identity_type"] = self.identity_type.value
+        if self.postgres_role is not None:
+            body["postgres_role"] = self.postgres_role
         return body
 
     def as_shallow_dict(self) -> dict:
@@ -1521,6 +1539,8 @@ class RoleRoleStatus:
             body["auth_method"] = self.auth_method
         if self.identity_type is not None:
             body["identity_type"] = self.identity_type
+        if self.postgres_role is not None:
+            body["postgres_role"] = self.postgres_role
         return body
 
     @classmethod
@@ -1529,6 +1549,7 @@ class RoleRoleStatus:
         return cls(
             auth_method=_enum(d, "auth_method", RoleAuthMethod),
             identity_type=_enum(d, "identity_type", RoleIdentityType),
+            postgres_role=d.get("postgres_role", None),
         )
 
 
@@ -1634,19 +1655,21 @@ class PostgresAPI:
         operation = Operation.from_dict(res)
         return CreateProjectOperation(self, operation)
 
-    def create_role(self, parent: str, role: Role, role_id: str) -> CreateRoleOperation:
+    def create_role(self, parent: str, role: Role, *, role_id: Optional[str] = None) -> CreateRoleOperation:
         """Creates a new Postgres role in the branch.
 
         :param parent: str
           The Branch where this Role is created. Format: projects/{project_id}/branches/{branch_id}
         :param role: :class:`Role`
           The desired specification of a Role.
-        :param role_id: str
+        :param role_id: str (optional)
           The ID to use for the Role, which will become the final component of the role's resource name. This
           ID becomes the role in Postgres.
 
           This value should be 4-63 characters, and valid characters are lowercase letters, numbers, and
           hyphens, as defined by RFC 1123.
+
+          If role_id is not specified in the request, it is generated automatically.
 
         :returns: :class:`Operation`
         """

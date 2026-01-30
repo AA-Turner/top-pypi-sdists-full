@@ -9,14 +9,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"github.com/wandb/wandb/core/internal/api"
 	"github.com/wandb/wandb/core/internal/apitest"
+	"github.com/wandb/wandb/core/internal/httplayerstest"
 	"github.com/wandb/wandb/core/internal/observabilitytest"
 	wbsettings "github.com/wandb/wandb/core/internal/settings"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+func exampleGetRequest(t *testing.T) *http.Request {
+	req, err := http.NewRequest("GET", "http://example.com", http.NoBody)
+	require.NoError(t, err)
+	return req
+}
 
 func TestNewAPIKeyCredentialProvider(t *testing.T) {
 	settings := wbsettings.From(&spb.Settings{
@@ -28,12 +36,16 @@ func TestNewAPIKeyCredentialProvider(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
-	err = credentialProvider.Apply(req)
-	require.NoError(t, err)
+	reqs, err := httplayerstest.MapRequest(t,
+		credentialProvider,
+		exampleGetRequest(t),
+	)
 
-	assert.Equal(t, "Basic YXBpOnRlc3QtYXBpLWtleQ==", req.Header.Get("Authorization"))
+	require.NoError(t, err)
+	require.Len(t, reqs, 1)
+	assert.Equal(t,
+		"Basic YXBpOnRlc3QtYXBpLWtleQ==",
+		reqs[0].Header.Get("Authorization"))
 }
 
 func TestNewAPIKeyCredentialProvider_NoAPIKey(t *testing.T) {
@@ -75,7 +87,7 @@ func TestNewOAuth2CredentialProvider(t *testing.T) {
 	}()
 
 	// write id token to file
-	_, err = tokenFile.Write([]byte("id-token"))
+	_, err = tokenFile.WriteString("id-token")
 	require.NoError(t, err)
 	require.NoError(t, tokenFile.Close())
 
@@ -102,12 +114,14 @@ func TestNewOAuth2CredentialProvider(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
-	err = credentialProvider.Apply(req)
-	require.NoError(t, err)
+	reqs, err := httplayerstest.MapRequest(t,
+		credentialProvider,
+		exampleGetRequest(t),
+	)
 
-	assert.Equal(t, "Bearer "+token, req.Header.Get("Authorization"))
+	require.NoError(t, err)
+	require.Len(t, reqs, 1)
+	assert.Equal(t, "Bearer "+token, reqs[0].Header.Get("Authorization"))
 
 	// validate credentials file was written correctly
 	file, err := os.ReadFile(credentialsFile)
@@ -137,7 +151,7 @@ func TestNewOAuth2CredentialProvider_RefreshesToken(t *testing.T) {
 	}()
 
 	// write id token to file
-	_, err = tokenFile.Write([]byte("id-token"))
+	_, err = tokenFile.WriteString("id-token")
 	require.NoError(t, err)
 	require.NoError(t, tokenFile.Close())
 
@@ -151,14 +165,14 @@ func TestNewOAuth2CredentialProvider_RefreshesToken(t *testing.T) {
 	// if the token is going to expire in 3 minutes, it should be refreshed
 	expiration := time.Now().UTC().Add(time.Minute * 3).Format("2006-01-02 15:04:05")
 	// write expired access token to file
-	_, err = credsFile.Write([]byte(`{
+	_, err = credsFile.WriteString(`{
 		"credentials":{
 			"` + server.URL + `":{
 				"access_token": "test",
 				"expires_in": "` + expiration + `"
 			}
 		}
-	}`))
+	}`)
 	require.NoError(t, err)
 	require.NoError(t, credsFile.Close())
 
@@ -173,12 +187,14 @@ func TestNewOAuth2CredentialProvider_RefreshesToken(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
-	err = credentialProvider.Apply(req)
-	require.NoError(t, err)
+	reqs, err := httplayerstest.MapRequest(t,
+		credentialProvider,
+		exampleGetRequest(t),
+	)
 
-	assert.Equal(t, "Bearer "+token, req.Header.Get("Authorization"))
+	require.NoError(t, err)
+	require.Len(t, reqs, 1)
+	assert.Equal(t, "Bearer "+token, reqs[0].Header.Get("Authorization"))
 
 	// validate credentials file was written correctly
 	file, err := os.ReadFile(credsFile.Name())
@@ -208,7 +224,7 @@ func TestNewOAuth2CredentialProvider_RefreshesTokenOnce(t *testing.T) {
 	}()
 
 	// write id token to file
-	_, err = tokenFile.Write([]byte("id-token"))
+	_, err = tokenFile.WriteString("id-token")
 	require.NoError(t, err)
 	require.NoError(t, tokenFile.Close())
 
@@ -221,14 +237,14 @@ func TestNewOAuth2CredentialProvider_RefreshesTokenOnce(t *testing.T) {
 
 	expiration := time.Now().UTC().Add(time.Minute * -3).Format("2006-01-02 15:04:05")
 	// write expired access token to file
-	_, err = credsFile.Write([]byte(`{
+	_, err = credsFile.WriteString(`{
 		"credentials": {
 			"` + server.URL + `":{
 				"access_token": "test",
 				"expires_in": "` + expiration + `"
 			}
 		}
-	}`))
+	}`)
 	require.NoError(t, err)
 	require.NoError(t, credsFile.Close())
 
@@ -243,25 +259,24 @@ func TestNewOAuth2CredentialProvider_RefreshesTokenOnce(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// issue 2 requests
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
-	req2, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
+	recorder := httplayerstest.NewHTTPDoRecorder(t)
 
 	var errGroup errgroup.Group
-	errGroup.Go(func() error {
-		return credentialProvider.Apply(req)
-	})
-	errGroup.Go(func() error {
-		return credentialProvider.Apply(req2)
-	})
+	for range 2 {
+		errGroup.Go(func() error {
+			wrappedRecorder := credentialProvider.WrapHTTP(recorder.RecordHTTP)
+			_, err := wrappedRecorder(exampleGetRequest(t))
+			return err
+		})
+	}
 
 	err = errGroup.Wait()
 	require.NoError(t, err)
 
-	assert.Equal(t, "Bearer fake-token", req.Header.Get("Authorization"))
-	assert.Equal(t, "Bearer fake-token", req2.Header.Get("Authorization"))
+	calls := recorder.Calls()
+	require.Len(t, calls, 2)
+	assert.Equal(t, "Bearer fake-token", calls[0].Header.Get("Authorization"))
+	assert.Equal(t, "Bearer fake-token", calls[1].Header.Get("Authorization"))
 
 	// auth server should only be called once
 	assert.Equal(t, 1, len(server.Requests()))
@@ -276,7 +291,7 @@ func TestNewOAuth2CredentialProvider_CreatesNewTokenForNewBaseURL(t *testing.T) 
 	}()
 
 	// write id token to file
-	_, err = tokenFile.Write([]byte("id-token"))
+	_, err = tokenFile.WriteString("id-token")
 	require.NoError(t, err)
 	require.NoError(t, tokenFile.Close())
 
@@ -288,14 +303,14 @@ func TestNewOAuth2CredentialProvider_CreatesNewTokenForNewBaseURL(t *testing.T) 
 	}()
 
 	// write credentials for other base url to credentials file
-	_, err = credsFile.Write([]byte(`{
+	_, err = credsFile.WriteString(`{
 	   "credentials":{
 		  "https://api.wandb.ai":{
 			 "access_token":"test",
 			 "expires_in":"2024-08-19 15:55:42"
 		  }
 	   }
-	}`))
+	}`)
 	require.NoError(t, err)
 	require.NoError(t, credsFile.Close())
 
@@ -315,12 +330,14 @@ func TestNewOAuth2CredentialProvider_CreatesNewTokenForNewBaseURL(t *testing.T) 
 	)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	require.NoError(t, err)
-	err = credentialProvider.Apply(req)
-	require.NoError(t, err)
+	reqs, err := httplayerstest.MapRequest(t,
+		credentialProvider,
+		exampleGetRequest(t),
+	)
 
-	assert.Equal(t, "Bearer fake-token", req.Header.Get("Authorization"))
+	require.NoError(t, err)
+	require.Len(t, reqs, 1)
+	assert.Equal(t, "Bearer "+token, reqs[0].Header.Get("Authorization"))
 
 	// credentials file should have 2 entries
 	file, err := os.ReadFile(credsFile.Name())

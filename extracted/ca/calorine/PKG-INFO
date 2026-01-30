@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: calorine
-Version: 3.2
+Version: 3.3
 Summary: A Python library for building and sampling NEP models via the GPUMD package
 Author: The calorine developers team
 Maintainer: The calorine developers team
@@ -393,6 +393,9 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
+Provides-Extra: additional_features
+Provides-Extra: documentation
+Provides-Extra: test
 License-File: LICENSE
 
 calorine

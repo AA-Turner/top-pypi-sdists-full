@@ -53,12 +53,15 @@ class ExecutionController:
 
                 status, exception = self._execute_code(self.stage.file_path)
                 send_execution_usage(self.stage.file_path, status, exception)
-                if exception:
+                if status == "abandoned":
+                    self.client.handle_abandoned()
+                elif exception:
                     self.client.handle_failure(exception)
                 else:
                     self.client.handle_success()
             except ClientAbandoned:
                 status = "abandoned"
+                self.client.handle_abandoned()
             except Exception as e:
                 status = "failed"
                 AbstraLogger.error(f"[ExecutionController] Unexpected error: {e}")
@@ -117,8 +120,8 @@ class ExecutionController:
         try:
             self._execute_without_exit(filepath)
             return "finished", None
-        except ClientAbandoned as e:
-            return "abandoned", e
+        except ClientAbandoned:
+            return "abandoned", None
         except Exception as e:
             self.print_filtered_exception(e, entrypoint=filepath)
             return "failed", e

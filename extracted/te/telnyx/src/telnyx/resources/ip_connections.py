@@ -25,7 +25,7 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..pagination import SyncDefaultPagination, AsyncDefaultPagination
+from ..pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.dtmf_type import DtmfType
 from ..types.ip_connection import IPConnection
@@ -77,6 +77,7 @@ class IPConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: ip_connection_create_params.Inbound | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: ip_connection_create_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -123,6 +124,12 @@ class IPConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -176,6 +183,7 @@ class IPConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -244,6 +252,7 @@ class IPConnectionsResource(SyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundIPParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: ip_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -290,6 +299,12 @@ class IPConnectionsResource(SyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -345,6 +360,7 @@ class IPConnectionsResource(SyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -369,7 +385,8 @@ class IPConnectionsResource(SyncAPIResource):
         self,
         *,
         filter: ip_connection_list_params.Filter | Omit = omit,
-        page: ip_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -377,7 +394,7 @@ class IPConnectionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncDefaultPagination[IPConnection]:
+    ) -> SyncDefaultFlatPagination[IPConnection]:
         """
         Returns a list of your IP connections.
 
@@ -386,9 +403,6 @@ class IPConnectionsResource(SyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -415,7 +429,7 @@ class IPConnectionsResource(SyncAPIResource):
         """
         return self._get_api_list(
             "/ip_connections",
-            page=SyncDefaultPagination[IPConnection],
+            page=SyncDefaultFlatPagination[IPConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -424,7 +438,8 @@ class IPConnectionsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     ip_connection_list_params.IPConnectionListParams,
@@ -501,6 +516,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: ip_connection_create_params.Inbound | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: ip_connection_create_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -547,6 +563,12 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -600,6 +622,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -668,6 +691,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
         encrypted_media: Optional[EncryptedMedia] | Omit = omit,
         inbound: InboundIPParam | Omit = omit,
         ios_push_credential_id: Optional[str] | Omit = omit,
+        jitter_buffer: ip_connection_update_params.JitterBuffer | Omit = omit,
         noise_suppression: Literal["inbound", "outbound", "both", "disabled"] | Omit = omit,
         noise_suppression_details: ConnectionNoiseSuppressionDetails | Omit = omit,
         onnet_t38_passthrough_enabled: bool | Omit = omit,
@@ -714,6 +738,12 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
               TLS.
 
           ios_push_credential_id: The uuid of the push credential for Ios
+
+          jitter_buffer: Configuration options for Jitter Buffer. Enables Jitter Buffer for RTP streams
+              of SIP Trunking calls. The feature is off unless enabled. You may define min and
+              max values in msec for customized buffering behaviors. Larger values add latency
+              but tolerate more jitter, while smaller values reduce latency but are more
+              sensitive to jitter and reordering.
 
           noise_suppression: Controls when noise suppression is applied to calls. When set to 'inbound',
               noise suppression is applied to incoming audio. When set to 'outbound', it's
@@ -769,6 +799,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
                     "encrypted_media": encrypted_media,
                     "inbound": inbound,
                     "ios_push_credential_id": ios_push_credential_id,
+                    "jitter_buffer": jitter_buffer,
                     "noise_suppression": noise_suppression,
                     "noise_suppression_details": noise_suppression_details,
                     "onnet_t38_passthrough_enabled": onnet_t38_passthrough_enabled,
@@ -793,7 +824,8 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
         self,
         *,
         filter: ip_connection_list_params.Filter | Omit = omit,
-        page: ip_connection_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         sort: Literal["created_at", "connection_name", "active"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -801,7 +833,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[IPConnection, AsyncDefaultPagination[IPConnection]]:
+    ) -> AsyncPaginator[IPConnection, AsyncDefaultFlatPagination[IPConnection]]:
         """
         Returns a list of your IP connections.
 
@@ -810,9 +842,6 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[connection_name], filter[fqdn], filter[outbound_voice_profile_id],
               filter[outbound.outbound_voice_profile_id]
-
-          page: Consolidated page parameter (deepObject style). Originally: page[size],
-              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code> -</code>
@@ -839,7 +868,7 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
         """
         return self._get_api_list(
             "/ip_connections",
-            page=AsyncDefaultPagination[IPConnection],
+            page=AsyncDefaultFlatPagination[IPConnection],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -848,7 +877,8 @@ class AsyncIPConnectionsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "filter": filter,
-                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
                         "sort": sort,
                     },
                     ip_connection_list_params.IPConnectionListParams,

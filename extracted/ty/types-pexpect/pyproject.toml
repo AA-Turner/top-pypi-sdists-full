@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-pexpect"
-version = "4.9.0.20250916"
+version = "4.9.0.20260127"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pexpect"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`9354f93e6fbd3cce4862dfda403758bca08d3dae`](https://github.com/python/typeshed/commit/9354f93e6fbd3cce4862dfda403758bca08d3dae).
+[`deabec1998d24e6b65b1509eafd1b1341f40df2e`](https://github.com/python/typeshed/commit/deabec1998d24e6b65b1509eafd1b1341f40df2e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

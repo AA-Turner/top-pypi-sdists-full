@@ -226,6 +226,12 @@ options:
     type: list
     elements: str
     version_added: 3.3.0
+  routing_rules6:
+    description:
+      - Is the same as in an C(ip rule add) command, except always requires specifying a priority.
+    type: list
+    elements: str
+    version_added: 12.3.0
   never_default4:
     description:
       - Set as default route.
@@ -1696,9 +1702,10 @@ EXAMPLES = r"""
 RETURN = r"""#
 """
 
+import re
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_text
-import re
 
 
 class NmcliModuleError(Exception):
@@ -1764,6 +1771,7 @@ class Nmcli:
         self.routes6 = module.params["routes6"]
         self.routes6_extended = module.params["routes6_extended"]
         self.route_metric6 = module.params["route_metric6"]
+        self.routing_rules6 = module.params["routing_rules6"]
         self.dns6 = module.params["dns6"]
         self.dns6_search = module.params["dns6_search"]
         self.dns6_options = module.params["dns6_options"]
@@ -1901,6 +1909,7 @@ class Nmcli:
                     "ipv6.ignore-auto-routes": self.gw6_ignore_auto,
                     "ipv6.routes": self.enforce_routes_format(self.routes6, self.routes6_extended),
                     "ipv6.route-metric": self.route_metric6,
+                    "ipv6.routing-rules": self.routing_rules6,
                     "ipv6.method": self.ipv6_method,
                     "ipv6.ip6-privacy": self.ip_privacy6,
                     "ipv6.addr-gen-mode": self.addr_gen_mode6,
@@ -2403,6 +2412,21 @@ class Nmcli:
         cmd = [self.nmcli_bin, "con", "down", self.conn_name]
         return self.execute_command(cmd)
 
+    def get_connection_state(self):
+        """Get the current state of the connection"""
+        cmd = [self.nmcli_bin, "--terse", "--fields", "GENERAL.STATE", "con", "show", self.conn_name]
+        (rc, out, err) = self.execute_command(cmd)
+        if rc != 0:
+            raise NmcliModuleError(err)
+
+        lines = [ll.strip() for ll in out.splitlines() if "GENERAL.STATE" in ll]
+        return lines[0].split(":")[1] if lines else None
+
+    def is_connection_active(self):
+        """Check if the connection is currently active"""
+        state = self.get_connection_state()
+        return state == "activated"
+
     def up_connection(self):
         cmd = [self.nmcli_bin, "con", "up", self.conn_name]
         return self.execute_command(cmd)
@@ -2787,6 +2811,7 @@ def create_module() -> AnsibleModule:
                 ),
             ),
             route_metric6=dict(type="int"),
+            routing_rules6=dict(type="list", elements="str"),
             method6=dict(type="str", choices=["ignore", "auto", "dhcp", "link-local", "manual", "shared", "disabled"]),
             ip_privacy6=dict(type="str", choices=["disabled", "prefer-public-addr", "prefer-temp-addr", "unknown"]),
             addr_gen_mode6=dict(type="str", choices=["default", "default-or-eui64", "eui64", "stable-privacy"]),
@@ -2960,31 +2985,60 @@ def main():
 
         elif nmcli.state == "up":
             if nmcli.connection_exists():
-                if module.check_mode:
-                    module.exit_json(changed=True)
-                if nmcli.conn_reload:
-                    (rc, out, err) = nmcli.reload_connection()
-                (rc, out, err) = nmcli.up_connection()
-                if rc != 0:
-                    module.fail_json(name=f"Error bringing up connection named {nmcli.conn_name}", msg=err, rc=rc)
+                is_active = nmcli.is_connection_active()
+
+                if is_active and not nmcli.conn_reload:
+                    result["changed"] = False
+                    result["msg"] = f"Connection {nmcli.conn_name} is already active"
+                    module.exit_json(**result)
+                else:
+                    if module.check_mode:
+                        module.exit_json(changed=True, **result)
+
+                    if nmcli.conn_reload:
+                        (rc, out, err) = nmcli.reload_connection()
+                        if rc != 0:
+                            module.fail_json(msg=f"Error reloading connection named {nmcli.conn_name}: {err}", rc=rc)
+
+                    (rc, out, err) = nmcli.up_connection()
+                    if rc != 0:
+                        module.fail_json(msg=f"Error bringing up connection named {nmcli.conn_name}: {err}", rc=rc)
+                    result["changed"] = True
+            else:
+                module.fail_json(
+                    name=nmcli.conn_name,
+                    msg="Connection does not exist",
+                )
 
         elif nmcli.state == "down":
             if nmcli.connection_exists():
-                if module.check_mode:
-                    module.exit_json(changed=True)
-                if nmcli.conn_reload:
-                    (rc, out, err) = nmcli.reload_connection()
-                (rc, out, err) = nmcli.down_connection()
-                if rc != 0:
-                    module.fail_json(name=f"Error bringing down connection named {nmcli.conn_name}", msg=err, rc=rc)
+                is_active = nmcli.is_connection_active()
+
+                if not is_active and not nmcli.conn_reload:
+                    result["changed"] = False
+                    result["msg"] = f"Connection {nmcli.conn_name} is already inactive"
+                    module.exit_json(**result)
+                else:
+                    if module.check_mode:
+                        module.exit_json(changed=True, **result)
+
+                    if nmcli.conn_reload:
+                        (rc, out, err) = nmcli.reload_connection()
+                        if rc != 0:
+                            module.fail_json(name=f"Error reloading connection {nmcli.conn_name}", msg=err, rc=rc)
+
+                    (rc, out, err) = nmcli.down_connection()
+                    if rc != 0:
+                        module.fail_json(name=f"Error bringing down connection named {nmcli.conn_name}", msg=err, rc=rc)
+                    result["changed"] = True
+            else:
+                module.fail_json(msg=f"Connection {nmcli.conn_name} does not exist")
 
     except NmcliModuleError as e:
         module.fail_json(name=nmcli.conn_name, msg=str(e))
 
-    if rc is None:
-        result["changed"] = False
-    else:
-        result["changed"] = True
+    if "changed" not in result:
+        result["changed"] = rc is not None
     if out:
         result["stdout"] = out
     if err:

@@ -4,12 +4,11 @@ Module to assist exclude certain files being processed by plugin.
 Inspired by https://github.com/apenwarr/mkdocs-exclude
 """
 
-import os
 import fnmatch
-from typing import List
+import os
 
 
-def exclude(src_path: str, globs: List[str]) -> bool:
+def exclude(src_path: str, globs: list[str]) -> bool:
     """
     Determine if a src_path should be excluded.
 

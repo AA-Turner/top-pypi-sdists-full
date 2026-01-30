@@ -1,5 +1,7 @@
 """
-The decorators for the event handlers. Usually used as::
+The decorators for the event handlers. Usually used as:
+
+.. code-block:: python
 
     import kopf
 
@@ -668,7 +670,7 @@ def daemon(  # lgtm[py/similar-function]
         timeout: float | None = None,
         retries: int | None = None,
         backoff: float | None = None,
-        initial_delay: float | None = None,
+        initial_delay: float | callbacks.DelayFn | None = None,
         cancellation_backoff: float | None = None,
         cancellation_timeout: float | None = None,
         cancellation_polling: float | None = None,
@@ -731,7 +733,7 @@ def timer(  # lgtm[py/similar-function]
         retries: int | None = None,
         backoff: float | None = None,
         interval: float | None = None,
-        initial_delay: float | None = None,
+        initial_delay: float | callbacks.DelayFn | None = None,
         sharp: bool | None = None,
         idle: float | None = None,
         # Resource object specification:
@@ -792,7 +794,11 @@ def subhandler(  # lgtm[py/similar-function]
     ``@kopf.subhandler()`` decorator for the dynamically generated sub-handlers.
 
     Can be used only inside of the handler function.
-    It is efficiently a syntax sugar to look like all other handlers::
+    It is efficiently a syntax sugar to look like all other handlers:
+
+    .. code-block:: python
+
+        import kopf
 
         @kopf.on.create('kopfexamples')
         def create(*, spec, **kwargs):
@@ -861,7 +867,11 @@ def register(  # lgtm[py/similar-function]
     """
     Register a function as a sub-handler of the currently executed handler.
 
-    Example::
+    Example:
+
+    .. code-block:: python
+
+        import kopf
 
         @kopf.on.create('kopfexamples')
         def create_it(spec, **kwargs):
@@ -872,7 +882,11 @@ def register(  # lgtm[py/similar-function]
 
                 kopf.register(id=task, fn=create_single_task)
 
-    This is efficiently an equivalent for::
+    This is efficiently an equivalent for:
+
+    .. code-block:: python
+
+        import kopf
 
         @kopf.on.create('kopfexamples')
         def create_it(spec, **kwargs):

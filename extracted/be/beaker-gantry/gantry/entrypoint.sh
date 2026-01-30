@@ -204,6 +204,8 @@ function ensure_gh {
         fi
         path_prepend ~/.local/bin
         log_info "Done. Installed $(gh --version | head -n 1)."
+    else
+        log_info "Using $(gh --version | head -n 1)."
     fi
 }
 
@@ -249,6 +251,8 @@ function ensure_uv {
         with_retries 5 capture_logs "bootstrap_uv" bootstrap_uv || return 1
         path_prepend ~/.cargo/bin ~/.local/bin
         log_info "Done. Installed $(uv --version)."
+    else
+        log_info "Using $(uv --version)."
     fi
 }
 
@@ -544,7 +548,9 @@ if [[ -n "$GITHUB_TOKEN" ]]; then
     # Configure git to use the GitHub CLI as a credential helper so that we can clone private repos.
     # NOTE: this could fail due to race conditions if the user has mounted a host path to the container's '$HOME' directory
     # (it's happened before).
+    log_info "Configuring git to use GitHub token for authentication..."
     with_retries 3 capture_logs "setup_gh_auth" gh auth setup-git
+    log_info "Done."
 fi
 
 # Install cloud credentials if given.

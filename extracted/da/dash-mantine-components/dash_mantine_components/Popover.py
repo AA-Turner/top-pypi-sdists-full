@@ -104,11 +104,13 @@ Keyword arguments:
 
     `middlewares` is a dict with keys:
 
-    - shift (optional)
+    - shift (boolean; optional)
 
     - flip (dict; optional)
 
-        `flip` is a dict with keys:
+        `flip` is a boolean
+
+      Or dict with keys:
 
         - mainAxis (boolean; optional):
 
@@ -118,7 +120,7 @@ Keyword arguments:
 
             perform a flip. @,default,True.
 
-        - crossAxis (optional):
+        - crossAxis (boolean; optional):
 
             The axis that runs along the alignment of the floating
 
@@ -198,9 +200,9 @@ Keyword arguments:
 
             - height (number; required) | list of a list of or a singular dash component, string or numbers
 
-    - inline (boolean | number | string | dict | list; optional)
+    - inline (boolean; optional)
 
-    - size (optional)
+    - size (boolean; optional)
 
 - offset (number; optional):
     Offset of the dropdown element, `8` by default.
@@ -329,7 +331,7 @@ Keyword arguments:
         "MiddlewaresFlip",
             {
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
+            "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
@@ -345,10 +347,10 @@ Keyword arguments:
     Middlewares = TypedDict(
         "Middlewares",
             {
-            "shift": NotRequired[typing.Union[typing.Any]],
-            "flip": NotRequired[typing.Union["MiddlewaresFlip"]],
-            "inline": NotRequired[typing.Any],
-            "size": NotRequired[typing.Union[typing.Any]]
+            "shift": NotRequired[typing.Union[bool, typing.Any]],
+            "flip": NotRequired[typing.Union[bool, "MiddlewaresFlip"]],
+            "inline": NotRequired[typing.Union[bool]],
+            "size": NotRequired[typing.Union[bool, typing.Any]]
         }
     )
 
@@ -387,8 +389,8 @@ Keyword arguments:
         withinPortal: typing.Optional[bool] = None,
         portalProps: typing.Optional[dict] = None,
         zIndex: typing.Optional[typing.Union[str, NumberType]] = None,
-        radius: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
-        shadow: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        radius: typing.Optional[typing.Union[str, NumberType]] = None,
+        shadow: typing.Optional[typing.Optional[str]] = None,
         disabled: typing.Optional[bool] = None,
         returnFocus: typing.Optional[bool] = None,
         floatingStrategy: typing.Optional[Literal["absolute", "fixed"]] = None,

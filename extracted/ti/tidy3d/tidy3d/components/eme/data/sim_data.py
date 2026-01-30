@@ -89,6 +89,18 @@ class EMESimulationData(AbstractYeeGridSimulationData):
                 key: field.squeeze(dim="sweep_index") for key, field in update_dict.items()
             }
 
+        # Re-introduce the normal coordinate with the correct value from eme_grid.centers
+        axis = self.simulation.axis
+        # convert propagation axis index to coordinate name
+        axis_name = "xyz"[axis]
+        center_value = self.simulation.eme_grid.centers[eme_cell_index]
+        update_dict = {
+            key: field.assign_coords({axis_name: [center_value]})
+            if axis_name in field.dims
+            else field
+            for key, field in update_dict.items()
+        }
+
         monitor = self.simulation.mode_solver_monitors[eme_cell_index]
         monitor = monitor.updated_copy(colocate=data.monitor.colocate)
         box = Box.from_bounds(
@@ -105,6 +117,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
                 "certain derived quantities, like the flux."
             )
         grid_expanded = self.simulation.discretize_monitor(monitor=monitor)
+
         return ModeSolverData(
             **update_dict,
             monitor=monitor,
@@ -214,8 +227,6 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         interp_spec1 = mode_spec1.interp_spec if mode_spec1 is not None else None
         interp_spec2 = mode_spec2.interp_spec if mode_spec2 is not None else None
 
-        modes1, modes2 = modes1._interpolated_copies_if_needed(other=modes2)
-
         modes_in_1 = "mode_index" in list(modes1.field_components.values())[0].coords
         modes_in_2 = "mode_index" in list(modes2.field_components.values())[0].coords
 
@@ -268,6 +279,10 @@ class EMESimulationData(AbstractYeeGridSimulationData):
 
             if self.simulation._sweep_modes:
                 port_modes1, port_modes2 = self.port_modes_list_sweep[sweep_index]
+                if not modes1_provided:
+                    modes1 = port_modes1
+                if not modes2_provided:
+                    modes2 = port_modes2
 
             if modes1_provided:
                 overlaps1 = modes1.outer_dot(port_modes1, conjugate=False)

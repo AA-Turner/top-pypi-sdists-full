@@ -87,8 +87,8 @@ Keyword arguments:
     def __init__(
         self,
         initialProgress: typing.Optional[NumberType] = None,
-        color: typing.Optional[typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]]] = None,
-        size: typing.Optional[NumberType] = None,
+        color: typing.Optional[typing.Optional[str]] = None,
+        size: typing.Optional[typing.Optional[str]] = None,
         stepInterval: typing.Optional[NumberType] = None,
         withinPortal: typing.Optional[bool] = None,
         zIndex: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["auto"]]] = None,

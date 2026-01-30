@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from devpi_server.config import hookimpl
+from devpi_server.filestore import get_hashes
+from devpi_server.model import InvalidIndexconfig
 import pytest
 
 
@@ -40,13 +44,15 @@ def test_permissions_for_unknown_index(mapp, xom):
         with pytest.raises(ReadonlyIndex):
             stage.add_project_name("foo")
         with pytest.raises(ReadonlyIndex):
-            stage.store_releasefile("foo", "2.0", "foo-2.0.zip", b'123')
+            stage.store_releasefile(
+                "foo", "2.0", "foo-2.0.zip", b"123", hashes=get_hashes(b"123")
+            )
         with pytest.raises(ReadonlyIndex):
-            stage.store_doczip("foo", "2.0", b'456')
+            stage.store_doczip("foo", "2.0", b"456", hashes=get_hashes(b"456"))
         link_store = stage.get_linkstore_perstage("hello", "1.0")
         (link,) = link_store.get_links()
         with pytest.raises(ReadonlyIndex):
-            stage.store_toxresult(link, b"{}")
+            stage.store_toxresult(link, b"{}", hashes=get_hashes(b"{}"))
     assert mapp.getjson(api.index)['result']['type'] == 'unknown'
     # now check via views, which are protected by permissions most of the time
     mapp.modify_index(api.stagename, indexconfig=dict(bases=["root/pypi"]), code=403)
@@ -62,7 +68,9 @@ def test_permissions_for_unknown_index(mapp, xom):
 def test_indexconfig_items(makemapp, maketestapp, makexom):
     from devpi_server.model import ensure_list
 
-    class MyStageCustomizer(object):
+    class MyStageCustomizer:
+        InvalidIndexconfig = InvalidIndexconfig
+
         def get_possible_indexconfig_keys(self):
             return ("bar", "ham")
 
@@ -71,8 +79,13 @@ def test_indexconfig_items(makemapp, maketestapp, makexom):
                 return ensure_list(value)
             if key == "ham":
                 return value
+            raise ValueError(key)
 
-        def validate_config(self, oldconfig, newconfig):  # noqa: ARG002
+        def validate_config(
+            self,
+            oldconfig: dict,  # noqa: ARG002 - API
+            newconfig: dict,
+        ) -> None:
             if "bar" not in newconfig:
                 raise self.InvalidIndexconfig(["requires bar"])
 
@@ -111,7 +124,9 @@ def test_indexconfig_items(makemapp, maketestapp, makexom):
 
 
 def test_validate_config(makemapp, maketestapp, makexom):
-    class MyStageCustomizer(object):
+    class MyStageCustomizer:
+        InvalidIndexconfig = InvalidIndexconfig
+
         def validate_config(self, oldconfig, newconfig):
             errors = []
             if len(oldconfig.get('bases', [])) > len(newconfig.get('bases', [])):

@@ -7,7 +7,8 @@ from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.diag.issues import Issues
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log
+from adam.utils import Color, tabulize, log
+from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 
 class Check(Issues):
@@ -39,7 +40,7 @@ class Check(Issues):
                     if not checks:
                         return 'invalid check name'
 
-                    results = run_checks(state.sts, state.namespace, state.pod, checks=checks, show_out=show_out)
+                    results = run_checks(state.sts, state.namespace, state.pod, checks=checks, ctx=Context.new(show_verbose=show_out))
 
                     issues = CheckResult.collect_issues(results)
                     IssuesUtils.show_issues(issues, in_repl=state.in_repl)

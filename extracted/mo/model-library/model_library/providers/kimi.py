@@ -1,13 +1,16 @@
-from typing import Literal
+from typing import Any, Literal
+
+from typing_extensions import override
+
+from pydantic import SecretStr
 
 from model_library import model_library_settings
 from model_library.base import (
+    DelegateConfig,
     DelegateOnly,
     LLMConfig,
 )
-from model_library.providers.openai import OpenAIModel
 from model_library.register_models import register_provider
-from model_library.utils import create_openai_client_with_defaults
 
 
 @register_provider("kimi")
@@ -22,13 +25,20 @@ class KimiModel(DelegateOnly):
         super().__init__(model_name, provider, config=config)
 
         # https://platform.moonshot.ai/docs/guide/migrating-from-openai-to-kimi#about-api-compatibility
-        self.delegate = OpenAIModel(
-            model_name=self.model_name,
-            provider=self.provider,
+        self.init_delegate(
             config=config,
-            custom_client=create_openai_client_with_defaults(
-                api_key=model_library_settings.KIMI_API_KEY,
+            delegate_config=DelegateConfig(
                 base_url="https://api.moonshot.ai/v1/",
+                api_key=SecretStr(model_library_settings.KIMI_API_KEY),
             ),
             use_completions=True,
+            delegate_provider="openai",
         )
+
+    @override
+    def _get_extra_body(self) -> dict[str, Any]:
+        """
+        Build extra body parameters for Kimi-specific features.
+        see https://platform.moonshot.ai/docs/guide/kimi-k2-5-quickstart#parameters-differences-in-request-body
+        """
+        return {"thinking": {"type": "enabled" if self.reasoning else "disabled"}}

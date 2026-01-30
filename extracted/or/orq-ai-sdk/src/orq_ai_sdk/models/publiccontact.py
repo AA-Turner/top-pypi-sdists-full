@@ -4,11 +4,14 @@ from __future__ import annotations
 from orq_ai_sdk.types import BaseModel, UNSET_SENTINEL
 from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, deprecated
 
 
+@deprecated(
+    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+)
 class PublicContactTypedDict(TypedDict):
-    r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
 
     id: str
     r"""Unique identifier for the contact"""
@@ -24,8 +27,11 @@ class PublicContactTypedDict(TypedDict):
     r"""A list of tags associated with the contact"""
 
 
+@deprecated(
+    "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+)
 class PublicContact(BaseModel):
-    r"""Information about the identity making the request. If the identity does not exist, it will be created automatically."""
+    r"""@deprecated Use identity instead. Information about the contact making the request."""
 
     id: str
     r"""Unique identifier for the contact"""

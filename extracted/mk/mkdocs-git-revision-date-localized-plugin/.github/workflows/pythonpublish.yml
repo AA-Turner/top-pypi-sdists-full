@@ -22,7 +22,7 @@ jobs:
       with:
         python-version: '3.x'
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
 
     - name: Make sure unit tests succeed
       run: |
@@ -39,5 +39,5 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
     - name: Deploy mkdocs site
-      run: | 
+      run: |
         uv run mkdocs gh-deploy --force

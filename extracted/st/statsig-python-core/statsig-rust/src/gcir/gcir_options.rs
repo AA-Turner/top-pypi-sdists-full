@@ -16,6 +16,8 @@ pub struct ClientInitResponseOptions {
     pub response_format: Option<GCIRResponseFormat>,
     pub remove_id_type: Option<bool>,
     pub remove_default_value_gates: Option<bool>,
+    pub previous_response_hash: Option<String>,
+    pub remove_experiments_in_layers: Option<bool>,
 }
 
 impl ClientInitResponseOptions {
@@ -38,6 +40,8 @@ impl Default for ClientInitResponseOptions {
             response_format: None,
             remove_id_type: Some(false),
             remove_default_value_gates: Some(false),
+            previous_response_hash: None,
+            remove_experiments_in_layers: Some(false),
         }
     }
 }

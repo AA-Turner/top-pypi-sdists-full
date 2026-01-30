@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 
-__version__ = '6.3.8'
+__version__ = '6.3.9'
 __all__ = [
     'OTSClient',
     'AsyncOTSClient',
@@ -109,6 +109,7 @@ __all__ = [
     'SecondaryIndexType',
     'ExistsQuery',
     'KnnVectorQuery',
+    'DisMaxQuery',
     'Agg',
     'Max',
     'Min',

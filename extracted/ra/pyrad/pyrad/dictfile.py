@@ -9,7 +9,6 @@ RADIUS $INCLUDE directives behind the scene.
 """
 
 import os
-import six
 
 
 class _Node(object):
@@ -54,10 +53,8 @@ class DictFile(object):
         self.__ReadNode(fil)
 
     def __ReadNode(self, fil):
-        node = None
         parentdir = self.__CurDir()
-        if isinstance(fil, six.string_types):
-            fname = None
+        if isinstance(fil, str):
             if os.path.isabs(fil):
                 fname = fil
             else:
@@ -105,7 +102,7 @@ class DictFile(object):
     def __next__(self):
         while self.stack:
             line = self.stack[-1].Next()
-            if line == None:
+            if line is None:
                 self.stack.pop()
             else:
                 inc = self.__GetInclude(line)

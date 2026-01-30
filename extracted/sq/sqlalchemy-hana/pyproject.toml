@@ -46,7 +46,7 @@ maintainers = [
 name = "sqlalchemy-hana"
 readme = "README.rst"
 requires-python = "~=3.10"
-version = "4.2.0"
+version = "4.3.0"
 
 [project.optional-dependencies]
 alembic = ["alembic~=1.12"]
@@ -58,18 +58,16 @@ Repository = "https://github.com/SAP/sqlalchemy-hana"
 
 [project.entry-points."sqlalchemy.dialects"]
 hana = "sqlalchemy_hana.dialect:HANAHDBCLIDialect"
+"hana.aiohdbcli" = "sqlalchemy_hana.dialect:AsyncHANAHDBCLIDialect"
 "hana.hdbcli" = "sqlalchemy_hana.dialect:HANAHDBCLIDialect"
 
 [dependency-groups]
-alembic = [
-    "alembic~=1.12",
-]
 dev = [
     "isort==7.0.0",
-    "black==25.12.0",
-    "pre-commit==4.5.0",
+    "black==26.1.0",
+    "pre-commit==4.5.1",
     "flake8==7.3.0",
-    "flake8-tergeo==25.10.9.0",
+    "flake8-tergeo==26.1.28.0",
     "pylint==4.0.4",
     "mypy==1.19.1",
     "types-hdbcli==2.25.0.20250915",
@@ -78,13 +76,13 @@ dev = [
     "pyupgrade==3.21.2",
     "pylint-per-file-ignores==3.2.0",
     "toml-sort==0.24.3",
-    "uv==0.9.17",
+    "uv==0.9.27",
 ]
 test = [
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
-    "coverage[toml]==7.13.0",
-    "diff-cover[toml]==10.0.0",
+    "coverage[toml]==7.13.2",
+    "diff-cover[toml]==10.2.0",
     "pytest-randomly==4.0.1",
 ]
 
@@ -141,6 +139,7 @@ good-names = [
     "visit_JSON",
     "visit_REAL_VECTOR",
     "REAL_VECTOR",
+    "async_dbapi",
 ]
 
 [tool.pylint.main]
@@ -208,6 +207,7 @@ filterwarnings = [
 log_level = "DEBUG"
 markers = [
     "backend: used by sqlalchemy",
+    "sparse_driver_backend: used by sqlalchemy", # TODO: Remove when part of sqlalchemy config
     "mypy: used by sqlalchemy",
 ]
 xfail_strict = true

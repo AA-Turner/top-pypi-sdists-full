@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.1.1
+Version: 1.2.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -39,9 +39,9 @@ Provides-Extra: test
 Requires-Dist: behave<2.0,>=1.2.6; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: detect-secrets~=1.5.0; extra == "test"
-Requires-Dist: import-linter<2.7.0,>=2.5.2; extra == "test"
+Requires-Dist: import-linter<3.0,>=2.5.2; extra == "test"
 Requires-Dist: ipylab>=1.0.0; extra == "test"
-Requires-Dist: ipython~=8.10; extra == "test"
+Requires-Dist: ipython<10.0,>=8.10; extra == "test"
 Requires-Dist: jupyterlab_server>=2.11.1; extra == "test"
 Requires-Dist: jupyterlab<5,>=3; extra == "test"
 Requires-Dist: jupyter~=1.0; extra == "test"
@@ -55,7 +55,7 @@ Requires-Dist: pytest-mock<4.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]<4.0,>=2.2.1; extra == "test"
 Requires-Dist: pytest<10.0,>=7.2; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
-Requires-Dist: s3fs<2025.11,>=2021.4; extra == "test"
+Requires-Dist: s3fs<2026.2,>=2021.4; extra == "test"
 Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Requires-Dist: types-cachetools; extra == "test"
@@ -107,7 +107,7 @@ Dynamic: license-file
 
 ## What is Kedro?
 
-Kedro is a toolbox for production-ready data science. It uses software engineering best practices to help you create data engineering and data science pipelines that are reproducible, maintainable, and modular. You can find out more at [kedro.org](https://kedro.org).
+Kedro is a toolbox for production-ready data engineering and data science pipelines. It uses software engineering best practices to help you create data engineering and data science pipelines that are reproducible, maintainable, and modular. You can find out more at [kedro.org](https://kedro.org).
 
 Kedro is an open-source Python framework hosted by the [LF AI & Data Foundation](https://lfaidata.foundation/).
 
@@ -166,7 +166,7 @@ Additional documentation explains [how to work with Kedro and Jupyter notebooks]
 Kedro is built upon our collective best-practice (and mistakes) trying to deliver real-world ML applications that have vast amounts of raw unvetted data. We developed Kedro to achieve the following:
 
 - To address the main shortcomings of Jupyter notebooks, one-off scripts, and glue-code because there is a focus on
-  creating **maintainable data science code**
+  creating **maintainable data engineering and data science code**
 - To enhance **team collaboration** when different team members have varied exposure to software engineering concepts
 - To increase efficiency, because applied concepts like modularity and separation of concerns inspire the creation of
   **reusable analytics code**

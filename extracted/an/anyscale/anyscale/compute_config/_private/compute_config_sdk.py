@@ -22,6 +22,7 @@ from anyscale.compute_config.models import (
     HeadNodeConfig,
     MarketType,
     MultiResourceComputeConfig,
+    PhysicalResources as UserPhysicalResources,
     WorkerNodeGroupConfig,
 )
 from anyscale.sdk.anyscale_client.models import ClusterComputeConfig
@@ -92,7 +93,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             # Only pass non-None values to avoid sending null fields to backend
             required_resources_api = None
             if config.required_resources is not None:
-                pr_dict = config.required_resources.to_dict()
+                pr_dict = config.required_resources.to_dict(for_api=True)
                 # Copy only the fields that are present in the dict
                 # To add support for new fields, just add them to this list
                 pr_kwargs = {
@@ -140,7 +141,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             # Only pass non-None values to avoid sending null fields to backend
             required_resources_api = None
             if config.required_resources is not None:
-                pr_dict = config.required_resources.to_dict()
+                pr_dict = config.required_resources.to_dict(for_api=True)
                 # Copy only the fields that are present in the dict
                 # To add support for new fields, just add them to this list
                 pr_kwargs = {
@@ -363,10 +364,19 @@ class PrivateComputeConfigSDK(BaseSDK):
             else None
         )
 
+        # Convert required_resources from API model to user-facing model
+        required_resources = None
+        if api_model.required_resources is not None:
+            required_resources = UserPhysicalResources.from_dict(
+                api_model.required_resources.to_dict()
+            )
+
         return HeadNodeConfig(
             instance_type=api_model.instance_type,
             resources=self._convert_api_model_to_resource_dict(api_model.resources),
+            required_resources=required_resources,
             labels=api_model.labels,
+            required_labels=api_model.required_labels,
             advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
                 api_model,
             ),
@@ -407,6 +417,13 @@ class PrivateComputeConfigSDK(BaseSDK):
                 else None
             )
 
+            # Convert required_resources from API model to user-facing model
+            required_resources = None
+            if api_model.required_resources is not None:
+                required_resources = UserPhysicalResources.from_dict(
+                    api_model.required_resources.to_dict()
+                )
+
             configs.append(
                 WorkerNodeGroupConfig(
                     name=api_model.name,
@@ -414,7 +431,9 @@ class PrivateComputeConfigSDK(BaseSDK):
                     resources=self._convert_api_model_to_resource_dict(
                         api_model.resources
                     ),
+                    required_resources=required_resources,
                     labels=api_model.labels,
+                    required_labels=api_model.required_labels,
                     advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
                         api_model,
                     ),

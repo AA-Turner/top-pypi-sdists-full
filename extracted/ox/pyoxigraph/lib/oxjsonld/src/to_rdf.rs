@@ -6,6 +6,8 @@ use crate::profile::{JsonLdProcessingMode, JsonLdProfile, JsonLdProfileSet};
 use json_event_parser::TokioAsyncReaderJsonParser;
 use json_event_parser::{JsonEvent, ReaderJsonParser, SliceJsonParser};
 use oxiri::{Iri, IriParseError};
+#[cfg(feature = "rdf-12")]
+use oxrdf::BaseDirection;
 use oxrdf::vocab::{rdf, xsd};
 use oxrdf::{BlankNode, GraphName, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode, Quad};
 use std::error::Error;
@@ -871,12 +873,12 @@ impl InternalJsonLdParser {
     }
 
     fn base_iri(&self) -> Option<&str> {
-        Some(self.expansion.context().base_iri.as_ref()?.as_str())
+        Some(self.expansion.active_context().base_iri.as_ref()?.as_str())
     }
 
     fn prefixes(&self) -> JsonLdPrefixesIter<'_> {
         JsonLdPrefixesIter {
-            term_definitions: self.expansion.context().term_definitions.iter(),
+            term_definitions: self.expansion.active_context().term_definitions.iter(),
             lenient: self.to_rdf.lenient,
         }
     }
@@ -884,7 +886,6 @@ impl InternalJsonLdParser {
 
 enum JsonLdToRdfState {
     StartObject {
-        types: Vec<NamedOrBlankNode>,
         /// Events before the @id event
         buffer: Vec<JsonLdEvent>,
         /// Nesting level of objects, useful during buffering
@@ -897,6 +898,7 @@ enum JsonLdToRdfState {
     },
     List(Option<NamedOrBlankNode>),
     Graph(Option<GraphName>),
+    Included,
 }
 
 struct JsonLdToRdfConverter {
@@ -910,7 +912,6 @@ impl JsonLdToRdfConverter {
         let state = self.state.pop().expect("Empty stack");
         match state {
             JsonLdToRdfState::StartObject {
-                types,
                 mut buffer,
                 nesting,
             } => {
@@ -918,14 +919,11 @@ impl JsonLdToRdfConverter {
                     JsonLdEvent::Id(id) => {
                         if nesting > 0 {
                             buffer.push(JsonLdEvent::Id(id));
-                            self.state.push(JsonLdToRdfState::StartObject {
-                                types,
-                                buffer,
-                                nesting,
-                            });
+                            self.state
+                                .push(JsonLdToRdfState::StartObject { buffer, nesting });
                         } else {
                             let id = self.convert_named_or_blank_node(id);
-                            self.emit_quads_for_new_object(id.as_ref(), types, results);
+                            self.emit_quads_for_new_object(id.as_ref(), results);
                             self.state.push(JsonLdToRdfState::Object(id));
                             for event in buffer {
                                 self.convert_event(event, results);
@@ -936,13 +934,12 @@ impl JsonLdToRdfConverter {
                         if nesting > 0 {
                             buffer.push(JsonLdEvent::EndObject);
                             self.state.push(JsonLdToRdfState::StartObject {
-                                types,
                                 buffer,
                                 nesting: nesting - 1,
                             });
                         } else {
                             let id = Some(BlankNode::default().into());
-                            self.emit_quads_for_new_object(id.as_ref(), types, results);
+                            self.emit_quads_for_new_object(id.as_ref(), results);
                             if !buffer.is_empty() {
                                 self.state.push(JsonLdToRdfState::Object(id));
                                 for event in buffer {
@@ -953,27 +950,34 @@ impl JsonLdToRdfConverter {
                             }
                         }
                     }
-                    JsonLdEvent::StartObject { .. } => {
+                    JsonLdEvent::StartObject => {
                         buffer.push(event);
                         self.state.push(JsonLdToRdfState::StartObject {
-                            types,
                             buffer,
                             nesting: nesting + 1,
                         });
                     }
                     _ => {
                         buffer.push(event);
-                        self.state.push(JsonLdToRdfState::StartObject {
-                            types,
-                            buffer,
-                            nesting,
-                        });
+                        self.state
+                            .push(JsonLdToRdfState::StartObject { buffer, nesting });
                     }
                 }
             }
             JsonLdToRdfState::Object(id) => match event {
                 JsonLdEvent::Id(_) => {
-                    unreachable!("Should have buffered before @id")
+                    // TODO: add a warning?
+                    self.state.push(JsonLdToRdfState::Object(id));
+                }
+                JsonLdEvent::Type(t) => {
+                    if let (Some(s), Some(o), Some(g)) = (
+                        &id,
+                        self.convert_named_or_blank_node(t),
+                        self.last_graph_name(),
+                    ) {
+                        results.push(Quad::new(s.clone(), rdf::TYPE, o, g.clone()))
+                    }
+                    self.state.push(JsonLdToRdfState::Object(id));
                 }
                 JsonLdEvent::EndObject => (),
                 JsonLdEvent::StartProperty { name, reverse } => {
@@ -992,23 +996,24 @@ impl JsonLdToRdfConverter {
                     self.state.push(JsonLdToRdfState::Object(id));
                     self.state.push(JsonLdToRdfState::Graph(graph_name));
                 }
-                JsonLdEvent::StartObject { .. }
+                JsonLdEvent::StartIncluded => {
+                    self.state.push(JsonLdToRdfState::Object(id));
+                    self.state.push(JsonLdToRdfState::Included);
+                }
+                JsonLdEvent::StartObject
                 | JsonLdEvent::Value { .. }
                 | JsonLdEvent::EndProperty
                 | JsonLdEvent::EndGraph
                 | JsonLdEvent::StartList
                 | JsonLdEvent::EndList
                 | JsonLdEvent::StartSet
-                | JsonLdEvent::EndSet => unreachable!(),
+                | JsonLdEvent::EndSet
+                | JsonLdEvent::EndIncluded => unreachable!(),
             },
             JsonLdToRdfState::Property { .. } => match event {
-                JsonLdEvent::StartObject { types } => {
+                JsonLdEvent::StartObject => {
                     self.state.push(state);
                     self.state.push(JsonLdToRdfState::StartObject {
-                        types: types
-                            .into_iter()
-                            .filter_map(|t| self.convert_named_or_blank_node(t))
-                            .collect(),
                         buffer: Vec::new(),
                         nesting: 0,
                     });
@@ -1017,10 +1022,11 @@ impl JsonLdToRdfConverter {
                     value,
                     r#type,
                     language,
+                    direction,
                 } => {
                     self.state.push(state);
                     self.emit_quad_for_new_literal(
-                        self.convert_literal(value, language, r#type),
+                        self.convert_literal(value, language, direction, r#type),
                         results,
                     )
                 }
@@ -1034,19 +1040,18 @@ impl JsonLdToRdfConverter {
                 }
                 JsonLdEvent::StartProperty { .. }
                 | JsonLdEvent::Id(_)
+                | JsonLdEvent::Type(_)
                 | JsonLdEvent::EndObject
                 | JsonLdEvent::StartGraph
                 | JsonLdEvent::EndGraph
-                | JsonLdEvent::EndList => unreachable!(),
+                | JsonLdEvent::EndList
+                | JsonLdEvent::StartIncluded
+                | JsonLdEvent::EndIncluded => unreachable!(),
             },
             JsonLdToRdfState::List(current_node) => match event {
-                JsonLdEvent::StartObject { types } => {
+                JsonLdEvent::StartObject => {
                     self.add_new_list_node_state(current_node, results);
                     self.state.push(JsonLdToRdfState::StartObject {
-                        types: types
-                            .into_iter()
-                            .filter_map(|t| self.convert_named_or_blank_node(t))
-                            .collect(),
                         buffer: Vec::new(),
                         nesting: 0,
                     })
@@ -1055,10 +1060,11 @@ impl JsonLdToRdfConverter {
                     value,
                     r#type,
                     language,
+                    direction,
                 } => {
                     self.add_new_list_node_state(current_node, results);
                     self.emit_quad_for_new_literal(
-                        self.convert_literal(value, language, r#type),
+                        self.convert_literal(value, language, direction, r#type),
                         results,
                     )
                 }
@@ -1077,11 +1083,7 @@ impl JsonLdToRdfConverter {
                             ));
                         }
                     } else {
-                        self.emit_quads_for_new_object(
-                            Some(&rdf::NIL.into_owned().into()),
-                            Vec::new(),
-                            results,
-                        )
+                        self.emit_quads_for_new_object(Some(&rdf::NIL.into_owned().into()), results)
                     }
                 }
                 JsonLdEvent::StartSet | JsonLdEvent::EndSet => {
@@ -1092,17 +1094,16 @@ impl JsonLdToRdfConverter {
                 | JsonLdEvent::StartProperty { .. }
                 | JsonLdEvent::EndProperty
                 | JsonLdEvent::Id(_)
+                | JsonLdEvent::Type(_)
                 | JsonLdEvent::StartGraph
-                | JsonLdEvent::EndGraph => unreachable!(),
+                | JsonLdEvent::EndGraph
+                | JsonLdEvent::StartIncluded
+                | JsonLdEvent::EndIncluded => unreachable!(),
             },
             JsonLdToRdfState::Graph(_) => match event {
-                JsonLdEvent::StartObject { types } => {
+                JsonLdEvent::StartObject => {
                     self.state.push(state);
                     self.state.push(JsonLdToRdfState::StartObject {
-                        types: types
-                            .into_iter()
-                            .filter_map(|t| self.convert_named_or_blank_node(t))
-                            .collect(),
                         buffer: Vec::new(),
                         nesting: 0,
                     });
@@ -1115,21 +1116,45 @@ impl JsonLdToRdfConverter {
                 | JsonLdEvent::StartProperty { .. }
                 | JsonLdEvent::EndProperty
                 | JsonLdEvent::Id(_)
+                | JsonLdEvent::Type(_)
                 | JsonLdEvent::EndObject
                 | JsonLdEvent::StartList
                 | JsonLdEvent::EndList
                 | JsonLdEvent::StartSet
-                | JsonLdEvent::EndSet => unreachable!(),
+                | JsonLdEvent::EndSet
+                | JsonLdEvent::StartIncluded
+                | JsonLdEvent::EndIncluded => unreachable!(),
+            },
+            JsonLdToRdfState::Included => match event {
+                JsonLdEvent::StartObject => {
+                    self.state.push(JsonLdToRdfState::Included);
+                    self.state.push(JsonLdToRdfState::StartObject {
+                        buffer: Vec::new(),
+                        nesting: 0,
+                    });
+                }
+                JsonLdEvent::Value { .. } => {
+                    // Illegal but might happen in "lenient" mode
+                    self.state.push(JsonLdToRdfState::Included);
+                }
+                JsonLdEvent::EndIncluded => (),
+                JsonLdEvent::StartGraph
+                | JsonLdEvent::EndGraph
+                | JsonLdEvent::StartProperty { .. }
+                | JsonLdEvent::EndProperty
+                | JsonLdEvent::Id(_)
+                | JsonLdEvent::Type(_)
+                | JsonLdEvent::EndObject
+                | JsonLdEvent::StartList
+                | JsonLdEvent::EndList
+                | JsonLdEvent::StartSet
+                | JsonLdEvent::EndSet
+                | JsonLdEvent::StartIncluded => unreachable!(),
             },
         }
     }
 
-    fn emit_quads_for_new_object(
-        &self,
-        id: Option<&NamedOrBlankNode>,
-        types: Vec<NamedOrBlankNode>,
-        results: &mut Vec<Quad>,
-    ) {
+    fn emit_quads_for_new_object(&self, id: Option<&NamedOrBlankNode>, results: &mut Vec<Quad>) {
         let Some(id) = id else {
             return;
         };
@@ -1144,9 +1169,6 @@ impl JsonLdToRdfConverter {
             } else {
                 Quad::new(subject.clone(), predicate, id.clone(), graph_name.clone())
             })
-        }
-        for t in types {
-            results.push(Quad::new(id.clone(), rdf::TYPE, t, graph_name.clone()))
         }
     }
 
@@ -1190,7 +1212,7 @@ impl JsonLdToRdfConverter {
                 ));
             }
         } else {
-            self.emit_quads_for_new_object(Some(&new_node.clone().into()), Vec::new(), results)
+            self.emit_quads_for_new_object(Some(&new_node.clone().into()), results)
         }
         self.state
             .push(JsonLdToRdfState::List(Some(new_node.into())));
@@ -1217,10 +1239,12 @@ impl JsonLdToRdfConverter {
         }
     }
 
+    #[cfg_attr(not(feature = "rdf-12"), expect(unused_variables))]
     fn convert_literal(
         &self,
         value: JsonLdValue,
         language: Option<String>,
+        direction: Option<&'static str>,
         r#type: Option<String>,
     ) -> Option<Literal> {
         let r#type = if let Some(t) = r#type {
@@ -1231,6 +1255,27 @@ impl JsonLdToRdfConverter {
         Some(match value {
             JsonLdValue::String(value) => {
                 if let Some(language) = language {
+                    #[cfg(feature = "rdf-12")]
+                    if let Some(direction) = direction {
+                        if r#type.is_some_and(|t| t != rdf::DIR_LANG_STRING) {
+                            return None; // Expansion already returns an error
+                        }
+                        let direction = match direction {
+                            "ltr" => BaseDirection::Ltr,
+                            "rtl" => BaseDirection::Rtl,
+                            _ => return None, // Expansion already returns an error
+                        };
+                        return if self.lenient {
+                            Some(Literal::new_directional_language_tagged_literal_unchecked(
+                                value, language, direction,
+                            ))
+                        } else {
+                            Literal::new_directional_language_tagged_literal(
+                                value, &language, direction,
+                            )
+                            .ok()
+                        };
+                    }
                     if r#type.is_some_and(|t| t != rdf::LANG_STRING) {
                         return None; // Expansion already returns an error
                     }
@@ -1288,7 +1333,7 @@ impl JsonLdToRdfConverter {
                 }
                 JsonLdToRdfState::Property { .. } => (),
                 JsonLdToRdfState::List(id) => return id.as_ref(),
-                JsonLdToRdfState::Graph(_) => {
+                JsonLdToRdfState::Graph(_) | JsonLdToRdfState::Included => {
                     return None;
                 }
             }
@@ -1304,7 +1349,7 @@ impl JsonLdToRdfConverter {
                 }
                 JsonLdToRdfState::StartObject { .. } | JsonLdToRdfState::Object(_) => (),
                 JsonLdToRdfState::List(_) => return Some((rdf::FIRST, false)),
-                JsonLdToRdfState::Graph(_) => {
+                JsonLdToRdfState::Graph(_) | JsonLdToRdfState::Included => {
                     return None;
                 }
             }
@@ -1330,7 +1375,8 @@ impl JsonLdToRdfConverter {
                 JsonLdToRdfState::StartObject { .. }
                 | JsonLdToRdfState::Object(_)
                 | JsonLdToRdfState::Property { .. }
-                | JsonLdToRdfState::List(_) => (),
+                | JsonLdToRdfState::List(_)
+                | JsonLdToRdfState::Included => (),
             }
         }
         None
@@ -1390,7 +1436,7 @@ fn canonicalize_json_number(value: &str, always_double: bool) -> Option<RdfJsonN
 
     // We serialize
     let mut buffer = String::with_capacity(value.len());
-    if is_negative {
+    if is_negative && !(decimal_part.is_empty() && integer_part == "0") {
         buffer.push('-');
     }
     let digits_count = i64::try_from(integer_part.len() + decimal_part.len()).ok()?;
@@ -1505,7 +1551,7 @@ mod tests {
         );
         assert_eq!(
             canonicalize_json_number("-0", true),
-            Some(RdfJsonNumber::Double("-0.0E0".into()))
+            Some(RdfJsonNumber::Double("0.0E0".into()))
         );
         assert_eq!(
             canonicalize_json_number("0E-10", true),

@@ -5,18 +5,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
-import pytest
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
 
-from ansible_collections.community.general.plugins.connection.wsl import authenticity_msg, MyAddPolicy
-from ansible_collections.community.general.plugins.module_utils._filelock import FileLock, LockTimeout
-from ansible.errors import AnsibleError, AnsibleAuthenticationFailure, AnsibleConnectionFailure
+import pytest
+from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure, AnsibleError
 from ansible.module_utils.common.text.converters import to_bytes
 from ansible.playbook.play_context import PlayContext
 from ansible.plugins.loader import connection_loader
-from io import StringIO
-from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
 
+from ansible_collections.community.general.plugins.connection.wsl import MyAddPolicy, authenticity_msg
+from ansible_collections.community.general.plugins.module_utils._filelock import FileLock, LockTimeout
 
 paramiko = pytest.importorskip("paramiko")
 
@@ -208,6 +208,19 @@ def test_build_wsl_command(connection):
     connection.set_option("become_user", "test-become-user")
     cmd = connection._build_wsl_command('/bin/sh -c "ls -la"')
     assert cmd == 'wsl.exe --distribution test --user test-become-user -- /bin/sh -c "ls -la"'
+
+
+def test_build_wsl_command_powershell(connection):
+    """Test wsl command building for powershell and cmd remote ssh shell"""
+    cmd = connection._build_wsl_command('/bin/sh -c "ls -la %PATH%"')
+    assert cmd == 'wsl.exe --distribution test -- /bin/sh -c "ls -la ^%PATH^%"'
+
+    connection.set_option("wsl_remote_ssh_shell_type", "powershell")
+    cmd = connection._build_wsl_command('/bin/sh -c "ls -la"')
+    assert cmd == 'wsl.exe --% --distribution test -- /bin/sh -c "ls -la"'
+
+    with pytest.raises(AnsibleError, match="The command contains '%', cannot safely escape it for Powershell"):
+        connection._build_wsl_command('/bin/sh -c "ls -la %PATH%"')
 
 
 @patch("paramiko.SSHClient")

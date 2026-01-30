@@ -6350,6 +6350,7 @@ class CloudfrontApi:
         :raises AccessDenied:
         :raises EntityNotFound:
         :raises InvalidArgument:
+        :raises EntityLimitExceeded:
         :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
@@ -6374,6 +6375,7 @@ class CloudfrontApi:
         :raises AccessDenied:
         :raises EntityNotFound:
         :raises InvalidArgument:
+        :raises EntityLimitExceeded:
         :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
@@ -10240,6 +10242,7 @@ class CloudfrontApi:
         :raises InvalidFunctionAssociation:
         :raises TooManyDistributionsWithLambdaAssociations:
         :raises TooManyDistributionsAssociatedToKeyGroup:
+        :raises EntityLimitExceeded:
         :raises NoSuchOrigin:
         :raises TooManyCacheBehaviors:
         """

@@ -11,6 +11,7 @@ from typing import Callable, Protocol
 
 from pyarrow import flight
 
+from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
@@ -29,12 +30,13 @@ class SimplyCallback:
 
 
 class HeaderMiddleware(flight.ClientMiddleware):
-    def __init__(self, *, headers: dict) -> None:
+    def __init__(self, *, api_client: APIClient) -> None:
         super().__init__()
-        self.headers = headers
+        self.api_client = api_client
 
     def sending_headers(self) -> dict:
-        authorization_header = self.headers.get("Authorization")
+        headers = self.api_client.get_headers()
+        authorization_header = headers.get("Authorization")
         if not authorization_header or not (
             authorization_header.startswith(("Bearer", "Basic"))
         ):
@@ -42,20 +44,20 @@ class HeaderMiddleware(flight.ClientMiddleware):
                 "The authorization header is missing or does not contain supported token type. Allowed token types: Bearer, Basic"
             )
 
-        headers = {"Authorization": authorization_header}
+        updated_headers = {"Authorization": authorization_header}
 
-        if impersonate_header := self.headers.get("impersonate"):
-            headers.update({"Impersonate": impersonate_header})
+        if impersonate_header := headers.get("impersonate"):
+            updated_headers.update({"Impersonate": impersonate_header})
 
-        return headers
+        return updated_headers
 
 
 class HeaderMiddlewareFactory(flight.ClientMiddlewareFactory):
-    def __init__(self, *, headers: dict):
-        self.headers = headers
+    def __init__(self, *, api_client: APIClient):
+        self.api_client = api_client
 
     def start_call(self, info: flight.CallInfo) -> flight.ClientMiddleware:
-        return HeaderMiddleware(headers=self.headers)
+        return HeaderMiddleware(api_client=self.api_client)
 
 
 def _flight_retry(max_retries: int = 3):

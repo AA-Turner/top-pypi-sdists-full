@@ -127,10 +127,19 @@ class TestRabbitMQProducerRepository(unittest.TestCase):
 
         repo.stop_execution("exec-123")
 
+        # Verify exchange is declared as fanout (not queue)
+        mock_channel.exchange_declare.assert_called_once_with(
+            exchange="web_editor_control",
+            exchange_type="fanout",
+            durable=True,
+        )
+
+        # Verify publish to exchange with empty routing key
         mock_channel.basic_publish.assert_called_once()
         _, kwargs = mock_channel.basic_publish.call_args
 
-        self.assertEqual(kwargs["routing_key"], "web_editor_control")
+        self.assertEqual(kwargs["routing_key"], "")  # Empty for fanout
+        self.assertEqual(kwargs["exchange"], "web_editor_control")
         import json
 
         body_json = json.loads(

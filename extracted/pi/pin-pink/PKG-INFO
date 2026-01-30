@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pin-pink
-Version: 3.5.0
+Version: 4.0.0
 Summary: Inverse kinematics for articulated robot models, based on Pinocchio.
 Keywords: inverse,kinematics,pinocchio
 Author-email: Stéphane Caron <stephane.caron@normalesup.org>
@@ -35,6 +35,7 @@ Project-URL: Tracker, https://github.com/stephane-caron/pink/issues
 [![Coverage](https://coveralls.io/repos/github/stephane-caron/pink/badge.svg?branch=main)](https://coveralls.io/github/stephane-caron/pink?branch=main)
 [![Conda version](https://anaconda.org/conda-forge/pink/badges/version.svg)](https://anaconda.org/conda-forge/pink)
 [![PyPI version](https://img.shields.io/pypi/v/pin-pink)](https://pypi.org/project/pin-pink/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/pin-pink?color=blue)](https://pypistats.org/packages/pin-pink)
 
 **P**ython **in**verse **k**inematics for articulated robot models, based on [Pinocchio](https://github.com/stack-of-tasks/pinocchio).
 
@@ -151,6 +152,25 @@ for t in np.arange(0.0, 42.0, dt):
 
 If task targets are continuously updated, there will be no stationary solution to converge to, but the model will keep on tracking each target at best. Note that [`solve_ik`](https://stephane-caron.github.io/pink/inverse-kinematics.html#pink.solve_ik.solve_ik) will take care of both configuration and velocity limits read from the robot model.
 
+### Floating-base velocity limits
+
+Robots with planar or free flyer bases can clamp their commanded twists by attaching a `FloatingBaseVelocityLimit` to the configuration's model:
+
+```python
+from pink.limits import FloatingBaseVelocityLimit
+
+floating_limit = FloatingBaseVelocityLimit(
+    configuration.model,
+    base_frame="base_link",
+    max_linear_velocity=[0.3, 0.3, 0.2],    # [m] / [s]
+    max_angular_velocity=[1.0, 1.0, 1.0],   # [rad] / [s]
+)
+configuration.model.floating_base_velocity_limit = floating_limit
+```
+
+Once attached, the limit is automatically taken into account when building the IK constraints.
+Pass ``base_frame=None`` to let Pink pick the frame attached to ``root_joint`` automatically.
+
 ## Examples
 
 Illustrated examples showcase how Pink performs on various robot morphologies:
@@ -162,6 +182,7 @@ Illustrated examples showcase how Pink performs on various robot morphologies:
 - Humanoid: [Draco 3](https://github.com/stephane-caron/pink/tree/main/examples#humanoid-draco-3)
 - Mobile base: [Stretch R1](https://github.com/stephane-caron/pink/tree/main/examples#mobile-stretch)
 - Quadruped: [Go2 squatting with floating-base limits](https://github.com/stephane-caron/pink/tree/main/examples/barriers#go2-squat)
+- Floating base: [Clamp free-flyer velocities](https://github.com/stephane-caron/pink/blob/main/examples/floating_base_velocity_limit.py)
 - Wheeled biped: [Upkie rolling without slipping](https://github.com/stephane-caron/pink/tree/main/examples#wheeled-biped-upkie)
 
 There are also more basic examples to get started:
@@ -194,11 +215,11 @@ If you use Pink in your scientific works, please cite it *e.g.* as follows:
 ```bibtex
 @software{pink,
   title = {{Pink: Python inverse kinematics based on Pinocchio}},
-  author = {Caron, Stéphane and De Mont-Marin, Yann and Budhiraja, Rohan and Bang, Seung Hyeon and Domrachev, Ivan and Nedelchev, Simeon and Du, Peter and Escande, Adrien and Vaillant, Joris and Wingo, Bruce},
+  author = {Caron, Stéphane and De Mont-Marin, Yann and Budhiraja, Rohan and Bang, Seung Hyeon and Domrachev, Ivan and Nedelchev, Simeon and Du, Peter and Escande, Adrien and Vaillant, Joris and Wingo, Bruce and Patapati, Santosh},
   license = {Apache-2.0},
   url = {https://github.com/stephane-caron/pink},
-  version = {3.5.0},
-  year = {2025}
+  version = {4.0.0},
+  year = {2026}
 }
 ```
 

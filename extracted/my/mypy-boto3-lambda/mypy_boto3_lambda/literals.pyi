@@ -3,7 +3,7 @@ Type annotations for lambda service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -30,6 +30,7 @@ __all__ = (
     "CodeSigningPolicyType",
     "EndPointTypeType",
     "EventSourceMappingMetricType",
+    "EventSourceMappingSystemLogLevelType",
     "EventSourcePositionType",
     "EventTypeType",
     "ExecutionStatusType",
@@ -101,7 +102,8 @@ CapacityProviderScalingModeType = Literal["Auto", "Manual"]
 CapacityProviderStateType = Literal["Active", "Deleting", "Failed", "Pending"]
 CodeSigningPolicyType = Literal["Enforce", "Warn"]
 EndPointTypeType = Literal["KAFKA_BOOTSTRAP_SERVERS"]
-EventSourceMappingMetricType = Literal["EventCount"]
+EventSourceMappingMetricType = Literal["ErrorCount", "EventCount", "KafkaMetrics"]
+EventSourceMappingSystemLogLevelType = Literal["DEBUG", "INFO", "WARN"]
 EventSourcePositionType = Literal["AT_TIMESTAMP", "LATEST", "TRIM_HORIZON"]
 EventTypeType = Literal[
     "CallbackFailed",
@@ -469,7 +471,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -734,6 +735,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

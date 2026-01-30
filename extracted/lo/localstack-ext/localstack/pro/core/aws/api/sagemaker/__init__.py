@@ -1452,6 +1452,7 @@ class ClusterInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+    ml_p6_b300_48xlarge = "ml.p6-b300.48xlarge"
 
 
 class ClusterKubernetesTaintEffect(StrEnum):
@@ -3256,6 +3257,7 @@ class ReservedCapacityInstanceType(StrEnum):
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_p5_4xlarge = "ml.p5.4xlarge"
+    ml_p6_b300_48xlarge = "ml.p6-b300.48xlarge"
 
 
 class ReservedCapacityStatus(StrEnum):
@@ -3865,6 +3867,7 @@ class TrainingInstanceType(StrEnum):
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_p5_4xlarge = "ml.p5.4xlarge"
+    ml_p6_b300_48xlarge = "ml.p6-b300.48xlarge"
 
 
 class TrainingJobEarlyStoppingType(StrEnum):
@@ -6714,6 +6717,7 @@ class UltraServerInfo(TypedDict, total=False):
     """Contains information about the UltraServer object."""
 
     Id: String | None
+    Type: String | None
 
 
 class ClusterNodeDetails(TypedDict, total=False):
@@ -6773,7 +6777,7 @@ class ClusterOrchestratorEksConfig(TypedDict, total=False):
 class ClusterOrchestrator(TypedDict, total=False):
     """The type of orchestrator used for the SageMaker HyperPod cluster."""
 
-    Eks: ClusterOrchestratorEksConfig
+    Eks: ClusterOrchestratorEksConfig | None
 
 
 class FSxLustreConfig(TypedDict, total=False):
@@ -17633,8 +17637,8 @@ class SearchTrainingPlanOfferingsRequest(ServiceRequest):
     UltraServerCount: UltraServerCount | None
     StartTimeAfter: Timestamp | None
     EndTimeBefore: Timestamp | None
-    DurationHours: TrainingPlanDurationHoursInput
-    TargetResources: SageMakerResourceNames
+    DurationHours: TrainingPlanDurationHoursInput | None
+    TargetResources: SageMakerResourceNames | None
 
 
 class TrainingPlanOffering(TypedDict, total=False):
@@ -20818,6 +20822,13 @@ class SagemakerApi:
         For information about notebook instance lifestyle configurations, see
         `Step 2.1: (Optional) Customize a Notebook
         Instance <https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html>`__.
+
+        Lifecycle configuration scripts execute with root access and the
+        notebook instance's IAM execution role privileges. Grant this permission
+        only to trusted principals. See `Customize a Notebook Instance Using a
+        Lifecycle Configuration
+        Script <https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html>`__
+        for security best practices.
 
         :param notebook_instance_lifecycle_config_name: The name of the lifecycle configuration.
         :param on_create: A shell script that runs only once, when you create a notebook instance.
@@ -26744,14 +26755,14 @@ class SagemakerApi:
     def search_training_plan_offerings(
         self,
         context: RequestContext,
-        duration_hours: TrainingPlanDurationHoursInput,
-        target_resources: SageMakerResourceNames,
         instance_type: ReservedCapacityInstanceType | None = None,
         instance_count: ReservedCapacityInstanceCount | None = None,
         ultra_server_type: UltraServerType | None = None,
         ultra_server_count: UltraServerCount | None = None,
         start_time_after: Timestamp | None = None,
         end_time_before: Timestamp | None = None,
+        duration_hours: TrainingPlanDurationHoursInput | None = None,
+        target_resources: SageMakerResourceNames | None = None,
         **kwargs,
     ) -> SearchTrainingPlanOfferingsResponse:
         """Searches for available training plan offerings based on specified
@@ -26767,8 +26778,6 @@ class SagemakerApi:
         SageMaker training jobs or SageMaker HyperPod clusters using Amazon
         SageMaker Training Plan , see ``CreateTrainingPlan``.
 
-        :param duration_hours: The desired duration in hours for the training plan offerings.
-        :param target_resources: The target resources (e.
         :param instance_type: The type of instance you want to search for in the available training
         plan offerings.
         :param instance_count: The number of instances you want to reserve in the training plan
@@ -26779,6 +26788,8 @@ class SagemakerApi:
         specified date.
         :param end_time_before: A filter to search for reserved capacity offerings with an end time
         before a specified date.
+        :param duration_hours: The desired duration in hours for the training plan offerings.
+        :param target_resources: The target resources (e.
         :returns: SearchTrainingPlanOfferingsResponse
         :raises ResourceLimitExceeded:
         """
@@ -26931,7 +26942,7 @@ class SagemakerApi:
         configuration of the parent pipeline for this specific run.
         :param selective_execution_config: The selective execution configuration applied to the pipeline run.
         :param pipeline_version_id: The ID of the pipeline version to start execution from.
-        :param mlflow_experiment_name: The MLflow experiment name of the start execution.
+        :param mlflow_experiment_name: The MLflow experiment name of the pipeline execution.
         :returns: StartPipelineExecutionResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -28138,6 +28149,15 @@ class SagemakerApi:
         or downgrading the ML compute instance used for your notebook instance
         to accommodate changes in your workload requirements.
 
+        This API can attach lifecycle configurations to notebook instances.
+        Lifecycle configuration scripts execute with root access and the
+        notebook instance's IAM execution role privileges. Principals with this
+        permission and access to lifecycle configurations can execute code with
+        the execution role's credentials. See `Customize a Notebook Instance
+        Using a Lifecycle Configuration
+        Script <https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html>`__
+        for security best practices.
+
         :param notebook_instance_name: The name of the notebook instance to update.
         :param instance_type: The Amazon ML compute instance type.
         :param ip_address_type: The IP address type for the notebook instance.
@@ -28180,6 +28200,15 @@ class SagemakerApi:
         """Updates a notebook instance lifecycle configuration created with the
         `CreateNotebookInstanceLifecycleConfig <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateNotebookInstanceLifecycleConfig.html>`__
         API.
+
+        Updates to lifecycle configurations affect all notebook instances using
+        that configuration upon their next start. Lifecycle configuration
+        scripts execute with root access and the notebook instance's IAM
+        execution role privileges. Grant this permission only to trusted
+        principals. See `Customize a Notebook Instance Using a Lifecycle
+        Configuration
+        Script <https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html>`__
+        for security best practices.
 
         :param notebook_instance_lifecycle_config_name: The name of the lifecycle configuration.
         :param on_create: The shell script that runs only once, when you create a notebook

@@ -12,23 +12,41 @@ import freezegun
 import pytest
 
 from tests.async_mock import AsyncMock, MagicMock, call, patch
-from tests.conftest import make_app, make_ieee, make_node_desc
+from tests.conftest import (
+    make_app,
+    make_ieee,
+    make_node_desc,
+    mock_attribute_reads,
+    mock_attribute_report,
+    mock_attribute_writes,
+)
 from tests.test_backups import backup_factory  # noqa: F401
 from zigpy import profiles
 import zigpy.appdb
 import zigpy.application
 import zigpy.config as conf
-from zigpy.const import SIG_ENDPOINTS, SIG_MANUFACTURER, SIG_MODEL
+from zigpy.const import (
+    SIG_ENDPOINTS,
+    SIG_EP_INPUT,
+    SIG_EP_OUTPUT,
+    SIG_EP_PROFILE,
+    SIG_EP_TYPE,
+    SIG_MANUFACTURER,
+    SIG_MODEL,
+    SIG_NODE_DESC,
+)
 from zigpy.device import Device, Status
 import zigpy.endpoint
 import zigpy.ota
-from zigpy.quirks import CustomDevice
+import zigpy.quirks
+from zigpy.quirks import CustomCluster, CustomDevice
 from zigpy.quirks.registry import DeviceRegistry
 from zigpy.quirks.v2 import QuirkBuilder
 import zigpy.types as t
 import zigpy.zcl
-from zigpy.zcl.clusters.general import Basic, Ota
-from zigpy.zcl.foundation import Status as ZCLStatus
+from zigpy.zcl import ClusterType, UnsupportedAttribute
+from zigpy.zcl.clusters.general import Basic, Identify, OnOff, Ota
+from zigpy.zcl.foundation import Status as ZCLStatus, ZCLAttributeDef
 from zigpy.zdo import types as zdo_t
 
 
@@ -147,8 +165,8 @@ async def test_database(tmp_path):
     app.device_initialized(dev)
 
     in_clus.update_attribute(0, 99)
-    in_clus.update_attribute(4, bytes("Custom", "ascii"))
-    in_clus.update_attribute(5, bytes("Model", "ascii"))
+    in_clus.update_attribute(4, b"Custom")
+    in_clus.update_attribute(5, b"Model")
     in_clus.listener_event("cluster_command", 0)
     in_clus.listener_event("general_command")
 
@@ -201,11 +219,11 @@ async def test_database(tmp_path):
     dev = app2.get_device(ieee)
     assert dev.endpoints[1].device_type == profiles.zha.DeviceType.PUMP
     assert dev.endpoints[2].device_type == 0xFFFD
-    assert dev.endpoints[2].in_clusters[0]._attr_cache[0] == 99
-    assert dev.endpoints[2].in_clusters[0]._attr_cache[4] == bytes("Custom", "ascii")
-    assert dev.endpoints[2].in_clusters[0]._attr_cache[5] == bytes("Model", "ascii")
+    assert dev.endpoints[2].in_clusters[0].get(0x0000) == 99
+    assert dev.endpoints[2].in_clusters[0].get(0x0004) == b"Custom"
+    assert dev.endpoints[2].in_clusters[0].get(0x0005) == b"Model"
     assert dev.endpoints[2].out_clusters[0].cluster_id == 0x0000
-    assert dev.endpoints[2].out_clusters[0]._attr_cache[0] == 99
+    assert dev.endpoints[2].out_clusters[0].get(0) == 99
     assert dev.endpoints[2].manufacturer == "Custom"
     assert dev.endpoints[2].model == "Model"
     assert dev.endpoints[3].device_type == profiles.zll.DeviceType.COLOR_LIGHT
@@ -216,8 +234,8 @@ async def test_database(tmp_path):
     dev = app2.get_device(custom_ieee)
     # This virtual attribute is added by the quirk, there is no corresponding cluster
     # stored in the database, nor is there a corresponding endpoint 99
-    assert dev.endpoints[1].in_clusters[0x0008]._attr_cache[0x0011] == 17
-    assert dev.endpoints[99].in_clusters[0x0008]._attr_cache[0x0011] == 17
+    assert dev.endpoints[1].in_clusters[0x0008].get(0x0011) == 17
+    assert dev.endpoints[99].in_clusters[0x0008].get(0x0011) == 17
     assert dev.relays == relays_2
     assert abs(dev.last_seen - custom_dev_last_seen) < 0.01
     dev.relays = None
@@ -446,7 +464,9 @@ async def test_attribute_update(tmp_path, dev_init):
     app.device_initialized(dev)
     await app.shutdown()
 
-    attr_update_time = clus._attr_last_updated[0x0004]
+    attr_update_time = clus._attr_cache.get_last_updated(
+        Basic.AttributeDefs.manufacturer
+    )
 
     # Everything should've been saved - check that it re-loads
     app2 = await make_app_with_db(db)
@@ -458,7 +478,10 @@ async def test_attribute_update(tmp_path, dev_init):
     assert clus._attr_cache[0x0004] == test_manufacturer
     assert clus._attr_cache[0x0005] == test_model
 
-    assert (attr_update_time - clus._attr_last_updated[0x0004]) < timedelta(seconds=0.1)
+    assert (
+        attr_update_time
+        - clus._attr_cache.get_last_updated(Basic.AttributeDefs.manufacturer)
+    ) < timedelta(seconds=0.1)
 
     await app2.shutdown()
 
@@ -489,7 +512,9 @@ async def test_attribute_update_short_interval(tmp_path):
 
     # update an attribute twice in a short interval
     clus.update_attribute(0x4000, "1.0")
-    attr_update_time_first = clus._attr_last_updated[0x4000]
+    attr_update_time_first = clus._attr_cache.get_last_updated(
+        Basic.AttributeDefs.sw_build_id
+    )
 
     # update attribute again 10 seconds later
     fake_time = datetime.now(UTC) + timedelta(seconds=10)
@@ -506,9 +531,10 @@ async def test_attribute_update_short_interval(tmp_path):
     assert clus._attr_cache[0x4000] == "2.0"  # verify second attribute update was saved
 
     # verify the first update attribute time was not overwritten, as it was within the short interval
-    assert (attr_update_time_first - clus._attr_last_updated[0x0004]) < timedelta(
-        seconds=0.1
-    )
+    assert (
+        attr_update_time_first
+        - clus._attr_cache.get_last_updated(Basic.AttributeDefs.sw_build_id)
+    ) < timedelta(seconds=0.1)
 
     await app2.shutdown()
 
@@ -704,8 +730,8 @@ async def test_stopped_appdb_listener(tmp_path):
 
     with patch("zigpy.appdb.PersistingListener._save_attribute") as mock_attr_save:
         clus.update_attribute(0, 99)
-        clus.update_attribute(4, bytes("Custom", "ascii"))
-        clus.update_attribute(5, bytes("Model", "ascii"))
+        clus.update_attribute(4, b"Custom")
+        clus.update_attribute(5, b"Model")
         await app.shutdown()
         assert mock_attr_save.call_count == 3
 
@@ -797,11 +823,11 @@ async def test_unsupported_attribute(tmp_path, dev_init):
     in_clus.update_attribute(5, "Model")
     app.device_initialized(dev)
 
-    in_clus.add_unsupported_attribute(0x0010)
+    in_clus.add_unsupported_attribute(Basic.AttributeDefs.location_desc.id)
     in_clus.add_unsupported_attribute("physical_env")
 
     out_clus = ep.add_output_cluster(0)
-    out_clus.add_unsupported_attribute(0x0010)
+    out_clus.add_unsupported_attribute(Basic.AttributeDefs.location_desc.id)
     await app.shutdown()
 
     # Everything should've been saved - check that it re-loads
@@ -809,21 +835,22 @@ async def test_unsupported_attribute(tmp_path, dev_init):
     dev = app2.get_device(ieee)
     assert dev.is_initialized == dev_init
     assert dev.endpoints[3].device_type == profiles.zha.DeviceType.PUMP
-    assert 0x0010 in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert 0x0010 in dev.endpoints[3].out_clusters[0].unsupported_attributes
-    assert "location_desc" in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert "location_desc" in dev.endpoints[3].out_clusters[0].unsupported_attributes
-    assert 0x0011 in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert "physical_env" in dev.endpoints[3].in_clusters[0].unsupported_attributes
+    assert (
+        dev.endpoints[3]
+        .out_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    )
+    assert (
+        dev.endpoints[3]
+        .in_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    )
+    assert (
+        dev.endpoints[3]
+        .in_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.physical_env)
+    )
     await app2.shutdown()
-
-    async def mockrequest(
-        is_general_req, command, schema, args, manufacturer=None, **kwargs
-    ):
-        assert is_general_req is True
-        assert command == 0
-        rar0010 = _mk_rar(0x0010, "Not Removed", zigpy.zcl.foundation.Status.SUCCESS)
-        return [[rar0010]]
 
     # Now lets remove an unsupported attribute and make sure it is removed
     app3 = await make_app_with_db(db)
@@ -832,17 +859,17 @@ async def test_unsupported_attribute(tmp_path, dev_init):
     assert dev.endpoints[3].device_type == profiles.zha.DeviceType.PUMP
 
     in_cluster = dev.endpoints[3].in_clusters[0]
-    assert 0x0010 in in_cluster.unsupported_attributes
-    in_cluster.request = mockrequest
-    await in_cluster.read_attributes([0x0010], allow_cache=False)
-    assert 0x0010 not in in_cluster.unsupported_attributes
-    assert "location_desc" not in in_cluster.unsupported_attributes
-    assert in_cluster.get(0x0010) == "Not Removed"
-    assert 0x0011 in in_cluster.unsupported_attributes
-    assert "physical_env" in in_cluster.unsupported_attributes
+
+    # `location_desc` on the in cluster flips from unsupported to unsupported
+    assert in_cluster._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    in_cluster.update_attribute(Basic.AttributeDefs.location_desc, "Not Removed")
+    assert not in_cluster._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+
+    assert in_cluster.get(Basic.AttributeDefs.location_desc.id) == "Not Removed"
+    assert in_cluster._attr_cache.is_unsupported(Basic.AttributeDefs.physical_env)
 
     out_cluster = dev.endpoints[3].out_clusters[0]
-    out_cluster.remove_unsupported_attribute(0x0010)
+    out_cluster.update_attribute(Basic.AttributeDefs.location_desc, "test")
     await app3.shutdown()
 
     # Everything should've been saved - check that it re-loads
@@ -850,12 +877,31 @@ async def test_unsupported_attribute(tmp_path, dev_init):
     dev = app4.get_device(ieee)
     assert dev.is_initialized == dev_init
     assert dev.endpoints[3].device_type == profiles.zha.DeviceType.PUMP
-    assert 0x0010 not in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert 0x0010 not in dev.endpoints[3].out_clusters[0].unsupported_attributes
-    assert dev.endpoints[3].in_clusters[0].get(0x0010) == "Not Removed"
-    assert "location_desc" not in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert 0x0011 in dev.endpoints[3].in_clusters[0].unsupported_attributes
-    assert "physical_env" in dev.endpoints[3].in_clusters[0].unsupported_attributes
+    assert (
+        dev.endpoints[3].in_clusters[0].get(Basic.AttributeDefs.location_desc)
+        == "Not Removed"
+    )
+
+    assert (
+        not dev.endpoints[3]
+        .in_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    )
+    assert (
+        not dev.endpoints[3]
+        .out_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    )
+    assert (
+        not dev.endpoints[3]
+        .in_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.location_desc)
+    )
+    assert (
+        dev.endpoints[3]
+        .in_clusters[0]
+        ._attr_cache.is_unsupported(Basic.AttributeDefs.physical_env)
+    )
     await app4.shutdown()
 
 
@@ -1245,5 +1291,375 @@ async def test_appdb_complex_quirk_matching(tmp_path) -> None:
     # Only the second quirk should match
     dev2 = app2.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
     assert dev2.quirk_metadata == quirk2
+
+    await app2.shutdown()
+
+
+@patch("zigpy.quirks.DEVICE_REGISTRY", new=DeviceRegistry())
+async def test_attribute_reads_persist(tmp_path) -> None:
+    """Test that attribute reads are persisted to the database."""
+
+    class CustomBasicCluster(CustomCluster, Basic):
+        class AttributeDefs(Basic.AttributeDefs):
+            # This attribute intentionally collides with `model`
+            custom_attr = ZCLAttributeDef(
+                id=0x0004, type=t.uint8_t, manufacturer_code=0x1234
+            )
+
+    (
+        QuirkBuilder(
+            "some manufacturer", "some model", registry=zigpy.quirks.DEVICE_REGISTRY
+        )
+        .replaces(CustomBasicCluster, endpoint_id=1)
+        .add_to_registry()
+    )
+
+    db = tmp_path / "test.db"
+    app = await make_app_with_db(db)
+
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+    dev.node_desc = make_node_desc(logical_type=zdo_t.LogicalType.Router)
+
+    ep = dev.add_endpoint(1)
+    ep.status = zigpy.endpoint.Status.ZDO_INIT
+    ep.profile_id = 260
+    ep.device_type = profiles.zha.DeviceType.PUMP
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    basic.update_attribute(Basic.AttributeDefs.model, "some model")
+    basic.update_attribute(Basic.AttributeDefs.manufacturer, "some manufacturer")
+
+    await dev.initialize()
+
+    dev = app.get_device(ieee=dev.ieee)
+    assert isinstance(dev.endpoints[1].basic, CustomBasicCluster)
+
+    with mock_attribute_reads(
+        dev.endpoints[1].basic,
+        {
+            CustomBasicCluster.AttributeDefs.product_label: "some label",
+            CustomBasicCluster.AttributeDefs.serial_number: ZCLStatus.UNSUPPORTED_ATTRIBUTE,
+            CustomBasicCluster.AttributeDefs.custom_attr: 0xAB,
+        },
+    ):
+        await dev.endpoints[1].basic.read_attributes(
+            [
+                CustomBasicCluster.AttributeDefs.product_label,
+                CustomBasicCluster.AttributeDefs.serial_number,
+                CustomBasicCluster.AttributeDefs.custom_attr,
+            ]
+        )
+
+    await app.shutdown()
+
+    # Load it back from disk
+    app2 = await make_app_with_db(db)
+    dev2 = app2.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.product_label
+        )
+        == "some label"
+    )
+
+    with pytest.raises(UnsupportedAttribute):
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.serial_number
+        )
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.custom_attr
+        )
+        == 0xAB
+    )
+
+    await app2.shutdown()
+
+
+@patch("zigpy.quirks.DEVICE_REGISTRY", new=DeviceRegistry())
+async def test_attribute_reports_persist(tmp_path) -> None:
+    """Test that attribute reports are persisted to the database."""
+
+    class CustomBasicCluster(CustomCluster, Basic):
+        class AttributeDefs(Basic.AttributeDefs):
+            # This attribute intentionally collides with `model`
+            custom_attr = ZCLAttributeDef(
+                id=0x0004, type=t.uint8_t, manufacturer_code=0x1234
+            )
+
+    (
+        QuirkBuilder(
+            "some manufacturer", "some model", registry=zigpy.quirks.DEVICE_REGISTRY
+        )
+        .replaces(CustomBasicCluster, endpoint_id=1)
+        .add_to_registry()
+    )
+
+    db = tmp_path / "test.db"
+    app = await make_app_with_db(db)
+
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+    dev.node_desc = make_node_desc(logical_type=zdo_t.LogicalType.Router)
+
+    ep = dev.add_endpoint(1)
+    ep.status = zigpy.endpoint.Status.ZDO_INIT
+    ep.profile_id = 260
+    ep.device_type = profiles.zha.DeviceType.PUMP
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    basic.update_attribute(Basic.AttributeDefs.model, "some model")
+    basic.update_attribute(Basic.AttributeDefs.manufacturer, "some manufacturer")
+
+    await dev.initialize()
+
+    dev = app.get_device(ieee=dev.ieee)
+    assert isinstance(dev.endpoints[1].basic, CustomBasicCluster)
+
+    await mock_attribute_report(
+        dev.endpoints[1].basic,
+        {CustomBasicCluster.AttributeDefs.product_label: "some label"},
+    )
+
+    await mock_attribute_report(
+        dev.endpoints[1].basic,
+        {CustomBasicCluster.AttributeDefs.custom_attr: 0xAB},
+    )
+
+    await app.shutdown()
+
+    # Load it back from disk
+    app2 = await make_app_with_db(db)
+    dev2 = app2.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.product_label
+        )
+        == "some label"
+    )
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.custom_attr
+        )
+        == 0xAB
+    )
+
+    await app2.shutdown()
+
+
+@patch("zigpy.quirks.DEVICE_REGISTRY", new=DeviceRegistry())
+async def test_attribute_writes_persist(tmp_path) -> None:
+    """Test that attribute writes are persisted to the database."""
+
+    class CustomBasicCluster(CustomCluster, Basic):
+        class AttributeDefs(Basic.AttributeDefs):
+            # This attribute intentionally collides with `model`
+            custom_attr = ZCLAttributeDef(
+                id=0x0004, type=t.uint8_t, manufacturer_code=0x1234
+            )
+
+    (
+        QuirkBuilder(
+            "some manufacturer", "some model", registry=zigpy.quirks.DEVICE_REGISTRY
+        )
+        .replaces(CustomBasicCluster, endpoint_id=1)
+        .add_to_registry()
+    )
+
+    db = tmp_path / "test.db"
+    app = await make_app_with_db(db)
+
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+    dev.node_desc = make_node_desc(logical_type=zdo_t.LogicalType.Router)
+
+    ep = dev.add_endpoint(1)
+    ep.status = zigpy.endpoint.Status.ZDO_INIT
+    ep.profile_id = 260
+    ep.device_type = profiles.zha.DeviceType.PUMP
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    basic.update_attribute(Basic.AttributeDefs.model, "some model")
+    basic.update_attribute(Basic.AttributeDefs.manufacturer, "some manufacturer")
+
+    await dev.initialize()
+
+    dev = app.get_device(ieee=dev.ieee)
+    assert isinstance(dev.endpoints[1].basic, CustomBasicCluster)
+
+    with mock_attribute_writes(
+        dev.endpoints[1].basic,
+        {
+            CustomBasicCluster.AttributeDefs.product_label: ZCLStatus.SUCCESS,
+            CustomBasicCluster.AttributeDefs.serial_number: ZCLStatus.UNSUPPORTED_ATTRIBUTE,
+            CustomBasicCluster.AttributeDefs.custom_attr: ZCLStatus.SUCCESS,
+        },
+    ):
+        await dev.endpoints[1].basic.write_attributes(
+            {
+                CustomBasicCluster.AttributeDefs.product_label: "some label",
+                CustomBasicCluster.AttributeDefs.serial_number: "some serial",
+                CustomBasicCluster.AttributeDefs.custom_attr: 0xAB,
+            }
+        )
+
+    await app.shutdown()
+
+    # Load it back from disk
+    app2 = await make_app_with_db(db)
+    dev2 = app2.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.product_label
+        )
+        == "some label"
+    )
+
+    with pytest.raises(UnsupportedAttribute):
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.serial_number
+        )
+
+    assert (
+        dev2.endpoints[1].basic.get_cached_value(
+            CustomBasicCluster.AttributeDefs.custom_attr
+        )
+        == 0xAB
+    )
+
+    await app2.shutdown()
+
+
+async def test_attribute_cache_null_manufacturer_code_uniqueness(tmp_path):
+    """Test that NULL manufacturer_code is treated as unique in the attribute cache."""
+    db = tmp_path / "test.db"
+    app = await make_app_with_db(db)
+
+    ieee = t.EUI64.convert("aa:bb:cc:dd:11:22:33:44")
+    dev = app.add_device(ieee=ieee, nwk=0x1234)
+    dev.node_desc = make_node_desc(logical_type=zdo_t.LogicalType.Router)
+    ep = dev.add_endpoint(1)
+    ep.status = zigpy.endpoint.Status.ZDO_INIT
+    ep.profile_id = profiles.zha.PROFILE_ID
+    ep.device_type = profiles.zha.DeviceType.ON_OFF_SWITCH
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    app.device_initialized(dev)
+
+    # Write an attribute with NULL manufacturer_code twice
+    basic.update_attribute(Basic.AttributeDefs.model, "Model 1")
+    basic.update_attribute(Basic.AttributeDefs.model, "Model 2")
+
+    await app.shutdown()
+
+    # Verify there is only one row in the database
+    async with aiosqlite.connect(db) as conn:
+        cursor = await conn.execute(
+            f"SELECT COUNT(*) FROM attributes_cache{zigpy.appdb.DB_V} WHERE attr_id = :attr_id AND manufacturer_code IS NULL",
+            {"attr_id": Basic.AttributeDefs.model.id},
+        )
+        row = await cursor.fetchone()
+        assert row[0] == 1
+
+        # And the value is the latest one
+        cursor = await conn.execute(
+            f"SELECT value FROM attributes_cache{zigpy.appdb.DB_V} WHERE attr_id = :attr_id AND manufacturer_code IS NULL",
+            {"attr_id": Basic.AttributeDefs.model.id},
+        )
+        row = await cursor.fetchone()
+        assert row[0] == "Model 2"
+
+
+@patch("zigpy.quirks.DEVICE_REGISTRY", new=DeviceRegistry())
+async def test_device_signature_ignores_quirks(tmp_path) -> None:
+    """Test that `device.original_signature` is populated before quirks modify the device."""
+
+    (
+        QuirkBuilder(
+            "some manufacturer", "some model", registry=zigpy.quirks.DEVICE_REGISTRY
+        )
+        .adds_endpoint(99)
+        .adds(Basic.cluster_id, endpoint_id=99)
+        .adds(Identify.cluster_id, endpoint_id=1)
+        .removes(OnOff.cluster_id, cluster_type=ClusterType.Client, endpoint_id=1)
+        .add_to_registry()
+    )
+
+    expected_signature = {
+        SIG_MANUFACTURER: "some manufacturer",
+        SIG_MODEL: "some model",
+        SIG_NODE_DESC: {
+            "logical_type": zdo_t.LogicalType.Router,
+            "complex_descriptor_available": 0,
+            "user_descriptor_available": 0,
+            "reserved": 0,
+            "aps_flags": 0,
+            "frequency_band": zdo_t.NodeDescriptor.FrequencyBand.Freq2400MHz,
+            "mac_capability_flags": zdo_t.NodeDescriptor.MACCapabilityFlags.AllocateAddress,
+            "manufacturer_code": 4174,
+            "maximum_buffer_size": 82,
+            "maximum_incoming_transfer_size": 82,
+            "server_mask": 0,
+            "maximum_outgoing_transfer_size": 82,
+            "descriptor_capability_field": zdo_t.NodeDescriptor.DescriptorCapability.NONE,
+        },
+        SIG_ENDPOINTS: {
+            1: {
+                SIG_EP_PROFILE: 260,
+                SIG_EP_TYPE: profiles.zha.DeviceType.PUMP,
+                SIG_EP_INPUT: [Basic.cluster_id],
+                SIG_EP_OUTPUT: [OnOff.cluster_id],
+            },
+        },
+    }
+
+    db = tmp_path / "test.db"
+    app = await make_app_with_db(db)
+
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+    dev.node_desc = make_node_desc(logical_type=zdo_t.LogicalType.Router)
+
+    ep = dev.add_endpoint(1)
+    ep.status = zigpy.endpoint.Status.ZDO_INIT
+    ep.profile_id = 260
+    ep.device_type = profiles.zha.DeviceType.PUMP
+
+    ep.add_output_cluster(OnOff.cluster_id)
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    basic.update_attribute(Basic.AttributeDefs.model, "some model")
+    basic.update_attribute(Basic.AttributeDefs.manufacturer, "some manufacturer")
+
+    dev.model = "some model"
+    dev.manufacturer = "some manufacturer"
+
+    # When a device joins at runtime, `device_initialized` applies quirks
+    app.device_initialized(dev)
+    dev = app.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+
+    # The quirk modified the device object
+    assert 99 in dev.endpoints
+    assert Identify.cluster_id in dev.endpoints[1].in_clusters
+    assert OnOff.cluster_id not in dev.endpoints[1].out_clusters
+
+    # But the original signature was captured before quirks were applied
+    assert dev.original_signature == expected_signature
+
+    await app.shutdown()
+
+    # Also verify loading from the database preserves the original signature
+    app2 = await make_app_with_db(db)
+    dev2 = app2.get_device(t.EUI64.convert("aa:bb:cc:dd:11:22:33:44"))
+
+    # The quirk modified the device object
+    assert 99 in dev2.endpoints
+    assert Identify.cluster_id in dev2.endpoints[1].in_clusters
+    assert OnOff.cluster_id not in dev2.endpoints[1].out_clusters
+
+    # The original signature is still preserved
+    assert dev2.original_signature == expected_signature
 
     await app2.shutdown()

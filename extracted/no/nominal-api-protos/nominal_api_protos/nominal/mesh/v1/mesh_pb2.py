@@ -24,10 +24,11 @@ _sym_db = _symbol_database.Default()
 
 from nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2
 from nominal.mesh.v1 import links_pb2 as nominal_dot_mesh_dot_v1_dot_links__pb2
+from nominal.mesh.v1 import remote_connections_pb2 as nominal_dot_mesh_dot_v1_dot_remote__connections__pb2
 from nominal.types.time import time_pb2 as nominal_dot_types_dot_time_dot_time__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1anominal/mesh/v1/mesh.proto\x12\x0fnominal.mesh.v1\x1a\x44nominal/direct_channel_writer/v2/direct_nominal_channel_writer.proto\x1a\x1bnominal/mesh/v1/links.proto\x1a\x1dnominal/types/time/time.proto\"\x8e\x01\n\x0bMeshRequest\x12\x39\n\x0b\x64\x61ta_stream\x18\x01 \x01(\x0b\x32\".nominal.mesh.v1.DataStreamRequestH\x00\x12\x39\n\x0b\x66ile_ingest\x18\x02 \x01(\x0b\x32\".nominal.mesh.v1.FileIngestRequestH\x00\x42\t\n\x07request\"\x0e\n\x0cMeshResponse\"i\n\x11\x44\x61taStreamRequest\x12T\n\x15write_batches_request\x18\x01 \x03(\x0b\x32\x35.nominal.direct_channel_writer.v2.WriteBatchesRequest\"I\n\x11\x46ileIngestRequest\x12\x34\n\rfile_metadata\x18\x01 \x01(\x0b\x32\x1d.nominal.mesh.v1.FileMetadata\"\xfb\x04\n\x0c\x46ileMetadata\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x14\n\x0c\x64\x61taset_uuid\x18\x02 \x01(\t\x12\x0f\n\x07s3_path\x18\x03 \x01(\t\x12\x11\n\tfile_name\x18\x04 \x01(\t\x12J\n\x0forigin_metadata\x18\x05 \x03(\x0b\x32\x31.nominal.mesh.v1.FileMetadata.OriginMetadataEntry\x12)\n\x06\x62ounds\x18\x06 \x01(\x0b\x32\x19.nominal.types.time.Range\x12\x32\n\x0buploaded_at\x18\x07 \x01(\x0b\x32\x1d.nominal.types.time.Timestamp\x12\x19\n\x11ingested_at_nanos\x18\x08 \x01(\x03\x12\x13\n\x0btag_columns\x18\t \x03(\t\x12S\n\x14\x61\x64\x64itional_file_tags\x18\n \x03(\x0b\x32\x35.nominal.mesh.v1.FileMetadata.AdditionalFileTagsEntry\x12\x11\n\tfile_size\x18\x0b \x01(\x03\x12=\n\x08metadata\x18\x0c \x03(\x0b\x32+.nominal.mesh.v1.FileMetadata.MetadataEntry\x1a\x35\n\x13OriginMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x39\n\x17\x41\x64\x64itionalFileTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xa5\x03\n\x0bMeshService\x12\x43\n\x04Mesh\x12\x1c.nominal.mesh.v1.MeshRequest\x1a\x1d.nominal.mesh.v1.MeshResponse\x12U\n\nCreateLink\x12\".nominal.mesh.v1.CreateLinkRequest\x1a#.nominal.mesh.v1.CreateLinkResponse\x12L\n\x07GetLink\x12\x1f.nominal.mesh.v1.GetLinkRequest\x1a .nominal.mesh.v1.GetLinkResponse\x12U\n\nUpdateLink\x12\".nominal.mesh.v1.UpdateLinkRequest\x1a#.nominal.mesh.v1.UpdateLinkResponse\x12U\n\nDeleteLink\x12\".nominal.mesh.v1.DeleteLinkRequest\x1a#.nominal.mesh.v1.DeleteLinkResponseB\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1anominal/mesh/v1/mesh.proto\x12\x0fnominal.mesh.v1\x1a\x44nominal/direct_channel_writer/v2/direct_nominal_channel_writer.proto\x1a\x1bnominal/mesh/v1/links.proto\x1a(nominal/mesh/v1/remote_connections.proto\x1a\x1dnominal/types/time/time.proto\"\x8e\x01\n\x0bMeshRequest\x12\x39\n\x0b\x64\x61ta_stream\x18\x01 \x01(\x0b\x32\".nominal.mesh.v1.DataStreamRequestH\x00\x12\x39\n\x0b\x66ile_ingest\x18\x02 \x01(\x0b\x32\".nominal.mesh.v1.FileIngestRequestH\x00\x42\t\n\x07request\"\x0e\n\x0cMeshResponse\"i\n\x11\x44\x61taStreamRequest\x12T\n\x15write_batches_request\x18\x01 \x03(\x0b\x32\x35.nominal.direct_channel_writer.v2.WriteBatchesRequest\"I\n\x11\x46ileIngestRequest\x12\x34\n\rfile_metadata\x18\x01 \x01(\x0b\x32\x1d.nominal.mesh.v1.FileMetadata\"\xfb\x04\n\x0c\x46ileMetadata\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x14\n\x0c\x64\x61taset_uuid\x18\x02 \x01(\t\x12\x0f\n\x07s3_path\x18\x03 \x01(\t\x12\x11\n\tfile_name\x18\x04 \x01(\t\x12J\n\x0forigin_metadata\x18\x05 \x03(\x0b\x32\x31.nominal.mesh.v1.FileMetadata.OriginMetadataEntry\x12)\n\x06\x62ounds\x18\x06 \x01(\x0b\x32\x19.nominal.types.time.Range\x12\x32\n\x0buploaded_at\x18\x07 \x01(\x0b\x32\x1d.nominal.types.time.Timestamp\x12\x19\n\x11ingested_at_nanos\x18\x08 \x01(\x03\x12\x13\n\x0btag_columns\x18\t \x03(\t\x12S\n\x14\x61\x64\x64itional_file_tags\x18\n \x03(\x0b\x32\x35.nominal.mesh.v1.FileMetadata.AdditionalFileTagsEntry\x12\x11\n\tfile_size\x18\x0b \x01(\x03\x12=\n\x08metadata\x18\x0c \x03(\x0b\x32+.nominal.mesh.v1.FileMetadata.MetadataEntry\x1a\x35\n\x13OriginMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x39\n\x17\x41\x64\x64itionalFileTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x14\n\x12HealthCheckRequest\"\x15\n\x13HealthCheckResponse2\xda\x08\n\x0bMeshService\x12\x43\n\x04Mesh\x12\x1c.nominal.mesh.v1.MeshRequest\x1a\x1d.nominal.mesh.v1.MeshResponse\x12X\n\x0bHealthCheck\x12#.nominal.mesh.v1.HealthCheckRequest\x1a$.nominal.mesh.v1.HealthCheckResponse\x12U\n\nCreateLink\x12\".nominal.mesh.v1.CreateLinkRequest\x1a#.nominal.mesh.v1.CreateLinkResponse\x12L\n\x07GetLink\x12\x1f.nominal.mesh.v1.GetLinkRequest\x1a .nominal.mesh.v1.GetLinkResponse\x12U\n\nUpdateLink\x12\".nominal.mesh.v1.UpdateLinkRequest\x1a#.nominal.mesh.v1.UpdateLinkResponse\x12U\n\nDeleteLink\x12\".nominal.mesh.v1.DeleteLinkRequest\x1a#.nominal.mesh.v1.DeleteLinkResponse\x12y\n\x16\x43reateRemoteConnection\x12..nominal.mesh.v1.CreateRemoteConnectionRequest\x1a/.nominal.mesh.v1.CreateRemoteConnectionResponse\x12p\n\x13GetRemoteConnection\x12+.nominal.mesh.v1.GetRemoteConnectionRequest\x1a,.nominal.mesh.v1.GetRemoteConnectionResponse\x12y\n\x16UpdateRemoteConnection\x12..nominal.mesh.v1.UpdateRemoteConnectionRequest\x1a/.nominal.mesh.v1.UpdateRemoteConnectionResponse\x12y\n\x16\x44\x65leteRemoteConnection\x12..nominal.mesh.v1.DeleteRemoteConnectionRequest\x1a/.nominal.mesh.v1.DeleteRemoteConnectionResponse\x12v\n\x15ListRemoteConnections\x12-.nominal.mesh.v1.ListRemoteConnectionsRequest\x1a..nominal.mesh.v1.ListRemoteConnectionsResponseB\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,22 +42,26 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_FILEMETADATA_ADDITIONALFILETAGSENTRY']._serialized_options = b'8\001'
   _globals['_FILEMETADATA_METADATAENTRY']._loaded_options = None
   _globals['_FILEMETADATA_METADATAENTRY']._serialized_options = b'8\001'
-  _globals['_MESHREQUEST']._serialized_start=178
-  _globals['_MESHREQUEST']._serialized_end=320
-  _globals['_MESHRESPONSE']._serialized_start=322
-  _globals['_MESHRESPONSE']._serialized_end=336
-  _globals['_DATASTREAMREQUEST']._serialized_start=338
-  _globals['_DATASTREAMREQUEST']._serialized_end=443
-  _globals['_FILEINGESTREQUEST']._serialized_start=445
-  _globals['_FILEINGESTREQUEST']._serialized_end=518
-  _globals['_FILEMETADATA']._serialized_start=521
-  _globals['_FILEMETADATA']._serialized_end=1156
-  _globals['_FILEMETADATA_ORIGINMETADATAENTRY']._serialized_start=995
-  _globals['_FILEMETADATA_ORIGINMETADATAENTRY']._serialized_end=1048
-  _globals['_FILEMETADATA_ADDITIONALFILETAGSENTRY']._serialized_start=1050
-  _globals['_FILEMETADATA_ADDITIONALFILETAGSENTRY']._serialized_end=1107
-  _globals['_FILEMETADATA_METADATAENTRY']._serialized_start=1109
-  _globals['_FILEMETADATA_METADATAENTRY']._serialized_end=1156
-  _globals['_MESHSERVICE']._serialized_start=1159
-  _globals['_MESHSERVICE']._serialized_end=1580
+  _globals['_MESHREQUEST']._serialized_start=220
+  _globals['_MESHREQUEST']._serialized_end=362
+  _globals['_MESHRESPONSE']._serialized_start=364
+  _globals['_MESHRESPONSE']._serialized_end=378
+  _globals['_DATASTREAMREQUEST']._serialized_start=380
+  _globals['_DATASTREAMREQUEST']._serialized_end=485
+  _globals['_FILEINGESTREQUEST']._serialized_start=487
+  _globals['_FILEINGESTREQUEST']._serialized_end=560
+  _globals['_FILEMETADATA']._serialized_start=563
+  _globals['_FILEMETADATA']._serialized_end=1198
+  _globals['_FILEMETADATA_ORIGINMETADATAENTRY']._serialized_start=1037
+  _globals['_FILEMETADATA_ORIGINMETADATAENTRY']._serialized_end=1090
+  _globals['_FILEMETADATA_ADDITIONALFILETAGSENTRY']._serialized_start=1092
+  _globals['_FILEMETADATA_ADDITIONALFILETAGSENTRY']._serialized_end=1149
+  _globals['_FILEMETADATA_METADATAENTRY']._serialized_start=1151
+  _globals['_FILEMETADATA_METADATAENTRY']._serialized_end=1198
+  _globals['_HEALTHCHECKREQUEST']._serialized_start=1200
+  _globals['_HEALTHCHECKREQUEST']._serialized_end=1220
+  _globals['_HEALTHCHECKRESPONSE']._serialized_start=1222
+  _globals['_HEALTHCHECKRESPONSE']._serialized_end=1243
+  _globals['_MESHSERVICE']._serialized_start=1246
+  _globals['_MESHSERVICE']._serialized_end=2360
 # @@protoc_insertion_point(module_scope)

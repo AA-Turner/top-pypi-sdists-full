@@ -2,8 +2,7 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 import numpy as np
@@ -31,7 +30,7 @@ with blosc2.DictStore("example_dstore.b2z", mode="w") as dstore:
     print("After deletion, keys:", list(dstore.keys()))
 
 # Reading back the dstore
-with blosc2.DictStore("example_dstore.b2z", mode="a") as dstore2:
+with blosc2.open("example_dstore.b2z", mode="a") as dstore2:
     # Add another node to the dstore
     dstore2["/dir2/node5"] = np.array([4, 5, 6])
     print("Node5 data:", dstore2["/dir2/node5"][:])

@@ -32,20 +32,27 @@ class BrokerShape(object):
             The value to assign to the storage_size_in_gbs property of this BrokerShape.
         :type storage_size_in_gbs: int
 
+        :param node_shape:
+            The value to assign to the node_shape property of this BrokerShape.
+        :type node_shape: str
+
         """
         self.swagger_types = {
             'node_count': 'int',
             'ocpu_count': 'int',
-            'storage_size_in_gbs': 'int'
+            'storage_size_in_gbs': 'int',
+            'node_shape': 'str'
         }
         self.attribute_map = {
             'node_count': 'nodeCount',
             'ocpu_count': 'ocpuCount',
-            'storage_size_in_gbs': 'storageSizeInGbs'
+            'storage_size_in_gbs': 'storageSizeInGbs',
+            'node_shape': 'nodeShape'
         }
         self._node_count = None
         self._ocpu_count = None
         self._storage_size_in_gbs = None
+        self._node_shape = None
 
     @property
     def node_count(self):
@@ -118,6 +125,30 @@ class BrokerShape(object):
         :type: int
         """
         self._storage_size_in_gbs = storage_size_in_gbs
+
+    @property
+    def node_shape(self):
+        """
+        Gets the node_shape of this BrokerShape.
+        Node shape for broker is passed as part of cluster creation, similar to VM.Standard.A1.Flex
+
+
+        :return: The node_shape of this BrokerShape.
+        :rtype: str
+        """
+        return self._node_shape
+
+    @node_shape.setter
+    def node_shape(self, node_shape):
+        """
+        Sets the node_shape of this BrokerShape.
+        Node shape for broker is passed as part of cluster creation, similar to VM.Standard.A1.Flex
+
+
+        :param node_shape: The node_shape of this BrokerShape.
+        :type: str
+        """
+        self._node_shape = node_shape
 
     def __repr__(self):
         return formatted_flat_dict(self)

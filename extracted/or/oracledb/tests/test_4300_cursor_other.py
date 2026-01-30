@@ -685,31 +685,31 @@ def test_4346(cursor):
 
 def test_4347(skip_if_drcp, test_env):
     "4547 - kill connection with open cursor"
-    admin_conn = test_env.get_admin_connection()
-    conn = test_env.get_connection()
-    assert conn.is_healthy()
-    sid, serial = test_env.get_sid_serial(conn)
-    with admin_conn.cursor() as admin_cursor:
-        sql = f"alter system kill session '{sid},{serial}'"
-        admin_cursor.execute(sql)
-    with test_env.assert_raises_full_code("DPY-4011"):
-        with conn.cursor() as cursor:
-            cursor.execute("select user from dual")
-    assert not conn.is_healthy()
+    with test_env.get_admin_connection() as admin_conn:
+        conn = test_env.get_connection()
+        assert conn.is_healthy()
+        sid, serial = test_env.get_sid_serial(conn)
+        with admin_conn.cursor() as admin_cursor:
+            sql = f"alter system kill session '{sid},{serial}'"
+            admin_cursor.execute(sql)
+        with test_env.assert_raises_full_code("DPY-4011"):
+            with conn.cursor() as cursor:
+                cursor.execute("select user from dual")
+        assert not conn.is_healthy()
 
 
 def test_4348(skip_if_drcp, test_env):
     "4348 - kill connection in cursor context manager"
-    admin_conn = test_env.get_admin_connection()
-    conn = test_env.get_connection()
-    assert conn.is_healthy()
-    sid, serial = test_env.get_sid_serial(conn)
-    with admin_conn.cursor() as admin_cursor:
-        admin_cursor.execute(f"alter system kill session '{sid},{serial}'")
-    with test_env.assert_raises_full_code("DPY-4011"):
-        with conn.cursor() as cursor:
-            cursor.execute("select user from dual")
-    assert not conn.is_healthy()
+    with test_env.get_admin_connection() as admin_conn:
+        conn = test_env.get_connection()
+        assert conn.is_healthy()
+        sid, serial = test_env.get_sid_serial(conn)
+        with admin_conn.cursor() as admin_cursor:
+            admin_cursor.execute(f"alter system kill session '{sid},{serial}'")
+        with test_env.assert_raises_full_code("DPY-4011"):
+            with conn.cursor() as cursor:
+                cursor.execute("select user from dual")
+        assert not conn.is_healthy()
 
 
 def test_4349(conn, test_env):
@@ -1059,3 +1059,10 @@ def test_4371(cursor):
     cursor.execute("select :1 from dual", [value], fetch_decimals=True)
     rows = cursor.fetchall()
     assert isinstance(rows[0][0], decimal.Decimal)
+
+
+def test_4372(cursor):
+    "4372 - test cursor.parse() uses oracledb.defaults.fetch_lobs"
+    cursor.parse("select to_clob('some_value') from dual")
+    fetch_info = cursor.description[0]
+    assert fetch_info.type is oracledb.DB_TYPE_CLOB

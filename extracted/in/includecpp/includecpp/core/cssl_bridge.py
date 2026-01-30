@@ -469,6 +469,12 @@ class CsslLang:
             # Instance reflection
             'instance_getMethods', 'instance_getClasses', 'instance_getVars',
             'instance_getAll', 'instance_call', 'instance_has', 'instance_type',
+            # Console/terminal functions
+            'clear', 'input', 'color',
+            'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'white', 'black',
+            'bold', 'dim', 'italic', 'underline', 'blink', 'reverse',
+            # v4.9.0: Memory introspection and snapshot (Python reflection)
+            'memory', 'snapshot', 'address', 'reflect',
         }
 
         # Check if source uses any Python-only builtins
@@ -477,10 +483,21 @@ class CsslLang:
             for builtin in PYTHON_ONLY_BUILTINS
         )
 
+        # Also detect module usage that requires Python runtime
+        has_python_modules = bool(re.search(r'\b(fmt|Console|Process|Config|Server)::',  source))
+
+        # v4.9.3: Detect python:: namespace usage (parameter passing, pythonize, etc.)
+        has_python_namespace = bool(re.search(r'\bpython::', source))
+
+        # v4.9.0: Detect bit/byte/address type declarations (Python-only types)
+        has_binary_types = bool(re.search(r'\b(bit|byte|address)\s+\w+', source))
+
         # unative forces Python execution (skip C++ entirely)
         # force_python flag also skips C++ (for full builtin support like getcwd, listdir)
         # Auto-detect Python-only builtins and use Python automatically
-        if has_unative or force_python or needs_python:
+        # v4.9.0: Also skip C++ for bit/byte types (Python-only)
+        # v4.9.3: Also skip C++ for python:: namespace usage
+        if has_unative or force_python or needs_python or has_python_modules or has_binary_types or has_python_namespace:
             pass  # Skip C++ block, go directly to Python execution
         # Try C++ accelerated execution first (375x faster)
         # Only use C++ for simple scripts without parameter passing

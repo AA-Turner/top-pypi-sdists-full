@@ -120,10 +120,11 @@ def compare_components_for_benchmark(
         try:
             linear_acc = compute_linear_probe_accuracy(pos, neg)
             steerability = compute_steerability_metrics(pos, neg)
-            
+
             results[component] = {
                 "linear_accuracy": linear_acc,
-                "steerability_score": steerability.get("steerability_score", 0.0),
+                "caa_probe_alignment": steerability.get("caa_probe_alignment"),
+                "diff_mean_alignment": steerability.get("diff_mean_alignment"),
             }
         except Exception as e:
             results[component] = {"error": str(e)}

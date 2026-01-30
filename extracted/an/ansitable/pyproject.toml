@@ -1,6 +1,6 @@
 [project]
 name = "ansitable"
-version = "0.11.4"
+version = "0.11.5"
 authors = [{ name = "Peter Corke", email = "rvc@petercorke.com" }]
 description = "Quick and easy display of tabular data and matrices with optional ANSI color and borders"
 readme = "README.md"
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -50,7 +51,7 @@ dependencies = ["colored"]
 [project.urls]
 "Homepage" = "https://github.com/petercorke/ansitable"
 "Bug Tracker" = "https://github.com/petercorke/ansitable/issues"
-"Documentation" = "https://github.io/petercorke/ansitable"
+"Documentation" = "https://petercorke.github.io/ansitable"
 "Source" = "https://github.com/petercorke/ansitable"
 
 [project.optional-dependencies]
@@ -66,14 +67,12 @@ docs = [
 ]
 
 [build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-
-packages = ["ansitable"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/ansitable"]
 
 [tool.black]
 line-length = 88
-target-version = ['py37']
+target-version = ['py311']

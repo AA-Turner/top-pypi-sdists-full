@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-runtime
-Version: 0.5.1
+Version: 0.6.2
 Summary: Runtime abstractions and interfaces for building agents and automation scripts in the UiPath ecosystem
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-runtime-python
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.11
-Requires-Dist: uipath-core<0.2.0,>=0.1.1
+Requires-Dist: uipath-core<0.3.0,>=0.2.0
 Description-Content-Type: text/markdown
 
 # UiPath Runtime
@@ -187,9 +187,6 @@ class MyRuntimeFactory:
     async def new_runtime(self, entrypoint: str, runtime_id: str) -> UiPathRuntimeProtocol:
         return MyRuntime()
 
-    async def discover_runtimes(self) -> list[UiPathRuntimeProtocol]:
-        return []
-
     def discover_entrypoints(self) -> list[str]:
         return []
 
@@ -332,9 +329,6 @@ class ChildRuntimeFactory:
 
     async def new_runtime(self, entrypoint: str) -> UiPathRuntimeProtocol:
         return ChildRuntime(name=entrypoint)
-
-    async def discover_runtimes(self) -> list[UiPathRuntimeProtocol]:
-        return []
 
     def discover_entrypoints(self) -> list[str]:
         return []

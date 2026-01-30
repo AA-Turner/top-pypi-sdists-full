@@ -243,6 +243,8 @@ class JobSDK:
         tags_filter: Optional[Dict[str, List[str]]] = None,
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
         **_kwargs: Dict[str, Any],
     ) -> ResultIterator[JobStatus]:
         """List jobs with filtering and pagination.
@@ -261,6 +263,8 @@ class JobSDK:
             tags_filter: Filter by tags (dict of key to list of values).
             page_size: Number of items per page. Defaults to server default.
             max_items: Maximum total items to return.
+            sort_field: Field to sort by (CREATED_AT, NAME, STATUS, etc.).
+            sort_order: Sort order (ASC or DESC).
 
         Returns:
             ResultIterator of JobStatus objects.
@@ -278,4 +282,6 @@ class JobSDK:
             tags_filter=tags_filter,
             page_size=page_size,
             max_items=max_items,
+            sort_field=sort_field,
+            sort_order=sort_order,
         )

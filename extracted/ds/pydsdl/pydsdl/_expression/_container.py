@@ -32,7 +32,7 @@ class Set(Container):
     class _Decorator:
         @staticmethod
         def homotypic_binary_operator(
-            inferior: typing.Callable[["Set", "Set"], _O]
+            inferior: typing.Callable[["Set", "Set"], _O],
         ) -> typing.Callable[["Set", "Set"], _O]:
             def wrapper(self: "Set", other: "Set") -> _O:
                 assert isinstance(self, Set) and isinstance(other, Set)
@@ -83,7 +83,10 @@ class Set(Container):
         return NotImplemented
 
     def __str__(self) -> str:
-        return "{%s}" % ", ".join(map(str, self._value))  # This is recursive.
+        try:
+            return "{%s}" % ", ".join(map(str, self._value))  # This is recursive.
+        except (AttributeError, TypeError):  # pragma: no cover
+            return "Set(UNINITIALIZED)"
 
     #
     # Set algebra implementation.

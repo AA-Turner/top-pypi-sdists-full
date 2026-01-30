@@ -12,6 +12,7 @@ from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log, log2, tabulize
 from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 
 class NodeTool(Command):
     COMMAND = 'nodetool'
@@ -58,8 +59,8 @@ class NodeTool(Command):
 
                                         return state
 
-                        r = pods.nodetool(' '.join(args), status=(args[0] == 'status'), backgrounded=backgrounded)
-                        AsyncJobs.print_start(r)
+                        ctx = Context.new(cmd, backgrounded, show_out=True, show_verbose=True, history=Context.PODS)
+                        pods.nodetool(' '.join(args), status=(args[0] == 'status'), ctx=ctx)
 
                         return state
 

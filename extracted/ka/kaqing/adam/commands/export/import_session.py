@@ -4,6 +4,7 @@ from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.exporter import export
 from adam.commands.export.utils_export import state_with_pod
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import Context
 
 class ImportSession(Command):
     COMMAND = 'import session'
@@ -33,7 +34,7 @@ class ImportSession(Command):
                 with validate_args(args, state, name='export session') as spec:
                     with state_with_pod(state) as state:
                         with export(state) as exporter:
-                            exporter.import_session(spec)
+                            exporter.import_session(spec, ctx=Context.new(cmd, backgrounded=False, history=Context.LOCAL))
 
                             return state
 

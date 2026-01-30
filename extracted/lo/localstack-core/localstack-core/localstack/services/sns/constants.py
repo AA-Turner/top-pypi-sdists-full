@@ -25,10 +25,24 @@ VALID_SUBSCRIPTION_ATTR_NAME: list[str] = [
     "SubscriptionRoleArn",
 ]
 
+
+VALID_POLICY_ACTIONS = [
+    "GetTopicAttributes",
+    "SetTopicAttributes",
+    "AddPermission",
+    "RemovePermission",
+    "DeleteTopic",
+    "Subscribe",
+    "ListSubscriptionsByTopic",
+    "Publish",
+    "Receive",
+]
+
 MSG_ATTR_NAME_REGEX = re.compile(r"^(?!\.)(?!.*\.$)(?!.*\.\.)[a-zA-Z0-9_\-.]+$")
 ATTR_TYPE_REGEX = re.compile(r"^(String|Number|Binary)\..+$")
 VALID_MSG_ATTR_NAME_CHARS = set(ascii_letters + digits + "." + "-" + "_")
 E164_REGEX = re.compile(r"^\+?[1-9]\d{1,14}$")
+BATCH_ENTRY_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 GCM_URL = "https://fcm.googleapis.com/fcm/send"
@@ -37,6 +51,7 @@ GCM_URL = "https://fcm.googleapis.com/fcm/send"
 PLATFORM_ENDPOINT_MSGS_ENDPOINT = "/_aws/sns/platform-endpoint-messages"
 SMS_MSGS_ENDPOINT = "/_aws/sns/sms-messages"
 SUBSCRIPTION_TOKENS_ENDPOINT = "/_aws/sns/subscription-tokens"
+SMS_PHONE_NUMBER_OPT_OUT_ENDPOINT = "/_aws/sns/phone-opt-outs"
 
 # we add hex chars to respect the format of AWS with certificate ID, hardcoded for now
 # we could parametrize the certificate ID in the future

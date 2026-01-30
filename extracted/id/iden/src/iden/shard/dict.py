@@ -7,8 +7,8 @@ __all__ = ["ShardDict", "create_shard_dict"]
 import logging
 from typing import Any, TypeVar
 
-from coola import objects_are_equal
-from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
+from coola.equality import objects_are_equal
+from coola.utils.format import repr_indent, repr_mapping, str_indent, str_mapping
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 

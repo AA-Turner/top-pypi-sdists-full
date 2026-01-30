@@ -66,7 +66,6 @@ class KeysClient:
         )
         client.manage.v1.projects.keys.list(
             project_id="123456-7890-1234-5678-901234",
-            status="active",
         )
         """
         _response = self._raw_client.list(project_id, status=status, request_options=request_options)
@@ -242,7 +241,6 @@ class AsyncKeysClient:
         async def main() -> None:
             await client.manage.v1.projects.keys.list(
                 project_id="123456-7890-1234-5678-901234",
-                status="active",
             )
 
 

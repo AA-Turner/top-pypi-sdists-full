@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flax
-Version: 0.12.2
+Version: 0.12.3
 Summary: Flax: A neural network library for JAX designed for flexibility
 Author-email: Flax team <flax-dev@google.com>
 Project-URL: homepage, https://github.com/google/flax
@@ -15,8 +15,8 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: numpy>=1.23.2; python_version >= "3.11"
-Requires-Dist: numpy>=1.26.0; python_version >= "3.12"
+Requires-Dist: numpy<2.4.0,>=1.23.2; python_version >= "3.11"
+Requires-Dist: numpy<2.4.0,>=1.26.0; python_version >= "3.12"
 Requires-Dist: jax>=0.8.1
 Requires-Dist: msgpack
 Requires-Dist: optax
@@ -26,11 +26,12 @@ Requires-Dist: rich>=11.1
 Requires-Dist: typing_extensions>=4.2
 Requires-Dist: PyYAML>=5.4.1
 Requires-Dist: treescope>=0.1.7
+Requires-Dist: orbax-export>=0.0.8
 Provides-Extra: testing
 Requires-Dist: clu; extra == "testing"
 Requires-Dist: clu<=0.0.9; python_version < "3.10" and extra == "testing"
 Requires-Dist: einops; extra == "testing"
-Requires-Dist: gymnasium[atari]; extra == "testing"
+Requires-Dist: gymnasium[atari]; python_version < "3.14" and extra == "testing"
 Requires-Dist: jaxlib; extra == "testing"
 Requires-Dist: jaxtyping; extra == "testing"
 Requires-Dist: jraph>=0.0.6dev0; extra == "testing"
@@ -47,12 +48,12 @@ Requires-Dist: sentencepiece==0.2.0; extra == "testing"
 Requires-Dist: tensorflow_text>=2.11.0; (platform_system != "Darwin" and python_version < "3.13") and extra == "testing"
 Requires-Dist: tensorflow_datasets; extra == "testing"
 Requires-Dist: tensorflow>=2.12.0; python_version < "3.13" and extra == "testing"
-Requires-Dist: tensorflow>=2.20.0; python_version >= "3.13" and extra == "testing"
+Requires-Dist: tensorflow>=2.20.0; (python_version >= "3.13" and python_version < "3.14") and extra == "testing"
 Requires-Dist: keras<3.13; extra == "testing"
 Requires-Dist: torch; extra == "testing"
 Requires-Dist: treescope>=0.1.1; python_version >= "3.10" and extra == "testing"
 Requires-Dist: cloudpickle>=3.0.0; extra == "testing"
-Requires-Dist: ale-py>=0.10.2; extra == "testing"
+Requires-Dist: ale-py>=0.10.2; python_version < "3.14" and extra == "testing"
 Provides-Extra: docs
 Requires-Dist: sphinx==6.2.1; extra == "docs"
 Requires-Dist: sphinx-book-theme; extra == "docs"
@@ -238,7 +239,7 @@ To cite this repository:
   author = {Jonathan Heek and Anselm Levskaya and Avital Oliver and Marvin Ritter and Bertrand Rondepierre and Andreas Steiner and Marc van {Z}ee},
   title = {{F}lax: A neural network library and ecosystem for {JAX}},
   url = {http://github.com/google/flax},
-  version = {0.12.2},
+  version = {0.12.3},
   year = {2024},
 }
 ```
@@ -249,3 +250,4 @@ is intended to be that from [flax/version.py](https://github.com/google/flax/blo
 ## Note
 
 Flax is an open source project maintained by a dedicated team at Google DeepMind, but is not an official Google product.
+

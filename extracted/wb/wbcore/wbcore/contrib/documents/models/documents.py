@@ -22,7 +22,7 @@ from django.utils.translation import gettext_lazy as _
 from slugify import slugify
 
 from wbcore.contrib.authentication.models import User
-from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
+from wbcore.contrib.permission.models.mixins import PermissionObjectModelMixin
 from wbcore.models import WBModel
 from wbcore.utils.html import convert_html2text
 from wbcore.workers import Queue

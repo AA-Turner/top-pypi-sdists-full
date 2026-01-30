@@ -40,7 +40,10 @@ use uv_redacted::{DisplaySafeUrl, DisplaySafeUrlError};
 use uv_warnings::warn_user;
 
 use crate::trusted_publishing::pypi::PyPIPublishingService;
-use crate::trusted_publishing::{TrustedPublishingError, TrustedPublishingToken};
+use crate::trusted_publishing::pyx::PyxPublishingService;
+use crate::trusted_publishing::{
+    TrustedPublishingError, TrustedPublishingService, TrustedPublishingToken,
+};
 
 #[derive(Error, Debug)]
 pub enum PublishError {
@@ -330,7 +333,7 @@ fn group_files(files: Vec<PathBuf>, no_attestations: bool) -> Vec<UploadDistribu
             let Some(dist_filename) = DistFilename::try_from_normalized_filename(&filename) else {
                 debug!("Not a distribution filename: `{filename}`");
                 // I've never seen these in upper case
-                #[allow(clippy::case_sensitive_file_extension_comparisons)]
+                #[expect(clippy::case_sensitive_file_extension_comparisons)]
                 if filename.ends_with(".whl")
                     || filename.ends_with(".zip")
                     // Catch all compressed tar variants, e.g., `.tar.gz`
@@ -402,6 +405,7 @@ pub async fn check_trusted_publishing(
     username: Option<&str>,
     password: Option<&str>,
     keyring_provider: KeyringProviderType,
+    token_store: &PyxTokenStore,
     trusted_publishing: TrustedPublishing,
     registry: &DisplaySafeUrl,
     client: &BaseClient,
@@ -417,9 +421,21 @@ pub async fn check_trusted_publishing(
             }
 
             debug!("Attempting to get a token for trusted publishing");
+
             // Attempt to get a token for trusted publishing.
-            let service = PyPIPublishingService::new(registry, client);
-            match trusted_publishing::get_token(&service).await {
+            let token = if token_store.is_known_url(registry) {
+                debug!("Using trusted publishing flow for pyx");
+                PyxPublishingService::new(registry, client)
+                    .get_token()
+                    .await
+            } else {
+                debug!("Using trusted publishing flow for PyPI");
+                PyPIPublishingService::new(registry, client)
+                    .get_token()
+                    .await
+            };
+
+            match token {
                 // Success: we have a token for trusted publishing.
                 Ok(Some(token)) => Ok(TrustedPublishResult::Configured(token)),
                 // Failed to discover an ambient OIDC token.
@@ -447,11 +463,22 @@ pub async fn check_trusted_publishing(
                 return Err(PublishError::MixedCredentials(conflicts.join(" and ")));
             }
 
-            let service = PyPIPublishingService::new(registry, client);
-            let Some(token) = trusted_publishing::get_token(&service)
-                .await
-                .map_err(Box::new)?
-            else {
+            // Attempt to get a token for trusted publishing.
+            let token = if token_store.is_known_url(registry) {
+                debug!("Using trusted publishing flow for pyx");
+                PyxPublishingService::new(registry, client)
+                    .get_token()
+                    .await
+                    .map_err(Box::new)?
+            } else {
+                debug!("Using trusted publishing flow for PyPI");
+                PyPIPublishingService::new(registry, client)
+                    .get_token()
+                    .await
+                    .map_err(Box::new)?
+            };
+
+            let Some(token) = token else {
                 return Err(PublishError::TrustedPublishing(
                     TrustedPublishingError::NoToken.into(),
                 ));
@@ -612,7 +639,9 @@ pub async fn upload(
     }
 }
 
-/// Validate a file against a registry.
+/// Validate a distribution before uploading.
+///
+/// Returns `true` if the file should be uploaded, `false` if it already exists on the server.
 pub async fn validate(
     file: &Path,
     form_metadata: &FormMetadata,
@@ -621,7 +650,7 @@ pub async fn validate(
     store: &PyxTokenStore,
     client: &BaseClient,
     credentials: &Credentials,
-) -> Result<(), PublishError> {
+) -> Result<bool, PublishError> {
     if store.is_known_url(registry) {
         debug!("Performing validation request for {registry}");
 
@@ -647,16 +676,45 @@ pub async fn validate(
             )
         })?;
 
+        let status_code = response.status();
+        debug!("Response code for {validation_url}: {status_code}");
+
+        if status_code.is_success() {
+            #[derive(Deserialize)]
+            struct ValidateResponse {
+                exists: bool,
+            }
+
+            // Check if the file already exists.
+            match response.text().await {
+                Ok(body) => {
+                    trace!("Response content for {validation_url}: {body}");
+                    if let Ok(response) = serde_json::from_str::<ValidateResponse>(&body) {
+                        if response.exists {
+                            debug!("File already uploaded: {raw_filename}");
+                            return Ok(false);
+                        }
+                    }
+                }
+                Err(err) => {
+                    trace!("Failed to read response content for {validation_url}: {err}");
+                }
+            }
+            return Ok(true);
+        }
+
+        // Handle error response.
         handle_response(&validation_url, response)
             .await
             .map_err(|err| {
                 PublishError::Validate(file.to_path_buf(), registry.clone().into(), err.into())
             })?;
+
+        Ok(true)
     } else {
         debug!("Skipping validation request for unsupported publish URL: {registry}");
+        Ok(true)
     }
-
-    Ok(())
 }
 
 /// Upload a file using the two-phase upload protocol for pyx.
@@ -1406,7 +1464,6 @@ mod tests {
 
     use insta::{allow_duplicates, assert_debug_snapshot, assert_snapshot};
     use itertools::Itertools;
-    use thiserror::__private17::AsDynError;
     use uv_auth::Credentials;
     use uv_client::{AuthIntegration, BaseClientBuilder, RedirectPolicy};
     use uv_distribution_filename::DistFilename;
@@ -1477,7 +1534,6 @@ mod tests {
         fn shuffle<T>(vec: &mut [T]) {
             let n: usize = vec.len();
             for i in 0..(n - 1) {
-                #[allow(clippy::cast_possible_truncation)]
                 let j = (fastrand::usize(..)) % (n - i) + i;
                 vec.swap(i, j);
             }
@@ -2076,7 +2132,7 @@ mod tests {
         let err = mock_server_upload(&mock_server).await.unwrap_err();
 
         let mut capture = String::new();
-        write_error_chain(err.as_dyn_error(), &mut capture, "error", AnsiColors::Red).unwrap();
+        write_error_chain(&err, &mut capture, "error", AnsiColors::Red).unwrap();
 
         let capture = capture.replace(&mock_server.uri(), "[SERVER]");
         let capture = anstream::adapter::strip_str(&capture);
@@ -2104,7 +2160,7 @@ mod tests {
         let err = mock_server_upload(&mock_server).await.unwrap_err();
 
         let mut capture = String::new();
-        write_error_chain(err.as_dyn_error(), &mut capture, "error", AnsiColors::Red).unwrap();
+        write_error_chain(&err, &mut capture, "error", AnsiColors::Red).unwrap();
 
         let capture = capture.replace(&mock_server.uri(), "[SERVER]");
         let capture = anstream::adapter::strip_str(&capture);

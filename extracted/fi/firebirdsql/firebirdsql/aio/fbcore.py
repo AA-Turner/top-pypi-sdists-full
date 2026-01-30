@@ -66,16 +66,21 @@ class AsyncStatement(Statement):
         DEBUG_OUTPUT("AsyncStatement::__init__()")
         self.trans = trans
 
+        self._is_open = False
+        self.stmt_type = None
+        self.handle = -1
+
+    @classmethod
+    async def create(cls, trans):
+        self = cls(trans)
         self.trans.connection._op_allocate_statement()
         if (self.trans.connection.accept_type & ptype_MASK) == ptype_lazy_send:
             self.trans.connection.lazy_response_count += 1
             self.handle = -1
         else:
-            (h, oid, buf) = self.trans.connection._op_response()
+            (h, oid, buf) = await self.trans.connection._async_op_response()
             self.handle = h
-
-        self._is_open = False
-        self.stmt_type = None
+        return self
 
     async def fetch_generator(self, rows, more_data):
         DEBUG_OUTPUT("AsyncStatement::_fetch_generator()", self.handle, self.trans._trans_handle, self.trans.connection.db_handle)
@@ -149,7 +154,7 @@ class AsyncStatement(Statement):
     async def close(self):
         DEBUG_OUTPUT("AsyncStatement::close()", self.handle)
         if self.stmt_type == isc_info_sql_stmt_select and self._is_open:
-            self.trans.connection._op_free_statement(self.handle, DSQL_close)
+            await self.trans.connection._async_op_free_statement(self.handle, DSQL_close)
             if (self.trans.connection.accept_type & ptype_MASK) == ptype_lazy_send:
                 self.trans.connection.lazy_response_count += 1
             else:
@@ -172,7 +177,7 @@ class AsyncPreparedStatement(PreparedStatement):
     async def __init__(self, cur, sql, explain_plan=False):
         DEBUG_OUTPUT("AsyncPreparedStatement::__init__()")
         await cur.transaction.check_trans_handle()
-        self.stmt = await AsyncStatement(cur.transaction)
+        self.stmt = await AsyncStatement.create(cur.transaction)
         await self.stmt.prepare(sql, explain_plan)
         self.sql = sql
 
@@ -197,6 +202,7 @@ class AsyncCursor(Cursor):
         conn._cursors[self._transaction].append(self)
         self.stmt = None
         self.arraysize = 1
+        self.rowcount = -1
 
     async def __aenter__(self):
         return self
@@ -217,7 +223,7 @@ class AsyncCursor(Cursor):
                 await self.stmt.drop()
                 self.stmt = None
             if self.stmt is None:
-                self.stmt = AsyncStatement(self.transaction)
+                self.stmt = await AsyncStatement.create(self.transaction)
             stmt = self.stmt
             await stmt.prepare(query)
         return stmt
@@ -262,7 +268,9 @@ class AsyncCursor(Cursor):
     async def execute(self, query, params=None):
         DEBUG_OUTPUT("AsyncCursor::execute()", query, params)
         try:
-            return await self._execute(query, params)
+            await self._execute(query, params)
+            self.rowcount = await self._rowcount()
+            return self
         finally:
             self.transaction.is_dirty = True
 
@@ -378,16 +386,16 @@ class AsyncCursor(Cursor):
             x.precision(), x.sqlscale, True if x.null_ok else False
         ) for x in self.stmt.xsqlda]
 
-    @property
-    def rowcount(self):
+    async def _rowcount(self):
         DEBUG_OUTPUT("AsyncCursor::rowcount()")
-        if self.stmt.handle == -1:
+        if not self.stmt or self.stmt.handle == -1:
             return -1
 
         self.transaction.connection._op_info_sql(self.stmt.handle, bytes([isc_info_sql_records]))
-        (h, oid, buf) = self.transaction.connection._op_response()
-        assert buf[:3] == bytes([0x17, 0x1d, 0x00])    # isc_info_sql_records
-        if self.stmt.stmt_type == isc_info_sql_stmt_select:
+        (h, oid, buf) = await self.transaction.connection._async_op_response()
+        if buf[:3] != bytes([0x17, 0x1d, 0x00]):    # isc_info_sql_records
+            count = -1
+        elif self.stmt.stmt_type == isc_info_sql_stmt_select:
             assert buf[17:20] == bytes([0x0d, 0x04, 0x00])     # isc_info_req_select_count
             # select count
             count = bytes_to_int(buf[20:24])
@@ -508,6 +516,17 @@ class AsyncTransaction(Transaction):
         if self._trans_handle is None:
             await self._begin()
 
+    async def close(self):
+        if self._trans_handle is None:
+            return
+        if not self.is_dirty:
+            return
+        DEBUG_OUTPUT("AsyncTransaction::close()", self._trans_handle, self.connection.db_handle)
+        self.connection._op_rollback(self._trans_handle)
+        (h, oid, buf) = await self.connection._async_op_response()
+        self._trans_handle = None
+        self.is_dirty = False
+
 
 class AsyncConnectionResponseMixin(ConnectionResponseMixin):
     async def _async_recv_channel(self, nbytes, word_alignment=False):
@@ -516,9 +535,10 @@ class AsyncConnectionResponseMixin(ConnectionResponseMixin):
             n += 4 - nbytes % 4  # 4 bytes word alignment
         r = bytes([])
         while n:
-            if (self.timeout is not None and select.select([self.sock._sock], [], [], self.timeout)[0] == []):
-                break
-            b = await self.sock.async_recv(n)
+            if self.timeout is not None:
+                b = await asyncio.wait_for(self.sock.async_recv(n), timeout=self.timeout)
+            else:
+                b = await self.sock.async_recv(n)
             if not b:
                 break
             r += b
@@ -713,7 +733,7 @@ class AsyncConnectionResponseMixin(ConnectionResponseMixin):
                     raise OperationalError(
                         'Unknown wirecrypt plugin %s' % (enc_plugin.encode("utf-8"))
                     )
-                (h, oid, buf) = self._op_response()
+                (h, oid, buf) = await self._async_op_response()
             else:
                 # no matched wire encription plugin
                 # self.auth_data use _op_attach() and _op_create()
@@ -983,6 +1003,25 @@ class AsyncConnection(ConnectionBase, AsyncConnectionResponseMixin):
         self.sock = None
         self.db_handle = None
 
+    async def close(self):
+        DEBUG_OUTPUT("AsyncConnection::close()", id(self), self.db_handle)
+        if self.sock is None:
+            return
+        if self.db_handle is not None:
+            # cleanup transaction
+            for trans in list(self._cursors.keys()):
+                await trans.close()
+            if self.is_services:
+                self._op_service_detach()
+            else:
+                self._op_detach()
+            (h, oid, buf) = await self._async_op_response()
+        self.sock.close()
+        self.sock = None
+        self.db_handle = None
+
     def __del__(self):
         if self.sock:
-            self.close()
+            # Async close cannot be called from __del__
+            # self.close()
+            pass

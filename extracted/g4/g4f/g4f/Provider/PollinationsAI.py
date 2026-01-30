@@ -263,6 +263,8 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                         has_audio = True
                         break
             model = "openai-audio" if has_audio else cls.default_model
+        if not api_key:
+            api_key = AuthManager.load_api_key(cls)
         if cls.get_models(api_key=api_key, timeout=kwargs.get("timeout", 15)):
             if model in cls.model_aliases:
                 model = cls.model_aliases[model]
@@ -379,7 +381,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
             return f"{url}&seed={seed}" if seed else url
 
         headers = None
-        if api_key and api_key.startswith("g4f_") or api_key.startswith("gfs_"):
+        if api_key and (api_key.startswith("g4f_") or api_key.startswith("gfs_")):
             headers = {"authorization": f"Bearer {api_key}"}
         async with ClientSession(
             headers=DEFAULT_HEADERS,

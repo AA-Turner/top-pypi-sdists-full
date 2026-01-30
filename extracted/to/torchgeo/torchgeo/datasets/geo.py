@@ -8,9 +8,11 @@ import fnmatch
 import functools
 import glob
 import os
+import pathlib
 import re
 import warnings
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import ExitStack
 from datetime import datetime
 from typing import Any, ClassVar, Literal
 
@@ -19,7 +21,9 @@ import numpy as np
 import pandas as pd
 import pyproj
 import rasterio
+import rasterio.features
 import rasterio.merge
+import rasterio.warp
 import shapely
 import torch
 from geopandas import GeoDataFrame
@@ -624,10 +628,19 @@ class RasterDataset(GeoDataset):
             file handle of warped VRT
         """
         src = rasterio.open(filepath)
+        left = min(src.bounds.left, src.bounds.right)
+        bottom = min(src.bounds.bottom, src.bounds.top)
+        right = max(src.bounds.left, src.bounds.right)
+        top = max(src.bounds.bottom, src.bounds.top)
+        transform, width, height = rasterio.warp.calculate_default_transform(
+            src.crs, self.crs, src.width, src.height, left, bottom, right, top
+        )
 
         # Only warp if necessary
-        if src.crs != self.crs:
-            vrt = WarpedVRT(src, crs=self.crs)
+        if src.crs != self.crs or src.transform != transform:
+            vrt = WarpedVRT(
+                src, crs=self.crs, transform=transform, height=height, width=width
+            )
             src.close()
             return vrt
         else:
@@ -767,27 +780,30 @@ class XarrayDataset(GeoDataset):
         bounds = (x.start, y.start, x.stop, y.stop)
         res = (x.step, y.step)
 
-        datasets = []
-        for filepath in filepaths:
-            src = xr.open_dataset(filepath, decode_times=True, decode_coords='all')
+        with ExitStack() as stack:
+            datasets = []
+            for filepath in filepaths:
+                src = stack.enter_context(
+                    xr.open_dataset(filepath, decode_times=True, decode_coords='all')
+                )
 
-            if src.rio.crs is None:
-                src = src.rio.write_crs(self.crs)
+                if src.rio.crs is None:
+                    src = src.rio.write_crs(self.crs)
 
-            if src.rio.crs != self.crs or res != src.rio.resolution():
-                src = src.rio.reproject(self.crs, resolution=res)
+                if src.rio.crs != self.crs or res != src.rio.resolution():
+                    src = src.rio.reproject(self.crs, resolution=res)
 
-            datasets.append(src)
+                datasets.append(src)
 
-        dataset = rioxr.merge.merge_datasets(
-            datasets, bounds=bounds, res=res, nodata=0, crs=self.crs
-        )
-        dataset = dataset.sel(time=t)
+            dataset = rioxr.merge.merge_datasets(
+                datasets, bounds=bounds, res=res, nodata=0, crs=self.crs
+            )
+            dataset = dataset.sel(time=t)
 
-        # Use array_to_tensor since merge may return uint16/uint32 arrays.
-        tensors = []
-        for var in self.data_vars:
-            tensors.append(array_to_tensor(dataset[var].values))
+            # Use array_to_tensor since merge may return uint16/uint32 arrays.
+            tensors = []
+            for var in self.data_vars:
+                tensors.append(array_to_tensor(dataset[var].values))
 
         return torch.stack(tensors)
 
@@ -885,7 +901,10 @@ class VectorDataset(GeoDataset):
             match = re.match(filename_regex, os.path.basename(filepath))
             if match is not None:
                 try:
-                    src = gpd.read_file(filepath, layer=layer)
+                    if pathlib.Path(filepath).suffix.lower() == '.parquet':
+                        src = gpd.read_parquet(filepath)
+                    else:
+                        src = gpd.read_file(filepath, layer=layer)
                     crs = crs or src.crs or CRS.from_epsg(4326)
                     if src.crs is None:
                         src.set_crs(crs, inplace=True)
@@ -947,7 +966,10 @@ class VectorDataset(GeoDataset):
 
         shapes = []
         for filepath in index.filepath:
-            src = gpd.read_file(filepath, layer=self.layer)
+            if pathlib.Path(filepath).suffix.lower() == '.parquet':
+                src = gpd.read_parquet(filepath)
+            else:
+                src = gpd.read_file(filepath, layer=self.layer)
 
             # We need to know the bounding box of the query in the source CRS
             transformer = pyproj.Transformer.from_crs(self.crs, src.crs, always_xy=True)
@@ -981,57 +1003,48 @@ class VectorDataset(GeoDataset):
 
                 case 'object_detection':
                     # Get boxes for object detection or instance segmentation
-                    px_shapes = [
-                        convert_poly_coords(
-                            shapely.geometry.shape(s[0]), transform, inverse=True
-                        )
-                        for s in shapes
-                    ]
-                    px_shapes = [
-                        (shapely.clip_by_rect(p, 0, 0, width, height))
-                        for p in px_shapes
-                    ]
+                    label_list = []
+                    box_list = []
+                    for s in shapes:
+                        shape = shapely.geometry.shape(s[0])
+                        p = convert_poly_coords(shape, transform, inverse=True)
+                        p = shapely.clip_by_rect(p, 0, 0, width, height)
 
-                    # Get labels
-                    labels = np.array([s[1] for s in shapes]).astype(np.int32)
+                        # Get labels
+                        label_list.append(s[1])
 
-                    # xmin, ymin, xmax, ymax format
-                    boxes_xyxy = np.array(
-                        [
-                            [p.bounds[0], p.bounds[1], p.bounds[2], p.bounds[3]]
-                            for p in px_shapes
-                        ]
-                    ).astype(np.float32)
+                        # xmin, ymin, xmax, ymax format
+                        box_list.append(p.bounds)
+
+                    labels = np.array(label_list).astype(np.int32)
+                    boxes_xyxy = np.array(box_list).astype(np.float32)
 
                 case 'instance_segmentation':
                     # Get boxes for object detection or instance segmentation
-                    px_shapes = [
-                        convert_poly_coords(
-                            shapely.geometry.shape(s[0]), transform, inverse=True
+                    label_list = []
+                    box_list = []
+                    mask_list = []
+                    for i, s in enumerate(shapes):
+                        shape = shapely.geometry.shape(s[0])
+                        p = convert_poly_coords(shape, transform, inverse=True)
+                        p = shapely.clip_by_rect(p, 0, 0, width, height)
+
+                        # Get labels
+                        label_list.append(s[1])
+
+                        # xmin, ymin, xmax, ymax format
+                        box_list.append(p.bounds)
+
+                        mask = rasterio.features.rasterize(
+                            [(s[0], i + 1)],
+                            out_shape=(round(height), round(width)),
+                            transform=transform,
                         )
-                        for s in shapes
-                    ]
-                    px_shapes = [
-                        (shapely.clip_by_rect(p, 0, 0, width, height))
-                        for p in px_shapes
-                    ]
+                        mask_list.append(mask)
 
-                    # Get labels
-                    labels = np.array([s[1] for s in shapes]).astype(np.int32)
-
-                    # xmin, ymin, xmax, ymax format
-                    boxes_xyxy = np.array(
-                        [
-                            [p.bounds[0], p.bounds[1], p.bounds[2], p.bounds[3]]
-                            for p in px_shapes
-                        ]
-                    ).astype(np.float32)
-
-                    masks = rasterio.features.rasterize(
-                        [(s[0], i + 1) for i, s in enumerate(shapes)],
-                        out_shape=(round(height), round(width)),
-                        transform=transform,
-                    )
+                    labels = np.array(label_list).astype(np.int32)
+                    boxes_xyxy = np.array(box_list).astype(np.float32)
+                    masks = np.array(mask_list)
 
                     obj_ids = np.unique(masks)
 

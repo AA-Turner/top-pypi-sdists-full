@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cog
-Version: 0.16.8
+Version: 0.16.11
 Summary: Containers for machine learning
 Author-email: Replicate <team@replicate.com>
 License: 
@@ -240,7 +240,7 @@ You can deploy your packaged model to your own infrastructure, or to [Replicate]
 
 - ✅ **Define the inputs and outputs for your model with standard Python.** Then, Cog generates an OpenAPI schema and validates the inputs and outputs with Pydantic.
 
-- 🎁 **Automatic HTTP prediction server**: Your model's types are used to dynamically generate a RESTful HTTP API using [FastAPI](https://fastapi.tiangolo.com/).
+- 🎁 **Automatic HTTP prediction server**: Your model's types are used to dynamically generate a RESTful HTTP API. Two runtime implementations available: FastAPI (default) and Rust/Axum (experimental, faster).
 
 - 🥞 **Automatic queue worker.** Long-running deep learning models or batch processing is best architected with a queue. Cog models do this out of the box. Redis is currently supported, with more in the pipeline.
 
@@ -365,11 +365,11 @@ You can also download and install the latest release using our
 [install script](https://cog.run/install):
 
 ```sh
-# fish shell
-sh (curl -fsSL https://cog.run/install.sh | psub)
-
 # bash, zsh, and other shells
 sh <(curl -fsSL https://cog.run/install.sh)
+
+# fish shell
+sh (curl -fsSL https://cog.run/install.sh | psub)
 
 # download with wget and run in a separate command
 wget -qO- https://cog.run/install.sh

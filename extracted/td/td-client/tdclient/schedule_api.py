@@ -1,5 +1,13 @@
 #!/usr/bin/env python
-from .util import create_url, get_or_else, parse_date
+
+import datetime
+from contextlib import AbstractContextManager
+from typing import Any
+
+import urllib3
+
+from tdclient.types import ScheduleParams
+from tdclient.util import create_url, get_or_else, parse_date
 
 
 class ScheduleAPI:
@@ -8,7 +16,29 @@ class ScheduleAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    def create_schedule(self, name, params=None):
+    # Methods from API class
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+
+    def create_schedule(
+        self, name: str, params: ScheduleParams | None = None
+    ) -> datetime.datetime | None:
         """Create a new scheduled query with the specified name.
 
         Args:
@@ -25,13 +55,13 @@ class ScheduleAPI:
                 - cron (str, optional):
                     Schedule of the query.
                     {``"@daily"``, ``"@hourly"``, ``"10 * * * *"`` (custom cron)}
-                    See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084633/Scheduling+Jobs+Using+TD+Console
+                    See also: https://docs.treasuredata.com/articles/#!pd/Scheduling-Jobs-Using-TD-Console
                 - delay (int, optional):
                     A delay ensures all buffered events are imported
                     before running the query. Default: 0
                 - query (str):
                     Is a language used to retrieve, insert, update and modify
-                    data. See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084438/SQL+Examples+of+Scheduled+Queries
+                    data. See also: https://docs.treasuredata.com/articles/#!pd/SQL-Examples-of-Scheduled-Queries
                 - priority (int, optional):
                     Priority of the query.
                     Range is from -2 (very low) to 2 (very high). Default: 0
@@ -50,10 +80,10 @@ class ScheduleAPI:
         Returns:
             datetime.datetime: Start date time.
         """
-        params = {} if params is None else params
-        params.update({"type": params.get("type", "hive")})
+        post_params = {} if params is None else dict(params)
+        post_params.update({"type": post_params.get("type", "hive")})
         with self.post(
-            create_url("/v3/schedule/create/{name}", name=name), params
+            create_url("/v3/schedule/create/{name}", name=name), post_params
         ) as res:
             code, body = res.status, res.read()
             if code != 200:
@@ -61,7 +91,7 @@ class ScheduleAPI:
             js = self.checked_json(body, ["start"])
             return parse_date(get_or_else(js, "start", "1970-01-01T00:00:00Z"))
 
-    def delete_schedule(self, name):
+    def delete_schedule(self, name: str) -> tuple[str, str]:
         """Delete the scheduled query with the specified name.
 
         Args:
@@ -76,7 +106,7 @@ class ScheduleAPI:
             js = self.checked_json(body, ["cron", "query"])
             return js["cron"], js["query"]
 
-    def list_schedules(self):
+    def list_schedules(self) -> list[dict[str, Any]]:
         """Get the list of all the scheduled queries.
 
         Returns:
@@ -90,12 +120,14 @@ class ScheduleAPI:
 
             return [schedule_to_tuple(m) for m in js["schedules"]]
 
-    def update_schedule(self, name, params=None):
+    def update_schedule(
+        self, name: str, params: ScheduleParams | None = None
+    ) -> datetime.datetime | None:
         """Update the scheduled query.
 
         Args:
             name (str): Target scheduled query name.
-            params (dict): Extra parameters.
+            params (ScheduleParams | None): Extra parameters.
 
                 - type (str):
                     Query type. {"presto", "hive"}. Default: "hive"
@@ -107,13 +139,13 @@ class ScheduleAPI:
                 - cron (str, optional):
                     Schedule of the query.
                     {``"@daily"``, ``"@hourly"``, ``"10 * * * *"`` (custom cron)}
-                    See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084633/Scheduling+Jobs+Using+TD+Console
+                    See also: https://docs.treasuredata.com/articles/#!pd/Scheduling-Jobs-Using-TD-Console
                 - delay (int, optional):
                     A delay ensures all buffered events are imported
                     before running the query. Default: 0
                 - query (str):
                     Is a language used to retrieve, insert, update and modify
-                    data. See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084438/SQL+Examples+of+Scheduled+Queries
+                    data. See also: https://docs.treasuredata.com/articles/#!pd/SQL-Examples-of-Scheduled-Queries
                 - priority (int, optional):
                     Priority of the query.
                     Range is from -2 (very low) to 2 (very high). Default: 0
@@ -130,15 +162,17 @@ class ScheduleAPI:
                     Location where to store the result of the query.
                     e.g. 'tableau://user:password@host.com:1234/datasource'
         """
-        params = {} if params is None else params
+        post_params = {} if params is None else dict(params)
         with self.post(
-            create_url("/v3/schedule/update/{name}", name=name), params
+            create_url("/v3/schedule/update/{name}", name=name), post_params
         ) as res:
             code, body = res.status, res.read()
             if code != 200:
                 self.raise_error("Update schedule failed", res, body)
 
-    def history(self, name, _from=0, to=None):
+    def history(
+        self, name: str, _from: int = 0, to: int | None = None
+    ) -> list[tuple[Any, ...]]:
         """Get the history details of the saved query for the past 90days.
 
         Args:
@@ -154,9 +188,8 @@ class ScheduleAPI:
         Returns:
             dict: History of the scheduled query.
         """
-        params = {}
-        if _from is not None:
-            params["from"] = str(_from)
+        params: dict[str, Any] = {}
+        params["from"] = str(_from)
         if to is not None:
             params["to"] = str(to)
         with self.get(
@@ -169,7 +202,9 @@ class ScheduleAPI:
 
             return [history_to_tuple(m) for m in js["history"]]
 
-    def run_schedule(self, name, time, num=None):
+    def run_schedule(
+        self, name: str, time: int, num: int | None = None
+    ) -> list[tuple[Any, Any, datetime.datetime | None]]:
         """Execute the specified query.
 
         Args:
@@ -177,7 +212,6 @@ class ScheduleAPI:
             time (int): Time in Unix epoch format that would be set as TD_SCHEDULED_TIME
             num (int, optional): Indicates how many times the query will be executed.
                 Value should be 9 or less.
-                Default: 1
         Returns:
             list of tuple: [(job_id:int, type:str, scheduled_at:str)]
         """
@@ -195,14 +229,14 @@ class ScheduleAPI:
         return [job_to_tuple(m) for m in js["jobs"]]
 
 
-def job_to_tuple(m):
+def job_to_tuple(m: dict[str, Any]) -> tuple[str | None, str, datetime.datetime | None]:
     job_id = m.get("job_id")
     scheduled_at = parse_date(get_or_else(m, "scheduled_at", "1970-01-01T00:00:00Z"))
     t = m.get("type", "?")
     return job_id, t, scheduled_at
 
 
-def schedule_to_tuple(m):
+def schedule_to_tuple(m: dict[str, Any]) -> dict[str, Any]:
     m = dict(m)
     if "timezone" not in m:
         m["timezone"] = "UTC"
@@ -211,7 +245,20 @@ def schedule_to_tuple(m):
     return m
 
 
-def history_to_tuple(m):
+def history_to_tuple(
+    m: dict[str, Any],
+) -> tuple[
+    datetime.datetime | None,
+    Any,
+    str,
+    Any,
+    Any,
+    datetime.datetime | None,
+    datetime.datetime | None,
+    Any,
+    Any,
+    Any,
+]:
     job_id = m.get("job_id")
     t = m.get("type", "?")
     database = m.get("database")

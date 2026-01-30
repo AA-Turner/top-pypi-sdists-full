@@ -776,24 +776,70 @@ def reask_genai_tools(
     Handle reask for Google GenAI tools mode when validation fails.
 
     Kwargs modifications:
-    - Adds: "contents" (tool response messages indicating validation errors)
+    - Adds: "contents" (model response preserved for thought_signature,
+                        tool response with validation errors)
     """
     from google.genai import types
 
     kwargs = kwargs.copy()
-    function_call = response.candidates[0].content.parts[0].function_call
+
+    existing_contents = kwargs.get("contents")
+    if isinstance(existing_contents, list):
+        kwargs["contents"] = existing_contents.copy()
+    elif existing_contents is None:
+        kwargs["contents"] = []
+    else:
+        kwargs["contents"] = list(existing_contents)
+
+    model_content = None
+    function_call_content = None
+    function_call = None
+
+    candidates = getattr(response, "candidates", None) if response is not None else None
+    if isinstance(candidates, list):
+        for candidate in candidates:
+            content = getattr(candidate, "content", None)
+            if content is None:
+                continue
+
+            if model_content is None:
+                model_content = content
+
+            parts = getattr(content, "parts", None) or []
+            for part in parts:
+                function_call = getattr(part, "function_call", None)
+                if function_call is not None:
+                    function_call_content = content
+                    break
+
+            if function_call is not None:
+                break
+
+    error_msg = (
+        f"Validation Error found:\n{exception}\n"
+        "Recall the function correctly, fix the errors"
+    )
+
+    if function_call is None:
+        if model_content is not None:
+            kwargs["contents"].append(model_content)
+
+        kwargs["contents"].append(
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=error_msg)],
+            )
+        )
+        return kwargs
+
+    function_response_part = types.Part.from_function_response(
+        name=function_call.name,
+        response={"error": error_msg},
+    )
+
+    kwargs["contents"].append(function_call_content)
     kwargs["contents"].append(
-        types.ModelContent(
-            parts=[
-                types.Part.from_function_call(
-                    name=function_call.name,
-                    args=function_call.args,
-                ),
-                types.Part.from_text(
-                    text=f"Validation Error found:\n{exception}\nRecall the function correctly, fix the errors"
-                ),
-            ]
-        ),
+        types.Content(role="tool", parts=[function_response_part])
     )
     return kwargs
 

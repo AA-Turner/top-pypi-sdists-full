@@ -4739,11 +4739,11 @@ class Source:
     ) -> None:
         '''(experimental) A list of rules that belong to this group.
 
-        :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order. See `https://biomejs.dev/assist/actions/organize-imports <https://biomejs.dev/assist/actions/organize-imports>`_
+        :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order. See https://biomejs.dev/assist/actions/organize-imports
         :param recommended: (experimental) Enables the recommended rules for this group.
-        :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See `https://biomejs.dev/assist/actions/use-sorted-attributes <https://biomejs.dev/assist/actions/use-sorted-attributes>`_
-        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See `https://biomejs.dev/assist/actions/use-sorted-keys <https://biomejs.dev/assist/actions/use-sorted-keys>`_
-        :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See `https://biomejs.dev/assist/actions/use-sorted-properties <https://biomejs.dev/assist/actions/use-sorted-properties>`_
+        :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
+        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See https://biomejs.dev/assist/actions/use-sorted-keys
+        :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See https://biomejs.dev/assist/actions/use-sorted-properties
 
         :stability: experimental
         :schema: Source
@@ -4771,7 +4771,7 @@ class Source:
     def organize_imports(self) -> typing.Any:
         '''(experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order.
 
-        See `https://biomejs.dev/assist/actions/organize-imports <https://biomejs.dev/assist/actions/organize-imports>`_
+        See https://biomejs.dev/assist/actions/organize-imports
 
         :stability: experimental
         :schema: Source#organizeImports
@@ -4793,7 +4793,7 @@ class Source:
     def use_sorted_attributes(self) -> typing.Any:
         '''(experimental) Enforce attribute sorting in JSX elements.
 
-        See `https://biomejs.dev/assist/actions/use-sorted-attributes <https://biomejs.dev/assist/actions/use-sorted-attributes>`_
+        See https://biomejs.dev/assist/actions/use-sorted-attributes
 
         :stability: experimental
         :schema: Source#useSortedAttributes
@@ -4805,7 +4805,7 @@ class Source:
     def use_sorted_keys(self) -> typing.Any:
         '''(experimental) Sort the keys of a JSON object in natural order.
 
-        See `https://biomejs.dev/assist/actions/use-sorted-keys <https://biomejs.dev/assist/actions/use-sorted-keys>`_
+        See https://biomejs.dev/assist/actions/use-sorted-keys
 
         :stability: experimental
         :schema: Source#useSortedKeys
@@ -4817,7 +4817,7 @@ class Source:
     def use_sorted_properties(self) -> typing.Any:
         '''(experimental) Enforce ordering of CSS properties and nested rules.
 
-        See `https://biomejs.dev/assist/actions/use-sorted-properties <https://biomejs.dev/assist/actions/use-sorted-properties>`_
+        See https://biomejs.dev/assist/actions/use-sorted-properties
 
         :stability: experimental
         :schema: Source#useSortedProperties

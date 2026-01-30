@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: elasticsearch_plugin
 short_description: Manage Elasticsearch plugins
@@ -114,7 +113,6 @@ EXAMPLES = r"""
 import os
 
 from ansible.module_utils.basic import AnsibleModule
-
 
 PACKAGE_STATE_MAP = dict(present="install", absent="remove")
 
@@ -232,8 +230,8 @@ def get_plugin_bin(module, plugin_bin=None):
 
         # Get separate lists of dirs and binary names from the full paths to the
         # plugin binaries.
-        plugin_dirs = list(set(os.path.dirname(x) for x in bin_paths))
-        plugin_bins = list(set(os.path.basename(x) for x in bin_paths))
+        plugin_dirs = list({os.path.dirname(x) for x in bin_paths})
+        plugin_bins = list({os.path.basename(x) for x in bin_paths})
 
         # Check for the binary names in the default system paths as well as the path
         # specified in the module arguments.

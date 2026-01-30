@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 6.9.9
+Version: 7.0.0
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -20,7 +20,7 @@ Requires-Dist: requests
 Requires-Dist: aiohttp
 Requires-Dist: brotli
 Requires-Dist: pycryptodome
-Requires-Dist: nest_asyncio
+Requires-Dist: nest-asyncio2
 Provides-Extra: all
 Requires-Dist: curl_cffi>=0.6.2; extra == "all"
 Requires-Dist: certifi; extra == "all"
@@ -42,6 +42,7 @@ Requires-Dist: setuptools; extra == "all"
 Requires-Dist: markitdown[all]; extra == "all"
 Requires-Dist: python-dotenv; extra == "all"
 Requires-Dist: aiofile; extra == "all"
+Requires-Dist: cloudscraper; extra == "all"
 Provides-Extra: slim
 Requires-Dist: curl_cffi>=0.6.2; extra == "slim"
 Requires-Dist: certifi; extra == "slim"
@@ -61,6 +62,7 @@ Requires-Dist: pypdf2; extra == "slim"
 Requires-Dist: python-docx; extra == "slim"
 Requires-Dist: python-dotenv; extra == "slim"
 Requires-Dist: aiofile; extra == "slim"
+Requires-Dist: cloudscraper; extra == "slim"
 Provides-Extra: image
 Requires-Dist: pillow; extra == "image"
 Requires-Dist: cairosvg; extra == "image"

@@ -26,6 +26,9 @@ from numpy import linalg as LA
 import cvxpy as cp
 import cvxpy.settings as s
 from cvxpy import Minimize, Problem
+from cvxpy.atoms.affine.binary_operators import multiply
+from cvxpy.atoms.affine.conj import conj
+from cvxpy.atoms.affine.reshape import reshape
 from cvxpy.atoms.affine.upper_tri import upper_tri_to_full
 from cvxpy.atoms.errormsg import SECOND_ARG_SHOULD_NOT_BE_EXPRESSION_ERROR_MESSAGE
 from cvxpy.expressions.constants import Constant, Parameter
@@ -328,6 +331,16 @@ class TestAtoms(BaseTest):
         self.assertEqual(str(cm.exception),
                          "The second argument to quad_over_lin must be a scalar.")
 
+        # Test quad_over_lin numeric value computation.
+        # The denominator should be converted to a scalar via .item().
+        x_val = np.array([3.0, 4.0])
+        y_val = np.array([2.0])  # (1,) shaped numpy array
+        atom = cp.quad_over_lin(Constant(x_val), Constant(y_val))
+        expected = (3.0**2 + 4.0**2) / 2.0  # = 12.5
+        self.assertAlmostEqual(atom.value, expected)
+        # Verify the result is a scalar (not an array).
+        self.assertEqual(np.ndim(atom.value), 0)
+
     def test_elemwise_arg_count(self) -> None:
         """Test arg count for max and min variants.
         """
@@ -479,6 +492,14 @@ class TestAtoms(BaseTest):
         self.assertEqual(cp.sum(Variable(2)).shape, tuple())
         self.assertEqual(cp.sum(Variable(2)).curvature, s.AFFINE)
         self.assertEqual(cp.sum(Variable((2, 1)), keepdims=True).shape, (1, 1))
+
+        # Iterables and Generators
+        self.assertEqual(cp.sum([Variable(1) for _ in range(3)]).shape, (1,))
+        self.assertEqual(cp.sum([Variable(2) for _ in range(3)]).shape, (2,))
+        self.assertEqual(cp.sum(Variable(1) for _ in range(3)).shape, (1,))
+        self.assertEqual(cp.sum(Variable(2) for _ in range(3)).shape, (2,))
+        self.assertEqual(cp.sum(range(3)).shape, tuple())
+
         # Mixed curvature.
         mat = np.array([[1, -1]])
         self.assertEqual(cp.sum(mat @ cp.square(Variable(2))).curvature, s.UNKNOWN)
@@ -489,14 +510,11 @@ class TestAtoms(BaseTest):
         self.assertEqual(cp.sum(Variable((2, 3)), axis=0, keepdims=False).shape, (3,))
         self.assertEqual(cp.sum(Variable((2, 3)), axis=1).shape, (2,))
 
-        # Invalid axis.
-        with self.assertRaises(Exception) as cm:
+        # Invalid axis - now raises ValueError with context
+        with self.assertRaises(ValueError):
             cp.sum(self.x, axis=4)
-        self.assertEqual(str(cm.exception),
-                        "axis 4 is out of bounds for array of dimension 1")
-        with self.assertRaises(Exception) as cm:
+        with self.assertRaises(ValueError):
             cp.sum(Variable(2), axis=1).shape
-        self.assertEqual(str(cm.exception), "axis 1 is out of bounds for array of dimension 1")
 
         A = sp.eye_array(3)
         self.assertEqual(cp.sum(A).value, 3)
@@ -541,24 +559,47 @@ class TestAtoms(BaseTest):
             entries.append(self.x[i])
         atom = cp.vstack(entries)
         self.assertEqual(atom.shape, (2, 1))
-        # self.assertEqual(atom[1,0].name(), "vstack(x[0,0], x[1,0])[1,0]")
 
-        with self.assertRaises(Exception) as cm:
+        with self.assertRaises(ValueError):
             cp.vstack([self.C, 1])
-        self.assertEqual(str(cm.exception),
-                         "All the input dimensions except for axis 0 must match exactly.")
 
-        with self.assertRaises(Exception) as cm:
+        with self.assertRaises(ValueError):
             cp.vstack([self.x, Variable(3)])
-        self.assertEqual(str(cm.exception),
-                         "All the input dimensions except for axis 0 must match exactly.")
 
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises(TypeError):
             cp.vstack()
 
         # Test scalars with variables of shape (1,)
         expr = cp.vstack([2, Variable((1,))])
         self.assertEqual(expr.shape, (2, 1))
+
+    def test_hstack(self) -> None:
+        atom = cp.hstack([self.x, self.y, self.x])
+        self.assertEqual(atom.name(), "Hstack(x, y, x)")
+        self.assertEqual(atom.shape, (6,))
+
+        atom = cp.hstack([self.A, self.B])
+        self.assertEqual(atom.name(), "Hstack(A, B)")
+        self.assertEqual(atom.shape, (2, 4))
+        
+        # Extracting columns produces 1D arrays, so hstack concatenates to (4,)
+        entries = []
+        for i in range(self.A.shape[1]):
+            entries.append(self.A[:, i])
+        atom = cp.hstack(entries)
+        self.assertEqual(atom.shape, (4,))
+        
+        with self.assertRaises(ValueError):
+            cp.hstack([self.C, self.A])
+
+        with self.assertRaises(ValueError):
+            cp.hstack([self.A, self.x])
+
+        with self.assertRaises(TypeError):
+            cp.hstack()
+
+        expr = cp.hstack([2, Variable((1,))])
+        self.assertEqual(expr.shape, (2,))
 
     def test_concatenate(self):
         atom = cp.concatenate([self.x, self.y], axis=0)
@@ -566,9 +607,8 @@ class TestAtoms(BaseTest):
         self.assertEqual(atom.shape, (4,))  # (2 vectors are concatenated on axis 0)
 
         with self.assertRaises(ValueError):
-            # x and y are 1D arrays, so they can't be concatenated on axis 1
-            atom = cp.concatenate([self.x, self.y], axis=1)
-        # Expected ValueError due to invalid axis for 1D arrays
+            # NumPy raises AxisError for invalid axis, converted to ValueError
+            cp.concatenate([self.x, self.y], axis=1)
 
         atom = cp.concatenate([self.A, self.C], axis=None)
         self.assertEqual(atom.shape, (10,))
@@ -577,8 +617,8 @@ class TestAtoms(BaseTest):
         self.assertEqual(atom.shape, (5, 2))
 
         with self.assertRaises(ValueError):
-            atom = cp.concatenate([self.A, self.C], axis=1)
-        # Expected ValueError due to mismatched dimensions along dimension 0
+            # A is (2,2) and C is (3,2) - can't concatenate on axis 1
+            cp.concatenate([self.A, self.C], axis=1)
 
         atom = cp.concatenate([self.A, self.B], axis=1)
         self.assertEqual(atom.shape, (2, 4))
@@ -693,6 +733,24 @@ class TestAtoms(BaseTest):
         A_reshaped = cp.reshape(A, -1, order='F')
         assert np.allclose(A_reshaped.value, A.reshape(-1, order='F'))
 
+    def test_squeeze(self) -> None:
+        A = np.random.rand(2, 1, 3, 1, 1, 4)
+        A_squeezed_np = np.squeeze(A)
+        A_squeezed_cp = cp.squeeze(A)
+        assert np.allclose(A_squeezed_np, A_squeezed_cp.value)
+
+        axes = [None, 1, (1, -2)]
+        for axis in axes:
+            A_squeezed_np = np.squeeze(A, axis=axis)
+            A_squeezed_cp = cp.squeeze(A, axis=axis)
+            assert np.allclose(A_squeezed_np, A_squeezed_cp.value)
+
+        axes = [-1, (0, 1, 3)]
+        for axis in axes:
+            with pytest.raises(ValueError, match="Cannot squeeze"):
+                cp.squeeze(A, axis=axis)
+
+
     def test_vec(self) -> None:
         """Test the vec atom.
         """
@@ -788,6 +846,45 @@ class TestAtoms(BaseTest):
 
         assert psd_trace.is_nonneg()
         assert nsd_trace.is_nonpos()
+
+    def test_Trace(self) -> None:
+        """Test the trace(A) gets canonicalized to Trace(A) as expected
+        """
+        A = cp.Variable((4,4))
+        t = cp.trace(A)
+
+        # Ensure that trace(A) resolves as expected to Trace(A)
+        assert isinstance(t, cp.Trace)
+
+    def test_trace_AB(self) -> None:
+        """Test the trace(AB) gets canonicalized to vdot(A,B)
+        """
+        A = cp.Variable((4,5))
+        B = cp.Variable((5,4))
+        t = cp.trace(A @ B)
+        
+        # Ensure that Trace(A @ B) resolved to vdot(A, B)
+        assert len(t.args) == 1
+        assert isinstance(t.args[0], multiply)
+        assert len(t.args[0].args) == 2
+        assert isinstance(t.args[0].args[0], conj)
+        assert len(t.args[0].args[0].args) == 1
+        assert isinstance(t.args[0].args[0].args[0], reshape)
+        assert isinstance(t.args[0].args[1], reshape)
+
+    def test_trace_complex2real(self) -> None:
+        X = cp.Variable((2, 2), complex=True)
+        problem = cp.Problem(cp.Minimize(cp.norm(cp.trace(X))), [X==2])
+        result = problem.solve()
+        self.assertAlmostEqual(result, 4)
+
+    def test_trace_dgp2dcp(self) -> None:
+        """Test trace works as expected in dgp2dcp canonicalization
+        """
+        X = cp.Variable((2,2), pos=True)
+        problem = cp.Problem(cp.Minimize(cp.trace(X)), [X==2])
+        result = problem.solve(gp=True)
+        self.assertAlmostEqual(result, 4)
 
     def test_log1p(self) -> None:
         """Test the log1p atom.
@@ -1586,6 +1683,42 @@ class TestAtoms(BaseTest):
         with pytest.raises(ValueError, match="< k elements"):
             cp.diff(x1, axis=0).value
 
+        # Test ND arrays
+        C = cp.Variable((4, 5, 6))
+        D = np.zeros((4, 5, 6))
+
+        # Test shape for all axes
+        for axis in range(3):
+            self.assertEqual(cp.diff(C, axis=axis).shape,
+                             np.diff(D, axis=axis).shape)
+
+        # Test with values
+        np.random.seed(42)
+        vals_3d = np.random.randn(4, 5, 6)
+        C_val = cp.Variable((4, 5, 6), value=vals_3d)
+        for axis in range(3):
+            expr = cp.diff(C_val, axis=axis)
+            self.assertItemsAlmostEqual(expr.value, np.diff(vals_3d, axis=axis))
+
+        # Test higher-order diff on ND
+        for k in [1, 2]:
+            for axis in range(3):
+                self.assertEqual(cp.diff(C, k=k, axis=axis).shape,
+                                 np.diff(D, n=k, axis=axis).shape)
+
+        # Test negative axis
+        for axis in [-1, -2, -3]:
+            self.assertEqual(cp.diff(C, axis=axis).shape,
+                             np.diff(D, axis=axis).shape)
+            expr = cp.diff(C_val, axis=axis)
+            self.assertItemsAlmostEqual(expr.value, np.diff(vals_3d, axis=axis))
+
+        # Test invalid axis
+        with pytest.raises((ValueError, np.exceptions.AxisError)):
+            cp.diff(C, axis=3)
+        with pytest.raises((ValueError, np.exceptions.AxisError)):
+            cp.diff(C, axis=-4)
+
     def test_log_normcdf(self) -> None:
         self.assertEqual(cp.log_normcdf(self.x).sign, s.NONPOS)
         self.assertEqual(cp.log_normcdf(self.x).curvature, s.CONCAVE)
@@ -1748,12 +1881,6 @@ class TestAtoms(BaseTest):
 
         X = cp.Variable((6, 6))
         with self.assertRaises(ValueError) as cm:
-            cp.partial_trace(X, dims=[2, 3], axis=-1)
-        self.assertEqual(str(cm.exception),
-                         "Invalid axis argument, should be between 0 and 2, got -1.")
-
-        X = cp.Variable((6, 6))
-        with self.assertRaises(ValueError) as cm:
             cp.partial_trace(X, dims=[2, 4], axis=0)
         self.assertEqual(str(cm.exception),
                          "Dimension of system doesn't correspond to dimension of subsystems.")
@@ -1804,12 +1931,6 @@ class TestAtoms(BaseTest):
             cp.partial_transpose(X, dims=[2, 3], axis=0)
         self.assertEqual(str(cm.exception),
                          "partial_transpose only supports 2-d square arrays.")
-
-        X = cp.Variable((6, 6))
-        with self.assertRaises(ValueError) as cm:
-            cp.partial_transpose(X, dims=[2, 3], axis=-1)
-        self.assertEqual(str(cm.exception),
-                         "Invalid axis argument, should be between 0 and 2, got -1.")
 
         X = cp.Variable((6, 6))
         with self.assertRaises(ValueError) as cm:

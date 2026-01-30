@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="flask_cloudflared",
-    version="0.0.14",
+    version="0.0.15",
     author="Ralf Rademacher",
     description="Start a TryCloudflare Tunnel from your flask app.",
     long_description=long_description,
@@ -17,6 +17,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     keywords='flask cloudflared',
-    install_requires=['Flask>=0.8', 'requests'],
+    install_requires=['Flask>=0.8', 'requests', 'tqdm'],
     py_modules=['flask_cloudflared']
 )

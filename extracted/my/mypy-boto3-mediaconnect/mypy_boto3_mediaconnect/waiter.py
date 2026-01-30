@@ -3,7 +3,7 @@ Type annotations for mediaconnect service client waiters.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/waiters/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -22,6 +22,7 @@ Usage::
         OutputDeletedWaiter,
         OutputRoutedWaiter,
         OutputStandbyWaiter,
+        OutputUnroutedWaiter,
     )
 
     session = Session()
@@ -37,6 +38,7 @@ Usage::
     output_deleted_waiter: OutputDeletedWaiter = client.get_waiter("output_deleted")
     output_routed_waiter: OutputRoutedWaiter = client.get_waiter("output_routed")
     output_standby_waiter: OutputStandbyWaiter = client.get_waiter("output_standby")
+    output_unrouted_waiter: OutputUnroutedWaiter = client.get_waiter("output_unrouted")
     ```
 """
 
@@ -53,6 +55,7 @@ from .type_defs import (
     GetRouterInputRequestWaitExtraExtraTypeDef,
     GetRouterInputRequestWaitExtraTypeDef,
     GetRouterInputRequestWaitTypeDef,
+    GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraExtraTypeDef,
     GetRouterOutputRequestWaitExtraTypeDef,
@@ -76,6 +79,7 @@ __all__ = (
     "OutputDeletedWaiter",
     "OutputRoutedWaiter",
     "OutputStandbyWaiter",
+    "OutputUnroutedWaiter",
 )
 
 
@@ -226,4 +230,19 @@ class OutputStandbyWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputStandby.html#MediaConnect.Waiter.OutputStandby.wait)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/waiters/#outputstandbywaiter)
+        """
+
+
+class OutputUnroutedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputUnrouted.html#MediaConnect.Waiter.OutputUnrouted)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/waiters/#outputunroutedwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetRouterOutputRequestWaitExtraExtraExtraExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/waiter/OutputUnrouted.html#MediaConnect.Waiter.OutputUnrouted.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/waiters/#outputunroutedwaiter)
         """

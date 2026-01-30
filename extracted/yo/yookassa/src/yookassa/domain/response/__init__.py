@@ -13,6 +13,7 @@ from yookassa.domain.response.webhook_response import WebhookResponse, WebhookLi
 from yookassa.domain.response.deal_response import DealResponse
 from yookassa.domain.response.deal_list_response import DealListResponse
 from yookassa.domain.response.invoice_response import InvoiceResponse
+from yookassa.domain.response.payout_list_response import PayoutListResponse
 from yookassa.domain.response.payout_response import PayoutResponse
 from yookassa.domain.response.personal_data_response import PersonalDataResponse
 from yookassa.domain.response.sbp_bank_list_response import SbpBankListResponse

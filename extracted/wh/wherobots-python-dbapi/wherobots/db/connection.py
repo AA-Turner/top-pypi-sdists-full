@@ -4,7 +4,7 @@ import textwrap
 import threading
 import uuid
 from dataclasses import dataclass
-from typing import Any, Callable, Union, Dict
+from typing import Any, Callable, Dict
 
 import pandas
 import pyarrow
@@ -13,8 +13,11 @@ import websockets.exceptions
 import websockets.protocol
 import websockets.sync.client
 
-from wherobots.db.constants import (
-    DEFAULT_READ_TIMEOUT_SECONDS,
+from .constants import DEFAULT_READ_TIMEOUT_SECONDS
+from .cursor import Cursor
+from .errors import NotSupportedError, OperationalError
+from .models import ExecutionResult, Store, StoreResult
+from .types import (
     RequestKind,
     EventKind,
     ExecutionState,
@@ -22,8 +25,6 @@ from wherobots.db.constants import (
     DataCompression,
     GeometryRepresentation,
 )
-from wherobots.db.cursor import Cursor
-from wherobots.db.errors import NotSupportedError, OperationalError
 
 
 @dataclass
@@ -32,6 +33,7 @@ class Query:
     execution_id: str
     state: ExecutionState
     handler: Callable[[Any], None]
+    store: Store | None = None
 
 
 class Connection:
@@ -53,9 +55,9 @@ class Connection:
         self,
         ws: websockets.sync.client.ClientConnection,
         read_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
-        results_format: Union[ResultsFormat, None] = None,
-        data_compression: Union[DataCompression, None] = None,
-        geometry_representation: Union[GeometryRepresentation, None] = None,
+        results_format: ResultsFormat | None = None,
+        data_compression: DataCompression | None = None,
+        geometry_representation: GeometryRepresentation | None = None,
     ):
         self.__ws = ws
         self.__read_timeout = read_timeout
@@ -132,8 +134,26 @@ class Connection:
 
             if query.state == ExecutionState.SUCCEEDED:
                 # On a state_updated event telling us the query succeeded,
-                # ask for results.
+                # check if results are stored in cloud storage or need to be fetched.
                 if kind == EventKind.STATE_UPDATED:
+                    result_uri = message.get("result_uri")
+                    if result_uri:
+                        # Results are stored in cloud storage
+                        store_result = StoreResult(
+                            result_uri=result_uri,
+                            size=message.get("size"),
+                        )
+                        logging.info(
+                            "Query %s results stored at: %s (size: %s)",
+                            execution_id,
+                            result_uri,
+                            store_result.size,
+                        )
+                        query.state = ExecutionState.COMPLETED
+                        query.handler(ExecutionResult(store_result=store_result))
+                        return
+
+                    # No store configured, request results normally
                     self.__request_results(execution_id)
                     return
 
@@ -144,13 +164,15 @@ class Connection:
                     return
 
                 query.state = ExecutionState.COMPLETED
-                query.handler(self._handle_results(execution_id, results))
+                query.handler(
+                    ExecutionResult(results=self._handle_results(execution_id, results))
+                )
             elif query.state == ExecutionState.CANCELLED:
                 logging.info(
                     "Query %s has been cancelled; returning empty results.",
                     execution_id,
                 )
-                query.handler(pandas.DataFrame())
+                query.handler(ExecutionResult(results=pandas.DataFrame()))
                 self.__queries.pop(execution_id)
             elif query.state == ExecutionState.FAILED:
                 # Don't do anything here; the ERROR event is coming with more
@@ -159,7 +181,7 @@ class Connection:
         elif kind == EventKind.ERROR:
             query.state = ExecutionState.FAILED
             error = message.get("message")
-            query.handler(OperationalError(error))
+            query.handler(ExecutionResult(error=OperationalError(error)))
         else:
             logging.warning("Received unknown %s event!", kind)
 
@@ -200,7 +222,12 @@ class Connection:
             raise ValueError("Unexpected frame type received")
         return message
 
-    def __execute_sql(self, sql: str, handler: Callable[[Any], None]) -> str:
+    def __execute_sql(
+        self,
+        sql: str,
+        handler: Callable[[Any], None],
+        store: Store | None = None,
+    ) -> str:
         """Triggers the execution of the given SQL query."""
         execution_id = str(uuid.uuid4())
         request = {
@@ -209,11 +236,19 @@ class Connection:
             "statement": sql,
         }
 
+        if store:
+            request["store"] = {
+                "format": store.format.value,
+                "single": str(store.single).lower(),
+                "generate_presigned_url": str(store.generate_presigned_url).lower(),
+            }
+
         self.__queries[execution_id] = Query(
             sql=sql,
             execution_id=execution_id,
             state=ExecutionState.EXECUTION_REQUESTED,
             handler=handler,
+            store=store,
         )
 
         logging.info(

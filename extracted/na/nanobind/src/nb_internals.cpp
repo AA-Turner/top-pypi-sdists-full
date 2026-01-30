@@ -42,7 +42,8 @@ static PyType_Spec nb_meta_spec = {
     /* .name = */ "nanobind.nb_meta",
     /* .basicsize = */ 0,
     /* .itemsize = */ 0,
-    /* .flags = */ Py_TPFLAGS_DEFAULT,
+    /* .flags = */ Py_TPFLAGS_DEFAULT |
+                   NB_TPFLAGS_IMMUTABLETYPE,
     /* .slots = */ nb_meta_slots
 };
 
@@ -74,8 +75,10 @@ static PyType_Spec nb_func_spec = {
     /* .name = */ "nanobind.nb_func",
     /* .basicsize = */ (int) sizeof(nb_func),
     /* .itemsize = */ (int) sizeof(func_data),
-    /* .flags = */ Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-                   Py_TPFLAGS_HAVE_VECTORCALL,
+    /* .flags = */ Py_TPFLAGS_DEFAULT |
+                   Py_TPFLAGS_HAVE_GC |
+                   Py_TPFLAGS_HAVE_VECTORCALL |
+                   NB_TPFLAGS_IMMUTABLETYPE,
     /* .slots = */ nb_func_slots
 };
 
@@ -96,9 +99,11 @@ static PyType_Spec nb_method_spec = {
     /*.name = */ "nanobind.nb_method",
     /*.basicsize = */ (int) sizeof(nb_func),
     /*.itemsize = */ (int) sizeof(func_data),
-    /*.flags = */ Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    /*.flags = */ Py_TPFLAGS_DEFAULT |
+                  Py_TPFLAGS_HAVE_GC |
                   Py_TPFLAGS_METHOD_DESCRIPTOR |
-                  Py_TPFLAGS_HAVE_VECTORCALL,
+                  Py_TPFLAGS_HAVE_VECTORCALL |
+                  NB_TPFLAGS_IMMUTABLETYPE,
     /*.slots = */ nb_method_slots
 };
 
@@ -126,8 +131,10 @@ static PyType_Spec nb_bound_method_spec = {
     /* .name = */ "nanobind.nb_bound_method",
     /* .basicsize = */ (int) sizeof(nb_bound_method),
     /* .itemsize = */ 0,
-    /* .flags = */ Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-                   Py_TPFLAGS_HAVE_VECTORCALL,
+    /* .flags = */ Py_TPFLAGS_DEFAULT |
+                   Py_TPFLAGS_HAVE_GC |
+                   Py_TPFLAGS_HAVE_VECTORCALL |
+                   NB_TPFLAGS_IMMUTABLETYPE,
     /* .slots = */ nb_bound_method_slots
 };
 
@@ -437,11 +444,6 @@ NB_NOINLINE void nb_module_exec(const char *name, PyObject *m) {
     PyThread_tss_create(p->nb_static_property_disabled);
 #endif
 
-    for (size_t i = 0; i < shard_count; ++i) {
-        p->shards[i].keep_alive.min_load_factor(.1f);
-        p->shards[i].inst_c2p.min_load_factor(.1f);
-    }
-
     check(p->nb_module && p->nb_meta && p->nb_type_dict && p->nb_func &&
               p->nb_method && p->nb_bound_method,
           "nanobind::detail::nb_module_exec(): initialization failed!");
@@ -481,6 +483,7 @@ NB_NOINLINE void nb_module_exec(const char *name, PyObject *m) {
 #endif
 
     p->translators = { default_exception_translator, nullptr, nullptr };
+
     is_alive_value = true;
     is_alive_ptr = &is_alive_value;
     p->is_alive_ptr = is_alive_ptr;

@@ -4,6 +4,7 @@ import (
 	// blank import for embeds
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -81,17 +82,14 @@ func (i *CUDABaseImage) ImageTag() string {
 	return "nvidia/cuda:" + i.Tag
 }
 
-//go:generate go run ../../tools/compatgen/main.go cuda -o cuda_base_images.json
 //go:embed cuda_base_images.json
 var cudaBaseImagesData []byte
 var CUDABaseImages []CUDABaseImage
 
-//go:generate go run ../../tools/compatgen/main.go tensorflow -o tf_compatibility_matrix.json
 //go:embed tf_compatibility_matrix.json
 var tfCompatibilityMatrixData []byte
 var TFCompatibilityMatrix []TFCompatibility
 
-//go:generate go run ../../tools/compatgen/main.go torch -o torch_compatibility_matrix.json
 //go:embed torch_compatibility_matrix.json
 var torchCompatibilityMatrixData []byte
 var TorchCompatibilityMatrix []TorchCompatibility
@@ -154,6 +152,11 @@ func cudaVersionFromTorchPlusVersion(ver string) (string, string) {
 }
 
 func cudasFromTorch(ver string) ([]string, error) {
+	if ver == "" {
+		return nil, errors.New(
+			"torch version must be specified when using CUDA",
+		)
+	}
 	cudas := []string{}
 
 	// Check the version modifier on torch (such as +cu118)
@@ -261,7 +264,7 @@ func CUDABaseImageFor(cuda string, cuDNN string) (string, error) {
 		}
 	}
 	if len(images) == 0 {
-		return "", fmt.Errorf("No matching base image for CUDA %s and CuDNN %s", cuda, cuDNN)
+		return "", fmt.Errorf("no matching base image for CUDA %s and CuDNN %s", cuda, cuDNN)
 	}
 
 	sort.Slice(images, func(i, j int) bool {

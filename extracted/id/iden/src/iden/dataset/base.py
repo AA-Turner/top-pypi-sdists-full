@@ -8,9 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from coola.equality.testers import EqualityTester
-
-from iden.utils.comparator import ObjectEqualityComparator
+from coola.equality.tester import EqualNanEqualityTester, get_default_registry
 
 if TYPE_CHECKING:
     from iden.shard import BaseShard
@@ -548,5 +546,4 @@ class BaseDataset(ABC, Generic[T]):
         """
 
 
-if not EqualityTester.has_comparator(BaseDataset):  # pragma: no cover
-    EqualityTester.add_comparator(BaseDataset, ObjectEqualityComparator())
+get_default_registry().register(BaseDataset, EqualNanEqualityTester(), exist_ok=True)

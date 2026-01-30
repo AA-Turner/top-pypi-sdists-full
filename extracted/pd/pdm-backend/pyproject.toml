@@ -29,7 +29,7 @@ classifiers = [
 dependencies = [
     "importlib-metadata>=3.6; python_version < \"3.10\"",
 ]
-version = "2.4.6"
+version = "2.4.7"
 
 [project.urls]
 Homepage = "https://github.com/pdm-project/pdm-backend"
@@ -106,26 +106,6 @@ source-includes = [
     "tests",
 ]
 
-[tool.pdm.dev-dependencies]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-gitconfig",
-    "pytest-xdist",
-    "setuptools",
-]
-dev = [
-    "editables>=0.3",
-    "pre-commit>=2.21.0",
-    "vendoring>=1.2.0; python_version ~= \"3.8\"",
-]
-docs = [
-    "mkdocs>=1.4.2",
-    "mkdocstrings[python]>=0.19.0",
-    "mkdocs-material>=8.5.10",
-    "mkdocs-version-annotations>=1.0.0",
-]
-
 [tool.pdm.scripts]
 build = "python scripts/build.py"
 docs = "mkdocs serve"
@@ -153,4 +133,24 @@ explicit_package_bases = true
 namespace_packages = true
 overrides = [
     { module = "pdm.backend._vendor.*", ignore_errors = true },
+]
+
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-gitconfig",
+    "pytest-xdist",
+    "setuptools",
+]
+dev = [
+    "editables>=0.3",
+    "pre-commit>=2.21.0",
+    "vendoring>=1.2.0; python_version ~= \"3.8\"",
+]
+docs = [
+    "mkdocs>=1.4.2",
+    "mkdocstrings[python]>=0.19.0",
+    "mkdocs-material>=8.5.10",
+    "mkdocs-version-annotations>=1.0.0",
 ]

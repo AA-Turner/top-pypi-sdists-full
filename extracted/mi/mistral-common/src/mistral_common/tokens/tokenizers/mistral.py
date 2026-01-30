@@ -83,9 +83,17 @@ def load_audio_encoder(audio_config: AudioConfig, tokenizer: Tekkenizer) -> Audi
     Returns:
         The audio encoder.
     """
+
+    def get_special_token_or_none(token: str) -> int | None:
+        if not tokenizer.is_special(token):
+            return None
+
+        return tokenizer.get_special_token(token)
+
     special_ids = SpecialAudioIDs(
-        audio=tokenizer.get_special_token(SpecialTokens.audio.value),
-        begin_audio=tokenizer.get_special_token(SpecialTokens.begin_audio.value),
+        audio=get_special_token_or_none(SpecialTokens.audio.value),
+        begin_audio=get_special_token_or_none(SpecialTokens.begin_audio.value),
+        streaming_pad=get_special_token_or_none(SpecialTokens.streaming_pad.value),
     )
     return AudioEncoder(audio_config, special_ids)
 
@@ -340,7 +348,7 @@ class MistralTokenizer(
             )
         elif tokenizer.version == TokenizerVersion.v13:
             return MistralTokenizer(
-                InstructTokenizerV13(tokenizer, image_encoder=image_encoder),
+                InstructTokenizerV13(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder),
                 validator=MistralRequestValidatorV13(mode=mode),
                 request_normalizer=request_normalizer,
             )

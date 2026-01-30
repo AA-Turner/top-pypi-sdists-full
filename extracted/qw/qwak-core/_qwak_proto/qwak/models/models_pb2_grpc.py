@@ -34,6 +34,11 @@ class ModelsManagementServiceStub(object):
                 request_serializer=qwak_dot_models_dot_models__pb2.GetModelRequest.SerializeToString,
                 response_deserializer=qwak_dot_models_dot_models__pb2.GetModelResponse.FromString,
                 )
+        self.ListModelsByModelIds = channel.unary_unary(
+                '/qwak.models.management.ModelsManagementService/ListModelsByModelIds',
+                request_serializer=qwak_dot_models_dot_models__pb2.ListModelsByModelIdsRequest.SerializeToString,
+                response_deserializer=qwak_dot_models_dot_models__pb2.ListModelsResponse.FromString,
+                )
         self.DeleteModel = channel.unary_unary(
                 '/qwak.models.management.ModelsManagementService/DeleteModel',
                 request_serializer=qwak_dot_models_dot_models__pb2.DeleteModelRequest.SerializeToString,
@@ -107,6 +112,13 @@ class ModelsManagementServiceServicer(object):
 
     def GetModel(self, request, context):
         """Get model
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListModelsByModelIds(self, request, context):
+        """Get models by model IDs and model UUIDs
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -192,6 +204,11 @@ def add_ModelsManagementServiceServicer_to_server(servicer, server):
                     servicer.GetModel,
                     request_deserializer=qwak_dot_models_dot_models__pb2.GetModelRequest.FromString,
                     response_serializer=qwak_dot_models_dot_models__pb2.GetModelResponse.SerializeToString,
+            ),
+            'ListModelsByModelIds': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListModelsByModelIds,
+                    request_deserializer=qwak_dot_models_dot_models__pb2.ListModelsByModelIdsRequest.FromString,
+                    response_serializer=qwak_dot_models_dot_models__pb2.ListModelsResponse.SerializeToString,
             ),
             'DeleteModel': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteModel,
@@ -313,6 +330,23 @@ class ModelsManagementService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.models.management.ModelsManagementService/GetModel',
             qwak_dot_models_dot_models__pb2.GetModelRequest.SerializeToString,
             qwak_dot_models_dot_models__pb2.GetModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListModelsByModelIds(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.models.management.ModelsManagementService/ListModelsByModelIds',
+            qwak_dot_models_dot_models__pb2.ListModelsByModelIdsRequest.SerializeToString,
+            qwak_dot_models_dot_models__pb2.ListModelsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

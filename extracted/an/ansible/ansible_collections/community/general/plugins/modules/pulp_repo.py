@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: pulp_repo
 author: "Joe Adams (@sysadmind)"
@@ -193,8 +192,7 @@ from time import sleep
 
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import fetch_url
-from ansible.module_utils.urls import url_argument_spec
+from ansible.module_utils.urls import fetch_url, url_argument_spec
 
 
 class pulp_server:
@@ -541,19 +539,19 @@ def main():
     if importer_ssl_ca_cert is not None:
         importer_ssl_ca_cert_file_path = os.path.abspath(importer_ssl_ca_cert)
         if os.path.isfile(importer_ssl_ca_cert_file_path):
-            with open(importer_ssl_ca_cert_file_path, "r") as importer_ssl_ca_cert_file_object:
+            with open(importer_ssl_ca_cert_file_path) as importer_ssl_ca_cert_file_object:
                 importer_ssl_ca_cert = importer_ssl_ca_cert_file_object.read()
 
     if importer_ssl_client_cert is not None:
         importer_ssl_client_cert_file_path = os.path.abspath(importer_ssl_client_cert)
         if os.path.isfile(importer_ssl_client_cert_file_path):
-            with open(importer_ssl_client_cert_file_path, "r") as importer_ssl_client_cert_file_object:
+            with open(importer_ssl_client_cert_file_path) as importer_ssl_client_cert_file_object:
                 importer_ssl_client_cert = importer_ssl_client_cert_file_object.read()
 
     if importer_ssl_client_key is not None:
         importer_ssl_client_key_file_path = os.path.abspath(importer_ssl_client_key)
         if os.path.isfile(importer_ssl_client_key_file_path):
-            with open(importer_ssl_client_key_file_path, "r") as importer_ssl_client_key_file_object:
+            with open(importer_ssl_client_key_file_path) as importer_ssl_client_key_file_object:
                 importer_ssl_client_key = importer_ssl_client_key_file_object.read()
 
     server = pulp_server(module, pulp_host, repo_type, wait_for_completion=wait_for_completion)

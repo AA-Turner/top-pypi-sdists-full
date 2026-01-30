@@ -3,7 +3,7 @@ Type annotations for cognito-idp service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -56,6 +56,7 @@ __all__ = (
     "FeatureTypeType",
     "FeedbackValueTypeType",
     "IdentityProviderTypeTypeType",
+    "InboundFederationLambdaVersionTypeType",
     "ListGroupsPaginatorName",
     "ListIdentityProvidersPaginatorName",
     "ListResourceServersPaginatorName",
@@ -178,6 +179,7 @@ FeedbackValueTypeType = Literal["Invalid", "Valid"]
 IdentityProviderTypeTypeType = Literal[
     "Facebook", "Google", "LoginWithAmazon", "OIDC", "SAML", "SignInWithApple"
 ]
+InboundFederationLambdaVersionTypeType = Literal["V1_0"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIdentityProvidersPaginatorName = Literal["list_identity_providers"]
 ListResourceServersPaginatorName = Literal["list_resource_servers"]
@@ -358,7 +360,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -623,6 +624,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

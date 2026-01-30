@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icontract
-Version: 2.7.2
+Version: 2.7.3
 Summary: Provide design-by-contract with informative violation messages.
 Home-page: https://github.com/Parquery/icontract
 Author: Marko Ristin

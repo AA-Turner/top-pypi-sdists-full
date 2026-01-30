@@ -7,6 +7,7 @@ from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils import GeneratorStream, bytes_generator_from_file, debug, log2, ing
 from adam.utils_athena import Athena
+from adam.utils_context import Context
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 
@@ -29,7 +30,7 @@ class AthenaImporter(Importer):
                         columns: str,
                         multi_tables = True,
                         create_db = False,
-                        job_log: str = None):
+                        ctx: Context = Context.NULL):
         csv_file = self.csv_file(from_session, table, target_table)
         pod = state.pod
         namespace = state.namespace
@@ -55,14 +56,14 @@ class AthenaImporter(Importer):
             return to, to_session
         finally:
             if succeeded:
-                self.remove_csv(state, from_session, table, target_table, multi_tables, job_log=job_log)
+                self.remove_csv(state, from_session, table, target_table, multi_tables, ctx=ctx)
                 Athena.clear_cache()
 
                 if multi_tables:
-                    log2(f'[{to_session}] {keyspace}.{target_table} OK', file=job_log)
+                    ctx.log2(f'[{to_session}] {keyspace}.{target_table} OK')
                 else:
                     with export_db(state) as dbs:
-                        dbs.sql(f'select * from {keyspace}.{target_table} limit 10', backgrounded=True, export_log=job_log)
+                        dbs.sql(f'select * from {keyspace}.{target_table} limit 10', ctx=ctx)
 
     def import_from_local_csv(self, state: ReplState,
                         keyspace: str, table: str, csv_file: str, multi_tables = True, create_db = False):

@@ -504,7 +504,7 @@ def updating_printer() -> Generator[Callable[[str], None], None, None]:
         print("\r" + " " * cols, end="\r", flush=True)
 
 
-def wait_for_session_start(
+def wait_for_session_start(  # noqa: PLR0912
     project_id: str,
     session_name: str,
     api_client: Optional[ProductApi] = None,
@@ -1073,18 +1073,29 @@ def validate_job_config_dict(
         )
 
 
-def validate_list_jobs_state_filter(
-    _, param, value
-) -> List[HaJobStates]:  # noqa: ARG001
+# User-facing job states for --v2 mode (maps to multiple backend HaJobStates)
+ALLOWED_USER_JOB_STATES = ["STARTING", "RUNNING", "SUCCEEDED", "FAILED"]
+
+
+def validate_list_jobs_state_filter(_, param, value) -> List[str]:  # noqa: ARG001
     """
-    Validate the job state filter for list jobs CLI method
+    Validate the job state filter for list jobs CLI method.
+
+    Accepts both user-facing states (STARTING, RUNNING, SUCCEEDED, FAILED) for --v2
+    and backend HaJobStates (SUCCESS, PENDING, etc.) for legacy compatibility.
     """
     if not value:
         return []
     for each_value in value:
-        if each_value.upper() not in HaJobStates.allowable_values:
+        upper = each_value.upper()
+        # Accept both user-facing states (for v2) and backend states (for legacy)
+        if (
+            upper not in ALLOWED_USER_JOB_STATES
+            and upper not in HaJobStates.allowable_values
+        ):
             raise click.ClickException(
-                f"{each_value} is not a valid value for {param.opts[0]}. Allowed values: {', '.join(HaJobStates.allowable_values)}"
+                f"{each_value} is not valid for {param.opts[0]}. "
+                f"For --v2 use: {', '.join(ALLOWED_USER_JOB_STATES)}"
             )
     return [each_value.upper() for each_value in value]
 

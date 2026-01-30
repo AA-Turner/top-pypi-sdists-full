@@ -1,11 +1,8 @@
-import re
-
 from adam.checks.check import Check
 from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
-from adam.utils import Color
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
+from adam.commands.nodetool.utils_nodetools import NodeTools
 
 class Status(Check):
     def name(self):
@@ -15,15 +12,18 @@ class Status(Check):
         issues: list[Issue] = []
 
         try:
-            result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", show_out=ctx.show_output, text_color=Color.gray)
-            status = parse_nodetool_status(result.stdout)
+            status, result = NodeTools.status(ctx)
+            # ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+            # result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", ctx=ctx_fg)
+            # status = parse_nodetool_status(result.stdout)
             pod_details = {
                 'name': ctx.pod,
                 'namespace': ctx.namespace,
                 'statefulset': ctx.statefulset,
                 'status': status
             }
-            if result.stderr: pod_details['stderr'] = result.stderr
+            if result.stderr:
+                pod_details['stderr'] = result.stderr
 
             for pod in pod_details['status']:
                 if pod['status'] != 'UN':
@@ -46,19 +46,19 @@ class Status(Check):
     def help(self):
         return f'{Status().name()}: check if a node is down with nodetool status'
 
-def parse_nodetool_status(stdout: str):
-    nodes: list[dict] = []
-    for line in stdout.splitlines():
-        groups = re.match(r"(\S*)\s+(\S*)\s+(.*B)\s+(\S*)\s+(\S*)\s+(\S*)\s+(\S*)", line)
-        if groups:
-            nodes.append({
-                'status': groups[1],
-                'address': groups[2],
-                'load': groups[3],
-                'tokens': groups[4],
-                'owns': groups[5],
-                'host_id': groups[6],
-                'rack': groups[7]
-            })
+# def parse_nodetool_status(stdout: str):
+#     nodes: list[dict] = []
+#     for line in stdout.splitlines():
+#         groups = re.match(r"(\S*)\s+(\S*)\s+(.*B)\s+(\S*)\s+(\S*)\s+(\S*)\s+(\S*)", line)
+#         if groups:
+#             nodes.append({
+#                 'status': groups[1],
+#                 'address': groups[2],
+#                 'load': groups[3],
+#                 'tokens': groups[4],
+#                 'owns': groups[5],
+#                 'host_id': groups[6],
+#                 'rack': groups[7]
+#             })
 
-    return nodes
+#     return nodes

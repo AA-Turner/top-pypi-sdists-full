@@ -1,7 +1,7 @@
 """Main client for Pierre Git Storage SDK."""
 
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from urllib.parse import urlencode
 
 import httpx
@@ -10,7 +10,10 @@ from pierre_storage.auth import generate_jwt
 from pierre_storage.errors import ApiError
 from pierre_storage.repo import DEFAULT_TOKEN_TTL_SECONDS, RepoImpl
 from pierre_storage.types import (
+    BaseRepo,
     DeleteRepoResult,
+    ForkBaseRepo,
+    GitHubBaseRepo,
     GitStorageOptions,
     ListReposResult,
     Repo,
@@ -102,17 +105,18 @@ class GitStorage:
         self,
         *,
         id: Optional[str] = None,
-        default_branch: str = "main",
-        base_repo: Optional[Dict[str, Any]] = None,
+        default_branch: Optional[str] = None,
+        base_repo: Optional[BaseRepo] = None,
         ttl: Optional[int] = None,
     ) -> Repo:
         """Create a new repository.
 
         Args:
             id: Repository ID (auto-generated if not provided)
-            default_branch: Default branch name (default: "main")
-            base_repo: Optional base repository for GitHub sync
-                       (provider, owner, name, default_branch)
+            default_branch: Default branch name (default: "main" for non-forks)
+            base_repo: Optional base repository for GitHub sync or fork
+                       GitHub: owner, name, default_branch
+                       Fork: id, ref, sha
             ttl: Token TTL in seconds
 
         Returns:
@@ -129,19 +133,52 @@ class GitStorage:
         )
 
         url = f"{self.options['api_base_url']}/api/v{self.options['api_version']}/repos"
-        body: Dict[str, Any] = {"default_branch": default_branch}
+        body: Dict[str, Any] = {}
 
         # Match backend priority: base_repo.default_branch > default_branch > 'main'
-        resolved_default_branch = default_branch
+        explicit_default_branch = default_branch is not None
+        resolved_default_branch: Optional[str] = None
+
         if base_repo:
-            # Ensure provider is set to 'github' if not provided
-            base_repo_with_provider = {
-                "provider": "github",
-                **base_repo,
-            }
-            body["base_repo"] = base_repo_with_provider
-            if base_repo.get("default_branch"):
-                resolved_default_branch = base_repo["default_branch"]
+            if "id" in base_repo:
+                fork_repo = cast(ForkBaseRepo, base_repo)
+                base_repo_token = self._generate_jwt(
+                    fork_repo["id"],
+                    {"permissions": ["git:read"], "ttl": ttl},
+                )
+                base_repo_payload: Dict[str, Any] = {
+                    "provider": "code",
+                    "owner": self.options["name"],
+                    "name": fork_repo["id"],
+                    "operation": "fork",
+                    "auth": {"token": base_repo_token},
+                }
+                if fork_repo.get("ref"):
+                    base_repo_payload["ref"] = fork_repo["ref"]
+                if fork_repo.get("sha"):
+                    base_repo_payload["sha"] = fork_repo["sha"]
+                body["base_repo"] = base_repo_payload
+                if explicit_default_branch:
+                    resolved_default_branch = default_branch
+                    body["default_branch"] = default_branch
+            else:
+                github_repo = cast(GitHubBaseRepo, base_repo)
+                # Ensure provider is set to 'github' if not provided
+                base_repo_with_provider = {
+                    "provider": "github",
+                    **github_repo,
+                }
+                body["base_repo"] = base_repo_with_provider
+                if github_repo.get("default_branch"):
+                    resolved_default_branch = github_repo["default_branch"]
+                elif explicit_default_branch:
+                    resolved_default_branch = default_branch
+                else:
+                    resolved_default_branch = "main"
+                body["default_branch"] = resolved_default_branch
+        else:
+            resolved_default_branch = default_branch if explicit_default_branch else "main"
+            body["default_branch"] = resolved_default_branch
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -173,7 +210,7 @@ class GitStorage:
 
         return RepoImpl(
             repo_id,
-            resolved_default_branch,
+            resolved_default_branch or "main",
             api_base_url,
             storage_base_url,
             name,

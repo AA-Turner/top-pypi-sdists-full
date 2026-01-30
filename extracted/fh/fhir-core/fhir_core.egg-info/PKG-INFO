@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir_core
-Version: 1.1.4
+Version: 1.1.5
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -186,6 +186,13 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 
 History
 =======
+
+1.1.5 (2026-01-29)
+------------------
+
+- Fixes the issue #16 "Encounter.class missing when serializing to XML".
+
+- Fixes the issue #14 "Wrong serialization of Instant type" [dhallam].
 
 1.1.4 (2025-07-11)
 ------------------

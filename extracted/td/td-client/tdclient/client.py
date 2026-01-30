@@ -1,44 +1,63 @@
 #!/usr/bin/env python
 
+import datetime
 import json
+from collections.abc import Iterator
+from typing import Any, Literal, cast
 
 from tdclient import api, models
+from tdclient.types import (
+    BulkImportParams,
+    BytesOrStream,
+    DataFormat,
+    ExportParams,
+    FileLike,
+    Priority,
+    ResultFormat,
+    ResultParams,
+    ScheduleParams,
+)
 
 
 class Client:
     """API Client for Treasure Data Service"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._api = api.API(*args, **kwargs)
 
-    def __enter__(self):
+    def __enter__(self) -> "Client":
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: object,
+    ) -> None:
         self.close()
 
     @property
-    def api(self):
+    def api(self) -> api.API:
         """
         an instance of :class:`tdclient.api.API`
         """
         return self._api
 
     @property
-    def apikey(self):
+    def apikey(self) -> str | None:
         """
         API key string.
         """
         return self._api.apikey
 
-    def server_status(self):
+    def server_status(self) -> str:
         """
         Returns:
              a string represents current server status.
         """
         return self.api.server_status()
 
-    def create_database(self, db_name, **kwargs):
+    def create_database(self, db_name: str, **kwargs: Any) -> bool:
         """
         Args:
             db_name (str): name of a database to create
@@ -48,7 +67,7 @@ class Client:
         """
         return self.api.create_database(db_name, **kwargs)
 
-    def delete_database(self, db_name):
+    def delete_database(self, db_name: str) -> bool:
         """
         Args:
             db_name (str): name of database to delete
@@ -58,7 +77,7 @@ class Client:
         """
         return self.api.delete_database(db_name)
 
-    def databases(self):
+    def databases(self) -> list[models.Database]:
         """
         Returns:
             a list of :class:`tdclient.models.Database`
@@ -69,7 +88,7 @@ class Client:
             for (db_name, kwargs) in databases.items()
         ]
 
-    def database(self, db_name):
+    def database(self, db_name: str) -> models.Database:
         """
         Args:
             db_name (str): name of a database
@@ -81,9 +100,9 @@ class Client:
         for name, kwargs in databases.items():
             if name == db_name:
                 return models.Database(self, name, **kwargs)
-        raise api.NotFoundError("Database '%s' does not exist" % (db_name))
+        raise api.NotFoundError(f"Database '{db_name}' does not exist")
 
-    def create_log_table(self, db_name, table_name):
+    def create_log_table(self, db_name: str, table_name: str) -> bool:
         """
         Args:
             db_name (str): name of a database
@@ -94,7 +113,7 @@ class Client:
         """
         return self.api.create_log_table(db_name, table_name)
 
-    def swap_table(self, db_name, table_name1, table_name2):
+    def swap_table(self, db_name: str, table_name1: str, table_name2: str) -> bool:
         """
         Args:
             db_name (str): name of a database
@@ -106,7 +125,9 @@ class Client:
         """
         return self.api.swap_table(db_name, table_name1, table_name2)
 
-    def update_schema(self, db_name, table_name, schema):
+    def update_schema(
+        self, db_name: str, table_name: str, schema: list[list[str]]
+    ) -> bool:
         """Updates the schema of a table
 
         Args:
@@ -132,7 +153,7 @@ class Client:
         """
         return self.api.update_schema(db_name, table_name, json.dumps(schema))
 
-    def update_expire(self, db_name, table_name, expire_days):
+    def update_expire(self, db_name: str, table_name: str, expire_days: int) -> bool:
         """Set expiration date to a table
 
         Args:
@@ -145,7 +166,7 @@ class Client:
         """
         return self.api.update_expire(db_name, table_name, expire_days)
 
-    def delete_table(self, db_name, table_name):
+    def delete_table(self, db_name: str, table_name: str) -> str:
         """Delete a table
 
         Args:
@@ -157,7 +178,7 @@ class Client:
         """
         return self.api.delete_table(db_name, table_name)
 
-    def tables(self, db_name):
+    def tables(self, db_name: str) -> list[models.Table]:
         """List existing tables
 
         Args:
@@ -172,7 +193,7 @@ class Client:
             for (table_name, kwargs) in m.items()
         ]
 
-    def table(self, db_name, table_name):
+    def table(self, db_name: str, table_name: str) -> models.Table:
         """
         Args:
             db_name (str): name of a database
@@ -188,9 +209,17 @@ class Client:
         for table in tables:
             if table.table_name == table_name:
                 return table
-        raise api.NotFoundError("Table '%s.%s' does not exist" % (db_name, table_name))
+        raise api.NotFoundError(f"Table '{db_name}.{table_name}' does not exist")
 
-    def tail(self, db_name, table_name, count, to=None, _from=None, block=None):
+    def tail(
+        self,
+        db_name: str,
+        table_name: str,
+        count: int,
+        to: None = None,
+        _from: None = None,
+        block: None = None,
+    ) -> list[dict[str, Any]]:
         """Get the contents of the table in reverse order based on the registered time
         (last data first).
 
@@ -207,7 +236,7 @@ class Client:
         """
         return self.api.tail(db_name, table_name, count, to, _from, block)
 
-    def change_database(self, db_name, table_name, new_db_name):
+    def change_database(self, db_name: str, table_name: str, new_db_name: str) -> bool:
         """Move a target table from it's original database to new destination database.
 
         Args:
@@ -222,14 +251,14 @@ class Client:
 
     def query(
         self,
-        db_name,
-        q,
-        result_url=None,
-        priority=None,
-        retry_limit=None,
-        type="hive",
-        **kwargs,
-    ):
+        db_name: str,
+        q: str,
+        result_url: str | None = None,
+        priority: Priority | None = None,
+        retry_limit: int | None = None,
+        type: str = "hive",
+        **kwargs: Any,
+    ) -> models.Job:
         """Run a query on specified database table.
 
         Args:
@@ -249,10 +278,12 @@ class Client:
         """
         # for compatibility, assume type is hive unless specifically specified
         if type not in ["hive", "pig", "impala", "presto", "trino"]:
-            raise ValueError("The specified query type is not supported: %s" % (type))
+            raise ValueError(f"The specified query type is not supported: {type}")
+        # Cast type to expected literal since we've validated it
+        query_type = cast(Literal["hive", "presto", "trino", "bulkload"], type)
         job_id = self.api.query(
             q,
-            type=type,
+            type=query_type,
             db=db_name,
             result_url=result_url,
             priority=priority,
@@ -261,7 +292,13 @@ class Client:
         )
         return models.Job(self, job_id, type, q)
 
-    def jobs(self, _from=None, to=None, status=None, conditions=None):
+    def jobs(
+        self,
+        _from: int | None = None,
+        to: int | None = None,
+        status: str | None = None,
+        conditions: dict[str, Any] | None = None,
+    ) -> list[models.Job]:
         """List jobs
 
         Args:
@@ -269,17 +306,17 @@ class Client:
             to (int, optional): Gets the Job up to the nth index in the list.
                 By default, the first 20 jobs in the list are displayed
             status (str, optional): Filter by given status. {"queued", "running", "success", "error"}
-            conditions (str, optional): Condition for ``TIMESTAMPDIFF()`` to search for slow queries.
+            conditions (dict[str, Any], optional): Condition for ``TIMESTAMPDIFF()`` to search for slow queries.
                 Avoid using this parameter as it can be dangerous.
 
         Returns:
              a list of :class:`tdclient.models.Job`
         """
-        results = self.api.list_jobs(_from, to, status, conditions)
+        results = self.api.list_jobs(_from or 0, to, status, conditions)
 
         return [job_from_dict(self, d) for d in results]
 
-    def job(self, job_id):
+    def job(self, job_id: str | int) -> models.Job:
         """Get a job from `job_id`
 
         Args:
@@ -291,7 +328,7 @@ class Client:
         d = self.api.show_job(str(job_id))
         return job_from_dict(self, d, job_id=job_id)
 
-    def job_status(self, job_id):
+    def job_status(self, job_id: str | int) -> str:
         """
         Args:
             job_id (str): job id
@@ -299,9 +336,9 @@ class Client:
         Returns:
              a string represents the status of the job ("success", "error", "killed", "queued", "running")
         """
-        return self.api.job_status(job_id)
+        return self.api.job_status(str(job_id))
 
-    def job_result(self, job_id):
+    def job_result(self, job_id: str | int) -> list[Any]:
         """
         Args:
             job_id (str): job id
@@ -309,9 +346,9 @@ class Client:
         Returns:
              a list of each rows in result set
         """
-        return self.api.job_result(job_id)
+        return self.api.job_result(str(job_id))
 
-    def job_result_each(self, job_id):
+    def job_result_each(self, job_id: str | int) -> Iterator[dict[str, Any]]:
         """
         Args:
             job_id (str): job id
@@ -319,10 +356,11 @@ class Client:
         Returns:
              an iterator of result set
         """
-        for row in self.api.job_result_each(job_id):
-            yield row
+        yield from self.api.job_result_each(str(job_id))
 
-    def job_result_format(self, job_id, format, header=False):
+    def job_result_format(
+        self, job_id: str | int, format: ResultFormat, header: bool = False
+    ) -> list[Any]:
         """
         Args:
             job_id (str): job id
@@ -331,11 +369,16 @@ class Client:
         Returns:
              a list of each rows in result set
         """
-        return self.api.job_result_format(job_id, format, header=header)
+        return self.api.job_result_format(str(job_id), format, header=header)
 
     def job_result_format_each(
-        self, job_id, format, header=False, store_tmpfile=False, num_threads=4
-    ):
+        self,
+        job_id: str | int,
+        format: ResultFormat,
+        header: bool = False,
+        store_tmpfile: bool = False,
+        num_threads: int = 4,
+    ) -> Iterator[dict[str, Any]]:
         """
         Args:
             job_id (str): job id
@@ -350,16 +393,17 @@ class Client:
         Returns:
              an iterator of rows in result set
         """
-        for row in self.api.job_result_format_each(
-            job_id,
+        yield from self.api.job_result_format_each(
+            str(job_id),
             format,
             header=header,
             store_tmpfile=store_tmpfile,
             num_threads=num_threads,
-        ):
-            yield row
+        )
 
-    def download_job_result(self, job_id, path, num_threads=4):
+    def download_job_result(
+        self, job_id: str | int, path: str, num_threads: int = 4
+    ) -> bool:
         """Save the job result into a msgpack.gz file.
         Args:
             job_id (str): job id
@@ -370,9 +414,9 @@ class Client:
         Returns:
              `True` if success
         """
-        return self.api.download_job_result(job_id, path, num_threads=num_threads)
+        return self.api.download_job_result(str(job_id), path, num_threads=num_threads)
 
-    def kill(self, job_id):
+    def kill(self, job_id: str | int) -> str | None:
         """
         Args:
             job_id (str): job id
@@ -380,9 +424,15 @@ class Client:
         Returns:
              a string represents the status of killed job ("queued", "running")
         """
-        return self.api.kill(job_id)
+        return self.api.kill(str(job_id))
 
-    def export_data(self, db_name, table_name, storage_type, params=None):
+    def export_data(
+        self,
+        db_name: str,
+        table_name: str,
+        storage_type: str,
+        params: ExportParams | None = None,
+    ) -> models.Job:
         """Export data from Treasure Data Service
 
         Args:
@@ -421,7 +471,13 @@ class Client:
         job_id = self.api.export_data(db_name, table_name, storage_type, params)
         return models.Job(self, job_id, "export", None)
 
-    def create_bulk_import(self, name, database, table, params=None):
+    def create_bulk_import(
+        self,
+        name: str,
+        database: str,
+        table: str,
+        params: BulkImportParams | None = None,
+    ) -> models.BulkImport:
         """Create new bulk import session
 
         Args:
@@ -436,7 +492,7 @@ class Client:
         self.api.create_bulk_import(name, database, table, params)
         return models.BulkImport(self, name=name, database=database, table=table)
 
-    def delete_bulk_import(self, name):
+    def delete_bulk_import(self, name: str) -> bool:
         """Delete a bulk import session
 
         Args:
@@ -447,7 +503,7 @@ class Client:
         """
         return self.api.delete_bulk_import(name)
 
-    def freeze_bulk_import(self, name):
+    def freeze_bulk_import(self, name: str) -> bool:
         """Freeze a bulk import session
 
         Args:
@@ -458,7 +514,7 @@ class Client:
         """
         return self.api.freeze_bulk_import(name)
 
-    def unfreeze_bulk_import(self, name):
+    def unfreeze_bulk_import(self, name: str) -> bool:
         """Unfreeze a bulk import session
 
         Args:
@@ -469,7 +525,7 @@ class Client:
         """
         return self.api.unfreeze_bulk_import(name)
 
-    def perform_bulk_import(self, name):
+    def perform_bulk_import(self, name: str) -> models.Job:
         """Perform a bulk import session
 
         Args:
@@ -481,7 +537,7 @@ class Client:
         job_id = self.api.perform_bulk_import(name)
         return models.Job(self, job_id, "bulk_import", None)
 
-    def commit_bulk_import(self, name):
+    def commit_bulk_import(self, name: str) -> bool:
         """Commit a bulk import session
 
         Args:
@@ -492,7 +548,7 @@ class Client:
         """
         return self.api.commit_bulk_import(name)
 
-    def bulk_import_error_records(self, name):
+    def bulk_import_error_records(self, name: str) -> Iterator[dict[str, Any]]:
         """
         Args:
             name (str): name of a bulk import session
@@ -500,10 +556,9 @@ class Client:
         Returns:
              an iterator of error records
         """
-        for record in self.api.bulk_import_error_records(name):
-            yield record
+        yield from self.api.bulk_import_error_records(name)
 
-    def bulk_import(self, name):
+    def bulk_import(self, name: str) -> models.BulkImport:
         """Get a bulk import session
 
         Args:
@@ -515,7 +570,7 @@ class Client:
         data = self.api.show_bulk_import(name)
         return models.BulkImport(self, **data)
 
-    def bulk_imports(self):
+    def bulk_imports(self) -> list[models.BulkImport]:
         """List bulk import sessions
 
         Returns:
@@ -525,7 +580,9 @@ class Client:
             models.BulkImport(self, **data) for data in self.api.list_bulk_imports()
         ]
 
-    def bulk_import_upload_part(self, name, part_name, bytes_or_stream, size):
+    def bulk_import_upload_part(
+        self, name: str, part_name: str, bytes_or_stream: BytesOrStream, size: int
+    ) -> None:
         """Upload a part to a bulk import session
 
         Args:
@@ -536,7 +593,14 @@ class Client:
         """
         return self.api.bulk_import_upload_part(name, part_name, bytes_or_stream, size)
 
-    def bulk_import_upload_file(self, name, part_name, format, file, **kwargs):
+    def bulk_import_upload_file(
+        self,
+        name: str,
+        part_name: str,
+        format: DataFormat,
+        file: FileLike,
+        **kwargs: Any,
+    ) -> None:
         """Upload a part to Bulk Import session, from an existing file on filesystem.
 
         Args:
@@ -570,7 +634,7 @@ class Client:
         """
         return self.api.bulk_import_upload_file(name, part_name, format, file, **kwargs)
 
-    def bulk_import_delete_part(self, name, part_name):
+    def bulk_import_delete_part(self, name: str, part_name: str) -> bool:
         """Delete a part from a bulk import session
 
         Args:
@@ -582,7 +646,7 @@ class Client:
         """
         return self.api.bulk_import_delete_part(name, part_name)
 
-    def list_bulk_import_parts(self, name):
+    def list_bulk_import_parts(self, name: str) -> list[str]:
         """List parts of a bulk import session
 
         Args:
@@ -593,7 +657,9 @@ class Client:
         """
         return self.api.list_bulk_import_parts(name)
 
-    def create_schedule(self, name, params=None):
+    def create_schedule(
+        self, name: str, params: ScheduleParams | None = None
+    ) -> datetime.datetime | None:
         """Create a new scheduled query with the specified name.
 
         Args:
@@ -610,13 +676,13 @@ class Client:
                 - cron (str, optional):
                      Schedule of the query.
                      {``"@daily"``, ``"@hourly"``, ``"10 * * * *"`` (custom cron)}
-                     See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084633/Scheduling+Jobs+Using+TD+Console
+                     See also: https://docs.treasuredata.com/articles/#!pd/Scheduling-Jobs-Using-TD-Console
                 - delay (int, optional):
                      A delay ensures all buffered events are imported
                      before running the query. Default: 0
                 - query (str):
                      Is a language used to retrieve, insert, update and modify
-                     data. See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084438/SQL+Examples+of+Scheduled+Queries
+                     data. See also: https://docs.treasuredata.com/articles/#!pd/SQL-Examples-of-Scheduled-Queries
                 - priority (int, optional):
                      Priority of the query.
                      Range is from -2 (very low) to 2 (very high). Default: 0
@@ -635,14 +701,14 @@ class Client:
         Returns:
             :class:`datetime.datetime`: Start date time.
         """
+        params = {} if params is None else params
         if "cron" not in params:
             raise ValueError("'cron' option is required")
         if "query" not in params:
             raise ValueError("'query' option is required")
-        params = {} if params is None else params
         return self.api.create_schedule(name, params)
 
-    def delete_schedule(self, name):
+    def delete_schedule(self, name: str) -> tuple[str, str]:
         """Delete the scheduled query with the specified name.
 
         Args:
@@ -652,7 +718,7 @@ class Client:
         """
         return self.api.delete_schedule(name)
 
-    def schedules(self):
+    def schedules(self) -> list[models.Schedule]:
         """Get the list of all the scheduled queries.
 
         Returns:
@@ -661,7 +727,7 @@ class Client:
         result = self.api.list_schedules()
         return [models.Schedule(self, **m) for m in result]
 
-    def update_schedule(self, name, params=None):
+    def update_schedule(self, name: str, params: ScheduleParams | None = None) -> None:
         """Update the scheduled query.
 
         Args:
@@ -678,13 +744,13 @@ class Client:
                 - cron (str, optional):
                      Schedule of the query.
                      {``"@daily"``, ``"@hourly"``, ``"10 * * * *"`` (custom cron)}
-                     See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084633/Scheduling+Jobs+Using+TD+Console
+                     See also: https://docs.treasuredata.com/articles/#!pd/Scheduling-Jobs-Using-TD-Console
                 - delay (int, optional):
                      A delay ensures all buffered events are imported
                      before running the query. Default: 0
                 - query (str):
                      Is a language used to retrieve, insert, update and modify
-                     data. See also: https://tddocs.atlassian.net/wiki/spaces/PD/pages/1084438/SQL+Examples+of+Scheduled+Queries
+                     data. See also: https://docs.treasuredata.com/articles/#!pd/SQL-Examples-of-Scheduled-Queries
                 - priority (int, optional):
                      Priority of the query.
                      Range is from -2 (very low) to 2 (very high). Default: 0
@@ -704,7 +770,9 @@ class Client:
         params = {} if params is None else params
         self.api.update_schedule(name, params)
 
-    def history(self, name, _from=None, to=None):
+    def history(
+        self, name: str, _from: int | None = None, to: int | None = None
+    ) -> list[models.ScheduledJob]:
         """Get the history details of the saved query for the past 90days.
 
         Args:
@@ -720,14 +788,14 @@ class Client:
         Returns:
             [:class:`tdclient.models.ScheduledJob`]
         """
-        result = self.api.history(name, _from, to)
+        result = self.api.history(name, _from or 0, to)
 
-        def scheduled_job(m):
+        def scheduled_job(m: tuple[Any, ...]) -> models.ScheduledJob:
             (
                 scheduled_at,
                 job_id,
                 type,
-                status,
+                _status,
                 query,
                 start_at,
                 end_at,
@@ -756,7 +824,9 @@ class Client:
 
         return [scheduled_job(m) for m in result]
 
-    def run_schedule(self, name, time, num):
+    def run_schedule(
+        self, name: str, time: int, num: int | None = None
+    ) -> list[models.ScheduledJob]:
         """Execute the specified query.
 
         Args:
@@ -769,15 +839,24 @@ class Client:
         """
         results = self.api.run_schedule(name, time, num)
 
-        def scheduled_job(m):
+        def scheduled_job(
+            m: tuple[Any, str, datetime.datetime | None],
+        ) -> models.ScheduledJob:
             job_id, type, scheduled_at = m
+            assert scheduled_at is not None
             return models.ScheduledJob(self, scheduled_at, job_id, type, None)
 
         return [scheduled_job(m) for m in results]
 
     def import_data(
-        self, db_name, table_name, format, bytes_or_stream, size, unique_id=None
-    ):
+        self,
+        db_name: str,
+        table_name: str,
+        format: DataFormat,
+        bytes_or_stream: BytesOrStream,
+        size: int,
+        unique_id: str | None = None,
+    ) -> float:
         """Import data into Treasure Data Service
 
         Args:
@@ -795,7 +874,14 @@ class Client:
             db_name, table_name, format, bytes_or_stream, size, unique_id=unique_id
         )
 
-    def import_file(self, db_name, table_name, format, file, unique_id=None):
+    def import_file(
+        self,
+        db_name: str,
+        table_name: str,
+        format: DataFormat,
+        file: FileLike,
+        unique_id: str | None = None,
+    ) -> float:
         """Import data into Treasure Data Service, from an existing file on filesystem.
 
         This method will decompress/deserialize records from given file, and then
@@ -815,7 +901,7 @@ class Client:
             db_name, table_name, format, file, unique_id=unique_id
         )
 
-    def results(self):
+    def results(self) -> list[models.Result]:
         """Get the list of all the available authentications.
 
         Returns:
@@ -823,13 +909,15 @@ class Client:
         """
         results = self.api.list_result()
 
-        def result(m):
+        def result(m: tuple[str, str, None]) -> models.Result:
             name, url, organizations = m
             return models.Result(self, name, url, organizations)
 
         return [result(m) for m in results]
 
-    def create_result(self, name, url, params=None):
+    def create_result(
+        self, name: str, url: str, params: ResultParams | None = None
+    ) -> bool:
         """Create a new authentication with the specified name.
 
         Args:
@@ -842,7 +930,7 @@ class Client:
         params = {} if params is None else params
         return self.api.create_result(name, url, params)
 
-    def delete_result(self, name):
+    def delete_result(self, name: str) -> bool:
         """Delete the authentication having the specified name.
 
         Args:
@@ -860,13 +948,13 @@ class Client:
         """
         results = self.api.list_users()
 
-        def user(m):
+        def user(m: tuple[str, None, None, str]) -> models.User:
             name, org, roles, email = m
             return models.User(self, name, org, roles, email)
 
         return [user(m) for m in results]
 
-    def add_user(self, name, org, email, password):
+    def add_user(self, name: str, org: str, email: str, password: str) -> bool:
         """Add a new user
 
         Args:
@@ -880,7 +968,7 @@ class Client:
         """
         return self.api.add_user(name, org, email, password)
 
-    def remove_user(self, name):
+    def remove_user(self, name: str) -> bool:
         """Remove a user
 
         Args:
@@ -891,7 +979,7 @@ class Client:
         """
         return self.api.remove_user(name)
 
-    def list_apikeys(self, name):
+    def list_apikeys(self, name: str) -> list[str]:
         """
         Args:
             name (str): name of the user
@@ -901,7 +989,7 @@ class Client:
         """
         return self.api.list_apikeys(name)
 
-    def add_apikey(self, name):
+    def add_apikey(self, name: str) -> bool:
         """
         Args:
             name (str): name of the user
@@ -911,7 +999,7 @@ class Client:
         """
         return self.api.add_apikey(name)
 
-    def remove_apikey(self, name, apikey):
+    def remove_apikey(self, name: str, apikey: str) -> bool:
         """
         Args:
             name (str): name of the user
@@ -922,13 +1010,13 @@ class Client:
         """
         return self.api.remove_apikey(name, apikey)
 
-    def close(self):
+    def close(self) -> None:
         """Close opened API connections."""
         return self._api.close()
 
 
-def job_from_dict(client, dd, **values):
-    d = dict()
+def job_from_dict(client: Client, dd: dict[str, Any], **values: Any) -> models.Job:
+    d: dict[str, Any] = dict()
     d.update(dd)
     d.update(values)
     return models.Job(

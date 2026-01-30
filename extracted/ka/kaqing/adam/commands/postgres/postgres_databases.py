@@ -3,12 +3,13 @@ import re
 import subprocess
 
 from adam.config import Config
-from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
+from adam.utils_context import Context
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.secrets import Secrets
-from adam.utils import log2, log_exc
+from adam.utils import Color, ExecResult, log2, log_exc
+from adam.utils_local import LocalExecResult
 
 class ConnectionDetails:
     def __init__(self, state: ReplState, namespace: str, host: str):
@@ -60,7 +61,7 @@ class PostgresDatabases:
         #  template1                             | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +
         #                                        |          |          |             |             |            |                 | postgres=CTc/postgres
         # (48 rows)
-        if r := PostgresDatabases.run_sql(state, '\l', show_out=False):
+        if r := PostgresDatabases.run_sql(state, '\l', ctx=Context.new(backgrounded=False, show_out=False)):
             s = 0
             for line in r.stdout.split('\n'):
                 line: str = line.strip(' \r')
@@ -90,7 +91,7 @@ class PostgresDatabases:
         # ----------+------------------------------------------------------------+-------+---------------
         #  postgres | c3_2_admin_aclpriv                                         | table | postgres
         #  postgres | c3_2_admin_aclpriv_a                                       | table | postgres
-        if r := PostgresDatabases.run_sql(state, '\dt', show_out=False):
+        if r := PostgresDatabases.run_sql(state, '\dt', ctx=Context.new(backgrounded=False, show_out=False)):
             s = 0
             for line in r.stdout.split('\n'):
                 line: str = line.strip(' \r')
@@ -113,7 +114,7 @@ class PostgresDatabases:
 
         return dbs
 
-    def run_sql(state: ReplState, sql: str, database: str = None, show_out = True, backgrounded = False):
+    def run_sql(state: ReplState, sql: str, database: str = None, ctx: Context = Context.NULL) -> ExecResult:
         if not database:
             database = PostgresDatabases.database(state)
         if not database:
@@ -123,18 +124,18 @@ class PostgresDatabases:
         password = PostgresDatabases.password(state)
         endpoint = PostgresDatabases.endpoint(state)
 
+        r: ExecResult = None
         if KubeContext.in_cluster():
             cmd1 = f'env PGPASSWORD={password} psql -h {endpoint} -p {PostgresDatabases.port()} -U {username} {database} --pset pager=off -c'
-            log2(f'{cmd1} "{sql}"')
+            ctx.log2(f'{cmd1} "{sql}"')
             # remove double quotes from the sql argument
             cmd = cmd1.split(' ') + [sql]
 
-            r = subprocess.run(cmd, capture_output=not backgrounded, text=True)
-            if show_out:
-                log2(r.stdout)
-                log2(r.stderr)
+            p = subprocess.run(cmd, capture_output=not ctx.backgrounded, text=True)
+            r = LocalExecResult.from_completed_process(cmd, p)
 
-            return r
+            ctx.log2(r.stdout)
+            ctx.log2(r.stderr)
         else:
             pod_name, container_name = PostgresDatabases.pod_and_container(state.namespace)
             if not pod_name:
@@ -143,11 +144,11 @@ class PostgresDatabases:
             cmd = f'psql -h {endpoint} -p {PostgresDatabases.port(state)} -U {username} {database} --pset pager=off -c "{sql}"'
             env_prefix = f'PGPASSWORD="{password}"'
 
-            r = Pods.exec(pod_name, container_name, state.namespace, cmd, show_out=show_out, backgrounded=backgrounded, env_prefix=env_prefix)
-            if r and r.log_file:
-                ReplSession().append_history(f':cat {r.log_file}')
+            ctx.log2(cmd, text_color=Color.gray)
 
-            return r
+            r = Pods.exec(pod_name, container_name, state.namespace, cmd, env_prefix=env_prefix, ctx=ctx)
+
+        return r
 
     @functools.lru_cache()
     def pod_and_container(namespace: str):

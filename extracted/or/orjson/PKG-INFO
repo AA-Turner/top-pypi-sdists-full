@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: orjson
-Version: 3.11.5
+Version: 3.11.6
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,13 +22,14 @@ Classifier: Programming Language :: Rust
 Classifier: Typing :: Typed
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
+License-File: LICENSE-MPL-2.0
 Summary: Fast, correct Python JSON library supporting dataclasses, datetimes, and numpy
-License-Expression: Apache-2.0 OR MIT
-Requires-Python: >=3.9
+License-Expression: MPL-2.0 AND (Apache-2.0 OR MIT)
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: source, https://github.com/ijl/orjson
-Project-URL: documentation, https://github.com/ijl/orjson
 Project-URL: changelog, https://github.com/ijl/orjson/blob/master/CHANGELOG.md
+Project-URL: documentation, https://github.com/ijl/orjson
+Project-URL: source, https://github.com/ijl/orjson
 
 # orjson
 
@@ -53,7 +54,7 @@ RFC 8259 ("The JavaScript Object Notation (JSON) Data Interchange Format").
 Reading from and writing to files, line-delimited JSON files, and so on is
 not provided by the library.
 
-orjson supports CPython 3.9, 3.10, 3.11, 3.12, 3.13, 3.14, and 3.15.
+orjson supports CPython 3.10, 3.11, 3.12, 3.13, 3.14, and 3.15.
 
 It distributes amd64/x86_64/x64, i686/x86, aarch64/arm64/armv8, arm7,
 ppc64le/POWER8, and s390x wheels for Linux, amd64 and aarch64 wheels
@@ -72,11 +73,12 @@ orjson may support PEP 703 free-threading when it is stable.
 Releases follow semantic versioning and serializing a new object type
 without an opt-in flag is considered a breaking change.
 
-orjson is licensed under both the Apache 2.0 and MIT licenses. The
-repository and issue tracker is
-[github.com/ijl/orjson](https://github.com/ijl/orjson), and patches may be
-submitted there. There is a
-[CHANGELOG](https://github.com/ijl/orjson/blob/master/CHANGELOG.md)
+orjson contains source code licensed under the Mozilla Public License 2.0,
+Apache 2.0, and MIT licenses. The repository from which PyPI artifacts are
+published is [github.com/ijl/orjson](https://github.com/ijl/orjson) and an
+alternative repository is [codeberg.org/ijl/orjson](https://codeberg.org/ijl/orjson).
+There is no open issue tracker or pull requests due to signal-to-noise ratio.
+There is a [CHANGELOG](https://github.com/ijl/orjson/blob/master/CHANGELOG.md)
 available in the repository.
 
 1. [Usage](https://github.com/ijl/orjson?tab=readme-ov-file#usage)
@@ -724,7 +726,7 @@ b'"2100-09-01T21:55:02"'
 ```
 
 `datetime.datetime` supports instances with a `tzinfo` that is `None`,
-`datetime.timezone.utc`, a timezone instance from the python3.9+ `zoneinfo`
+`datetime.timezone.utc`, a timezone instance from the standard library `zoneinfo`
 module, or a timezone instance from the third-party `pendulum`, `pytz`, or
 `dateutil`/`arrow` libraries.
 
@@ -1100,7 +1102,7 @@ functions and objects using the normal `PyImport_*` APIs.
 
 ## Packaging
 
-To package orjson requires at least [Rust](https://www.rust-lang.org/) 1.85,
+To package orjson requires at least [Rust](https://www.rust-lang.org/) 1.89,
 a C compiler, and the [maturin](https://github.com/PyO3/maturin) build tool.
 The recommended build command is:
 
@@ -1108,14 +1110,14 @@ The recommended build command is:
 maturin build --release --strip
 ```
 
-The project's own CI tests against `nightly-2025-12-01` and stable 1.85. It
+The project's own CI tests against `nightly-2026-01-28` and stable 1.89. It
 is prudent to pin the nightly version because that channel can introduce
 breaking changes. There is a significant performance benefit to using
 nightly.
 
-orjson is tested on native hardware for amd64, aarch64, and i686 on Linux and
-for arm7, ppc64le, and s390x is cross-compiled and may be tested via
-emulation. It is tested for aarch64 on macOS and cross-compiles for amd64. For
+orjson is tested on native hardware for amd64, aarch64, and i686 on Linux. It is
+cross-compiled and may be tested via emulation for arm7, ppc64le, and s390x. It
+is tested for aarch64 on macOS and cross-compiles for amd64. For
 Windows it is tested on amd64, i686, and aarch64.
 
 There are no runtime dependencies other than libc.
@@ -1132,6 +1134,7 @@ with `pytest -q test`.
 
 ## License
 
-orjson was written by ijl <<ijl@mailbox.org>>, copyright 2018 - 2025, available
-to you under either the Apache 2 license or MIT license at your choice.
+orjson was written by ijl <<ijl@mailbox.org>>, copyright 2018 - 2026, with
+some source files available under the Mozilla Public License 2.0 and some
+available under your choice of the Apache 2 license or MIT license.
 

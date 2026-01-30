@@ -1,8 +1,9 @@
 from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log
+from adam.utils import tabulize
 from adam.utils_athena import Athena
+from adam.utils_context import Context
 
 class DeviceAuditLog(Command, Device):
     COMMAND = f'{ReplState.L}:'
@@ -45,5 +46,5 @@ class DeviceAuditLog(Command, Device):
     def show_tables(self, _: ReplState):
         tabulize(Athena.table_names(), separator=',')
 
-    def show_table_preview(self, _: ReplState, table: str, rows: int):
-        Athena.run_query(f'select * from {table} limit {rows}')
+    def show_table_preview(self, _: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+        Athena.run_query(f'select * from {table} limit {rows}', ctx=ctx)

@@ -1,13 +1,24 @@
+import logging
 import os
 from typing import Any, Optional
 
 import httpx
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
+from langchain_core.messages import BaseMessage
+from langchain_core.outputs import ChatResult
+from tenacity import AsyncRetrying, Retrying
 from uipath._utils import resource_override
 from uipath._utils._ssl_context import get_httpx_client_kwargs
 from uipath.utils import EndpointManager
 
+from .retryers.vertex import AsyncVertexRetryer, VertexRetryer
 from .supported_models import GeminiModels
 from .types import APIFlavor, LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 def _check_genai_dependencies() -> None:
@@ -49,7 +60,10 @@ def _rewrite_vertex_url(original_url: str, gateway_url: str) -> httpx.URL | None
     Returns the gateway URL, or None if no rewrite needed.
     """
     if "generateContent" in original_url or "streamGenerateContent" in original_url:
-        return httpx.URL(gateway_url)
+        url = httpx.URL(gateway_url)
+        if "alt=sse" in original_url:
+            url = url.copy_with(params={"alt": "sse"})
+        return url
     return None
 
 
@@ -109,6 +123,8 @@ class UiPathChatVertex(ChatGoogleGenerativeAI):
     _uipath_llmgw_url: Optional[str] = PrivateAttr(default=None)
     _agenthub_config: Optional[str] = PrivateAttr(default=None)
     _byo_connection_id: Optional[str] = PrivateAttr(default=None)
+    _retryer: Optional[Retrying] = PrivateAttr(default=None)
+    _aretryer: Optional[AsyncRetrying] = PrivateAttr(default=None)
 
     @resource_override(
         resource_identifier="byo_connection_id", resource_type="connection"
@@ -122,6 +138,8 @@ class UiPathChatVertex(ChatGoogleGenerativeAI):
         temperature: Optional[float] = None,
         agenthub_config: Optional[str] = None,
         byo_connection_id: Optional[str] = None,
+        retryer: Optional[Retrying] = None,
+        aretryer: Optional[AsyncRetrying] = None,
         **kwargs: Any,
     ):
         org_id = org_id or os.getenv("UIPATH_ORGANIZATION_ID")
@@ -169,6 +187,7 @@ class UiPathChatVertex(ChatGoogleGenerativeAI):
             model=model_name,
             google_api_key="uipath-gateway",
             temperature=temperature,
+            max_retries=1,
             **kwargs,
         )
 
@@ -184,6 +203,8 @@ class UiPathChatVertex(ChatGoogleGenerativeAI):
         self._uipath_llmgw_url = uipath_url
         self._agenthub_config = agenthub_config
         self._byo_connection_id = byo_connection_id
+        self._retryer = retryer
+        self._aretryer = aretryer
 
         if self.temperature is not None and not 0 <= self.temperature <= 2.0:
             raise ValueError("temperature must be in the range [0.0, 2.0]")
@@ -232,48 +253,71 @@ class UiPathChatVertex(ChatGoogleGenerativeAI):
         )
         return f"{env_uipath_url.rstrip('/')}/{formatted_endpoint}"
 
-    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
-        """Streaming fallback - calls _generate and yields single response."""
-        from langchain_core.messages import AIMessageChunk
-        from langchain_core.outputs import ChatGenerationChunk
+    def invoke(self, *args, **kwargs):
+        retryer = self._retryer or _get_default_retryer()
+        return retryer(super().invoke, *args, **kwargs)
 
-        result = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+    async def ainvoke(self, *args, **kwargs):
+        retryer = self._aretryer or _get_default_async_retryer()
+        return await retryer(super().ainvoke, *args, **kwargs)
 
-        if result.generations:
-            message = result.generations[0].message
-            chunk = AIMessageChunk(
-                content=message.content,
-                additional_kwargs=message.additional_kwargs,
-                response_metadata=getattr(message, "response_metadata", {}),
-                id=message.id,
-                tool_calls=getattr(message, "tool_calls", []),
-                tool_call_chunks=getattr(message, "tool_call_chunks", []),
-            )
-            if hasattr(message, "usage_metadata") and message.usage_metadata:
-                chunk.usage_metadata = message.usage_metadata
+    def _merge_finish_reason_to_response_metadata(
+        self, result: ChatResult
+    ) -> ChatResult:
+        """Merge finish_reason from generation_info into AIMessage.response_metadata.
 
-            yield ChatGenerationChunk(message=chunk)
+        LangChain's ChatGoogleGenerativeAI stores finish_reason in generation_info
+        but not in AIMessage.response_metadata. This method merges it so that
+        check_stop_reason() in VertexGeminiPayloadHandler can access it.
+        """
+        for generation in result.generations:
+            finish_reason = None
+            if generation.generation_info:
+                finish_reason = generation.generation_info.get("finish_reason")
 
-    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
-        """Async streaming fallback - calls _agenerate and yields single response."""
-        from langchain_core.messages import AIMessageChunk
-        from langchain_core.outputs import ChatGenerationChunk
+            if finish_reason and hasattr(generation, "message"):
+                message = generation.message
+                if message.response_metadata is None:
+                    message.response_metadata = {}
+                if "finish_reason" not in message.response_metadata:
+                    message.response_metadata["finish_reason"] = finish_reason
 
-        result = await self._agenerate(
+        return result
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Generate and ensure finish_reason is in response_metadata."""
+        result = super()._generate(
             messages, stop=stop, run_manager=run_manager, **kwargs
         )
+        return self._merge_finish_reason_to_response_metadata(result)
 
-        if result.generations:
-            message = result.generations[0].message
-            chunk = AIMessageChunk(
-                content=message.content,
-                additional_kwargs=message.additional_kwargs,
-                response_metadata=getattr(message, "response_metadata", {}),
-                id=message.id,
-                tool_calls=getattr(message, "tool_calls", []),
-                tool_call_chunks=getattr(message, "tool_call_chunks", []),
-            )
-            if hasattr(message, "usage_metadata") and message.usage_metadata:
-                chunk.usage_metadata = message.usage_metadata
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Generate async and ensure finish_reason is in response_metadata."""
+        result = await super()._agenerate(
+            messages, stop=stop, run_manager=run_manager, **kwargs
+        )
+        return self._merge_finish_reason_to_response_metadata(result)
 
-            yield ChatGenerationChunk(message=chunk)
+
+def _get_default_retryer() -> VertexRetryer:
+    return VertexRetryer(
+        logger=logger,
+    )
+
+
+def _get_default_async_retryer() -> AsyncVertexRetryer:
+    return AsyncVertexRetryer(
+        logger=logger,
+    )

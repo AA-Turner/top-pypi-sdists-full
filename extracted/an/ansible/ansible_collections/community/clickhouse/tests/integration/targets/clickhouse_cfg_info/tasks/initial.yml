@@ -1,0 +1,77 @@
+####################################################################
+# WARNING: These are designed specifically for Ansible tests       #
+# and should not be used as examples of how to write Ansible roles #
+####################################################################
+
+- name: Put config.yaml file in place
+  ansible.builtin.copy:
+    src: config.yaml
+    dest: /tmp/config.yaml
+
+- name: Put config.xml file in place
+  ansible.builtin.copy:
+    src: config.xml
+    dest: /tmp/config.xml
+
+- name: Retrieve info from config.yaml
+  register: result
+  community.clickhouse.clickhouse_cfg_info:
+    path: /tmp/config.yaml
+
+- name: Check the content
+  ansible.builtin.assert:
+    that:
+    - result['config']['http_port'] == 8123
+    - result['config']['tcp_port'] == 9000
+    - result['config']['error_log']['collect_interval_milliseconds'] == 1000
+    - result['config']['graphite_rollup_example']['default']['retention'][0]['age'] == 0
+    - result['config']['crash_log']['partition_by'] == ''
+    - result['config']['grpc']['enable_ssl'] == false
+
+- name: Retrieve info from config.xml
+  register: result
+  community.clickhouse.clickhouse_cfg_info:
+    path: /tmp/config.xml
+
+- name: Check the content
+  ansible.builtin.assert:
+    that:
+    - result['config']['http_port'] == 8123
+    - result['config']['tcp_port'] == 9000
+    - result['config']['error_log']['collect_interval_milliseconds'] == 1000
+    - result['config']['graphite_rollup_example']['default']['retention'][0]['age'] == 0
+    - result['config']['crash_log']['partition_by'] == none
+    - result['config']['grpc']['enable_ssl'] == false
+
+- name: Try to retreive info from a non-existing file
+  register: result
+  ignore_errors: true
+  community.clickhouse.clickhouse_cfg_info:
+    path: /tmp/non-existing.yaml
+
+- name: Assert failure
+  ansible.builtin.assert:
+    that:
+    - result is failed
+    - result.msg is search('Could not open/load from file')
+
+
+- name: Prepare YAML config with recursive alias (invalid)
+  ansible.builtin.copy:
+    dest: /tmp/cfg_recursive.yaml
+    content: |
+      a: &a
+        b: *a
+
+- name: Try to retrieve YAML config with recursive alias
+  register: recursive_yaml_result
+  community.clickhouse.clickhouse_cfg_info:
+    path: /tmp/cfg_recursive.yaml
+  ignore_errors: true
+
+- name: Assert recursive alias in YAML fails
+  ansible.builtin.assert:
+    that:
+    - recursive_yaml_result.failed
+    - recursive_yaml_result.msg is search('Could not open/load from file')
+    - recursive_yaml_result.msg is search('Circular reference detected')

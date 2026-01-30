@@ -18,6 +18,7 @@ from anyscale.client.openapi_client.models.schedule_config import (
 from anyscale.job._private.job_sdk import PrivateJobSDK
 from anyscale.job.models import JobConfig
 from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStatus
+from anyscale.util import get_endpoint
 
 
 logger = BlockLogger()
@@ -179,7 +180,31 @@ class PrivateScheduleSDK(BaseSDK):
         self.logger.info(f"Triggered job for schedule '{schedule_model.name}'.")
         return schedule_model.id
 
-    def list(
+    def url(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Get the web UI URL for a schedule.
+
+        Args:
+            id: The schedule ID.
+            name: The schedule name (requires cloud and project).
+            cloud: Cloud name (required with name).
+            project: Project name (required with name).
+
+        Returns:
+            The URL string for viewing the schedule in the Anyscale console.
+        """
+        schedule_model = self._resolve_to_schedule_model(
+            id=id, name=name, cloud=cloud, project=project
+        )
+        return get_endpoint(f"/scheduled-jobs/{schedule_model.id}")
+
+    def list(  # noqa: PLR0913
         self,
         *,
         name: Optional[str] = None,
@@ -187,10 +212,21 @@ class PrivateScheduleSDK(BaseSDK):
         project: Optional[str] = None,
         cloud: Optional[str] = None,
         creator_id: Optional[str] = None,
+        include_all_users: bool = False,
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
     ) -> ResultIterator[ScheduleStatus]:
         """List schedules with filtering and pagination.
+
+        Args:
+            name: Filter by schedule name.
+            schedule_id: Fetch a specific schedule by ID.
+            project: Filter by project name.
+            cloud: Filter by cloud name.
+            creator_id: Filter by creator ID.
+            include_all_users: Include schedules from all users.
+            page_size: Number of items per page.
+            max_items: Maximum total items to return.
 
         Returns a ResultIterator that lazily fetches pages of schedules.
         """
@@ -225,12 +261,18 @@ class PrivateScheduleSDK(BaseSDK):
                 parent_cloud_id=cloud_id, name=project
             )
 
+        # Auto-populate creator_id if not include_all_users and creator_id not specified
+        resolved_creator_id = creator_id
+        if not include_all_users and creator_id is None:
+            user = self.client.get_user_info()
+            resolved_creator_id = user.id if user else None
+
         def _fetch_page(token: Optional[str]):
             return self.client.list_schedules(
                 name=name,
                 project_id=project_id,
                 cloud_id=cloud_id,
-                creator_id=creator_id,
+                creator_id=resolved_creator_id,
                 count=page_size,
                 paging_token=token,
             )

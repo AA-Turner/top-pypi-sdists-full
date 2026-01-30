@@ -280,15 +280,23 @@ if config.MOUNT_PREFIX:
 
             return await self.app(scope, receive, send)
 
+    # Store reference to the original app before creating the wrapper
+    original_app = app
+
     # Add health checks at root still to avoid having to override health checks.
     app = Starlette(
         routes=[
             Route("/", ok, methods=["GET"]),
             Route("/ok", ok, methods=["GET"]),
             Route("/metrics", meta_metrics, methods=["GET"]),
-            Mount(prefix, app=app),
+            Mount(prefix, app=original_app),
         ],
-        lifespan=app.router.lifespan_context,
+        lifespan=original_app.router.lifespan_context,
         middleware=[Middleware(ASGIBypassMiddleware)],
-        exception_handlers=app.exception_handlers,
+        exception_handlers=original_app.exception_handlers,
     )
+
+    # Share the original app's state with the wrapper app.
+    # This ensures that when MOUNT_PREFIX is set and request.app points to the wrapper app,
+    # request.app.state still provides access to the state set on the original app.
+    app.state = original_app.state

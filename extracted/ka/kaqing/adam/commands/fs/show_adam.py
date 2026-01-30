@@ -37,7 +37,7 @@ class ShowAdam(Command):
         tabulize([
             f'version\t{__version__}',
             f'source\t{package}'
-        ], separator='\t', to=2)
+        ], separator='\t', err=True)
 
         return state
 

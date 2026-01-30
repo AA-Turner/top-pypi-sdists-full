@@ -322,7 +322,6 @@ def should_skip_background_services(args, processed_argv):
             "configure",
             "hook-errors",
             "autotodos",
-            "commander",
             "oauth",
         ]
     )
@@ -1269,12 +1268,12 @@ def show_agent_summary():
                 f
                 for f in all_md_files
                 if (
-                    "/agents/" in str(f)
+                    "agents" in f.relative_to(cache_dir).parts
                     and f.name.lower() not in pm_templates
                     and f.name.lower() not in doc_files
                     and f.name.lower() != "base-agent.md"
                     and not any(
-                        part in str(f).split("/")
+                        part in f.relative_to(cache_dir).parts
                         for part in ["dist", "build", ".cache"]
                     )
                 )

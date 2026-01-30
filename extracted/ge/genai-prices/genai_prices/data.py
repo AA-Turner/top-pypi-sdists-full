@@ -5203,6 +5203,8 @@ providers: list[Provider] = [
                         ClauseEquals(equals='gpt-5-2'),
                         ClauseEquals(equals='gpt-5-2-2025-12-11'),
                         ClauseEquals(equals='gpt-5-2-chat-latest'),
+                        ClauseEquals(equals='gpt-5.2-codex'),
+                        ClauseEquals(equals='gpt-5-2-codex'),
                     ]
                 ),
                 name='GPT-5.2',
@@ -7769,6 +7771,12 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.8'), output_mtok=Decimal('1.2')),
             ),
             ModelInfo(
+                id='moonshotai/kimi-k2.5',
+                match=ClauseEquals(equals='moonshotai/kimi-k2.5'),
+                name='Kimi K2.5',
+                prices=ModelPrice(input_mtok=Decimal('0.6'), output_mtok=Decimal('3')),
+            ),
+            ModelInfo(
                 id='moonshotai/kimi-vl-a3b-thinking:free',
                 match=ClauseEquals(equals='moonshotai/kimi-vl-a3b-thinking:free'),
                 prices=ModelPrice(),
@@ -8521,6 +8529,12 @@ providers: list[Provider] = [
                 id='qwen/qwen2.5-vl-72b-instruct:free',
                 match=ClauseEquals(equals='qwen/qwen2.5-vl-72b-instruct:free'),
                 prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='qwen/qwen3-max-thinking',
+                match=ClauseEquals(equals='qwen/qwen3-max-thinking'),
+                name='Qwen 3 Max Thinking',
+                prices=ModelPrice(input_mtok=Decimal('1.2'), output_mtok=Decimal('6')),
             ),
             ModelInfo(
                 id='qwen/qwq-32b',
@@ -9758,6 +9772,37 @@ providers: list[Provider] = [
                     ]
                 ),
                 name='Grok 4.1 Fast Reasoning',
+                description='A frontier multimodal model optimized specifically for high-performance agentic tool calling.',
+                context_window=2000000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('0.5')
+                ),
+            ),
+            ModelInfo(
+                id='grok-4-fast-non-reasoning',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='grok-4-fast-non-reasoning'),
+                        ClauseEquals(equals='grok-4-fast-non-reasoning-latest'),
+                    ]
+                ),
+                name='Grok 4 Fast Non-Reasoning',
+                description='A frontier multimodal model optimized specifically for high-performance agentic tool calling.',
+                context_window=2000000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('0.5')
+                ),
+            ),
+            ModelInfo(
+                id='grok-4-fast-reasoning',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='grok-4-fast'),
+                        ClauseEquals(equals='grok-4-fast-reasoning'),
+                        ClauseEquals(equals='grok-4-fast-reasoning-latest'),
+                    ]
+                ),
+                name='Grok 4 Fast Reasoning',
                 description='A frontier multimodal model optimized specifically for high-performance agentic tool calling.',
                 context_window=2000000,
                 prices=ModelPrice(

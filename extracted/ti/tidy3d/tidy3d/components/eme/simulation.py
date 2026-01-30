@@ -600,6 +600,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         self._validate_sweep_spec()
         self._validate_symmetry()
         self._validate_monitor_setup()
+        self._validate_interp_specs()
 
     def validate_pre_upload(self) -> None:
         """Validate the fully initialized EME simulation is ok for upload to our servers."""
@@ -822,6 +823,17 @@ class EMESimulation(AbstractYeeGridSimulation):
                         "which is not compatible with periodic repetition "
                         "('num_reps != 1' in any 'EMEGridSpec'.)"
                     )
+
+    def _validate_interp_specs(self) -> None:
+        """Require that the interp_specs are identical."""
+        interp_specs = []
+        for mode_spec in self.eme_grid.mode_specs:
+            interp_specs.append(mode_spec.interp_spec)
+        if len(set(interp_specs)) > 1:
+            raise SetupError(
+                "All of the 'mode_spec.interp_spec' in the EME grid must be identical. "
+                f"Currently, they are {set(interp_specs)}."
+            )
 
     def _validate_size(self) -> None:
         """Ensures the simulation is within size limits before simulation is uploaded."""
@@ -1112,7 +1124,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                 freqs |= set(self.freqs)
             else:
                 freqs |= set(interp_spec.sampling_points(self.freqs))
-        return list(freqs)
+        return sorted(freqs)
 
     def _monitor_num_freqs(self, monitor: Monitor) -> int:
         """Total number of freqs included in monitor."""

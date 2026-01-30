@@ -8,6 +8,7 @@ from ..extensions import Enums
 class BenchlingAppManifestFeatureCanvasLocations(Enums.KnownString):
     ENTRY = "ENTRY"
     ENTRY_TEMPLATE = "ENTRY_TEMPLATE"
+    APP_HOME = "APP_HOME"
 
     def __str__(self) -> str:
         return str(self.value)

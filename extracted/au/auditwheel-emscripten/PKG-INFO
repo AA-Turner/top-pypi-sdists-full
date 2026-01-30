@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auditwheel_emscripten
-Version: 0.2.0
+Version: 0.2.2
 Summary: auditwheel-like tool for Pyodide
 Project-URL: Home, https://github.com/pyodide/auditwheel-emscripten
 Author-email: Gyeongjae Choi <def6488@gmail.com>
@@ -381,8 +381,7 @@ License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: leb128
 Requires-Dist: packaging
-Requires-Dist: pyodide-cli
-Requires-Dist: typer
+Requires-Dist: pyodide-cli>=0.4
 Requires-Dist: wheel
 Provides-Extra: test
 Requires-Dist: pytest; extra == 'test'

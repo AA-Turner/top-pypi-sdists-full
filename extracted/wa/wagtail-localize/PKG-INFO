@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: wagtail-localize
-Version: 1.12.2
+Version: 1.13
 Summary: Translation plugin for Wagtail CMS
 Author-email: Karl Hobley <karl@torchbox.com>
 Maintainer-email: Dan Braghis <dan.braghis@torchbox.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-Expression: BSD-3-Clause
 Classifier: Development Status :: 4 - Beta
@@ -12,11 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.1
@@ -25,7 +25,7 @@ Classifier: Framework :: Wagtail
 Classifier: Framework :: Wagtail :: 6
 Classifier: Framework :: Wagtail :: 7
 License-File: LICENSE
-Requires-Dist: Django>=4.2,<6.0
+Requires-Dist: Django>=4.2
 Requires-Dist: Wagtail>=6.3
 Requires-Dist: polib>=1.1,<2.0
 Requires-Dist: typing_extensions>=4.0
@@ -66,21 +66,14 @@ Wagtail Localize is a translation plugin for the [Wagtail CMS](https://wagtail.o
 [Documentation](https://wagtail-localize.org)
 [Changelog](https://github.com/wagtail/wagtail-localize/blob/main/CHANGELOG.md)
 
-## Join the Community at Wagtail Space!
-
-We'll be at Wagtail Space US this year! The Call for Participation and Registration for both Wagtail Space 2024 events is open. We would love to have you give a talk, or just us as an attendee in June.
-
-- [Wagtail Space NL](https://nl.wagtail.space/), Arnhem, The Netherlands. 2024-06-14
-- [Wagtail Space US](https://us.wagtail.space/), Philadelphia, PA. 2024-06-20 to 2024-06-22
-
 ## Requirements
 
 Wagtail Localize requires the following:
 
-- Python (3.9, 3.10, 3.11, 3.12, 3.13)
-- Django (4.2, 5.1, 5.2)
-- Wagtail (5.2 - 7.0) with [internationalisation enabled](https://docs.wagtail.org/en/stable/advanced_topics/i18n.html#configuration)
-- [wagtail-modeladmin](https://pypi.org/project/wagtail-modeladmin/) if `using wagtail_localize.modeladmin` and Wagtail >= 5.2
+- Python (3.10, 3.11, 3.12, 3.13, 3.14)
+- Django (4.2, 5.2, 6.0)
+- Wagtail (6.3 - 7.2) with [internationalisation enabled](https://docs.wagtail.org/en/stable/advanced_topics/i18n.html#configuration)
+- [wagtail-modeladmin](https://pypi.org/project/wagtail-modeladmin/) if `using wagtail_localize.modeladmin` and Wagtail >= 6.3
 
 ## Installation
 

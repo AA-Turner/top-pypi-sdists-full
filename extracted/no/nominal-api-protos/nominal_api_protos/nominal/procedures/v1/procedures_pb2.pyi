@@ -235,13 +235,15 @@ class AutoProceedConfig(_message.Message):
     def __init__(self, disabled: _Optional[_Union[AutoProceedConfig.Disabled, _Mapping]] = ..., enabled: _Optional[_Union[AutoProceedConfig.Enabled, _Mapping]] = ...) -> None: ...
 
 class SuccessCondition(_message.Message):
-    __slots__ = ("timer", "ingest_job")
+    __slots__ = ("timer", "ingest_job", "channel_validation")
     AND_FIELD_NUMBER: _ClassVar[int]
     TIMER_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_VALIDATION_FIELD_NUMBER: _ClassVar[int]
     timer: TimerSuccessCondition
     ingest_job: IngestJobSuccessCondition
-    def __init__(self, timer: _Optional[_Union[TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[IngestJobSuccessCondition, _Mapping]] = ..., **kwargs) -> None: ...
+    channel_validation: ChannelValidationSuccessCondition
+    def __init__(self, timer: _Optional[_Union[TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[IngestJobSuccessCondition, _Mapping]] = ..., channel_validation: _Optional[_Union[ChannelValidationSuccessCondition, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
@@ -260,6 +262,54 @@ class IngestJobSuccessCondition(_message.Message):
     FIELD_ID_FIELD_NUMBER: _ClassVar[int]
     field_id: str
     def __init__(self, field_id: _Optional[str] = ...) -> None: ...
+
+class ChannelValidationSuccessCondition(_message.Message):
+    __slots__ = ("channel", "comparator", "threshold", "timeout_millis")
+    class COMPARATOR(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        COMPARATOR_UNSPECIFIED: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_GREATER_THAN: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_GREATER_THAN_OR_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_LESS_THAN: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_LESS_THAN_OR_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+        COMPARATOR_NOT_EQUAL: _ClassVar[ChannelValidationSuccessCondition.COMPARATOR]
+    COMPARATOR_UNSPECIFIED: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_GREATER_THAN: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_GREATER_THAN_OR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_LESS_THAN: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_LESS_THAN_OR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
+    COMPARATOR_NOT_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
+    class ChannelLocator(_message.Message):
+        __slots__ = ("data_source_ref", "channel_name", "tags", "asset", "run")
+        class TagsEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        DATA_SOURCE_REF_FIELD_NUMBER: _ClassVar[int]
+        CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+        TAGS_FIELD_NUMBER: _ClassVar[int]
+        ASSET_FIELD_NUMBER: _ClassVar[int]
+        RUN_FIELD_NUMBER: _ClassVar[int]
+        data_source_ref: str
+        channel_name: str
+        tags: _containers.ScalarMap[str, str]
+        asset: AssetReference
+        run: RunReference
+        def __init__(self, data_source_ref: _Optional[str] = ..., channel_name: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., asset: _Optional[_Union[AssetReference, _Mapping]] = ..., run: _Optional[_Union[RunReference, _Mapping]] = ...) -> None: ...
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    COMPARATOR_FIELD_NUMBER: _ClassVar[int]
+    THRESHOLD_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUT_MILLIS_FIELD_NUMBER: _ClassVar[int]
+    channel: ChannelValidationSuccessCondition.ChannelLocator
+    comparator: ChannelValidationSuccessCondition.COMPARATOR
+    threshold: float
+    timeout_millis: int
+    def __init__(self, channel: _Optional[_Union[ChannelValidationSuccessCondition.ChannelLocator, _Mapping]] = ..., comparator: _Optional[_Union[ChannelValidationSuccessCondition.COMPARATOR, str]] = ..., threshold: _Optional[float] = ..., timeout_millis: _Optional[int] = ...) -> None: ...
 
 class CompletionActionConfig(_message.Message):
     __slots__ = ("create_event", "send_notification", "create_run", "apply_workbook_templates", "apply_checklists")

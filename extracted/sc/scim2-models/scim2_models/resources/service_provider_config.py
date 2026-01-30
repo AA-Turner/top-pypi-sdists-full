@@ -9,7 +9,8 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
-from ..reference import ExternalReference
+from ..path import URN
+from ..reference import External
 from ..reference import Reference
 from .resource import Resource
 
@@ -73,15 +74,13 @@ class AuthenticationScheme(ComplexAttribute):
     description: Annotated[str | None, Mutability.read_only, Required.true] = None
     """A description of the authentication scheme."""
 
-    spec_uri: Annotated[Reference[ExternalReference] | None, Mutability.read_only] = (
-        None
-    )
+    spec_uri: Annotated[Reference[External] | None, Mutability.read_only] = None
     """An HTTP-addressable URL pointing to the authentication scheme's
     specification."""
 
-    documentation_uri: Annotated[
-        Reference[ExternalReference] | None, Mutability.read_only
-    ] = None
+    documentation_uri: Annotated[Reference[External] | None, Mutability.read_only] = (
+        None
+    )
     """An HTTP-addressable URL pointing to the authentication scheme's usage
     documentation."""
 
@@ -92,9 +91,7 @@ class AuthenticationScheme(ComplexAttribute):
 
 
 class ServiceProviderConfig(Resource[Any]):
-    schemas: Annotated[list[str], Required.true] = [
-        "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
-    ]
+    __schema__ = URN("urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig")
 
     id: Annotated[
         str | None, Mutability.read_only, Returned.default, Uniqueness.global_
@@ -106,9 +103,9 @@ class ServiceProviderConfig(Resource[Any]):
     #     resources, the "id" attribute is not required for the service
     #     provider configuration resource
 
-    documentation_uri: Annotated[
-        Reference[ExternalReference] | None, Mutability.read_only
-    ] = None
+    documentation_uri: Annotated[Reference[External] | None, Mutability.read_only] = (
+        None
+    )
     """An HTTP-addressable URL pointing to the service provider's human-
     consumable help documentation."""
 

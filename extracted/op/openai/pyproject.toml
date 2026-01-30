@@ -1,6 +1,6 @@
 [project]
 name = "openai"
-version = "2.15.0"
+version = "2.16.0"
 description = "The official Python library for the openai API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -101,7 +101,7 @@ typecheck = { chain = [
   "typecheck:pyright",
   "typecheck:mypy"
 ]}
-"typecheck:pyright" = "pyright"
+"typecheck:pyright" = "scripts/run-pyright"
 "typecheck:verify-types" = "pyright --verifytypes openai --ignoreexternal"
 "typecheck:mypy" = "mypy ."
 

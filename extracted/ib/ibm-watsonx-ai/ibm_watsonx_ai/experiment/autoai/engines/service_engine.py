@@ -1592,8 +1592,11 @@ class ServiceEngine(BaseEngine):
             run_params["entity"]["results_reference"]
         )
         results_reference._api_client = self._api_client
-        results_reference._check_if_connection_asset_is_s3()
+        if results_reference._is_connection_asset_s3:
+            results_reference._init_s3_connection()
+
         run_params["entity"]["results_reference"] = results_reference._to_dict()
+
         # --- end note
 
         return _download_notebook(

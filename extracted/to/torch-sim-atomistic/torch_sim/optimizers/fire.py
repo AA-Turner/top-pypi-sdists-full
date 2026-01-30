@@ -72,21 +72,12 @@ def fire_init(
     forces = model_output["forces"]
     stress = model_output.get("stress")
 
-    # Common state arguments
-    common_args = {
-        # Copy SimState attributes
-        "positions": state.positions.clone(),
-        "masses": state.masses.clone(),
-        "cell": state.cell.clone(),
-        "atomic_numbers": state.atomic_numbers.clone(),
-        "system_idx": state.system_idx.clone(),
-        "pbc": state.pbc,
-        # Optimization state
+    # FIRE-specific additional attributes
+    fire_attrs = {
         "forces": forces,
         "energy": energy,
         "stress": stress,
         "velocities": torch.full(state.positions.shape, torch.nan, **tensor_args),
-        # FIRE parameters
         "dt": torch.full((n_systems,), dt_start, **tensor_args),
         "alpha": torch.full((n_systems,), alpha_start, **tensor_args),
         "n_pos": torch.zeros((n_systems,), device=model.device, dtype=torch.int32),
@@ -94,9 +85,9 @@ def fire_init(
 
     if cell_filter is not None:  # Create cell optimization state
         cell_filter_funcs = init_fn, _step_fn = ts.get_cell_filter(cell_filter)
-        common_args["reference_cell"] = state.cell.clone()
-        common_args["cell_filter"] = cell_filter_funcs
-        cell_state = CellFireState(**common_args)
+        fire_attrs["reference_cell"] = state.cell.clone()
+        fire_attrs["cell_filter"] = cell_filter_funcs
+        cell_state = CellFireState.from_state(state, **fire_attrs)
 
         # Initialize cell-specific attributes
         init_fn(cell_state, model, **filter_kwargs)
@@ -108,7 +99,7 @@ def fire_init(
 
         return cell_state
     # Create regular FireState without cell optimization
-    return FireState(**common_args)
+    return FireState.from_state(state, **fire_attrs)
 
 
 def fire_step(
@@ -211,13 +202,13 @@ def _vv_fire_step[T: "FireState | CellFireState"](  # noqa: PLR0915
     state.velocities += 0.5 * atom_wise_dt * state.forces / state.masses.unsqueeze(-1)
 
     # Position update
-    state.positions = state.positions + atom_wise_dt * state.velocities
+    state.set_constrained_positions(state.positions + atom_wise_dt * state.velocities)
 
     # Cell position updates are handled in the velocity update step above
 
     # Get new forces and energy
     model_output = model(state)
-    state.forces = model_output["forces"]
+    state.set_constrained_forces(model_output["forces"])
     state.energy = model_output["energy"]
     if "stress" in model_output:
         state.stress = model_output["stress"]
@@ -419,7 +410,7 @@ def _ase_fire_step[T: "FireState | CellFireState"](  # noqa: C901, PLR0915
         cur_deform_grad = cell_filters.deform_grad(
             state.reference_cell.mT, state.row_vector_cell
         )
-        state.positions = (
+        state.set_constrained_positions(
             torch.linalg.solve(
                 cur_deform_grad[state.system_idx], state.positions.unsqueeze(-1)
             ).squeeze(-1)
@@ -454,16 +445,18 @@ def _ase_fire_step[T: "FireState | CellFireState"](  # noqa: C901, PLR0915
         new_deform_grad = cell_filters.deform_grad(
             state.reference_cell.mT, state.row_vector_cell
         )
-        state.positions = torch.bmm(
-            state.positions.unsqueeze(1),
-            new_deform_grad[state.system_idx].transpose(-2, -1),
-        ).squeeze(1)
+        state.set_constrained_positions(
+            torch.bmm(
+                state.positions.unsqueeze(1),
+                new_deform_grad[state.system_idx].transpose(-2, -1),
+            ).squeeze(1)
+        )
     else:
-        state.positions = state.positions + dr_atom
+        state.set_constrained_positions(state.positions + dr_atom)
 
     # Get new forces, energy, and stress
     model_output = model(state)
-    state.forces = model_output["forces"]
+    state.set_constrained_forces(model_output["forces"])
     state.energy = model_output["energy"]
     if "stress" in model_output:
         state.stress = model_output["stress"]

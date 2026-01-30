@@ -88,6 +88,7 @@ pub(crate) fn completion_item(
         CompletionItemKind::Function => lsp_types::CompletionItemKind::FUNCTION,
         CompletionItemKind::Type => lsp_types::CompletionItemKind::CLASS,
         CompletionItemKind::Snippet => lsp_types::CompletionItemKind::SNIPPET,
+        CompletionItemKind::Operator => lsp_types::CompletionItemKind::OPERATOR,
     };
 
     let sort_text = Some(item.sort_text());
@@ -107,10 +108,23 @@ pub(crate) fn completion_item(
         None
     };
 
+    let label_details = item
+        .detail
+        .map(|detail| lsp_types::CompletionItemLabelDetails {
+            detail: None,
+            // Use description instead of detail so VSCode puts it to the right
+            // of the item's name instead of smushing them together.
+            description: Some(detail),
+        });
+
     lsp_types::CompletionItem {
         label: item.label,
         kind: Some(kind),
-        detail: item.detail,
+        // We use label_details instead of detail so that VSCode shows the type
+        // info / function signature when the completion list is open, instead
+        // of waiting until you select the given field.
+        detail: None,
+        label_details,
         insert_text: item.insert_text,
         insert_text_format,
         sort_text,

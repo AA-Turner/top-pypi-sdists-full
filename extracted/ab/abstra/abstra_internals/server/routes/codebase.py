@@ -4,13 +4,15 @@ import flask
 import flask_sock
 
 from abstra_internals.contracts_generated import (
+    AbstraLibApiEditorFilesEditRequest,
     AbstraLibApiEditorFilesRenameRequest,
-    AbstraLibApiEditorFilesSafeEditRequestItem,
 )
 from abstra_internals.controllers.codebase import CodebaseController
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
+from abstra_internals.settings import Settings
+from abstra_internals.utils.code_check import code_check
 
 
 def get_editor_bp(repos: Repositories):
@@ -49,16 +51,14 @@ def get_editor_bp(repos: Repositories):
     def _get_file(path):
         return controller.get_file(path)
 
-    @bp.put("/files/safe/<path:path>")
+    @bp.put("/files/<path:path>")
     def _edit_file(path):
         json = flask.request.json
         if json is None:
             flask.abort(400)
-        reqs = [
-            AbstraLibApiEditorFilesSafeEditRequestItem.from_dict(item) for item in json
-        ]
+        req = AbstraLibApiEditorFilesEditRequest.from_dict(json)
 
-        return controller.edit_file(path, reqs).to_dict()
+        return controller.edit_file(path, req).to_dict()
 
     @bp.post("/files/<path:path>")
     def _create_file(path):
@@ -98,5 +98,15 @@ def get_editor_bp(repos: Repositories):
     @bp.get("/settings")
     def _get_settings():
         return controller.settings().to_dict()
+
+    @bp.post("/type-check/<path:path>")
+    def _type_check(path: str):
+        file_path = Settings.root_path.joinpath(path)
+        result = code_check(file_path)
+        return {
+            "success": result.success,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
 
     return bp

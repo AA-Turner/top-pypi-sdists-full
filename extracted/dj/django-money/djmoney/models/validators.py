@@ -9,14 +9,15 @@ from djmoney.money import Money
 
 class BaseMoneyValidator(BaseValidator):
     def get_limit_value(self, cleaned):
-        if isinstance(self.limit_value, Money):
-            if cleaned.currency.code != self.limit_value.currency.code:
+        limit_value = self.limit_value() if callable(self.limit_value) else self.limit_value
+        if isinstance(limit_value, Money):
+            if cleaned.currency.code != limit_value.currency.code:
                 return
-            return self.limit_value
-        elif isinstance(self.limit_value, (int, Decimal)):
-            return self.limit_value
+            return limit_value
+        elif isinstance(limit_value, (int, Decimal)):
+            return limit_value
         try:
-            return Money(self.limit_value[cleaned.currency.code], cleaned.currency.code)
+            return Money(limit_value[cleaned.currency.code], cleaned.currency.code)
         except KeyError:
             # There are no validation for this currency
             pass

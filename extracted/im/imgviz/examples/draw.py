@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import imgviz
 
 
-def draw():
+def draw() -> None:
     img = imgviz.data.lena()
     H, W = img.shape[:2]
     viz = img
@@ -21,8 +21,8 @@ def draw():
         text="face",
         size=30,
         background=(255, 255, 255),
-        aabb1=(y1, x1),
-        aabb2=(y2, x2),
+        yx1=(y1, x1),
+        yx2=(y2, x2),
     )
 
     # eye, eye, nose, mouse, mouse
@@ -33,7 +33,7 @@ def draw():
     # mouse segment
     viz = imgviz.draw.line(viz, yx=[yxs[3], yxs[4]], fill=(255, 255, 255), width=5)
 
-    colors = imgviz.label_colormap(value=255)[1:]
+    colors = imgviz.label_colormap()[1:]
     shapes = ["star", "ellipse", "rectangle", "circle", "triangle"]
     for yx, color, shape in zip(yxs, colors, shapes):
         size = 20
@@ -59,8 +59,8 @@ def draw():
         elif shape == "rectangle":
             viz = imgviz.draw.rectangle(
                 viz,
-                aabb1=(yx[0] - size / 2, yx[1] - size / 2),
-                aabb2=(yx[0] + size / 2, yx[1] + size / 2),
+                yx1=(yx[0] - size / 2, yx[1] - size / 2),
+                yx2=(yx[0] + size / 2, yx[1] + size / 2),
                 fill=color,
             )
         else:
@@ -95,13 +95,8 @@ def draw():
     plt.imshow(viz)
     plt.axis("off")
 
-    img = imgviz.io.pyplot_to_numpy()
-    plt.close()
-
-    return img
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(draw)

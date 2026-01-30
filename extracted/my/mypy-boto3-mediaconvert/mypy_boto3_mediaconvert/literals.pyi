@@ -3,7 +3,7 @@ Type annotations for mediaconvert service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -150,6 +150,7 @@ __all__ = (
     "DeinterlacerModeType",
     "DescribeEndpointsModeType",
     "DescribeEndpointsPaginatorName",
+    "DolbyVisionCompatibilityType",
     "DolbyVisionLevel6ModeType",
     "DolbyVisionMappingType",
     "DolbyVisionProfileType",
@@ -380,6 +381,7 @@ __all__ = (
     "MsSmoothManifestEncodingType",
     "MxfAfdSignalingType",
     "MxfProfileType",
+    "MxfUncompressedAudioWrappingType",
     "MxfXavcDurationModeType",
     "NielsenActiveWatermarkProcessTypeType",
     "NielsenSourceWatermarkStatusTypeType",
@@ -499,7 +501,12 @@ __all__ = (
 AacAudioDescriptionBroadcasterMixType = Literal["BROADCASTER_MIXED_AD", "NORMAL"]
 AacCodecProfileType = Literal["HEV1", "HEV2", "LC", "XHE"]
 AacCodingModeType = Literal[
-    "AD_RECEIVER_MIX", "CODING_MODE_1_0", "CODING_MODE_1_1", "CODING_MODE_2_0", "CODING_MODE_5_1"
+    "AD_RECEIVER_MIX",
+    "CODING_MODE_1_0",
+    "CODING_MODE_1_1",
+    "CODING_MODE_2_0",
+    "CODING_MODE_5_1",
+    "CODING_MODE_AUTO",
 ]
 AacLoudnessMeasurementModeType = Literal["ANCHOR", "PROGRAM"]
 AacRateControlModeType = Literal["CBR", "VBR"]
@@ -517,7 +524,11 @@ Ac3BitstreamModeType = Literal[
     "VOICE_OVER",
 ]
 Ac3CodingModeType = Literal[
-    "CODING_MODE_1_0", "CODING_MODE_1_1", "CODING_MODE_2_0", "CODING_MODE_3_2_LFE"
+    "CODING_MODE_1_0",
+    "CODING_MODE_1_1",
+    "CODING_MODE_2_0",
+    "CODING_MODE_3_2_LFE",
+    "CODING_MODE_AUTO",
 ]
 Ac3DynamicRangeCompressionLineType = Literal[
     "FILM_LIGHT", "FILM_STANDARD", "MUSIC_LIGHT", "MUSIC_STANDARD", "NONE", "SPEECH"
@@ -809,6 +820,7 @@ DeinterlacerControlType = Literal["FORCE_ALL_FRAMES", "NORMAL"]
 DeinterlacerModeType = Literal["ADAPTIVE", "DEINTERLACE", "INVERSE_TELECINE"]
 DescribeEndpointsModeType = Literal["DEFAULT", "GET_ONLY"]
 DescribeEndpointsPaginatorName = Literal["describe_endpoints"]
+DolbyVisionCompatibilityType = Literal["DUPLICATE_STREAM", "SUPPLEMENTAL_CODECS"]
 DolbyVisionLevel6ModeType = Literal["PASSTHROUGH", "RECALCULATE", "SPECIFY"]
 DolbyVisionMappingType = Literal["HDR10_1000", "HDR10_NOMAP"]
 DolbyVisionProfileType = Literal["PROFILE_5", "PROFILE_8_1"]
@@ -855,7 +867,9 @@ Eac3AttenuationControlType = Literal["ATTENUATE_3_DB", "NONE"]
 Eac3BitstreamModeType = Literal[
     "COMMENTARY", "COMPLETE_MAIN", "EMERGENCY", "HEARING_IMPAIRED", "VISUALLY_IMPAIRED"
 ]
-Eac3CodingModeType = Literal["CODING_MODE_1_0", "CODING_MODE_2_0", "CODING_MODE_3_2"]
+Eac3CodingModeType = Literal[
+    "CODING_MODE_1_0", "CODING_MODE_2_0", "CODING_MODE_3_2", "CODING_MODE_AUTO"
+]
 Eac3DcFilterType = Literal["DISABLED", "ENABLED"]
 Eac3DynamicRangeCompressionLineType = Literal[
     "FILM_LIGHT", "FILM_STANDARD", "MUSIC_LIGHT", "MUSIC_STANDARD", "NONE", "SPEECH"
@@ -878,7 +892,7 @@ F4vMoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
-FormatType = Literal["matroska", "mp4", "mxf", "quicktime", "webm"]
+FormatType = Literal["matroska", "mp4", "mxf", "quicktime", "wave", "webm"]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1349,6 +1363,7 @@ MsSmoothFragmentLengthControlType = Literal["EXACT", "GOP_MULTIPLE"]
 MsSmoothManifestEncodingType = Literal["UTF16", "UTF8"]
 MxfAfdSignalingType = Literal["COPY_FROM_VIDEO", "NO_COPY"]
 MxfProfileType = Literal["D_10", "OP1A", "XAVC", "XDCAM", "XDCAM_RDD9"]
+MxfUncompressedAudioWrappingType = Literal["AES3", "AUTO"]
 MxfXavcDurationModeType = Literal["ALLOW_ANY_DURATION", "DROP_FRAMES_FOR_COMPLIANCE"]
 NielsenActiveWatermarkProcessTypeType = Literal["CBET", "NAES2_AND_NW", "NAES2_AND_NW_AND_CBET"]
 NielsenSourceWatermarkStatusTypeType = Literal["CLEAN", "WATERMARKED"]
@@ -1739,7 +1754,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -2004,6 +2018,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

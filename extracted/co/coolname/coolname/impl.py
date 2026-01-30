@@ -7,23 +7,32 @@ import itertools
 import os
 import os.path as op
 import random
-from random import randrange
+from random import randrange, Random
 import re
-from typing import List, Union
+import typing
+from typing import List, Dict, Union, Optional, Mapping, Callable, Any, Tuple
 
 from .config import _CONF
 from .exceptions import ConfigurationError, InitializationError
 
+if typing.TYPE_CHECKING:
+    HashType = hashlib._Hash  # pragma: no cover
+else:
+    HashType = Any
+
 # For new Python versions with (possible) OpenSSL FIPS support,
 # we should pass usedforsecurity=False argument to md5().
+_md5: Callable[[], HashType]
 try:
     hashlib.md5(b'', usedforsecurity=False)  # noqa
     _md5 = partial(hashlib.md5, usedforsecurity=False)
-except TypeError:
+except TypeError:  # pragma: no cover
     _md5 = hashlib.md5
 
 
 class AbstractNestedList:
+
+    length: int  # pragma: no cover
 
     def __init__(self, lists):
         super().__init__()
@@ -31,13 +40,16 @@ class AbstractNestedList:
                        for x in lists]
         # If this is set to True in a subclass,
         # then subclass yields sequences instead of single words.
-        self.multiword = any(x.multiword for x in self._lists)
+        self.multiword = getattr(self.__class__, 'multiword', None) or any(x.multiword for x in self._lists)
 
     def __str__(self):
         return f'{self.__class__.__name__}({len(self._lists)}, len={self.length})'
 
     def __repr__(self):
         return self.__str__()
+
+    def __getitem__(self, item: int) -> Union[str, List[str]]:
+        raise NotImplementedError  # pragma: no cover
 
     def squash(self, hard, cache):
         if len(self._lists) == 1:
@@ -67,6 +79,8 @@ def _to_bytes(value):
 
 
 class _BasicList(list, AbstractNestedList):
+
+    length: int  # pragma: no cover
 
     def __init__(self, sequence=None):
         list.__init__(self, sequence)
@@ -105,13 +119,15 @@ class WordList(_BasicList):
 class PhraseList(_BasicList):
     """List of phrases (sequences of one or more words)."""
 
+    multiword = True
+
     def __init__(self, sequence=None):
         super().__init__(tuple(_split_phrase(x)) for x in sequence)
-        self.multiword = True
 
 
 class WordAsPhraseWrapper:
 
+    length: int  # pragma: no cover
     multiword = True
 
     def __init__(self, wordlist):
@@ -121,8 +137,8 @@ class WordAsPhraseWrapper:
     def __len__(self):
         return self.length
 
-    def __getitem__(self, i):
-        return self._list[i],
+    def __getitem__(self, i: int) -> Union[str, List[str]]:
+        return [self._list[i]]
 
     def squash(self, hard, cache):  # noqa
         return self
@@ -134,23 +150,41 @@ class WordAsPhraseWrapper:
         return f'{self.__class__.__name__}({self._list!r})'
 
 
+class TopLevelMultiWrapper(WordAsPhraseWrapper):
+    """
+    For abnormal but possible cases when there's no multiword list at the top generator level.
+    """
+
+    def __init__(self, any_list: AbstractNestedList):  # noqa
+        # Note that call to base class is omitted deliberately
+        self._list = any_list
+        self.length = any_list.length
+
+    def _dump(self, stream, indent='', object_ids=False):
+        return self._list._dump(stream, indent, object_ids)
+
+
 class NestedList(AbstractNestedList):
+
+    length: int  # pragma: no cover
+    _lists: List[AbstractNestedList]  # pragma: no cover
 
     def __init__(self, lists):
         super().__init__(lists)
         # If user mixes WordList and PhraseList in the same NestedList,
         # we need to make sure that __getitem__ always returns tuple.
         # For that, we wrap WordList instances.
+        # Note that such mixing decreases performance somewhat, and it is avoided in default config.
         if any(isinstance(x, WordList) for x in self._lists) and any(x.multiword for x in self._lists):
             self._lists = [WordAsPhraseWrapper(x) if isinstance(x, WordList) else x for x in self._lists]
         # Fattest lists first (to reduce average __getitem__ time)
         self._lists.sort(key=lambda x: -x.length)
         self.length = sum(x.length for x in self._lists)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> Union[str, List[str]]:
         # Retrieve item from appropriate list
         for x in self._lists:
-            n = x.length
+            n = x.length  # type: ignore
             if i < n:
                 return x[i]
             else:
@@ -179,6 +213,8 @@ class NestedList(AbstractNestedList):
 
 class CartesianList(AbstractNestedList):
 
+    length: int  # pragma: no cover
+
     def __init__(self, lists):
         super().__init__(lists)
         self.length = 1
@@ -194,7 +230,7 @@ class CartesianList(AbstractNestedList):
         self._list_divs = tuple(zip(self._lists, reversed(divs)))
         self.multiword = True
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> Union[str, List[str]]:
         result = []
         for sublist, n in self._list_divs:
             x = sublist[i // n]
@@ -208,7 +244,9 @@ class CartesianList(AbstractNestedList):
 
 class Scalar(AbstractNestedList):
 
-    def __init__(self, value):
+    length: int  # pragma: no cover
+
+    def __init__(self, value: str):
         super().__init__([])
         self.value = value
         self.length = 1
@@ -233,25 +271,42 @@ class RandomGenerator:
     `generate_slug` and other exported functions.
     """
 
-    def __init__(self, config, rand=None):
-        self.random = rand  # sets _random and _randrange
+    # Structure that does the generation
+    _lists: Dict[Union[str, int, None], AbstractNestedList]  # pragma: no cover
+    # Custom random (if any)
+    _random: Optional[Random]  # pragma: no cover
+    _randrange: Callable  # pragma: no cover
+    # ENSURE_UNIQUE_PREFIX - don't output combinations with two words having N same first letters
+    _check_prefix: Union[int, None]  # pragma: no cover
+    # MAX_SLUG_LENGTH - don't output slugs with more than N characters, including hyphens
+    _max_slug_length: Union[int, None]  # pragma: no cover
+
+    def __init__(self, config: Mapping[str, dict], rand: Optional[Random] = None):
+        self.random = rand  # sets _random and _randrange. Note that we assign via property setter.
         config = dict(config)
         _validate_config(config)
-        lists = {}
+        lists: Dict[str, AbstractNestedList] = {}
         _create_lists(config, lists, 'all', [])
         self._lists = {}
-        for key, listdef in config.items():
+        for key, list_config in config.items():
             # Other generators independent from 'all'
-            if listdef.get(_CONF.FIELD.GENERATOR) and key not in lists:
+            if list_config.get(_CONF.FIELD.GENERATOR) and key not in lists:
                 _create_lists(config, lists, key, [])
-            if key == 'all' or key.isdigit() or listdef.get(_CONF.FIELD.GENERATOR):
+            if key == 'all' or key.isdigit() or list_config.get(_CONF.FIELD.GENERATOR):
+                pattern: Union[str, int, None]
                 if key.isdigit():
                     pattern = int(key)
                 elif key == 'all':
                     pattern = None
                 else:
                     pattern = key
-                self._lists[pattern] = lists[key]
+                gen_list = lists[key]
+                # Abnormal but possible configuration - top list is not multiword.
+                # This requires a wrapper so that we avoid dealing with str instead of list in generate().
+                # See also test_degen_* in test_impl.py
+                if not lists[key].multiword:
+                    gen_list = TopLevelMultiWrapper(lists[key])  # type: ignore
+                self._lists[pattern] = gen_list
         self._lists[None] = self._lists[None].squash(True, {})
         # Should we avoid duplicates?
         try:
@@ -288,16 +343,17 @@ class RandomGenerator:
         assert self.generate_slug()
 
     @property
-    def random(self):
+    def random(self) -> Optional[Random]:
         return self._random
 
     @random.setter
-    def random(self, rand):
+    def random(self, rand: Optional[Random]) -> None:
         if rand:
             self._random = rand
+            self._randrange = rand.randrange
         else:
-            self._random = random
-        self._randrange = self._random.randrange
+            self._random = random  # type: ignore
+            self._randrange = random.randrange
 
     def generate(self, pattern: Union[None, str, int] = None) -> List[str]:
         """
@@ -314,7 +370,9 @@ class RandomGenerator:
                     self._check_prefix and len(set(x[:self._check_prefix] for x in result)) != n or
                     self._max_slug_length and sum(len(x) for x in result) + n - 1 > self._max_slug_length):
                 continue
-            return result
+            # Most of the time it returns at first attempt, without repeating the loop.
+            # Note about typing: technically its List[str] | str, but we know it's always List[str] at this point.
+            return result  # type: ignore
 
     def generate_slug(self, pattern: Union[None, str, int] = None) -> str:
         """
@@ -330,11 +388,11 @@ class RandomGenerator:
         lst = self._lists[pattern]
         return lst.length
 
-    def _dump(self, stream, pattern=None, object_ids=False):
+    def _dump(self, stream, pattern=None, object_ids=False) -> None:
         """Dumps current tree into a text stream."""
-        return self._lists[pattern]._dump(stream, '', object_ids=object_ids)  # noqa
+        self._lists[pattern]._dump(stream, '', object_ids=object_ids)  # noqa
 
-    def _check_not_hanging(self):
+    def _check_not_hanging(self) -> None:
         """
         Rough check that generate() will not hang or be very slow.
 
@@ -344,7 +402,7 @@ class RandomGenerator:
         # (field_name, predicate, warning_msg, exception_msg)
         # predicate(g) is a function that returns True if generated combination g must be rejected,
         # see checks in generate()
-        checks = []
+        checks: List[Tuple[str, Any, Callable[[Any], bool], str, str]] = []
         # ensure_unique can lead to infinite loops for some tiny erroneous configs
         if self._ensure_unique:
             checks.append((
@@ -360,7 +418,7 @@ class RandomGenerator:
             checks.append((
                 _CONF.FIELD.MAX_SLUG_LENGTH,
                 self._max_slug_length,
-                lambda g: sum(len(x) for x in g) + len(g) - 1 > self._max_slug_length,
+                lambda g: sum(len(x) for x in g) + len(g) - 1 > self._max_slug_length,  # type: ignore
                 '{generate} may be slow because a significant fraction of combinations exceed {field_name}={field_value}',  # noqa
                 'Impossible to generate with {field_name}={field_value}'
             ))
@@ -383,19 +441,19 @@ class RandomGenerator:
                     warnings.warn(warning_msg.format(**context))
 
 
-def _is_str(value):
+def _is_str(value) -> bool:
     return value.__class__.__name__ in ('str', 'unicode')
 
 
 # Translate phrases defined as strings to tuples
-def _split_phrase(x):
+def _split_phrase(x: str) -> Union[str, List[str]]:
     try:
         return re.split(r'\s+', x.strip())
     except AttributeError:  # Not str
         return x
 
 
-def _validate_config(config):
+def _validate_config(config: Mapping[str, dict]) -> None:
     """
     A big and ugly method for config validation.
     It would be nice to use cerberus, but we don't
@@ -498,7 +556,13 @@ def _validate_config(config):
         raise ConfigurationError(str(ex))
 
 
-def _create_lists(config, results, current, stack, inside_cartesian=None):
+def _create_lists(
+        config: dict,
+        results: Dict[str, AbstractNestedList],
+        current: str,
+        stack: List[str],
+        inside_cartesian: Optional[str] = None
+) -> AbstractNestedList:
     """
     An ugly recursive method to transform config dict
     into a tree of AbstractNestedList.
@@ -517,19 +581,19 @@ def _create_lists(config, results, current, stack, inside_cartesian=None):
     stack.append(current)
     try:
         # Check what kind of list we have
-        listdef = config[current]
-        list_type = listdef[_CONF.FIELD.TYPE]
+        list_config = config[current]
+        list_type = list_config[_CONF.FIELD.TYPE]
         # 1. List of words
         if list_type == _CONF.TYPE.WORDS:
-            results[current] = WordList(listdef['words'])
+            results[current] = WordList(list_config['words'])
         # List of phrases
         elif list_type == _CONF.TYPE.PHRASES:
-            results[current] = PhraseList(listdef['phrases'])
+            results[current] = PhraseList(list_config['phrases'])
         # 2. Simple list of lists
         elif list_type == _CONF.TYPE.NESTED:
             results[current] = NestedList([_create_lists(config, results, x, stack,
                                                          inside_cartesian=inside_cartesian)
-                                           for x in listdef[_CONF.FIELD.LISTS]])
+                                           for x in list_config[_CONF.FIELD.LISTS]])
 
         # 3. Cartesian list of lists
         elif list_type == _CONF.TYPE.CARTESIAN:
@@ -539,10 +603,10 @@ def _create_lists(config, results, current, stack, inside_cartesian=None):
                                          .format(inside_cartesian, current))
             results[current] = CartesianList([_create_lists(config, results, x, stack,
                                                             inside_cartesian=current)
-                                              for x in listdef[_CONF.FIELD.LISTS]])
+                                              for x in list_config[_CONF.FIELD.LISTS]])
         # 4. Scalar
         elif list_type == _CONF.TYPE.CONST:
-            results[current] = Scalar(listdef[_CONF.FIELD.VALUE])
+            results[current] = Scalar(list_config[_CONF.FIELD.VALUE])
         # Unknown type
         else:
             raise InitializationError("Unknown list type: {!r}".format(list_type))
@@ -552,7 +616,8 @@ def _create_lists(config, results, current, stack, inside_cartesian=None):
         stack.pop()
 
 
-def _create_default_generator():
+# Default generator is a global object
+def _create_default_generator() -> RandomGenerator:
     data_dir = os.getenv('COOLNAME_DATA_DIR')
     data_module = os.getenv('COOLNAME_DATA_MODULE')
     if not data_dir and not data_module:
@@ -561,17 +626,17 @@ def _create_default_generator():
     if data_dir and op.isdir(data_dir):
         from coolname.loader import load_config
         config = load_config(data_dir)
-    elif data_module:
+    elif data_module:  # pragma: no cover (actually tested via subprocess - see test_coolname_env.py)
         import importlib
         config = importlib.import_module(data_module).config
-    else:
+    else:  # pragma: no cover
         raise ImportError('Configure valid COOLNAME_DATA_DIR and/or COOLNAME_DATA_MODULE')
     config['all']['__nocheck'] = True
     return RandomGenerator(config)
 
 
 # Default generator is a global object
-_default = _create_default_generator()
+_default: RandomGenerator = _create_default_generator()
 
 # Global functions are actually methods of the default generator.
 # (most users don't care about creating generator instances)
@@ -580,6 +645,6 @@ generate_slug = _default.generate_slug
 get_combinations_count = _default.get_combinations_count
 
 
-def replace_random(rand):
+def replace_random(rand: Optional[Random] = None) -> None:
     """Replaces random number generator for the default RandomGenerator instance."""
     _default.random = rand

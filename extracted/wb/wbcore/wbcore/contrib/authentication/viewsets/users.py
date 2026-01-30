@@ -200,7 +200,7 @@ class UserRepresentationViewSet(viewsets.RepresentationViewSet):
     serializer_class = UserRepresentationSerializer
 
     def get_queryset(self):
-        if self.request.user.is_superuser or self.request.user.profile.is_internal:
+        if self.request.user.is_internal:
             return User.objects.all()
         return User.objects.filter(id=self.request.user.id)
 
@@ -302,7 +302,7 @@ class UserModelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.has_perm("authentication.administrate_user"):
             qs = User.objects.all()
-        elif self.request.user.profile.is_internal:
+        elif self.request.user.is_internal:
             qs = User.objects.filter(profile__relationship_managers=self.request.user.profile)
         else:
             qs = User.objects.filter(id=self.request.user.id)

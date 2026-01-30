@@ -4,14 +4,13 @@ from typing import Union
 
 from adam.commands.command import Command
 from adam.commands.commands_utils import show_table
-from adam.repl_session import ReplSession
-from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 from adam.utils_k8s.cassandra_clusters import CassandraClusters
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
-from adam.utils import Color, ing, log2, log_timing, offload, wait_log
+from adam.utils import log2, log_timing, offload, wait_log
 from adam.utils_k8s.statefulsets import StatefulSets
 
 def cd_dirs(state: ReplState) -> list[str]:
@@ -29,7 +28,7 @@ def cassandra_keyspaces(state: ReplState, on_any=True):
     else:
         wait_log(f'Inspecting Cassandra Keyspaces...')
 
-    r: list[PodExecResult] = run_cql(state, 'describe keyspaces', show_out=False, on_any=on_any)
+    r: list[PodExecResult] = run_cql(state, 'describe keyspaces', on_any=on_any)
     if not r:
         log2('No pod is available')
         return []
@@ -41,34 +40,35 @@ def cassandra_table_names(state: ReplState, keyspace = None):
 
 @functools.lru_cache()
 def cassandra_tables(state: ReplState, on_any=False) -> dict[str, list[str]]:
-    r: list[PodExecResult] = run_cql(state, 'describe tables', show_out=False, on_any=on_any)
+    r: list[PodExecResult] = run_cql(state, 'describe tables', on_any=on_any)
     if not r:
         log2('No pod is available')
         return {}
 
-    return parse_cql_desc_tables(r.stdout if state.pod else r[0].stdout)
+    if isinstance(r, list):
+        r = r[0]
+
+    return parse_cql_desc_tables(r.stdout)
 
 @functools.lru_cache()
 def table_spec(state: ReplState, table: str, on_any=False) -> 'TableSpec':
-    r: list[PodExecResult] = run_cql(state, f'describe table {table}', show_out=False, on_any=on_any)
+    r: list[PodExecResult] = run_cql(state, f'describe table {table}', on_any=on_any)
     if not r:
         log2('No pod is available')
         return None
 
-    return parse_cql_desc_table(r.stdout if state.pod else r[0].stdout)
+    if isinstance(r, list):
+        r = r[0]
+
+    return parse_cql_desc_table(r.stdout)
 
 def run_cql(state: ReplState,
             cql: str,
             opts: list = [],
-            show_out = False,
-            show_query = False,
             use_single_quotes = False,
             on_any = False,
-            backgrounded=False,
-            log_file=None,
-            history=True) -> list[PodExecResult]:
-    if show_query:
-        log2(cql)
+            ctx: Context = Context.NULL) -> list[PodExecResult]:
+    # ctx.log2(cql) alter tables double outs
 
     command = None
     with log_timing('Secrets.get_user_pass'):
@@ -80,7 +80,8 @@ def run_cql(state: ReplState,
 
     with log_timing(cql):
         with cassandra(state) as pods:
-            return pods.exec(command, action='cql', show_out=show_out, on_any=on_any, backgrounded=backgrounded, log_file=log_file, history=history, text_color='gray' if backgrounded else None)
+            # return pods.exec(command, action='cql', on_any=on_any, ctx=ctx.copy(text_color='gray' if not ctx or ctx.backgrounded else None))
+            return pods.exec(command, action='cql', on_any=on_any, ctx=ctx)
 
 def parse_cql_desc_tables(out: str):
     # Keyspace data_endpoint_auth
@@ -241,27 +242,32 @@ class CassandraPodService:
     def exec(self,
              command: str,
              action='bash',
-             show_out = True,
              on_any = False,
              throw_err = False,
              shell = '/bin/sh',
-             backgrounded = False,
-             log_file = None,
-             history=True,
-             text_color: str = None) -> Union[PodExecResult, list[PodExecResult]]:
+             ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
         pod = self.handler.pod
 
         if pod:
-            return CassandraNodes.exec(pod, state.namespace, command,
-                                    show_out=show_out, throw_err=throw_err, shell=shell, backgrounded=backgrounded, log_file=log_file, history=history, text_color=text_color)
+            return CassandraNodes.exec(pod,
+                                       state.namespace,
+                                       command,
+                                       throw_err=throw_err,
+                                       shell=shell,
+                                       ctx=ctx)
         elif state.sts:
-            return CassandraClusters.exec(state.sts, state.namespace, command, action=action,
-                                        show_out=show_out, on_any=on_any, shell=shell, backgrounded=backgrounded, log_file=log_file, history=history, text_color=text_color)
+            return CassandraClusters.exec(state.sts,
+                                          state.namespace,
+                                          command,
+                                          action=action,
+                                          on_any=on_any,
+                                          shell=shell,
+                                          ctx=ctx)
 
         return []
 
-    def cql(self, args: list[str], opts: list = [], show_out = False, show_query = False, use_single_quotes = False, on_any = False, backgrounded=False, log_file: str = None):
+    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, ctx: Context = Context.NULL):
         state = self.handler.state
         query: str = args
 
@@ -284,28 +290,27 @@ class CassandraPodService:
                 return 'no-cql'
 
             query = ' '.join(cqls)
-            show_out = True
+            # ctx = ctx.copy(show_out=True)
 
-        return run_cql(state, query, opts=opts, show_out=show_out, show_query=show_query, use_single_quotes=use_single_quotes, on_any=on_any, backgrounded=backgrounded, log_file=log_file)
+        return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, ctx=ctx)
 
-    def display_table(self, cols: str, header: str, show_out = True, backgrounded = False, msg: str = None, job_log: str = None):
-        if backgrounded:
+    def display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
+        if ctx.backgrounded:
             with offload(name='display-table') as exec:
-                exec.submit(lambda: self._display_table(cols, header, show_out, backgrounded, msg, job_log=job_log))
+                exec.submit(lambda: self._display_table(cols, header, ctx=ctx))
         else:
-            self._display_table(cols, header, show_out, backgrounded, msg)
+            self._display_table(cols, header, ctx=ctx)
 
-    def _display_table(self, cols: str, header: str, show_out = True, backgrounded = False, msg: str = None, job_log: str = None):
+    def _display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
         state = self.handler.state
 
-        # with ing(msg=msg, condition=backgrounded and msg):
         if state.pod:
-            return show_table(state, [state.pod], cols, header, show_out=show_out, backgrounded = backgrounded, job_log=job_log)
+            show_table(state, [state.pod], cols, header, ctx)
         elif state.sts:
             pod_names = [pod.metadata.name for pod in StatefulSets.pods(state.sts, state.namespace)]
-            return show_table(state, pod_names, cols, header, show_out=show_out, backgrounded = backgrounded, job_log=job_log)
+            show_table(state, pod_names, cols, header, ctx)
 
-    def nodetool(self, args: str, status = False, show_out = True, backgrounded = False, text_color = Color.gray) -> Union[PodExecResult, list[PodExecResult]]:
+    def nodetool(self, args: str, status = False, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
         pod = self.handler.pod
 
@@ -313,9 +318,9 @@ class CassandraPodService:
         command = f"nodetool -u {user} -pw {pw} {args}"
 
         if pod:
-            return CassandraNodes.exec(pod, state.namespace, command, show_out=show_out, backgrounded=backgrounded, text_color=text_color)
+            return CassandraNodes.exec(pod, state.namespace, command, ctx=ctx)
         else:
-            return CassandraClusters.exec(state.sts, state.namespace, command, action='nodetool.status' if status else 'nodetool', show_out=show_out, backgrounded=backgrounded, text_color=text_color)
+            return CassandraClusters.exec(state.sts, state.namespace, command, action='nodetool.status' if status else 'nodetool', ctx=ctx)
 
 class CassandraExecHandler:
     def __init__(self, state: ReplState, pod: str = None):

@@ -49,6 +49,7 @@ setup(
         "scikit-learn>=0.24.0",
         "pandas>=1.2.0",
         "numpy>=1.21.0",
+        "numba>=0.56.0",
         "datasets>=2.0.0",
         "sentence-transformers>=2.0.0",
         "faiss-cpu>=1.7.0",
@@ -58,12 +59,15 @@ setup(
         "sae_lens>=0.1.0",
         "trl>=0.7.0",
         "peft>=0.7.0",
-        "pyreft==0.1.0",
         "psycopg2-binary>=2.9.0",
+        "pynndescent>=0.5.0",
     ],
     extras_require={
         "harness": [
             "lm-eval==0.4.8",
+        ],
+        "reft": [
+            "pyreft>=0.1.0",
         ],
         "cuda": [
             "flash-attn>=2.5.0",

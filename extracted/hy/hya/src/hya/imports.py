@@ -13,6 +13,10 @@ __all__ = [
 
 from importlib.util import find_spec
 
+#######################
+#     braceexpand     #
+#######################
+
 
 def check_braceexpand() -> None:
     r"""Check if the ``braceexpand`` package is installed.
@@ -20,18 +24,16 @@ def check_braceexpand() -> None:
     Raises:
         RuntimeError: if the ``braceexpand`` package is not installed.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import check_braceexpand
+        >>> check_braceexpand()
 
-    ```pycon
-
-    >>> from hya.imports import check_braceexpand
-    >>> check_braceexpand()
-
-    ```
+        ```
     """
     if not is_braceexpand_available():
         msg = (
-            "`braceexpand` package is required but not installed. "
+            "'braceexpand' package is required but not installed. "
             "You can install `braceexpand` package with the command:\n\n"
             "pip install braceexpand\n"
         )
@@ -44,16 +46,19 @@ def is_braceexpand_available() -> bool:
     Returns:
         ``True`` if ``braceexpand`` is installed, otherwise ``False``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import is_braceexpand_available
+        >>> is_braceexpand_available()
 
-    ```pycon
-
-    >>> from hya.imports import is_braceexpand_available
-    >>> is_braceexpand_available()
-
-    ```
+        ```
     """
     return find_spec("braceexpand") is not None
+
+
+#################
+#     numpy     #
+#################
 
 
 def check_numpy() -> None:
@@ -62,18 +67,16 @@ def check_numpy() -> None:
     Raises:
         RuntimeError: if the ``numpy`` package is not installed.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import check_numpy
+        >>> check_numpy()
 
-    ```pycon
-
-    >>> from hya.imports import check_numpy
-    >>> check_numpy()
-
-    ```
+        ```
     """
     if not is_numpy_available():
         msg = (
-            "`numpy` package is required but not installed. "
+            "'numpy' package is required but not installed. "
             "You can install `numpy` package with the command:\n\n"
             "pip install numpy\n"
         )
@@ -86,16 +89,19 @@ def is_numpy_available() -> bool:
     Returns:
         ``True`` if ``numpy`` is installed, otherwise ``False``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import is_numpy_available
+        >>> is_numpy_available()
 
-    ```pycon
-
-    >>> from hya.imports import is_numpy_available
-    >>> is_numpy_available()
-
-    ```
+        ```
     """
     return find_spec("numpy") is not None
+
+
+#################
+#     torch     #
+#################
 
 
 def check_torch() -> None:
@@ -104,18 +110,16 @@ def check_torch() -> None:
     Raises:
         RuntimeError: if the ``torch`` package is not installed.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import check_torch
+        >>> check_torch()
 
-    ```pycon
-
-    >>> from hya.imports import check_torch
-    >>> check_torch()
-
-    ```
+        ```
     """
     if not is_torch_available():
         msg = (
-            "`torch` package is required but not installed. "
+            "'torch' package is required but not installed. "
             "You can install `torch` package with the command:\n\n"
             "pip install torch\n"
         )
@@ -128,13 +132,11 @@ def is_torch_available() -> bool:
     Returns:
         ``True`` if ``torch`` is installed, otherwise ``False``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from hya.imports import is_torch_available
+        >>> is_torch_available()
 
-    ```pycon
-
-    >>> from hya.imports import is_torch_available
-    >>> is_torch_available()
-
-    ```
+        ```
     """
     return find_spec("torch") is not None

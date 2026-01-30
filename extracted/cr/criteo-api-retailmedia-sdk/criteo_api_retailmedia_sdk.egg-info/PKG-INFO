@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: criteo-api-retailmedia-sdk
-Version: 2025.10.0.260119
+Version: 2026.1.0.260129
 Summary: Criteo API SDK
 Home-page: https://github.com/criteo/criteo-api-python-sdk
 Author: Criteo
@@ -35,13 +35,13 @@ IMPORTANT: This Python package links to Criteo production environment. Any test 
 
 
 ```sh
-pip install criteo-api-retailmedia-sdk==2025.10.0.260119
+pip install criteo-api-retailmedia-sdk==2026.01.0.260129
 ```
-(you may need to run `pip` with root permission: `sudo pip install criteo-api-retailmedia-sdk==2025.10.0.260119`)
+(you may need to run `pip` with root permission: `sudo pip install criteo-api-retailmedia-sdk==2026.01.0.260129`)
 
 Then import the package:
 ```python
-import criteo_api_retailmedia_v2025_10
+import criteo_api_retailmedia_v2026_01
 ```
 
 Full documentation on [Github](https://github.com/criteo/criteo-api-python-sdk).

@@ -6,9 +6,9 @@ __all__ = ["TorchLoader", "TorchSaver", "load_torch", "save_torch"]
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola import objects_are_equal
-from coola.utils import check_torch, is_torch_available
+from coola.equality import objects_are_equal
 from coola.utils.format import repr_mapping_line
+from coola.utils.imports import check_torch, is_torch_available
 
 from iden.io.base import BaseFileSaver, BaseLoader
 

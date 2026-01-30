@@ -1,14 +1,18 @@
-from pyramid.httpexceptions import HTTPFound
+from .normalized import normalize_name
 from devpi_common.types import cached_property
 from devpi_common.types import ensure_unicode
-from devpi_common.validation import normalize_name
 from devpi_server.auth import Auth
 from devpi_server.config import hookimpl
 from devpi_server.config import traced_pluggy_call
-from devpi_server.views import abort
 from devpi_server.model import BaseStage
 from devpi_server.model import UpstreamError
-from pyramid.authorization import ACLHelper, Allow, Authenticated, Deny, Everyone
+from devpi_server.views import abort
+from pyramid.authorization import ACLHelper
+from pyramid.authorization import Allow
+from pyramid.authorization import Authenticated
+from pyramid.authorization import Deny
+from pyramid.authorization import Everyone
+from pyramid.httpexceptions import HTTPFound
 from pyramid.interfaces import ISecurityPolicy
 from pyramid.request import RequestLocalCache
 
@@ -47,7 +51,7 @@ class RootFactory:
 
     @cached_property
     def matchdict(self):
-        result = {}
+        result: dict[str, object] = {}
         if not self.request.matchdict:
             return result
         for k, v in self.request.matchdict.items():
@@ -102,14 +106,16 @@ class RootFactory:
         stage = self._stage
         if stage:
             acl.extend(stage.__acl__())
-        acl = tuple(acl)
         all_denials = self.hook.devpiserver_auth_denials(
-            request=self.request, acl=acl, user=self._user, stage=stage)
+            request=self.request, acl=tuple(acl), user=self._user, stage=stage
+        )
         if all_denials:
             denials = set().union(*all_denials)
             if denials:
-                acl = tuple((Deny,) + denial for denial in denials) + acl
-        return acl
+                acl[:0] = [
+                    (Deny, principal, permission) for principal, permission in denials
+                ]
+        return tuple(acl)
 
     def getstage(self, user, index):
         stage = self.model.getstage(user, index)
@@ -151,7 +157,7 @@ class RootFactory:
         except UpstreamError as e:
             abort(self.request, 502, str(e))
         if not res and not self.stage.has_project(project):
-            abort(self.request, 404, f"no project {project!r}")
+            abort(self.request, 404, f"no project {project.original!r}")
         return res
 
     @cached_property

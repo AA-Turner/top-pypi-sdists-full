@@ -41,4 +41,4 @@ def abort_nodetool_tasks(state: ReplState, subcommand: str, processes: list[list
             log2(f'@{pod} bash kill -9 {id}')
 
             with state_with_pod(state, pod) as state1:
-                    Devices.of(state).bash(state, state1, ['kill', '-9', id])
+                Devices.of(state).bash(state, state1, ['kill', '-9', id])

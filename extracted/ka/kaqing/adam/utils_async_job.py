@@ -1,27 +1,18 @@
 from datetime import datetime
+import os
 import re
 import traceback
-from typing import TextIO, Union
+from typing import TextIO
 
 from adam.repl_session import ReplSession
-from adam.utils import ExecResult, log2, log_dir
+from adam.utils import log2, log_dir
 
 class AsyncJobs:
     _last_command: 'CommandInfo' = None
 
     def local_log_file(command: str, job_id: str = None, err = False, dir: str = None, extra: dict[str, str] = {}):
         try:
-            if not job_id:
-                job_id = AsyncJobs.new_id()
-
-            cmd = CommandInfo(command, job_id, extra)
-            AsyncJobs._last_command = cmd
-            AsyncJobs.write_last_command(cmd)
-
-            cmd_name = ''
-            if command.startswith('nodetool '):
-                command = command.strip(' &')
-                cmd_name = f".{'_'.join(command.split(' ')[5:])}"
+            job_id, cmd_name = AsyncJobs.job_n_cmd_name(job_id, command, extra)
 
             if not dir:
                 dir = log_dir()
@@ -30,19 +21,10 @@ class AsyncJobs:
         except:
             traceback.print_exc()
 
-    def pod_log_file(command: str, pod_name: str = None, job_id: str = None, pod_suffix: str = None, err = False, dir: str = None, extra: dict[str, str] = {}):
+    def pod_log_file(command: str, pod_name: str = None, job_id: str = None, pod_suffix: str = None, suffix = '.log', err = False, dir: str = None, extra: dict[str, str] = {}):
         try:
-            if not job_id:
-                job_id = AsyncJobs.new_id()
-
-            cmd = CommandInfo(command, job_id, extra)
-            AsyncJobs._last_command = cmd
-            AsyncJobs.write_last_command(cmd)
-
-            cmd_name = ''
-            if command.startswith('nodetool '):
-                command = command.strip(' &')
-                cmd_name = f".{'_'.join(command.split(' ')[5:])}"
+            # for export, local file creates the last file, then pods will try to create the last file again
+            job_id, cmd_name = AsyncJobs.job_n_cmd_name(job_id, command, extra, replace_last_file = False)
 
             if pod_suffix is None:
                 pod_suffix = '{pod}'
@@ -54,9 +36,30 @@ class AsyncJobs:
             if not dir:
                 dir = log_dir()
 
+            if suffix:
+                return f'{dir}/{job_id}{cmd_name}{pod_suffix}{suffix}'
+
             return f'{dir}/{job_id}{cmd_name}{pod_suffix}.{"err" if err else "log"}'
         except:
             traceback.print_exc()
+
+    def job_n_cmd_name(job_id: str, command: str, extra: dict[str, str], replace_last_file = True):
+        if not job_id:
+            job_id = AsyncJobs.new_id()
+
+        if command:
+            cmd = CommandInfo(command, job_id, extra)
+            if AsyncJobs.write_last_command(cmd, replace=replace_last_file):
+                AsyncJobs._last_command = cmd
+
+        cmd_name = ''
+        if command and command.startswith('nodetool '):
+            command = command.strip(' &')
+            cmd_name = command.split(' ')[-1]
+            if cmd_name:
+                cmd_name = f'-{cmd_name}'
+
+        return job_id, cmd_name
 
     def new_id(dt: datetime = None):
         if not dt:
@@ -76,32 +79,20 @@ class AsyncJobs:
 
         return cmd
 
-    def write_last_command(cmd: 'CommandInfo'):
-        with open(f'{log_dir()}/last', 'wt') as f:
+    def write_last_command(cmd: 'CommandInfo', replace = True):
+        file = f'{log_dir()}/last'
+
+        if not replace and os.path.exists(file):
+            return False
+
+        with open(file, 'wt') as f:
             cmd.write(f)
+
+        return True
 
     def read_last_command() -> 'CommandInfo':
         with open(f'{log_dir()}/last', 'rt') as f:
             return CommandInfo.read(f)
-
-    def print_start(r: Union[ExecResult, list[ExecResult]]):
-        if r and isinstance(r, list):
-            r = r[0]
-
-        if r and isinstance(r, ExecResult) and (header := r.header()):
-            log2(f'[{header}] Use :? to get the results.')
-
-    def new_job(cmd: str, backgrounded = True) -> str:
-        if not backgrounded:
-            return None
-
-        job_id = AsyncJobs.new_id()
-        job_log = AsyncJobs.local_log_file(cmd, job_id)
-        ReplSession().append_history(f':cat {job_log}')
-
-        log2(f'[{job_id}] Use :? to get the results.')
-
-        return job_log
 
 class CommandInfo:
     def __init__(self, command: str = None, job_id: str = None, extra: dict[str, str] = {}):

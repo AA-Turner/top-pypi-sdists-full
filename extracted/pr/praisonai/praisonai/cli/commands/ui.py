@@ -20,6 +20,8 @@ def ui_main(
     """
     Start the default web UI (agents management).
     
+    DEPRECATED: Use `praisonai serve ui` instead.
+    
     All browser-based UIs are under this namespace:
     - praisonai ui         - Default agents UI
     - praisonai ui chat    - Chat interface
@@ -32,6 +34,13 @@ def ui_main(
         praisonai ui --port 3000
         praisonai ui --public
     """
+    import sys
+    
+    # Print deprecation warning
+    print("\n\033[93m⚠ DEPRECATION WARNING:\033[0m", file=sys.stderr)
+    print("\033[93m'praisonai ui' is deprecated and will be removed in a future version.\033[0m", file=sys.stderr)
+    print("\033[93mPlease use 'praisonai serve ui' instead.\033[0m\n", file=sys.stderr)
+    
     # If a subcommand was invoked, don't run the default
     if ctx.invoked_subcommand is not None:
         return
@@ -151,17 +160,25 @@ def _launch_chainlit_ui(ui_type: str, port: int, host: str, public: bool):
     ui_script = ui_scripts.get(ui_type, "chainlit_ui.py")
     ui_path = os.path.join(os.path.dirname(praisonai.__file__), ui_script)
     
-    # Get chainlit run function
-    from chainlit.cli import run as chainlit_run
-    
-    # Build args
-    args = [ui_path]
-    if host:
-        args.extend(["--host", host])
-    args.extend(["--port", str(port)])
-    
     print(f"Starting {ui_type} UI at http://{host}:{port}")
-    chainlit_run(args)
+    
+    # Use subprocess to run chainlit with proper CLI args
+    import subprocess
+    
+    cmd = ["chainlit", "run", ui_path, "--host", host, "--port", str(port)]
+    if public:
+        cmd.append("--public")
+    
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError:
+        # Fallback: try running with python -m chainlit
+        cmd = [sys.executable, "-m", "chainlit", "run", ui_path, "--host", host, "--port", str(port)]
+        if public:
+            cmd.append("--public")
+        subprocess.run(cmd, check=True)
+    except KeyboardInterrupt:
+        print("\nUI stopped.")
 
 
 def _launch_gradio_ui(port: int, host: str, public: bool):

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: autopage
-Version: 0.5.2
+Version: 0.6.0
 Summary: A library to provide automatic paging for console output
 Home-page: https://github.com/zaneb/autopage
 Author: Zane Bitter
@@ -16,6 +16,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: POSIX
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -26,6 +29,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # autopage
 
@@ -43,7 +47,7 @@ programs can.
 
 ## License
 
-© 2020-2022 by Zane Bitter
+© 2020-2026 by Zane Bitter
 
 Open Source licensed under the terms of the Apache Software License, version
 2.0.
@@ -60,7 +64,7 @@ with `pip`:
 
 Autopage is [packaged for
 Fedora](https://packages.fedoraproject.org/pkgs/python-autopage/python3-autopage/)
-35 and later. To install:
+35 and later, and EPEL 9. To install:
 
     # dnf install python3-autopage
 

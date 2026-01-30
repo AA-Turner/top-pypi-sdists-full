@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-ext
-Version: 4.12.0
+Version: 4.13.0
 Summary: Extensions for LocalStack
 Author-email: LocalStack Team <info@localstack.cloud>
 License-Expression: LicenseRef-All-Rights-Reserved
@@ -12,12 +12,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: click>=7.1
 Requires-Dist: cryptography
 Requires-Dist: packaging
 Requires-Dist: plux>=1.10.0
-Requires-Dist: localstack-core==4.12.0
+Requires-Dist: localstack-core==4.13.0
 Requires-Dist: pyotp>=2.9.0
 Requires-Dist: PyJWT[crypto]>=1.7.0
 Requires-Dist: requests>=2.20.0
@@ -38,7 +38,6 @@ Requires-Dist: aws-sam-translator>=1.105.0; extra == "runtime"
 Requires-Dist: cachetools>=5.5.2; extra == "runtime"
 Requires-Dist: cedarpy>=4.1.0; extra == "runtime"
 Requires-Dist: distro; extra == "runtime"
-Requires-Dist: docker>=7.1.0; extra == "runtime"
 Requires-Dist: python-dxf>=12.1.1; extra == "runtime"
 Requires-Dist: dulwich>=0.19.16; extra == "runtime"
 Requires-Dist: fastavro>=1.12.0; extra == "runtime"
@@ -53,8 +52,8 @@ Requires-Dist: jsonschema>=4.25.1; extra == "runtime"
 Requires-Dist: confluent-kafka; extra == "runtime"
 Requires-Dist: kubernetes>=21.7.0; extra == "runtime"
 Requires-Dist: libvirt-python; extra == "runtime"
-Requires-Dist: localstack-core[runtime]==4.12.0; extra == "runtime"
-Requires-Dist: localstack-py-avro-schema==3.9.9; extra == "runtime"
+Requires-Dist: localstack-core[runtime]==4.13.0; extra == "runtime"
+Requires-Dist: localstack-py-avro-schema==3.9.10; extra == "runtime"
 Requires-Dist: opentelemetry-api; extra == "runtime"
 Requires-Dist: opentelemetry-sdk; extra == "runtime"
 Requires-Dist: opentelemetry-propagator-aws-xray; extra == "runtime"
@@ -114,7 +113,7 @@ Requires-Dist: dnspython>=1.16.0; extra == "test"
 Requires-Dist: gremlinpython<3.8.0; extra == "test"
 Requires-Dist: jws>=0.1.3; extra == "test"
 Requires-Dist: kafka-python; extra == "test"
-Requires-Dist: localstack-core[test]==4.12.0; extra == "test"
+Requires-Dist: localstack-core[test]==4.13.0; extra == "test"
 Requires-Dist: msal; extra == "test"
 Requires-Dist: msal-extensions; extra == "test"
 Requires-Dist: msrest; extra == "test"
@@ -142,8 +141,6 @@ Requires-Dist: awsiotsdk; extra == "test"
 Requires-Dist: aws-cdk.aws-cognito-identitypool-alpha; extra == "test"
 Requires-Dist: playwright; extra == "test"
 Requires-Dist: pytest-playwright; extra == "test"
-Provides-Extra: package
-Requires-Dist: localstack-obfuscator>=0.3.0; extra == "package"
 Provides-Extra: typehint
 Requires-Dist: localstack-ext[test]; extra == "typehint"
-Requires-Dist: boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,backup,batch,bedrock,bedrock-runtime,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]; extra == "typehint"
+Requires-Dist: boto3-stubs[acm,amplify,apigateway,apigatewayv2,appconfig,appsync,athena,autoscaling,backup,batch,bedrock,bedrock-runtime,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codecommit,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,s3tables,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,xray]; extra == "typehint"

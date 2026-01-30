@@ -10,11 +10,15 @@ from urllib import parse
 import grpc
 from grpc._cython import cygrpc
 
+from pymilvus.client.call_context import CallContext, _api_level_md
 from pymilvus.client.types import GrantInfo, ResourceGroupConfig
-from pymilvus.decorators import ignore_unimplemented, retry_on_rpc_failure
+from pymilvus.decorators import (
+    ignore_unimplemented,
+    retry_on_rpc_failure,
+    retry_on_schema_mismatch,
+)
 from pymilvus.exceptions import (
     AmbiguousIndexName,
-    DataNotMatchException,
     DescribeCollectionException,
     ErrorCode,
     ExceptionsMessage,
@@ -29,6 +33,7 @@ from pymilvus.settings import Config
 from . import entity_helper, ts_utils, utils
 from .abstract import AnnSearchRequest, BaseRanker, CollectionSchema, FieldSchema, MutationResult
 from .async_interceptor import async_header_adder_interceptor
+from .cache import GlobalCache
 from .check import (
     check_id_and_data,
     check_pass_param,
@@ -37,7 +42,6 @@ from .check import (
 )
 from .constants import ITERATOR_SESSION_TS_FIELD
 from .embedding_list import EmbeddingList
-from .interceptor import _api_level_md
 from .prepare import Prepare
 from .search_result import SearchResult
 from .types import (
@@ -73,17 +77,16 @@ class AsyncGrpcHandler:
     ) -> None:
         self._async_stub = None
         self._async_channel = channel
-        self.schema_cache: Dict[str, dict] = {}
 
         addr = kwargs.get("address")
         self._address = addr if addr is not None else self.__get_address(uri, host, port)
         self._log_level = None
         self._user = kwargs.get("user")
         self._set_authorization(**kwargs)
-        self._setup_db_name(kwargs.get("db_name"))
         self._setup_grpc_channel(**kwargs)
         self._is_channel_ready = False
         self.callbacks = []  # Do nothing
+        self._server_info_cache = None
 
     def __get_address(self, uri: str, host: str, port: str) -> str:
         if host != "" and port != "" and is_legal_host(host) and is_legal_port(port):
@@ -134,18 +137,6 @@ class AsyncGrpcHandler:
             self._final_channel._unary_unary_interceptors.append(
                 self._async_authorization_interceptor
             )
-
-    def _setup_db_name(self, db_name: str):
-        if db_name is None:
-            new_db = None
-        else:
-            check_pass_param(db_name=db_name)
-            new_db = db_name
-
-        if getattr(self, "_db_name", None) != new_db:
-            self.schema_cache.clear()
-
-        self._db_name = new_db
 
     def _setup_grpc_channel(self, **kwargs):
         if self._async_channel is None:
@@ -204,9 +195,6 @@ class AsyncGrpcHandler:
                 kwargs.get("password"),
                 kwargs.get("token"),
             )
-        if self._db_name:
-            async_db_interceptor = async_header_adder_interceptor(["dbname"], [self._db_name])
-            self._final_channel._unary_unary_interceptors.append(async_db_interceptor)
         if self._log_level:
             async_log_level_interceptor = async_header_adder_interceptor(
                 ["log-level"], [self._log_level]
@@ -249,27 +237,57 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def create_collection(
-        self, collection_name: str, fields: List, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        fields: List,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.create_collection_request(collection_name, fields, **kwargs)
         response = await self._async_stub.CreateCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def drop_collection(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.drop_collection_request(collection_name)
         response = await self._async_stub.DropCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
+        # Invalidate global schema cache
+        self._invalidate_schema(
+            collection_name,
+            db_name=(context.get_db_name() if context else kwargs.get("db_name", "")),
+        )
+
+    @retry_on_rpc_failure()
+    async def truncate_collection(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
+        await self.ensure_channel_ready()
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.truncate_collection_request(collection_name)
+        response = await self._async_stub.TruncateCollection(
+            request, timeout=timeout, metadata=_api_level_md(context)
+        )
+        check_status(response.status)
 
     @retry_on_rpc_failure()
     async def load_collection(
@@ -277,6 +295,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         replica_number: Optional[int] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -284,7 +303,7 @@ class AsyncGrpcHandler:
         check_pass_param(timeout=timeout)
         request = Prepare.load_collection(collection_name, replica_number, **kwargs)
         response = await self._async_stub.LoadCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
@@ -292,6 +311,7 @@ class AsyncGrpcHandler:
             collection_name=collection_name,
             is_refresh=request.refresh,
             timeout=timeout,
+            context=context,
             **kwargs,
         )
 
@@ -301,6 +321,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         timeout: Optional[float] = None,
         is_refresh: bool = False,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         start = time.time()
@@ -313,6 +334,7 @@ class AsyncGrpcHandler:
                 collection_name=collection_name,
                 is_refresh=is_refresh,
                 timeout=timeout,
+                context=context,
                 **kwargs,
             )
             if progress >= 100:
@@ -329,11 +351,12 @@ class AsyncGrpcHandler:
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
         is_refresh: bool = False,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         request = Prepare.get_loading_progress(collection_name, partition_names)
         response = await self._async_stub.GetLoadingProgress(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         if is_refresh:
@@ -342,13 +365,17 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def describe_collection(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.describe_collection_request(collection_name)
         response = await self._async_stub.DescribeCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
 
@@ -359,13 +386,17 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def has_collection(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ) -> bool:
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.describe_collection_request(collection_name)
         reply = await self._async_stub.DescribeCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
 
         if (
@@ -386,11 +417,13 @@ class AsyncGrpcHandler:
         raise MilvusException(reply.status.code, reply.status.reason, reply.status.error_code)
 
     @retry_on_rpc_failure()
-    async def list_collections(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
+    async def list_collections(
+        self, timeout: Optional[float] = None, context: Optional[CallContext] = None, **kwargs
+    ) -> List[str]:
         await self.ensure_channel_ready()
         request = Prepare.show_collections_request()
         response = await self._async_stub.ShowCollections(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         check_status(status)
@@ -398,13 +431,17 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def get_collection_stats(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         index_param = Prepare.get_collection_stats_request(collection_name)
         response = await self._async_stub.GetCollectionStatistics(
-            index_param, timeout=timeout, metadata=_api_level_md(**kwargs)
+            index_param, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         check_status(status)
@@ -412,13 +449,18 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def get_partition_stats(
-        self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        partition_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         req = Prepare.get_partition_stats_request(collection_name, partition_name)
         response = await self._async_stub.GetPartitionStatistics(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         check_status(status)
@@ -430,12 +472,13 @@ class AsyncGrpcHandler:
         collection_name: str,
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         request = Prepare.get_load_state(collection_name, partition_names)
         response = await self._async_stub.GetLoadState(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return LoadState(response.state)
@@ -446,38 +489,64 @@ class AsyncGrpcHandler:
         collection_name: str,
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         request = Prepare.get_loading_progress(collection_name, partition_names)
         response = await self._async_stub.GetLoadingProgress(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return response.refresh_progress
 
     @retry_on_rpc_failure()
-    async def get_server_version(self, timeout: Optional[float] = None, **kwargs) -> str:
+    async def get_server_version(
+        self,
+        timeout: Optional[float] = None,
+        detail: bool = False,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ) -> Union[str, dict]:
         await self.ensure_channel_ready()
+        if detail:
+            if self._server_info_cache is None:
+                req = Prepare.register_request("", "")
+                resp = await self._async_stub.Connect(request=req, timeout=timeout)
+                check_status(resp.status)
+                info = resp.server_info
+                self._server_info_cache = {
+                    "version": info.build_tags,
+                    "build_time": info.build_time,
+                    "git_commit": info.git_commit,
+                    "go_version": info.go_version,
+                    "deploy_mode": info.deploy_mode,
+                }
+            return self._server_info_cache
         req = Prepare.get_server_version()
         resp = await self._async_stub.GetVersion(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.version
 
     @retry_on_rpc_failure()
     async def describe_replica(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ) -> List[ReplicaInfo]:
         await self.ensure_channel_ready()
-        collection_id = (await self.describe_collection(collection_name, timeout, **kwargs))[
-            "collection_id"
-        ]
+        schema, _ = await self._get_schema(
+            collection_name, timeout=timeout, context=context, **kwargs
+        )
+        collection_id = schema["collection_id"]
 
         req = Prepare.get_replicas(collection_id)
         response = await self._async_stub.GetReplicas(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
 
@@ -505,6 +574,7 @@ class AsyncGrpcHandler:
         new_name: str,
         new_db_name: str = "",
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -514,14 +584,20 @@ class AsyncGrpcHandler:
             check_pass_param(db_name=new_db_name)
         request = Prepare.rename_collections_request(old_name, new_name, new_db_name)
         status = await self._async_stub.RenameCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
-    async def _get_info(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
+    async def _get_info(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         schema = kwargs.get("schema")
-        schema, schema_timestamp = await self._get_schema_from_cache_or_remote(
-            collection_name, schema=schema, timeout=timeout, **kwargs
+        schema, schema_timestamp = await self._get_schema(
+            collection_name, timeout=timeout, context=context, **kwargs
         )
         fields_info = schema.get("fields")
         struct_fields_info = schema.get("struct_array_fields", [])
@@ -529,51 +605,60 @@ class AsyncGrpcHandler:
 
         return fields_info, struct_fields_info, enable_dynamic, schema_timestamp
 
-    async def update_schema(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
-    ) -> dict:
-        self.schema_cache.pop(collection_name, None)
-        schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
-        schema_timestamp = schema.get("update_timestamp", 0)
-        self.schema_cache[collection_name] = {
-            "schema": schema,
-            "schema_timestamp": schema_timestamp,
-        }
-        return schema
-
-    async def _get_schema_from_cache_or_remote(
+    async def _get_schema(
         self,
         collection_name: str,
-        schema: Optional[dict] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ) -> Tuple[dict, int]:
-        if collection_name in self.schema_cache:
-            cached = self.schema_cache[collection_name]
-            return cached["schema"], cached["schema_timestamp"]
+        """
+        Get collection schema, using cache when available.
 
-        if not isinstance(schema, dict):
-            schema = await self.describe_collection(collection_name, timeout=timeout, **kwargs)
-        schema_timestamp = schema.get("update_timestamp", 0)
-        self.schema_cache[collection_name] = {
-            "schema": schema,
-            "schema_timestamp": schema_timestamp,
-        }
-        return schema, schema_timestamp
+        Returns:
+            Tuple of (schema_dict, schema_timestamp)
+        """
+        cache = GlobalCache.schema
+        endpoint = self.server_address
+        db_name = context.get_db_name() if context else ""
+
+        cached = cache.get(endpoint, db_name, collection_name)
+        if cached is not None:
+            return cached, cached.get("update_timestamp", 0)
+
+        # Fetch from server and cache
+        schema = await self.describe_collection(
+            collection_name, timeout=timeout, context=context, **kwargs
+        )
+        cache.set(endpoint, db_name, collection_name, schema)
+        return schema, schema.get("update_timestamp", 0)
+
+    def _invalidate_schema(self, collection_name: str, db_name: str = "") -> None:
+        """Invalidate cached schema for a collection."""
+        GlobalCache.schema.invalidate(self.server_address, db_name, collection_name)
+
+    def _invalidate_db_schemas(self, db_name: str) -> None:
+        """Invalidate all cached schemas for a database."""
+        GlobalCache.schema.invalidate_db(self.server_address, db_name)
 
     @retry_on_rpc_failure()
     async def release_collection(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.release_collection("", collection_name)
         response = await self._async_stub.ReleaseCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
+    @retry_on_schema_mismatch()
     async def insert_rows(
         self,
         collection_name: str,
@@ -581,31 +666,25 @@ class AsyncGrpcHandler:
         partition_name: Optional[str] = None,
         schema: Optional[dict] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
-        try:
-            request = await self._prepare_row_insert_request(
-                collection_name, entities, partition_name, schema, timeout, **kwargs
-            )
-        except DataNotMatchException:
-            schema = await self.update_schema(collection_name, timeout, **kwargs)
-            request = await self._prepare_row_insert_request(
-                collection_name, entities, partition_name, schema, timeout, **kwargs
-            )
-        resp = await self._async_stub.Insert(
-            request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        request = await self._prepare_row_insert_request(
+            collection_name, entities, partition_name, schema, timeout, context=context, **kwargs
         )
-        if resp.status.error_code == common_pb2.SchemaMismatch:
-            schema = await self.update_schema(collection_name, timeout, **kwargs)
-            request = await self._prepare_row_insert_request(
-                collection_name, entities, partition_name, schema, timeout, **kwargs
-            )
-            resp = await self._async_stub.Insert(
-                request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
-            )
+        resp = await self._async_stub.Insert(
+            request=request,
+            timeout=timeout,
+            metadata=_api_level_md(context),
+        )
         check_status(resp.status)
-        ts_utils.update_collection_ts(collection_name, resp.timestamp)
+        ts_utils.update_collection_ts(
+            collection_name,
+            resp.timestamp,
+            self.server_address,
+            (context.get_db_name() if context else ""),
+        )
         return MutationResult(resp)
 
     async def _prepare_row_insert_request(
@@ -615,13 +694,14 @@ class AsyncGrpcHandler:
         partition_name: Optional[str] = None,
         schema: Optional[dict] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         if isinstance(entity_rows, dict):
             entity_rows = [entity_rows]
 
-        schema, schema_timestamp = await self._get_schema_from_cache_or_remote(
-            collection_name, schema=schema, timeout=timeout, **kwargs
+        schema, schema_timestamp = await self._get_schema(
+            collection_name, schema=schema, timeout=timeout, context=context, **kwargs
         )
         fields_info = schema.get("fields")
         struct_fields_info = schema.get("struct_array_fields", [])  # Default to empty list
@@ -640,12 +720,29 @@ class AsyncGrpcHandler:
         )
 
     @retry_on_rpc_failure()
+    async def get_persistent_segment_infos(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ) -> List[milvus_types.PersistentSegmentInfo]:
+        await self.ensure_channel_ready()
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        req = Prepare.get_persistent_segment_info_request(collection_name)
+        response = await self._async_stub.GetPersistentSegmentInfo(
+            req, timeout=timeout, metadata=_api_level_md(context)
+        )
+        check_status(response.status)
+        return response.infos
+
     async def delete(
         self,
         collection_name: str,
         expression: str,
         partition_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -660,11 +757,16 @@ class AsyncGrpcHandler:
             )
 
             response = await self._async_stub.Delete(
-                req, timeout=timeout, metadata=_api_level_md(**kwargs)
+                req, timeout=timeout, metadata=_api_level_md(context)
             )
 
             m = MutationResult(response)
-            ts_utils.update_collection_ts(collection_name, m.timestamp)
+            ts_utils.update_collection_ts(
+                collection_name,
+                m.timestamp,
+                self.server_address,
+                (context.get_db_name() if context else ""),
+            )
         except Exception as err:
             raise err from err
         else:
@@ -676,6 +778,7 @@ class AsyncGrpcHandler:
         entities: List,
         partition_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         param = kwargs.get("upsert_param")
@@ -688,8 +791,8 @@ class AsyncGrpcHandler:
         partial_update = kwargs.get("partial_update", False)
 
         schema = kwargs.get("schema")
-        schema, _ = await self._get_schema_from_cache_or_remote(
-            collection_name, schema=schema, timeout=timeout, **kwargs
+        schema, _ = await self._get_schema(
+            collection_name, schema=schema, timeout=timeout, context=context, **kwargs
         )
 
         fields_info = schema["fields"]
@@ -713,6 +816,7 @@ class AsyncGrpcHandler:
         entities: List,
         partition_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -720,14 +824,19 @@ class AsyncGrpcHandler:
             raise ParamError(message="Invalid binary vector data exists")
 
         request = await self._prepare_batch_upsert_request(
-            collection_name, entities, partition_name, timeout, **kwargs
+            collection_name, entities, partition_name, timeout, context=context, **kwargs
         )
         response = await self._async_stub.Upsert(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         m = MutationResult(response)
-        ts_utils.update_collection_ts(collection_name, m.timestamp)
+        ts_utils.update_collection_ts(
+            collection_name,
+            m.timestamp,
+            self.server_address,
+            (context.get_db_name() if context else ""),
+        )
         return m
 
     async def _prepare_row_upsert_request(
@@ -736,6 +845,7 @@ class AsyncGrpcHandler:
         rows: List,
         partition_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         if not isinstance(rows, list):
@@ -743,7 +853,7 @@ class AsyncGrpcHandler:
 
         partial_update = kwargs.get("partial_update", False)
         fields_info, struct_fields_info, enable_dynamic, schema_timestamp = await self._get_info(
-            collection_name, timeout, **kwargs
+            collection_name, timeout, context, **kwargs
         )
         return Prepare.row_upsert_param(
             collection_name,
@@ -757,47 +867,44 @@ class AsyncGrpcHandler:
         )
 
     @retry_on_rpc_failure()
+    @retry_on_schema_mismatch()
     async def upsert_rows(
         self,
         collection_name: str,
         entities: List,
         partition_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         if isinstance(entities, dict):
             entities = [entities]
-        try:
-            request = await self._prepare_row_upsert_request(
-                collection_name, entities, partition_name, timeout, **kwargs
-            )
-        except DataNotMatchException:
-            schema = await self.update_schema(collection_name, timeout, **kwargs)
-            request = await self._prepare_row_upsert_request(
-                collection_name, entities, partition_name, timeout, schema=schema, **kwargs
-            )
-        response = await self._async_stub.Upsert(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        request = await self._prepare_row_upsert_request(
+            collection_name, entities, partition_name, timeout, context=context, **kwargs
         )
-        if response.status.error_code == common_pb2.SchemaMismatch:
-            schema = await self.update_schema(collection_name, timeout, **kwargs)
-            request = await self._prepare_row_upsert_request(
-                collection_name, entities, partition_name, timeout, schema=schema, **kwargs
-            )
-            response = await self._async_stub.Upsert(
-                request, timeout=timeout, metadata=_api_level_md(**kwargs)
-            )
+        response = await self._async_stub.Upsert(
+            request, timeout=timeout, metadata=_api_level_md(context)
+        )
         check_status(response.status)
         m = MutationResult(response)
-        ts_utils.update_collection_ts(collection_name, m.timestamp)
+        ts_utils.update_collection_ts(
+            collection_name,
+            m.timestamp,
+            self.server_address,
+            (context.get_db_name() if context else ""),
+        )
         return m
 
     async def _execute_search(
-        self, request: milvus_types.SearchRequest, timeout: Optional[float] = None, **kwargs
+        self,
+        request: milvus_types.SearchRequest,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         response = await self._async_stub.Search(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         round_decimal = kwargs.get("round_decimal", -1)
@@ -809,10 +916,14 @@ class AsyncGrpcHandler:
         )
 
     async def _execute_hybrid_search(
-        self, request: milvus_types.HybridSearchRequest, timeout: Optional[float] = None, **kwargs
+        self,
+        request: milvus_types.HybridSearchRequest,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         response = await self._async_stub.HybridSearch(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         round_decimal = kwargs.get("round_decimal", -1)
@@ -834,6 +945,7 @@ class AsyncGrpcHandler:
         timeout: Optional[float] = None,
         ranker: Optional[Function] = None,
         highlighter: Optional[Highlighter] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -856,6 +968,10 @@ class AsyncGrpcHandler:
             data = [emb_list.to_flat_array() for emb_list in data]
             kwargs["is_embedding_list"] = True
 
+        use_default_consistency = ts_utils.construct_guarantee_ts(
+            collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
+        )
+
         request = Prepare.search_requests_with_expr(
             collection_name=collection_name,
             data=data,
@@ -869,9 +985,12 @@ class AsyncGrpcHandler:
             round_decimal=round_decimal,
             ranker=ranker,
             highlighter=highlighter,
+            use_default_consistency=use_default_consistency,
             **kwargs,
         )
-        return await self._execute_search(request, timeout, round_decimal=round_decimal, **kwargs)
+        return await self._execute_search(
+            request, timeout, context=context, round_decimal=round_decimal, **kwargs
+        )
 
     @retry_on_rpc_failure()
     async def hybrid_search(
@@ -884,6 +1003,7 @@ class AsyncGrpcHandler:
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -894,6 +1014,10 @@ class AsyncGrpcHandler:
             output_fields=output_fields,
             guarantee_timestamp=kwargs.get("guarantee_timestamp"),
             timeout=timeout,
+        )
+
+        use_default_consistency = ts_utils.construct_guarantee_ts(
+            collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
 
         requests = []
@@ -915,6 +1039,7 @@ class AsyncGrpcHandler:
                 partition_names=partition_names,
                 round_decimal=round_decimal,
                 expr_params=req.expr_params,
+                use_default_consistency=use_default_consistency,
                 **req_kwargs,
             )
             requests.append(search_request)
@@ -927,10 +1052,11 @@ class AsyncGrpcHandler:
             partition_names,
             output_fields,
             round_decimal,
+            use_default_consistency=use_default_consistency,
             **kwargs,
         )
         return await self._execute_hybrid_search(
-            hybrid_search_request, timeout, round_decimal=round_decimal, **kwargs
+            hybrid_search_request, timeout, context=context, round_decimal=round_decimal, **kwargs
         )
 
     @retry_on_rpc_failure()
@@ -940,6 +1066,7 @@ class AsyncGrpcHandler:
         field_name: str,
         params: Dict,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         index_name = kwargs.pop("index_name", Config.IndexName)
@@ -954,7 +1081,7 @@ class AsyncGrpcHandler:
         )
 
         status = await self._async_stub.CreateIndex(
-            index_param, timeout=timeout, metadata=_api_level_md(**kwargs)
+            index_param, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -963,6 +1090,7 @@ class AsyncGrpcHandler:
             index_name=index_name,
             timeout=timeout,
             field_name=field_name,
+            context=context,
             **kwargs,
         )
 
@@ -973,14 +1101,24 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     async def wait_for_creating_index(
-        self, collection_name: str, index_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        index_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         timestamp = await self.alloc_timestamp()
         start = time.time()
         while True:
             await asyncio.sleep(0.5)
             state, fail_reason = await self.get_index_state(
-                collection_name, index_name, timeout=timeout, timestamp=timestamp, **kwargs
+                collection_name,
+                index_name,
+                timeout=timeout,
+                timestamp=timestamp,
+                context=context,
+                **kwargs,
             )
             if state == IndexState.Finished:
                 return True, fail_reason
@@ -1001,11 +1139,12 @@ class AsyncGrpcHandler:
         index_name: str,
         timeout: Optional[float] = None,
         timestamp: Optional[int] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         request = Prepare.describe_index_request(collection_name, index_name, timestamp)
         response = await self._async_stub.DescribeIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         check_status(status)
@@ -1028,19 +1167,25 @@ class AsyncGrpcHandler:
         field_name: str,
         index_name: str,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.drop_index_request(collection_name, field_name, index_name)
         response = await self._async_stub.DropIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def create_partition(
-        self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        partition_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(
@@ -1048,13 +1193,18 @@ class AsyncGrpcHandler:
         )
         request = Prepare.create_partition_request(collection_name, partition_name)
         response = await self._async_stub.CreatePartition(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def drop_partition(
-        self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        partition_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(
@@ -1063,7 +1213,7 @@ class AsyncGrpcHandler:
         request = Prepare.drop_partition_request(collection_name, partition_name)
 
         response = await self._async_stub.DropPartition(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
@@ -1074,6 +1224,7 @@ class AsyncGrpcHandler:
         partition_names: List[str],
         replica_number: Optional[int] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1086,7 +1237,7 @@ class AsyncGrpcHandler:
             **kwargs,
         )
         response = await self._async_stub.LoadPartitions(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
@@ -1095,6 +1246,7 @@ class AsyncGrpcHandler:
             partition_names=partition_names,
             is_refresh=request.refresh,
             timeout=timeout,
+            context=context,
             **kwargs,
         )
 
@@ -1105,6 +1257,7 @@ class AsyncGrpcHandler:
         partition_names: List[str],
         timeout: Optional[float] = None,
         is_refresh: bool = False,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         start = time.time()
@@ -1114,7 +1267,12 @@ class AsyncGrpcHandler:
 
         while can_loop(time.time()):
             progress = await self.get_loading_progress(
-                collection_name, partition_names, timeout=timeout, is_refresh=is_refresh, **kwargs
+                collection_name,
+                partition_names,
+                timeout=timeout,
+                is_refresh=is_refresh,
+                context=context,
+                **kwargs,
             )
             if progress >= 100:
                 return
@@ -1129,6 +1287,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         partition_names: List[str],
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1137,13 +1296,18 @@ class AsyncGrpcHandler:
         )
         request = Prepare.release_partitions("", collection_name, partition_names)
         response = await self._async_stub.ReleasePartitions(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def has_partition(
-        self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        partition_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ) -> bool:
         await self.ensure_channel_ready()
         check_pass_param(
@@ -1151,20 +1315,24 @@ class AsyncGrpcHandler:
         )
         request = Prepare.has_partition_request(collection_name, partition_name)
         response = await self._async_stub.HasPartition(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return response.value
 
     @retry_on_rpc_failure()
     async def list_partitions(
-        self, collection_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ) -> List[str]:
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.show_partitions_request(collection_name)
         response = await self._async_stub.ShowPartitions(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return list(response.partition_names)
@@ -1177,13 +1345,14 @@ class AsyncGrpcHandler:
         output_fields: Optional[List[str]] = None,
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         # TODO: some check
         await self.ensure_channel_ready()
         request = Prepare.retrieve_request(collection_name, ids, output_fields, partition_names)
         return await self._async_stub.Retrieve.get(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
 
     @retry_on_rpc_failure()
@@ -1195,16 +1364,28 @@ class AsyncGrpcHandler:
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
         strict_float32: bool = False,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         if output_fields is not None and not isinstance(output_fields, (list,)):
             raise ParamError(message="Invalid query format. 'output_fields' must be a list")
-        request = Prepare.query_request(
-            collection_name, expr, output_fields, partition_names, **kwargs
+
+        use_default_consistency = ts_utils.construct_guarantee_ts(
+            collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
+
+        request = Prepare.query_request(
+            collection_name,
+            expr,
+            output_fields,
+            partition_names,
+            use_default_consistency=use_default_consistency,
+            **kwargs,
+        )
+
         response = await self._async_stub.Query(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
 
@@ -1241,24 +1422,31 @@ class AsyncGrpcHandler:
 
     @retry_on_rpc_failure()
     @ignore_unimplemented(0)
-    async def alloc_timestamp(self, timeout: Optional[float] = None, **kwargs) -> int:
+    async def alloc_timestamp(
+        self, timeout: Optional[float] = None, context: Optional[CallContext] = None, **kwargs
+    ) -> int:
         await self.ensure_channel_ready()
         request = milvus_types.AllocTimestampRequest()
         response = await self._async_stub.AllocTimestamp(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return response.timestamp
 
     @retry_on_rpc_failure()
     async def alter_collection_properties(
-        self, collection_name: str, properties: dict, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        properties: dict,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, properties=properties, timeout=timeout)
         request = Prepare.alter_collection_request(collection_name, properties=properties)
         status = await self._async_stub.AlterCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1268,13 +1456,14 @@ class AsyncGrpcHandler:
         collection_name: str,
         property_keys: List[str],
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.alter_collection_request(collection_name, delete_keys=property_keys)
         status = await self._async_stub.AlterCollection(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1285,6 +1474,7 @@ class AsyncGrpcHandler:
         field_name: str,
         field_params: dict,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1293,7 +1483,7 @@ class AsyncGrpcHandler:
             collection_name=collection_name, field_name=field_name, field_param=field_params
         )
         status = await self._async_stub.AlterCollectionField(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1303,13 +1493,14 @@ class AsyncGrpcHandler:
         collection_name: str,
         field_schema: FieldSchema,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.add_collection_field_request(collection_name, field_schema)
         status = await self._async_stub.AddCollectionField(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1319,6 +1510,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         function_name: str,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1326,7 +1518,7 @@ class AsyncGrpcHandler:
         request = Prepare.drop_collection_function_request(collection_name, function_name)
 
         status = await self._async_stub.DropCollectionFunction(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1336,6 +1528,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         function: Function,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1343,7 +1536,7 @@ class AsyncGrpcHandler:
         request = Prepare.add_collection_function_request(collection_name, function)
 
         status = await self._async_stub.AddCollectionFunction(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
@@ -1354,6 +1547,7 @@ class AsyncGrpcHandler:
         function_name: str,
         function: Function,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1363,18 +1557,24 @@ class AsyncGrpcHandler:
         )
 
         status = await self._async_stub.AlterCollectionFunction(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
     @retry_on_rpc_failure()
-    async def list_indexes(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
+    async def list_indexes(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.describe_index_request(collection_name, "")
 
         response = await self._async_stub.DescribeIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         if is_successful(status):
@@ -1390,6 +1590,7 @@ class AsyncGrpcHandler:
         index_name: str,
         timeout: Optional[float] = None,
         timestamp: Optional[int] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1397,7 +1598,7 @@ class AsyncGrpcHandler:
         request = Prepare.describe_index_request(collection_name, index_name, timestamp=timestamp)
 
         response = await self._async_stub.DescribeIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         status = response.status
         if status.code == ErrorCode.INDEX_NOT_FOUND or status.error_code == Status.INDEX_NOT_EXIST:
@@ -1424,6 +1625,7 @@ class AsyncGrpcHandler:
         index_name: str,
         properties: dict,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1433,7 +1635,7 @@ class AsyncGrpcHandler:
 
         request = Prepare.alter_index_properties_request(collection_name, index_name, properties)
         response = await self._async_stub.AlterIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
@@ -1444,6 +1646,7 @@ class AsyncGrpcHandler:
         index_name: str,
         property_keys: List[str],
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1452,50 +1655,72 @@ class AsyncGrpcHandler:
             collection_name, index_name, delete_keys=property_keys
         )
         response = await self._async_stub.AlterIndex(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def create_alias(
-        self, collection_name: str, alias: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        alias: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.create_alias_request(collection_name, alias)
         response = await self._async_stub.CreateAlias(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
-    async def drop_alias(self, alias: str, timeout: Optional[float] = None, **kwargs):
+    async def drop_alias(
+        self,
+        alias: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         request = Prepare.drop_alias_request(alias)
         response = await self._async_stub.DropAlias(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
     async def alter_alias(
-        self, collection_name: str, alias: str, timeout: Optional[float] = None, **kwargs
+        self,
+        collection_name: str,
+        alias: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.alter_alias_request(collection_name, alias)
         response = await self._async_stub.AlterAlias(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response)
 
     @retry_on_rpc_failure()
-    async def describe_alias(self, alias: str, timeout: Optional[float] = None, **kwargs):
+    async def describe_alias(
+        self,
+        alias: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         check_pass_param(alias=alias, timeout=timeout)
         request = Prepare.describe_alias_request(alias)
         response = await self._async_stub.DescribeAlias(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         ret = {
@@ -1508,19 +1733,28 @@ class AsyncGrpcHandler:
         return ret
 
     @retry_on_rpc_failure()
-    async def list_aliases(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
+    async def list_aliases(
+        self,
+        collection_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         check_pass_param(collection_name=collection_name, timeout=timeout)
         request = Prepare.list_aliases_request(collection_name)
         response = await self._async_stub.ListAliases(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return response.aliases
 
     def reset_db_name(self, db_name: str):
-        self._setup_db_name(db_name)
-        self._setup_grpc_channel()
+        """Deprecated: db_name is now passed per-request via kwargs.
+
+        This method is kept for backward compatibility but does nothing.
+        Use AsyncMilvusClient.use_database() instead.
+        """
 
     @retry_on_rpc_failure()
     async def create_database(
@@ -1528,116 +1762,167 @@ class AsyncGrpcHandler:
         db_name: str,
         properties: Optional[dict] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
         check_pass_param(db_name=db_name, timeout=timeout)
         request = Prepare.create_database_req(db_name, properties=properties)
         status = await self._async_stub.CreateDatabase(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
     @retry_on_rpc_failure()
-    async def drop_database(self, db_name: str, timeout: Optional[float] = None, **kwargs):
+    async def drop_database(
+        self,
+        db_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         request = Prepare.drop_database_req(db_name)
         status = await self._async_stub.DropDatabase(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
     @retry_on_rpc_failure()
-    async def list_database(self, timeout: Optional[float] = None, **kwargs):
+    async def list_database(
+        self,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         check_pass_param(timeout=timeout)
         request = Prepare.list_database_req()
         response = await self._async_stub.ListDatabases(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return list(response.db_names)
 
     @retry_on_rpc_failure()
     async def alter_database(
-        self, db_name: str, properties: dict, timeout: Optional[float] = None, **kwargs
+        self,
+        db_name: str,
+        properties: dict,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         request = Prepare.alter_database_properties_req(db_name, properties)
         status = await self._async_stub.AlterDatabase(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
     @retry_on_rpc_failure()
     async def drop_database_properties(
-        self, db_name: str, property_keys: List[str], timeout: Optional[float] = None, **kwargs
+        self,
+        db_name: str,
+        property_keys: List[str],
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         request = Prepare.drop_database_properties_req(db_name, property_keys)
         status = await self._async_stub.AlterDatabase(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(status)
 
     @retry_on_rpc_failure()
-    async def describe_database(self, db_name: str, timeout: Optional[float] = None, **kwargs):
+    async def describe_database(
+        self,
+        db_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         request = Prepare.describe_database_req(db_name=db_name)
         resp = await self._async_stub.DescribeDatabase(
-            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return DatabaseInfo(resp).to_dict()
 
     @retry_on_rpc_failure()
     async def create_privilege_group(
-        self, privilege_group: str, timeout: Optional[float] = None, **kwargs
+        self,
+        privilege_group: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.create_privilege_group_req(privilege_group)
         resp = await self._async_stub.CreatePrivilegeGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def drop_privilege_group(
-        self, privilege_group: str, timeout: Optional[float] = None, **kwargs
+        self,
+        privilege_group: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.drop_privilege_group_req(privilege_group)
         resp = await self._async_stub.DropPrivilegeGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def list_privilege_groups(self, timeout: Optional[float] = None, **kwargs):
+    async def list_privilege_groups(
+        self,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         req = Prepare.list_privilege_groups_req()
         resp = await self._async_stub.ListPrivilegeGroups(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.privilege_groups
 
     @retry_on_rpc_failure()
     async def add_privileges_to_group(
-        self, privilege_group: str, privileges: List[str], timeout: Optional[float] = None, **kwargs
+        self,
+        privilege_group: str,
+        privileges: List[str],
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.operate_privilege_group_req(
             privilege_group, privileges, milvus_types.OperatePrivilegeGroupType.AddPrivilegesToGroup
         )
         resp = await self._async_stub.OperatePrivilegeGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def remove_privileges_from_group(
-        self, privilege_group: str, privileges: List[str], timeout: Optional[float] = None, **kwargs
+        self,
+        privilege_group: str,
+        privileges: List[str],
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.operate_privilege_group_req(
@@ -1646,26 +1931,37 @@ class AsyncGrpcHandler:
             milvus_types.OperatePrivilegeGroupType.RemovePrivilegesFromGroup,
         )
         resp = await self._async_stub.OperatePrivilegeGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def create_user(
-        self, user: str, password: str, timeout: Optional[float] = None, **kwargs
+        self,
+        user: str,
+        password: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         check_pass_param(user=user, password=password, timeout=timeout)
         req = Prepare.create_user_request(user, password)
         resp = await self._async_stub.CreateCredential(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def drop_user(self, user: str, timeout: Optional[float] = None, **kwargs):
+    async def drop_user(
+        self,
+        user: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.delete_user_request(user)
         resp = await self._async_stub.DeleteCredential(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
@@ -1676,110 +1972,158 @@ class AsyncGrpcHandler:
         old_password: str,
         new_password: str,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         req = Prepare.update_password_request(user, old_password, new_password)
         resp = await self._async_stub.UpdateCredential(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def list_users(self, timeout: Optional[float] = None, **kwargs):
+    async def list_users(
+        self,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.list_usernames_request()
         resp = await self._async_stub.ListCredUsers(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.usernames
 
     @retry_on_rpc_failure()
     async def describe_user(
-        self, username: str, include_role_info: bool, timeout: Optional[float] = None, **kwargs
+        self,
+        username: str,
+        include_role_info: bool,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         req = Prepare.select_user_request(username, include_role_info)
         resp = await self._async_stub.SelectUser(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp
 
     @retry_on_rpc_failure()
-    async def create_role(self, role_name: str, timeout: Optional[float] = None, **kwargs):
+    async def create_role(
+        self,
+        role_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         req = Prepare.create_role_request(role_name)
         resp = await self._async_stub.CreateRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def drop_role(
-        self, role_name: str, force_drop: bool = False, timeout: Optional[float] = None, **kwargs
+        self,
+        role_name: str,
+        force_drop: bool = False,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.drop_role_request(role_name, force_drop=force_drop)
         resp = await self._async_stub.DropRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def grant_role(
-        self, username: str, role_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        username: str,
+        role_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.operate_user_role_request(
             username, role_name, milvus_types.OperateUserRoleType.AddUserToRole
         )
         resp = await self._async_stub.OperateUserRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def revoke_role(
-        self, username: str, role_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        username: str,
+        role_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.operate_user_role_request(
             username, role_name, milvus_types.OperateUserRoleType.RemoveUserFromRole
         )
         resp = await self._async_stub.OperateUserRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def describe_role(
-        self, role_name: str, include_user_info: bool, timeout: Optional[float] = None, **kwargs
+        self,
+        role_name: str,
+        include_user_info: bool,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.select_role_request(role_name, include_user_info)
         resp = await self._async_stub.SelectRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.results
 
     @retry_on_rpc_failure()
-    async def list_roles(self, include_user_info: bool, timeout: Optional[float] = None, **kwargs):
+    async def list_roles(
+        self,
+        include_user_info: bool,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         await self.ensure_channel_ready()
         req = Prepare.select_role_request(None, include_user_info)
         resp = await self._async_stub.SelectRole(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.results
 
     @retry_on_rpc_failure()
     async def select_grant_for_one_role(
-        self, role_name: str, db_name: str, timeout: Optional[float] = None, **kwargs
+        self,
+        role_name: str,
+        db_name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         await self.ensure_channel_ready()
         req = Prepare.select_grant_request(role_name, None, None, db_name)
         resp = await self._async_stub.SelectGrant(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
 
@@ -1794,6 +2138,7 @@ class AsyncGrpcHandler:
         privilege: str,
         db_name: str,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1806,7 +2151,7 @@ class AsyncGrpcHandler:
             milvus_types.OperatePrivilegeType.Grant,
         )
         resp = await self._async_stub.OperatePrivilege(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
@@ -1819,6 +2164,7 @@ class AsyncGrpcHandler:
         privilege: str,
         db_name: str,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1831,7 +2177,7 @@ class AsyncGrpcHandler:
             milvus_types.OperatePrivilegeType.Revoke,
         )
         resp = await self._async_stub.OperatePrivilege(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
@@ -1843,6 +2189,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         db_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1854,7 +2201,7 @@ class AsyncGrpcHandler:
             collection_name,
         )
         resp = await self._async_stub.OperatePrivilegeV2(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
@@ -1866,6 +2213,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         db_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         await self.ensure_channel_ready()
@@ -1877,50 +2225,77 @@ class AsyncGrpcHandler:
             collection_name,
         )
         resp = await self._async_stub.OperatePrivilegeV2(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def create_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
+    async def create_resource_group(
+        self,
+        name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.create_resource_group(name, **kwargs)
         resp = await self._async_stub.CreateResourceGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def drop_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
+    async def drop_resource_group(
+        self,
+        name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.drop_resource_group(name)
         resp = await self._async_stub.DropResourceGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
     async def update_resource_groups(
-        self, configs: Dict[str, ResourceGroupConfig], timeout: Optional[float] = None, **kwargs
+        self,
+        configs: Dict[str, ResourceGroupConfig],
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         req = Prepare.update_resource_groups(configs)
         resp = await self._async_stub.UpdateResourceGroups(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
     @retry_on_rpc_failure()
-    async def describe_resource_group(self, name: str, timeout: Optional[float] = None, **kwargs):
+    async def describe_resource_group(
+        self,
+        name: str,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.describe_resource_group(name)
         resp = await self._async_stub.DescribeResourceGroup(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return resp.resource_group
 
     @retry_on_rpc_failure()
-    async def list_resource_groups(self, timeout: Optional[float] = None, **kwargs):
+    async def list_resource_groups(
+        self,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         req = Prepare.list_resource_groups()
         resp = await self._async_stub.ListResourceGroups(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
         return list(resp.resource_groups)
@@ -1933,11 +2308,12 @@ class AsyncGrpcHandler:
         collection_name: str,
         num_replica: int,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         req = Prepare.transfer_replica(source, target, collection_name, num_replica)
         resp = await self._async_stub.TransferReplica(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp)
 
@@ -1948,13 +2324,14 @@ class AsyncGrpcHandler:
         collection_name: str,
         flush_ts: int,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ) -> bool:
         """Get the flush state for given segments."""
         await self.ensure_channel_ready()
         req = Prepare.get_flush_state_request(segment_ids, collection_name, flush_ts)
         response = await self._async_stub.GetFlushState(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
         return response.flushed
@@ -1965,6 +2342,7 @@ class AsyncGrpcHandler:
         collection_name: str,
         flush_ts: int,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         """Wait for segments to be flushed."""
@@ -1972,7 +2350,7 @@ class AsyncGrpcHandler:
         start = time.time()
         while not flush_ret:
             flush_ret = await self.get_flush_state(
-                segment_ids, collection_name, flush_ts, timeout, **kwargs
+                segment_ids, collection_name, flush_ts, timeout, context=context, **kwargs
             )
             end = time.time()
             if timeout is not None and end - start > timeout:
@@ -1984,7 +2362,13 @@ class AsyncGrpcHandler:
                 await asyncio.sleep(0.5)
 
     @retry_on_rpc_failure()
-    async def flush(self, collection_names: List[str], timeout: Optional[float] = None, **kwargs):
+    async def flush(
+        self,
+        collection_names: List[str],
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
+    ):
         if collection_names in (None, []) or not isinstance(collection_names, list):
             raise ParamError(message="Collection name list can not be None or empty")
 
@@ -1994,7 +2378,7 @@ class AsyncGrpcHandler:
 
         req = Prepare.flush_param(collection_names)
         response = await self._async_stub.Flush(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
 
@@ -2007,6 +2391,7 @@ class AsyncGrpcHandler:
                         collection_name,
                         response.coll_flush_ts[collection_name],
                         timeout=timeout,
+                        context=context,
                     )
                     for collection_name in collection_names
                 )
@@ -2020,31 +2405,43 @@ class AsyncGrpcHandler:
         collection_name: str,
         is_clustering: Optional[bool] = False,
         is_l0: Optional[bool] = False,
+        target_size: Optional[int] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ) -> int:
-        meta = _api_level_md(**kwargs)
+
         request = Prepare.describe_collection_request(collection_name)
         response = await self._async_stub.DescribeCollection(
-            request, timeout=timeout, metadata=meta
+            request, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
 
         req = Prepare.manual_compaction(
-            collection_name, is_clustering, is_l0, response.collectionID
+            collection_name=collection_name,
+            is_clustering=is_clustering,
+            is_l0=is_l0,
+            collection_id=response.collectionID,
+            target_size=target_size,
         )
-        response = await self._async_stub.ManualCompaction(req, timeout=timeout, metadata=meta)
+        response = await self._async_stub.ManualCompaction(
+            req, timeout=timeout, metadata=_api_level_md(context)
+        )
         check_status(response.status)
 
         return response.compactionID
 
     @retry_on_rpc_failure()
     async def get_compaction_state(
-        self, compaction_id: int, timeout: Optional[float] = None, **kwargs
+        self,
+        compaction_id: int,
+        timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
+        **kwargs,
     ):
         req = Prepare.get_compaction_state(compaction_id)
         response = await self._async_stub.GetCompactionState(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(response.status)
 
@@ -2067,6 +2464,7 @@ class AsyncGrpcHandler:
         field_name: Optional[str] = None,
         analyzer_names: Optional[Union[str, List[str]]] = None,
         timeout: Optional[float] = None,
+        context: Optional[CallContext] = None,
         **kwargs,
     ):
         req = Prepare.run_analyzer(
@@ -2079,7 +2477,7 @@ class AsyncGrpcHandler:
             analyzer_names=analyzer_names,
         )
         resp = await self._async_stub.RunAnalyzer(
-            req, timeout=timeout, metadata=_api_level_md(**kwargs)
+            req, timeout=timeout, metadata=_api_level_md(context)
         )
         check_status(resp.status)
 

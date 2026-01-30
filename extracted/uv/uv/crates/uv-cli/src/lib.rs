@@ -23,7 +23,7 @@ use uv_distribution_types::{
 };
 use uv_normalize::{ExtraName, GroupName, PackageName, PipGroupName};
 use uv_pep508::{MarkerTree, Requirement};
-use uv_preview::PreviewFeatures;
+use uv_preview::PreviewFeature;
 use uv_pypi_types::VerbatimParsedUrl;
 use uv_python::{PythonDownloads, PythonPreference, PythonVersion};
 use uv_redacted::DisplaySafeUrl;
@@ -189,12 +189,12 @@ pub struct GlobalArgs {
     )]
     pub no_managed_python: bool,
 
-    #[allow(clippy::doc_markdown)]
+    #[expect(clippy::doc_markdown)]
     /// Allow automatically downloading Python when required. [env: "UV_PYTHON_DOWNLOADS=auto"]
     #[arg(global = true, long, help_heading = "Python options", hide = true)]
     pub allow_python_downloads: bool,
 
-    #[allow(clippy::doc_markdown)]
+    #[expect(clippy::doc_markdown)]
     /// Disable automatic downloads of Python. [env: "UV_PYTHON_DOWNLOADS=never"]
     #[arg(global = true, long, help_heading = "Python options")]
     pub no_python_downloads: bool,
@@ -306,7 +306,7 @@ pub struct GlobalArgs {
         alias = "preview-feature",
         value_enum,
     )]
-    pub preview_features: Vec<PreviewFeatures>,
+    pub preview_features: Vec<PreviewFeature>,
 
     /// Avoid discovering a `pyproject.toml` or `uv.toml` file [env: UV_ISOLATED=]
     ///
@@ -399,7 +399,6 @@ impl From<ColorChoice> for anstream::ColorChoice {
 }
 
 #[derive(Subcommand)]
-#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Manage authentication.
     #[command(
@@ -1331,7 +1330,7 @@ fn parse_maybe_file_path(input: &str) -> Result<Maybe<PathBuf>, String> {
 }
 
 // Parse a string, mapping the empty string to `None`.
-#[allow(clippy::unnecessary_wraps)]
+#[expect(clippy::unnecessary_wraps)]
 fn parse_maybe_string(input: &str) -> Result<Maybe<String>, String> {
     if input.is_empty() {
         Ok(Maybe::None)
@@ -1919,7 +1918,7 @@ pub struct PipSyncArgs {
     /// environment and only searches for a Python interpreter to use for package resolution.
     /// If a suitable Python interpreter cannot be found, uv will install one.
     /// To disable this, add `--no-python-downloads`.
-    #[arg(long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// Install packages into `lib`, `bin`, and other top-level folders under the specified
@@ -2296,7 +2295,7 @@ pub struct PipInstallArgs {
     /// environment and only searches for a Python interpreter to use for package resolution.
     /// If a suitable Python interpreter cannot be found, uv will install one.
     /// To disable this, add `--no-python-downloads`.
-    #[arg(long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// Install packages into `lib`, `bin`, and other top-level folders under the specified
@@ -2512,7 +2511,7 @@ pub struct PipUninstallArgs {
     pub no_break_system_packages: bool,
 
     /// Uninstall packages from the specified `--target` directory.
-    #[arg(long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// Uninstall packages from the specified `--prefix` directory.
@@ -2532,6 +2531,10 @@ pub struct PipFreezeArgs {
     /// Exclude any editable packages from output.
     #[arg(long)]
     pub exclude_editable: bool,
+
+    /// Exclude the specified package(s) from the output.
+    #[arg(long)]
+    pub r#exclude: Vec<PackageName>,
 
     /// Validate the Python environment, to detect packages with missing dependencies and other
     /// issues.
@@ -2579,7 +2582,7 @@ pub struct PipFreezeArgs {
     pub no_system: bool,
 
     /// List packages from the specified `--target` directory.
-    #[arg(long, conflicts_with_all = ["prefix", "paths"], value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with_all = ["prefix", "paths"], value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// List packages from the specified `--prefix` directory.
@@ -2663,7 +2666,7 @@ pub struct PipListArgs {
     pub no_system: bool,
 
     /// List packages from the specified `--target` directory.
-    #[arg(long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// List packages from the specified `--prefix` directory.
@@ -2789,7 +2792,7 @@ pub struct PipShowArgs {
     pub no_system: bool,
 
     /// Show a package from the specified `--target` directory.
-    #[arg(long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
+    #[arg(short = 't', long, conflicts_with = "prefix", value_hint = ValueHint::DirPath)]
     pub target: Option<PathBuf>,
 
     /// Show a package from the specified `--prefix` directory.
@@ -4757,7 +4760,7 @@ pub struct TreeArgs {
 
 #[derive(Args)]
 pub struct ExportArgs {
-    #[allow(clippy::doc_markdown)]
+    #[expect(clippy::doc_markdown)]
     /// The format to which `uv.lock` should be exported.
     ///
     /// Supports `requirements.txt`, `pylock.toml` (PEP 751) and CycloneDX v1.5 JSON output formats.

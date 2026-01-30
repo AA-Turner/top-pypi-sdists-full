@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-import matplotlib.colors
+import cmap
 import matplotlib.pyplot as plt
 
 import imgviz
 
 
-def depth2rgb():
+def depth2rgb() -> None:
     data = imgviz.data.arc2017()
 
     depthviz_jet = imgviz.depth2rgb(
         data["depth"], min_value=0.3, max_value=1, colormap="jet"
     )
 
-    colormap = matplotlib.colors.LinearSegmentedColormap.from_list(
-        "Custom", [(0, 0, 0), (0, 1, 0)]
-    )
+    colormap = cmap.Colormap([(0, 0, 0), (0, 255, 0)])
     depthviz_custom = imgviz.depth2rgb(
         data["depth"], min_value=0.3, max_value=1, colormap=colormap
     )
@@ -39,13 +37,8 @@ def depth2rgb():
     plt.imshow(depthviz_custom)
     plt.axis("off")
 
-    img = imgviz.io.pyplot_to_numpy()
-    plt.close()
-
-    return img
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(depth2rgb)

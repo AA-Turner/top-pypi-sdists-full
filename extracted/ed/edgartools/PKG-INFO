@@ -1,15 +1,20 @@
 Metadata-Version: 2.4
 Name: edgartools
-Version: 5.12.0
-Summary: Navigate Edgar filings with ease
+Version: 5.13.0
+Summary: Python library to access and analyze SEC Edgar filings, XBRL financial statements, 10-K, 10-Q, and 8-K reports
+Project-URL: Homepage, https://github.com/dgunning/edgartools
 Project-URL: Documentation, https://dgunning.github.io/edgartools/
 Project-URL: Issues, https://github.com/dgunning/edgartools/issues
 Project-URL: Source, https://github.com/dgunning/edgartools
+Project-URL: Changelog, https://github.com/dgunning/edgartools/releases
 Author-email: Dwight Gunning <dgunning@gmail.com>
 License-Expression: MIT
 License-File: LICENSE.txt
-Keywords: company,edgar,filings,finance,financial,python,reports,sec
+Keywords: 10-K,10-Q,13F,8-K,annual report,company filings,edgar,edgar api,edgar filings,filings,finance,financial data,financial statements,form 4,insider trading,institutional holdings,python,quarterly report,sec,sec api,sec filings,stock filings,xbrl
 Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -19,6 +24,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.10.0
 Requires-Dist: httpx>=0.25.0
@@ -28,7 +36,7 @@ Requires-Dist: jinja2>=3.1.0
 Requires-Dist: lxml>=4.4
 Requires-Dist: nest-asyncio>=1.5.1
 Requires-Dist: orjson>=3.6.0
-Requires-Dist: pandas<3.0.0,>=2.0.0
+Requires-Dist: pandas>=2.0.0
 Requires-Dist: pyarrow>=17.0.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyrate-limiter==3.9.0
@@ -74,6 +82,7 @@ Description-Content-Type: text/markdown
 </a>
 </p>
 
+<h1 align="center">EdgarTools - Python Library for SEC EDGAR Filings</h1>
 <h3 align="center">The AI Native Python library for SEC EDGAR Data</h3>
 
 <p align="center">
@@ -101,6 +110,8 @@ Description-Content-Type: text/markdown
 <p align="center">
   <sub>Built with AI-assisted development • 3-10x faster velocity • <a href="#-support-ai-powered-development">Support this project</a></sub>
 </p>
+
+**EdgarTools** is a Python library for downloading and analyzing SEC EDGAR filings. Extract 10-K, 10-Q, 8-K reports, parse XBRL financial statements, and access insider trading data (Form 4) with a simple Python API. Free and open-source.
 
 ![EdgarTools SEC filing data extraction demo](docs/images/edgartools-demo.gif)
 
@@ -162,7 +173,7 @@ EdgarTools is the **fastest, most powerful open-source library** for SEC EDGAR d
 ## How It Works
 
 <p align="center">
-  <img src="docs/images/how-it-works.svg" alt="EdgarTools transforms SEC EDGAR complexity into clean Python code">
+  <img src="docs/images/how-it-works.svg" alt="How EdgarTools Python library extracts SEC EDGAR filing data">
 </p>
 
 <p align="center">
@@ -174,20 +185,20 @@ EdgarTools is the **fastest, most powerful open-source library** for SEC EDGAR d
 </p>
 
 ```python
-# 1. Install
+# Install the SEC EDGAR Python library
 pip install edgartools
 
-# 2. Set your identity (required by SEC regulations)
+# Set your identity (required by SEC regulations)
 from edgar import *
 set_identity("your.name@example.com")
 
-# 3. Get company financials in 1 line
+# Get SEC 10-K, 10-Q filings and XBRL financial statements
 balance_sheet = Company("AAPL").get_financials().balance_sheet()
 
-# 4. Explore with interactive documentation
+# Access any company's SEC filings
 company = Company("MSFT")
 
-# 5. Or explore insider transactions
+# Parse Form 4 insider trading transactions
 filings = company.get_filings(form="4")
 form4_filing = filings[0]
 form4 = form4_filing.obj()
@@ -269,6 +280,8 @@ form4 = form4_filing.obj()
 </td>
 </tr>
 </table>
+
+EdgarTools supports all SEC form types including **10-K annual reports**, **10-Q quarterly filings**, **8-K current reports**, **13F institutional holdings**, **Form 4 insider transactions**, **proxy statements (DEF 14A)**, and **S-1 registration statements**. Parse XBRL financial data, extract text sections, and convert filings to pandas DataFrames.
 
 <p align="center">
   <img src="docs/images/dividers/divider-hexagons.svg" alt="">

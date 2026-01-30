@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isolate
-Version: 0.23.0
+Version: 0.23.1
 Summary: Managed isolated environments for Python
 Author-email: Features & Labels <hello@fal.ai>
 Project-URL: Issues, https://github.com/fal-ai/isolate/issues
@@ -22,6 +22,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: cloudpickle>=2.2.0; extra == "test"
 Requires-Dist: dill>=0.3.5.1; extra == "test"
 Requires-Dist: flaky; extra == "test"
+Requires-Dist: psutil>=7.2.1; extra == "test"
 Provides-Extra: dev
 Requires-Dist: isolate[test]; extra == "dev"
 Requires-Dist: grpcio-tools==1.64.0; extra == "dev"

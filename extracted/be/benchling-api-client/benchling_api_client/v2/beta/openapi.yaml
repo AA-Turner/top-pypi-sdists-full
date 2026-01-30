@@ -3414,6 +3414,7 @@ components:
       enum:
       - ENTRY
       - ENTRY_TEMPLATE
+      - APP_HOME
       type: string
     BoxCreationTableNotePart:
       allOf:

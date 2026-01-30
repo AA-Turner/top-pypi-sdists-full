@@ -32,6 +32,10 @@ from .testapp.models import (
     InheritorModel,
     ModelIssue300,
     ModelRelatedToModelWithMoney,
+    ModelWithCallableCurrencyChoices,
+    ModelWithCallableDefault,
+    ModelWithCallableDefaultAndDefaultCurrency,
+    ModelWithCallableDefaultCurrency,
     ModelWithChoicesMoneyField,
     ModelWithCustomDefaultManager,
     ModelWithCustomManager,
@@ -78,6 +82,10 @@ class TestVanillaMoneyField:
             (ModelWithDefaultAsString, {}, Money("123", "PLN")),
             (ModelWithDefaultAsInt, {}, Money("123", "GHS")),
             (ModelWithDefaultAsDecimal, {}, Money("0.01", "CHF")),
+            (ModelWithCallableDefault, {}, Money("0.00", "EUR")),  # noqa
+            (ModelWithCallableDefaultCurrency, {"money": 0}, Money("0.00", "EUR")),
+            (ModelWithCallableDefaultAndDefaultCurrency, {}, Money("0.00", "EUR")),
+            (ModelWithCallableCurrencyChoices, {"money": Money("0.00", "DKK")}, Money("0.00", "DKK")),
             (CryptoModel, {"money": Money(10, "USDT")}, Money(10, "USDT")),
         ),
     )
@@ -937,3 +945,20 @@ def test_deconstruct_includes(attribute, build_kwargs, expected):
     new = MoneyField(*args, **kwargs)
     assert getattr(new, attribute) == getattr(instance, attribute)
     assert getattr(new, attribute) == expected
+
+
+class TestQuerySet:
+    @pytest.fixture
+    def instance(self):
+        return ModelWithVanillaMoneyField.objects.create()
+
+    @pytest.mark.xfail
+    def test_instance_from_queryset_with_only_raises_keyerror(self, instance):
+        """
+        Demonstrates that MoneyFields lack support for only() querysets
+        https://github.com/django-money/django-money/issues/654
+        """
+        assert isinstance(instance.money, Money)
+        assert instance.money == Money("0.0", "XYZ")
+        only_instance = ModelWithVanillaMoneyField.objects.filter(pk=instance.pk).only("money").first()
+        assert only_instance.money == Money("0.0", "XYZ")  # fails with `Keyerror: 'money_currency'`

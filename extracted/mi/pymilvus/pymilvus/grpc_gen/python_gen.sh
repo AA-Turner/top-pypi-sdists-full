@@ -14,7 +14,8 @@ if [[ $(uname -s) == "Darwin" ]]; then
     if ! brew --prefix --installed gnu-sed >/dev/null 2>&1; then
         brew install gnu-sed
     fi
-    export PATH="/usr/local/opt/gsed/libexec/gnubin:$PATH"
+    GSED_PREFIX=$(brew --prefix gnu-sed)
+    export PATH="${GSED_PREFIX}/libexec/gnubin:$PATH"
 fi
 
 sed -i 's/import common_pb2 as common__pb2/from . import common_pb2 as common__pb2/' $OUTDIR/*py
@@ -30,14 +31,5 @@ sed -i 's/import milvus_pb2 as _milvus_pb2/from . import milvus_pb2 as _milvus_p
 sed -i 's/import feder_pb2 as _feder_pb2/from . import feder_pb2 as _feder_pb2/' $OUTDIR/*pyi
 sed -i 's/import msg_pb2 as _msg_pb2/from . import msg_pb2 as _msg_pb2/' $OUTDIR/*pyi
 sed -i 's/import rg_pb2 as _rg_pb2/from . import rg_pb2 as _rg_pb2/' $OUTDIR/*pyi
-
-# WORKAROUND: Remove _registered_method parameter for compatibility with grpcio-testing
-# This is a known issue where grpcio-testing's TestingChannel doesn't support the
-# _registered_method parameter that was added in grpcio 1.65.0+
-# The grpcio-testing package's TestingChannel.unary_unary() method signature hasn't been
-# updated to accept this parameter, even though the main grpcio package generates it.
-# TODO: Remove this workaround when grpcio-testing is updated to support this parameter
-sed -i 's/, _registered_method=True)/)/g' $OUTDIR/milvus_pb2_grpc.py
-sed -i 's/_registered_method=True)/)/g' $OUTDIR/milvus_pb2_grpc.py
 
 echo "Success to generate the python proto files."

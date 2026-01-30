@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from typing import TYPE_CHECKING
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -113,13 +114,659 @@ class PlanetaryComputerEndpoint(TitilerEndpoint):
         return f"{self.endpoint}/mosaic/{searchid}/{lon},{lat}/assets"
 
 
+class TitilerCMREndpoint:
+    """This class contains the methods for the TiTiler CMR endpoint."""
+
+    def __init__(
+        self,
+        endpoint: Optional[str] = None,
+        TileMatrixSetId: Optional[str] = "WebMercatorQuad",
+    ):
+        """Initialize the TitilerCMREndpoint object.
+
+        Args:
+            endpoint (str, optional): The TiTiler CMR endpoint URL.
+                Defaults to "https://staging.openveda.cloud/api/titiler-cmr".
+            TileMatrixSetId (str, optional): The TileMatrixSetId. Defaults to "WebMercatorQuad".
+        """
+        if endpoint is None:
+            endpoint = os.environ.get(
+                "TITILER_CMR_ENDPOINT",
+                "https://staging.openveda.cloud/api/titiler-cmr",
+            )
+        self.endpoint = endpoint
+        self.TileMatrixSetId = TileMatrixSetId
+
+    def url_for_tilejson(self):
+        """Get the URL for the TileJSON endpoint.
+
+        Returns:
+            str: The TileJSON endpoint URL.
+        """
+        return f"{self.endpoint}/{self.TileMatrixSetId}/tilejson.json"
+
+    def url_for_timeseries_tilejson(self):
+        """Get the URL for the time series TileJSON endpoint.
+
+        Returns:
+            str: The time series TileJSON endpoint URL.
+        """
+        return f"{self.endpoint}/timeseries/{self.TileMatrixSetId}/tilejson.json"
+
+    def url_for_timeseries_gif(self, bbox, width=512, height=512):
+        """Get the URL for the time series animated GIF endpoint.
+
+        Args:
+            bbox (list | tuple): Bounding box as [minx, miny, maxx, maxy].
+            width (int, optional): Width of the GIF in pixels. Defaults to 512.
+            height (int, optional): Height of the GIF in pixels. Defaults to 512.
+
+        Returns:
+            str: The time series GIF endpoint URL.
+        """
+        minx, miny, maxx, maxy = bbox
+        return f"{self.endpoint}/timeseries/bbox/{minx},{miny},{maxx},{maxy}/{width}x{height}.gif"
+
+    def url_for_statistics(self):
+        """Get the URL for the statistics endpoint.
+
+        Returns:
+            str: The statistics endpoint URL.
+        """
+        return f"{self.endpoint}/statistics"
+
+    def url_for_timeseries_statistics(self):
+        """Get the URL for the time series statistics endpoint.
+
+        Returns:
+            str: The time series statistics endpoint URL.
+        """
+        return f"{self.endpoint}/timeseries/statistics"
+
+    def url_for_timeseries(self):
+        """Get the URL for the time series endpoint.
+
+        Returns:
+            str: The time series endpoint URL.
+        """
+        return f"{self.endpoint}/timeseries"
+
+
+def check_titiler_cmr_endpoint(
+    titiler_cmr_endpoint: Optional[str] = None,
+) -> TitilerCMREndpoint:
+    """Returns the TiTiler CMR endpoint.
+
+    Args:
+        titiler_cmr_endpoint (str, optional): The TiTiler CMR endpoint URL. Defaults to None.
+
+    Returns:
+        TitilerCMREndpoint: The TiTiler CMR endpoint object.
+    """
+    if titiler_cmr_endpoint is None:
+        titiler_cmr_endpoint = os.environ.get(
+            "TITILER_CMR_ENDPOINT",
+            "https://staging.openveda.cloud/api/titiler-cmr",
+        )
+
+    if isinstance(titiler_cmr_endpoint, str):
+        return TitilerCMREndpoint(endpoint=titiler_cmr_endpoint)
+    elif isinstance(titiler_cmr_endpoint, TitilerCMREndpoint):
+        return titiler_cmr_endpoint
+    else:
+        return TitilerCMREndpoint()
+
+
+def cmr_tilejson(
+    concept_id: str,
+    datetime: Optional[str] = None,
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    bands: Optional[Union[str, List[str]]] = None,
+    bands_regex: Optional[str] = None,
+    expression: Optional[str] = None,
+    rescale: Optional[Union[str, List]] = None,
+    colormap_name: Optional[str] = None,
+    color_formula: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> Dict:
+    """Fetch TileJSON metadata from TiTiler CMR.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or '2024-01-01/2024-01-31').
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        bands (str | list, optional): Band name(s) for rasterio backend.
+        bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+        expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+        rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305' or [[270, 305]]).
+        colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+        color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters to pass to the TiTiler CMR endpoint.
+
+    Returns:
+        dict: TileJSON metadata dict with tiles, bounds, center, minzoom, maxzoom.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    endpoint = check_titiler_cmr_endpoint(titiler_cmr_endpoint)
+
+    params = {"concept_id": concept_id, "backend": backend}
+
+    if datetime is not None:
+        params["datetime"] = datetime
+
+    if variable is not None:
+        params["variable"] = variable
+
+    if bands is not None:
+        if isinstance(bands, list):
+            # Pass bands as a list so requests encodes as bands=B04&bands=B03&bands=B02
+            params["bands"] = bands
+        else:
+            params["bands"] = [bands]
+    elif expression is not None:
+        # Extract band names from expression (e.g., "(B05-B04)/(B05+B04)" -> ["B05", "B04"])
+        # Band names typically match patterns like B01, B02, B8A, etc.
+        band_pattern = r"\b(B[0-9][0-9A-Za-z]?)\b"
+        extracted_bands = list(dict.fromkeys(re.findall(band_pattern, expression)))
+        if extracted_bands:
+            params["bands"] = extracted_bands
+
+    if bands_regex is not None:
+        params["bands_regex"] = bands_regex
+
+    if expression is not None:
+        params["expression"] = expression
+
+    if rescale is not None:
+        if isinstance(rescale, list):
+            if isinstance(rescale[0], list):
+                params["rescale"] = ",".join([f"{r[0]},{r[1]}" for r in rescale])
+            else:
+                params["rescale"] = ",".join([str(r) for r in rescale])
+        else:
+            params["rescale"] = rescale
+
+    if colormap_name is not None:
+        params["colormap_name"] = colormap_name
+
+    if color_formula is not None:
+        params["color_formula"] = color_formula
+
+    params.update(kwargs)
+
+    try:
+        r = requests.get(endpoint.url_for_tilejson(), params=params, timeout=30).json()
+        return r
+    except Exception as e:
+        print(f"Error fetching TileJSON from TiTiler CMR: {e}")
+        return None
+
+
+def cmr_tile(
+    concept_id: str,
+    datetime: Optional[str] = None,
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    bands: Optional[Union[str, List[str]]] = None,
+    bands_regex: Optional[str] = None,
+    expression: Optional[str] = None,
+    rescale: Optional[Union[str, List]] = None,
+    colormap_name: Optional[str] = None,
+    color_formula: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> str:
+    """Get tile URL from TiTiler CMR.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or '2024-01-01/2024-01-31').
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        bands (str | list, optional): Band name(s) for rasterio backend.
+        bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+        expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+        rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305' or [[270, 305]]).
+        colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+        color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters to pass to the TiTiler CMR endpoint.
+
+    Returns:
+        str: The tile URL template.
+    """
+    tilejson = cmr_tilejson(
+        concept_id=concept_id,
+        datetime=datetime,
+        backend=backend,
+        variable=variable,
+        bands=bands,
+        bands_regex=bands_regex,
+        expression=expression,
+        rescale=rescale,
+        colormap_name=colormap_name,
+        color_formula=color_formula,
+        titiler_cmr_endpoint=titiler_cmr_endpoint,
+        **kwargs,
+    )
+
+    if tilejson is None or "tiles" not in tilejson:
+        return None
+
+    return tilejson["tiles"][0]
+
+
+def cmr_bounds(
+    concept_id: str,
+    datetime: Optional[str] = None,
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> List[float]:
+    """Get bounding box from TiTiler CMR TileJSON.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or '2024-01-01/2024-01-31').
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters.
+
+    Returns:
+        list: Bounding box as [minx, miny, maxx, maxy].
+    """
+    tilejson = cmr_tilejson(
+        concept_id=concept_id,
+        datetime=datetime,
+        backend=backend,
+        variable=variable,
+        titiler_cmr_endpoint=titiler_cmr_endpoint,
+        **kwargs,
+    )
+
+    if tilejson is None or "bounds" not in tilejson:
+        return None
+
+    return tilejson["bounds"]
+
+
+def cmr_center(
+    concept_id: str,
+    datetime: Optional[str] = None,
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> Tuple[float, float]:
+    """Get center coordinates from TiTiler CMR TileJSON.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or '2024-01-01/2024-01-31').
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters.
+
+    Returns:
+        tuple: Center coordinates as (longitude, latitude).
+    """
+    tilejson = cmr_tilejson(
+        concept_id=concept_id,
+        datetime=datetime,
+        backend=backend,
+        variable=variable,
+        titiler_cmr_endpoint=titiler_cmr_endpoint,
+        **kwargs,
+    )
+
+    if tilejson is None or "center" not in tilejson:
+        bounds = cmr_bounds(
+            concept_id=concept_id,
+            datetime=datetime,
+            backend=backend,
+            variable=variable,
+            titiler_cmr_endpoint=titiler_cmr_endpoint,
+            **kwargs,
+        )
+        if bounds is not None:
+            return ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
+        return (None, None)
+
+    center = tilejson["center"]
+    return (center[0], center[1])
+
+
+def cmr_timeseries_tilejson(
+    concept_id: str,
+    datetime: str,
+    step: str = "P1D",
+    temporal_mode: str = "point",
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    bands: Optional[Union[str, List[str]]] = None,
+    bands_regex: Optional[str] = None,
+    expression: Optional[str] = None,
+    rescale: Optional[Union[str, List]] = None,
+    colormap_name: Optional[str] = None,
+    color_formula: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> Dict[str, Dict]:
+    """Get time series TileJSON dict from TiTiler CMR.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str): RFC3339 datetime range (e.g., '2024-01-01/2024-01-31').
+        step (str, optional): ISO 8601 duration for time steps (e.g., 'P1D' for 1 day,
+            'P1M' for 1 month, 'P2W' for 2 weeks). Defaults to 'P1D'.
+        temporal_mode (str, optional): Temporal mode - 'point' or 'range'. Defaults to 'point'.
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        bands (str | list, optional): Band name(s) for rasterio backend.
+        bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+        expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+        rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305' or [[270, 305]]).
+        colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+        color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters.
+
+    Returns:
+        dict: Dictionary mapping datetime strings to TileJSON metadata.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    endpoint = check_titiler_cmr_endpoint(titiler_cmr_endpoint)
+
+    params = {
+        "concept_id": concept_id,
+        "datetime": datetime,
+        "step": step,
+        "temporal_mode": temporal_mode,
+        "backend": backend,
+    }
+
+    if variable is not None:
+        params["variable"] = variable
+
+    if bands is not None:
+        if isinstance(bands, list):
+            # Pass bands as a list so requests encodes as bands=B04&bands=B03&bands=B02
+            params["bands"] = bands
+        else:
+            params["bands"] = [bands]
+    elif expression is not None:
+        # Extract band names from expression (e.g., "(B05-B04)/(B05+B04)" -> ["B05", "B04"])
+        # Band names typically match patterns like B01, B02, B8A, etc.
+        band_pattern = r"\b(B[0-9][0-9A-Za-z]?)\b"
+        extracted_bands = list(dict.fromkeys(re.findall(band_pattern, expression)))
+        if extracted_bands:
+            params["bands"] = extracted_bands
+
+    if bands_regex is not None:
+        params["bands_regex"] = bands_regex
+
+    if expression is not None:
+        params["expression"] = expression
+
+    if rescale is not None:
+        if isinstance(rescale, list):
+            if isinstance(rescale[0], list):
+                params["rescale"] = ",".join([f"{r[0]},{r[1]}" for r in rescale])
+            else:
+                params["rescale"] = ",".join([str(r) for r in rescale])
+        else:
+            params["rescale"] = rescale
+
+    if colormap_name is not None:
+        params["colormap_name"] = colormap_name
+
+    if color_formula is not None:
+        params["color_formula"] = color_formula
+
+    params.update(kwargs)
+
+    try:
+        r = requests.get(
+            endpoint.url_for_timeseries_tilejson(), params=params, timeout=60
+        ).json()
+        return r
+    except Exception as e:
+        print(f"Error fetching time series TileJSON from TiTiler CMR: {e}")
+        return None
+
+
+def cmr_animated_gif(
+    concept_id: str,
+    datetime: str,
+    bbox: Union[List[float], Tuple[float, float, float, float]],
+    width: int = 512,
+    height: int = 512,
+    step: str = "P1D",
+    temporal_mode: str = "point",
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    bands: Optional[Union[str, List[str]]] = None,
+    bands_regex: Optional[str] = None,
+    expression: Optional[str] = None,
+    rescale: Optional[Union[str, List]] = None,
+    colormap_name: Optional[str] = None,
+    color_formula: Optional[str] = None,
+    fps: int = 1,
+    output: Optional[str] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> str:
+    """Generate animated GIF for time series from TiTiler CMR.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str): RFC3339 datetime range (e.g., '2024-01-01/2024-01-31').
+        bbox (list | tuple): Bounding box as [minx, miny, maxx, maxy].
+        width (int, optional): Width of the GIF in pixels. Defaults to 512.
+        height (int, optional): Height of the GIF in pixels. Defaults to 512.
+        step (str, optional): ISO 8601 duration for time steps (e.g., 'P1D' for 1 day,
+            'P1M' for 1 month). Defaults to 'P1D'.
+        temporal_mode (str, optional): Temporal mode - 'point' or 'range'. Defaults to 'point'.
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        bands (str | list, optional): Band name(s) for rasterio backend.
+        bands_regex (str, optional): Regex pattern for selecting bands (e.g., 'B[0-9][0-9]').
+        expression (str, optional): Band math expression (e.g., '(B05-B04)/(B05+B04)').
+        rescale (str | list, optional): Min/max values for rescaling (e.g., '270,305' or [[270, 305]]).
+        colormap_name (str, optional): Name of colormap (e.g., 'thermal', 'viridis').
+        color_formula (str, optional): Color formula (e.g., 'Gamma RGB 3.5 Saturation 1.7').
+        fps (int, optional): Frames per second for the GIF. Defaults to 1.
+        output (str, optional): Output file path. If None, returns the URL.
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters.
+
+    Returns:
+        str: The GIF URL or output file path.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    endpoint = check_titiler_cmr_endpoint(titiler_cmr_endpoint)
+
+    params = {
+        "concept_id": concept_id,
+        "datetime": datetime,
+        "step": step,
+        "temporal_mode": temporal_mode,
+        "backend": backend,
+        "fps": fps,
+    }
+
+    if variable is not None:
+        params["variable"] = variable
+
+    if bands is not None:
+        if isinstance(bands, list):
+            # Pass bands as a list so requests encodes as bands=B04&bands=B03&bands=B02
+            params["bands"] = bands
+        else:
+            params["bands"] = [bands]
+    elif expression is not None:
+        # Extract band names from expression (e.g., "(B05-B04)/(B05+B04)" -> ["B05", "B04"])
+        # Band names typically match patterns like B01, B02, B8A, etc.
+        band_pattern = r"\b(B[0-9][0-9A-Za-z]?)\b"
+        extracted_bands = list(dict.fromkeys(re.findall(band_pattern, expression)))
+        if extracted_bands:
+            params["bands"] = extracted_bands
+
+    if bands_regex is not None:
+        params["bands_regex"] = bands_regex
+
+    if expression is not None:
+        params["expression"] = expression
+
+    if rescale is not None:
+        if isinstance(rescale, list):
+            if isinstance(rescale[0], list):
+                params["rescale"] = ",".join([f"{r[0]},{r[1]}" for r in rescale])
+            else:
+                params["rescale"] = ",".join([str(r) for r in rescale])
+        else:
+            params["rescale"] = rescale
+
+    if colormap_name is not None:
+        params["colormap_name"] = colormap_name
+
+    if color_formula is not None:
+        params["color_formula"] = color_formula
+
+    params.update(kwargs)
+
+    url = endpoint.url_for_timeseries_gif(bbox, width, height)
+
+    if output is not None:
+        try:
+            response = requests.get(url, params=params, timeout=120)
+            response.raise_for_status()
+            with open(output, "wb") as f:
+                f.write(response.content)
+            return output
+        except Exception as e:
+            print(f"Error downloading GIF from TiTiler CMR: {e}")
+            return None
+    else:
+        # Return the full URL with parameters
+        from urllib.parse import urlencode
+
+        return f"{url}?{urlencode(params)}"
+
+
+def cmr_statistics(
+    concept_id: str,
+    datetime: Optional[str] = None,
+    geojson: Optional[Union[Dict, str]] = None,
+    backend: str = "rasterio",
+    variable: Optional[str] = None,
+    bands: Optional[Union[str, List[str]]] = None,
+    titiler_cmr_endpoint: Optional[str] = None,
+    **kwargs,
+) -> Dict:
+    """Calculate statistics for an AOI from TiTiler CMR.
+
+    Args:
+        concept_id (str): NASA CMR collection concept ID (e.g., 'C2036881735-POCLOUD').
+        datetime (str, optional): RFC3339 datetime or range (e.g., '2024-01-15' or '2024-01-01/2024-01-31').
+        geojson (dict | str, optional): GeoJSON geometry or file path for the AOI.
+        backend (str, optional): Backend to use - 'rasterio' for COGs or 'xarray' for NetCDF/Zarr.
+            Defaults to 'rasterio'.
+        variable (str, optional): Variable name for xarray backend datasets.
+        bands (str | list, optional): Band name(s) for rasterio backend.
+        titiler_cmr_endpoint (str, optional): TiTiler CMR endpoint URL.
+        **kwargs: Additional parameters.
+
+    Returns:
+        dict: Statistics for the AOI.
+    """
+    import json
+
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    endpoint = check_titiler_cmr_endpoint(titiler_cmr_endpoint)
+
+    params = {"concept_id": concept_id, "backend": backend}
+
+    if datetime is not None:
+        params["datetime"] = datetime
+
+    if variable is not None:
+        params["variable"] = variable
+
+    if bands is not None:
+        if isinstance(bands, list):
+            # Pass bands as a list so requests encodes as bands=B04&bands=B03&bands=B02
+            params["bands"] = bands
+        else:
+            params["bands"] = [bands]
+
+    params.update(kwargs)
+
+    # Handle GeoJSON input
+    if geojson is not None:
+        if isinstance(geojson, str):
+            if os.path.exists(geojson):
+                with open(geojson, "r") as f:
+                    geojson = json.load(f)
+            else:
+                geojson = json.loads(geojson)
+
+        try:
+            response = requests.post(
+                endpoint.url_for_statistics(),
+                params=params,
+                json=geojson,
+                timeout=60,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error fetching statistics from TiTiler CMR: {e}")
+            return None
+    else:
+        try:
+            response = requests.get(
+                endpoint.url_for_statistics(), params=params, timeout=60
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error fetching statistics from TiTiler CMR: {e}")
+            return None
+
+
 def check_titiler_endpoint(titiler_endpoint: Optional[str] = None) -> Any:
     """Returns the default titiler endpoint.
 
     Returns:
         The titiler endpoint.
     """
-    if titiler_endpoint is not None and titiler_endpoint.lower() == "local":
+    if (
+        titiler_endpoint is not None
+        and isinstance(titiler_endpoint, str)
+        and titiler_endpoint.lower() == "local"
+    ):
         titiler_endpoint = run_titiler(show_logs=False)
     elif titiler_endpoint is None:
         if os.environ.get("TITILER_ENDPOINT") is not None:
@@ -129,8 +776,12 @@ def check_titiler_endpoint(titiler_endpoint: Optional[str] = None) -> Any:
                 titiler_endpoint = PlanetaryComputerEndpoint()
         else:
             titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
-    elif titiler_endpoint in ["planetary-computer", "pc"]:
+    elif isinstance(titiler_endpoint, str) and titiler_endpoint in [
+        "planetary-computer",
+        "pc",
+    ]:
         titiler_endpoint = PlanetaryComputerEndpoint()
+    # If it's already an endpoint object, just return it as-is
 
     return titiler_endpoint
 
@@ -706,12 +1357,12 @@ def stac_tile(
                     titiler_endpoint=titiler_endpoint,
                 )
             except Exception as e:
-                titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
+                fallback_endpoint = "https://giswqs-titiler-endpoint.hf.space"
                 stats = stac_stats(
                     collection=collection,
                     item=item,
                     assets=assets,
-                    titiler_endpoint=titiler_endpoint,
+                    titiler_endpoint=fallback_endpoint,
                 )
 
             if "detail" not in stats:
@@ -732,8 +1383,6 @@ def stac_tile(
                         ]
                     )
                 kwargs["rescale"] = f"{percentile_2},{percentile_98}"
-            else:
-                print(stats["detail"])  # When operation times out.
 
     else:
         data = requests.get(url).json()
@@ -850,6 +1499,26 @@ def stac_tile(
                 titiler_endpoint.url_for_stac_item(), params=kwargs, timeout=10
             ).json()
 
+    # Check if the response contains tiles
+    if "tiles" not in r:
+        # Try to provide helpful error message from the API response
+        if "detail" in r:
+            error_msg = f"TiTiler endpoint error: {r['detail']}"
+        elif isinstance(r, list) and len(r) > 0:
+            # Handle validation errors (list of error dicts)
+            if isinstance(r[0], dict) and "msg" in r[0]:
+                errors = []
+                for e in r:
+                    loc = "->".join(str(x) for x in e.get("loc", []))
+                    msg = e.get("msg", "")
+                    errors.append(f"{loc}: {msg}")
+                error_msg = f"TiTiler endpoint validation failed: {'; '.join(errors)}"
+            else:
+                error_msg = f"TiTiler endpoint returned error list: {r}"
+        else:
+            error_msg = f"TiTiler endpoint returned unexpected response (missing 'tiles' key): {r}"
+        raise ValueError(error_msg)
+
     tiles = r["tiles"][0]
 
     # Convert 127.0.0.1 to localhost for Google Colab browser access
@@ -915,7 +1584,29 @@ def stac_bounds(
                 titiler_endpoint.url_for_stac_bounds(), params=kwargs
             ).json()
 
-        bounds = r["bbox"]
+        # Try to get bounds from different response formats
+        if "bbox" in r:
+            bounds = r["bbox"]
+        elif "properties" in r and isinstance(r["properties"], dict):
+            # Handle GeoJSON Feature format (Planetary Computer)
+            # Try to get bounds from properties.{asset}.bounds
+            for key, value in r["properties"].items():
+                if isinstance(value, dict) and "bounds" in value:
+                    bounds = value["bounds"]
+                    break
+            else:
+                # Fallback to geometry bbox if available
+                if "geometry" in r and "coordinates" in r["geometry"]:
+                    # Calculate bbox from geometry coordinates
+                    coords = r["geometry"]["coordinates"][0]  # Assuming Polygon
+                    lons = [c[0] for c in coords]
+                    lats = [c[1] for c in coords]
+                    bounds = [min(lons), min(lats), max(lons), max(lats)]
+                else:
+                    return None
+        else:
+            return None
+
         return bounds
     except Exception as e:
         print(e)
@@ -1306,7 +1997,6 @@ def stac_pixel_value(
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     if isinstance(titiler_endpoint, str):
-
         r = requests.get(
             f"{titiler_endpoint}/stac/point/{lon},{lat}", params=kwargs
         ).json()
@@ -2089,7 +2779,7 @@ def maxar_all_items(
     for index, child_id in enumerate(child_ids):
         if verbose:
             print(
-                f"Processing ({str(index+1).zfill(len(str(len(child_ids))))} out of {len(child_ids)}): {child_id} ..."
+                f"Processing ({str(index + 1).zfill(len(str(len(child_ids))))} out of {len(child_ids)}): {child_id} ..."
             )
         items = maxar_items(collection_id, child_id, return_gdf, assets, **kwargs)
         if return_gdf:
@@ -2302,7 +2992,7 @@ def maxar_download(
             continue
         if not quiet:
             print(
-                f"Downloading {str(index+1).zfill(len(str(len(images))))} out of {len(images)}: {dir_name}/{file_name}"
+                f"Downloading {str(index + 1).zfill(len(str(len(images))))} out of {len(images)}: {dir_name}/{file_name}"
             )
 
         gdown.download(
@@ -2631,3 +3321,516 @@ def run_titiler(
 
     if return_titiler_endpoint:
         return endpoint, port, proc
+
+
+def zarr_tile(
+    url: str,
+    variable: Optional[str] = None,
+    titiler_endpoint: Optional[str] = None,
+    group: Optional[str] = None,
+    decode_times: bool = False,
+    time_index: Optional[int] = 0,
+    **kwargs,
+) -> str:
+    """Get a tile layer URL from a Zarr dataset using titiler-xarray.
+
+    This function requires a TiTiler endpoint with titiler-xarray support.
+    The default titiler endpoint does NOT support Zarr/xarray datasets.
+    You need to either:
+    1. Set up your own titiler-xarray endpoint
+    2. Use `leafmap.run_titiler_xarray()` to start a local server
+
+    Args:
+        url (str): HTTP URL to a Zarr dataset, e.g., https://example.com/data.zarr
+            or s3://bucket/data.zarr
+        variable (str, optional): The variable name to visualize. Required for
+            multi-variable datasets. Defaults to None.
+        titiler_endpoint (str, optional): TiTiler endpoint that supports xarray/Zarr.
+            Must have titiler-xarray installed. Defaults to environment variable
+            TITILER_XARRAY_ENDPOINT or prompts user to start a local server.
+        group (str, optional): The Zarr group path within the dataset.
+            Defaults to None.
+        decode_times (bool, optional): Whether to decode times in the dataset.
+            Defaults to False.
+        time_index (int, optional): Index of the time dimension to visualize.
+            Required for datasets with a time dimension. Defaults to 0 (first time step).
+            Set to None to disable time selection (for datasets without time dimension).
+        **kwargs (Any): Additional arguments to pass to the titiler endpoint.
+            Common options include:
+            - rescale (str): Comma-delimited Min,Max range (e.g., "0,255")
+            - colormap_name (str): Name of a colormap (e.g., "viridis")
+            - colormap (str): JSON encoded custom colormap
+            - nodata (float): Nodata value
+            - sel (str): Dimension selection in format "dim=value" (e.g., "time=0")
+            - TileMatrixSetId (str): Tile matrix set ID (default: "WebMercatorQuad")
+
+    Returns:
+        str: The Zarr tile layer URL, or None if the endpoint doesn't support Zarr.
+
+    Example:
+        >>> # Start local titiler-xarray server first
+        >>> endpoint = leafmap.run_titiler_xarray()
+        >>> url = "https://example.com/data.zarr"
+        >>> tile_url = zarr_tile(url, variable="temperature", titiler_endpoint=endpoint)
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    # Check for xarray-specific endpoint
+    if titiler_endpoint is None:
+        titiler_endpoint = os.environ.get("TITILER_XARRAY_ENDPOINT")
+
+    if titiler_endpoint is None:
+        titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+
+    kwargs["url"] = url
+
+    if variable is not None:
+        kwargs["variable"] = variable
+
+    if group is not None:
+        kwargs["group"] = group
+
+    kwargs["decode_times"] = str(decode_times).lower()
+
+    # Add time selection if time_index is specified
+    # This is required for datasets with a time dimension
+    if time_index is not None and "sel" not in kwargs:
+        kwargs["sel"] = f"time={time_index}"
+
+    if "palette" in kwargs:
+        kwargs["colormap_name"] = kwargs["palette"].lower()
+        del kwargs["palette"]
+
+    # Ensure colormap_name is lowercase (required by titiler)
+    if "colormap_name" in kwargs and kwargs["colormap_name"]:
+        kwargs["colormap_name"] = kwargs["colormap_name"].lower()
+
+    TileMatrixSetId = "WebMercatorQuad"
+    if "TileMatrixSetId" in kwargs:
+        TileMatrixSetId = kwargs["TileMatrixSetId"]
+        kwargs.pop("TileMatrixSetId")
+
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/md/{TileMatrixSetId}/tilejson.json",
+            params=kwargs,
+            timeout=30,
+        ).json()
+
+        # Check for various error conditions
+        if "detail" in r:
+            detail = r["detail"]
+            if detail == "Not Found":
+                print(
+                    "Error: The titiler endpoint does not support Zarr/xarray datasets.\n"
+                    "The '/md/' endpoint is not available. Please:\n"
+                    "  1. Use a titiler endpoint with titiler-xarray installed, or\n"
+                    "  2. Start a local titiler-xarray server with: leafmap.run_titiler_xarray()\n"
+                    "  3. Set TITILER_XARRAY_ENDPOINT environment variable"
+                )
+                return None
+            else:
+                # Handle validation errors or other API errors
+                print(f"Error from titiler endpoint: {detail}")
+                return None
+
+        if "tiles" not in r:
+            print(f"Unexpected response from titiler: {r}")
+            return None
+
+        tiles = r["tiles"][0]
+        if titiler_endpoint.startswith("https://") and tiles.startswith("http://"):
+            tiles = tiles.replace("http://", "https://")
+
+        # Convert 127.0.0.1 to localhost for Google Colab browser access
+        if "google.colab" in sys.modules and "127.0.0.1" in tiles:
+            tiles = tiles.replace("http://127.0.0.1", "https://localhost")
+
+        return tiles
+    except KeyError as e:
+        print(f"Error getting Zarr tile URL: missing key {e}")
+        return None
+    except Exception as e:
+        print(f"Error getting Zarr tile URL: {e}")
+        return None
+
+
+def zarr_info(
+    url: str,
+    variable: Optional[str] = None,
+    titiler_endpoint: Optional[str] = None,
+    group: Optional[str] = None,
+    decode_times: bool = False,
+    **kwargs,
+) -> dict:
+    """Get information about a Zarr dataset.
+
+    Args:
+        url (str): HTTP URL to a Zarr dataset.
+        variable (str, optional): The variable name. Required by titiler-xarray.
+            Defaults to None.
+        titiler_endpoint (str, optional): TiTiler endpoint that supports xarray/Zarr.
+            Defaults to "https://giswqs-titiler-endpoint.hf.space".
+        group (str, optional): The Zarr group path within the dataset.
+            Defaults to None.
+        decode_times (bool, optional): Whether to decode times in the dataset.
+            Defaults to False.
+        **kwargs: Additional arguments to pass to the titiler endpoint.
+
+    Returns:
+        dict: Information about the Zarr dataset including bounds, CRS, and variables.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    # Check for xarray-specific endpoint
+    if titiler_endpoint is None:
+        titiler_endpoint = os.environ.get("TITILER_XARRAY_ENDPOINT")
+
+    if titiler_endpoint is None:
+        titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+
+    params = {"url": url, "decode_times": str(decode_times).lower()}
+    if variable is not None:
+        params["variable"] = variable
+    if group is not None:
+        params["group"] = group
+    params.update(kwargs)
+
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/md/info",
+            params=params,
+            timeout=30,
+        ).json()
+        return r
+    except Exception as e:
+        print(f"Error getting Zarr info: {e}")
+        return None
+
+
+def zarr_bounds(
+    url: str,
+    variable: Optional[str] = None,
+    titiler_endpoint: Optional[str] = None,
+    group: Optional[str] = None,
+    decode_times: bool = False,
+    **kwargs,
+) -> list:
+    """Get the bounds of a Zarr dataset.
+
+    Args:
+        url (str): HTTP URL to a Zarr dataset.
+        variable (str, optional): The variable name. Defaults to None.
+        titiler_endpoint (str, optional): TiTiler endpoint that supports xarray/Zarr.
+            If not provided, the function first checks the ``TITILER_XARRAY_ENDPOINT``
+            environment variable; if that is not set, it falls back to the default
+            endpoint returned by :func:`check_titiler_endpoint`.
+        group (str, optional): The Zarr group path within the dataset.
+            Defaults to None.
+        decode_times (bool, optional): Whether to decode times in the dataset.
+            Defaults to False.
+        **kwargs: Additional arguments to pass to the titiler endpoint.
+
+    Returns:
+        list: Bounds as [minx, miny, maxx, maxy] in WGS84.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    # Check for xarray-specific endpoint
+    if titiler_endpoint is None:
+        titiler_endpoint = os.environ.get("TITILER_XARRAY_ENDPOINT")
+
+    if titiler_endpoint is None:
+        titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+
+    params = {"url": url, "decode_times": str(decode_times).lower()}
+    if variable is not None:
+        params["variable"] = variable
+    if group is not None:
+        params["group"] = group
+    params.update(kwargs)
+
+    try:
+        # Use /info endpoint since /bounds may not exist in titiler-xarray
+        r = requests.get(
+            f"{titiler_endpoint}/md/info",
+            params=params,
+            timeout=30,
+        ).json()
+        return r.get("bounds", None)
+    except Exception as e:
+        print(f"Error getting Zarr bounds: {e}")
+        return None
+
+
+def zarr_variables(
+    url: str,
+    titiler_endpoint: Optional[str] = None,
+    group: Optional[str] = None,
+    decode_times: bool = False,
+    **kwargs,
+) -> list:
+    """Get the list of variables from a Zarr dataset.
+
+    Args:
+        url (str): HTTP URL to a Zarr dataset.
+        titiler_endpoint (str, optional): TiTiler endpoint that supports xarray/Zarr.
+            Defaults to "https://giswqs-titiler-endpoint.hf.space".
+        group (str, optional): The Zarr group path within the dataset.
+            Defaults to None.
+        decode_times (bool, optional): Whether to decode times in the dataset.
+            Defaults to False.
+        **kwargs: Additional arguments to pass to the titiler endpoint.
+
+    Returns:
+        list: List of variable names in the Zarr dataset.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    # Check for xarray-specific endpoint
+    if titiler_endpoint is None:
+        titiler_endpoint = os.environ.get("TITILER_XARRAY_ENDPOINT")
+
+    if titiler_endpoint is None:
+        titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+
+    params = {"url": url, "decode_times": str(decode_times).lower()}
+    if group is not None:
+        params["group"] = group
+    params.update(kwargs)
+
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/md/variables",
+            params=params,
+            timeout=30,
+        ).json()
+        return r
+    except Exception as e:
+        print(f"Error getting Zarr variables: {e}")
+        return None
+
+
+def zarr_statistics(
+    url: str,
+    variable: Optional[str] = None,
+    titiler_endpoint: Optional[str] = None,
+    group: Optional[str] = None,
+    decode_times: bool = False,
+    **kwargs,
+) -> dict:
+    """Get statistics for a Zarr dataset variable.
+
+    Args:
+        url (str): HTTP URL to a Zarr dataset.
+        variable (str, optional): The variable name. Required for multi-variable datasets.
+        titiler_endpoint (str, optional): TiTiler endpoint that supports xarray/Zarr.
+            Defaults to "https://giswqs-titiler-endpoint.hf.space".
+        group (str, optional): The Zarr group path within the dataset.
+            Defaults to None.
+        decode_times (bool, optional): Whether to decode times in the dataset.
+            Defaults to False.
+        **kwargs: Additional arguments to pass to the titiler endpoint.
+
+    Returns:
+        dict: Statistics including min, max, mean, std, etc.
+    """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
+    # Check for xarray-specific endpoint
+    if titiler_endpoint is None:
+        titiler_endpoint = os.environ.get("TITILER_XARRAY_ENDPOINT")
+
+    if titiler_endpoint is None:
+        titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+    params = {"url": url, "decode_times": str(decode_times).lower()}
+    if variable is not None:
+        params["variable"] = variable
+    if group is not None:
+        params["group"] = group
+    params.update(kwargs)
+
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/md/statistics",
+            params=params,
+            timeout=30,
+        ).json()
+        return r
+    except Exception as e:
+        print(f"Error getting Zarr statistics: {e}")
+        return None
+
+
+def run_titiler_xarray(
+    show_logs: bool = False,
+    start_port: int = 8000,
+    max_port: int = 8100,
+) -> str:
+    """Start a local titiler-xarray server for Zarr/NetCDF visualization.
+
+    This function starts a local titiler-xarray server that enables dynamic
+    tile serving from Zarr and NetCDF datasets. The server runs in the background
+    and will be automatically stopped when the Python kernel is terminated.
+
+    Requirements:
+        - titiler.xarray package: pip install "titiler.xarray[full]"
+        - uvicorn: pip install uvicorn
+
+    Args:
+        show_logs (bool): If True, stream server logs to notebook output.
+            Defaults to False.
+        start_port (int): First port to try. Defaults to 8000.
+        max_port (int): Last port to try (exclusive). Defaults to 8100.
+
+    Returns:
+        str: The endpoint URL of the running titiler-xarray server.
+
+    Example:
+        >>> endpoint = leafmap.run_titiler_xarray()
+        >>> m = leafmap.Map()
+        >>> m.add_zarr(url, variable="temperature", titiler_endpoint=endpoint)
+    """
+    import subprocess
+    import socket
+    import atexit
+    import signal
+    import time
+    import threading
+
+    def find_free_port(start, end):
+        for port in range(start, end):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("127.0.0.1", port))
+                    return port
+                except OSError:
+                    continue
+        raise RuntimeError(f"No free port found between {start} and {end}")
+
+    port = find_free_port(start_port, max_port)
+
+    # Create a simple titiler-xarray app inline
+    app_code = """
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from titiler.xarray.factory import TilerFactory
+from titiler.xarray.extensions import VariablesExtension
+
+app = FastAPI(
+    title="TiTiler-XArray",
+    description="TiTiler application for Zarr/NetCDF datasets",
+)
+
+# Add CORS middleware to allow requests from any origin
+# This is necessary for Jupyter notebooks and VSCode webviews
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+md = TilerFactory(
+    router_prefix="/md",
+    extensions=[VariablesExtension()],
+)
+app.include_router(md.router, prefix="/md", tags=["Multi Dimensional"])
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+"""
+
+    # Write the app to a temporary file
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(app_code)
+        app_file = f.name
+
+    module_name = os.path.splitext(os.path.basename(app_file))[0]
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        f"{module_name}:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--log-level",
+        "info",
+    ]
+
+    # Change to the temp directory so uvicorn can find the module
+    cwd = os.path.dirname(app_file)
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE if show_logs else subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+        cwd=cwd,
+    )
+
+    # Optionally stream logs in a background thread
+    if show_logs:
+
+        def stream_logs():
+            for line in iter(proc.stdout.readline, b""):
+                print(line.decode().rstrip())
+
+        threading.Thread(target=stream_logs, daemon=True).start()
+
+    # Wait a bit for startup
+    time.sleep(3)
+
+    # Check if the server is running
+    endpoint = f"http://127.0.0.1:{port}"
+
+    try:
+        response = requests.get(f"{endpoint}/health", timeout=5)
+        if response.status_code != 200:
+            raise RuntimeError("Server health check failed")
+    except Exception as e:
+        proc.kill()
+        raise RuntimeError(
+            f"Failed to start titiler-xarray server: {e}\n"
+            "Make sure titiler.xarray is installed: pip install 'titiler.xarray[full]'"
+        )
+
+    if "google.colab" in sys.modules:
+        print(f"🚀 TiTiler-XArray is running at {endpoint} (Google Colab mode)")
+    else:
+        print(f"🚀 TiTiler-XArray is running at {endpoint}")
+
+    # Register cleanup on kernel shutdown
+    def stop_server():
+        if proc.poll() is None:
+            print("🛑 Stopping TiTiler-XArray...")
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        # Clean up temp file
+        try:
+            os.unlink(app_file)
+        except Exception as e:
+            # Best-effort cleanup; ignore failures but log for debugging
+            print(
+                f"Warning: failed to remove temporary TiTiler-XArray app file {app_file}: {e}"
+            )
+
+    atexit.register(stop_server)
+
+    os.environ["TITILER_XARRAY_ENDPOINT"] = endpoint
+
+    return endpoint

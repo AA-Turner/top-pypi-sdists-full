@@ -7,6 +7,7 @@ import os
 import random
 import re
 import struct
+import typing
 import uuid
 from collections import namedtuple
 from dataclasses import dataclass
@@ -232,7 +233,10 @@ class KmsCryptoKey:
 
         if key_spec.startswith("RSA"):
             key_size = RSA_CRYPTO_KEY_LENGTHS.get(key_spec)
-            key = rsa.generate_private_key(public_exponent=65537, key_size=key_size)
+            if key_material:
+                key = crypto_serialization.load_der_private_key(key_material, password=None)
+            else:
+                key = rsa.generate_private_key(public_exponent=65537, key_size=key_size)
         elif key_spec.startswith("ECC"):
             curve = ECC_CURVES.get(key_spec)
             if key_material:
@@ -289,8 +293,9 @@ class KmsKey:
     policy: str
     is_key_rotation_enabled: bool
     rotation_period_in_days: int
-    next_rotation_date: datetime.datetime
-    previous_keys = [str]
+    next_rotation_date: datetime.datetime | None
+    previous_keys: list[str]
+    _internal_key_id: uuid.UUID
 
     def __init__(
         self,
@@ -636,7 +641,8 @@ class KmsKey:
         # https://docs.aws.amazon.com/kms/latest/APIReference/API_TagResource.html
         # "To edit a tag, specify an existing tag key and a new tag value."
         for i, tag in enumerate(tags, start=1):
-            validate_tag(i, tag)
+            if tag.get("TagKey") != TAG_KEY_CUSTOM_KEY_MATERIAL:
+                validate_tag(i, tag)
             self.tags[tag.get("TagKey")] = tag.get("TagValue")
 
     def schedule_key_deletion(self, pending_window_in_days: int) -> None:
@@ -775,7 +781,7 @@ class KmsGrant:
     # keys. But, based on our understanding of AWS documentation for CreateGrant, ListGrants operations etc,
     # AWS has some set of fields for grants like it has for keys. So we are going to call them `metadata` here for
     # consistency.
-    metadata: dict
+    metadata: dict[str, typing.Any]  # dumped to JSON for persistence serialization
     # Tokens are not a part of metadata, as their use is more limited and specific than for the rest of the
     # metadata: https://docs.aws.amazon.com/kms/latest/developerguide/grant-manage.html#using-grant-token
     # Tokens are used to refer to a grant in a short period right after the grant gets created. Normally it might
@@ -820,18 +826,19 @@ class KmsGrant:
 class KmsAlias:
     # Like with grants (see comment for KmsGrant), there is no mention of some specific object modeling metadata
     # for KMS aliases. But there is data that is some metadata, so we model it in a way similar to KeyMetadata for keys.
-    metadata: dict
+    metadata: dict[str, typing.Any]  # dumped to JSON for persistence serialization
 
     def __init__(
         self,
-        create_alias_request: CreateAliasRequest = None,
-        account_id: str = None,
-        region: str = None,
+        create_alias_request: CreateAliasRequest | None = None,
+        account_id: str | None = None,
+        region: str | None = None,
     ):
         create_alias_request = create_alias_request or CreateAliasRequest()
-        self.metadata = {}
-        self.metadata["AliasName"] = create_alias_request.get("AliasName")
-        self.metadata["TargetKeyId"] = create_alias_request.get("TargetKeyId")
+        self.metadata = {
+            "AliasName": create_alias_request.get("AliasName"),
+            "TargetKeyId": create_alias_request.get("TargetKeyId"),
+        }
         self.update_date_of_last_update()
         self.metadata["CreationDate"] = self.metadata["LastUpdateDate"]
         self.metadata["AliasArn"] = kms_alias_arn(self.metadata["AliasName"], account_id, region)
@@ -856,10 +863,8 @@ class KmsStore(BaseStore):
     # "Cross-account use: Yes. You can retire a grant on a KMS key in a different AWS account."
 
     # maps grant ids to grants
+    # TODO: KmsKey might hold the grant
     grants: dict[str, KmsGrant] = LocalAttribute(default=dict)
-
-    # maps from (grant names (used for idempotency), key id) to grant ids
-    grant_names: dict[tuple[str, str], str] = LocalAttribute(default=dict)
 
     # maps grant tokens to grant ids
     grant_tokens: dict[str, str] = LocalAttribute(default=dict)

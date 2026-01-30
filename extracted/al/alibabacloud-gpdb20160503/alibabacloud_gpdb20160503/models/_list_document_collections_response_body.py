@@ -121,6 +121,8 @@ class ListDocumentCollectionsResponseBodyItemsCollectionList(DaraModel):
         metadata: str = None,
         metrics: str = None,
         parser: str = None,
+        sparse_retrieval_fields: str = None,
+        support_sparse: bool = None,
     ):
         # The name of the document collection.
         self.collection_name = collection_name
@@ -136,6 +138,8 @@ class ListDocumentCollectionsResponseBodyItemsCollectionList(DaraModel):
         self.metrics = metrics
         # The analyzer that is used for full-text search.
         self.parser = parser
+        self.sparse_retrieval_fields = sparse_retrieval_fields
+        self.support_sparse = support_sparse
 
     def validate(self):
         pass
@@ -166,6 +170,12 @@ class ListDocumentCollectionsResponseBodyItemsCollectionList(DaraModel):
         if self.parser is not None:
             result['Parser'] = self.parser
 
+        if self.sparse_retrieval_fields is not None:
+            result['SparseRetrievalFields'] = self.sparse_retrieval_fields
+
+        if self.support_sparse is not None:
+            result['SupportSparse'] = self.support_sparse
+
         return result
 
     def from_map(self, m: dict = None):
@@ -190,6 +200,12 @@ class ListDocumentCollectionsResponseBodyItemsCollectionList(DaraModel):
 
         if m.get('Parser') is not None:
             self.parser = m.get('Parser')
+
+        if m.get('SparseRetrievalFields') is not None:
+            self.sparse_retrieval_fields = m.get('SparseRetrievalFields')
+
+        if m.get('SupportSparse') is not None:
+            self.support_sparse = m.get('SupportSparse')
 
         return self
 

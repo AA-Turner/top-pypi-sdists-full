@@ -8,6 +8,7 @@ import textwrap
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Unpack
+from unittest.mock import MagicMock
 
 import botocore.auth
 import botocore.config
@@ -33,7 +34,7 @@ from localstack.services.stores import (
     LocalAttribute,
 )
 from localstack.testing.aws.cloudformation_utils import load_template_file, render_template
-from localstack.testing.aws.util import get_lambda_logs, is_aws_cloud
+from localstack.testing.aws.util import get_lambda_logs, is_aws_cloud, wait_for_user
 from localstack.testing.config import (
     SECONDARY_TEST_AWS_ACCOUNT_ID,
     SECONDARY_TEST_AWS_REGION_NAME,
@@ -1547,8 +1548,10 @@ def create_event_source_mapping(aws_client):
     for uuid in uuids:
         try:
             aws_client.lambda_.delete_event_source_mapping(UUID=uuid)
-        except Exception:
-            LOG.debug("Unable to delete event source mapping %s in cleanup", uuid)
+        except aws_client.lambda_.exceptions.ResourceNotFoundException:
+            pass
+        except Exception as ex:
+            LOG.debug("Unable to delete event source mapping %s in cleanup: %s", uuid, ex)
 
 
 @pytest.fixture
@@ -2133,8 +2136,28 @@ def cleanups():
     for cleanup_callback in cleanup_fns[::-1]:
         try:
             cleanup_callback()
+        except ClientError as e:
+            http_code = e.response["ResponseMetadata"]["HTTPStatusCode"]
+            # Covers non-standardized error codes such as NotFoundException, NoSuchEntity (IAM), NoSuchBucket (S3), etc
+            if http_code == 404:
+                LOG.warning(
+                    "Failed to execute cleanup because a resource was not found. "
+                    "This cleanup might be unnecessary. %s",
+                    str(e),
+                    exc_info=e,
+                )
+            else:
+                LOG.warning(
+                    "Failed to execute cleanup due to ClientError: %s",
+                    str(e),
+                    exc_info=e,
+                )
         except Exception as e:
-            LOG.warning("Failed to execute cleanup", exc_info=e)
+            LOG.warning(
+                "Failed to execute cleanup due to unexpected error: %s",
+                str(e),
+                exc_info=e,
+            )
 
 
 @pytest.fixture(scope="session")
@@ -2394,13 +2417,15 @@ def create_role_with_policy(create_role, create_policy_generated_document, aws_c
 
 
 @pytest.fixture
-def create_user_with_policy(create_policy_generated_document, create_user, aws_client):
-    def _create_user_with_policy(effect, actions, resource=None):
+def create_user_with_policy(create_policy_generated_document, create_user, aws_client, region_name):
+    def _create_user_with_policy(effect, actions, resource=None, user_name=None):
         policy_arn = create_policy_generated_document(effect, actions, resource=resource)
-        username = f"user-{short_uid()}"
+        username = user_name or f"user-{short_uid()}"
         create_user(UserName=username)
         aws_client.iam.attach_user_policy(UserName=username, PolicyArn=policy_arn)
         keys = aws_client.iam.create_access_key(UserName=username)["AccessKey"]
+
+        wait_for_user(keys=keys, region_name=region_name)
         return username, keys
 
     return _create_user_with_policy
@@ -2783,3 +2808,13 @@ def clean_up(
             call_safe(_delete_log_group)
 
     yield _clean_up
+
+
+@pytest.fixture
+def aws_catalog_mock(monkeypatch):
+    def _mock_catalog(path):
+        catalog = MagicMock()
+        monkeypatch.setattr(path, lambda: catalog)
+        return catalog
+
+    return _mock_catalog

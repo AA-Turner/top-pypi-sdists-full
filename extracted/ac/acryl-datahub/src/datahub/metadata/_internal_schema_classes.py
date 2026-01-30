@@ -17230,7 +17230,7 @@ class DocumentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'documentKey'
-    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent']}
+    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DocumentKey")
 
     def __init__(self,

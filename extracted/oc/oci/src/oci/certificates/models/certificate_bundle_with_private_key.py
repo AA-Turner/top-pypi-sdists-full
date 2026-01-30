@@ -64,7 +64,7 @@ class CertificateBundleWithPrivateKey(CertificateBundle):
 
         :param stages:
             The value to assign to the stages property of this CertificateBundleWithPrivateKey.
-            Allowed values for items in this list are: "CURRENT", "PENDING", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED"
+            Allowed values for items in this list are: "CURRENT", "PENDING", "PENDING_ACTIVATION", "LATEST", "PREVIOUS", "DEPRECATED", "FAILED"
         :type stages: list[str]
 
         :param revocation_status:

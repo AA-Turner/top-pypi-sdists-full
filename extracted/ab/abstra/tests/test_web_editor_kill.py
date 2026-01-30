@@ -33,9 +33,11 @@ class TestWebEditorKill(unittest.TestCase):
         execution_id = "test-exec-id"
         repo.stop_execution(execution_id)
 
-        # Assertions
-        mock_channel.queue_declare.assert_called_with(
-            queue="web_editor_control", durable=True
+        # Assertions - should declare fanout exchange (not queue)
+        mock_channel.exchange_declare.assert_called_with(
+            exchange="web_editor_control",
+            exchange_type="fanout",
+            durable=True,
         )
 
         expected_payload = ControlMessage(
@@ -50,8 +52,10 @@ class TestWebEditorKill(unittest.TestCase):
         published_body = json.loads(call_args.kwargs["body"])
         self.assertEqual(published_body, expected_payload.dump())
 
-        # Check routing key
-        self.assertEqual(call_args.kwargs["routing_key"], "web_editor_control")
+        # Check routing key is empty (fanout ignores routing key)
+        self.assertEqual(call_args.kwargs["routing_key"], "")
+        # Check exchange is used
+        self.assertEqual(call_args.kwargs["exchange"], "web_editor_control")
 
     @patch("abstra_internals.controllers.execution.consumer.Thread")
     def test_consumer_controller_handles_stop_message(self, mock_thread):

@@ -4,9 +4,7 @@ from yookassa.domain.models.amount import Amount
 from yookassa.domain.models.deal import PayoutDealInfo
 from yookassa.domain.models.payout_data.payout_destination import PayoutDestination
 from yookassa.domain.models.payout_data.payout_destination_factory import PayoutDestinationFactory
-from yookassa.domain.models.payout_data.request.income_receipt import IncomeReceiptData
 from yookassa.domain.models.personal_data import PayoutPersonalData
-from yookassa.domain.models.self_employed import PayoutSelfEmployed
 
 DESCRIPTION_MAX_LENGTH = 128
 
@@ -193,51 +191,31 @@ class PayoutRequest(RequestObject):
     def self_employed(self):
         """
         Возвращает self_employed модели PayoutRequest.
-
-        :return: self_employed модели PayoutRequest.
-        :rtype: PayoutSelfEmployed
+        Больше не используется.
         """
-        return self.__self_employed
+        return None
 
     @self_employed.setter
     def self_employed(self, value):
         """
         Устанавливает self_employed модели PayoutRequest.
-
-        :param value: self_employed модели PayoutRequest.
-        :type value: PayoutSelfEmployed
+        Больше не используется.
         """
-        if isinstance(value, dict):
-            self.__self_employed = PayoutSelfEmployed(value)
-        elif isinstance(value, PayoutSelfEmployed):
-            self.__self_employed = value
-        else:
-            raise TypeError('Invalid self_employed data type in PayoutRequest.self_employed')
 
     @property
     def receipt_data(self):
         """
         Возвращает receipt_data модели PayoutRequest.
-
-        :return: receipt_data модели PayoutRequest.
-        :rtype: IncomeReceiptData
+        Больше не используется.
         """
-        return self.__receipt_data
+        return None
 
     @receipt_data.setter
     def receipt_data(self, value):
         """
         Устанавливает receipt_data модели PayoutRequest.
-
-        :param value: receipt_data модели PayoutRequest.
-        :type value: IncomeReceiptData
+        Больше не используется.
         """
-        if isinstance(value, dict):
-            self.__receipt_data = IncomeReceiptData(value)
-        elif isinstance(value, IncomeReceiptData):
-            self.__receipt_data = value
-        else:
-            raise TypeError('Invalid receipt_data data type in PayoutRequest.receipt_data')
 
     @property
     def personal_data(self):

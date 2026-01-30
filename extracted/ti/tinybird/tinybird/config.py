@@ -137,7 +137,3 @@ class FeatureFlags:
     @classmethod
     def is_localhost(cls) -> bool:
         return "SET_LOCALHOST" in environ
-
-    @classmethod
-    def enable_snowflake_connector_command(cls) -> bool:
-        return "ENABLE_SNOWFLAKE_CONNECTOR_COMMAND" in environ

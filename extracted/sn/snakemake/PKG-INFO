@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snakemake
-Version: 9.15.0
+Version: 9.16.2
 Summary: Workflow management system to create reproducible and scalable data analyses
 Author-email: Johannes Köster <johannes.koester@uni-due.de>
 License-Expression: MIT
@@ -29,7 +29,7 @@ Requires-Dist: humanfriendly
 Requires-Dist: jinja2<4.0,>=3.0
 Requires-Dist: jsonschema
 Requires-Dist: nbformat
-Requires-Dist: packaging>=24.0
+Requires-Dist: packaging<26,>=24.0
 Requires-Dist: psutil
 Requires-Dist: pulp<3.4,>=2.3.1
 Requires-Dist: pyyaml

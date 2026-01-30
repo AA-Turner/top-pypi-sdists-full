@@ -6,40 +6,41 @@ import email.message
 import socket
 import ssl
 from collections.abc import Sequence
-from typing import Optional, Union, cast
+from typing import cast
 
 from .response import SMTPResponse
 from .smtp import DEFAULT_TIMEOUT, SMTP
-from .typing import SocketPathType
+from .typing import SMTPTokenGenerator, SocketPathType
 
 
 __all__ = ("send",)
 
 
 async def send(
-    message: Union[email.message.EmailMessage, email.message.Message, str, bytes],
+    message: email.message.EmailMessage | email.message.Message | str | bytes,
     /,
     *,
-    sender: Optional[str] = None,
-    recipients: Optional[Union[str, Sequence[str]]] = None,
-    mail_options: Optional[Sequence[str]] = None,
-    rcpt_options: Optional[Sequence[str]] = None,
-    hostname: Optional[str] = "localhost",
-    port: Optional[int] = None,
-    username: Optional[Union[str, bytes]] = None,
-    password: Optional[Union[str, bytes]] = None,
-    local_hostname: Optional[str] = None,
-    source_address: Optional[tuple[str, int]] = None,
-    timeout: Optional[float] = DEFAULT_TIMEOUT,
+    sender: str | None = None,
+    recipients: str | Sequence[str] | None = None,
+    mail_options: Sequence[str] | None = None,
+    rcpt_options: Sequence[str] | None = None,
+    hostname: str | None = "localhost",
+    port: int | None = None,
+    username: str | bytes | None = None,
+    password: str | bytes | None = None,
+    oauth_token_generator: SMTPTokenGenerator | None = None,
+    local_hostname: str | None = None,
+    source_address: tuple[str, int] | None = None,
+    timeout: float | None = DEFAULT_TIMEOUT,
     use_tls: bool = False,
-    start_tls: Optional[bool] = None,
+    start_tls: bool | None = None,
     validate_certs: bool = True,
-    client_cert: Optional[str] = None,
-    client_key: Optional[str] = None,
-    tls_context: Optional[ssl.SSLContext] = None,
-    cert_bundle: Optional[str] = None,
-    socket_path: Optional[SocketPathType] = None,
-    sock: Optional[socket.socket] = None,
+    client_cert: str | None = None,
+    client_key: str | None = None,
+    tls_context: ssl.SSLContext | None = None,
+    cert_bundle: str | None = None,
+    socket_path: SocketPathType | None = None,
+    sock: socket.socket | None = None,
 ) -> tuple[dict[str, SMTPResponse], str]:
     """
     Send an email message. On await, connects to the SMTP server using the details
@@ -59,7 +60,10 @@ async def send(
     :keyword port: Server port. Defaults ``465`` if ``use_tls`` is ``True``,
         ``587`` if ``start_tls`` is ``True``, or ``25`` otherwise.
     :keyword username:  Username to login as after connect.
-    :keyword password:  Password for login after connect.
+    :keyword password:  Password for login after connect. Mutually exclusive with
+        ``oauth_token_generator``.
+    :keyword oauth_token_generator: An async callable that returns an OAuth2 access
+        token for XOAUTH2 authentication. Mutually exclusive with ``password``.
     :keyword local_hostname: The hostname of the client.  If specified, used as the
         FQDN of the local host in the HELO/EHLO command. Otherwise, the result of
         :func:`socket.getfqdn`.
@@ -100,7 +104,7 @@ async def send(
             raise ValueError("Sender must be provided with raw messages.")
 
     sender = cast(str, sender)
-    recipients = cast(Union[str, Sequence[str]], recipients)
+    recipients = cast(str | Sequence[str], recipients)
 
     client = SMTP(
         hostname=hostname,
@@ -119,6 +123,7 @@ async def send(
         sock=sock,
         username=username,
         password=password,
+        oauth_token_generator=oauth_token_generator,
     )
 
     async with client:

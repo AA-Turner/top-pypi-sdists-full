@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: zypper
 author:
@@ -253,8 +252,8 @@ EXAMPLES = r"""
 """
 
 import os.path
-import xml
 import re
+import xml
 from xml.dom.minidom import parseString as parseXML
 
 # import module snippets
@@ -577,7 +576,7 @@ def repo_refresh(m):
 
 
 def get_fs_type_and_readonly_state(mount_point):
-    with open("/proc/mounts", "r") as file:
+    with open("/proc/mounts") as file:
         for line in file.readlines():
             fields = line.split()
             path = fields[1]

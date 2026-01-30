@@ -471,7 +471,7 @@ def shellenviron(environ=None):
             return b'1'
         return pycompat.bytestr(val)
 
-    env = dict(encoding.environ)
+    env = dict(encoding.environ.items())
     if environ:
         env.update((k, py2shell(v)) for k, v in environ.items())
     env[b'HG'] = hgexecutable()
@@ -802,3 +802,37 @@ else:
             returncode = p.wait
             if record_wait is not None:
                 record_wait(returncode)
+
+
+def kill_self():
+    """Kill the current process with SIGKILL or equivalent."""
+    kill(os.getpid())
+
+
+def _kill_nt(pid: int, exit_code: int):
+    env = dict(encoding.environ.items())
+    env[b"DAEMON_EXITCODE"] = b"%d" % exit_code
+
+    # Simulate the message written to stderr for this process on non-Windows
+    # platforms, for test consistency.
+    print("Killed!", file=sys.stderr)
+
+    subprocess.run(
+        [
+            encoding.environ[b"PYTHON"],
+            b"%s/killdaemons.py"
+            % encoding.environ[b'RUNTESTDIR_FORWARD_SLASH'],
+            "-",
+        ],
+        env=tonativeenv(env),
+        input=b"%d\n" % pid,
+    )
+
+
+def kill(pid: int):
+    """Kill the process with the given PID with SIGKILL or equivalent."""
+    if pycompat.iswindows:
+        exit_code = 128 + 9
+        _kill_nt(pid, exit_code)
+    else:
+        os.kill(pid, signal.SIGKILL)

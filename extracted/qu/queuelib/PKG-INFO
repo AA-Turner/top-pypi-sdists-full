@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: queuelib
-Version: 1.8.0
+Version: 1.9.0
 Summary: Collection of persistent (disk-based) and non-persistent (memory-based) queues
 Project-URL: Homepage, https://github.com/scrapy/queuelib
 Project-URL: Source, https://github.com/scrapy/queuelib
 Project-URL: Issues, https://github.com/scrapy/queuelib/issues
 Project-URL: Docs, https://github.com/scrapy/queuelib/blob/master/README.rst
-Project-URL: ReleaseNotes, https://github.com/scrapy/queuelib/blob/master/NEWS
-Project-URL: Changelog, https://github.com/scrapy/queuelib/commits/master/
+Project-URL: Release notes, https://github.com/scrapy/queuelib/blob/master/NEWS
 Author-email: Scrapy project <info@scrapy.org>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
@@ -15,14 +14,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 
 ========
@@ -51,7 +50,7 @@ sorted by priority and queues that are emptied in a round-robin_ fashion.
 
 .. note:: Queuelib collections are not thread-safe.
 
-Queuelib supports Python 3.9+ and has no dependencies.
+Queuelib supports Python 3.10+ and has no dependencies.
 
 .. _queues: https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)
 .. _round-robin: https://en.wikipedia.org/wiki/Round-robin_scheduling

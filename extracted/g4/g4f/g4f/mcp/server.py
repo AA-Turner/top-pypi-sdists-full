@@ -10,13 +10,21 @@ The server exposes tools for:
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 import json
 import asyncio
+import hashlib
+from email.utils import formatdate
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass
+from urllib.parse import unquote_plus
 
 from ..debug import enable_logging
+from ..cookies import read_cookie_files
+from ..image import EXTENSIONS_MAP
+from ..image.copy_images import get_media_dir, copy_media, get_source_url
 
 from .tools import MarkItDownTool, TextToAudioTool, WebSearchTool, WebScrapeTool, ImageGenerationTool
 from .tools import WebSearchTool, WebScrapeTool, ImageGenerationTool
@@ -214,6 +222,7 @@ class MCPServer:
             sys.exit(1)
 
         enable_logging()
+        read_cookie_files()
         
         async def handle_mcp_request(request: web.Request) -> web.Response:
             nonlocal origin
@@ -273,17 +282,120 @@ class MCPServer:
                 "server": self.server_info
             })
         
+        async def handle_media(request: web.Request) -> web.Response:
+            """Serve media files from generated_media directory"""
+            filename = request.match_info.get('filename', '')
+            if not filename:
+                return web.Response(status=404, text="File not found")
+            
+            def get_timestamp(s):
+                m = re.match("^[0-9]+", s)
+                return int(m.group(0)) if m else 0
+            
+            target = os.path.join(get_media_dir(), os.path.basename(filename))
+            
+            # Try URL-decoded filename if not found
+            if not os.path.isfile(target):
+                other_name = os.path.join(get_media_dir(), os.path.basename(unquote_plus(filename)))
+                if os.path.isfile(other_name):
+                    target = other_name
+            
+            # Get file extension and mime type
+            ext = os.path.splitext(filename)[1][1:].lower()
+            mime_type = EXTENSIONS_MAP.get(ext, "application/octet-stream")
+            
+            # Try to fetch from backend if file doesn't exist
+            if not os.path.isfile(target) and mime_type != "application/octet-stream":
+                source_url = get_source_url(str(request.query_string))
+                ssl = None
+                if source_url is not None:
+                    try:
+                        await copy_media([source_url], target=target, ssl=ssl)
+                        sys.stderr.write(f"File copied from {source_url}\n")
+                    except Exception as e:
+                        sys.stderr.write(f"Download failed: {source_url} - {e}\n")
+                        raise web.HTTPFound(location=source_url)
+            
+            if not os.path.isfile(target):
+                return web.Response(status=404, text="File not found")
+            
+            # Build response headers
+            stat_result = os.stat(target)
+            headers = {
+                "cache-control": "public, max-age=31536000",
+                "last-modified": formatdate(get_timestamp(filename), usegmt=True),
+                "etag": f'"{hashlib.md5(filename.encode()).hexdigest()}"',
+                "content-length": str(stat_result.st_size),
+                "content-type": mime_type,
+                "access-control-allow-origin": "*",
+            }
+            
+            # Check for conditional request
+            if_none_match = request.headers.get("if-none-match")
+            if if_none_match:
+                etag = headers["etag"]
+                if etag in [tag.strip(" W/") for tag in if_none_match.split(",")]:
+                    return web.Response(status=304, headers=headers)
+            
+            # Serve the file
+            return web.FileResponse(target, headers=headers)
+        
+        async def handle_synthesize(request: web.Request) -> web.Response:
+            """Handle synthesize requests for text-to-speech"""
+            provider_name = request.match_info.get('provider', '')
+            if not provider_name:
+                return web.Response(status=400, text="Provider not specified")
+            
+            try:
+                from ..Provider import ProviderUtils
+                provider_handler = ProviderUtils.convert.get(provider_name)
+                if provider_handler is None:
+                    return web.Response(status=404, text=f"Provider not found: {provider_name}")
+            except Exception as e:
+                return web.Response(status=404, text=f"Provider not found: {provider_name}")
+            
+            if not hasattr(provider_handler, "synthesize"):
+                return web.Response(status=500, text=f"Provider doesn't support synthesize: {provider_name}")
+            
+            # Get query parameters
+            params = dict(request.query)
+            
+            try:
+                # Call the synthesize method
+                response_data = provider_handler.synthesize(params)
+                
+                # Handle async generator
+                async def generate():
+                    async for chunk in response_data:
+                        yield chunk
+                
+                content_type = getattr(provider_handler, "synthesize_content_type", "application/octet-stream")
+                return web.Response(
+                    body=b"".join([chunk async for chunk in generate()]),
+                    content_type=content_type,
+                    headers={
+                        "cache-control": "max-age=604800",
+                        "access-control-allow-origin": "*",
+                    }
+                )
+            except Exception as e:
+                sys.stderr.write(f"Synthesize error: {e}\n")
+                return web.Response(status=500, text=f"Synthesize error: {str(e)}")
+        
         # Create aiohttp application
         app = web.Application()
         app.router.add_options('/mcp', lambda request: web.Response(headers={"access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "Content-Type"}))
         app.router.add_post('/mcp', handle_mcp_request)
         app.router.add_get('/health', handle_health)
+        app.router.add_get('/media/{filename:.*}', handle_media)
+        app.router.add_get('/backend-api/v2/synthesize/{provider}', handle_synthesize)
         
         # Start server
         sys.stderr.write(f"Starting {self.server_info['name']} v{self.server_info['version']} (HTTP mode)\n")
         sys.stderr.write(f"Listening on http://{host}:{port}\n")
         sys.stderr.write(f"MCP endpoint: http://{host}:{port}/mcp\n")
         sys.stderr.write(f"Health check: http://{host}:{port}/health\n")
+        sys.stderr.write(f"Media files: http://{host}:{port}/media/{{filename}}\n")
         sys.stderr.flush()
         
         runner = web.AppRunner(app)

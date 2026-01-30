@@ -2,8 +2,7 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 from __future__ import annotations
@@ -505,6 +504,9 @@ def sum(
         If set to True, the reduced axes are left in the result
         as dimensions with size one. With this option, the result will broadcast
         correctly against the input array.
+    fp_accuracy: :ref:`blosc2.FPAccuracy`, optional
+        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
+        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments supported by the :func:`empty` constructor.
 
@@ -600,6 +602,9 @@ def std(
         If set to True, the reduced axes are left in the result as
         dimensions with size one. This ensures that the result will broadcast correctly
         against the input array.
+    fp_accuracy: :ref:`blosc2.FPAccuracy`, optional
+        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
+        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Additional keyword arguments that are supported by the :func:`empty` constructor.
 
@@ -732,6 +737,9 @@ def min(
         If set to True, the axes which are reduced are left in the result as
         dimensions with size one. With this option, the result will broadcast correctly
         against the input array.
+    fp_accuracy: :ref:`blosc2.FPAccuracy`, optional
+        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
+        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
     kwargs: dict, optional
         Keyword arguments that are supported by the :func:`empty` constructor.
 
@@ -863,6 +871,9 @@ def argmin(
 
     keepdims: bool
         If True, reduced axis included in the result as singleton dimension. Otherwise, axis not included in the result. Default: False.
+    fp_accuracy: :ref:`blosc2.FPAccuracy`, optional
+        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
+        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
 
     Returns
     -------
@@ -890,6 +901,9 @@ def argmax(
 
     keepdims: bool
         If True, reduced axis included in the result as singleton dimension. Otherwise, axis not included in the result. Default: False.
+    fp_accuracy: :ref:`blosc2.FPAccuracy`, optional
+        Specifies the floating-point accuracy for reductions on :ref:`LazyExpr`.
+        Passed to :func:`LazyExpr.compute` when :paramref:`ndarr` is a LazyExpr.
 
     Returns
     -------
@@ -3773,7 +3787,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
     @property
     def size(self) -> int:
-        """The size (in bytes) for this container."""
+        """The size (in elements) for this container."""
         return super().size
 
     @property
@@ -4013,7 +4027,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
                 new_shape = sel_idx.newshape(out.shape)
                 out[sel_idx.raw] = chunk[sub_idx].reshape(new_shape)
             else:
-                chunk[sub_idx] = value if np.isscalar(value) else value[sel_idx]
+                chunk[sub_idx] = value if np.isscalar(value) else value[sel_idx.raw]
                 out = super().set_slice((start, stop), chunk)
         return out
 

@@ -21,6 +21,7 @@ from uipath.core.guardrails import (
 )
 
 from uipath.platform.connections import Connection
+from uipath.platform.documents import ActionPriority
 from uipath.platform.guardrails import (
     BuiltInValidatorGuardrail,
 )
@@ -213,6 +214,7 @@ class BaseAgentResourceConfig(BaseCfg):
 
     name: str
     description: str
+    is_enabled: bool = Field(default=True, alias="isEnabled")
     # NOTE: this is the union discriminator; don't attach validators here.
     resource_type: Literal[
         AgentResourceType.TOOL,
@@ -292,7 +294,6 @@ class AgentContextResourceConfig(BaseAgentResourceConfig):
     folder_path: str = Field(alias="folderPath")
     index_name: str = Field(alias="indexName")
     settings: AgentContextSettings = Field(..., description="Context settings")
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
 
 
 class AgentMcpTool(BaseCfg):
@@ -316,7 +317,6 @@ class AgentMcpResourceConfig(BaseAgentResourceConfig):
     folder_path: str = Field(alias="folderPath")
     slug: str = Field(..., alias="slug")
     available_tools: List[AgentMcpTool] = Field(..., alias="availableTools")
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
 
 
 def _normalize_recipient_type(recipient: Any) -> Any:
@@ -376,13 +376,79 @@ AgentEscalationRecipient = Annotated[
 ]
 
 
+class TaskTitleType(str, Enum):
+    """Task title type enumeration."""
+
+    DYNAMIC = "dynamic"
+    TEXT_BUILDER = "textBuilder"
+
+
+class BaseTaskTitle(BaseCfg):
+    """Base class for task titles."""
+
+    type: Union[TaskTitleType, str] = Field(..., alias="type")
+
+
+class DynamicTaskTitle(BaseTaskTitle):
+    """Dynamic task title with argument path."""
+
+    type: Literal[TaskTitleType.DYNAMIC] = Field(..., alias="type")
+    argument_path: str = Field(..., alias="argumentPath")
+
+
+class TextBuilderTaskTitle(BaseTaskTitle):
+    """Text builder task title with tokens."""
+
+    type: Literal[TaskTitleType.TEXT_BUILDER] = Field(..., alias="type")
+    tokens: List[TextToken]
+
+
+TaskTitle = Annotated[
+    Union[DynamicTaskTitle, TextBuilderTaskTitle],
+    Field(discriminator="type"),
+]
+
+
+def _resolve_task_title(v: Any) -> Any:
+    """Resolve taskTitleV2 and taskTitle into a single task_title field."""
+    if not isinstance(v, dict):
+        return v
+
+    task_title_v2 = v.get("taskTitleV2")
+    task_title = v.get("taskTitle")
+
+    # Priority 1: Use taskTitleV2 if present
+    if task_title_v2 is not None:
+        title_type = (
+            task_title_v2.get("type") if isinstance(task_title_v2, dict) else None
+        )
+
+        if title_type == "textBuilder":
+            v["taskTitle"] = task_title_v2
+        else:
+            raise NotImplementedError(f"TaskTitle type '{title_type}' not implemented")
+
+        v.pop("taskTitleV2", None)
+
+        return v
+
+    # Priority 2: Use taskTitle if present (legacy string support)
+    if task_title is not None:
+        return v
+
+    # Priority 3: Default to "Escalation Task"
+    v["taskTitle"] = "Escalation Task"
+
+    return v
+
+
 class AgentEscalationChannelProperties(BaseResourceProperties):
     """Agent escalation channel properties model."""
 
-    app_name: str | None = Field(..., alias="appName")
+    app_name: str | None = Field(default=None, alias="appName")
     app_version: int = Field(..., alias="appVersion")
     folder_name: Optional[str] = Field(None, alias="folderName")
-    resource_key: str | None = Field(..., alias="resourceKey")
+    resource_key: str | None = Field(default=None, alias="resourceKey")
     is_actionable_message_enabled: Optional[bool] = Field(
         None, alias="isActionableMessageEnabled"
     )
@@ -400,12 +466,23 @@ class AgentEscalationChannel(BaseCfg):
     description: str = Field(..., alias="description")
     input_schema: Dict[str, Any] = Field(..., alias="inputSchema")
     output_schema: Dict[str, Any] = Field(..., alias="outputSchema")
+    argument_properties: Dict[str, AgentToolArgumentProperties] = Field(
+        {}, alias="argumentProperties"
+    )
     outcome_mapping: Optional[Dict[str, str]] = Field(None, alias="outcomeMapping")
     properties: AgentEscalationChannelProperties = Field(..., alias="properties")
     recipients: List[AgentEscalationRecipient] = Field(..., alias="recipients")
-    task_title: Optional[str] = Field(default=None, alias="taskTitle")
+    task_title: Optional[Union[str, TaskTitle]] = Field(
+        default="Escalation Task", alias="taskTitle"
+    )
     priority: Optional[str] = None
     labels: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_task_title_resolution(cls, v: Any) -> Any:
+        """Apply task title resolution."""
+        return _resolve_task_title(v)
 
 
 class AgentEscalationResourceConfig(BaseAgentResourceConfig):
@@ -417,7 +494,32 @@ class AgentEscalationResourceConfig(BaseAgentResourceConfig):
     )
     channels: List[AgentEscalationChannel] = Field(alias="channels")
     is_agent_memory_enabled: bool = Field(default=False, alias="isAgentMemoryEnabled")
-    escalation_type: int = Field(default=0, alias="escalationType")
+    escalation_type: Literal[0] = Field(default=0, alias="escalationType")
+
+
+class AgentIxpVsEscalationProperties(BaseCfg):
+    """VS escalation properties model."""
+
+    ixp_tool_id: str = Field(..., alias="ixpToolId")
+    action_title: str | None = Field(default=None, alias="actionTitle")
+    action_priority: ActionPriority | None = Field(default=None, alias="actionPriority")
+    storage_bucket_name: str = Field(..., alias="storageBucketName")
+    storage_bucket_folder_path: str = Field(..., alias="storageBucketFolderPath")
+
+
+class AgentIxpVsEscalationResourceConfig(BaseAgentResourceConfig):
+    """VS Agent escalation resource configuration model (escalationType=1)."""
+
+    id: Optional[str] = Field(None, alias="id")
+    resource_type: Literal[AgentResourceType.ESCALATION] = Field(
+        alias="$resourceType", default=AgentResourceType.ESCALATION, frozen=True
+    )
+    channels: List[AgentEscalationChannel] = Field(alias="channels")
+    is_agent_memory_enabled: bool = Field(default=False, alias="isAgentMemoryEnabled")
+    escalation_type: Literal[1] = Field(default=1, alias="escalationType")
+    vs_escalation_properties: AgentIxpVsEscalationProperties = Field(
+        ..., alias="vsEscalationProperties"
+    )
 
 
 class BaseAgentToolResourceConfig(BaseAgentResourceConfig):
@@ -520,7 +622,6 @@ class AgentIntegrationToolResourceConfig(BaseAgentToolResourceConfig):
     properties: AgentIntegrationToolProperties
     settings: Optional[AgentToolSettings] = Field(None)
     arguments: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
     # is output schemas were only recently added so they will be missing in some resources
     output_schema: Optional[Dict[str, Any]] = Field(None, alias="outputSchema")
 
@@ -532,7 +633,6 @@ class AgentInternalToolResourceConfig(BaseAgentToolResourceConfig):
     properties: AgentInternalToolProperties
     settings: Optional[AgentToolSettings] = Field(None)
     arguments: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
     output_schema: Dict[str, Any] = Field(..., alias="outputSchema")
     argument_properties: Dict[str, AgentToolArgumentProperties] = Field(
         {}, alias="argumentProperties"
@@ -544,7 +644,6 @@ class AgentUnknownToolResourceConfig(BaseAgentToolResourceConfig):
 
     type: Literal[AgentToolType.UNKNOWN] = AgentToolType.UNKNOWN
     arguments: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    is_enabled: Optional[bool] = Field(None, alias="isEnabled")
 
 
 ToolResourceConfig = Annotated[
@@ -558,11 +657,19 @@ ToolResourceConfig = Annotated[
     Field(discriminator="type"),
 ]
 
+EscalationResourceConfig = Annotated[
+    Union[
+        AgentEscalationResourceConfig,
+        AgentIxpVsEscalationResourceConfig,
+    ],
+    Field(discriminator="escalation_type"),
+]
+
 AgentResourceConfig = Annotated[
     Union[
         ToolResourceConfig,  # nested discrim on 'type'
         AgentContextResourceConfig,
-        AgentEscalationResourceConfig,
+        EscalationResourceConfig,  # nested discrim on 'escalation_type'
         AgentMcpResourceConfig,
         AgentUnknownResourceConfig,  # when parent sets resource_type="Unknown"
     ],

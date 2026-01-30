@@ -190,7 +190,6 @@ class ExtendedMetadata(TypedDict):
     structured_data: list[StructuredData]
 
 def convert(html: str, options: ConversionOptions | None = None) -> str: ...
-def convert_json(html: str, options_json: str | None = None) -> str: ...
 def convert_with_inline_images(
     html: str,
     options: ConversionOptions | None = None,
@@ -200,11 +199,6 @@ def convert_with_inline_images_handle(
     html: str,
     handle: ConversionOptionsHandle,
     image_config: InlineImageConfig | None = None,
-) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
-def convert_with_inline_images_json(
-    html: str,
-    options_json: str | None = None,
-    image_config_json: str | None = None,
 ) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
 def convert_with_metadata(
     html: str,
@@ -216,13 +210,7 @@ def convert_with_metadata_handle(
     handle: ConversionOptionsHandle,
     metadata_config: MetadataConfig | None = None,
 ) -> tuple[str, ExtendedMetadata]: ...
-def convert_with_metadata_json(
-    html: str,
-    options_json: str | None = None,
-    metadata_config_json: str | None = None,
-) -> tuple[str, ExtendedMetadata]: ...
 def create_options_handle(options: ConversionOptions | None = None) -> ConversionOptionsHandle: ...
-def create_options_handle_json(options_json: str | None = None) -> ConversionOptionsHandle: ...
 def convert_with_options_handle(html: str, handle: ConversionOptionsHandle) -> str: ...
 
 class NodeContext(TypedDict):

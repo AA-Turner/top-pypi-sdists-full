@@ -368,8 +368,9 @@ snapshots:
 """
 
 
-from ansible_collections.community.general.plugins.module_utils.opennebula import OpenNebulaModule
+import time
 
+from ansible_collections.community.general.plugins.module_utils.opennebula import OpenNebulaModule
 
 IMAGE_STATES = [
     "INIT",
@@ -489,8 +490,6 @@ class ImageModule(OpenNebulaModule):
         return result
 
     def wait_for_ready(self, image_id, wait_timeout=60):
-        import time
-
         start_time = time.time()
 
         while (time.time() - start_time) < wait_timeout:
@@ -507,8 +506,6 @@ class ImageModule(OpenNebulaModule):
         self.module.fail_json(msg="Wait timeout has expired!")
 
     def wait_for_delete(self, image_id, wait_timeout=60):
-        import time
-
         start_time = time.time()
 
         while (time.time() - start_time) < wait_timeout:

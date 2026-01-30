@@ -18,6 +18,7 @@ from torch import Tensor
 from torchmetrics import Accuracy, F1Score, JaccardIndex, MetricCollection
 from torchvision.models._api import WeightsEnum
 
+from ..datamodules import BaseDataModule
 from ..datasets import RGBBandsMissingError, unbind_samples
 from ..models import BTC, FCN, ChangeViT, FCSiamConc, FCSiamDiff, get_weight
 from . import utils
@@ -236,10 +237,17 @@ class ChangeDetectionTask(BaseTask):
                 )
             case 'changevit':
                 self.model = ChangeViT(
-                    backbone=backbone, in_channels=in_channels, num_classes=num_classes
+                    backbone=backbone,
+                    in_channels=in_channels,
+                    num_classes=num_classes,
+                    pretrained=weights is True,
                 )
             case 'btc':
-                self.model = BTC(backbone=backbone, classes=num_classes)
+                self.model = BTC(
+                    backbone=backbone,
+                    classes=num_classes,
+                    backbone_pretrained=weights is True,
+                )
 
         if weights and weights is not True:
             if isinstance(weights, WeightsEnum):
@@ -302,7 +310,7 @@ class ChangeDetectionTask(BaseTask):
             if (
                 batch_idx < 10
                 and hasattr(self.trainer, 'datamodule')
-                and hasattr(self.trainer.datamodule, 'plot')
+                and isinstance(self.trainer.datamodule, BaseDataModule)
                 and self.logger
                 and hasattr(self.logger, 'experiment')
                 and hasattr(self.logger.experiment, 'add_figure')
@@ -334,7 +342,7 @@ class ChangeDetectionTask(BaseTask):
                     summary_writer = self.logger.experiment
                     summary_writer.add_figure(
                         f'image/{batch_idx}', fig, global_step=self.global_step
-                    )
+                    )  # type: ignore[call-non-callable]
                     plt.close()
 
         return loss

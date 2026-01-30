@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: mssql_db
 short_description: Add or remove MSSQL databases from a remote host
@@ -131,7 +130,7 @@ def db_delete(conn, cursor, db):
 
 def db_import(conn, cursor, module, db, target):
     if os.path.isfile(target):
-        with open(target, "r") as backup:
+        with open(target) as backup:
             sqlQuery = f"USE [{db}]\n"
             for line in backup:
                 if line is None:

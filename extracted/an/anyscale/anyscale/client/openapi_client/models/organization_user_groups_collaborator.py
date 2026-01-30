@@ -38,7 +38,7 @@ class OrganizationUserGroupsCollaborator(object):
         'org_id': 'str',
         'created_at': 'datetime',
         'updated_at': 'datetime',
-        'permission_level': 'OrganizationPermissionLevel',
+        'permission_levels': 'list[OrganizationPermissionLevel]',
         'members': 'list[MiniUser]',
         'member_count': 'int'
     }
@@ -49,12 +49,12 @@ class OrganizationUserGroupsCollaborator(object):
         'org_id': 'org_id',
         'created_at': 'created_at',
         'updated_at': 'updated_at',
-        'permission_level': 'permission_level',
+        'permission_levels': 'permission_levels',
         'members': 'members',
         'member_count': 'member_count'
     }
 
-    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_level=None, members=None, member_count=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_levels=None, members=None, member_count=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationUserGroupsCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,7 +65,7 @@ class OrganizationUserGroupsCollaborator(object):
         self._org_id = None
         self._created_at = None
         self._updated_at = None
-        self._permission_level = None
+        self._permission_levels = None
         self._members = None
         self._member_count = None
         self.discriminator = None
@@ -75,8 +75,8 @@ class OrganizationUserGroupsCollaborator(object):
         self.org_id = org_id
         self.created_at = created_at
         self.updated_at = updated_at
-        if permission_level is not None:
-            self.permission_level = permission_level
+        if permission_levels is not None:
+            self.permission_levels = permission_levels
         if members is not None:
             self.members = members
         self.member_count = member_count
@@ -201,27 +201,27 @@ class OrganizationUserGroupsCollaborator(object):
         self._updated_at = updated_at
 
     @property
-    def permission_level(self):
-        """Gets the permission_level of this OrganizationUserGroupsCollaborator.  # noqa: E501
+    def permission_levels(self):
+        """Gets the permission_levels of this OrganizationUserGroupsCollaborator.  # noqa: E501
 
-        The organization-level role for this group  # noqa: E501
+        The organization-level roles for this group  # noqa: E501
 
-        :return: The permission_level of this OrganizationUserGroupsCollaborator.  # noqa: E501
-        :rtype: OrganizationPermissionLevel
+        :return: The permission_levels of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :rtype: list[OrganizationPermissionLevel]
         """
-        return self._permission_level
+        return self._permission_levels
 
-    @permission_level.setter
-    def permission_level(self, permission_level):
-        """Sets the permission_level of this OrganizationUserGroupsCollaborator.
+    @permission_levels.setter
+    def permission_levels(self, permission_levels):
+        """Sets the permission_levels of this OrganizationUserGroupsCollaborator.
 
-        The organization-level role for this group  # noqa: E501
+        The organization-level roles for this group  # noqa: E501
 
-        :param permission_level: The permission_level of this OrganizationUserGroupsCollaborator.  # noqa: E501
-        :type: OrganizationPermissionLevel
+        :param permission_levels: The permission_levels of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :type: list[OrganizationPermissionLevel]
         """
 
-        self._permission_level = permission_level
+        self._permission_levels = permission_levels
 
     @property
     def members(self):

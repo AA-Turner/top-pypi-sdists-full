@@ -23,6 +23,14 @@ class CreateCertificateAuthorityConfigDetails(object):
     #: This constant has a value of "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
     CONFIG_TYPE_SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA = "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
 
+    #: A constant which can be used with the config_type property of a CreateCertificateAuthorityConfigDetails.
+    #: This constant has a value of "ROOT_CA_MANAGED_EXTERNALLY"
+    CONFIG_TYPE_ROOT_CA_MANAGED_EXTERNALLY = "ROOT_CA_MANAGED_EXTERNALLY"
+
+    #: A constant which can be used with the config_type property of a CreateCertificateAuthorityConfigDetails.
+    #: This constant has a value of "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
+    CONFIG_TYPE_SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA = "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
+
     def __init__(self, **kwargs):
         """
         Initializes a new CreateCertificateAuthorityConfigDetails object with values from keyword arguments. This class has the following subclasses and if you are using this class as input
@@ -30,12 +38,14 @@ class CreateCertificateAuthorityConfigDetails(object):
 
         * :class:`~oci.certificates_management.models.CreateRootCaByGeneratingInternallyConfigDetails`
         * :class:`~oci.certificates_management.models.CreateSubordinateCaIssuedByInternalCaConfigDetails`
+        * :class:`~oci.certificates_management.models.CreateRootCaManagedExternallyConfigDetails`
+        * :class:`~oci.certificates_management.models.CreateSubordinateCaManagedInternallyIssuedByExternalCaConfigDetails`
 
         The following keyword arguments are supported (corresponding to the getters/setters of this class):
 
         :param config_type:
             The value to assign to the config_type property of this CreateCertificateAuthorityConfigDetails.
-            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
+            Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA", "ROOT_CA_MANAGED_EXTERNALLY", "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
         :type config_type: str
 
         :param version_name:
@@ -67,6 +77,12 @@ class CreateCertificateAuthorityConfigDetails(object):
 
         if type == 'SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA':
             return 'CreateSubordinateCaIssuedByInternalCaConfigDetails'
+
+        if type == 'ROOT_CA_MANAGED_EXTERNALLY':
+            return 'CreateRootCaManagedExternallyConfigDetails'
+
+        if type == 'SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA':
+            return 'CreateSubordinateCaManagedInternallyIssuedByExternalCaConfigDetails'
         else:
             return 'CreateCertificateAuthorityConfigDetails'
 
@@ -76,7 +92,7 @@ class CreateCertificateAuthorityConfigDetails(object):
         **[Required]** Gets the config_type of this CreateCertificateAuthorityConfigDetails.
         The origin of the CA.
 
-        Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"
+        Allowed values for this property are: "ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA", "ROOT_CA_MANAGED_EXTERNALLY", "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"
 
 
         :return: The config_type of this CreateCertificateAuthorityConfigDetails.
@@ -94,7 +110,7 @@ class CreateCertificateAuthorityConfigDetails(object):
         :param config_type: The config_type of this CreateCertificateAuthorityConfigDetails.
         :type: str
         """
-        allowed_values = ["ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA"]
+        allowed_values = ["ROOT_CA_GENERATED_INTERNALLY", "SUBORDINATE_CA_ISSUED_BY_INTERNAL_CA", "ROOT_CA_MANAGED_EXTERNALLY", "SUBORDINATE_CA_MANAGED_INTERNALLY_ISSUED_BY_EXTERNAL_CA"]
         if not value_allowed_none_or_none_sentinel(config_type, allowed_values):
             raise ValueError(
                 f"Invalid value for `config_type`, must be None or one of {allowed_values}"

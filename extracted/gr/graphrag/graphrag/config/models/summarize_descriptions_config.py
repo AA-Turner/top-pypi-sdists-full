@@ -3,20 +3,32 @@
 
 """Parameterization settings for the default configuration."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from graphrag.config.defaults import graphrag_config_defaults
-from graphrag.config.models.language_model_config import LanguageModelConfig
+from graphrag.prompts.index.summarize_descriptions import SUMMARIZE_PROMPT
+
+
+@dataclass
+class SummarizeDescriptionsPrompts:
+    """Description summarization prompt templates."""
+
+    summarize_prompt: str
 
 
 class SummarizeDescriptionsConfig(BaseModel):
     """Configuration section for description summarization."""
 
-    model_id: str = Field(
+    completion_model_id: str = Field(
         description="The model ID to use for summarization.",
-        default=graphrag_config_defaults.summarize_descriptions.model_id,
+        default=graphrag_config_defaults.summarize_descriptions.completion_model_id,
+    )
+    model_instance_name: str = Field(
+        description="The model singleton instance name. This primarily affects the cache storage partitioning.",
+        default=graphrag_config_defaults.summarize_descriptions.model_instance_name,
     )
     prompt: str | None = Field(
         description="The description summarization prompt to use.",
@@ -30,27 +42,11 @@ class SummarizeDescriptionsConfig(BaseModel):
         description="Maximum tokens to submit from the input entity descriptions.",
         default=graphrag_config_defaults.summarize_descriptions.max_input_tokens,
     )
-    strategy: dict | None = Field(
-        description="The override strategy to use.",
-        default=graphrag_config_defaults.summarize_descriptions.strategy,
-    )
 
-    def resolved_strategy(
-        self, root_dir: str, model_config: LanguageModelConfig
-    ) -> dict:
-        """Get the resolved description summarization strategy."""
-        from graphrag.index.operations.summarize_descriptions.summarize_descriptions import (
-            SummarizeStrategyType,
-        )
-
-        return self.strategy or {
-            "type": SummarizeStrategyType.graph_intelligence,
-            "llm": model_config.model_dump(),
-            "summarize_prompt": (Path(root_dir) / self.prompt).read_text(
-                encoding="utf-8"
-            )
+    def resolved_prompts(self) -> SummarizeDescriptionsPrompts:
+        """Get the resolved description summarization prompts."""
+        return SummarizeDescriptionsPrompts(
+            summarize_prompt=Path(self.prompt).read_text(encoding="utf-8")
             if self.prompt
-            else None,
-            "max_summary_length": self.max_length,
-            "max_input_tokens": self.max_input_tokens,
-        }
+            else SUMMARIZE_PROMPT,
+        )

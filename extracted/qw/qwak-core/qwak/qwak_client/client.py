@@ -356,6 +356,7 @@ class QwakClient:
         self,
         project_name: str,
         project_description: str,
+        jfrog_project_key: Optional[str] = None,
     ) -> str:
         """
         Create project
@@ -363,6 +364,7 @@ class QwakClient:
         Args:
             project_name (str): The requested name
             project_description (str): The requested description
+            jfrog_project_key (Optional[str]): The requested jfrog project key
 
         Returns:
              str: The project ID of the newly created project
@@ -371,6 +373,7 @@ class QwakClient:
         project = self._get_project_management().create_project(
             project_name=project_name,
             project_description=project_description,
+            jfrog_project_key=jfrog_project_key,
         )
 
         return project.project.project_id
@@ -416,6 +419,7 @@ class QwakClient:
         project_id: str,
         model_name: str,
         model_description: str,
+        jfrog_project_key: Optional[str] = None,
     ) -> str:
         """
         Create model
@@ -424,6 +428,7 @@ class QwakClient:
             project_id (str): The project ID to associate the model
             model_name (str): The requested name
             model_description (str): The requested description
+            jfrog_project_key (Optional[str]): The jfrog project key
 
         Returns:
              str: The model ID of the newly created project
@@ -433,6 +438,7 @@ class QwakClient:
             project_id=project_id,
             model_name=model_name,
             model_description=model_description,
+            jfrog_project_key=jfrog_project_key,
         )
 
         return model.model_id

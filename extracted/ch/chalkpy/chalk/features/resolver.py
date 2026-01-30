@@ -3812,6 +3812,7 @@ def make_stream_resolver(
     owner: Optional[str] = None,
     doc: str | None = None,
     sink: Sink | None = None,
+    additional_output_features: Iterable[FeatureWrapper | str] | None = None,
     skip_online: bool = False,
     skip_offline: bool = False,
 ) -> StreamResolver:
@@ -3846,6 +3847,10 @@ def make_stream_resolver(
     sink
         An optional message producer configuration that specifies where to send messages.
         Read more at https://docs.chalk.ai/api-docs#Sink
+    additional_output_features
+        An optional iterable of additional features to compute and persist to the online store
+        without publishing to an auxiliary stream. Mutually exclusive with `sink`.
+        Use this when you want to enrich features without setting up stream publishing infrastructure.
     skip_online
         If True, skip online persistence (no writes to Redis/DynamoDB/etc).
         Results will still be processed but not stored in online stores.
@@ -3886,6 +3891,18 @@ def make_stream_resolver(
             code="190",
             label="Invalid stream source",
             range=error_builder.function_arg_range_by_name("source"),
+        )
+
+    # Validate that sink and additional_output_features are mutually exclusive
+    if sink is not None and additional_output_features is not None:
+        error_builder.add_diagnostic(
+            message=(
+                "Cannot specify both 'sink' and 'additional_output_features'. "
+                + "If you're using Sink, add all desired features to Sink.output_features instead."
+            ),
+            code="208",
+            label="Use Sink.output_features for all features",
+            range=error_builder.function_arg_range_by_name("additional_output_features"),
         )
 
     # Validate name is a string
@@ -3992,11 +4009,15 @@ def make_stream_resolver(
                 f"Native streaming resolvers only support python parse functions with input bytes 'bytes'. Function {parse} has input type {parse_info.input_type}"
             )
 
-    # Validate and parse sink before creating StreamResolver
+    # Validate and parse sink or additional_output_features before creating StreamResolver
     message_producer_parsed: StreamResolverMessageProducerParsed | None = None
     if sink is not None:
         message_producer_parsed = parse_message_producer_with_lsp_errors(
             sink, error_builder, "sink", message_type, name
+        )
+    elif additional_output_features is not None:
+        message_producer_parsed = parse_additional_output_features_with_lsp_errors(
+            additional_output_features, error_builder, "additional_output_features", message_type, name
         )
 
     resolver = StreamResolver(
@@ -4038,25 +4059,22 @@ def make_stream_resolver(
     return resolver
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Sink:
-    """Sends stream messages to a stream source of your choice.
-
-    Messages are arrow tables serialized in IPC stream format with the specified output columns
-    """
+    """Computes additional output features and sends them to a stream source."""
 
     send_to: StreamSource
-    """The source to send results to"""
+    """The stream source to send results to."""
 
     output_features: Iterable[FeatureWrapper | str]
     """
     The requested output features. These can include both features returned by the stream resolvers and
-    other features retrievable via online query given the stream resolver outputs as inputs. The message sent to
-    the stream will have these output features as columns
+    other features retrievable via online query given the stream resolver outputs as inputs.
+    The message sent to the stream will have these output features as columns.
     """
 
     format: Literal["json", "ipc_stream"] = "ipc_stream"
-    """Format of messages sent"""
+    """Format of messages sent."""
 
     feature_expressions: Mapping[FeatureWrapper | str, Underscore] | None = None
 
@@ -4184,10 +4202,80 @@ def parse_message_producer_with_lsp_errors(
     )
 
 
+def parse_additional_output_features_with_lsp_errors(
+    output_features_input: Iterable[FeatureWrapper | str],
+    error_builder: FunctionCallErrorBuilder,
+    param_name: str,
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    resolver_name: str,
+) -> StreamResolverMessageProducerParsed | None:
+    """Parse additional_output_features into StreamResolverMessageProducerParsed.
+
+    Similar to parse_message_producer_with_lsp_errors but for additional_output_features
+    parameter, which doesn't require a send_to destination.
+    """
+    # Validate output_features is iterable
+    if not isinstance(output_features_input, collections.abc.Iterable):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message="Expected an iterable for argument 'additional_output_features'",
+            code="209",
+            label="Invalid additional_output_features type",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+        return None
+
+    output_features_list = list(output_features_input)
+    if len(output_features_list) == 0:
+        error_builder.add_diagnostic(
+            message="Expected at least one feature in 'additional_output_features'",
+            code="210",
+            label="Empty additional_output_features",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+        return None
+
+    # Validate and unwrap features (same logic as parse_message_producer_with_lsp_errors)
+    unwrapped_features: list[Feature] = []
+    for f in output_features_list:
+        if isinstance(f, FeatureWrapper):
+            unwrapped_features.append(unwrap_feature(f))
+        elif isinstance(f, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            try:
+                feature = Feature.from_root_fqn(f)
+                unwrapped_features.append(feature)
+            except Exception:
+                error_builder.add_diagnostic(
+                    message=f"Invalid feature FQN '{f}' in additional_output_features",
+                    code="211",
+                    label="Invalid feature FQN",
+                    range=error_builder.function_arg_range_by_name(param_name),
+                )
+                return None
+        else:
+            error_builder.add_diagnostic(
+                message=f"Feature '{f}' must be a Feature or string, got {type(f)} instead",
+                code="212",
+                label="Invalid feature type",
+                range=error_builder.function_arg_range_by_name(param_name),
+            )
+            return None
+
+    # Reuse existing validation
+    _validate_output_features(unwrapped_features, error_builder, resolver_name)
+
+    # Create StreamResolverMessageProducerParsed with send_to=None
+    return StreamResolverMessageProducerParsed(
+        output_features=[str(f) for f in output_features_list],
+        format="ipc_stream",
+        send_to=None,
+        feature_expressions=None,
+    )
+
+
 class StreamResolverMessageProducerParsed:
     def __init__(
         self,
-        send_to: StreamSource,
+        send_to: StreamSource | None,
         output_features: list[str],
         format: Literal["json", "ipc_stream"],
         feature_expressions: Mapping[str, Underscore] | None = None,

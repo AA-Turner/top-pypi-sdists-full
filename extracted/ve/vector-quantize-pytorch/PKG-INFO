@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector-quantize-pytorch
-Version: 1.27.19
+Version: 1.27.20
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch

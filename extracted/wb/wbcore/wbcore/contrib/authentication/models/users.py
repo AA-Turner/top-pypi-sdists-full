@@ -18,8 +18,19 @@ from wbcore.signals import pre_merge
 from wbcore.utils.models import MergeError
 
 
+class UserQuerySet(models.QuerySet):
+    def filter_internal(self):
+        return self.filter(is_internal=True)
+
+
 class UserManager(BaseUserManager):
     use_in_migrations = True
+
+    def get_queryset(self) -> UserQuerySet:
+        return UserQuerySet(self.model, using=self._db)
+
+    def filter_internal(self):
+        return self.get_queryset().filter_internal()
 
     @classmethod
     def normalize_username(cls, username):
@@ -77,6 +88,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_register = models.BooleanField(
         _("register"), default=True, help_text=_("Specifies whether this user has registered its email. ")
     )
+    is_internal = models.BooleanField(
+        _("Internal"),
+        default=False,
+        help_text="If true, define this user as internal which grants specific permissions.",
+    )
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -90,12 +106,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = _("users")
         swappable = "AUTH_USER_MODEL"
         permissions = [("administrate_user", "Administrate Users"), ("is_internal_user", "Internal User")]
-
-    @property
-    def is_internal(self):
-        from wbcore.permissions.registry import user_registry
-
-        return self in user_registry.internal_users
 
     def get_full_name(self):
         full_name = "%s %s" % (self.profile.first_name, self.profile.last_name)

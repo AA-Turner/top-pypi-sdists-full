@@ -744,16 +744,17 @@ end_state:
     }
 """
 
-from ansible_collections.community.general.plugins.module_utils.identity.keycloak.keycloak import (
-    KeycloakAPI,
-    camel,
-    keycloak_argument_spec,
-    get_token,
-    KeycloakError,
-)
-from ansible.module_utils.basic import AnsibleModule
 import copy
 
+from ansible.module_utils.basic import AnsibleModule
+
+from ansible_collections.community.general.plugins.module_utils.identity.keycloak.keycloak import (
+    KeycloakAPI,
+    KeycloakError,
+    camel,
+    get_token,
+    keycloak_argument_spec,
+)
 
 PROTOCOL_OPENID_CONNECT = "openid-connect"
 PROTOCOL_SAML = "saml"
@@ -1318,7 +1319,11 @@ def main():
             new_param_value = flow_binding_from_dict_to_model(new_param_value, realm, kc)
         elif client_param == "attributes" and "attributes" in before_client:
             attributes_copy = copy.deepcopy(before_client["attributes"])
-            attributes_copy.update(new_param_value)
+            # Merge client attributes while excluding null-valued attributes that are not present in Keycloak's response.
+            # This ensures idempotency by treating absent attributes and null attributes as equivalent.
+            attributes_copy.update(
+                {key: value for key, value in new_param_value.items() if value is not None or key in attributes_copy}
+            )
             new_param_value = attributes_copy
         elif client_param in ["clientScopesBehavior", "client_scopes_behavior"]:
             continue

@@ -1,14 +1,15 @@
 # Copyright (c) 2024 Microsoft Corporation.
 # Licensed under the MIT License
-"""A module containing the build_mixed_context method definition."""
+
+"""A module containing build_mixed_context method definition."""
 
 import pandas as pd
+from graphrag_llm.tokenizer import Tokenizer
 
 import graphrag.data_model.schemas as schemas
 from graphrag.index.operations.summarize_communities.graph_context.sort_context import (
     sort_context,
 )
-from graphrag.tokenizer.tokenizer import Tokenizer
 
 
 def build_mixed_context(

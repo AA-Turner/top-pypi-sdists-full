@@ -25,6 +25,10 @@ class LogAction(GuardrailAction):
         self.message = message
         self.level = level
 
+    @property
+    def action_type(self) -> str:
+        return "Log"
+
     def action_node(
         self,
         *,
@@ -54,5 +58,12 @@ class LogAction(GuardrailAction):
 
             logger.log(self.level, message)
             return {}
+
+        _node.__metadata__ = {  # type: ignore[attr-defined]
+            "severity_level": logging.getLevelName(self.level),
+            "guardrail": guardrail,
+            "scope": scope,
+            "execution_stage": execution_stage,
+        }
 
         return node_name, _node

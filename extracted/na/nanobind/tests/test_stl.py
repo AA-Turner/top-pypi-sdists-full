@@ -385,6 +385,7 @@ def test38_std_optional_none():
     t.optional_none(None)
     assert t.optional_cstr(None) == "none"
     assert t.optional_cstr("hi") == "hi"
+    assert t.optional_non_assignable(None) == None
 
 
 def test39_std_optional_ret_opt_movable(clean):

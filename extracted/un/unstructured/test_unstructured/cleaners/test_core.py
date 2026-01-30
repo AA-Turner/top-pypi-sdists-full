@@ -30,6 +30,9 @@ def test_clean_non_ascii_chars(text, expected):
         ("● An excellent point! ●●●", "An excellent point! ●●●"),
         ("An excellent point!", "An excellent point!"),
         ("Morse code! ●●●", "Morse code! ●●●"),
+        ("– An EN DASH bullet point!", "An EN DASH bullet point!"),
+        ("\u2013 Another EN DASH bullet!", "Another EN DASH bullet!"),
+        ("Text with – inside", "Text with – inside"),
     ],
 )
 def test_clean_bullets(text, expected):
@@ -206,12 +209,9 @@ is walking down the lane.
 At the end of the lane
 the fox met a friendly bear."""
 
-    assert (
-        core.group_broken_paragraphs(text)
-        == """The big red fox is walking down the lane.
+    assert core.group_broken_paragraphs(text) == """The big red fox is walking down the lane.
 
 At the end of the lane the fox met a friendly bear."""
-    )
 
 
 def test_group_broken_paragraphs_non_default_settings():
@@ -227,12 +227,9 @@ the fox met a friendly bear."""
     para_split_re = re.compile(r"(\s*\n\s*){3}")
 
     clean_text = core.group_broken_paragraphs(text, paragraph_split=para_split_re)
-    assert (
-        clean_text
-        == """The big red fox is walking down the lane.
+    assert clean_text == """The big red fox is walking down the lane.
 
 At the end of the lane the fox met a friendly bear."""
-    )
 
 
 def test_group_broken_paragraphs_with_bullets():

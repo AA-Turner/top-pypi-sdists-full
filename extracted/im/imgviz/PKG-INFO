@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imgviz
-Version: 1.8.0
+Version: 2.0.0
 Summary: Image Visualization Tools
 Project-URL: Homepage, https://github.com/wkentaro/imgviz
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
@@ -22,11 +22,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: cmap>=0.1.0
 Requires-Dist: numpy>=1.21.0
-Requires-Dist: pillow>=5.3.0
+Requires-Dist: pillow>=10.0.0
 Provides-Extra: all
-Requires-Dist: matplotlib; extra == 'all'
-Requires-Dist: opencv-python; extra == 'all'
-Requires-Dist: pyglet; extra == 'all'
 Requires-Dist: scikit-image; extra == 'all'
 Requires-Dist: scikit-learn; extra == 'all'
 Description-Content-Type: text/markdown
@@ -110,13 +107,14 @@ maskviz = imgviz.instances2rgb(gray, masks=masks, labels=labels, captions=captio
 insviz = [
     (rgb * m[:, :, None])[b[0] : b[2], b[1] : b[3]] for b, m in zip(bboxes, masks)
 ]
-insviz = imgviz.tile(imgs=insviz, border=(255, 255, 255))
+insviz = imgviz.tile(images=insviz, border=(255, 255, 255))
 insviz = imgviz.resize(insviz, height=rgb.shape[0])
 
 # tile visualization
 tiled = imgviz.tile(
     [rgb, depthviz, labelviz, maskviz, insviz],
-    shape=(1, 5),
+    row=1,
+    col=5,
     border=(255, 255, 255),
     border_width=5,
 )
@@ -127,7 +125,7 @@ tiled = imgviz.tile(
 <table>
 	<tr>
 		<td><pre><a href="examples/centerize.py">examples/centerize.py</a></pre></td>
-		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/centerize.jpg" width="53.333333333333336%" /></td>
+		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/centerize.jpg" width="59.40119760479042%" /></td>
 	</tr>
 	<tr>
 		<td><pre><a href="examples/depth2rgb.py">examples/depth2rgb.py</a></pre></td>
@@ -143,26 +141,26 @@ tiled = imgviz.tile(
 	</tr>
 	<tr>
 		<td><pre><a href="examples/instances2rgb.py">examples/instances2rgb.py</a></pre></td>
-		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/instances2rgb.jpg" width="66.35451505016722%" /></td>
+		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/instances2rgb.jpg" width="76.39846743295018%" /></td>
 	</tr>
 	<tr>
 		<td><pre><a href="examples/label2rgb.py">examples/label2rgb.py</a></pre></td>
 		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/label2rgb.jpg" width="76.01532567049807%" /></td>
 	</tr>
 	<tr>
+		<td><pre><a href="examples/mask2rgb.py">examples/mask2rgb.py</a></pre></td>
+		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/mask2rgb.jpg" width="76.01532567049807%" /></td>
+	</tr>
+	<tr>
 		<td><pre><a href="examples/nchannel2rgb.py">examples/nchannel2rgb.py</a></pre></td>
 		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/nchannel2rgb.jpg" width="52.21052631578947%" /></td>
 	</tr>
 	<tr>
-		<td><pre><a href="examples/plot_trajectory.py">examples/plot_trajectory.py</a></pre></td>
-		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/plot_trajectory.jpg" width="26.86868686868687%" /></td>
-	</tr>
-	<tr>
 		<td><pre><a href="examples/resize.py">examples/resize.py</a></pre></td>
-		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/resize.jpg" width="47.238095238095234%" /></td>
+		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/resize.jpg" width="52.21052631578947%" /></td>
 	</tr>
 	<tr>
 		<td><pre><a href="examples/tile.py">examples/tile.py</a></pre></td>
-		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/tile.jpg" width="35.812274368231044%" /></td>
+		<td><img src="https://github.com/wkentaro/imgviz/raw/main/examples/assets/tile.jpg" width="52.21052631578947%" /></td>
 	</tr>
 </table>

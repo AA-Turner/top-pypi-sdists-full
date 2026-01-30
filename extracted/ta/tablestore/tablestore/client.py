@@ -5,6 +5,7 @@ __all__ = ['OTSClient', 'AsyncOTSClient']
 
 import asyncio
 import time
+import json
 import logging
 from abc import ABC
 
@@ -120,11 +121,13 @@ class BaseOTSClient(ABC):
                 "host of end_point should be specified, e.g. https://instance.cn-hangzhou.ots.aliyun.com."
             )
 
+        extra_headers = kwargs.get('extra_headers')
         # initialize protocol instance via user configuration
         self.protocol = OTSProtocol(
             instance_name=instance_name,
             encoding=self.encoding,
-            logger=self.logger
+            logger=self.logger,
+            extra_headers=extra_headers
         )
 
         # initialize connection via user configuration
@@ -208,6 +211,43 @@ class OTSClient(BaseOTSClient):
                     raise e
 
         return self.protocol.parse_response(api_name, status, res_headers, res_body)
+
+    def _vectors_request_helper(self, api_name, request):
+        request_context: RequestContext = RequestContext(self.credentials_provider.get_credentials())
+        try:
+            query, req_headers, req_body = self.protocol.make_json_request(api_name, self._signer, request, request_context)
+        except Exception as e:
+            raise OTSClientError(str(e))
+        retry_times = 0
+        while True:
+            try:
+                status, reason, res_headers, res_body = self.connection.send_receive(query, req_headers, req_body)
+                break
+            except OTSServiceError as e:
+                if self.retry_policy.should_retry(retry_times, e, api_name):
+                    retry_delay = self.retry_policy.get_retry_delay(retry_times, e, api_name)
+                    time.sleep(retry_delay)
+                    retry_times += 1
+                else:
+                    raise e
+
+        request_id = self.protocol._get_request_id_string(res_headers)
+        try:
+            if isinstance(res_body, bytes):
+                res_body_str = res_body.decode('utf-8')
+            else:
+                res_body_str = str(res_body)
+            res_body_json = json.loads(res_body_str)
+
+            if status > 299:
+                code = res_body_json.get('code', 'Unknown')
+                message = res_body_json.get('message', '')
+                raise OTSServiceError(status, code, message, request_id)
+        except (json.JSONDecodeError, TypeError) as je:
+            raise OTSServiceError(status, 'JsonDecodeError', str(je), request_id)
+
+        res_body_json['requestId'] = request_id
+        return res_body_json
 
     def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=None):
         """
@@ -973,6 +1013,32 @@ class OTSClient(BaseOTSClient):
     def get_timeseries_data(self, request: GetTimeseriesDataRequest) -> GetTimeseriesDataResponse:
         return self._request_helper('GetTimeseriesData', request)
 
+    def create_knowledge_base(self, request):
+        return self._vectors_request_helper('CreateKnowledgeBase', request)
+
+    def delete_knowledge_base(self, request):
+        return self._vectors_request_helper('DeleteKnowledgeBase', request)
+
+    def describe_knowledge_base(self, request):
+        return self._vectors_request_helper('DescribeKnowledgeBase', request)
+
+    def list_knowledge_base(self, request):
+        return self._vectors_request_helper('ListKnowledgeBase', request)
+
+    def add_documents(self, request):
+        return self._vectors_request_helper('AddDocuments', request)
+
+    def get_document(self, request):
+        return self._vectors_request_helper('GetDocument', request)
+
+    def list_documents(self, request):
+        return self._vectors_request_helper('ListDocuments', request)
+
+    def delete_documents(self, request):
+        return self._vectors_request_helper('DeleteDocuments', request)
+
+    def retrieve(self, request):
+        return self._vectors_request_helper('Retrieve', request)
 
 class AsyncOTSClient(BaseOTSClient):
 
@@ -1820,3 +1886,4 @@ class AsyncOTSClient(BaseOTSClient):
 
     async def get_timeseries_data(self, request: GetTimeseriesDataRequest) -> GetTimeseriesDataResponse:
         return await self._request_helper('GetTimeseriesData', request)
+

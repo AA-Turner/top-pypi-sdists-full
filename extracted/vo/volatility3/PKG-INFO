@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: volatility3
-Version: 2.26.2
+Version: 2.27.0
 Summary: Memory forensics framework
 Author-email: Volatility Foundation <volatility@volatilityfoundation.org>
 License: VSL
@@ -28,6 +28,8 @@ Requires-Dist: jsonschema<5,>=4.23.0; extra == "dev"
 Requires-Dist: pyinstaller<7,>=6.5.0; extra == "dev"
 Requires-Dist: pyinstaller-hooks-contrib>=2024.9; extra == "dev"
 Requires-Dist: types-jsonschema<5,>=4.23.0; extra == "dev"
+Provides-Extra: arrow
+Requires-Dist: pyarrow>=17.0.0; extra == "arrow"
 Provides-Extra: test
 Requires-Dist: volatility3[dev]; extra == "test"
 Requires-Dist: pytest<9,>=8.3.3; extra == "test"
@@ -36,7 +38,7 @@ Requires-Dist: yara-x<1,>=0.10.0; extra == "test"
 Provides-Extra: docs
 Requires-Dist: volatility3[dev]; extra == "docs"
 Requires-Dist: sphinx<9,>=4.0.0; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints<4,>=3.0.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints<4,>=3.0.0; python_version >= "3.11" and extra == "docs"
 Requires-Dist: sphinx-rtd-theme<4,>=3.0.1; extra == "docs"
 
 # Volatility 3: The volatile memory extraction framework
@@ -107,13 +109,17 @@ pip install -e ".[dev]"
 Symbol table packs for the various operating systems are available for download at:
 
 <https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip>
+
 <https://downloads.volatilityfoundation.org/volatility3/symbols/mac.zip>
+
 <https://downloads.volatilityfoundation.org/volatility3/symbols/linux.zip>
 
 The hashes to verify whether any of the symbol pack files have downloaded successfully or have changed can be found at:
 
 <https://downloads.volatilityfoundation.org/volatility3/symbols/SHA256SUMS>
+
 <https://downloads.volatilityfoundation.org/volatility3/symbols/SHA1SUMS>
+
 <https://downloads.volatilityfoundation.org/volatility3/symbols/MD5SUMS>
 
 Symbol tables zip files must be placed, as named, into the `volatility3/symbols` directory (or just the symbols directory next to the executable file).
@@ -133,7 +139,7 @@ The latest generated copy of the documentation can be found at: <https://volatil
 
 ## Licensing and Copyright
 
-Copyright (C) 2007-2025 Volatility Foundation
+Copyright (C) 2007-2026 Volatility Foundation
 
 All Rights Reserved
 

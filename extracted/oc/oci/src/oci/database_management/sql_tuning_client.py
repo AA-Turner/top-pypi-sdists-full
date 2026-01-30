@@ -169,7 +169,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/clone_sql_tuning_task.py.html>`__ to see an example of how to use clone_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/clone_sql_tuning_task.py.html>`__ to see an example of how to use clone_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -289,7 +289,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/create_sql_tuning_set.py.html>`__ to see an example of how to use create_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/create_sql_tuning_set.py.html>`__ to see an example of how to use create_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -414,7 +414,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/drop_sql_tuning_set.py.html>`__ to see an example of how to use drop_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/drop_sql_tuning_set.py.html>`__ to see an example of how to use drop_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -537,7 +537,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/drop_sql_tuning_task.py.html>`__ to see an example of how to use drop_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/drop_sql_tuning_task.py.html>`__ to see an example of how to use drop_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -659,7 +659,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/drop_sqls_in_sql_tuning_set.py.html>`__ to see an example of how to use drop_sqls_in_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/drop_sqls_in_sql_tuning_set.py.html>`__ to see an example of how to use drop_sqls_in_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -785,7 +785,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/fetch_sql_tuning_set.py.html>`__ to see an example of how to use fetch_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/fetch_sql_tuning_set.py.html>`__ to see an example of how to use fetch_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -918,7 +918,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/get_execution_plan_stats_comparision.py.html>`__ to see an example of how to use get_execution_plan_stats_comparision API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/get_execution_plan_stats_comparision.py.html>`__ to see an example of how to use get_execution_plan_stats_comparision API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'executionId']
@@ -1052,7 +1052,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/get_sql_execution_plan.py.html>`__ to see an example of how to use get_sql_execution_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/get_sql_execution_plan.py.html>`__ to see an example of how to use get_sql_execution_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'attribute']
@@ -1199,7 +1199,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/get_sql_tuning_advisor_task_summary_report.py.html>`__ to see an example of how to use get_sql_tuning_advisor_task_summary_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/get_sql_tuning_advisor_task_summary_report.py.html>`__ to see an example of how to use get_sql_tuning_advisor_task_summary_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId']
@@ -1378,7 +1378,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/list_sql_tuning_advisor_task_findings.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_findings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/list_sql_tuning_advisor_task_findings.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_findings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId']
@@ -1576,7 +1576,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/list_sql_tuning_advisor_task_recommendations.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_recommendations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/list_sql_tuning_advisor_task_recommendations.py.html>`__ to see an example of how to use list_sql_tuning_advisor_task_recommendations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningAdvisorTaskId', 'sqlObjectId', 'executionId']
@@ -1748,7 +1748,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/list_sql_tuning_advisor_tasks.py.html>`__ to see an example of how to use list_sql_tuning_advisor_tasks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/list_sql_tuning_advisor_tasks.py.html>`__ to see an example of how to use list_sql_tuning_advisor_tasks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -1924,7 +1924,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/list_sql_tuning_sets.py.html>`__ to see an example of how to use list_sql_tuning_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/list_sql_tuning_sets.py.html>`__ to see an example of how to use list_sql_tuning_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -2076,7 +2076,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/load_sql_tuning_set.py.html>`__ to see an example of how to use load_sql_tuning_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/load_sql_tuning_set.py.html>`__ to see an example of how to use load_sql_tuning_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -2202,7 +2202,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/save_sql_tuning_set_as.py.html>`__ to see an example of how to use save_sql_tuning_set_as API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/save_sql_tuning_set_as.py.html>`__ to see an example of how to use save_sql_tuning_set_as API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']
@@ -2325,7 +2325,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/start_sql_tuning_task.py.html>`__ to see an example of how to use start_sql_tuning_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/start_sql_tuning_task.py.html>`__ to see an example of how to use start_sql_tuning_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId']
@@ -2448,7 +2448,7 @@ class SqlTuningClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.165.1/databasemanagement/validate_basic_filter.py.html>`__ to see an example of how to use validate_basic_filter API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.166.0/databasemanagement/validate_basic_filter.py.html>`__ to see an example of how to use validate_basic_filter API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedDatabaseId', 'sqlTuningSetId']

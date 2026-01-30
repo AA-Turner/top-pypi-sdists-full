@@ -1,6 +1,8 @@
+from adam.commands import extract_trailing_options
 from adam.commands.audit.utils_show_top10 import run_configured_query
 from adam.commands.command import Command
 from adam.repl_state import ReplState
+from adam.utils_context import Context
 
 class ShowTop10(Command):
     COMMAND = 'show top'
@@ -25,9 +27,10 @@ class ShowTop10(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            run_configured_query('audit.queries.top10', args)
+            with extract_trailing_options(args, '&') as (args, backgrounded):
+                run_configured_query('audit.queries.top10', args, ctx=Context.new(cmd, show_out=True, backgrounded=backgrounded))
 
-            return state
+                return state
 
     def completion(self, _: ReplState):
         return {}

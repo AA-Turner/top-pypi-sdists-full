@@ -8,6 +8,13 @@
  * Please see the LICENSE.TXT file for specific restrictions.
  */
 
+/* Shared headers */
+#include "pginternal.h"
+#include "pgmodule.h"
+
+/* Needs to be after Python.h */
+#include "datetime.h"
+
 /* Deallocate connection object. */
 static void
 conn_dealloc(connObject *self)
@@ -27,6 +34,8 @@ static PyObject *
 conn_getattr(connObject *self, PyObject *nameobj)
 {
     const char *name = PyUnicode_AsUTF8(nameobj);
+    if (!name)
+        return NULL;
 
     /*
      * Although we could check individually, there are only a few
@@ -113,7 +122,7 @@ conn_getattr(connObject *self, PyObject *nameobj)
 }
 
 /* Check connection validity. */
-static int
+int
 _check_cnx_obj(connObject *self)
 {
     if (!self || !self->valid || !self->cnx) {
@@ -154,7 +163,7 @@ conn_source(connObject *self, PyObject *noargs)
 
 /* For a non-query result, set the appropriate error status,
    return the appropriate value, and free the result set. */
-static PyObject *
+PyObject *
 _conn_non_query_result(int status, PGresult *result, PGconn *cnx)
 {
     switch (status) {
@@ -783,6 +792,12 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
 
     encoding = PQclientEncoding(self->cnx);
 
+    /* import datetime C API (this is not compatible with subinterpreters) */
+    PyDateTime_IMPORT;
+    if (PyErr_Occurred()) {
+        return NULL; /* pass the error */
+    }
+
     /* pre-allocate some memory for the query buffer */
     if (!init_char_buffer(&buffer, 4096)) {
         Py_DECREF(iter_row);
@@ -856,6 +871,8 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
     Py_END_ALLOW_THREADS
 
     if (!result || PQresultStatus(result) != PGRES_COPY_IN) {
+        if (result)
+            PQclear(result);
         PyMem_Free(buffer.data);
         Py_DECREF(iter_row);
         PyErr_SetString(PyExc_ValueError, PQerrorMessage(self->cnx));
@@ -863,6 +880,9 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
     }
 
     PQclear(result);
+
+    /* empty buffer while keeping allocated memory */
+    buffer.size = 0;
 
     /* feed table */
     for (i = 0; m < 0 || i < m; ++i) {
@@ -894,9 +914,6 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
                 "The second arg must contain sequences of the same size");
             return NULL;
         }
-
-        /* empty buffer while keeping allocated memory */
-        buffer.size = 0;
 
         /* build insert line */
 
@@ -977,7 +994,9 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
                     Py_DECREF(s);
                 }
             }
-            else if (PyLong_Check(item)) {
+            else if (PyLong_Check(item) || PyDate_Check(item) ||
+                     PyDateTime_Check(item) || PyTime_Check(item) ||
+                     PyDelta_Check(item)) {
                 PyObject *s = PyObject_Str(item);
                 const char *t = PyUnicode_AsUTF8(s);
 
@@ -1026,8 +1045,26 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
             return PyErr_NoMemory();
         }
 
-        /* send data */
+        if (buffer.size > 128 * 1024) {
+            /* send buffered data after reaching 128KB */
+            ret = PQputCopyData(self->cnx, buffer.data, (int)buffer.size);
+            buffer.size = 0;
+            if (ret != 1) {
+                char *errormsg = ret == -1 ? PQerrorMessage(self->cnx)
+                                           : "Data cannot be queued";
+                PyErr_SetString(PyExc_IOError, errormsg);
+                PQputCopyEnd(self->cnx, errormsg);
+                PyMem_Free(buffer.data);
+                Py_DECREF(iter_row);
+                return NULL;
+            }
+        }
+    }
+
+    /* flush any remaining data */
+    if (buffer.size) {
         ret = PQputCopyData(self->cnx, buffer.data, (int)buffer.size);
+        buffer.size = 0;
         if (ret != 1) {
             char *errormsg = ret == -1 ? PQerrorMessage(self->cnx)
                                        : "Data cannot be queued";
@@ -1039,9 +1076,10 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
         }
     }
 
+    PyMem_Free(buffer.data);
+
     Py_DECREF(iter_row);
     if (PyErr_Occurred()) {
-        PyMem_Free(buffer.data);
         return NULL; /* pass the iteration error */
     }
 
@@ -1049,11 +1087,8 @@ conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
     if (ret != 1) {
         PyErr_SetString(PyExc_IOError, ret == -1 ? PQerrorMessage(self->cnx)
                                                  : "Data cannot be queued");
-        PyMem_Free(buffer.data);
         return NULL;
     }
-
-    PyMem_Free(buffer.data);
 
     Py_BEGIN_ALLOW_THREADS
     result = PQgetResult(self->cnx);
@@ -1775,7 +1810,7 @@ static struct PyMethodDef conn_methods[] = {
 static char conn__doc__[] = "PostgreSQL connection object";
 
 /* Connection type definition */
-static PyTypeObject connType = {
+PyTypeObject connType = {
     PyVarObject_HEAD_INIT(NULL, 0) "pg.Connection", /* tp_name */
     sizeof(connObject),                             /* tp_basicsize */
     0,                                              /* tp_itemsize */

@@ -34,7 +34,7 @@ jobs:
       - name: Setup conda environment
         uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: 1.5.6-0
+          micromamba-version: 2.5.0-1
           environment-file: env.yml
           cache-environment: true
           create-args: python=3.11
@@ -60,7 +60,7 @@ jobs:
         run: mv tools/scipp-coverage-index.html coverage_html/index.html
 
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@v4.7.6
+        uses: JamesIves/github-pages-deploy-action@v4.8.0
         with:
           repository-name: scipp/scipp-coverage
           branch: main

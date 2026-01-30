@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: logstash_plugin
 short_description: Manage Logstash plugins
@@ -77,7 +76,6 @@ EXAMPLES = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 
-
 PACKAGE_STATE_MAP = dict(present="install", absent="remove")
 
 
@@ -96,13 +94,15 @@ def parse_error(string):
 
 
 def install_plugin(module, plugin_bin, plugin_name, version, proxy_host, proxy_port):
-    cmd_args = [plugin_bin, PACKAGE_STATE_MAP["present"], plugin_name]
+    cmd_args = [plugin_bin, PACKAGE_STATE_MAP["present"]]
 
     if version:
         cmd_args.extend(["--version", version])
 
     if proxy_host and proxy_port:
         cmd_args.extend([f"-DproxyHost={proxy_host}", f"-DproxyPort={proxy_port}"])
+
+    cmd_args.append(plugin_name)
 
     cmd = " ".join(cmd_args)
 

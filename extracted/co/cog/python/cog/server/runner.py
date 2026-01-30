@@ -113,6 +113,11 @@ class PredictionRunner:
         else:
             payload = prediction.input.copy()
 
+        if prediction.context is None:
+            prediction.context = {}
+        if prediction.id is not None:
+            prediction.context["id"] = prediction.id
+
         sid = self._worker.subscribe(task.handle_event, tag=tag)
         task.track(self._worker.predict(payload, context=prediction.context, tag=tag))
         task.add_done_callback(self._task_done_callback(tag, sid))
@@ -148,6 +153,15 @@ class PredictionRunner:
             ):
                 raise UnknownPredictionError("unknown prediction id")
         self._worker.cancel(tag=prediction_id)
+
+    async def healthcheck(self) -> Done:
+        """Run the user's healthcheck method."""
+        # Don't run healthcheck if the setup task is not completed
+        if self._setup_task is None or not self._setup_task.done():
+            return Done(event_type="healthcheck")
+
+        result = await asyncio.wrap_future(self._worker.healthcheck())
+        return result
 
     def _raise_if_busy(self) -> None:
         if self._setup_task is None:

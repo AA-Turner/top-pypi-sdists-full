@@ -12,7 +12,7 @@ __all__ = [
 from pathlib import Path
 from typing import Any, TypeVar
 
-from coola import objects_are_equal
+from coola.equality import objects_are_equal
 from coola.utils.format import repr_mapping_line
 
 from iden.io.base import BaseFileSaver, BaseLoader

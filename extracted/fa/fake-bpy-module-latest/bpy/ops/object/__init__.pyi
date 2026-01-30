@@ -655,7 +655,7 @@ def data_transfer(
         "SMOOTH",
         "FREESTYLE_FACE",
     ]
-    | None = "",
+    | None = "VGROUP_WEIGHTS",
     use_create: bool | None = True,
     vert_mapping: bpy.stub_internal.rna_enums.DtMethodVertexItems | None = "NEAREST",
     edge_mapping: bpy.stub_internal.rna_enums.DtMethodEdgeItems | None = "NEAREST",

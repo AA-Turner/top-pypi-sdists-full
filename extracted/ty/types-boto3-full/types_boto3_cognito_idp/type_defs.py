@@ -245,6 +245,7 @@ __all__ = (
     "GroupTypeTypeDef",
     "HttpHeaderTypeDef",
     "IdentityProviderTypeTypeDef",
+    "InboundFederationLambdaTypeTypeDef",
     "InitiateAuthRequestTypeDef",
     "InitiateAuthResponseTypeDef",
     "LambdaConfigTypeTypeDef",
@@ -995,6 +996,11 @@ class GetUserRequestTypeDef(TypedDict):
 
 class GlobalSignOutRequestTypeDef(TypedDict):
     AccessToken: str
+
+
+class InboundFederationLambdaTypeTypeDef(TypedDict):
+    LambdaVersion: Literal["V1_0"]
+    LambdaArn: str
 
 
 class PreTokenGenerationVersionConfigTypeTypeDef(TypedDict):
@@ -1902,6 +1908,7 @@ class LambdaConfigTypeTypeDef(TypedDict):
     CustomSMSSender: NotRequired[CustomSMSLambdaVersionConfigTypeTypeDef]
     CustomEmailSender: NotRequired[CustomEmailLambdaVersionConfigTypeTypeDef]
     KMSKeyID: NotRequired[str]
+    InboundFederation: NotRequired[InboundFederationLambdaTypeTypeDef]
 
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):

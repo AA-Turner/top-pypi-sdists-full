@@ -669,10 +669,6 @@ class PrivateServiceSDK(WorkloadSDK):
                 raise ValueError(
                     "A config file must be provided when deploying a new service."
                 )
-            if version_weights is not None:
-                self.logger.warning(
-                    "Defaulting to ROLLOUT strategy for single version service. Ignoring --versions."
-                )
 
             return RolloutStrategy.ROLLOUT
         else:
@@ -1089,7 +1085,7 @@ class PrivateServiceSDK(WorkloadSDK):
         model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
         return asyncio.run(self._service_model_to_status_async(model))
 
-    def list(  # noqa: PLR0912
+    def list(  # noqa: PLR0912, PLR0913
         self,
         *,
         # Single-item lookup

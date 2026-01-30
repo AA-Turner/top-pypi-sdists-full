@@ -199,6 +199,7 @@ Usage::
         PasswordDataAvailableWaiter,
         SearchLocalGatewayRoutesPaginator,
         SearchTransitGatewayMulticastGroupsPaginator,
+        SearchTransitGatewayRoutesPaginator,
         SecurityGroupExistsWaiter,
         SecurityGroupVpcAssociationAssociatedWaiter,
         SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -430,6 +431,7 @@ Usage::
     list_snapshots_in_recycle_bin_paginator: ListSnapshotsInRecycleBinPaginator = client.get_paginator("list_snapshots_in_recycle_bin")
     search_local_gateway_routes_paginator: SearchLocalGatewayRoutesPaginator = client.get_paginator("search_local_gateway_routes")
     search_transit_gateway_multicast_groups_paginator: SearchTransitGatewayMulticastGroupsPaginator = client.get_paginator("search_transit_gateway_multicast_groups")
+    search_transit_gateway_routes_paginator: SearchTransitGatewayRoutesPaginator = client.get_paginator("search_transit_gateway_routes")
     ```
 """
 
@@ -600,6 +602,7 @@ from .paginator import (
     ListSnapshotsInRecycleBinPaginator,
     SearchLocalGatewayRoutesPaginator,
     SearchTransitGatewayMulticastGroupsPaginator,
+    SearchTransitGatewayRoutesPaginator,
 )
 from .waiter import (
     BundleTaskCompleteWaiter,
@@ -845,6 +848,7 @@ __all__ = (
     "PasswordDataAvailableWaiter",
     "SearchLocalGatewayRoutesPaginator",
     "SearchTransitGatewayMulticastGroupsPaginator",
+    "SearchTransitGatewayRoutesPaginator",
     "SecurityGroupExistsWaiter",
     "SecurityGroupVpcAssociationAssociatedWaiter",
     "SecurityGroupVpcAssociationDisassociatedWaiter",

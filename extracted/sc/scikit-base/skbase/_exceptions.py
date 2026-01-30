@@ -4,6 +4,7 @@
 # are copyrighted by the scikit-learn developers, BSD-3-Clause License. For
 # conditions see https://github.com/scikit-learn/scikit-learn/blob/main/COPYING
 """Custom exceptions used in ``skbase``."""
+
 from typing import List
 
 __author__: List[str] = ["fkiraly", "mloning", "rnkuhns"]
@@ -13,9 +14,11 @@ __all__: List[str] = ["FixtureGenerationError", "NotFittedError"]
 class FixtureGenerationError(Exception):
     """Raised when a fixture fails to generate."""
 
-    def __init__(self, fixture_name="", err=None):
+    def __init__(self, fixture_name="", err=None):  # noqa: B042
         self.fixture_name = fixture_name
-        super().__init__(f"fixture {fixture_name} failed to generate. {err}")
+        self.err = err
+        msg = f"fixture {fixture_name} failed to generate. {err}"
+        super().__init__(msg)  # noqa: B042
 
 
 class NotFittedError(ValueError, AttributeError):

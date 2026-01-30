@@ -16,12 +16,12 @@ from __future__ import annotations
 import uuid
 import warnings
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from lxml import etree
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from lxml.etree import _Element as EtreeElement  # type: ignore
 
@@ -52,8 +52,11 @@ def get_localname(elem: EtreeElement) -> str:
     in `etree.QName`, this function will return a random string, and docx2python will
     silently ignore the element with the bad tag.
     """
+    tag = elem.tag
+    if isinstance(tag, bytearray):  # just for type checking
+        tag = tag.decode("utf-8")
     try:
-        qname = etree.QName(elem.tag)
+        qname = etree.QName(tag)
     except ValueError:
         warnings.warn(f"skipping invalid tag name '{elem.tag}'", stacklevel=2)
         return f"FAILED-{uuid.uuid4()}"

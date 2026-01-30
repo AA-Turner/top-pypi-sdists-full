@@ -24,17 +24,25 @@ options:
     id:
         description:
             - The ID of the Hetzner Cloud Primary IPs to manage.
-            - Only required if no Primary IP I(name) is given.
+            - Only required if no Primary IP O(name) is given.
         type: int
     name:
         description:
             - The Name of the Hetzner Cloud Primary IPs to manage.
-            - Only required if no Primary IP I(id) is given or a Primary IP does not exist.
+            - Only required if no Primary IP O(id) is given or a Primary IP does not exist.
+        type: str
+    location:
+        description:
+            - ID or name of the Location the Hetzner Cloud Primary IP will be bound to.
+            - Required if no O(server) or O(datacenter) is given and Primary IP does not exist.
         type: str
     datacenter:
         description:
+            - B(Deprecated:) The O(datacenter) argument is deprecated and will be removed
+              after 1 July 2026. Please use the O(location) argument instead.
+              See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters.
             - Home Location of the Hetzner Cloud Primary IP.
-            - Required if no I(server) is given and Primary IP does not exist.
+            - Required if no O(server) or O(location) is given and Primary IP does not exist.
         type: str
     server:
         description:
@@ -76,14 +84,14 @@ EXAMPLES = """
 - name: Create a IPv4 Primary IP
   hetzner.hcloud.primary_ip:
     name: my-primary-ip
-    datacenter: fsn1-dc14
+    location: fsn1
     type: ipv4
     state: present
 
 - name: Create a IPv6 Primary IP
   hetzner.hcloud.primary_ip:
     name: my-primary-ip
-    datacenter: fsn1-dc14
+    location: fsn1
     type: ipv6
     state: present
 
@@ -112,7 +120,7 @@ RETURN = """
 hcloud_primary_ip:
     description: The Primary IP instance
     returned: Always
-    type: complex
+    type: dict
     contains:
         id:
             description: ID of the Primary IP
@@ -134,8 +142,18 @@ hcloud_primary_ip:
             type: str
             returned: Always
             sample: ipv4
+        location:
+            description: Name of the Location of the Primary IP
+            type: str
+            returned: Always
+            sample: fsn1
         datacenter:
-            description: Name of the datacenter of the Primary IP
+            description: |
+                Name of the datacenter of the Primary IP
+
+                B(Deprecated:) The RV(hcloud_primary_ip.datacenter) value is deprecated and will be removed
+                after 1 July 2026. Please use the RV(hcloud_primary_ip.location) value instead.
+                See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters.
             type: str
             returned: Always
             sample: fsn1-dc14
@@ -168,120 +186,136 @@ hcloud_primary_ip:
             sample: false
 """
 
-from ansible.module_utils.basic import AnsibleModule
+from typing import TYPE_CHECKING
 
-from ..module_utils.hcloud import AnsibleHCloud
-from ..module_utils.vendor.hcloud import HCloudException
-from ..module_utils.vendor.hcloud.primary_ips import BoundPrimaryIP
+from ..module_utils import _primary_ip
+from ..module_utils._base import AnsibleHCloud, AnsibleModule
+from ..module_utils._vendor.hcloud import HCloudException
+from ..module_utils._vendor.hcloud.primary_ips import BoundPrimaryIP
+
+if TYPE_CHECKING:
+    from ..module_utils._vendor.hcloud.servers import BoundServer
 
 
-class AnsibleHCloudPrimaryIP(AnsibleHCloud):
-    represent = "hcloud_primary_ip"
+class AnsiblePrimaryIP(AnsibleHCloud):
+    represent = "primary_ip"
 
-    hcloud_primary_ip: BoundPrimaryIP | None = None
+    primary_ip: BoundPrimaryIP | None = None
 
     def _prepare_result(self):
-        return {
-            "id": self.hcloud_primary_ip.id,
-            "name": self.hcloud_primary_ip.name,
-            "ip": self.hcloud_primary_ip.ip,
-            "type": self.hcloud_primary_ip.type,
-            "datacenter": self.hcloud_primary_ip.datacenter.name,
-            "labels": self.hcloud_primary_ip.labels,
-            "delete_protection": self.hcloud_primary_ip.protection["delete"],
-            "assignee_id": (
-                self.hcloud_primary_ip.assignee_id if self.hcloud_primary_ip.assignee_id is not None else None
-            ),
-            "assignee_type": self.hcloud_primary_ip.assignee_type,
-            "auto_delete": self.hcloud_primary_ip.auto_delete,
+        if self.primary_ip is None:
+            return {}
+        return _primary_ip.prepare_result(self.primary_ip)
+
+    def _get(self):
+        if (value := self.module.params.get("id")) is not None:
+            self.primary_ip = self.client.primary_ips.get_by_id(value)
+        elif (value := self.module.params.get("name")) is not None:
+            self.primary_ip = self.client.primary_ips.get_by_name(value)
+
+    def _create(self):
+        self.fail_on_invalid_params(
+            required=["name", "type"],
+            required_one_of=[["server", "location", "datacenter"]],
+        )
+        params = {
+            "name": self.module.params.get("name"),
+            "type": self.module.params.get("type"),
         }
 
-    def _get_primary_ip(self):
-        try:
-            if self.module.params.get("id") is not None:
-                self.hcloud_primary_ip = self.client.primary_ips.get_by_id(self.module.params.get("id"))
-            else:
-                self.hcloud_primary_ip = self.client.primary_ips.get_by_name(self.module.params.get("name"))
-        except HCloudException as exception:
-            self.fail_json_hcloud(exception)
+        if (value := self.module.params.get("location")) is not None:
+            params["location"] = self._client_get_by_name_or_id("locations", value)
+        elif (value := self.module.params.get("datacenter")) is not None:
+            self.module.warn(
+                "The `datacenter` argument is deprecated and will be removed "
+                "after 1 July 2026. Please use the `location` argument instead. "
+                "See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters."
+            )
+            # Backward compatible datacenter argument.
+            # datacenter hel1-dc2 => location hel1
+            # pylint: disable=disallowed-name
+            part1, _, _ = str(value).partition("-")
+            params["location"] = self.client.locations.get_by_name(part1)
+        elif (value := self.module.params.get("server")) is not None:
+            server: BoundServer = self._client_get_by_name_or_id("servers", value)
+            params["assignee_id"] = server.id
 
-    def _create_primary_ip(self):
-        self.fail_on_invalid_params(
-            required=["type", "name"],
-            required_one_of=[["server", "datacenter"]],
-        )
-        try:
-            params = {
-                "type": self.module.params.get("type"),
-                "name": self.module.params.get("name"),
-                "auto_delete": self.module.params.get("auto_delete"),
-            }
+        if (value := self.module.params.get("auto_delete")) is not None:
+            params["auto_delete"] = value
 
-            if self.module.params.get("datacenter") is not None:
-                params["datacenter"] = self.client.datacenters.get_by_name(self.module.params.get("datacenter"))
-            elif self.module.params.get("server") is not None:
-                params["assignee_id"] = self._client_get_by_name_or_id("servers", self.module.params.get("server")).id
+        if (value := self.module.params.get("labels")) is not None:
+            params["labels"] = value
 
-            if self.module.params.get("labels") is not None:
-                params["labels"] = self.module.params.get("labels")
-            if not self.module.check_mode:
-                resp = self.client.primary_ips.create(**params)
-                if resp.action is not None:
-                    resp.action.wait_until_finished()
-                self.hcloud_primary_ip = resp.primary_ip
-
-                delete_protection = self.module.params.get("delete_protection")
-                if delete_protection is not None:
-                    action = self.hcloud_primary_ip.change_protection(delete=delete_protection)
-                    action.wait_until_finished()
-        except HCloudException as exception:
-            self.fail_json_hcloud(exception)
+        if not self.module.check_mode:
+            resp = self.client.primary_ips.create(**params)
+            if resp.action is not None:
+                resp.action.wait_until_finished()
+            self.primary_ip = resp.primary_ip
         self._mark_as_changed()
-        self._get_primary_ip()
 
-    def _update_primary_ip(self):
-        try:
-            changes = {}
+        if (value := self.module.params.get("delete_protection")) is not None:
+            if not self.module.check_mode:
+                action = self.primary_ip.change_protection(delete=value)
+                action.wait_until_finished()
+            self._mark_as_changed()
 
-            auto_delete = self.module.params.get("auto_delete")
-            if auto_delete is not None and auto_delete != self.hcloud_primary_ip.auto_delete:
-                changes["auto_delete"] = auto_delete
+        if not self.module.check_mode:
+            self.primary_ip.reload()
 
-            labels = self.module.params.get("labels")
-            if labels is not None and labels != self.hcloud_primary_ip.labels:
-                changes["labels"] = labels
+    def _update(self):
+        need_reload = False
 
-            if changes:
+        if (value := self.module.params.get("delete_protection")) is not None:
+            if value != self.primary_ip.protection["delete"]:
                 if not self.module.check_mode:
-                    self.hcloud_primary_ip.update(**changes)
-                self._mark_as_changed()
-
-            delete_protection = self.module.params.get("delete_protection")
-            if delete_protection is not None and delete_protection != self.hcloud_primary_ip.protection["delete"]:
-                if not self.module.check_mode:
-                    action = self.hcloud_primary_ip.change_protection(delete=delete_protection)
+                    action = self.primary_ip.change_protection(delete=value)
                     action.wait_until_finished()
+                    need_reload = True
                 self._mark_as_changed()
 
-            self._get_primary_ip()
+        params = {}
+
+        if (value := self.module.params.get("auto_delete")) is not None:
+            if value != self.primary_ip.auto_delete:
+                params["auto_delete"] = value
+                self._mark_as_changed()
+
+        if (value := self.module.params.get("labels")) is not None:
+            if value != self.primary_ip.labels:
+                params["labels"] = value
+                self._mark_as_changed()
+
+        if params or need_reload:
+            if not self.module.check_mode:
+                self.primary_ip = self.primary_ip.update(**params)
+
+    def _delete(self):
+        if self.primary_ip.assignee_id is not None:
+            if not self.module.check_mode:
+                action = self.primary_ip.unassign()
+                action.wait_until_finished()
+            self._mark_as_changed()
+
+        if not self.module.check_mode:
+            self.primary_ip.delete()
+        self.primary_ip = None
+        self._mark_as_changed()
+
+    def present(self):
+        try:
+            self._get()
+            if self.primary_ip is None:
+                self._create()
+            else:
+                self._update()
         except HCloudException as exception:
             self.fail_json_hcloud(exception)
 
-    def present_primary_ip(self):
-        self._get_primary_ip()
-        if self.hcloud_primary_ip is None:
-            self._create_primary_ip()
-        else:
-            self._update_primary_ip()
-
-    def delete_primary_ip(self):
+    def delete(self):
         try:
-            self._get_primary_ip()
-            if self.hcloud_primary_ip is not None:
-                if not self.module.check_mode:
-                    self.client.primary_ips.delete(self.hcloud_primary_ip)
-                self._mark_as_changed()
-            self.hcloud_primary_ip = None
+            self._get()
+            if self.primary_ip is not None:
+                self._delete()
         except HCloudException as exception:
             self.fail_json_hcloud(exception)
 
@@ -291,7 +325,12 @@ class AnsibleHCloudPrimaryIP(AnsibleHCloud):
             argument_spec=dict(
                 id={"type": "int"},
                 name={"type": "str"},
-                datacenter={"type": "str"},
+                location={"type": "str"},
+                datacenter={
+                    "type": "str",
+                    "removed_at_date": "2026-07-01",
+                    "removed_from_collection": "hetzner.hcloud",
+                },
                 server={"type": "str"},
                 auto_delete={"type": "bool", "default": False},
                 type={"choices": ["ipv4", "ipv6"]},
@@ -309,16 +348,18 @@ class AnsibleHCloudPrimaryIP(AnsibleHCloud):
 
 
 def main():
-    module = AnsibleHCloudPrimaryIP.define_module()
+    o = AnsiblePrimaryIP(AnsiblePrimaryIP.define_module())
 
-    hcloud = AnsibleHCloudPrimaryIP(module)
-    state = module.params["state"]
-    if state == "absent":
-        hcloud.delete_primary_ip()
-    elif state == "present":
-        hcloud.present_primary_ip()
+    match o.module.params["state"]:
+        case "absent":
+            o.delete()
+        case "present":
+            o.present()
 
-    module.exit_json(**hcloud.get_result())
+    result = o.get_result()
+    result["hcloud_primary_ip"] = result.pop(o.represent)
+
+    o.module.exit_json(**result)
 
 
 if __name__ == "__main__":

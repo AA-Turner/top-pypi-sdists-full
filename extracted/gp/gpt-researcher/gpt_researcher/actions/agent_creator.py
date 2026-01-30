@@ -1,8 +1,19 @@
+"""Agent creation and selection utilities for GPT Researcher.
+
+This module provides functions to automatically select and configure
+the appropriate research agent based on the query type.
+"""
+
 import json
+import logging
 import re
+
 import json_repair
-from ..utils.llm import create_chat_completion
+
 from ..prompts import PromptFamily
+from ..utils.llm import create_chat_completion
+
+logger = logging.getLogger(__name__)
 
 async def choose_agent(
     query,
@@ -51,14 +62,32 @@ async def choose_agent(
         return await handle_json_error(response)
 
 
-async def handle_json_error(response):
+async def handle_json_error(response: str | None):
+    """Handle JSON parsing errors from LLM responses.
+
+    Attempts to recover agent information from malformed JSON responses
+    using json_repair and regex extraction as fallbacks.
+
+    Args:
+        response: The LLM response string that failed initial JSON parsing.
+
+    Returns:
+        A tuple of (agent_name, agent_role_prompt). Returns default agent
+        if all parsing attempts fail.
+    """
     try:
         agent_dict = json_repair.loads(response)
         if agent_dict.get("server") and agent_dict.get("agent_role_prompt"):
             return agent_dict["server"], agent_dict["agent_role_prompt"]
     except Exception as e:
-        print(f"⚠️ Error in reading JSON and failed to repair with json_repair: {e}")
-        print(f"⚠️ LLM Response: `{response}`")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.warning(
+            f"Failed to parse agent JSON with json_repair: {error_type}: {error_msg}",
+            exc_info=True
+        )
+        if response:
+            logger.debug(f"LLM response that failed to parse: {response[:500]}...")
 
     json_string = extract_json_with_regex(response)
     if json_string:
@@ -66,16 +95,31 @@ async def handle_json_error(response):
             json_data = json.loads(json_string)
             return json_data["server"], json_data["agent_role_prompt"]
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
+            logger.warning(
+                f"Failed to decode JSON from regex extraction: {str(e)}",
+                exc_info=True
+            )
 
-    print("No JSON found in the string. Falling back to Default Agent.")
+    logger.info("No valid JSON found in LLM response. Falling back to default agent.")
     return "Default Agent", (
         "You are an AI critical thinker research assistant. Your sole purpose is to write well written, "
         "critically acclaimed, objective and structured reports on given text."
     )
 
 
-def extract_json_with_regex(response):
+def extract_json_with_regex(response: str | None) -> str | None:
+    """Extract JSON object from a string using regex.
+
+    Attempts to find the first JSON object pattern in the response string.
+
+    Args:
+        response: The string to search for JSON content.
+
+    Returns:
+        The extracted JSON string if found, None otherwise.
+    """
+    if not response:
+        return None
     json_match = re.search(r"{.*?}", response, re.DOTALL)
     if json_match:
         return json_match.group(0)

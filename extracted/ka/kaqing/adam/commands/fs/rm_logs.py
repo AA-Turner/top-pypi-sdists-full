@@ -4,7 +4,8 @@ from adam.commands.command import Command
 from adam.commands.devices.devices import Devices
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, log_dir
+from adam.utils import Color, log2, log_dir, pod_log_dir
+from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 
 class RmLogs(Command):
@@ -27,13 +28,17 @@ class RmLogs(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            cmd = f'rm -rf {self.log_dir()}/*'
+            cmd = f'rm -rf {pod_log_dir()}/*'
             action = 'rm-logs'
             msg = 'd`Running|Ran ' + action + ' onto {size} pods'
             pods = Devices.of(state).pod_names(state)
             container = Devices.of(state).default_container(state)
             with Pods.parallelize(pods, len(pods), msg=msg, action=action) as exec:
-                exec.map(lambda pod: Pods.exec(pod, container, state.namespace, cmd, show_out=True, text_color='gray'))
+                ctx: Context = Context.new(show_out=True)
+
+                for r in exec.map(lambda pod: Pods.exec(pod, container, state.namespace, cmd, ctx)):
+                    ctx.log(r.command)
+                    r.log(ctx)
 
             return state
 
@@ -41,4 +46,4 @@ class RmLogs(Command):
         return super().completion(state)
 
     def help(self, state: ReplState):
-        return super().help(state, f'remove all qing log files under {self.log_dir()}')
+        return super().help(state, f'remove all qing log files under {pod_log_dir()}')

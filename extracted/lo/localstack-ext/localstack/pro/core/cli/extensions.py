@@ -18,6 +18,7 @@ import json,os
 from collections.abc import Iterable
 import click
 from click import ClickException
+from localstack import constants
 from localstack.cli import console
 from localstack.utils.analytics.cli import publish_invocation
 from localstack.utils.container_utils.container_client import BindMount,ContainerConfiguration,ContainerConfigurator,ContainerException
@@ -133,10 +134,12 @@ def cmd_dev_list()->_B:
 	if _A not in A:return
 	for C in A[_A]:click.echo(C[_H])
 def _stream_localstack_container_command(cmd:list[str],additional_configurators:Iterable[ContainerConfigurator]=()):
-	from localstack import config as F;from localstack.pro.core.bootstrap import licensingv2 as G;from localstack.utils import docker_utils as H;from localstack.utils.bootstrap import Container as I,ContainerConfigurators as B,get_docker_image_to_start as J;C=I(ContainerConfiguration(image_name=J(),remove=_F),docker_client=H.DOCKER_CLIENT);K=[B.env_vars({'DEBUG':'0'}),B.custom_command(cmd),B.mount_localstack_volume(F.VOLUME_DIR),G.configure_container_licensing,*additional_configurators];C.configure(K);A=C.start()
+	from localstack import config as G;from localstack.pro.core.bootstrap import licensingv2 as H;from localstack.utils import docker_utils as I;from localstack.utils.bootstrap import Container as J,ContainerConfigurators as B;C=os.environ.get('IMAGE_NAME')
+	if not C:C=constants.DOCKER_IMAGE_NAME_PRO
+	D=J(ContainerConfiguration(image_name=C,remove=_F),docker_client=I.DOCKER_CLIENT);K=[B.env_vars({'DEBUG':'0'}),B.custom_command(cmd),B.mount_localstack_volume(G.VOLUME_DIR),H.configure_container_licensing,*additional_configurators];D.configure(K);A=D.start()
 	try:
 		L=A.stream_logs()
 		for M in L:yield M.decode('utf-8')
-		N=A.inspect();D=N['State']['ExitCode']
-		if D!=0:E=A.get_logs();console.log(E);raise ContainerException(f"container returned with a non-zero exit code {D}",stdout=E)
+		N=A.inspect();E=N['State']['ExitCode']
+		if E!=0:F=A.get_logs();console.log(F);raise ContainerException(f"container returned with a non-zero exit code {E}",stdout=F)
 	finally:A.shutdown(remove=_C)

@@ -317,13 +317,9 @@ def scarf_analytics():
 def ngrams(s: list[str], n: int) -> list[tuple[str, ...]]:
     """Generate n-grams from a list of strings where `n` (int) is the size of each n-gram."""
 
-    ngrams_list: list[tuple[str, ...]] = []
-    for i in range(len(s) - n + 1):
-        ngram: list[str] = []
-        for j in range(n):
-            ngram.append(s[i + j])
-        ngrams_list.append(tuple(ngram))
-    return ngrams_list
+    if n <= 0:
+        raise ValueError(f"n must be positive, received n = {n}")
+    return [tuple(s[i : i + n]) for i in range(len(s) - n + 1)]
 
 
 def calculate_shared_ngram_percentage(
@@ -489,7 +485,7 @@ def identify_overlapping_case(
     type1, type2 = label_pair
     text1, text2 = text_pair
     ix_element1, ix_element2 = ix_pair
-    (overlap_percentage, max_area, min_area, total_area) = calculate_overlap_percentage(
+    overlap_percentage, max_area, min_area, total_area = calculate_overlap_percentage(
         box1,
         box2,
         intersection_ratio_method="partial",

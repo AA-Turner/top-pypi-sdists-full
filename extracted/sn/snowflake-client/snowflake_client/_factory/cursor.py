@@ -9,9 +9,7 @@ from dataclasses import (
     dataclass,
     field,
 )
-from datetime import (
-    datetime,
-)
+from datetime import date, datetime, time
 from logging import (
     Logger,
 )
@@ -24,6 +22,7 @@ from typing import (
 
 from fa_purity import (
     Cmd,
+    Coproduct,
     FrozenDict,
     FrozenList,
     Maybe,
@@ -34,6 +33,7 @@ from fa_purity import (
     ResultFactory,
     Stream,
     StreamFactory,
+    UnionFactory,
     Unsafe,
     cast_exception,
 )
@@ -48,6 +48,7 @@ from redshift_client.sql_client import (
     RowData,
     Template,
 )
+from redshift_client.sql_client._core.primitive import DbTimes
 from snowflake.connector.cursor import (
     SnowflakeCursor as RawSnowflakeCursor,
 )
@@ -68,7 +69,24 @@ def _frame_location(frame: FrameType | None) -> str:
     return "?? Unknown ??"
 
 
-def _db_primitive_to_raw(item: DbPrimitive) -> Primitive | datetime:
+def _unwrap_date_time(v: Coproduct[date, time]) -> date | time:
+    factory = UnionFactory[date, time]()
+    return v.map(
+        lambda d: factory.inl(d),
+        lambda t: factory.inr(t),
+    )
+
+
+def _cast_times(raw: DbTimes) -> datetime | date | time:
+    factory = UnionFactory[datetime, date | time]()
+
+    return raw.map(
+        lambda dt: factory.inl(dt),  # datetime
+        lambda v: factory.inr(_unwrap_date_time(v)),  # date | time
+    )
+
+
+def _db_primitive_to_raw(item: DbPrimitive) -> Primitive | datetime | date | time:
     def _cast(item: Primitive) -> Primitive:
         return item
 
@@ -81,7 +99,7 @@ def _db_primitive_to_raw(item: DbPrimitive) -> Primitive | datetime:
             lambda x: _cast(x),
             lambda: None,
         ),
-        lambda d: d,
+        lambda d: _cast_times(d),
     )
 
 
@@ -172,10 +190,10 @@ class _RawCursor:
     def execute_with_values(
         self,
         query: SnowflakeQuery,
-        raw_values: FrozenDict[str, Primitive | datetime],
+        raw_values: FrozenDict[str, Primitive | datetime | date | time],
     ) -> Cmd[ResultE[None]]:
         def _action() -> ResultE[None]:
-            items: dict[str, Primitive | datetime] = dict(raw_values)
+            items: dict[str, Primitive | datetime | date | time] = dict(raw_values)
             try:
                 self._cursor.execute(query.statement, items)
                 return Result.success(None)
@@ -194,8 +212,8 @@ class _RawCursor:
     def execute_many(
         self,
         query: SnowflakeQuery,
-        raw_values: FrozenList[FrozenList[Primitive | datetime]]
-        | FrozenList[dict[str, Primitive | datetime]],
+        raw_values: FrozenList[FrozenList[Primitive | datetime | date | time]]
+        | FrozenList[dict[str, Primitive | datetime | date | time]],
     ) -> Cmd[ResultE[None]]:
         def _action() -> ResultE[None]:
             try:
@@ -290,7 +308,7 @@ class SnowflakeCursorFactory:
         )
 
     def batch(self, query: SnowflakeQuery, values: FrozenList[QueryValues]) -> Cmd[ResultE[None]]:
-        raw_values: FrozenList[dict[str, Primitive | datetime]] = (
+        raw_values: FrozenList[dict[str, Primitive | datetime | date | time]] = (
             PureIterFactory.from_list(values)
             .map(lambda v: v.values.map(lambda k: k, _db_primitive_to_raw))
             .map(dict)
@@ -323,7 +341,7 @@ class SnowflakeCursorFactory:
                 flags=re.IGNORECASE,
             ),
         ).map(SnowflakeQuery.new_query)
-        raw_values: FrozenList[FrozenList[Primitive | datetime]] = data.map(
+        raw_values: FrozenList[FrozenList[Primitive | datetime | date | time]] = data.map(
             lambda r: PureIterFactory.from_list(r.data).map(_db_primitive_to_raw).to_list(),
         ).to_list()
 
@@ -349,7 +367,7 @@ class SnowflakeCursorFactory:
             query.statement,
             flags=re.IGNORECASE,
         )
-        raw_values: FrozenList[dict[str, Primitive | datetime]] = (
+        raw_values: FrozenList[dict[str, Primitive | datetime | date | time]] = (
             PureIterFactory.from_list(values)
             .map(lambda v: v.values.map(lambda k: k, _db_primitive_to_raw))
             .map(dict)

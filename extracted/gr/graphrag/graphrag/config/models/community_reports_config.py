@@ -3,20 +3,36 @@
 
 """Parameterization settings for the default configuration."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from graphrag.config.defaults import graphrag_config_defaults
-from graphrag.config.models.language_model_config import LanguageModelConfig
+from graphrag.prompts.index.community_report import COMMUNITY_REPORT_PROMPT
+from graphrag.prompts.index.community_report_text_units import (
+    COMMUNITY_REPORT_TEXT_PROMPT,
+)
+
+
+@dataclass
+class CommunityReportPrompts:
+    """Community report prompt templates."""
+
+    graph_prompt: str
+    text_prompt: str
 
 
 class CommunityReportsConfig(BaseModel):
     """Configuration section for community reports."""
 
-    model_id: str = Field(
+    completion_model_id: str = Field(
         description="The model ID to use for community reports.",
-        default=graphrag_config_defaults.community_reports.model_id,
+        default=graphrag_config_defaults.community_reports.completion_model_id,
+    )
+    model_instance_name: str = Field(
+        description="The model singleton instance name. This primarily affects the cache storage partitioning.",
+        default=graphrag_config_defaults.community_reports.model_instance_name,
     )
     graph_prompt: str | None = Field(
         description="The community report extraction prompt to use for graph-based summarization.",
@@ -34,32 +50,14 @@ class CommunityReportsConfig(BaseModel):
         description="The maximum input length in tokens to use when generating reports.",
         default=graphrag_config_defaults.community_reports.max_input_length,
     )
-    strategy: dict | None = Field(
-        description="The override strategy to use.",
-        default=graphrag_config_defaults.community_reports.strategy,
-    )
 
-    def resolved_strategy(
-        self, root_dir: str, model_config: LanguageModelConfig
-    ) -> dict:
-        """Get the resolved community report extraction strategy."""
-        from graphrag.index.operations.summarize_communities.typing import (
-            CreateCommunityReportsStrategyType,
-        )
-
-        return self.strategy or {
-            "type": CreateCommunityReportsStrategyType.graph_intelligence,
-            "llm": model_config.model_dump(),
-            "graph_prompt": (Path(root_dir) / self.graph_prompt).read_text(
-                encoding="utf-8"
-            )
+    def resolved_prompts(self) -> CommunityReportPrompts:
+        """Get the resolved community report extraction prompts."""
+        return CommunityReportPrompts(
+            graph_prompt=Path(self.graph_prompt).read_text(encoding="utf-8")
             if self.graph_prompt
-            else None,
-            "text_prompt": (Path(root_dir) / self.text_prompt).read_text(
-                encoding="utf-8"
-            )
+            else COMMUNITY_REPORT_PROMPT,
+            text_prompt=Path(self.text_prompt).read_text(encoding="utf-8")
             if self.text_prompt
-            else None,
-            "max_report_length": self.max_length,
-            "max_input_length": self.max_input_length,
-        }
+            else COMMUNITY_REPORT_TEXT_PROMPT,
+        )

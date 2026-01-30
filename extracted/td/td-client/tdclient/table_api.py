@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
 import json
+from contextlib import AbstractContextManager
+from typing import Any
 
 import msgpack
+import urllib3
 
-from .util import create_url, get_or_else, parse_date
+from tdclient.util import create_url, get_or_else, parse_date
 
 
 class TableAPI:
@@ -13,7 +16,27 @@ class TableAPI:
     This class is inherited by :class:`tdclient.api.API`.
     """
 
-    def list_tables(self, db):
+    # Methods from API class
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def post(
+        self,
+        path: str,
+        params: dict[str, Any] | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> AbstractContextManager[urllib3.BaseHTTPResponse]: ...
+    def raise_error(
+        self, msg: str, res: urllib3.BaseHTTPResponse, body: bytes | str
+    ) -> None: ...
+    def checked_json(self, body: bytes, required: list[str]) -> dict[str, Any]: ...
+
+    def list_tables(self, db: str) -> dict[str, Any]:
         """Gets the list of table in the database.
 
         Args:
@@ -33,7 +56,6 @@ class TableAPI:
               'created_at': datetime.datetime(2019, 1, 30, 5, 34, 42, tzinfo=tzutc()),
               'updated_at': datetime.datetime(2019, 1, 30, 5, 34, 46, tzinfo=tzutc()),
               'type': 'log',
-              'include_v': True,
               'count': 150,
               'schema': [['sepal_length', 'double', 'sepal_length'],
                ['sepal_width', 'double', 'sepal_width'],
@@ -49,7 +71,7 @@ class TableAPI:
             if code != 200:
                 self.raise_error("List tables failed", res, body)
             js = self.checked_json(body, ["tables"])
-            result = {}
+            result: dict[str, dict[str, Any]] = {}
             for m in js["tables"]:
                 m = dict(m)
                 m["type"] = m.get("type", "?")
@@ -71,7 +93,7 @@ class TableAPI:
                 result[m["name"]] = m
             return result
 
-    def create_log_table(self, db, table):
+    def create_log_table(self, db: str, table: str) -> bool:
         """Create a new table in the database and registers it in PlazmaDB.
 
         Args:
@@ -83,7 +105,9 @@ class TableAPI:
         """
         return self._create_table(db, table, "log")
 
-    def _create_table(self, db, table, type, params=None):
+    def _create_table(
+        self, db: str, table: str, type: str, params: dict[str, Any] | None = None
+    ) -> bool:
         params = {} if params is None else params
         with self.post(
             create_url(
@@ -93,10 +117,10 @@ class TableAPI:
         ) as res:
             code, body = res.status, res.read()
             if code != 200:
-                self.raise_error("Create %s table failed" % (type), res, body)
+                self.raise_error(f"Create {type} table failed", res, body)
             return True
 
-    def swap_table(self, db, table1, table2):
+    def swap_table(self, db: str, table1: str, table2: str) -> bool:
         """Swap the two specified tables with each other belonging to the same database
         and basically exchanges their names.
 
@@ -120,7 +144,7 @@ class TableAPI:
                 self.raise_error("Swap tables failed", res, body)
             return True
 
-    def update_schema(self, db, table, schema_json):
+    def update_schema(self, db: str, table: str, schema_json: str) -> bool:
         """Update the table schema.
 
         Args:
@@ -141,7 +165,7 @@ class TableAPI:
                 self.raise_error("Create schema table failed", res, body)
             return True
 
-    def update_expire(self, db, table, expire_days):
+    def update_expire(self, db: str, table: str, expire_days: int) -> bool:
         """Update the expire days for the specified table
 
         Args:
@@ -161,7 +185,7 @@ class TableAPI:
                 self.raise_error("Update table expiration failed", res, body)
             return True
 
-    def delete_table(self, db, table):
+    def delete_table(self, db: str, table: str) -> str:
         """Delete the specified table.
 
         Args:
@@ -181,7 +205,15 @@ class TableAPI:
             t = js.get("type", "?")
             return t
 
-    def tail(self, db, table, count, to=None, _from=None, block=None):
+    def tail(
+        self,
+        db: str,
+        table: str,
+        count: int,
+        to: Any = None,
+        _from: Any = None,
+        block: Any = None,
+    ) -> list[dict[str, Any]]:
         """Get the contents of the table in reverse order based on the registered time
         (last data first).
 
@@ -204,14 +236,14 @@ class TableAPI:
             if code != 200:
                 self.raise_error("Tail table failed", res, "")
 
-            unpacker = msgpack.Unpacker(res, raw=False)
-            result = []
+            unpacker = msgpack.Unpacker(res, raw=False)  # type: ignore[arg-type]
+            result: list[dict[str, Any]] = []
             for row in unpacker:
                 result.append(row)
 
             return result
 
-    def change_database(self, db, table, dest_db):
+    def change_database(self, db: str, table: str, dest_db: str) -> bool:
         """Move a target table from it's original database to new destination database.
 
         Args:

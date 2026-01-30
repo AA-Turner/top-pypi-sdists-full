@@ -6,9 +6,9 @@ from wbcore.contrib.authentication.configurations import (
     AuthenticationConfigurationMixin,
 )
 from wbcore.contrib.directory.configurations import DirectoryConfigurationMixin
-from wbcore.contrib.guardian.configurations import Guardian
 from wbcore.contrib.io.configurations import ImportExportBaseConfiguration
 from wbcore.contrib.notifications.configurations import NotificationConfiguration
+from wbcore.contrib.permission.configurations import PermissionConfiguration
 
 
 class DevBaseConfiguration(
@@ -27,7 +27,7 @@ class DevBaseConfiguration(
     configurations.Authentication,
     configurations.DevMiddleware,
     configurations.LocalStaticfiles,
-    Guardian,
+    PermissionConfiguration,
     configurations.WBCore,
     configurations.Celery,
     configurations.I18NL10N,

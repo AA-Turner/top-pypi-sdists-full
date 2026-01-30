@@ -31,9 +31,7 @@ class FeatureFlags:
     def send_telemetry(cls) -> bool:
         if os.environ.get("TB_CLI_TELEMETRY_OPTOUT", "0") == "1":
             return False
-        if "x.y.z" in CURRENT_VERSION and os.environ.get("TB_CLI_TELEMETRY_SEND_IN_LOCAL", "0") == "0":
-            return False
-        return True
+        return not ("x.y.z" in CURRENT_VERSION and os.environ.get("TB_CLI_TELEMETRY_SEND_IN_LOCAL", "0") == "0")
 
 
 def compare_versions(a: str, b: str) -> int:

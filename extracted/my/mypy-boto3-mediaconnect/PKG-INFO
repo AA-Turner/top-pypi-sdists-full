@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-mediaconnect
-Version: 1.42.3
-Summary: Type annotations for boto3 MediaConnect 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.37
+Summary: Type annotations for boto3 MediaConnect 1.42.37 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 MediaConnect 1.42.3](https://pypi.org/project/boto3/) compatible with
+[boto3 MediaConnect 1.42.37](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -106,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.37' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `MediaConnect` service.
 4. Use provided commands to install generated packages.
@@ -397,6 +397,7 @@ from mypy_boto3_mediaconnect.waiter import (
     OutputDeletedWaiter,
     OutputRoutedWaiter,
     OutputStandbyWaiter,
+    OutputUnroutedWaiter,
 )
 
 client: MediaConnectClient = Session().client("mediaconnect")
@@ -413,6 +414,7 @@ output_active_waiter: OutputActiveWaiter = client.get_waiter("output_active")
 output_deleted_waiter: OutputDeletedWaiter = client.get_waiter("output_deleted")
 output_routed_waiter: OutputRoutedWaiter = client.get_waiter("output_routed")
 output_standby_waiter: OutputStandbyWaiter = client.get_waiter("output_standby")
+output_unrouted_waiter: OutputUnroutedWaiter = client.get_waiter("output_unrouted")
 ```
 
 <a id="literals"></a>

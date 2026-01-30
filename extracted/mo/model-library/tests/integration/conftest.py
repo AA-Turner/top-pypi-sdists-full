@@ -1,8 +1,8 @@
 import pytest
 
-from examples.setup import setup
 
-
-@pytest.fixture(autouse=True)
-def setup_fixture():
-    setup()
+@pytest.fixture()
+def require_model_flag(request: pytest.FixtureRequest):
+    """Skip this test unless --model flag is provided"""
+    if not request.config.getoption("--model", None):
+        pytest.skip("Hard question tests require --model flag")

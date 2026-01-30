@@ -18,6 +18,8 @@ CpuSize = str
 DiskSize = str
 DiskType = str
 Double = float
+EncryptionContextKey = str
+EncryptionContextValue = str
 EncryptionKeyArn = str
 EngineType = str
 EntryPointArgument = str
@@ -139,6 +141,12 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
+class JobLevelCostAllocationConfiguration(TypedDict, total=False):
+    """The configuration object that enables job level cost allocation."""
+
+    enabled: Boolean | None
+
+
 class IdentityCenterConfiguration(TypedDict, total=False):
     """The IAM Identity Center Configuration accepts the Identity Center
     instance parameter required to enable trusted identity propagation. This
@@ -167,6 +175,16 @@ class InteractiveConfiguration(TypedDict, total=False):
 
     studioEnabled: Boolean | None
     livyEndpointEnabled: Boolean | None
+
+
+EncryptionContext = dict[EncryptionContextKey, EncryptionContextValue]
+
+
+class DiskEncryptionConfiguration(TypedDict, total=False):
+    """The configuration object that allows encrypting local disks."""
+
+    encryptionContext: EncryptionContext | None
+    encryptionKeyArn: EncryptionKeyArn | None
 
 
 class PrometheusMonitoringConfiguration(TypedDict, total=False):
@@ -336,9 +354,11 @@ class Application(TypedDict, total=False):
     workerTypeSpecifications: WorkerTypeSpecificationMap | None
     runtimeConfiguration: ConfigurationList | None
     monitoringConfiguration: MonitoringConfiguration | None
+    diskEncryptionConfiguration: DiskEncryptionConfiguration | None
     interactiveConfiguration: InteractiveConfiguration | None
     schedulerConfiguration: SchedulerConfiguration | None
     identityCenterConfiguration: IdentityCenterConfiguration | None
+    jobLevelCostAllocationConfiguration: JobLevelCostAllocationConfiguration | None
 
 
 class ApplicationSummary(TypedDict, total=False):
@@ -376,6 +396,7 @@ class ConfigurationOverrides(TypedDict, total=False):
 
     applicationConfiguration: ConfigurationList | None
     monitoringConfiguration: MonitoringConfiguration | None
+    diskEncryptionConfiguration: DiskEncryptionConfiguration | None
 
 
 class IdentityCenterConfigurationInput(TypedDict, total=False):
@@ -420,9 +441,11 @@ class CreateApplicationRequest(TypedDict, total=False):
     workerTypeSpecifications: WorkerTypeSpecificationInputMap | None
     runtimeConfiguration: ConfigurationList | None
     monitoringConfiguration: MonitoringConfiguration | None
+    diskEncryptionConfiguration: DiskEncryptionConfiguration | None
     interactiveConfiguration: InteractiveConfiguration | None
     schedulerConfiguration: SchedulerConfiguration | None
     identityCenterConfiguration: IdentityCenterConfigurationInput | None
+    jobLevelCostAllocationConfiguration: JobLevelCostAllocationConfiguration | None
 
 
 class CreateApplicationResponse(TypedDict, total=False):
@@ -735,8 +758,10 @@ class UpdateApplicationRequest(ServiceRequest):
     releaseLabel: ReleaseLabel | None
     runtimeConfiguration: ConfigurationList | None
     monitoringConfiguration: MonitoringConfiguration | None
+    diskEncryptionConfiguration: DiskEncryptionConfiguration | None
     schedulerConfiguration: SchedulerConfiguration | None
     identityCenterConfiguration: IdentityCenterConfigurationInput | None
+    jobLevelCostAllocationConfiguration: JobLevelCostAllocationConfiguration | None
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
@@ -794,12 +819,14 @@ class EmrServerlessApi:
         :param runtime_configuration: The
         `Configuration <https://docs.
         :param monitoring_configuration: The configuration setting for monitoring.
+        :param disk_encryption_configuration: The configuration object that allows encrypting local disks.
         :param interactive_configuration: The interactive configuration object that enables the interactive use
         cases to use when running an application.
         :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
         application.
         :param identity_center_configuration: The IAM Identity Center Configuration accepts the Identity Center
         instance parameter required to enable trusted identity propagation.
+        :param job_level_cost_allocation_configuration: The configuration object that enables job level cost allocation.
         :returns: CreateApplicationResponse
         :raises ValidationException:
         :raises InternalServerException:
@@ -1102,8 +1129,10 @@ class EmrServerlessApi:
         release_label: ReleaseLabel | None = None,
         runtime_configuration: ConfigurationList | None = None,
         monitoring_configuration: MonitoringConfiguration | None = None,
+        disk_encryption_configuration: DiskEncryptionConfiguration | None = None,
         scheduler_configuration: SchedulerConfiguration | None = None,
         identity_center_configuration: IdentityCenterConfigurationInput | None = None,
+        job_level_cost_allocation_configuration: JobLevelCostAllocationConfiguration | None = None,
         **kwargs,
     ) -> UpdateApplicationResponse:
         """Updates a specified application. An application has to be in a stopped
@@ -1128,10 +1157,12 @@ class EmrServerlessApi:
         :param runtime_configuration: The
         `Configuration <https://docs.
         :param monitoring_configuration: The configuration setting for monitoring.
+        :param disk_encryption_configuration: The configuration object that allows encrypting local disks.
         :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
         application.
         :param identity_center_configuration: Specifies the IAM Identity Center configuration used to enable or
         disable trusted identity propagation.
+        :param job_level_cost_allocation_configuration: The configuration object that enables job level cost allocation.
         :returns: UpdateApplicationResponse
         :raises ValidationException:
         :raises InternalServerException:

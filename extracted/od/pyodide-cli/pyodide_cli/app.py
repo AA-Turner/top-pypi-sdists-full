@@ -4,14 +4,21 @@ from functools import cache
 from importlib.metadata import Distribution, EntryPoint
 from importlib.metadata import distribution as importlib_distribution
 from importlib.metadata import entry_points
-from typing import override
+from typing import TYPE_CHECKING, override
 
 import click
-import typer
-from typer.main import solve_typer_info_help
-from typer.models import TyperInfo
 
 from . import __version__
+
+if TYPE_CHECKING:
+    import typer
+
+try:
+    import typer  # noqa: F811
+
+    TYPER_AVAILABLE = True
+except ImportError:
+    TYPER_AVAILABLE = False
 
 
 class OriginGroup(click.Group):
@@ -147,10 +154,6 @@ def _entrypoint_to_version(entrypoint: EntryPoint) -> str:
     return dist.metadata["version"]
 
 
-def _inject_origin(docstring: str, origin: str) -> str:
-    return f"{docstring}\n\n{origin}"
-
-
 def register_plugins():
     """Register subcommands via the ``pyodide.cli`` entry-point"""
     eps = entry_points(group="pyodide.cli")
@@ -158,36 +161,20 @@ def register_plugins():
 
     for plugin_name, (module, ep) in plugins.items():
         pkgname = _entrypoint_to_pkgname(ep)
-        origin_text = f"Registered by {pkgname}:"
-
-        if isinstance(module, typer.Typer):
-            typer_info = TyperInfo(module)
-            help_with_origin = _inject_origin(
-                solve_typer_info_help(typer_info), origin_text
-            )
-        else:
-            help_with_origin = _inject_origin(
-                getattr(module, "__doc__", ""), origin_text
-            )
-
         if isinstance(module, click.Command):
             cmd = module
-        elif isinstance(module, typer.Typer):
+        elif TYPER_AVAILABLE and isinstance(module, typer.Typer):
             cmd = typer.main.get_command(module)
-        elif callable(module):
+        elif TYPER_AVAILABLE and callable(module):
             typer_kwargs = getattr(module, "typer_kwargs", {})
             app = typer.Typer()
             app.command(
                 plugin_name,
-                help=help_with_origin,
                 **typer_kwargs,
             )(module)
             cmd = typer.main.get_command(app)
         else:
             raise RuntimeError(f"Invalid plugin: {plugin_name}")
-
-        # directly manipulate click Command help message
-        cmd.help = help_with_origin
 
         cli.add_command(cmd, name=plugin_name, origin=pkgname)
 
@@ -198,9 +185,9 @@ def main():
 
 
 if "sphinx" in sys.modules and __name__ != "__main__":
-    # Create the typer click object to generate docs with sphinx-click
+    # Create the click object to generate docs with sphinx-click
     register_plugins()
-    typer_click_object = cli
+    click_object = cli
 
 if __name__ == "__main__":
     main()

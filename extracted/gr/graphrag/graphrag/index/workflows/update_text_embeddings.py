@@ -5,7 +5,9 @@
 
 import logging
 
-from graphrag.config.get_embedding_settings import get_embedding_settings
+from graphrag_llm.embedding import create_embedding
+
+from graphrag.cache.cache_key_creator import cache_key_creator
 from graphrag.config.models.graph_rag_config import GraphRagConfig
 from graphrag.index.run.utils import get_update_storages
 from graphrag.index.typing.context import PipelineRunContext
@@ -25,9 +27,6 @@ async def run_workflow(
     output_storage, _, _ = get_update_storages(
         config, context.state["update_timestamp"]
     )
-
-    final_documents_df = context.state["incremental_update_final_documents"]
-    merged_relationships_df = context.state["incremental_update_merged_relationships"]
     merged_text_units = context.state["incremental_update_merged_text_units"]
     merged_entities_df = context.state["incremental_update_merged_entities"]
     merged_community_reports = context.state[
@@ -35,16 +34,30 @@ async def run_workflow(
     ]
 
     embedded_fields = config.embed_text.names
-    text_embed = get_embedding_settings(config)
+
+    model_config = config.get_embedding_model_config(
+        config.embed_text.embedding_model_id
+    )
+
+    model = create_embedding(
+        model_config,
+        cache=context.cache.child("text_embedding"),
+        cache_key_creator=cache_key_creator,
+    )
+
+    tokenizer = model.tokenizer
+
     result = await generate_text_embeddings(
-        documents=final_documents_df,
-        relationships=merged_relationships_df,
         text_units=merged_text_units,
         entities=merged_entities_df,
         community_reports=merged_community_reports,
         callbacks=context.callbacks,
-        cache=context.cache,
-        text_embed_config=text_embed,
+        model=model,
+        tokenizer=tokenizer,
+        batch_size=config.embed_text.batch_size,
+        batch_max_tokens=config.embed_text.batch_max_tokens,
+        num_threads=config.concurrent_requests,
+        vector_store_config=config.vector_store,
         embedded_fields=embedded_fields,
     )
     if config.snapshots.embeddings:

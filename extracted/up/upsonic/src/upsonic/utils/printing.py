@@ -1014,7 +1014,11 @@ def connected_to_server(server_type: str, status: str, total_time: float = None)
 
     spacing()
 
-def call_end(result: Any, model: Any, response_format: str, start_time: float, end_time: float, usage: dict, tool_usage: list, debug: bool = False, price_id: str = None):
+def call_end(result: Any, model: Any, response_format: str, start_time: float, end_time: float, usage: dict, tool_usage: list, debug: bool = False, price_id: str = None, print_output: bool = False):
+    # Only display output when print_output is enabled
+    if not print_output:
+        return
+    
     # Display tool calls in magnificent table
     if tool_usage and len(tool_usage) > 0:
         display_tool_calls_table(tool_usage, debug=debug)
@@ -1111,7 +1115,11 @@ def call_end(result: Any, model: Any, response_format: str, start_time: float, e
 
 
 
-def agent_end(result: Any, model: Any, response_format: str, start_time: float, end_time: float, usage: dict, tool_usage: list, tool_count: int, context_count: int, debug: bool = False, price_id:str = None):
+def agent_end(result: Any, model: Any, response_format: str, start_time: float, end_time: float, usage: dict, tool_usage: list, tool_count: int, context_count: int, debug: bool = False, price_id:str = None, print_output: bool = False):
+    # Only display output when print_output is enabled
+    if not print_output:
+        return
+    
     # Display tool calls in magnificent table
     if tool_usage and len(tool_usage) > 0:
         display_tool_calls_table(tool_usage, debug=debug)
@@ -1134,7 +1142,8 @@ def agent_end(result: Any, model: Any, response_format: str, start_time: float, 
             else:
                 price_id_summary[price_id]['estimated_cost'] = Decimal(str(price_id_summary[price_id]['estimated_cost'])) + Decimal(cost_str)
         except Exception as e:
-            console.print(f"[bold red]Warning: Could not parse cost value: {estimated_cost}. Error: {e}[/bold red]")
+            if debug:
+                console.print(f"[bold red]Warning: Could not parse cost value: {estimated_cost}. Error: {e}[/bold red]")
     
     # Display LLM result in magnificent table
     execution_time = end_time - start_time
@@ -1251,17 +1260,26 @@ def agent_total_cost(total_input_tokens: int, total_output_tokens: int, total_ti
     console.print(panel)
     spacing()
 
-def print_price_id_summary(price_id: str, task) -> dict:
+def print_price_id_summary(price_id: str, task, print_output: bool = True) -> dict:
     """
     Get the summary of usage and costs for a specific price ID and print it in a formatted panel.
     
     Args:
         price_id (str): The price ID to look up
         task: The task object containing timing information
+        print_output: Whether to print the output (default: True)
         
     Returns:
         dict: A dictionary containing the usage summary, or None if price_id not found
     """
+    if not print_output:
+        # Return summary without printing if price_id exists
+        if price_id in price_id_summary:
+            summary = price_id_summary[price_id].copy()
+            summary['estimated_cost'] = f"${summary['estimated_cost']:.4f}"
+            return summary
+        return None
+    
     price_id_display = escape_rich_markup(price_id)
     task_display = escape_rich_markup(str(task))
     
@@ -2195,7 +2213,7 @@ def success_log(message: str, context: str = "Upsonic") -> None:
     context_esc = escape_rich_markup(context)
 
     # Rich console output (user görür)
-    console.print(f"[green][SUCCESS][/green] [{context_esc}] {message_esc}")
+    console.print(f"{message_esc}")
 
     # Background logging (Sentry/file'a gider)
     _bg_logger.info(f"[SUCCESS] [{context}] {message}")

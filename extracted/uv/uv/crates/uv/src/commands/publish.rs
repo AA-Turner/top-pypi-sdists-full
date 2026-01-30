@@ -13,7 +13,7 @@ use uv_client::{
 };
 use uv_configuration::{KeyringProviderType, TrustedPublishing};
 use uv_distribution_types::{IndexCapabilities, IndexLocations, IndexUrl};
-use uv_preview::{Preview, PreviewFeatures};
+use uv_preview::{Preview, PreviewFeature};
 use uv_publish::{
     CheckUrlClient, FormMetadata, PublishError, TrustedPublishResult, check_trusted_publishing,
     group_files_for_publishing, upload, upload_two_phase,
@@ -49,11 +49,11 @@ pub(crate) async fn publish(
         bail!("Unable to publish files in offline mode");
     }
 
-    if direct && !preview.is_enabled(PreviewFeatures::DIRECT_PUBLISH) {
+    if direct && !preview.is_enabled(PreviewFeature::DirectPublish) {
         warn_user_once!(
             "The `--direct` option is experimental and may change without warning. \
             Pass `--preview-features {}` to disable this warning.",
-            PreviewFeatures::DIRECT_PUBLISH
+            PreviewFeature::DirectPublish
         );
     }
 
@@ -239,7 +239,7 @@ pub(crate) async fn publish(
         let uploaded = if direct {
             if dry_run {
                 // For dry run, call validate since we won't call reserve.
-                uv_publish::validate(
+                let should_upload = uv_publish::validate(
                     &group.file,
                     &form_metadata,
                     &group.raw_filename,
@@ -249,6 +249,13 @@ pub(crate) async fn publish(
                     &credentials,
                 )
                 .await?;
+                if !should_upload {
+                    writeln!(
+                        printer.stderr(),
+                        "{}",
+                        "File already exists, skipping".dimmed()
+                    )?;
+                }
                 continue;
             }
 
@@ -268,7 +275,7 @@ pub(crate) async fn publish(
             .await?
         } else {
             // Run validation checks on the file, but don't upload it (if possible).
-            uv_publish::validate(
+            let should_upload = uv_publish::validate(
                 &group.file,
                 &form_metadata,
                 &group.raw_filename,
@@ -283,20 +290,25 @@ pub(crate) async fn publish(
                 continue;
             }
 
-            let reporter = PublishReporter::single(printer);
-            upload(
-                &group,
-                &form_metadata,
-                &publish_url,
-                &upload_client,
-                retry_policy,
-                &credentials,
-                check_url_client.as_ref(),
-                &download_concurrency,
-                // Needs to be an `Arc` because the reqwest `Body` static lifetime requirement
-                Arc::new(reporter),
-            )
-            .await? // Filename and/or URL are already attached, if applicable.
+            // If validation indicates the file already exists, skip the upload.
+            if !should_upload {
+                false
+            } else {
+                let reporter = PublishReporter::single(printer);
+                upload(
+                    &group,
+                    &form_metadata,
+                    &publish_url,
+                    &upload_client,
+                    retry_policy,
+                    &credentials,
+                    check_url_client.as_ref(),
+                    &download_concurrency,
+                    // Needs to be an `Arc` because the reqwest `Body` static lifetime requirement
+                    Arc::new(reporter),
+                )
+                .await? // Filename and/or URL are already attached, if applicable.
+            }
         };
         info!("Upload succeeded");
 
@@ -406,6 +418,7 @@ async fn gather_credentials(
         username.as_deref(),
         password.as_deref(),
         keyring_provider,
+        token_store,
         trusted_publishing,
         &publish_url,
         oidc_client,

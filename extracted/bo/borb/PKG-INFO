@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: borb
-Version: 3.0.4
+Version: 3.0.5
 Summary: borb is a library for reading, creating and manipulating PDF files in python.
 Home-page: https://github.com/jorisschellekens/borb
 Author: Joris Schellekens

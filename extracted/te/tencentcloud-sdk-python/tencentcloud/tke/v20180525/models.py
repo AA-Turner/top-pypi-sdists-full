@@ -30506,6 +30506,115 @@ class EnableControlPlaneLogsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class EnableEksEventPersistenceRequest(AbstractModel):
+    r"""EnableEksEventPersistence请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _LogsetId: cls服务的logsetID
+        :type LogsetId: str
+        :param _TopicId: cls服务的topicID
+        :type TopicId: str
+        :param _TopicRegion: topic所在region
+        :type TopicRegion: str
+        """
+        self._ClusterId = None
+        self._LogsetId = None
+        self._TopicId = None
+        self._TopicRegion = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def LogsetId(self):
+        r"""cls服务的logsetID
+        :rtype: str
+        """
+        return self._LogsetId
+
+    @LogsetId.setter
+    def LogsetId(self, LogsetId):
+        self._LogsetId = LogsetId
+
+    @property
+    def TopicId(self):
+        r"""cls服务的topicID
+        :rtype: str
+        """
+        return self._TopicId
+
+    @TopicId.setter
+    def TopicId(self, TopicId):
+        self._TopicId = TopicId
+
+    @property
+    def TopicRegion(self):
+        r"""topic所在region
+        :rtype: str
+        """
+        return self._TopicRegion
+
+    @TopicRegion.setter
+    def TopicRegion(self, TopicRegion):
+        self._TopicRegion = TopicRegion
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._LogsetId = params.get("LogsetId")
+        self._TopicId = params.get("TopicId")
+        self._TopicRegion = params.get("TopicRegion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class EnableEksEventPersistenceResponse(AbstractModel):
+    r"""EnableEksEventPersistence返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class EnableEncryptionProtectionRequest(AbstractModel):
     r"""EnableEncryptionProtection请求参数结构体
 
@@ -34731,9 +34840,9 @@ class KMSConfiguration(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _KeyId: kms id，可以在密钥管理控制台获取
+        :param _KeyId: 自定义密钥,当不指定KeyId时，采用默认生成密钥（TKE-KMS）
         :type KeyId: str
-        :param _KmsRegion: kms 地域
+        :param _KmsRegion: 默认生成密钥或自定义密钥地域信息
         :type KmsRegion: str
         """
         self._KeyId = None
@@ -34741,7 +34850,7 @@ class KMSConfiguration(AbstractModel):
 
     @property
     def KeyId(self):
-        r"""kms id，可以在密钥管理控制台获取
+        r"""自定义密钥,当不指定KeyId时，采用默认生成密钥（TKE-KMS）
         :rtype: str
         """
         return self._KeyId
@@ -34752,7 +34861,7 @@ class KMSConfiguration(AbstractModel):
 
     @property
     def KmsRegion(self):
-        r"""kms 地域
+        r"""默认生成密钥或自定义密钥地域信息
         :rtype: str
         """
         return self._KmsRegion

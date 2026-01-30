@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.3.9
+Version: 0.3.10
 Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
@@ -19,13 +19,13 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mlx>=0.26.0
+Requires-Dist: mlx>=0.30.0
 Requires-Dist: datasets>=2.19.1
 Requires-Dist: tqdm>=4.66.2
-Requires-Dist: transformers>=4.57.0
+Requires-Dist: transformers>=5.0.0rc3
+Requires-Dist: mlx-lm>=0.30.5
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: requests>=2.31.0
-Requires-Dist: mlx-lm>=0.23.0
 Requires-Dist: fastapi>=0.95.1
 Requires-Dist: soundfile>=0.13.1
 Requires-Dist: opencv-python>=4.12.0.88
@@ -33,8 +33,6 @@ Requires-Dist: numpy
 Requires-Dist: uvicorn
 Provides-Extra: ui
 Requires-Dist: gradio>=5.19.0; extra == "ui"
-Provides-Extra: audio
-Requires-Dist: mlx-audio; extra == "audio"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
 Requires-Dist: torchvision; extra == "torch"
@@ -61,7 +59,17 @@ MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VL
 - [Multi-Image Chat Support](#multi-image-chat-support)
   - [Supported Models](#supported-models)
   - [Usage Examples](#usage-examples)
+- [Model-Specific Documentation](#model-specific-documentation)
 - [Fine-tuning](#fine-tuning)
+
+## Model-Specific Documentation
+
+Some models have detailed documentation with prompt formats, examples, and best practices:
+
+| Model | Documentation |
+|-------|---------------|
+| DeepSeek-OCR | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/deepseekocr/README.md) |
+| DeepSeek-OCR-2 | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/deepseekocr_2/README.md) |
 
 ## Installation
 
@@ -188,7 +196,21 @@ print(output)
 
 Start the server:
 ```sh
-mlx_vlm.server
+mlx_vlm.server --port 8080
+
+# With trust remote code enabled (required for some models)
+mlx_vlm.server --trust-remote-code
+```
+
+#### Server Options
+
+- `--host`: Host address (default: `0.0.0.0`)
+- `--port`: Port number (default: `8080`)
+- `--trust-remote-code`: Trust remote code when loading models from Hugging Face Hub
+
+You can also set trust remote code via environment variable:
+```sh
+MLX_TRUST_REMOTE_CODE=true mlx_vlm.server
 ```
 
 The server provides multiple endpoints for different use cases and supports dynamic model loading/unloading with caching (one model at a time).
@@ -196,7 +218,7 @@ The server provides multiple endpoints for different use cases and supports dyna
 #### Available Endpoints
 
 - `/models` - List models available locally
-- `/chat/completion` - OpenAI-compatible chat-style interaction endpoint with support for images, audio, and text
+- `/chat/completions` - OpenAI-compatible chat-style interaction endpoint with support for images, audio, and text
 - `/responses` - OpenAI-compatible responses endpoint
 - `/health` - Check server status
 - `/unload` - Unload current model from memory
@@ -212,7 +234,7 @@ curl "http://localhost:8080/models"
 ##### Text Input
 
 ```sh
-curl -X POST "http://localhost:8080/chat/completion" \
+curl -X POST "http://localhost:8080/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "mlx-community/Qwen2-VL-2B-Instruct-4bit",
@@ -230,7 +252,7 @@ curl -X POST "http://localhost:8080/chat/completion" \
 ##### Image Input
 
 ```sh
-curl -X POST "http://localhost:8080/chat/completion" \
+curl -X POST "http://localhost:8080/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "mlx-community/Qwen2.5-VL-32B-Instruct-8bit",

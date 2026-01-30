@@ -7,15 +7,14 @@ from adam.checks.gossip import Gossip
 from adam.columns.columns import Columns
 from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.commands_utils import write_to_kaqing_log_file
 from adam.commands.cql.utils_cql import cassandra
+from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
-from adam.utils_async_job import AsyncJobs
+from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import SORT, Color, offload, tabulize, log2, log_exc
-from adam.checks.status import parse_nodetool_status
+from adam.utils import SORT, Color, offload, tabulize, log_exc
 
 class ShowCassandraStatus(Command):
     COMMAND = 'show cassandra status'
@@ -41,17 +40,13 @@ class ShowCassandraStatus(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, backgrounded):
-                with extract_options(args, ['-s', '--show']) as (args, show_out):
+                with extract_options(args, ['-s', '--show']) as (args, verbose):
+                    ctx = Context.new(cmd, backgrounded=backgrounded, show_out=verbose, text_color=Color.gray, show_verbose=verbose)
                     if backgrounded:
-                        job_log = AsyncJobs.new_job(cmd, backgrounded)
                         with offload(name='display-table') as exec:
-                            exec.submit(lambda: self.show_status(state, show_out, backgrounded, job_log=job_log))
+                            exec.submit(lambda: self.show_status(state, ctx=ctx))
                     else:
-                        self.show_status(state, show_out, backgrounded)
-                    # if state.namespace and state.pod:
-                    #     self.show_single_pod(state, show_out=show_out, backgrounded=backgrounded)
-                    # elif state.namespace and state.sts:
-                    #     self.merge(state, Config().get('nodetool.samples', sys.maxsize), show_output=show_out, backgrounded=backgrounded)
+                        self.show_status(state, ctx=ctx)
 
                     return state
 
@@ -61,21 +56,21 @@ class ShowCassandraStatus(Command):
     def help(self, state: ReplState):
         return super().help(state, 'show merged nodetool status  -s show processing details', args='[-s]')
 
-    def show_status(self, state: ReplState, show_out = False, backgrounded = False, job_log: str = None):
+    def show_status(self, state: ReplState, ctx: Context = Context.NULL):
         if state.namespace and state.pod:
-            self.show_single_pod(state, show_out=show_out, backgrounded=backgrounded, job_log=job_log)
+            self.show_single_pod(state, ctx=ctx)
         elif state.namespace and state.sts:
-            self.merge(state, Config().get('nodetool.samples', sys.maxsize), show_output=show_out, backgrounded=backgrounded, job_log=job_log)
+            self.merge(state, Config().get('nodetool.samples', sys.maxsize), ctx=ctx)
 
-    def show_single_pod(self, state: ReplState, show_out = False, backgrounded = False, job_log: str = None):
+    def show_single_pod(self, state: ReplState, ctx: Context = Context.NULL):
         with log_exc(True):
             with cassandra(state) as pods:
-                result = pods.nodetool('status', show_out=False)
-                status = parse_nodetool_status(result.stdout)
-                check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], show_out=show_out)
-                self.show_table(status, check_results, backgrounded=backgrounded, job_log=job_log)
+                result = pods.nodetool('status', ctx=ctx)
+                status = NodeTools.parse_nodetool_status(result.stdout)
+                check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], ctx=ctx)
+                self.show_table(status, check_results, ctx=ctx)
 
-    def merge(self, state: ReplState, samples: int, show_output=False, backgrounded = False, job_log: str = None):
+    def merge(self, state: ReplState, samples: int, ctx: Context = Context.NULL):
         statuses: list[list[dict]] = []
 
         pod_names = StatefulSets.pod_names(state.sts, state.namespace)
@@ -84,17 +79,17 @@ class ShowCassandraStatus(Command):
 
             with log_exc(True):
                 with cassandra(state, pod=pod_name) as pods:
-                    result = pods.nodetool('status', show_out=False)
-                    status = parse_nodetool_status(result.stdout)
+                    result = pods.nodetool('status', ctx=ctx.copy(backgrounded=False, show_out=False))
+                    status = NodeTools.parse_nodetool_status(result.stdout)
                     if status:
                         statuses.append(status)
                     if samples <= len(statuses) and len(pod_names) != len(statuses):
                         break
 
         combined_status = self.merge_status(statuses)
-        log2(f'Showing merged status from {len(statuses)}/{len(pod_names)} nodes...', file=job_log, text_color=Color.gray)
-        check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], show_out=show_output)
-        self.show_table(combined_status, check_results, backgrounded=backgrounded, job_log=job_log)
+        ctx.log2(f'Showing merged status from {len(statuses)}/{len(pod_names)} nodes...', text_color=Color.gray)
+        check_results = run_checks(cluster=state.sts, namespace=state.namespace, checks=[CompactionStats(), Gossip()], ctx=ctx)
+        self.show_table(combined_status, check_results, ctx=ctx)
 
         return combined_status
 
@@ -115,21 +110,10 @@ class ShowCassandraStatus(Command):
 
         return combined
 
-    def show_table(self, status: list[dict[str, any]], check_results: list[CheckResult], backgrounded=False, job_log: str = None):
+    def show_table(self, status: list[dict[str, any]], check_results: list[CheckResult], ctx: Context = Context.NULL):
         cols = Config().get('status.columns', 'status,address,load,tokens,owns,host_id,gossip,compactions')
         header = Config().get('status.header', '--,Address,Load,Tokens,Owns,Host ID,GOSSIP,COMPACTIONS')
         columns = Columns.create_columns(cols)
 
-        to = to = 0 if backgrounded else 1
-        r = tabulize(status, lambda s: ','.join([c.host_value(check_results, s) for c in columns]), header=header, separator=',', sorted=SORT, to=to)
-        i = IssuesUtils.show(check_results, to=to)
-
-        if backgrounded:
-            if job_log:
-                with open(job_log, 'at') as f:
-                    f.write(r)
-                    if i:
-                        f.write('\n')
-                        f.write(i)
-            else:
-                r = write_to_kaqing_log_file(r, i)
+        tabulize(status, lambda s: ','.join([c.host_value(check_results, s) for c in columns]), header=header, separator=',', sorted=SORT, log_file=ctx.log_file)
+        IssuesUtils.show(check_results, log_file=ctx.log_file)

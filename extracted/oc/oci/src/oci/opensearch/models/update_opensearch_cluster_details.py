@@ -74,6 +74,10 @@ class UpdateOpensearchClusterDetails(object):
             The value to assign to the maintenance_details property of this UpdateOpensearchClusterDetails.
         :type maintenance_details: oci.opensearch.models.UpdateMaintenanceDetails
 
+        :param load_balancer_config:
+            The value to assign to the load_balancer_config property of this UpdateOpensearchClusterDetails.
+        :type load_balancer_config: oci.opensearch.models.LoadBalancerConfig
+
         :param certificate_config:
             The value to assign to the certificate_config property of this UpdateOpensearchClusterDetails.
         :type certificate_config: oci.opensearch.models.CertificateConfig
@@ -102,6 +106,7 @@ class UpdateOpensearchClusterDetails(object):
             'reverse_connection_endpoint_customer_ips': 'list[str]',
             'outbound_cluster_config': 'OutboundClusterConfig',
             'maintenance_details': 'UpdateMaintenanceDetails',
+            'load_balancer_config': 'LoadBalancerConfig',
             'certificate_config': 'CertificateConfig',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
@@ -118,6 +123,7 @@ class UpdateOpensearchClusterDetails(object):
             'reverse_connection_endpoint_customer_ips': 'reverseConnectionEndpointCustomerIps',
             'outbound_cluster_config': 'outboundClusterConfig',
             'maintenance_details': 'maintenanceDetails',
+            'load_balancer_config': 'loadBalancerConfig',
             'certificate_config': 'certificateConfig',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
@@ -133,6 +139,7 @@ class UpdateOpensearchClusterDetails(object):
         self._reverse_connection_endpoint_customer_ips = None
         self._outbound_cluster_config = None
         self._maintenance_details = None
+        self._load_balancer_config = None
         self._certificate_config = None
         self._freeform_tags = None
         self._defined_tags = None
@@ -364,6 +371,26 @@ class UpdateOpensearchClusterDetails(object):
         :type: oci.opensearch.models.UpdateMaintenanceDetails
         """
         self._maintenance_details = maintenance_details
+
+    @property
+    def load_balancer_config(self):
+        """
+        Gets the load_balancer_config of this UpdateOpensearchClusterDetails.
+
+        :return: The load_balancer_config of this UpdateOpensearchClusterDetails.
+        :rtype: oci.opensearch.models.LoadBalancerConfig
+        """
+        return self._load_balancer_config
+
+    @load_balancer_config.setter
+    def load_balancer_config(self, load_balancer_config):
+        """
+        Sets the load_balancer_config of this UpdateOpensearchClusterDetails.
+
+        :param load_balancer_config: The load_balancer_config of this UpdateOpensearchClusterDetails.
+        :type: oci.opensearch.models.LoadBalancerConfig
+        """
+        self._load_balancer_config = load_balancer_config
 
     @property
     def certificate_config(self):

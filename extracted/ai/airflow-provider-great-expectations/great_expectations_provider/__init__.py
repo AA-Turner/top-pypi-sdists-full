@@ -1,10 +1,4 @@
-__version__ = "0.3.0"
+# TODO: Update the .github/scripts/verify_tag_and_version.py script so that we can use the VERSION from the
+#  great_expectation_provider/common/constants.py file.
 
-
-def get_provider_info():
-    return {
-        "package-name": "airflow-provider-great-expectations",
-        "name": "Great Expectations Provider",
-        "description": "An Apache Airflow provider for Great Expectations.",
-        "versions": [__version__],
-    }
+__version__ = "1.0.0"

@@ -1,7 +1,7 @@
-from abstract_utilities import read_from_file, eatAll
+from .module_imports import read_from_file, eatAll
 import os, sys, re, inspect
 from typing import *
-
+from .imports import make_list
 # ============================================================
 # Constants
 # ============================================================
@@ -16,14 +16,7 @@ def get_caller_path(i=None):
     frame = inspect.stack()[i]
     return os.path.abspath(frame.filename)
 
-def make_list(obj: any) -> list:
-    if isinstance(obj, str) and ',' in obj:
-        obj = obj.split(',')
-    if isinstance(obj, (set, tuple)):
-        return list(obj)
-    if isinstance(obj, list):
-        return obj
-    return [obj]
+
 
 def eatElse(stringObj, chars=None):
     chars = make_list(chars or []) + list('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')

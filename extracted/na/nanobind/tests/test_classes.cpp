@@ -13,6 +13,7 @@
 #include <vector>
 #include <nanobind/stl/detail/traits.h>
 #include "inter_module.h"
+#include "test_classes.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -556,6 +557,25 @@ NB_MODULE(test_classes_ext, m) {
     using NonCopyableVec = std::vector<NonCopyable>;
     nb::class_<NonCopyableVec>(m, "NonCopyableVec");
 
+    struct PrivateNonCopyable {
+        static PrivateNonCopyable &get_instance() {
+            static PrivateNonCopyable i;
+            return i;
+        }
+
+        int get_int() { return 42; }
+    private:
+        PrivateNonCopyable() {}
+        PrivateNonCopyable(const PrivateNonCopyable&) = delete;
+        PrivateNonCopyable &operator=(const PrivateNonCopyable&) = delete;
+    };
+
+    // #1249 this didn't compile previously
+    struct my_call_guard {};
+    nb::class_<PrivateNonCopyable>(m, "PrivateNonCopyable")
+        .def_static("get_instance", &PrivateNonCopyable::get_instance, nb::call_guard<my_call_guard>(), nb::rv_policy::reference)
+        .def("get_int", &PrivateNonCopyable::get_int);
+
     m.def("is_int_1", [](nb::handle h) { return nb::isinstance<int>(h); });
     m.def("is_int_2", [](nb::handle h) { return nb::isinstance<nb::int_>(h); });
     m.def("is_struct", [](nb::handle h) { return nb::isinstance<Struct>(h); });
@@ -774,4 +794,9 @@ NB_MODULE(test_classes_ext, m) {
     m.def("constexpr_call_getInt", [](ConstexprClass *c) {
         return c->getInt();
     });
+
+    auto never_destruct_class = nb::class_<NeverDestruct>(m, "NeverDestruct", nb::never_destruct())
+        .def_static("make_ref", &NeverDestruct::make, nb::rv_policy::reference)
+        .def("var", &NeverDestruct::var)
+        .def("set_var", &NeverDestruct::set_var);
 }

@@ -6,7 +6,7 @@ import hashlib
 import logging
 from typing import Self
 
-import attr
+import attrs
 
 import zigpy.types as t
 
@@ -108,7 +108,7 @@ class OTAImageHeader(t.Struct):
     )
 
     @property
-    def security_credential_version_present(self) -> bool:
+    def security_credential_version_present(self) -> bool | None:
         if self.field_control is None:
             return None
         return bool(
@@ -116,13 +116,13 @@ class OTAImageHeader(t.Struct):
         )
 
     @property
-    def device_specific_file(self) -> bool:
+    def device_specific_file(self) -> bool | None:
         if self.field_control is None:
             return None
         return bool(self.field_control & FieldControl.DEVICE_SPECIFIC_FILE_PRESENT)
 
     @property
-    def hardware_versions_present(self) -> bool:
+    def hardware_versions_present(self) -> bool | None:
         if self.field_control is None:
             return None
         return bool(self.field_control & FieldControl.HARDWARE_VERSIONS_PRESENT)
@@ -217,16 +217,16 @@ class OTAImage(t.Struct, BaseOTAImage):
         return res
 
 
-@attr.s
-class HueSBLOTAImage(BaseOTAImage):
+@attrs.define(kw_only=True)
+class HueSBLOTAImage(BaseOTAImage, t.BaseDataclassMixin):
     """Unique OTA image format for certain Hue devices. Starts with a valid header but does
     not contain any valid subelements beyond that point.
     """
 
     SUBELEMENTS_MAGIC = b"\x2a\x00\x01"
 
-    header = attr.ib(default=None)
-    data = attr.ib(default=None)
+    header: OTAImageHeader = None
+    data: bytes = None
 
     def serialize(self) -> bytes:
         return self.header.serialize() + self.data
@@ -254,13 +254,13 @@ class HueSBLOTAImage(BaseOTAImage):
         return cls(header=header, data=firmware), data[header.image_size :]
 
 
-@attr.s(repr=False)
-class TelinkEncryptedSubElement:
+@attrs.define(kw_only=True, repr=False)
+class TelinkEncryptedSubElement(t.BaseDataclassMixin):
     TELINK_ENCRYPTED_TAG_ID = ElementTagId(0xF000)
 
-    tag_id: ElementTagId = attr.ib(default=None, converter=ElementTagId)
-    tag_info: t.uint16_t = attr.ib(default=None)
-    data: bytes = attr.ib(default=None)
+    tag_id: ElementTagId = attrs.field(default=None, converter=ElementTagId)
+    tag_info: t.uint16_t = None
+    data: bytes = None
 
     def __repr__(self) -> str:
         return (
@@ -302,12 +302,12 @@ class TelinkEncryptedSubElement:
         return result
 
 
-@attr.s
-class TelinkOTAImage(BaseOTAImage):
+@attrs.define(kw_only=True)
+class TelinkOTAImage(BaseOTAImage, t.BaseDataclassMixin):
     """Telink OTA image. Includes a proprietary "tag info" after the tag length."""
 
-    header: OTAImageHeader = attr.ib(default=None)
-    subelements: t.List[SubElement | TelinkEncryptedSubElement] = attr.ib(default=None)
+    header: OTAImageHeader = None
+    subelements: t.List[SubElement | TelinkEncryptedSubElement] = None
 
     @classmethod
     def deserialize(cls, data: bytes) -> tuple[Self, bytes]:

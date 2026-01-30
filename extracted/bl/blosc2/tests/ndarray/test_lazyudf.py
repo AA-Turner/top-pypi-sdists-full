@@ -2,8 +2,7 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 import numpy as np
@@ -21,7 +20,13 @@ def udf1p(inputs_tuple, output, offset):
 if blosc2._HAS_NUMBA:
     import numba
 
-    @numba.jit(parallel=True)
+    # We should avoid parallel=True here because makes the complete test suite crash
+    # in test_save_ludf.  I am not sure why, but it might be some interference with
+    # a previous test, leaving the threading state in a bad way.
+    # But all the examples and benchmarks seem to work with parallel=True.
+    # XXX Investigate more.
+    # @numba.jit(parallel=True)
+    @numba.jit(nopython=True)
     def udf1p_numba(inputs_tuple, output, offset):
         x = inputs_tuple[0]
         output[:] = x + 1
@@ -259,7 +264,7 @@ def test_params(chunked_eval):
     [
         ((40, 20), (30, 10), (5, 5), (slice(0, 5), slice(5, 20)), "eval.b2nd", False),
         ((13, 13, 10), (10, 10, 5), (5, 5, 3), (slice(0, 12), slice(3, 13), ...), "eval.b2nd", True),
-        ((13, 13), (10, 10), (5, 5), (slice(3, 8), slice(9, 12)), None, False),
+        ((13, 13), (10, 10), (5, 5), (slice(3, 8), None, slice(9, 12)), None, False),
     ],
 )
 def test_getitem(shape, chunks, blocks, slices, urlpath, contiguous, chunked_eval):
@@ -492,7 +497,7 @@ def test_save_ludf():
         res_lazyexpr = expr.compute()
         np.testing.assert_array_equal(res_lazyexpr[:], npc)
 
-    blosc2.remove_urlpath("a.b2nd")
+    blosc2.remove_urlpath(urlpath)
 
 
 # Test get_chunk method

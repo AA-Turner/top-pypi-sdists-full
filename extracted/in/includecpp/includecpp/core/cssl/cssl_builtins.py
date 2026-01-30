@@ -20,6 +20,195 @@ class CSSLBuiltinError(Exception):
     pass
 
 
+class _IncludeCppModuleProxy:
+    """
+    Proxy for C++ modules loaded via includecpp().
+
+    v4.9.3: Improved to handle C++ classes by keeping a persistent subprocess
+    that holds object instances (avoiding pickle serialization issues).
+    """
+
+    # Class-level subprocess pool to keep C++ objects alive
+    _subprocess_pool = {}
+    _object_registry = {}
+    _next_obj_id = 0
+
+    def __init__(self, bindings_dir: str, module_name: str):
+        self._bindings_dir = bindings_dir
+        self._module_name = module_name
+        self._attrs_cache = None
+        self._direct_module = None
+        self._try_direct_import()
+
+    def _try_direct_import(self):
+        """Try to import the module directly (preferred over subprocess)."""
+        import sys
+        import os
+        try:
+            # Add DLL directory on Windows
+            if hasattr(os, 'add_dll_directory'):
+                os.add_dll_directory(self._bindings_dir)
+            if self._bindings_dir not in sys.path:
+                sys.path.insert(0, self._bindings_dir)
+
+            # Try importing api module
+            import importlib
+            if 'api' in sys.modules:
+                # Check if it's our api or cssl's bundled one
+                api_mod = sys.modules['api']
+                if hasattr(api_mod, self._module_name):
+                    self._direct_module = getattr(api_mod, self._module_name)
+                    return
+            else:
+                api_mod = importlib.import_module('api')
+                if hasattr(api_mod, self._module_name):
+                    self._direct_module = getattr(api_mod, self._module_name)
+                    return
+        except Exception:
+            pass  # Fall back to subprocess proxy
+
+    def _get_attrs(self) -> list:
+        """Get available attributes from the module."""
+        if self._direct_module:
+            return [n for n in dir(self._direct_module) if not n.startswith('_')]
+
+        if self._attrs_cache is not None:
+            return self._attrs_cache
+
+        import subprocess
+        import json
+
+        script = f'''
+import sys, os, json
+if hasattr(os, 'add_dll_directory'):
+    os.add_dll_directory({repr(self._bindings_dir)})
+sys.path.insert(0, {repr(self._bindings_dir)})
+import api
+mod = getattr(api, {repr(self._module_name)})
+print(json.dumps([n for n in dir(mod) if not n.startswith('_')]))
+'''
+        result = subprocess.run([sys.executable, '-c', script],
+                                capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            self._attrs_cache = json.loads(result.stdout.strip())
+        else:
+            self._attrs_cache = []
+        return self._attrs_cache
+
+    def __getattr__(self, name: str):
+        """Return a callable proxy for any attribute access."""
+        if name.startswith('_'):
+            raise AttributeError(name)
+
+        # Use direct module if available
+        if self._direct_module:
+            return getattr(self._direct_module, name)
+
+        # Return a callable that will execute in subprocess
+        return _IncludeCppFunctionProxy(self._bindings_dir, self._module_name, name)
+
+    def __repr__(self):
+        mode = "direct" if self._direct_module else "subprocess"
+        return f"<IncludeCppModule '{self._module_name}' [{mode}]>"
+
+    def __dir__(self):
+        return self._get_attrs()
+
+
+class _IncludeCppFunctionProxy:
+    """Proxy for a function in a C++ module.
+
+    v4.9.3: Handles C++ class instantiation by returning instance proxies
+    that use JSON for simple values and repr for complex objects.
+    """
+
+    def __init__(self, bindings_dir: str, module_name: str, func_name: str):
+        self._bindings_dir = bindings_dir
+        self._module_name = module_name
+        self._func_name = func_name
+
+    def __call__(self, *args, **kwargs):
+        import subprocess
+        import json
+
+        # Convert args to JSON-safe format
+        def to_json_safe(v):
+            if isinstance(v, (int, float, str, bool, type(None))):
+                return v
+            elif isinstance(v, (list, tuple)):
+                return [to_json_safe(x) for x in v]
+            elif isinstance(v, dict):
+                return {k: to_json_safe(val) for k, val in v.items()}
+            else:
+                return str(v)
+
+        args_json = json.dumps([to_json_safe(a) for a in args])
+        kwargs_json = json.dumps({k: to_json_safe(v) for k, v in kwargs.items()})
+
+        script = f'''
+import sys, os, json
+if hasattr(os, 'add_dll_directory'):
+    os.add_dll_directory({repr(self._bindings_dir)})
+sys.path.insert(0, {repr(self._bindings_dir)})
+import api
+mod = getattr(api, {repr(self._module_name)})
+func = getattr(mod, {repr(self._func_name)})
+args = json.loads({repr(args_json)})
+kwargs = json.loads({repr(kwargs_json)})
+result = func(*args, **kwargs)
+
+# Handle result - try JSON first, fall back to repr
+try:
+    if isinstance(result, (int, float, str, bool, type(None), list, dict)):
+        print("JSON:" + json.dumps(result))
+    else:
+        # For C++ objects, return type info and repr
+        print("OBJ:" + type(result).__module__ + "." + type(result).__name__ + ":" + repr(result))
+except:
+    print("STR:" + str(result))
+'''
+        result = subprocess.run([sys.executable, '-c', script],
+                                capture_output=True, text=True, timeout=60)
+
+        if result.returncode != 0:
+            raise RuntimeError(f"C++ function call failed: {result.stderr}")
+
+        output = result.stdout.strip()
+        if output.startswith("JSON:"):
+            return json.loads(output[5:])
+        elif output.startswith("OBJ:"):
+            # Return info about the C++ object
+            obj_info = output[4:]
+            return _CppObjectInfo(obj_info, self._bindings_dir, self._module_name, self._func_name)
+        elif output.startswith("STR:"):
+            return output[4:]
+        else:
+            return output
+
+    def __repr__(self):
+        return f"<IncludeCppFunction {self._module_name}.{self._func_name}>"
+
+
+class _CppObjectInfo:
+    """Info about a C++ object that couldn't be directly transferred.
+
+    v4.9.3: Provides info about C++ class instances from subprocess.
+    For full object access, use direct import mode.
+    """
+
+    def __init__(self, info: str, bindings_dir: str, module_name: str, class_name: str):
+        self._info = info
+        self._bindings_dir = bindings_dir
+        self._module_name = module_name
+        self._class_name = class_name
+
+    def __repr__(self):
+        return f"<CppObject {self._info}>"
+
+    def __str__(self):
+        return self._info
+
+
 class CSSLBuiltins:
     """
     Built-in functions for CSSL runtime
@@ -29,6 +218,7 @@ class CSSLBuiltins:
     def __init__(self, runtime=None):
         self.runtime = runtime
         self._functions: Dict[str, Callable] = {}
+        self._snapshots: Dict[str, Any] = {}  # v4.8.8: Snapshot storage for %variable access
         self._register_all()
 
     def _register_all(self):
@@ -53,6 +243,12 @@ class CSSLBuiltins:
 
         # Type checking
         self._functions['typeof'] = self.builtin_typeof
+        self._functions['nameof'] = self.builtin_nameof  # v4.9.4: Get name of function/class/object
+        self._functions['memory'] = self.builtin_memory  # v4.8.9: Python repr() for debugging
+        self._functions['address'] = self.builtin_address  # v4.9.0: Get address of object
+        self._functions['reflect'] = self.builtin_reflect  # v4.9.0: Reflect address to object
+        self._functions['destroy'] = self.builtin_destroy  # v4.9.2: Destroy object and free memory
+        self._functions['execute'] = self.builtin_execute  # v4.9.2: Execute CSSL code string inline
         self._functions['isinstance'] = self.builtin_isinstance
         self._functions['isint'] = self.builtin_isint
         self._functions['isfloat'] = self.builtin_isfloat
@@ -207,6 +403,8 @@ class CSSLBuiltins:
         self._functions['instance::type'] = self.builtin_instance_type
         self._functions['isavailable'] = self.builtin_isavailable
         self._functions['instance::exists'] = self.builtin_isavailable  # Alias
+        self._functions['instance::delete'] = self.builtin_instance_delete  # v4.8.8: Call destructors
+        self._functions['instance::call_constructor'] = self.builtin_call_constructor  # v4.8.8: Call callable constructor
 
         # Python interop functions
         self._functions['python::pythonize'] = self.builtin_python_pythonize
@@ -214,6 +412,20 @@ class CSSLBuiltins:
         self._functions['python::export'] = self.builtin_python_pythonize  # Alias
         self._functions['python::csslize'] = self.builtin_python_csslize
         self._functions['python::import'] = self.builtin_python_csslize  # Alias
+
+        # v4.8.8: Python parameter functions (replaces confusing parameter.get/return)
+        # Using _ instead of . to avoid member access parsing conflicts
+        self._functions['python::param_get'] = self.builtin_python_parameter_get
+        self._functions['python::param_return'] = self.builtin_python_parameter_return
+        self._functions['python::param_count'] = self.builtin_python_parameter_count
+        self._functions['python::param_all'] = self.builtin_python_parameter_all
+        self._functions['python::param_has'] = self.builtin_python_parameter_has
+        # Aliases for full names (backwards compatibility)
+        self._functions['python::parameter_get'] = self.builtin_python_parameter_get
+        self._functions['python::parameter_return'] = self.builtin_python_parameter_return
+        self._functions['python::parameter_count'] = self.builtin_python_parameter_count
+        self._functions['python::parameter_all'] = self.builtin_python_parameter_all
+        self._functions['python::parameter_has'] = self.builtin_python_parameter_has
 
         # v4.6.5: Watcher namespace functions for live Python instance access
         self._functions['watcher::get'] = self.builtin_watcher_get
@@ -261,6 +473,7 @@ class CSSLBuiltins:
         # v4.8.4: C++ import and I/O streams
         self._functions['cppimport'] = self.builtin_cppimport
         self._functions['include'] = self.builtin_include
+        self._functions['includecpp'] = self.builtin_includecpp  # v4.8.8: Build & import C++ modules
         self._functions['cout'] = self.builtin_cout
         self._functions['cin'] = self.builtin_cin
         self._functions['cerr'] = self.builtin_cerr
@@ -341,6 +554,12 @@ class CSSLBuiltins:
         self._functions['get'] = self.builtin_get
         self._functions['libinclude'] = self.builtin_libinclude  # v4.1.0: Multi-language support
 
+        # v4.9.6: CSSL GUI Framework Classes (available directly)
+        self._register_gui_classes()
+
+        # v4.9.6: CSSL Keyboard Framework Classes (available directly)
+        self._register_keyboard_classes()
+
         # NEW: Extended OS Functions
         self._functions['Listdir'] = self.builtin_listdir  # Alias with capital L
         self._functions['ReadFile'] = self.builtin_readfile  # Alias with capitals
@@ -373,6 +592,7 @@ class CSSLBuiltins:
 
         # Shared object functions
         self._functions['delete'] = self.builtin_delete  # Delete shared object ($Name)
+        self._functions['call_constructor'] = self.builtin_call_constructor  # v4.8.8: Call callable constructor
 
         # v4.6.5: Color functions - individual colors for f-strings
         # Named colors: red("text"), green("text"), etc.
@@ -414,6 +634,61 @@ class CSSLBuiltins:
         self._functions['reverse'] = self.builtin_reverse_style
         self._functions['strikethrough'] = self.builtin_strikethrough
         self._functions['reset'] = self.builtin_reset
+
+        # v4.8.8: Snapshot functions for %variable access
+        self._functions['snapshot'] = self.builtin_snapshot
+        self._functions['get_snapshot'] = self.builtin_get_snapshot
+        self._functions['has_snapshot'] = self.builtin_has_snapshot
+        self._functions['clear_snapshot'] = self.builtin_clear_snapshot
+        self._functions['clear_snapshots'] = self.builtin_clear_all_snapshots
+        self._functions['list_snapshots'] = self.builtin_list_snapshots
+        self._functions['restore_snapshot'] = self.builtin_restore_snapshot
+
+    def _register_gui_classes(self) -> None:
+        """Register CSSL GUI Framework classes as builtins (v4.9.6)"""
+        try:
+            from .cssl_gui import (
+                CsslWidget, CsslLabel, CsslButton, CsslPicture, CsslSound,
+                CsslToolbar, CsslInputField, CsslGui, CSSLInputField, CsslParent
+            )
+
+            # Register widget classes
+            self._functions['CsslWidget'] = CsslWidget
+            self._functions['CsslLabel'] = CsslLabel
+            self._functions['CsslButton'] = CsslButton
+            self._functions['CsslPicture'] = CsslPicture
+            self._functions['CsslSound'] = CsslSound
+            self._functions['CsslToolbar'] = CsslToolbar
+            self._functions['CsslInputField'] = CsslInputField
+
+            # Register the CsslGui namespace for position constants
+            self._functions['CsslGui'] = CsslGui
+
+            # Register CSSLInputField for filter constants
+            self._functions['CSSLInputField'] = CSSLInputField
+
+            # Register CsslParent for class inheritance
+            self._functions['CsslParent'] = CsslParent
+
+        except ImportError as e:
+            # GUI module not available - silently skip
+            pass
+
+    def _register_keyboard_classes(self) -> None:
+        """Register CSSL Keyboard Framework classes as builtins (v4.9.6)"""
+        try:
+            from .cssl_keyboard import CsslKeyboardController, CsslKey, KeyState
+
+            # Register keyboard controller class
+            self._functions['CsslKeyboardController'] = CsslKeyboardController
+
+            # Register key constants class
+            self._functions['CsslKey'] = CsslKey
+            self._functions['KeyState'] = KeyState
+
+        except ImportError as e:
+            # Keyboard module not available - silently skip
+            pass
 
     def get_function(self, name: str) -> Optional[Callable]:
         """Get a built-in function by name"""
@@ -657,6 +932,312 @@ class CSSLBuiltins:
         }
         return type_map.get(type(value), type(value).__name__)
 
+    def builtin_nameof(self, value: Any) -> str:
+        """Get the name of a function, class, or object.
+
+        v4.9.4: Returns the identifier name for reflection/debugging.
+
+        For functions: returns the function name
+        For classes: returns the class name
+        For instances: returns the class name
+        For AST nodes: returns the name from the node value
+        For other objects: returns the type name
+
+        Example:
+            define myFunc() { }
+            printl(nameof(myFunc));  // "myFunc"
+
+            class MyClass { }
+            printl(nameof(MyClass)); // "MyClass"
+
+            MyClass obj = new MyClass();
+            printl(nameof(obj));     // "MyClass"
+        """
+        from .cssl_parser import ASTNode
+        from .cssl_types import CSSLInstance
+
+        # AST function node
+        if isinstance(value, ASTNode):
+            if value.type == 'function':
+                func_info = value.value
+                if isinstance(func_info, dict):
+                    return func_info.get('name', '<anonymous>')
+                return str(func_info) if func_info else '<anonymous>'
+            elif value.type == 'class':
+                class_info = value.value
+                if isinstance(class_info, dict):
+                    return class_info.get('name', '<anonymous>')
+                return str(class_info) if class_info else '<anonymous>'
+            elif value.type == 'identifier':
+                return value.value
+            return value.type
+
+        # CSSL class instance
+        if isinstance(value, CSSLInstance):
+            return value._class.name if hasattr(value, '_class') else type(value).__name__
+
+        # CSSL class definition (stored as dict with 'name' key)
+        if isinstance(value, dict) and 'name' in value:
+            return value['name']
+
+        # Python callable (function)
+        if callable(value):
+            if hasattr(value, '__name__'):
+                return value.__name__
+            if hasattr(value, 'name'):
+                return value.name
+            return type(value).__name__
+
+        # Fallback to type name
+        return type(value).__name__
+
+    def builtin_memory(self, value: Any) -> dict:
+        """Get memory/introspection info about a value as a dictionary.
+
+        Returns dict with: address, type, repr, methods, attributes, value
+        Allows: memory(obj).get("address"), memory(obj).copy(), etc.
+
+        Example:
+            data = memory(classInstance);
+            printl(data.get("address"));  // Memory address
+            printl(data.get("type"));     // Type name
+            printl(data.get("methods"));  // List of methods
+        """
+        import inspect
+
+        result = {
+            'address': hex(id(value)),
+            'type': self.builtin_typeof(value),
+            'repr': repr(value),
+            'value': None,
+            'methods': [],
+            'attributes': {}
+        }
+
+        # Get value for simple types
+        if isinstance(value, (int, float, str, bool)):
+            result['value'] = value
+        elif isinstance(value, (list, dict)):
+            result['value'] = value
+
+        # Get methods (callable attributes)
+        try:
+            methods = []
+            for name in dir(value):
+                if not name.startswith('_'):
+                    attr = getattr(value, name, None)
+                    if callable(attr):
+                        methods.append(name)
+            result['methods'] = methods
+        except:
+            pass
+
+        # Get non-callable attributes
+        try:
+            attrs = {}
+            for name in dir(value):
+                if not name.startswith('_'):
+                    attr = getattr(value, name, None)
+                    if not callable(attr):
+                        try:
+                            attrs[name] = attr
+                        except:
+                            attrs[name] = '<unreadable>'
+            result['attributes'] = attrs
+        except:
+            pass
+
+        # For CSSL classes, get member info
+        from .cssl_types import CSSLInstance
+        if isinstance(value, CSSLInstance):
+            result['class_name'] = value._class.name if value._class else None
+            result['members'] = dict(value._members) if hasattr(value, '_members') else {}
+
+        # v4.9.0: Register object in Address registry for later reflection
+        from .cssl_types import Address
+        Address.register(result['address'], value)
+
+        return result
+
+    def builtin_address(self, value: Any) -> 'Address':
+        """Get memory address of an object as an Address type.
+
+        Shortcut for memory(obj).get("address") that returns an Address object
+        which can be used with reflect() to get the object back.
+
+        Example:
+            string text = "Hello";
+            address addr = address(text);
+            obj = addr.reflect();  // or reflect(addr)
+            printl(obj);  // "Hello"
+        """
+        from .cssl_types import Address
+        return Address(obj=value)
+
+    def builtin_reflect(self, addr: Any) -> Any:
+        """Reflect an address to get the original object.
+
+        Takes an Address object or address string and returns the object at that address.
+        v4.9.3: Safe - if value is already dereferenced (not an Address), returns it as-is.
+        v4.9.5: Enhanced - tries runtime scope lookup if registry lookup fails.
+
+        Example:
+            string text = "Hello";
+            address addr = address(text);
+            obj = reflect(addr);
+            printl(obj);  // "Hello"
+
+            // Also works with address strings
+            data = memory(text);
+            obj = reflect(data.get("address"));
+
+            // Safe double-reflect: does nothing if already dereferenced
+            obj2 = reflect(obj);  // Still "Hello"
+        """
+        from .cssl_types import Address
+
+        if isinstance(addr, Address):
+            result = addr.reflect()
+            if result is not None:
+                return result
+            # v4.9.5: If registry lookup failed, try to find by address string
+            addr_str = addr.value
+            # Try finding in runtime scope by checking object ids
+            if self.runtime:
+                for name, val in self.runtime.scope.variables.items():
+                    if hex(id(val)) == addr_str:
+                        return val
+                for name, val in self.runtime.global_scope.variables.items():
+                    if hex(id(val)) == addr_str:
+                        return val
+            return None
+        elif isinstance(addr, str):
+            # Address string - look up in registry
+            result = Address._registry.get(addr)
+            if result is not None:
+                return result
+            # v4.9.5: Try finding in runtime scope by checking object ids
+            if self.runtime:
+                for name, val in self.runtime.scope.variables.items():
+                    if hex(id(val)) == addr:
+                        return val
+                for name, val in self.runtime.global_scope.variables.items():
+                    if hex(id(val)) == addr:
+                        return val
+            return addr
+        else:
+            # v4.9.3: Safe passthrough - value is already dereferenced
+            return addr
+
+    def builtin_destroy(self, target: Any) -> bool:
+        """Destroy an object by removing it from memory tracking and calling destructor.
+
+        Takes an Address, address string, or direct object reference.
+        Returns True if successfully destroyed, False otherwise.
+
+        Example:
+            ptr myPtr = ?data;
+            destroy(myPtr);       // Destroy via pointer
+            destroy(address(obj)); // Destroy via address
+            destroy(myInstance);   // Destroy instance directly
+
+        For CSSL instances, this calls the destructor (~ConstructorName) if defined.
+        """
+        from .cssl_types import Address, CSSLInstance
+
+        obj = None
+        addr_key = None
+
+        # Resolve the target to get the actual object
+        if isinstance(target, Address):
+            addr_key = str(target)
+            obj = target.reflect()
+        elif isinstance(target, str) and target.startswith('0x'):
+            addr_key = target
+            obj = Address._registry.get(target)
+        else:
+            # Direct object reference
+            obj = target
+            addr_key = hex(id(obj))
+
+        if obj is None:
+            return False
+
+        # Call destructor if it's a CSSL instance
+        if isinstance(obj, CSSLInstance):
+            # Try to call destructor (~ConstructorName)
+            if hasattr(obj, '_class') and obj._class:
+                class_def = obj._class
+                # Look for destructor in class definition
+                if hasattr(class_def, 'node') and class_def.node:
+                    for child in class_def.node.children:
+                        if child.type == 'destructor':
+                            # Destructor exists - would need runtime to call it
+                            pass
+
+        # Remove from Address registry
+        if addr_key and addr_key in Address._registry:
+            del Address._registry[addr_key]
+
+        # Clear object contents if possible
+        if hasattr(obj, 'clear') and callable(obj.clear):
+            obj.clear()
+        elif isinstance(obj, list):
+            obj.clear()
+        elif isinstance(obj, dict):
+            obj.clear()
+
+        return True
+
+    def builtin_execute(self, code: str, context: dict = None) -> Any:
+        """v4.9.2: Execute CSSL code string inline.
+
+        Usage:
+            execute("x = 5; y = x * 2;");               // Execute statements
+            result = execute("return 5 + 3;");          // Get return value
+            execute("printl('hello');");                // Side effects
+            execute(code, {"name": "value"});           // With context variables
+
+        Args:
+            code: CSSL code string to execute
+            context: Optional dict of variables to inject into scope
+
+        Returns:
+            The result of the last expression or explicit return
+        """
+        # v4.9.4: Fix attribute name - use self.runtime not self._runtime
+        if not self.runtime:
+            return None
+
+        try:
+            from .cssl_parser import parse_cssl_program
+
+            # Parse the code
+            ast = parse_cssl_program(code)
+            if not ast or not ast.children:
+                return None
+
+            # Inject context variables into scope if provided
+            if context and isinstance(context, dict):
+                for name, value in context.items():
+                    self.runtime.scope.set(name, value)
+
+            # Execute each statement
+            result = None
+            for node in ast.children:
+                result = self.runtime._execute_node(node)
+                # Check for early return
+                if self.runtime._return_triggered:
+                    result = self.runtime._return_value
+                    self.runtime._return_triggered = False
+                    self.runtime._return_value = None
+                    break
+
+            return result
+        except Exception as e:
+            # Return error info instead of raising
+            return {'error': str(e), 'type': type(e).__name__}
+
     def builtin_isinstance(self, value: Any, type_name: str) -> bool:
         """Check if value is of type"""
         type_map = {
@@ -782,59 +1363,66 @@ class CSSLBuiltins:
             return lst
 
         # v4.5.1: For CSSL typed containers, modify in place
-        from .cssl_types import Stack, Vector, Array, DataStruct
-        if isinstance(lst, (Stack, Vector, Array, DataStruct)):
+        # v4.8.6: Added List to in-place modification
+        # v4.8.6: Also modify plain Python lists in-place (fixes nested dict/array push)
+        from .cssl_types import Stack, Vector, Array, DataStruct, List
+        if isinstance(lst, (Stack, Vector, Array, DataStruct, List, list)):
             for item in items:
                 lst.append(item)
             return lst
 
-        # For regular lists, create a copy (immutable behavior)
-        lst = list(lst)
-        lst.extend(items)
-        return lst
+        # For other iterables (tuples, etc.), create a new list
+        new_lst = list(lst)
+        new_lst.extend(items)
+        return new_lst
 
     def builtin_pop(self, lst: list, index: int = -1) -> Any:
         """Pop item from list/stack/vector.
 
         v4.5.1: For Stack/Vector/Array types, modifies in place.
+        v4.8.6: Also modifies plain Python lists in place.
         """
         if lst is None:
             return None
 
         # v4.5.1: For CSSL typed containers, modify in place
-        from .cssl_types import Stack, Vector, Array, DataStruct
-        if isinstance(lst, (Stack, Vector, Array, DataStruct)):
+        # v4.8.6: Also modify plain Python lists in-place
+        from .cssl_types import Stack, Vector, Array, DataStruct, List
+        if isinstance(lst, (Stack, Vector, Array, DataStruct, List, list)):
             if len(lst) == 0:
                 return None
             return lst.pop(index)
 
-        # For regular lists, create a copy
-        lst = list(lst)
-        return lst.pop(index) if lst else None
+        # For other iterables, create a copy
+        new_lst = list(lst)
+        return new_lst.pop(index) if new_lst else None
 
     def builtin_shift(self, lst: list) -> Any:
         """Remove and return first element.
 
         v4.5.1: For Stack/Vector/Array types, modifies in place.
+        v4.8.6: Also modifies plain Python lists in place.
         """
         if lst is None:
             return None
 
         # v4.5.1: For CSSL typed containers, modify in place
-        from .cssl_types import Stack, Vector, Array, DataStruct
-        if isinstance(lst, (Stack, Vector, Array, DataStruct)):
+        # v4.8.6: Also modify plain Python lists in-place
+        from .cssl_types import Stack, Vector, Array, DataStruct, List
+        if isinstance(lst, (Stack, Vector, Array, DataStruct, List, list)):
             if len(lst) == 0:
                 return None
             return lst.pop(0)
 
-        # For regular lists, create a copy
-        lst = list(lst)
-        return lst.pop(0) if lst else None
+        # For other iterables, create a copy
+        new_lst = list(lst)
+        return new_lst.pop(0) if new_lst else None
 
     def builtin_unshift(self, lst: list, *items) -> list:
         """Add items to the front of a list/stack/vector.
 
         v4.5.1: For Stack/Vector/Array types, modifies in place.
+        v4.8.6: Also modifies plain Python lists in place.
         """
         if lst is None:
             lst = []
@@ -843,17 +1431,18 @@ class CSSLBuiltins:
             return lst
 
         # v4.5.1: For CSSL typed containers, modify in place
-        from .cssl_types import Stack, Vector, Array, DataStruct
-        if isinstance(lst, (Stack, Vector, Array, DataStruct)):
+        # v4.8.6: Also modify plain Python lists in-place
+        from .cssl_types import Stack, Vector, Array, DataStruct, List
+        if isinstance(lst, (Stack, Vector, Array, DataStruct, List, list)):
             for item in reversed(items):
                 lst.insert(0, item)
             return lst
 
-        # For regular lists, create a copy
-        lst = list(lst)
-        for item in reversed(items):
-            lst.insert(0, item)
-        return lst
+        # For other iterables, create a copy
+        new_lst = list(lst)
+        for item in reversed(new_lst):
+            new_lst.insert(0, item)
+        return new_lst
 
     def builtin_slice(self, value: Union[str, list], start: int, end: int = None) -> Union[str, list]:
         if end is None:
@@ -1051,10 +1640,18 @@ class CSSLBuiltins:
     # ============= Time Functions =============
 
     def builtin_now(self) -> float:
-        return time.time()
+        import sys
+        result = time.time()
+        sys.stderr.write(f"[DEBUG] builtin_now() called, returning {result}\n")
+        sys.stderr.flush()
+        return result
 
     def builtin_timestamp(self) -> int:
-        return int(time.time())
+        import sys
+        result = int(time.time())
+        sys.stderr.write(f"[DEBUG] builtin_timestamp() called, returning {result}\n")
+        sys.stderr.flush()
+        return result
 
     def builtin_sleep(self, seconds: float) -> None:
         time.sleep(seconds)
@@ -1530,6 +2127,88 @@ class CSSLBuiltins:
         # Handle Python objects
         return type(obj).__name__
 
+    def builtin_instance_delete(self, instance: Any, destructor_name: str = None) -> bool:
+        """v4.8.8: Call destructors on an instance and mark it for cleanup.
+
+        Usage:
+            delete(myInstance);              // Calls all destructors
+            delete(myInstance, "Init");      // Calls only ~Init destructor
+            instance::delete(obj, "Setup");  // Calls only ~Setup destructor
+
+        Args:
+            instance: The CSSLInstance to delete
+            destructor_name: Optional - specific destructor name (without ~)
+
+        Returns:
+            True if destructors were called, False if instance has no destructors
+        """
+        from .cssl_types import CSSLInstance
+
+        if not isinstance(instance, CSSLInstance):
+            return False
+
+        class_def = instance._class
+        destructors = getattr(class_def, 'destructors', [])
+
+        if not destructors:
+            return False
+
+        # Call destructors through the runtime
+        if self.runtime:
+            for destr in destructors:
+                destr_name = destr.value.get('name', '')
+                # If specific destructor requested, only call that one
+                if destructor_name:
+                    # Match ~Name or just Name
+                    if destr_name != f'~{destructor_name}' and destr_name != destructor_name:
+                        continue
+
+                # Call the destructor
+                self.runtime._call_destructor(instance, destr)
+
+            # Mark instance as deleted
+            instance._deleted = True
+            return True
+
+        return False
+
+    def builtin_call_constructor(self, instance: Any, constructor_name: str, *args, **kwargs) -> bool:
+        """v4.8.8: Manually call a callable constructor on an instance.
+
+        Usage:
+            call_constructor(myInstance, "Setup");           // Calls callable constr Setup()
+            call_constructor(myInstance, "Init", arg1, arg2); // With arguments
+
+        Args:
+            instance: The CSSLInstance to call constructor on
+            constructor_name: Name of the callable constructor
+            *args: Arguments to pass to the constructor
+
+        Returns:
+            True if constructor was called, False if not found
+        """
+        from .cssl_types import CSSLInstance
+
+        if not isinstance(instance, CSSLInstance):
+            return False
+
+        # Get callable constructors stored on instance
+        callable_constructors = getattr(instance, '_callable_constructors', [])
+
+        if not callable_constructors:
+            return False
+
+        # Call constructor through the runtime
+        if self.runtime:
+            for constr in callable_constructors:
+                constr_name = constr.value.get('name', '')
+                if constr_name == constructor_name:
+                    # Call the callable constructor
+                    self.runtime._call_constructor(instance, constr, list(args), dict(kwargs), {})
+                    return True
+
+        return False
+
     def builtin_isavailable(self, name_or_obj: Any) -> bool:
         """Check if a shared instance exists.
         Usage:
@@ -1922,7 +2601,8 @@ class CSSLBuiltins:
         return '\033[0m'
 
     # v4.8.5: Blocked modules for pyimport (os/sys replaced by CSSL builtins)
-    BLOCKED_MODULES = {'os', 'sys', 'subprocess', 'shutil'}
+    # v4.8.8: Added importlib, ctypes, builtins to prevent security bypasses
+    BLOCKED_MODULES = {'os', 'sys', 'subprocess', 'shutil', 'importlib', 'ctypes', 'builtins'}
 
     def builtin_pyimport(self, module_name: str) -> Any:
         """
@@ -2022,6 +2702,159 @@ class CSSLBuiltins:
             return self.builtin_readfile(module_path)
         else:
             return self.builtin_cppimport(module_path)
+
+    def builtin_includecpp(self, cpp_proj_path: str, module_name: str) -> Any:
+        """Import a pre-built C++ module from a cpp.proj project.
+
+        This is the CSSL equivalent of Python's:
+            from includecpp import module_name
+
+        IMPORTANT: The module must be built first using `includecpp rebuild`.
+        This function only imports already-built modules.
+
+        How it works:
+        1. Reads cpp.proj to find BaseDir (where built modules are stored)
+        2. Adds BaseDir/bindings to Python path
+        3. Imports the module (api_modulename.pyd)
+
+        Usage:
+            // Import a pre-built C++ module
+            @math = includecpp("C:/projects/mylib/cpp.proj", "fastmath");
+            result = math.calculate(42);
+
+            // Relative path works too
+            @crypto = includecpp("./crypto/cpp.proj", "crypto");
+
+        Args:
+            cpp_proj_path: Path to the cpp.proj file (or directory containing it)
+            module_name: Name of the module to import
+
+        Returns:
+            The imported C++ module wrapper
+
+        Raises:
+            RuntimeError: If cpp.proj not found, module not built, or import fails
+        """
+        import os
+        import sys
+        import json
+        import platform
+        from pathlib import Path
+
+        try:
+            # Resolve the cpp.proj path
+            proj_path = Path(cpp_proj_path)
+            if not proj_path.is_absolute():
+                proj_path = Path(os.getcwd()) / proj_path
+
+            # Handle both file and directory paths
+            if proj_path.is_dir():
+                proj_path = proj_path / "cpp.proj"
+            elif proj_path.name != "cpp.proj":
+                proj_path = proj_path / "cpp.proj"
+
+            if not proj_path.exists():
+                raise RuntimeError(f"cpp.proj not found: {proj_path}")
+
+            # Load cpp.proj to get BaseDir
+            with open(proj_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+
+            # Get BaseDir from config
+            if 'BaseDir' not in config:
+                project_name = config.get('project', 'unnamed')
+                if platform.system() == "Windows":
+                    appdata = Path(os.getenv('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+                else:
+                    appdata = Path.home() / ".local" / "share" / "includecpp"
+                base_dir = appdata / f"{project_name}-gcc-build-proj"
+            else:
+                base_dir = Path(config['BaseDir'])
+
+            bindings_dir = base_dir / "bindings"
+            registry_file = base_dir / ".module_registry.json"
+
+            # Check if bindings directory exists
+            if not bindings_dir.exists():
+                raise RuntimeError(
+                    f"Bindings directory not found: {bindings_dir}\n"
+                    f"Run 'includecpp rebuild' in the project directory first."
+                )
+
+            # Check registry for module
+            if registry_file.exists():
+                with open(registry_file, 'r', encoding='utf-8') as f:
+                    registry_data = json.load(f)
+                    # Handle both v1.6 and v2.0 registry formats
+                    if "schema_version" in registry_data and registry_data.get("schema_version") == "2.0":
+                        registry = registry_data.get("modules", {})
+                    else:
+                        registry = registry_data
+
+                    if module_name not in registry:
+                        available = list(registry.keys())
+                        raise RuntimeError(
+                            f"Module '{module_name}' not found in registry.\n"
+                            f"Available modules: {available}\n"
+                            f"Run 'includecpp rebuild' to build the module."
+                        )
+
+            # Add bindings directory to path if not already there
+            bindings_str = str(bindings_dir)
+            if bindings_str not in sys.path:
+                sys.path.insert(0, bindings_str)
+
+            # Try to import per-module .pyd (v2.0 format)
+            pyd_name = f"api_{module_name}"
+            pyd_suffix = ".pyd" if platform.system() == "Windows" else ".so"
+            pyd_path = bindings_dir / f"{pyd_name}{pyd_suffix}"
+
+            if pyd_path.exists():
+                # Import the per-module .pyd
+                import importlib
+                if pyd_name in sys.modules:
+                    # Reload if already imported
+                    module = importlib.reload(sys.modules[pyd_name])
+                else:
+                    module = importlib.import_module(pyd_name)
+                return module
+
+            # v4.9.3: Try direct import of shared api.pyd before subprocess fallback
+            # This allows C++ classes to work properly (subprocess can't pickle them)
+            api_pyd = bindings_dir / f"api{pyd_suffix}"
+            if api_pyd.exists():
+                import importlib
+                # Add DLL directory on Windows for dependency loading
+                if hasattr(os, 'add_dll_directory'):
+                    os.add_dll_directory(bindings_str)
+
+                # Check if we can import api without conflict
+                if 'api' not in sys.modules:
+                    try:
+                        api_mod = importlib.import_module('api')
+                        if hasattr(api_mod, module_name):
+                            return getattr(api_mod, module_name)
+                    except Exception:
+                        pass
+                else:
+                    # api already loaded - check if it has our module
+                    api_mod = sys.modules['api']
+                    if hasattr(api_mod, module_name):
+                        return getattr(api_mod, module_name)
+
+            # Create a proxy module that executes calls in a subprocess
+            # This avoids the Python extension module caching issue where
+            # cssl's bundled api.pyd shadows the user's api.pyd
+            # Note: Classes won't fully work in subprocess mode due to pickle limitations
+            return _IncludeCppModuleProxy(bindings_str, module_name)
+
+        except RuntimeError:
+            raise
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid cpp.proj file: {e}")
+        except Exception as e:
+            raise RuntimeError(f"includecpp() failed: {e}")
+
 
     def builtin_cout(self) -> 'OutputStream':
         """Get stdout stream (C++ cout equivalent).
@@ -2398,7 +3231,14 @@ class CSSLBuiltins:
         return list(zip(*lists))
 
     def builtin_reversed(self, lst: list) -> list:
-        """Return reversed list"""
+        """Return reversed list
+
+        v4.8.7: Added None check.
+        """
+        if lst is None:
+            return []
+        if not isinstance(lst, (list, tuple)):
+            return [lst]
         return list(reversed(lst))
 
     def builtin_sorted(self, lst: list, key: str = None, reverse: bool = False) -> list:
@@ -2835,10 +3675,23 @@ class CSSLBuiltins:
         Usage: include(cso_root('/services/utils.cssl'))
                include('modules/math_utils.cssl-mod')
                include('C:/absolute/path/module.cssl-mod')
+               include("cssl-gui")        # Built-in GUI framework
+               include("cssl-keyboard")   # Built-in keyboard framework
         Returns: ServiceDefinition with structs, functions, etc.
         """
         if not self.runtime:
             raise CSSLBuiltinError("include requires runtime context")
+
+        # v4.9.6: Handle built-in framework modules
+        builtin_modules = {
+            'cssl-gui': self._get_gui_module,
+            'cssl-keyboard': self._get_keyboard_module,
+            'cssl-gui.MessageBox': self._get_messagebox_module,
+            'cssl-gui.messagebox': self._get_messagebox_module,
+        }
+
+        if filepath in builtin_modules:
+            return builtin_modules[filepath]()
 
         # Normalize path separators (support both / and \)
         filepath = filepath.replace('\\', '/')
@@ -2932,6 +3785,51 @@ class CSSLBuiltins:
 
         return lang_support
 
+    def _get_gui_module(self) -> Any:
+        """
+        Get the CSSL GUI Framework module.
+        v4.9.6: Built-in GUI framework with widgets, layouts, and event handling.
+
+        Returns: CsslGuiModule with CsslWidget, CsslLabel, CsslButton, etc.
+        """
+        from .cssl_gui import get_gui_module, CsslGuiModule
+
+        module = get_gui_module()
+
+        # Set runtime context
+        if hasattr(module, '_runtime'):
+            module._runtime = self.runtime
+
+        return module
+
+    def _get_keyboard_module(self) -> Any:
+        """
+        Get the CSSL Keyboard Framework module.
+        v4.9.6: Built-in keyboard input handling framework.
+
+        Returns: CsslKeyboardModule with listen, isPressed, hotkey, etc.
+        """
+        from .cssl_keyboard import get_keyboard_module, CsslKeyboardModule
+
+        module = get_keyboard_module()
+
+        # Set runtime context
+        if hasattr(module, 'setRuntime'):
+            module.setRuntime(self.runtime)
+
+        return module
+
+    def _get_messagebox_module(self) -> Any:
+        """
+        Get the CSSL MessageBox module.
+        v4.9.6: Simple message dialog boxes.
+
+        Returns: CsslMessageBoxModule class that can be instantiated.
+        """
+        from .cssl_messagebox import get_messagebox_module
+
+        return get_messagebox_module()
+
     def _load_cssl_module(self, filepath: str, source: str) -> Any:
         """
         Load a .cssl-mod module file and return a callable module object.
@@ -2966,7 +3864,30 @@ class CSSLBuiltins:
     def _execute_python_module(self, name: str, source: str, filepath: str) -> Any:
         """
         Execute Python source and return a module-like object with all functions.
+
+        v4.8.8: Security check - scan source for blocked module imports.
         """
+        import re
+
+        # v4.8.8: Security - check for blocked module imports in source
+        # This prevents the bypass: makemodule a Python file that imports os,
+        # then include() it in CSSL to access os through the module.
+        for blocked in self.BLOCKED_MODULES:
+            # Check for: import os, import os as x, from os import, from os.path import
+            patterns = [
+                rf'\bimport\s+{blocked}\b',           # import os
+                rf'\bimport\s+{blocked}\s+as\b',      # import os as x
+                rf'\bfrom\s+{blocked}\b',             # from os import / from os.path import
+                rf'\b{blocked}\s*=\s*__import__',     # os = __import__('os')
+            ]
+            for pattern in patterns:
+                if re.search(pattern, source):
+                    raise CSSLBuiltinError(
+                        f"Module '{name}' imports blocked module '{blocked}'.\n"
+                        f"Security: {blocked} is not allowed in CSSL modules.\n"
+                        f"Use CSSL builtins instead."
+                    )
+
         # Create a namespace for the module
         module_namespace = {
             '__name__': name,
@@ -3095,18 +4016,40 @@ class CSSLBuiltins:
             is_absolute = os.path.isabs(filepath) or (len(filepath) > 2 and filepath[1] == ':')
 
             if not is_absolute:
-                # Try relative to current working directory first
-                cwd_path = os.path.join(os.getcwd(), filepath)
-                if os.path.exists(cwd_path):
-                    filepath = cwd_path
-                else:
-                    # Try with .cssl-pl extension
-                    cwd_path_pl = os.path.join(os.getcwd(), filepath + '.cssl-pl')
-                    if os.path.exists(cwd_path_pl):
-                        filepath = cwd_path_pl
+                # v4.8.8: First try relative to current executing file's directory
+                # This allows payload("other.cssl-pl") to find files in same folder
+                current_file_dir = None
+                if hasattr(self.runtime, '_current_file_path') and self.runtime._current_file_path:
+                    current_file_dir = os.path.dirname(self.runtime._current_file_path)
+
+                found = False
+
+                # Try relative to current file's directory first (if available)
+                if current_file_dir:
+                    file_relative_path = os.path.join(current_file_dir, filepath)
+                    if os.path.exists(file_relative_path):
+                        filepath = file_relative_path
+                        found = True
                     else:
-                        # Fall back to cso_root for service context
-                        filepath = self.builtin_cso_root(filepath)
+                        # Try with .cssl-pl extension
+                        file_relative_pl = os.path.join(current_file_dir, filepath + '.cssl-pl')
+                        if os.path.exists(file_relative_pl):
+                            filepath = file_relative_pl
+                            found = True
+
+                # Fall back to CWD if not found relative to current file
+                if not found:
+                    cwd_path = os.path.join(os.getcwd(), filepath)
+                    if os.path.exists(cwd_path):
+                        filepath = cwd_path
+                    else:
+                        # Try with .cssl-pl extension
+                        cwd_path_pl = os.path.join(os.getcwd(), filepath + '.cssl-pl')
+                        if os.path.exists(cwd_path_pl):
+                            filepath = cwd_path_pl
+                        else:
+                            # Fall back to cso_root for service context
+                            filepath = self.builtin_cso_root(filepath)
 
             # Check file exists, try with .cssl-pl extension if not
             if not os.path.exists(filepath):
@@ -3138,16 +4081,24 @@ class CSSLBuiltins:
 
             ast = parse_cssl_program(source)
 
-            if libname:
-                # Namespaced execution: execute in isolated scope
-                self._execute_payload_namespaced(ast, libname, source)
-            else:
-                # Standard execution: apply globally
-                # Execute the payload - this will:
-                # - Register global variables (accessible via @name)
-                # - Define functions in current scope
-                # - Set up any code injections
-                self.runtime._execute_node(ast)
+            # v4.8.8: Track current file path for relative payload resolution
+            prev_file_path = getattr(self.runtime, '_current_file_path', None)
+            self.runtime._current_file_path = filepath
+
+            try:
+                if libname:
+                    # Namespaced execution: execute in isolated scope
+                    self._execute_payload_namespaced(ast, libname, source)
+                else:
+                    # Standard execution: apply globally
+                    # Execute the payload - this will:
+                    # - Register global variables (accessible via @name)
+                    # - Define functions in current scope
+                    # - Set up any code injections
+                    self.runtime._execute_node(ast)
+            finally:
+                # Restore previous file path
+                self.runtime._current_file_path = prev_file_path
 
         except Exception as e:
             raise CSSLBuiltinError(f"Failed to load payload '{filepath}': {e}")
@@ -3397,29 +4348,42 @@ class CSSLBuiltins:
             # This is handled by the runtime which passes the path
             pass
 
-    def builtin_delete(self, name: str) -> bool:
+    def builtin_delete(self, target: Any, destructor_name: str = None) -> bool:
         """
-        Delete a shared object by name.
-        Usage: delete("MyLib") - removes the $MyLib shared object
+        Delete a shared object by name or call destructors on a CSSLInstance.
+
+        Usage:
+            delete("MyLib")          - removes the $MyLib shared object
+            delete(myInstance)       - calls all destructors on CSSLInstance
+            delete(myInstance, "Init") - calls only ~Init destructor
 
         Args:
-            name: Name of the shared object (without the $ prefix)
+            target: Name string for shared objects OR CSSLInstance for destructor calls
+            destructor_name: Optional - specific destructor name (without ~)
 
         Returns:
-            True if deleted, False if not found
+            True if deleted/destroyed, False if not found
         """
+        from .cssl_types import CSSLInstance
         from ..cssl_bridge import _live_objects
 
-        # Remove from live objects registry
-        if name in _live_objects:
-            del _live_objects[name]
-            # Also remove from runtime's global scope if present
-            if self.runtime:
-                try:
-                    self.runtime.global_scope.delete(f'${name}')
-                except Exception:
-                    pass
-            return True
+        # v4.8.8: Handle CSSLInstance - call destructors
+        if isinstance(target, CSSLInstance):
+            return self.builtin_instance_delete(target, destructor_name)
+
+        # Handle string name - delete shared object
+        if isinstance(target, str):
+            name = target
+            if name in _live_objects:
+                del _live_objects[name]
+                # Also remove from runtime's global scope if present
+                if self.runtime:
+                    try:
+                        self.runtime.global_scope.delete(f'${name}')
+                    except Exception:
+                        pass
+                return True
+
         return False
 
     # ============= CSSL Data Type Constructors =============
@@ -3673,6 +4637,153 @@ class CSSLBuiltins:
         return CSSLizedPythonObject(python_obj, self.runtime)
 
     # =========================================================================
+    # v4.8.8: Python Parameter Functions - CsslLang API parameter passing
+    # =========================================================================
+
+    def _get_parameter_object(self):
+        """Get the Parameter object from runtime scope."""
+        if self.runtime and hasattr(self.runtime, 'global_scope'):
+            param = self.runtime.global_scope.get('parameter')
+            if param is not None:
+                return param
+        return None
+
+    def _is_blocked_module(self, value: Any) -> tuple:
+        """Check if a value is a blocked Python module.
+
+        Returns:
+            (is_blocked: bool, module_name: str or None)
+        """
+        import types
+        if isinstance(value, types.ModuleType):
+            module_name = getattr(value, '__name__', '')
+            base_name = module_name.split('.')[0]
+            if base_name in self.BLOCKED_MODULES:
+                return (True, module_name)
+        return (False, None)
+
+    def builtin_python_parameter_get(self, index: int, default: Any = None) -> Any:
+        """Get a parameter passed from Python via CsslLang.run().
+
+        v4.8.8: Security - blocks dangerous modules (os, sys, subprocess, etc.)
+        from being passed as parameters.
+
+        Usage:
+            // Python: cssl.run("script.cssl", math_module, "arg2", 123)
+            // CSSL:
+            @math = python::param_get(0);        // Gets math module (allowed)
+            arg2 = python::param_get(1);         // Gets "arg2"
+            num = python::param_get(2);          // Gets 123
+            missing = python::param_get(99, "default");  // Gets "default"
+
+        Args:
+            index: The parameter index (0-based)
+            default: Value to return if parameter doesn't exist
+
+        Returns:
+            The parameter value or default
+
+        Raises:
+            CSSLBuiltinError: If the parameter is a blocked module
+        """
+        param = self._get_parameter_object()
+        if param is None:
+            return default
+
+        value = param.get(index, default)
+
+        # Security check: block dangerous modules passed as parameters
+        is_blocked, module_name = self._is_blocked_module(value)
+        if is_blocked:
+            raise CSSLBuiltinError(
+                f"Security: Module '{module_name}' cannot be passed as a parameter.\n"
+                f"Blocked modules: {', '.join(sorted(self.BLOCKED_MODULES))}\n"
+                f"Use CSSL builtins instead for filesystem/system operations."
+            )
+
+        return value
+
+    def builtin_python_parameter_return(self, value: Any) -> None:
+        """Return a value back to Python from CSSL.
+
+        Usage:
+            // CSSL:
+            result = compute_something();
+            python::parameter.return(result);
+
+            // Python:
+            returned = cssl.run("script.cssl", arg1, arg2)
+            print(returned)  // Gets the value passed to parameter.return()
+
+        Args:
+            value: The value to return to Python
+        """
+        param = self._get_parameter_object()
+        if param is None:
+            raise CSSLBuiltinError("python::parameter.return() can only be used when called from CsslLang.run()")
+        param.return_(value)
+
+    def builtin_python_parameter_count(self) -> int:
+        """Get the number of parameters passed from Python.
+
+        Usage:
+            count = python::parameter.count();
+            printl("Received " + str(count) + " parameters");
+
+        Returns:
+            Number of parameters
+        """
+        param = self._get_parameter_object()
+        if param is None:
+            return 0
+        return param.count()
+
+    def builtin_python_parameter_all(self) -> list:
+        """Get all parameters as a list.
+
+        v4.8.8: Security - filters out blocked modules from the list.
+
+        Usage:
+            all_args = python::param_all();
+            foreach (arg in all_args) {
+                printl(arg);
+            }
+
+        Returns:
+            List of all parameters (blocked modules are filtered out)
+        """
+        param = self._get_parameter_object()
+        if param is None:
+            return []
+
+        # Filter out blocked modules for security
+        result = []
+        for value in param.all():
+            is_blocked, _ = self._is_blocked_module(value)
+            if not is_blocked:
+                result.append(value)
+        return result
+
+    def builtin_python_parameter_has(self, index: int) -> bool:
+        """Check if a parameter exists at the given index.
+
+        Usage:
+            if (python::parameter.has(2)) {
+                third_arg = python::parameter.get(2);
+            }
+
+        Args:
+            index: The parameter index to check
+
+        Returns:
+            True if parameter exists, False otherwise
+        """
+        param = self._get_parameter_object()
+        if param is None:
+            return False
+        return param.has(index)
+
+    # =========================================================================
     # v4.6.5: Watcher Namespace Functions - Live Python Instance Access
     # =========================================================================
 
@@ -3780,6 +4891,137 @@ class CSSLBuiltins:
             watcher.refresh()
             return True
         return False
+
+    # ============= v4.8.8: Snapshot Functions =============
+    # Snapshot allows storing variable states and accessing them via %variable syntax
+
+    def builtin_snapshot(self, *args) -> bool:
+        """Snapshot a variable's current value.
+
+        Usage:
+            snapshot(variable)         - Snapshot using auto-detected name
+            snapshot(variable, "name") - Snapshot with explicit name
+
+        After snapshotting, access the value with %name syntax.
+
+        v4.9.4: Variables marked as 'static' cannot be snapshotted (returns False, no error)
+
+        Example:
+            string version = "1.0";
+            snapshot(version);
+            version = "2.0";
+            println(version, %version);  // Output: 2.0 1.0
+        """
+        import copy
+
+        if len(args) == 0:
+            raise CSSLBuiltinError("snapshot() requires at least 1 argument")
+
+        value = args[0]
+        name = args[1] if len(args) > 1 else None
+
+        # If no name provided, try to detect from runtime context
+        if name is None and self.runtime:
+            # Try to find the variable name from the current scope
+            for var_name, var_val in self.runtime.scope.variables.items():
+                if var_val is value and not var_name.startswith('_'):
+                    name = var_name
+                    break
+            # Also check global scope
+            if name is None:
+                for var_name, var_val in self.runtime.global_scope.variables.items():
+                    if var_val is value and not var_name.startswith('_'):
+                        name = var_name
+                        break
+            # v4.8.8: Also check builtins for function snapshots
+            if name is None:
+                for func_name, func_val in self._functions.items():
+                    if func_val is value and not func_name.startswith('_'):
+                        name = func_name
+                        break
+
+        if name is None:
+            # Use a generic name based on type and hash
+            name = f"_snap_{type(value).__name__}_{id(value)}"
+
+        # v4.9.4: Check if variable is marked as 'static' - cannot be snapshotted
+        if self.runtime and name in self.runtime._var_meta and self.runtime._var_meta[name].get('is_static', False):
+            return False  # static variables cannot be snapshotted
+
+        # Deep copy to preserve the state
+        try:
+            snapped_value = copy.deepcopy(value)
+        except:
+            try:
+                snapped_value = copy.copy(value)
+            except:
+                snapped_value = value
+
+        self._snapshots[name] = snapped_value
+        return True
+
+    def builtin_get_snapshot(self, name: str) -> Any:
+        """Get a snapshotted value by name.
+
+        Usage:
+            value = get_snapshot("variableName")
+
+        This is the programmatic way to access snapshots.
+        The %variable syntax is the preferred way in CSSL code.
+        """
+        if name not in self._snapshots:
+            raise CSSLBuiltinError(f"No snapshot found for '{name}'")
+        return self._snapshots[name]
+
+    def builtin_has_snapshot(self, name: str) -> bool:
+        """Check if a snapshot exists.
+
+        Usage:
+            if (has_snapshot("version")) { ... }
+        """
+        return name in self._snapshots
+
+    def builtin_clear_snapshot(self, name: str) -> bool:
+        """Clear a specific snapshot.
+
+        Usage:
+            clear_snapshot("variableName")
+        """
+        if name in self._snapshots:
+            del self._snapshots[name]
+            return True
+        return False
+
+    def builtin_clear_all_snapshots(self) -> int:
+        """Clear all snapshots, return count of cleared items.
+
+        Usage:
+            count = clear_snapshots()
+        """
+        count = len(self._snapshots)
+        self._snapshots.clear()
+        return count
+
+    def builtin_list_snapshots(self) -> list:
+        """List all snapshot names.
+
+        Usage:
+            names = list_snapshots()
+            for (name in names) { println(name + " = " + get_snapshot(name)); }
+        """
+        return list(self._snapshots.keys())
+
+    def builtin_restore_snapshot(self, name: str) -> Any:
+        """Restore a snapshot value and remove it from storage.
+
+        Usage:
+            version = restore_snapshot("version")
+        """
+        if name not in self._snapshots:
+            raise CSSLBuiltinError(f"No snapshot found for '{name}'")
+        value = self._snapshots[name]
+        del self._snapshots[name]
+        return value
 
 
 class CSSLizedPythonObject:

@@ -969,7 +969,7 @@ class CloudController(BaseController):
                     "Timed out waiting for cloud admin zone to be active. Your cloud may not be set up properly. Please reach out to Anyscale support for assistance."
                 )
 
-    def setup_managed_cloud(  # noqa: PLR0912
+    def setup_managed_cloud(  # noqa: PLR0912, PLR0913
         self,
         *,
         provider: str,
@@ -2525,7 +2525,7 @@ class CloudController(BaseController):
             _use_strict_iam_permissions=_use_strict_iam_permissions,
         )
 
-    def verify_aws_cloud_resources(
+    def verify_aws_cloud_resources(  # noqa: PLR0913
         self,
         *,
         aws_vpc_id: Optional[str],
@@ -3107,6 +3107,7 @@ class CloudController(BaseController):
         strict: bool = False,
         yes: bool = False,
         is_private_service_cloud: bool = False,
+        ignore_capacity_errors: bool = IGNORE_CAPACITY_ERRORS,
     ) -> bool:
         assert cloud_deployment.region
         assert cloud_deployment.gcp_config
@@ -3138,9 +3139,10 @@ class CloudController(BaseController):
             strict=strict,
             yes=yes,
             is_private_service_cloud=is_private_service_cloud,
+            ignore_capacity_errors=ignore_capacity_errors,
         )
 
-    def verify_gcp_cloud_resources_from_create_cloud_resource(
+    def verify_gcp_cloud_resources_from_create_cloud_resource(  # noqa: PLR0913
         self,
         *,
         cloud_resource: CreateCloudResourceGCP,
@@ -3152,6 +3154,7 @@ class CloudController(BaseController):
         factory: Any = None,
         strict: bool = False,
         is_private_service_cloud: bool = False,
+        ignore_capacity_errors: bool = IGNORE_CAPACITY_ERRORS,
     ) -> bool:
         return self.verify_gcp_cloud_resources(
             project_id=project_id,
@@ -3174,9 +3177,10 @@ class CloudController(BaseController):
             factory=factory,
             strict=strict,
             is_private_service_cloud=is_private_service_cloud,
+            ignore_capacity_errors=ignore_capacity_errors,
         )
 
-    def verify_gcp_cloud_resources(
+    def verify_gcp_cloud_resources(  # noqa: PLR0913
         self,
         *,
         project_id: str,
@@ -3195,6 +3199,7 @@ class CloudController(BaseController):
         factory: Any = None,
         strict: bool = False,
         is_private_service_cloud: bool = False,
+        ignore_capacity_errors: bool = IGNORE_CAPACITY_ERRORS,
     ) -> bool:
         gcp_utils = try_import_gcp_utils()
         if not factory:
@@ -3236,6 +3241,7 @@ class CloudController(BaseController):
                 logger=gcp_logger,
                 strict=strict,
                 is_private_service_cloud=is_private_service_cloud,
+                ignore_capacity_errors=ignore_capacity_errors,
             )
             verify_firewall_policy_result = verify_lib.verify_firewall_policy(
                 factory=factory,
@@ -4028,7 +4034,7 @@ class CloudController(BaseController):
             rollback_command = ""
         return rollback_command
 
-    def _edit_aws_cloud(  # noqa: PLR0912
+    def _edit_aws_cloud(  # noqa: PLR0912, PLR0913
         self,
         *,
         cloud_id: str,
@@ -4399,7 +4405,7 @@ class CloudController(BaseController):
     --role roles/iam.workloadIdentityUser \\
     --member "serviceAccount:{project_id}.svc.id.goog[{namespace}/anyscale-operator]" """
 
-    def _edit_gcp_cloud(  # noqa: PLR0912
+    def _edit_gcp_cloud(  # noqa: PLR0912, PLR0913
         self,
         *,
         cloud_id: str,
@@ -4747,6 +4753,103 @@ class CloudController(BaseController):
 
     ### End of edit cloud ###
 
+    def _transform_job_for_report(self, job) -> dict:
+        """Extract common job fields for report output."""
+        finished_at = str(job.finished_at) if job.finished_at else ""
+        duration = str(job.finished_at - job.created_at) if job.finished_at else ""
+        return {
+            "job_id": job.job_id,
+            "job_name": job.job_name,
+            "job_state": HA_JOB_STATE_TO_JOB_STATE[job.job_state],
+            "created_at": str(job.created_at),
+            "finished_at": finished_at,
+            "duration": duration,
+            "unused_cpu_hours": job.job_report.unused_cpu_hours or "",
+            "unused_gpu_hours": job.job_report.unused_gpu_hours or "",
+            "max_instances_launched": job.job_report.max_instances_launched or "",
+        }
+
+    def _write_jobs_report_csv(self, out_file, jobs) -> None:
+        """Write jobs report in CSV format."""
+        out_file.write(
+            "Job ID,Job name,Job state,Created at,Finished at,Duration,"
+            "Unused CPU hours,Unused GPU hours,Max concurrent instances\n"
+        )
+        for job in track(jobs, description="Generating report..."):
+            d = self._transform_job_for_report(job)
+            out_file.write(
+                f'"{d["job_id"]}","{d["job_name"]}","{d["job_state"]}",'
+                f'"{d["created_at"]}","{d["finished_at"]}","{d["duration"]}",'
+                f'"{d["unused_cpu_hours"]}","{d["unused_gpu_hours"]}",'
+                f'"{d["max_instances_launched"]}"\n'
+            )
+
+    def _write_jobs_report_html(self, out_file, jobs, end_time, total_jobs) -> None:
+        """Write jobs report in HTML format."""
+        out_file.write(
+            f"""
+<html>
+<head>
+<title>Jobs Report - {end_time!s}</title>
+<style>
+    table {{
+        border: 1px solid black;
+        border-collapse: collapse;
+    }}
+    th, td {{
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 8px;
+    }}
+</style>
+</head>
+<body>
+<h1>Job Report - {end_time!s}</h1>
+<p>Total jobs reported (finished jobs): {len(jobs)}</p>
+<p>Total jobs in the last 7 days: {total_jobs}</p>
+<table>
+<thead>
+<tr>
+<th>Job ID</th>
+<th>Job name</th>
+<th>Job state</th>
+<th>Created at</th>
+<th>Finished at</th>
+<th>Duration</th>
+<th>Unused CPU hours</th>
+<th>Unused GPU hours</th>
+<th>Max concurrent instances</th>
+</tr>
+</thead>
+<tbody>
+"""
+        )
+
+        for job in track(jobs, description="Generating report..."):
+            d = self._transform_job_for_report(job)
+            out_file.write(
+                f"""
+<tr>
+<td><a target="_blank" rel="noreferrer" href="{ANYSCALE_HOST}/jobs/{d["job_id"]}">{d["job_id"]}</a></td>
+<td>{d["job_name"]}</td>
+<td>{d["job_state"]}</td>
+<td>{d["created_at"]}</td>
+<td>{d["finished_at"]}</td>
+<td>{d["duration"]}</td>
+<td>{d["unused_cpu_hours"]}</td>
+<td>{d["unused_gpu_hours"]}</td>
+<td>{d["max_instances_launched"]}</td>
+</tr>
+"""
+            )
+
+        out_file.write(
+            """
+</tbody>
+</table>
+"""
+        )
+
     def generate_jobs_report(
         self, cloud_id: str, csv: bool, out_path: str, sort: str, sort_order_asc: bool
     ) -> None:
@@ -4789,117 +4892,20 @@ class CloudController(BaseController):
             for job in full_results
             if job.job_state in TERMINAL_HA_JOB_STATES and job.job_report is not None
         ]
-        if sort == "created_at":
-            filtered_results.sort(
-                key=lambda x: x.created_at, reverse=not sort_order_asc
-            )
-        elif sort == "gpu":
-            filtered_results.sort(
-                key=lambda x: x.job_report.unused_gpu_hours or 0,
-                reverse=not sort_order_asc,
-            )
-        elif sort == "cpu":
-            filtered_results.sort(
-                key=lambda x: x.job_report.unused_cpu_hours or 0,
-                reverse=not sort_order_asc,
-            )
-        elif sort == "instances":
-            filtered_results.sort(
-                key=lambda x: x.job_report.max_instances_launched or 0,
-                reverse=not sort_order_asc,
-            )
+
+        sort_keys = {
+            "created_at": lambda x: x.created_at,
+            "gpu": lambda x: x.job_report.unused_gpu_hours or 0,
+            "cpu": lambda x: x.job_report.unused_cpu_hours or 0,
+            "instances": lambda x: x.job_report.max_instances_launched or 0,
+        }
+        if sort in sort_keys:
+            filtered_results.sort(key=sort_keys[sort], reverse=not sort_order_asc)
 
         with open(out_path, "w") as out_file:
             if csv:
-                out_file.write(
-                    "Job ID,Job name,Job state,Created at,Finished at,Duration,Unused CPU hours,Unused GPU hours,Max concurrent instances\n"
-                )
-                for job in track(filtered_results, description="Generating report..."):
-                    job_state = HA_JOB_STATE_TO_JOB_STATE[job.job_state]
-                    if job.finished_at is not None:
-                        duration = str(job.finished_at - job.created_at)
-                        finished_at = str(job.finished_at)
-                    else:
-                        duration = ""
-                        finished_at = ""
-                    unused_cpu_hours = job.job_report.unused_cpu_hours or ""
-                    unused_gpu_hours = job.job_report.unused_gpu_hours or ""
-                    max_instances_launched = job.job_report.max_instances_launched or ""
-
-                    out_file.write(
-                        f'"{job.job_id}","{job.job_name}","{job_state}","{job.created_at!s}","{finished_at}","{duration}","{unused_cpu_hours}","{unused_gpu_hours}","{max_instances_launched}"\n'
-                    )
+                self._write_jobs_report_csv(out_file, filtered_results)
             else:
-                out_file.write(
-                    f"""
-<html>
-<head>
-<title>Jobs Report - {end_time!s}</title>
-<style>
-    table {{
-        border: 1px solid black;
-        border-collapse: collapse;
-    }}
-    th, td {{
-        border: 1px solid black;
-        border-collapse: collapse;
-        padding: 8px;
-    }}
-</style>
-</head>
-<body>
-<h1>Job Report - {end_time!s}</h1>
-<p>Total jobs reported (finished jobs): {len(filtered_results)}</p>
-<p>Total jobs in the last 7 days: {total_jobs}</p>
-<table>
-<thead>
-<tr>
-<th>Job ID</th>
-<th>Job name</th>
-<th>Job state</th>
-<th>Created at</th>
-<th>Finished at</th>
-<th>Duration</th>
-<th>Unused CPU hours</th>
-<th>Unused GPU hours</th>
-<th>Max concurrent instances</th>
-</tr>
-</thead>
-<tbody>
-"""
-                )
-
-                for job in track(filtered_results, description="Generating report..."):
-                    job_state = HA_JOB_STATE_TO_JOB_STATE[job.job_state]
-                    if job.finished_at is not None:
-                        duration = str(job.finished_at - job.created_at)
-                        finished_at = str(job.finished_at)
-                    else:
-                        duration = ""
-                        finished_at = ""
-                    unused_cpu_hours = job.job_report.unused_cpu_hours or ""
-                    unused_gpu_hours = job.job_report.unused_gpu_hours or ""
-                    max_instances_launched = job.job_report.max_instances_launched or ""
-
-                    out_file.write(
-                        f"""
-<tr>
-<td><a target="_blank" rel="noreferrer" href="{ANYSCALE_HOST}/jobs/{job.job_id}">{job.job_id}</a></td>
-<td>{job.job_name}</td>
-<td>{job_state}</td>
-<td>{job.created_at!s}</td>
-<td>{finished_at}</td>
-<td>{duration}</td>
-<td>{unused_cpu_hours}</td>
-<td>{unused_gpu_hours}</td>
-<td>{max_instances_launched}</td>
-</tr>
-"""
-                    )
-
-                out_file.write(
-                    """
-</tbody>
-</table>
-"""
+                self._write_jobs_report_html(
+                    out_file, filtered_results, end_time, total_jobs
                 )

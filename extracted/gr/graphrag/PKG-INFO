@@ -1,48 +1,43 @@
 Metadata-Version: 2.4
 Name: graphrag
-Version: 2.7.0
+Version: 3.0.1
 Summary: GraphRAG: A graph-based retrieval-augmented generation (RAG) system.
+Project-URL: Source, https://github.com/microsoft/graphrag
 Author: Mónica Carvajal
 Author-email: Alonso Guevara Fernández <alonsog@microsoft.com>, Andrés Morales Esquivel <andresmor@microsoft.com>, Chris Trevino <chtrevin@microsoft.com>, David Tittsworth <datittsw@microsoft.com>, Dayenne de Souza <ddesouza@microsoft.com>, Derek Worthen <deworthe@microsoft.com>, Gaudy Blanco Meneses <gaudyb@microsoft.com>, Ha Trinh <trinhha@microsoft.com>, Jonathan Larson <jolarso@microsoft.com>, Josh Bradley <joshbradley@microsoft.com>, Kate Lytvynets <kalytv@microsoft.com>, Kenny Zhang <zhangken@microsoft.com>, Nathan Evans <naevans@microsoft.com>, Rodrigo Racanicci <rracanicci@microsoft.com>, Sarah Smith <smithsarah@microsoft.com>
-License-Expression: MIT
-Project-URL: Source, https://github.com/microsoft/graphrag
+License: MIT
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <3.13,>=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: environs>=11.0.0
-Requires-Dist: azure-search-documents>=11.5.2
-Requires-Dist: lancedb>=0.17.0
-Requires-Dist: aiofiles>=24.1.0
-Requires-Dist: fnllm[azure,openai]>=0.4.1
-Requires-Dist: json-repair>=0.30.3
-Requires-Dist: openai>=1.68.0
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.11
+Requires-Dist: azure-identity~=1.19
+Requires-Dist: azure-search-documents~=11.5
+Requires-Dist: azure-storage-blob~=12.24
+Requires-Dist: blis~=1.0
+Requires-Dist: devtools~=0.12
+Requires-Dist: graphrag-cache==3.0.1
+Requires-Dist: graphrag-chunking==3.0.1
+Requires-Dist: graphrag-common==3.0.1
+Requires-Dist: graphrag-input==3.0.1
+Requires-Dist: graphrag-llm==3.0.1
+Requires-Dist: graphrag-storage==3.0.1
+Requires-Dist: graphrag-vectors==3.0.1
+Requires-Dist: graspologic-native~=1.2
+Requires-Dist: json-repair~=0.30
+Requires-Dist: networkx~=3.4
 Requires-Dist: nltk==3.9.1
-Requires-Dist: tiktoken>=0.11.0
-Requires-Dist: numpy>=1.25.2
-Requires-Dist: graspologic>=3.4.1
-Requires-Dist: networkx>=3.4.2
-Requires-Dist: pandas>=2.2.3
-Requires-Dist: pyarrow>=17.0.0
-Requires-Dist: umap-learn>=0.5.6
-Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: python-dotenv>=1.0.1
-Requires-Dist: pydantic>=2.10.3
-Requires-Dist: devtools>=0.12.2
-Requires-Dist: typing-extensions>=4.12.2
-Requires-Dist: azure-cosmos>=4.9.0
-Requires-Dist: azure-identity>=1.19.0
-Requires-Dist: azure-storage-blob>=12.24.0
-Requires-Dist: future>=1.0.0
-Requires-Dist: typer>=0.16.0
-Requires-Dist: tqdm>=4.67.1
-Requires-Dist: textblob>=0.18.0.post0
-Requires-Dist: spacy>=3.8.4
-Requires-Dist: litellm>=1.77.1
-Dynamic: license-file
+Requires-Dist: numpy~=2.1
+Requires-Dist: pandas~=2.3
+Requires-Dist: pyarrow~=22.0
+Requires-Dist: pydantic~=2.10
+Requires-Dist: spacy~=3.8
+Requires-Dist: textblob~=0.18
+Requires-Dist: tqdm~=4.67
+Requires-Dist: typer~=0.16
+Requires-Dist: typing-extensions~=4.12
+Description-Content-Type: text/markdown
 
 # GraphRAG
 
@@ -96,7 +91,7 @@ We strongly recommend to fine-tune your prompts following the [Prompt Tuning Gui
 
 Please see the [breaking changes](./breaking-changes.md) document for notes on our approach to versioning the project.
 
-*Always run `graphrag init --root [path] --force` between minor version bumps to ensure you have the latest config format. Run the provided migration notebook between major version bumps if you want to avoid re-indexing prior datasets. Note that this will overwrite your configuration and prompts, so backup if necessary.*
+*Always run `uv run poe init --root [path] --force` between minor version bumps to ensure you have the latest config format. Run the provided migration notebook between major version bumps if you want to avoid re-indexing prior datasets. Note that this will overwrite your configuration and prompts, so backup if necessary.*
 
 ## Responsible AI FAQ
 

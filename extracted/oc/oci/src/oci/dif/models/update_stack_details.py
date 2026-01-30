@@ -31,6 +31,10 @@ class UpdateStackDetails(object):
     #: This constant has a value of "DATATRANSFORMATION"
     STACK_TEMPLATES_DATATRANSFORMATION = "DATATRANSFORMATION"
 
+    #: A constant which can be used with the stack_templates property of a UpdateStackDetails.
+    #: This constant has a value of "DEVOPSTOOLKIT"
+    STACK_TEMPLATES_DEVOPSTOOLKIT = "DEVOPSTOOLKIT"
+
     #: A constant which can be used with the services property of a UpdateStackDetails.
     #: This constant has a value of "ADB"
     SERVICES_ADB = "ADB"
@@ -51,6 +55,18 @@ class UpdateStackDetails(object):
     #: This constant has a value of "DATAFLOW"
     SERVICES_DATAFLOW = "DATAFLOW"
 
+    #: A constant which can be used with the services property of a UpdateStackDetails.
+    #: This constant has a value of "AIDATAPLATFORM"
+    SERVICES_AIDATAPLATFORM = "AIDATAPLATFORM"
+
+    #: A constant which can be used with the services property of a UpdateStackDetails.
+    #: This constant has a value of "OMK"
+    SERVICES_OMK = "OMK"
+
+    #: A constant which can be used with the services property of a UpdateStackDetails.
+    #: This constant has a value of "OKE"
+    SERVICES_OKE = "OKE"
+
     def __init__(self, **kwargs):
         """
         Initializes a new UpdateStackDetails object with values from keyword arguments.
@@ -62,12 +78,12 @@ class UpdateStackDetails(object):
 
         :param stack_templates:
             The value to assign to the stack_templates property of this UpdateStackDetails.
-            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+            Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
         :type stack_templates: list[str]
 
         :param services:
             The value to assign to the services property of this UpdateStackDetails.
-            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+            Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
         :type services: list[str]
 
         :param adb:
@@ -164,7 +180,7 @@ class UpdateStackDetails(object):
         Gets the stack_templates of this UpdateStackDetails.
         List of templates to be updated for the stack.
 
-        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"
+        Allowed values for items in this list are: "DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"
 
 
         :return: The stack_templates of this UpdateStackDetails.
@@ -182,7 +198,7 @@ class UpdateStackDetails(object):
         :param stack_templates: The stack_templates of this UpdateStackDetails.
         :type: list[str]
         """
-        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION"]
+        allowed_values = ["DATALAKE", "DATAPIPELINE", "AISERVICES", "DATATRANSFORMATION", "DEVOPSTOOLKIT"]
 
         if stack_templates and stack_templates is not NONE_SENTINEL:
             for value in stack_templates:
@@ -198,7 +214,7 @@ class UpdateStackDetails(object):
         Gets the services of this UpdateStackDetails.
         List of services to be updated for the stack.
 
-        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"
+        Allowed values for items in this list are: "ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"
 
 
         :return: The services of this UpdateStackDetails.
@@ -216,7 +232,7 @@ class UpdateStackDetails(object):
         :param services: The services of this UpdateStackDetails.
         :type: list[str]
         """
-        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW"]
+        allowed_values = ["ADB", "GGCS", "OBJECTSTORAGE", "GENAI", "DATAFLOW", "AIDATAPLATFORM", "OMK", "OKE"]
 
         if services and services is not NONE_SENTINEL:
             for value in services:

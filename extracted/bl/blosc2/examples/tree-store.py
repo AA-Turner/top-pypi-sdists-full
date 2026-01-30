@@ -2,8 +2,7 @@
 # Copyright (c) 2019-present, Blosc Development Team <blosc@blosc.org>
 # All rights reserved.
 #
-# This source code is licensed under a BSD-style license (found in the
-# LICENSE file in the root directory of this source tree)
+# SPDX-License-Identifier: BSD-3-Clause
 #######################################################################
 
 # Example usage of TreeStore with hierarchical navigation and vlmeta
@@ -60,7 +59,7 @@ with blosc2.TreeStore("example_tree.b2z", mode="w") as tstore:
     print("After deleting '/child0/child1', keys:", sorted(tstore.keys()))
 
 # Reopen and add another leaf under an existing subtree
-with blosc2.TreeStore("example_tree.b2z", mode="a") as tstore2:
+with blosc2.open("example_tree.b2z", mode="a") as tstore2:
     tstore2["/child0/new_leaf"] = np.array([9, 9, 9])
     print("Reopened keys:", sorted(tstore2.keys()))
     # Read via subtree view

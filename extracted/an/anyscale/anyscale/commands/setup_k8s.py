@@ -610,8 +610,13 @@ class KubernetesCloudSetupCommand:
                                         "DELETE",
                                     ],
                                     "AllowedOrigins": [allowed_origin],
+                                    "ExposedHeaders": [
+                                        "Accept-Ranges",
+                                        "Content-Range",
+                                        "Content-Length",
+                                    ],
                                     "MaxAge": 3600,
-                                }
+                                },
                             ]
                         },
                     },

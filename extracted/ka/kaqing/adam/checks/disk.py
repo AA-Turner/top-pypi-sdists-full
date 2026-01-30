@@ -8,6 +8,7 @@ from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
 from adam.utils import Color, log_exc
+from adam.utils_context import Context
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 
 class Disk(Check):
@@ -19,17 +20,18 @@ class Disk(Check):
         result = {}
 
         try:
+            ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
             cass_data_path = Config().get('checks.cassandra-data-path', '/c3/cassandra')
-            df_result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"df -h | grep -e '{cass_data_path}' -e 'overlay'", show_out=ctx.show_output, text_color=Color.gray)
+            df_result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"df -h | grep -e '{cass_data_path}' -e 'overlay'", ctx=ctx_fg)
 
             snapshot_size = Config().get('checks.snapshot-size-cmd', "ls /c3/cassandra/data/data/*/*/snapshots | grep snapshots | sed 's/:$//g' | xargs -I {} du -sk {} | awk '{print $1}' | awk '{s+=$1} END {print s}'")
-            ss_result = CassandraNodes.exec(ctx.pod, ctx.namespace, snapshot_size, show_out=ctx.show_output, text_color=Color.gray)
+            ss_result = CassandraNodes.exec(ctx.pod, ctx.namespace, snapshot_size, ctx=ctx_fg)
 
             data_sizes = Config().get('checks.data-size-cmd', "du -sh /c3/cassandra/data/data")
-            ds_result = CassandraNodes.exec(ctx.pod, ctx.namespace, data_sizes, show_out=ctx.show_output, text_color=Color.gray)
+            ds_result = CassandraNodes.exec(ctx.pod, ctx.namespace, data_sizes, ctx=ctx_fg)
 
             table_sizes = Config().get('checks.table-sizes-cmd', "ls -Al /c3/cassandra/data/data/ | awk '{print $9}' | sed 's/\^r//g' | xargs -I {} du -sk /c3/cassandra/data/data/{}")
-            ts_result = CassandraNodes.exec(ctx.pod, ctx.namespace, table_sizes, show_out=ctx.show_output, text_color=Color.gray)
+            ts_result = CassandraNodes.exec(ctx.pod, ctx.namespace, table_sizes, ctx=ctx_fg)
 
             result = self.build_details(ctx, df_result.stdout, ss_result.stdout, ds_result.stdout, ts_result.stdout)
 
@@ -66,6 +68,9 @@ class Disk(Check):
                     desc=f"Cassandra data disk is full: {usage}"
                 ))
         except Exception as e:
+            if ctx.debug:
+                traceback.print_exc()
+
             issues.append(self.issue_from_err(sts_name=ctx.statefulset, ns=ctx.namespace, pod_name=ctx.pod, exception=e))
 
         return CheckResult(self.name(), result, issues)

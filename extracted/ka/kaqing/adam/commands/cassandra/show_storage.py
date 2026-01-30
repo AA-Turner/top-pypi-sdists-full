@@ -3,8 +3,8 @@ from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import ing
-from adam.utils_async_job import AsyncJobs
+from adam.utils import Color
+from adam.utils_context import Context
 
 class ShowStorage(Command):
     COMMAND = 'show storage'
@@ -30,12 +30,11 @@ class ShowStorage(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, backgrounded):
-                with extract_options(args, ['-s', '--show']) as (args, show_out):
+                with extract_options(args, ['-s', '--show']) as (args, verbose):
                     cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
                     header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
                     with cassandra(state) as pods:
-                        job_log = AsyncJobs.new_job(cmd, backgrounded)
-                        pods.display_table(cols, header, show_out=show_out, backgrounded=backgrounded, msg='Checking storage', job_log=job_log)
+                        pods.display_table(cols, header, ctx=Context.new(cmd, backgrounded=backgrounded, show_verbose=verbose))
 
                     return state
 

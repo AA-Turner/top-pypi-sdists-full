@@ -120,9 +120,127 @@ class AsyncGraderProtocol(Protocol):
         ...
 
 
+@runtime_checkable
+class JudgeResultProtocol(Protocol):
+    """
+    Protocol for judge results.
+    
+    Defines the minimal interface for any judge result.
+    """
+    score: float
+    passed: bool
+    reasoning: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert result to dictionary."""
+        ...
+
+
+@runtime_checkable
+class OptimizationRuleProtocol(Protocol):
+    """
+    Protocol for optimization rules (domain-agnostic).
+    
+    Enables pluggable optimization rules for ANY domain:
+    - Recipe/workflow optimization
+    - Water flow optimization
+    - Data pipeline optimization
+    - Manufacturing quality
+    - Any custom domain
+    
+    Example:
+        ```python
+        class WaterLeakRule:
+            name = "water_leak"
+            pattern = r"(leak|overflow|pressure.drop)"
+            severity = "critical"
+            
+            def get_fix(self, context: Dict[str, Any]) -> str:
+                location = context.get("location", "unknown")
+                return f"Check valve at {location} for leaks"
+        
+        rule: OptimizationRuleProtocol = WaterLeakRule()
+        ```
+    """
+    name: str
+    pattern: str  # Regex pattern to match issues
+    severity: str  # critical, high, medium, low
+    
+    def get_fix(self, context: Dict[str, Any]) -> str:
+        """
+        Generate fix suggestion for the matched issue.
+        
+        Args:
+            context: Domain-specific context (e.g., agent_name, location, etc.)
+            
+        Returns:
+            Fix suggestion string
+        """
+        ...
+
+
+@runtime_checkable
+class JudgeProtocol(Protocol):
+    """
+    Protocol for LLM-as-judge evaluation.
+    
+    Defines the interface for judging agent outputs using an LLM.
+    Follows PraisonAI naming conventions: run() for sync, run_async() for async.
+    
+    Example:
+        ```python
+        class MyJudge:
+            model = "gpt-4o-mini"
+            temperature = 0.1
+            
+            def run(self, output, expected=None, criteria=None):
+                return JudgeResult(score=8.0, passed=True, reasoning="Good")
+        
+        judge: JudgeProtocol = MyJudge()
+        result = judge.run(output="Hello world")
+        ```
+    """
+    model: str
+    temperature: float
+    
+    def run(
+        self,
+        output: str,
+        expected: Optional[str] = None,
+        criteria: Optional[str] = None,
+        **kwargs: Any,
+    ) -> JudgeResultProtocol:
+        """
+        Judge an output.
+        
+        Args:
+            output: The output to judge
+            expected: Optional expected output for comparison
+            criteria: Optional custom criteria for evaluation
+            **kwargs: Additional arguments
+            
+        Returns:
+            A JudgeResultProtocol with score, passed, and reasoning
+        """
+        ...
+    
+    async def run_async(
+        self,
+        output: str,
+        expected: Optional[str] = None,
+        criteria: Optional[str] = None,
+        **kwargs: Any,
+    ) -> JudgeResultProtocol:
+        """Judge an output asynchronously."""
+        ...
+
+
 __all__ = [
     'GradeResultProtocol',
     'GraderProtocol',
     'ScoredResultProtocol',
     'AsyncGraderProtocol',
+    'OptimizationRuleProtocol',
+    'JudgeProtocol',
+    'JudgeResultProtocol',
 ]

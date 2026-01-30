@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
+
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
 
 import imgviz
 
 
-def flow2rgb():
+def flow2rgb() -> None:
     data = imgviz.data.middlebury()
 
-    rgb = data["rgb"]
-    flowviz = imgviz.flow2rgb(data["flow"])
+    rgb: NDArray[np.uint8] = data["rgb"]
+
+    flow: NDArray[np.float32] = data["flow"]
+    flowviz = imgviz.flow2rgb(flow)
 
     # -------------------------------------------------------------------------
 
@@ -25,13 +30,8 @@ def flow2rgb():
     plt.imshow(flowviz)
     plt.axis("off")
 
-    img = imgviz.io.pyplot_to_numpy()
-    plt.close()
-
-    return img
-
 
 if __name__ == "__main__":
-    from base import run_example
+    from _base import run_example
 
     run_example(flow2rgb)

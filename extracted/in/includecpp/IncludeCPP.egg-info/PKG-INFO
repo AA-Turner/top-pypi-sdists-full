@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: IncludeCPP
-Version: 4.8.4
+Version: 4.9.7
 Summary: Professional C++ Python bindings with type-generic templates, pystubs and native threading
 Home-page: https://github.com/liliassg/IncludeCPP
 Author: Lilias Hatterscheidt
@@ -285,23 +285,56 @@ The server runs silently in the background and can auto-start with Windows.
 
 ---
 
+## CSSL Scripting Language
+
+CSSL is IncludeCPP's built-in scripting language with 330+ builtin functions, C++-style syntax, and advanced features like CodeInfusion and BruteInjection.
+
+### Quick Example
+
+```bash
+# Run CSSL code
+includecpp cssl run "printl('Hello from CSSL!');"
+
+# Run a .cssl file
+includecpp cssl file script.cssl
+
+# Interactive REPL
+includecpp cssl repl
+```
+
+### Features
+
+- **C++ Containers**: `vector<T>`, `stack<T>`, `map<K,V>`, `queue<T>`, `datastruct<T>`
+- **Classes & Inheritance**: `class Child : extends Parent { }`
+- **Namespaces & Enums**: Organize code with `namespace mylib { }`
+- **CodeInfusion**: Inject code into functions at runtime with `<<==`
+- **BruteInjection**: Data manipulation with `<==` and filters
+- **Snapshots**: Capture and restore variable states with `%variable`
+- **C++ I/O Streams**: `cout << "Hello" << endl;`
+- **Native/Unative**: Control C++/Python execution with keywords
+
+### CSSL CLI
+
+```bash
+includecpp cssl run "code"     # Execute code string
+includecpp cssl file script.cssl  # Run .cssl file
+includecpp cssl repl           # Interactive mode
+includecpp cssl convert file.cssl  # Convert to Python
+includecpp cssl docs           # Full documentation
+```
+
+Full documentation: `includecpp cssl docs` or see [CSSL_DOCUMENTATION.md](includecpp/core/cssl/CSSL_DOCUMENTATION.md)
+
+---
+
 ## Experimental Features
 
-IncludeCPP also includes experimental features that are still in development:
+IncludeCPP also includes experimental features:
 
-- **CSSL** - A scripting language for runtime code manipulation
 - **AI Commands** - OpenAI-powered code analysis (`includecpp ai`)
 - **CPPY** - Python to C++ conversion (`includecpp cppy`)
 
-These are hidden by default. To enable them:
-
-```bash
-includecpp settings
-```
-
-Check "Enable Experimental Features" and save.
-
-Warning: Experimental features may have bugs or breaking changes between versions.
+Enable with: `includecpp settings` → "Enable Experimental Features"
 
 ---
 

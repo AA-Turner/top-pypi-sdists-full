@@ -2,7 +2,19 @@ from typing import Optional, Type
 
 
 class CfgEnv:
-    def __new__(cls: Type["CfgEnv"]) -> "CfgEnv": ...
+    def __new__(
+        cls: Type["CfgEnv"],
+        chain_id: Optional[int] = None,
+        limit_contract_code_size: Optional[int] = None,
+        perf_analyse_created_bytecodes: Optional[str] = None,
+    ) -> "CfgEnv": ...
+
+    @property
+    def chain_id(self) -> int: ...
+    @property
+    def limit_contract_code_size(self) -> Optional[int]: ...
+    @property
+    def perf_analyse_created_bytecodes(self) -> str: ...
 
 class BlockEnv:
     def __new__(
@@ -201,6 +213,14 @@ class EVM:
         :param info: The account info.
         """
 
+    def insert_account_storage(self: "EVM", address: str, index: int, value: int) -> int:
+        """
+        Inserts the provided value for slot of in the database at the specified address
+        :param address: The address of the account.
+        :param index: slot in storage.
+        :param value: value for slot.
+        """
+
     def message_call(
         self: "EVM",
         caller: str,
@@ -257,7 +277,7 @@ class EVM:
         :param balance: The balance.
         """
 
-    def storage(self: "EVM", address: str, index: int) -> Optional[int]:
+    def storage(self: "EVM", address: str, index: int) -> int:
         """
         Returns the storage value of the given address at the given index.
         :param address: The address.
@@ -265,7 +285,7 @@ class EVM:
         :return: The storage value.
         """
 
-    def block_hash(self: "EVM", number: int) -> Optional[bytes]:
+    def block_hash(self: "EVM", number: int) -> bytes:
         """
         Returns the block hash of the given number.
         :param number: The number.

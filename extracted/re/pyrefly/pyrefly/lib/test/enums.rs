@@ -734,7 +734,6 @@ class IntEnum(int, Enum):
 );
 
 testcase!(
-    bug = "Enum aliases should have the type of the original member. The alias itself is not a member as per the spec.",
     test_enum_alias,
     r#"
 from typing import assert_type, Literal
@@ -744,6 +743,15 @@ class TrafficLight(Enum):
     YELLOW = 3
     AMBER = YELLOW  # Alias for YELLOW
 
-assert_type(TrafficLight.AMBER, Literal[TrafficLight.YELLOW])  # E: assert_type(Literal[TrafficLight.AMBER], Literal[TrafficLight.YELLOW]) failed
+assert_type(TrafficLight.AMBER, Literal[TrafficLight.YELLOW])
+    "#,
+);
+
+testcase!(
+    test_illegal_unpacking_in_def,
+    r#"
+from enum import Enum
+def f() -> dict: ...
+X = Enum("X", {'FOO': 1, **f()})  # E: Unpacking is not supported
     "#,
 );

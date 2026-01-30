@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-converter
-Version: 1.33.5
+Version: 1.34.0
 Summary: Converter for Large Image.
 Author: Kitware Inc
 Author-email: kitware@kitware.com
@@ -9,15 +9,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Scientific/Engineering
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: large-image-source-tiff>=1.33.5
+Requires-Dist: large-image-source-tiff>=1.34.0
 Requires-Dist: numpy
 Requires-Dist: psutil
 Requires-Dist: pyvips
@@ -27,14 +27,14 @@ Requires-Dist: glymur; extra == "jp2k"
 Provides-Extra: geospatial
 Requires-Dist: gdal; extra == "geospatial"
 Provides-Extra: sources
-Requires-Dist: large-image[sources]>=1.33.5; extra == "sources"
+Requires-Dist: large-image[sources]>=1.34.0; extra == "sources"
 Provides-Extra: stats
 Requires-Dist: packaging; extra == "stats"
 Requires-Dist: scikit-image; extra == "stats"
 Provides-Extra: all
 Requires-Dist: glymur; extra == "all"
 Requires-Dist: gdal; extra == "all"
-Requires-Dist: large-image[sources]>=1.33.5; extra == "all"
+Requires-Dist: large-image[sources]>=1.34.0; extra == "all"
 Requires-Dist: packaging; extra == "all"
 Requires-Dist: scikit-image; extra == "all"
 Dynamic: author

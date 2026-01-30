@@ -1,2 +1,0 @@
-import{n as e}from"./rolldown-runtime-BKYq3fBv.js";import{H as t,R as n}from"./api-pmYg9-Kg.js";import{_i as r,gi as i}from"./dialogService-Dd9T0a5b.js";var a;e((()=>{n(),i(),a=[{text:t(`nightly.badge.label`),label:t(`g.nightly`),variant:`warning`,tooltip:t(`nightly.badge.tooltip`)}],r().registerExtension({name:`Comfy.Nightly.Badges`,topbarBadges:a})}))();
-//# sourceMappingURL=nightlyBadges-BjMdGVgq.js.map

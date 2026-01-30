@@ -2,4 +2,4 @@
 
 import typing
 
-ListenV2EotTimeoutMs = typing.Any
+ListenV2EotTimeoutMs = typing.Optional[typing.Any]

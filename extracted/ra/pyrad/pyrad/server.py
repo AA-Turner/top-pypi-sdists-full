@@ -114,7 +114,7 @@ class Server(host.Host):
         """
         results = set()
         try:
-            tmp = socket.getaddrinfo(addr, 'www')
+            tmp = socket.getaddrinfo(addr, 80)
         except socket.gaierror:
             return []
 
@@ -123,10 +123,9 @@ class Server(host.Host):
 
         return results
 
-
     def BindToAddress(self, addr):
-        """Add an address to listen to.
-        An empty string indicated you want to listen on all addresses.
+        """Add an address to listen on a specific interface.
+        String "0.0.0.0" indicates you want to listen on all interfaces.
 
         :param addr: IP address to listen on
         :type  addr: string
@@ -150,7 +149,6 @@ class Server(host.Host):
                 coafd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 coafd.bind((address, self.coaport))
                 self.coafds.append(coafd)
-
 
     def HandleAuthPacket(self, pkt):
         """Authentication packet handler.
@@ -247,14 +245,12 @@ class Server(host.Host):
         :type  pkt: Packet class instance
         """
         self._AddSecret(pkt)
-        pkt.secret = self.hosts[pkt.source[0]].secret
         if pkt.code == packet.CoARequest:
             self.HandleCoaPacket(pkt)
         elif pkt.code == packet.DisconnectRequest:
             self.HandleDisconnectPacket(pkt)
         else:
             raise ServerPacketError('Received non-coa packet on coa port')
-
 
     def _GrabPacket(self, pktgen, fd):
         """Read a packet from a network connection.

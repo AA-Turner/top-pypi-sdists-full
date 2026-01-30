@@ -154,7 +154,7 @@ def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Co
     if not action_taken:
         log2(f'* Invalid command: {cmd}')
         log2()
-        tabulize([c.help(state) for c in cmd_list if c.help(state)], separator='\t', to=2)
+        tabulize([c.help(state) for c in cmd_list if c.help(state)], separator='\t', err=True)
 
     return result
 

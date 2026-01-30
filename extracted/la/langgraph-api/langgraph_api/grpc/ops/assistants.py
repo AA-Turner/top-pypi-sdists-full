@@ -6,9 +6,10 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from langgraph_api.grpc import config_conversion
+from langgraph_grpc_common.conversion import config as config_conversion
+from langgraph_grpc_common.proto import core_api_pb2 as pb
+
 from langgraph_api.grpc.client import get_shared_client
-from langgraph_api.grpc.generated import core_api_pb2 as pb
 from langgraph_api.grpc.ops import (
     Authenticated,
     _map_sort_order,

@@ -1,6 +1,6 @@
 import click
 
-from adam.commands import validate_args
+from adam.commands import extract_trailing_options, validate_args
 from adam.commands.audit.completions_l import completions_l
 from adam.commands.audit.audit_repair_tables import AuditRepairTables
 from adam.commands.audit.audit_run import AuditRun
@@ -12,6 +12,7 @@ from adam.commands.intermediate_command import IntermediateCommand
 from adam.repl_state import ReplState
 from adam.utils import log2
 from adam.utils_athena import Athena
+from adam.utils_context import Context
 
 class Audit(IntermediateCommand):
     COMMAND = 'audit'
@@ -42,9 +43,11 @@ class Audit(IntermediateCommand):
                 r = self.intermediate_run(cmd, state, args, self.cmd_list(), display_help=False)
 
             if not r or isinstance(r, str) and r == 'command-missing':
-                with validate_args(args, state, default='select * from audit order by ts desc limit 10') as sql:
-                    log2(sql)
-                    Athena.run_query(sql)
+                with extract_trailing_options(args, '&') as (args, backgrounded):
+                    with validate_args(args, state, default='select * from audit order by ts desc limit 10') as sql:
+                        ctx = Context.new(cmd, show_out=True, backgrounded=backgrounded)
+                        ctx.log2(sql)
+                        Athena.run_query(sql, ctx=ctx)
 
             return state
 

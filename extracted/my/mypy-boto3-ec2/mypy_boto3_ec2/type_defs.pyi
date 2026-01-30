@@ -2846,6 +2846,7 @@ __all__ = (
     "SearchTransitGatewayMulticastGroupsRequestPaginateTypeDef",
     "SearchTransitGatewayMulticastGroupsRequestTypeDef",
     "SearchTransitGatewayMulticastGroupsResultTypeDef",
+    "SearchTransitGatewayRoutesRequestPaginateTypeDef",
     "SearchTransitGatewayRoutesRequestTypeDef",
     "SearchTransitGatewayRoutesResultTypeDef",
     "SecurityGroupCreateTagsRequestTypeDef",
@@ -7343,6 +7344,7 @@ class NetworkCardInfoTypeDef(TypedDict):
     NetworkCardIndex: NotRequired[int]
     NetworkPerformance: NotRequired[str]
     MaximumNetworkInterfaces: NotRequired[int]
+    AdditionalFlexibleNetworkInterfaces: NotRequired[int]
     BaselineBandwidthInGbps: NotRequired[float]
     PeakBandwidthInGbps: NotRequired[float]
     DefaultEnaQueueCountPerInterface: NotRequired[int]
@@ -12979,11 +12981,18 @@ class SearchTransitGatewayMulticastGroupsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     DryRun: NotRequired[bool]
 
+class SearchTransitGatewayRoutesRequestPaginateTypeDef(TypedDict):
+    TransitGatewayRouteTableId: str
+    Filters: Sequence[FilterTypeDef]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class SearchTransitGatewayRoutesRequestTypeDef(TypedDict):
     TransitGatewayRouteTableId: str
     Filters: Sequence[FilterTypeDef]
     MaxResults: NotRequired[int]
     DryRun: NotRequired[bool]
+    NextToken: NotRequired[str]
 
 class DescribeAggregateIdFormatResultTypeDef(TypedDict):
     UseLongIdsAggregated: bool
@@ -17448,6 +17457,7 @@ class SearchTransitGatewayRoutesResultTypeDef(TypedDict):
     Routes: list[TransitGatewayRouteTypeDef]
     AdditionalRoutesAvailable: bool
     ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class AcceptTransitGatewayVpcAttachmentResultTypeDef(TypedDict):
     TransitGatewayVpcAttachment: TransitGatewayVpcAttachmentTypeDef
