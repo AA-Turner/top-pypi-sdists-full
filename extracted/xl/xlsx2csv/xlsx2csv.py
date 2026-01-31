@@ -2,7 +2,7 @@
 #
 # The MIT License
 #
-# Copyright (c) 2022 Dilshod Temirkhodjaev
+# Copyright (c) 2025 Dilshod Temirkhodjaev
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,11 +24,11 @@
 
 __author__ = "Dilshod Temirkhodjaev <tdilshod@gmail.com>"
 __license__ = "MIT"
-__version__ = "0.8.4"
+__version__ = "0.8.6"
 
 import csv, datetime, zipfile, sys, os, re, signal, io
 import xml.parsers.expat
-from decimal import Decimal
+from decimal import Decimal, localcontext, ROUND_HALF_UP
 from xml.dom import minidom
 
 try:
@@ -41,6 +41,21 @@ try:
 except:
     # python2.4
     from optparse import OptionParser
+
+try:
+    from typing import Union, Optional, Dict, Any, IO, List, TextIO, BinaryIO
+    from types import TracebackType
+except ImportError:
+    # python2.4 or older versions without typing
+    Union = None
+    Optional = None
+    Dict = None
+    Any = None
+    IO = None
+    List = None
+    TextIO = None
+    BinaryIO = None
+    TracebackType = None
 
 # see also ruby-roo lib at: http://github.com/hmcgowan/roo
 FORMATS = {
@@ -121,7 +136,7 @@ STANDARD_FORMATS = {
     49: '@',
 }
 EXCEL_ERROR_VALUES = [
-    '#N/A', '#REF!', '#DIV/0!', '#CALC!', '#NAME!', '#NULL!', '#NUM!', '#SPILL!', '#VALUE!'
+    '#N/A', '#REF!', '#DIV/0!', '#CALC!', '#NAME?', '#NULL!', '#NUM!', '#SPILL!', '#VALUE!'
 ]
 CONTENT_TYPES = set((
     'shared_strings',
@@ -156,7 +171,12 @@ class XlsxValueError(XlsxException):
 
 class Xlsx2csv:
     """
-     Usage: Xlsx2csv("test.xslx", **params).convert("test.csv", sheetid=1)
+     Usage:
+       with Xlsx2csv("test.xlsx", **params) as xlsx2csv:
+           xlsx2csv.convert("test.csv", sheetid=1)
+
+     Or for simple usage:
+       Xlsx2csv("test.xlsx", **params).convert("test.csv", sheetid=1)
      Input:
        xlsxfile - path to file or filehandle
      options:
@@ -178,6 +198,7 @@ class Xlsx2csv:
     """
 
     def __init__(self, xlsxfile, **options):
+        # type: (Union[str, IO[bytes]], **Any) -> None
         options.setdefault("delimiter", ",")
         options.setdefault("quoting", csv.QUOTE_MINIMAL)
         options.setdefault("sheetdelimiter", "--------")
@@ -198,6 +219,7 @@ class Xlsx2csv:
         options.setdefault("lineterminator", "\n")
         options.setdefault("outputencoding", "utf-8")
         options.setdefault("skip_hidden_rows", True)
+        options.setdefault("ignore_invalid_char_data", False)
 
         self.options = options
         self.py3 = sys.version_info[0] == 3
@@ -233,18 +255,34 @@ class Xlsx2csv:
         if self.options['escape_strings']:
             self.shared_strings.escape_strings()
 
+    def __enter__(self):
+        # type: () -> Xlsx2csv
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # type: (Optional[type], Optional[Exception], Optional[TracebackType]) -> None
+        self.close()
+
     def __del__(self):
+        # Fallback cleanup, but prefer explicit close() or using as context manager
+        self.close()
+
+    def close(self):
+        # type: () -> None
+        """Explicitly close the underlying zip file handle."""
         if self.ziphandle:
-            # make sure to close zip file
             self.ziphandle.close()
+            self.ziphandle = None
 
     def getSheetIdByName(self, name):
+        # type: (str) -> Optional[int]
         for s in self.workbook.sheets:
             if s['name'] == name:
                 return s['index']
         return None
 
     def convert(self, outfile, sheetid=1, sheetname=None):
+        # type: (Union[str, TextIO], int, Optional[str]) -> None
         """outfile - path to file or filehandle"""
         if sheetname:
             sheetid = self.getSheetIdByName(sheetname)
@@ -313,7 +351,7 @@ class Xlsx2csv:
             elif sys.version_info[0] == 3:
                 outfile = open(outfile, 'w+', encoding=self.options['outputencoding'], newline="")
             else:
-                raise XlsxException("error: version of your python is not supported: " + str(sys.version_info) + "\n")
+                raise XlsxException("error: version of your Python is not supported: " + str(sys.version_info) + "\n")
             closefile = True
         elif hasattr(outfile, "open"):
             outfile = outfile.open("w+", encoding=self.options['outputencoding'], newline="")
@@ -598,6 +636,7 @@ class SharedStrings:
     def parse(self, filehandle):
         self.parser = xml.parsers.expat.ParserCreate()
         self.parser.CharacterDataHandler = self.handleCharData
+        self.parser.buffer_text = True
         self.parser.StartElementHandler = self.handleStartElement
         self.parser.EndElementHandler = self.handleEndElement
         self.parser.ParseFile(filehandle)
@@ -643,6 +682,9 @@ class SharedStrings:
             self.t = False
         elif name == 'rPh':
             self.rPh = False
+
+
+XMLPARSER_WINDOWS_NEWLINE_STR = "_x000D_\n"
 
 
 class Sheet:
@@ -827,11 +869,20 @@ class Sheet:
             if self.colType == "s":  # shared string
                 format_type = "string"
                 self.data = self.sharedStrings[int(data)]
+
+                # Handle cell string data that has \r\n by changing the value that expat uses for the \r to an empty string.
+                # This happens a lot with older versions of excel, and the character conversion is happening inside expat.
+                if self.data.find(XMLPARSER_WINDOWS_NEWLINE_STR) > -1:
+                    self.data = self.data.replace(XMLPARSER_WINDOWS_NEWLINE_STR, "\n")
             elif self.colType == "b":  # boolean
                 format_type = "boolean"
                 self.data = (int(data) == 1 and "TRUE") or (int(data) == 0 and "FALSE") or data
             elif self.colType == "str" or self.colType == "inlineStr":
                 format_type = "string"
+
+                # Again, check for the \r\n change and clear the apply hack
+                if data.find(XMLPARSER_WINDOWS_NEWLINE_STR) > -1:
+                    self.data = self.data.replace(XMLPARSER_WINDOWS_NEWLINE_STR, "\n")
             elif self.s_attr:
                 s = int(self.s_attr)
 
@@ -864,6 +915,9 @@ class Sheet:
                     format_type = "float"
             elif self.colType == "n":
                 format_type = "float"
+            elif not self.colType and len(self.data) and self.data[0] >= '0' and self.data[0] <= '9':
+                # default assumption for a cell without t attribute is that it is a number
+                format_type = "float"
 
             if format_type and not format_type in self.ignore_formats and self.data not in EXCEL_ERROR_VALUES:
                 try:
@@ -878,7 +932,7 @@ class Sheet:
                         else:
                             # ignore ";@", don't know what does it mean right now
                             # ignore "[$-409], [$-f409], [$-16001]" and similar format codes
-                            dateformat = re.sub(r"\[\$\-[A-z0-9]*\]", "", format_str, 1) \
+                            dateformat = re.sub(r"\[\$\-[A-z0-9]*\]", "", format_str, count=1) \
                                 .replace(";@", "").replace("yyyy", "%Y").replace("yy", "%y") \
                                 .replace("hh:mm", "%H:%M").replace("h", "%I").replace("%H%H", "%H") \
                                 .replace("ss", "%S").replace("dddd", "d").replace("dd", "d").replace("d", "%d") \
@@ -895,8 +949,8 @@ class Sheet:
                             # repr(float(...)) - workaround to correctly round precision for floats
                             # repr gives same result on python 2 and 3, while str is different on python 2
                             self.data = "%i" % Decimal(repr(float(self.data)))
-                        elif ('E' in self.data or 'e' in self.data):
-                            self.data = str(self.floatformat or '%f') % data
+                        elif ('E' in self.data or 'e' in self.data) or self.floatformat:
+                            self.data = (str(self.floatformat or '%f') % data).rstrip('0').rstrip('.')
                         # if cell is general, be aggressive about stripping any trailing 0s, decimal points, etc.
                         elif format_str == 'general':
                             self.data = ("%f" % data).rstrip('0').rstrip('.')
@@ -911,9 +965,24 @@ class Sheet:
                         else:
                             # unsupported float formatting
                             self.data = ("%f" % data).rstrip('0').rstrip('.')
+                    elif format_type == 'percentage':
+                        # Always round .5 up, not to nearest even as round() does.
+                        with localcontext() as ctx:
+                            ctx.rounding = ROUND_HALF_UP
+                            if format_str == "0.00%":
+                                quant = "1.00"
+                            else:
+                                quant = "1"
+                            data = (Decimal(self.data) * 100).quantize(Decimal(quant))
+                            self.data = str(data) + "%"
 
                 except (ValueError, OverflowError):  # this catch must be removed, it's hiding potential problems
-                    raise XlsxValueError("Error: potential invalid date format.")
+                    if self.options['ignore_invalid_char_data']:
+                        # If invalid character data or excel formulas are encountered,
+                        # we set the data to empty string to avoid conversion errors
+                        self.data = ""
+                    else:
+                        raise XlsxValueError("Error: potential invalid date format.")
 
     def handleStartElement(self, name, attrs):
         has_namespace = name.find(":") > 0
@@ -1058,11 +1127,12 @@ class Sheet:
                     t = t // 26 - 1
 
 
-def convert_recursive(path, sheetid, outfile, kwargs):
+def convert_recursive(path, sheetid, outfile, kwargs, continue_on_error=False):
+    # type: (str, int, Union[str, TextIO], Dict[str, Any], bool) -> None
     for name in os.listdir(path):
         fullpath = os.path.join(path, name)
         if os.path.isdir(fullpath):
-            convert_recursive(fullpath, sheetid, outfile, kwargs)
+            convert_recursive(fullpath, sheetid, outfile, kwargs, continue_on_error)
         else:
             outfilepath = outfile
             if isinstance(outfilepath, type(sys.stdout)):
@@ -1074,9 +1144,17 @@ def convert_recursive(path, sheetid, outfile, kwargs):
 
             print("Converting %s to %s" % (fullpath, outfilepath))
             try:
-                Xlsx2csv(fullpath, **kwargs).convert(outfilepath, sheetid)
-            except zipfile.BadZipfile:
-                raise InvalidXlsxFileException("File %s is not a zip file" % fullpath)
+                with Xlsx2csv(fullpath, **kwargs) as xlsx2csv:
+                    xlsx2csv.convert(outfilepath, sheetid)
+            except Exception as e:
+                if continue_on_error:
+                    print("ERROR processing file '%s': %s" % (fullpath, str(e)), file=sys.stderr)
+                    continue
+                else:
+                    if isinstance(e, zipfile.BadZipfile):
+                        raise InvalidXlsxFileException("File %s is not a zip file" % fullpath)
+                    else:
+                        raise
 
 
 def main():
@@ -1089,7 +1167,7 @@ def main():
     if "ArgumentParser" in globals():
         parser = ArgumentParser(description="xlsx to csv converter")
         parser.add_argument('infile', metavar='xlsxfile', help="xlsx file path, use '-' to read from STDIN")
-        parser.add_argument('outfile', metavar='outfile', nargs='?', help="output csv file path")
+        parser.add_argument('outfile', metavar='outfile', nargs='?', help="output CSV file path")
         parser.add_argument('-v', '--version', action='version', version=__version__)
         nargs_plus = "+"
         argparser = True
@@ -1106,17 +1184,17 @@ def main():
     parser.add_argument("-a", "--all", dest="all", default=False, action="store_true",
                         help="export all sheets")
     parser.add_argument("-c", "--outputencoding", dest="outputencoding", default="utf-8", action="store",
-                        help="encoding of output csv ** Python 3 only ** (default: utf-8)")
+                        help="encoding of output CSV **Python 3 only** (default: utf-8)")
     parser.add_argument("-d", "--delimiter", dest="delimiter", default=",",
-                        help="delimiter - columns delimiter in csv, 'tab' or 'x09' for a tab (default: comma ',')")
+                        help="delimiter - column delimiter in CSV, 'tab' or 'x09' for a tab (default: comma ',')")
     parser.add_argument("--hyperlinks", "--hyperlinks", dest="hyperlinks", action="store_true", default=False,
                         help="include hyperlinks")
     parser.add_argument("-e", "--escape", dest='escape_strings', default=False, action="store_true",
-                        help="Escape \\r\\n\\t characters")
+                        help="escape \\r\\n\\t characters")
     parser.add_argument("--no-line-breaks", "--no-line-breaks", dest='no_line_breaks', default=False, action="store_true",
-                        help="Replace \\r\\n\\t with space")
+                        help="replace \\r\\n\\t with space")
     parser.add_argument("-E", "--exclude_sheet_pattern", nargs=nargs_plus, dest="exclude_sheet_pattern", default="",
-                        help="exclude sheets named matching given pattern, only effects when -a option is enabled.")
+                        help="exclude sheets with names matching the given pattern, only affects when -a option is enabled.")
     parser.add_argument("-f", "--dateformat", dest="dateformat",
                         help="override date/time format (ex. %%Y/%%m/%%d)")
     parser.add_argument("-t", "--timeformat", dest="timeformat",
@@ -1126,13 +1204,13 @@ def main():
     parser.add_argument("--sci-float", dest="scifloat", default=False, action="store_true",
                         help="force scientific notation to float")
     parser.add_argument("-I", "--include_sheet_pattern", nargs=nargs_plus, dest="include_sheet_pattern", default="^.*$",
-                        help="only include sheets named matching given pattern, only effects when -a option is enabled.")
+                        help="only include sheets with names matching the given pattern, only affects when -a option is enabled.")
     parser.add_argument("--exclude_hidden_sheets", default=False, action="store_true",
-                        help="Exclude hidden sheets from the output, only effects when -a option is enabled.")
+                        help="exclude hidden sheets from the output, only affects when -a option is enabled.")
     parser.add_argument("--ignore-formats", nargs=nargs_plus, type=str, dest="ignore_formats", default=[''],
-                        help="Ignores format for specific data types.")
+                        help="ignore format for specific data types")
     parser.add_argument("-l", "--lineterminator", dest="lineterminator", default="\n",
-                        help="line terminator - lines terminator in csv, '\\n' '\\r\\n' or '\\r' (default: \\n)")
+                        help="line terminator - line terminator in CSV, '\\n' '\\r\\n' or '\\r' (default: \\n)")
     parser.add_argument("-m", "--merge-cells", dest="merge_cells", default=False, action="store_true",
                         help="merge cells")
     parser.add_argument("-n", "--sheetname", dest="sheetname", default=None,
@@ -1142,14 +1220,16 @@ def main():
     parser.add_argument("--skipemptycolumns", dest="skip_trailing_columns", default=False, action="store_true",
                         help="skip trailing empty columns")
     parser.add_argument("-p", "--sheetdelimiter", dest="sheetdelimiter", default="--------",
-                        help="sheet delimiter used to separate sheets, pass '' if you do not need delimiter, or 'x07' "
+                        help="sheet delimiter used to separate sheets, pass '' if you do not need a delimiter, or 'x07' "
                              "or '\\f' for form feed (default: '--------')")
     parser.add_argument("-q", "--quoting", dest="quoting", default="minimal",
-                        help="quoting - fields quoting in csv, 'none' 'minimal' 'nonnumeric' or 'all' (default: minimal)")
+                        help="quoting - field quoting in CSV, 'none' 'minimal' 'nonnumeric' or 'all' (default: minimal)")
     parser.add_argument("-s", "--sheet", dest="sheetid", default=1, type=inttype,
                         help="sheet number to convert")
     parser.add_argument("--include-hidden-rows", dest="include_hidden_rows", default=False, action="store_true",
                         help="include hidden rows")
+    parser.add_argument("--continue-on-error", dest="continue_on_error", default=False, action="store_true",
+                        help="continue processing remaining files when an error occurs during batch processing")
 
     if argparser:
         options = parser.parse_args()
@@ -1236,16 +1316,16 @@ def main():
     outfile = options.outfile or sys.stdout
     try:
         if os.path.isdir(options.infile):
-            convert_recursive(options.infile, sheetid, outfile, kwargs)
+            convert_recursive(options.infile, sheetid, outfile, kwargs, options.continue_on_error)
         elif not os.path.exists(options.infile) and options.infile != "-":
             raise InvalidXlsxFileException("Input file not found!")
         else:
-            xlsx2csv = Xlsx2csv(options.infile, **kwargs)
-            if options.sheetname:
-                sheetid = xlsx2csv.getSheetIdByName(options.sheetname)
-                if not sheetid:
-                    sys.exit("Sheet '%s' not found" % options.sheetname)
-            xlsx2csv.convert(outfile, sheetid)
+            with Xlsx2csv(options.infile, **kwargs) as xlsx2csv:
+                if options.sheetname:
+                    sheetid = xlsx2csv.getSheetIdByName(options.sheetname)
+                    if not sheetid:
+                        sys.exit("Sheet '%s' not found" % options.sheetname)
+                xlsx2csv.convert(outfile, sheetid)
     except XlsxException:
         _, e, _ = sys.exc_info()
         sys.exit(str(e) + "\n")

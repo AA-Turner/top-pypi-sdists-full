@@ -28,6 +28,7 @@ from ...types import (
     devbox_execute_sync_params,
     devbox_create_tunnel_params,
     devbox_download_file_params,
+    devbox_enable_tunnel_params,
     devbox_execute_async_params,
     devbox_remove_tunnel_params,
     devbox_snapshot_disk_params,
@@ -99,6 +100,7 @@ from .disk_snapshots import (
 )
 from ...lib.polling_async import async_poll_until
 from ...types.devbox_view import DevboxView
+from ...types.tunnel_view import TunnelView
 from ...types.devbox_tunnel_view import DevboxTunnelView
 from ...types.shared_params.mount import Mount
 from ...types.devbox_snapshot_view import DevboxSnapshotView
@@ -185,6 +187,7 @@ class DevboxesResource(SyncAPIResource):
         entrypoint: Optional[str] | Omit = omit,
         environment_variables: Optional[Dict[str, str]] | Omit = omit,
         file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        gateways: Optional[Dict[str, devbox_create_params.Gateways]] | Omit = omit,
         launch_parameters: Optional[LaunchParameters] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
@@ -192,6 +195,7 @@ class DevboxesResource(SyncAPIResource):
         repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
+        tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -227,6 +231,12 @@ class DevboxesResource(SyncAPIResource):
 
           file_mounts: Map of paths and file contents to write before setup. Use mounts instead.
 
+          gateways: [Beta] (Optional) Gateway specifications for credential proxying. Map key is the
+              environment variable prefix (e.g., 'GWS_ANTHROPIC'). The gateway will proxy
+              requests to external APIs using the specified credential without exposing the
+              real API key. Example: {'GWS_ANTHROPIC': {'gateway': 'anthropic', 'secret':
+              'my_claude_key'}}
+
           launch_parameters: Parameters to configure the resources and launch time behavior of the Devbox.
 
           metadata: User defined metadata to attach to the devbox for organization.
@@ -244,6 +254,10 @@ class DevboxesResource(SyncAPIResource):
 
           snapshot_id: Snapshot ID to use for the Devbox. Only one of (Snapshot ID, Blueprint ID,
               Blueprint name) should be specified.
+
+          tunnel: (Optional) Configuration for creating a V2 tunnel at Devbox launch time. When
+              specified, a tunnel will be automatically provisioned and the tunnel details
+              will be included in the Devbox response.
 
           extra_headers: Send extra headers
 
@@ -265,6 +279,7 @@ class DevboxesResource(SyncAPIResource):
                     "entrypoint": entrypoint,
                     "environment_variables": environment_variables,
                     "file_mounts": file_mounts,
+                    "gateways": gateways,
                     "launch_parameters": launch_parameters,
                     "metadata": metadata,
                     "mounts": mounts,
@@ -272,6 +287,7 @@ class DevboxesResource(SyncAPIResource):
                     "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
                     "snapshot_id": snapshot_id,
+                    "tunnel": tunnel,
                 },
                 devbox_create_params.DevboxCreateParams,
             ),
@@ -480,6 +496,7 @@ class DevboxesResource(SyncAPIResource):
         entrypoint: Optional[str] | Omit = omit,
         environment_variables: Optional[Dict[str, str]] | Omit = omit,
         file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        gateways: Optional[Dict[str, devbox_create_params.Gateways]] | Omit = omit,
         launch_parameters: Optional[LaunchParameters] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
@@ -488,6 +505,7 @@ class DevboxesResource(SyncAPIResource):
         repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
+        tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -519,6 +537,7 @@ class DevboxesResource(SyncAPIResource):
             entrypoint=entrypoint,
             environment_variables=environment_variables,
             file_mounts=file_mounts,
+            gateways=gateways,
             launch_parameters=launch_parameters,
             metadata=metadata,
             mounts=mounts,
@@ -526,6 +545,7 @@ class DevboxesResource(SyncAPIResource):
             repo_connection_id=repo_connection_id,
             secrets=secrets,
             snapshot_id=snapshot_id,
+            tunnel=tunnel,
             extra_headers=extra_headers,
             extra_query=extra_query,
             extra_body=extra_body,
@@ -632,6 +652,7 @@ class DevboxesResource(SyncAPIResource):
             cast_to=DevboxCreateSSHKeyResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def create_tunnel(
         self,
         id: str,
@@ -645,8 +666,11 @@ class DevboxesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxTunnelView:
-        """
-        Create a live tunnel to an available port on the Devbox.
+        """[Deprecated] Use POST /v1/devboxes/{id}/enable_tunnel instead.
+
+        This endpoint
+        creates a legacy tunnel. The new enable_tunnel endpoint provides improved tunnel
+        functionality with authentication options.
 
         Args:
           port: Devbox port that tunnel will expose.
@@ -763,6 +787,55 @@ class DevboxesResource(SyncAPIResource):
                 idempotency_key=idempotency_key,
             ),
             cast_to=BinaryAPIResponse,
+        )
+
+    def enable_tunnel(
+        self,
+        id: str,
+        *,
+        auth_mode: Optional[Literal["open", "authenticated"]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> TunnelView:
+        """Create a V2 tunnel for an existing running Devbox.
+
+        Tunnels provide encrypted
+        URL-based access to the Devbox without exposing internal IDs. The tunnel URL
+        format is: https://{port}-{tunnel_key}.tunnel.runloop.ai
+
+        Each Devbox can have one tunnel.
+
+        Args:
+          auth_mode: Authentication mode for the tunnel. Defaults to 'public' if not specified.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._post(
+            f"/v1/devboxes/{id}/enable_tunnel",
+            body=maybe_transform({"auth_mode": auth_mode}, devbox_enable_tunnel_params.DevboxEnableTunnelParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=TunnelView,
         )
 
     def execute(
@@ -1197,6 +1270,7 @@ class DevboxesResource(SyncAPIResource):
             cast_to=str,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def remove_tunnel(
         self,
         id: str,
@@ -1210,8 +1284,10 @@ class DevboxesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
-        """
-        Remove a previously opened tunnel on the Devbox.
+        """[Deprecated] Tunnels remain active until devbox is shutdown.
+
+        This endpoint
+        removes a legacy tunnel.
 
         Args:
           port: Devbox port that tunnel will expose.
@@ -1723,6 +1799,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         entrypoint: Optional[str] | Omit = omit,
         environment_variables: Optional[Dict[str, str]] | Omit = omit,
         file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        gateways: Optional[Dict[str, devbox_create_params.Gateways]] | Omit = omit,
         launch_parameters: Optional[LaunchParameters] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
@@ -1730,6 +1807,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
+        tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1765,6 +1843,12 @@ class AsyncDevboxesResource(AsyncAPIResource):
 
           file_mounts: Map of paths and file contents to write before setup. Use mounts instead.
 
+          gateways: [Beta] (Optional) Gateway specifications for credential proxying. Map key is the
+              environment variable prefix (e.g., 'GWS_ANTHROPIC'). The gateway will proxy
+              requests to external APIs using the specified credential without exposing the
+              real API key. Example: {'GWS_ANTHROPIC': {'gateway': 'anthropic', 'secret':
+              'my_claude_key'}}
+
           launch_parameters: Parameters to configure the resources and launch time behavior of the Devbox.
 
           metadata: User defined metadata to attach to the devbox for organization.
@@ -1782,6 +1866,10 @@ class AsyncDevboxesResource(AsyncAPIResource):
 
           snapshot_id: Snapshot ID to use for the Devbox. Only one of (Snapshot ID, Blueprint ID,
               Blueprint name) should be specified.
+
+          tunnel: (Optional) Configuration for creating a V2 tunnel at Devbox launch time. When
+              specified, a tunnel will be automatically provisioned and the tunnel details
+              will be included in the Devbox response.
 
           extra_headers: Send extra headers
 
@@ -1803,6 +1891,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
                     "entrypoint": entrypoint,
                     "environment_variables": environment_variables,
                     "file_mounts": file_mounts,
+                    "gateways": gateways,
                     "launch_parameters": launch_parameters,
                     "metadata": metadata,
                     "mounts": mounts,
@@ -1810,6 +1899,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
                     "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
                     "snapshot_id": snapshot_id,
+                    "tunnel": tunnel,
                 },
                 devbox_create_params.DevboxCreateParams,
             ),
@@ -1865,6 +1955,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         entrypoint: Optional[str] | Omit = omit,
         environment_variables: Optional[Dict[str, str]] | Omit = omit,
         file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        gateways: Optional[Dict[str, devbox_create_params.Gateways]] | Omit = omit,
         launch_parameters: Optional[LaunchParameters] | Omit = omit,
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
@@ -1873,6 +1964,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
+        tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1905,6 +1997,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             entrypoint=entrypoint,
             environment_variables=environment_variables,
             file_mounts=file_mounts,
+            gateways=gateways,
             launch_parameters=launch_parameters,
             metadata=metadata,
             mounts=mounts,
@@ -1912,6 +2005,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             repo_connection_id=repo_connection_id,
             secrets=secrets,
             snapshot_id=snapshot_id,
+            tunnel=tunnel,
             extra_headers=extra_headers,
             extra_query=extra_query,
             extra_body=extra_body,
@@ -2167,6 +2261,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             cast_to=DevboxCreateSSHKeyResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def create_tunnel(
         self,
         id: str,
@@ -2180,8 +2275,11 @@ class AsyncDevboxesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxTunnelView:
-        """
-        Create a live tunnel to an available port on the Devbox.
+        """[Deprecated] Use POST /v1/devboxes/{id}/enable_tunnel instead.
+
+        This endpoint
+        creates a legacy tunnel. The new enable_tunnel endpoint provides improved tunnel
+        functionality with authentication options.
 
         Args:
           port: Devbox port that tunnel will expose.
@@ -2298,6 +2396,57 @@ class AsyncDevboxesResource(AsyncAPIResource):
                 idempotency_key=idempotency_key,
             ),
             cast_to=AsyncBinaryAPIResponse,
+        )
+
+    async def enable_tunnel(
+        self,
+        id: str,
+        *,
+        auth_mode: Optional[Literal["open", "authenticated"]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> TunnelView:
+        """Create a V2 tunnel for an existing running Devbox.
+
+        Tunnels provide encrypted
+        URL-based access to the Devbox without exposing internal IDs. The tunnel URL
+        format is: https://{port}-{tunnel_key}.tunnel.runloop.ai
+
+        Each Devbox can have one tunnel.
+
+        Args:
+          auth_mode: Authentication mode for the tunnel. Defaults to 'public' if not specified.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._post(
+            f"/v1/devboxes/{id}/enable_tunnel",
+            body=await async_maybe_transform(
+                {"auth_mode": auth_mode}, devbox_enable_tunnel_params.DevboxEnableTunnelParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=TunnelView,
         )
 
     async def execute(
@@ -2733,6 +2882,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             cast_to=str,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def remove_tunnel(
         self,
         id: str,
@@ -2746,8 +2896,10 @@ class AsyncDevboxesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
-        """
-        Remove a previously opened tunnel on the Devbox.
+        """[Deprecated] Tunnels remain active until devbox is shutdown.
+
+        This endpoint
+        removes a legacy tunnel.
 
         Args:
           port: Devbox port that tunnel will expose.
@@ -3231,8 +3383,10 @@ class DevboxesResourceWithRawResponse:
         self.create_ssh_key = to_raw_response_wrapper(
             devboxes.create_ssh_key,
         )
-        self.create_tunnel = to_raw_response_wrapper(
-            devboxes.create_tunnel,
+        self.create_tunnel = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                devboxes.create_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete_disk_snapshot = to_raw_response_wrapper(
             devboxes.delete_disk_snapshot,
@@ -3240,6 +3394,9 @@ class DevboxesResourceWithRawResponse:
         self.download_file = to_custom_raw_response_wrapper(
             devboxes.download_file,
             BinaryAPIResponse,
+        )
+        self.enable_tunnel = to_raw_response_wrapper(
+            devboxes.enable_tunnel,
         )
         self.execute = to_raw_response_wrapper(
             devboxes.execute,
@@ -3261,8 +3418,10 @@ class DevboxesResourceWithRawResponse:
         self.read_file_contents = to_raw_response_wrapper(
             devboxes.read_file_contents,
         )
-        self.remove_tunnel = to_raw_response_wrapper(
-            devboxes.remove_tunnel,
+        self.remove_tunnel = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                devboxes.remove_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.resume = to_raw_response_wrapper(
             devboxes.resume,
@@ -3329,8 +3488,10 @@ class AsyncDevboxesResourceWithRawResponse:
         self.create_ssh_key = async_to_raw_response_wrapper(
             devboxes.create_ssh_key,
         )
-        self.create_tunnel = async_to_raw_response_wrapper(
-            devboxes.create_tunnel,
+        self.create_tunnel = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                devboxes.create_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete_disk_snapshot = async_to_raw_response_wrapper(
             devboxes.delete_disk_snapshot,
@@ -3338,6 +3499,9 @@ class AsyncDevboxesResourceWithRawResponse:
         self.download_file = async_to_custom_raw_response_wrapper(
             devboxes.download_file,
             AsyncBinaryAPIResponse,
+        )
+        self.enable_tunnel = async_to_raw_response_wrapper(
+            devboxes.enable_tunnel,
         )
         self.execute = async_to_raw_response_wrapper(
             devboxes.execute,
@@ -3359,8 +3523,10 @@ class AsyncDevboxesResourceWithRawResponse:
         self.read_file_contents = async_to_raw_response_wrapper(
             devboxes.read_file_contents,
         )
-        self.remove_tunnel = async_to_raw_response_wrapper(
-            devboxes.remove_tunnel,
+        self.remove_tunnel = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                devboxes.remove_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.resume = async_to_raw_response_wrapper(
             devboxes.resume,
@@ -3427,8 +3593,10 @@ class DevboxesResourceWithStreamingResponse:
         self.create_ssh_key = to_streamed_response_wrapper(
             devboxes.create_ssh_key,
         )
-        self.create_tunnel = to_streamed_response_wrapper(
-            devboxes.create_tunnel,
+        self.create_tunnel = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                devboxes.create_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete_disk_snapshot = to_streamed_response_wrapper(
             devboxes.delete_disk_snapshot,
@@ -3436,6 +3604,9 @@ class DevboxesResourceWithStreamingResponse:
         self.download_file = to_custom_streamed_response_wrapper(
             devboxes.download_file,
             StreamedBinaryAPIResponse,
+        )
+        self.enable_tunnel = to_streamed_response_wrapper(
+            devboxes.enable_tunnel,
         )
         self.execute = to_streamed_response_wrapper(
             devboxes.execute,
@@ -3457,8 +3628,10 @@ class DevboxesResourceWithStreamingResponse:
         self.read_file_contents = to_streamed_response_wrapper(
             devboxes.read_file_contents,
         )
-        self.remove_tunnel = to_streamed_response_wrapper(
-            devboxes.remove_tunnel,
+        self.remove_tunnel = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                devboxes.remove_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.resume = to_streamed_response_wrapper(
             devboxes.resume,
@@ -3525,8 +3698,10 @@ class AsyncDevboxesResourceWithStreamingResponse:
         self.create_ssh_key = async_to_streamed_response_wrapper(
             devboxes.create_ssh_key,
         )
-        self.create_tunnel = async_to_streamed_response_wrapper(
-            devboxes.create_tunnel,
+        self.create_tunnel = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                devboxes.create_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete_disk_snapshot = async_to_streamed_response_wrapper(
             devboxes.delete_disk_snapshot,
@@ -3534,6 +3709,9 @@ class AsyncDevboxesResourceWithStreamingResponse:
         self.download_file = async_to_custom_streamed_response_wrapper(
             devboxes.download_file,
             AsyncStreamedBinaryAPIResponse,
+        )
+        self.enable_tunnel = async_to_streamed_response_wrapper(
+            devboxes.enable_tunnel,
         )
         self.execute = async_to_streamed_response_wrapper(
             devboxes.execute,
@@ -3555,8 +3733,10 @@ class AsyncDevboxesResourceWithStreamingResponse:
         self.read_file_contents = async_to_streamed_response_wrapper(
             devboxes.read_file_contents,
         )
-        self.remove_tunnel = async_to_streamed_response_wrapper(
-            devboxes.remove_tunnel,
+        self.remove_tunnel = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                devboxes.remove_tunnel,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.resume = async_to_streamed_response_wrapper(
             devboxes.resume,

@@ -7,7 +7,8 @@ from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.diag.issues import Issues
 from adam.repl_state import ReplState
-from adam.utils import Color, tabulize, log
+from adam.utils import log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 
@@ -35,7 +36,10 @@ class Check(Issues):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, ['-s', '--show']) as (args, show_out):
-                with validate_args(args, state, name='check name', msg=lambda: tabulize([check.help() for check in all_checks()], separator=':')) as arg:
+                with validate_args(args,
+                                   state,
+                                   name='check name',
+                                   msg=lambda: tabulize([check.help() for check in all_checks()], separator=':')) as arg:
                     checks = checks_from_csv(args[0])
                     if not checks:
                         return 'invalid check name'

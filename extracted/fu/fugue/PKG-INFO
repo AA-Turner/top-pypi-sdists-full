@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fugue
-Version: 0.9.5
+Version: 0.9.6
 Summary: An abstraction layer for distributed computation
 Home-page: http://github.com/fugue-project/fugue
 Author: The Fugue Development Team

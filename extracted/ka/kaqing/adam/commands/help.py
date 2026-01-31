@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.repl_commands import ReplCommands
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log
+from adam.utils_tabulize import tabulize
 
 class Help(Command):
     COMMAND = 'help'
@@ -45,7 +45,7 @@ class Help(Command):
         lines.append('')
         lines.extend(section(ReplCommands.exit()))
 
-        tabulize(lines, separator='\t')
+        tabulize(lines, separator='\t', ctx=self.context())
 
         return lines
 

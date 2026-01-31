@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     import re
     from datetime import datetime, timedelta
     from pathlib import Path
-    from typing import TYPE_CHECKING, Any
+    from typing import TYPE_CHECKING, Any, Sequence
 
     import pandas as pd
     import pyarrow as pa
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         FileAttachmentUpdate,
         RemoteFileEntityType,
     )
+    from sift_client.sift_types.job import Job, JobStatus, JobType
     from sift_client.sift_types.report import Report, ReportUpdate
     from sift_client.sift_types.rule import Rule, RuleCreate, RuleUpdate
     from sift_client.sift_types.run import Run, RunCreate, RunUpdate
@@ -581,7 +582,7 @@ class FileAttachmentsAPI:
         name_contains: str | None = None,
         name_regex: str | re.Pattern | None = None,
         remote_file_ids: list[str] | None = None,
-        entities: list[Run | Asset | TestReport] | None = None,
+        entities: list[Run | Asset | TestReport | TestStep] | None = None,
         entity_type: RemoteFileEntityType | None = None,
         entity_ids: list[str] | None = None,
         description_contains: str | None = None,
@@ -625,7 +626,7 @@ class FileAttachmentsAPI:
         self,
         *,
         path: str | Path,
-        entity: Asset | Run | TestReport,
+        entity: Asset | Run | TestReport | TestStep,
         metadata: dict[str, Any] | None = None,
         description: str | None = None,
         organization_id: str | None = None,
@@ -641,6 +642,106 @@ class FileAttachmentsAPI:
 
         Returns:
             The uploaded FileAttachment.
+        """
+        ...
+
+class JobsAPI:
+    """Sync counterpart to `JobsAPIAsync`.
+
+    High-level API for interacting with jobs.
+
+    This class provides a Pythonic interface for managing jobs in Sift.
+    Jobs represent long-running operations like data imports, rule evaluations, and data exports.
+    """
+
+    def __init__(self, sift_client: SiftClient):
+        """Initialize the JobsAPI.
+
+        Args:
+            sift_client: The Sift client to use.
+        """
+        ...
+
+    def _run(self, coro): ...
+    def cancel(self, job: Job | str) -> None:
+        """Cancel a job.
+
+        If the job hasn't started yet, it will be cancelled immediately.
+        Jobs that are already finished, failed, or cancelled are not affected.
+
+        Args:
+            job: The Job or ID of the job to cancel.
+        """
+        ...
+
+    def get(self, job_id: str) -> Job:
+        """Get a job by ID.
+
+        Args:
+            job_id: The ID of the job to retrieve.
+
+        Returns:
+            The Job object.
+        """
+        ...
+
+    def list_(
+        self,
+        *,
+        job_ids: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        modified_after: datetime | None = None,
+        modified_before: datetime | None = None,
+        created_by_user_id: str | None = None,
+        modified_by_user_id: str | None = None,
+        job_type: JobType | None = None,
+        job_status: JobStatus | None = None,
+        started_date_after: datetime | None = None,
+        started_date_before: datetime | None = None,
+        completed_date_after: datetime | None = None,
+        completed_date_before: datetime | None = None,
+        organization_id: str | None = None,
+        filter_query: str | None = None,
+        order_by: str | None = None,
+        limit: int | None = None,
+    ) -> list[Job]:
+        """List jobs with optional filtering.
+
+        Args:
+            job_ids: Filter to jobs with any of these IDs.
+            created_after: Filter to jobs created after this datetime.
+            created_before: Filter to jobs created before this datetime.
+            modified_after: Filter to jobs modified after this datetime.
+            modified_before: Filter to jobs modified before this datetime.
+            created_by_user_id: Filter to jobs created by this user ID.
+            modified_by_user_id: Filter to jobs last modified by this user ID.
+            job_type: Filter to jobs with this type.
+            job_status: Filter to jobs with this status.
+            started_date_after: Filter to jobs started after this datetime.
+            started_date_before: Filter to jobs started before this datetime.
+            completed_date_after: Filter to jobs completed after this datetime.
+            completed_date_before: Filter to jobs completed before this datetime.
+            organization_id: Organization ID. Required if your user belongs to multiple organizations.
+            filter_query: Explicit CEL query to filter jobs. If provided, other filter arguments are ignored.
+            order_by: Field and direction to order results by.
+            limit: Maximum number of jobs to return. If None, returns all matches.
+
+        Returns:
+            A list of Job objects that match the filter criteria.
+        """
+        ...
+
+    def retry(self, job: Job | str) -> Job:
+        """Retry a failed job.
+
+        Jobs that are finished, in progress, or in the process of being cancelled are not affected.
+
+        Args:
+            job: The Job or ID of the job to retry.
+
+        Returns:
+            The updated Job object.
         """
         ...
 
@@ -894,14 +995,46 @@ class RulesAPI:
         """
         ...
 
-    def create(self, create: RuleCreate | dict) -> Rule:
+    def batch_update_or_create_rules(
+        self,
+        rules: Sequence[RuleCreate | RuleUpdate],
+        *,
+        override_expression_validation: bool = False,
+    ) -> list[Rule]:
+        """Batch update or create multiple rules.
+
+        Args:
+            rules: List of rule creates or updates to apply. RuleUpdate objects must have resource_id set.
+            override_expression_validation: When true, the rules will be created even if the expressions are invalid.
+
+        Warnings:
+            SiftWarning: If not all rules are created or updated.
+
+        Returns:
+            List of updated or created Rules.
+
+        Raises:
+            ValueError: If the update/create fails or if not all rules were updated/created.
+        """
+        ...
+
+    def create(
+        self,
+        create: RuleCreate | dict | Sequence[RuleCreate | dict],
+        *,
+        override_expression_validation: bool = True,
+    ) -> Rule | list[Rule]:
         """Create a new rule.
 
         Args:
-            create: A RuleCreate object or dictionary with configuration for the new rule.
+            create: A RuleCreate object, a dictionary with configuration for the new rule, or a list of the previously mentioned objects.
+            override_expression_validation: When true, the rule will be created even if the expression is invalid.
+
+        Warnings:
+            SiftWarning: If not all rules are created.
 
         Returns:
-            The created Rule.
+            The created Rule (if a single dictionary or RuleCreate was provided) otherwise a list of the created rules.
         """
         ...
 

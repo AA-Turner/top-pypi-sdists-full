@@ -8,6 +8,9 @@ DAY_MILLIS = 24 * 60 * 60 * 1000
 
 
 class Assignment:
+    """
+    @deprecated Assignment tracking is deprecated. Use Exposure with ExposureService instead.
+    """
 
     def __init__(self, user: User, results: Dict[str, Variant]):
         self.user = user

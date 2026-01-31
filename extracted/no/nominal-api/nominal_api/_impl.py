@@ -35320,12 +35320,13 @@ class scout_chartdefinition_api_ValueAxis(ConjureBeanType):
             'position': ConjureFieldDefinition('position', scout_chartdefinition_api_AxisPosition),
             'domain_type': ConjureFieldDefinition('domainType', scout_chartdefinition_api_AxisDomainType),
             'tick_number_format': ConjureFieldDefinition('tickNumberFormat', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormat]),
-            'tooltip_number_format': ConjureFieldDefinition('tooltipNumberFormat', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormat])
+            'tooltip_number_format': ConjureFieldDefinition('tooltipNumberFormat', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormat]),
+            'reversed': ConjureFieldDefinition('reversed', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_id', '_title', '_display_options', '_range', '_limit', '_position', '_domain_type', '_tick_number_format', '_tooltip_number_format']
+    __slots__: List[str] = ['_id', '_title', '_display_options', '_range', '_limit', '_position', '_domain_type', '_tick_number_format', '_tooltip_number_format', '_reversed']
 
-    def __init__(self, display_options: "scout_chartdefinition_api_AxisDisplayOptions", domain_type: "scout_chartdefinition_api_AxisDomainType", id: str, limit: "scout_chartdefinition_api_AxisRange", position: "scout_chartdefinition_api_AxisPosition", range: "scout_chartdefinition_api_AxisRange", title: str, tick_number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None, tooltip_number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None) -> None:
+    def __init__(self, display_options: "scout_chartdefinition_api_AxisDisplayOptions", domain_type: "scout_chartdefinition_api_AxisDomainType", id: str, limit: "scout_chartdefinition_api_AxisRange", position: "scout_chartdefinition_api_AxisPosition", range: "scout_chartdefinition_api_AxisRange", title: str, reversed: Optional[bool] = None, tick_number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None, tooltip_number_format: Optional["scout_chartdefinition_api_NumberFormat"] = None) -> None:
         self._id = id
         self._title = title
         self._display_options = display_options
@@ -35335,6 +35336,7 @@ class scout_chartdefinition_api_ValueAxis(ConjureBeanType):
         self._domain_type = domain_type
         self._tick_number_format = tick_number_format
         self._tooltip_number_format = tooltip_number_format
+        self._reversed = reversed
 
     @builtins.property
     def id(self) -> str:
@@ -35371,6 +35373,13 @@ class scout_chartdefinition_api_ValueAxis(ConjureBeanType):
     @builtins.property
     def tooltip_number_format(self) -> Optional["scout_chartdefinition_api_NumberFormat"]:
         return self._tooltip_number_format
+
+    @builtins.property
+    def reversed(self) -> Optional[bool]:
+        """Whether the axis direction is reversed. When true, larger values appear on the
+opposite side (left for X axis, bottom for Y axis). Defaults to false.
+        """
+        return self._reversed
 
 
 scout_chartdefinition_api_ValueAxis.__name__ = "ValueAxis"

@@ -9,7 +9,7 @@ from adam.utils_k8s.statefulsets import StatefulSets
 
 class NodeTools:
     def status(ctx: Context = Context.NULL) -> tuple[dict, PodExecResult]:
-        ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+        ctx_fg = ctx.copy(background=False, text_color=Color.gray)
         result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", ctx=ctx_fg)
         return NodeTools.parse_nodetool_status(result.stdout), result
 
@@ -71,7 +71,7 @@ class NodeTools:
                 pod_name = pod_name.split('(')[0]
 
                 with log_exc(True):
-                    ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+                    ctx_fg = ctx.copy(background=False, text_color=Color.gray)
                     user, pw = state.user_pass()
                     result = CassandraNodes.exec(pod_name, state.namespace, f"nodetool -u {user} -pw {pw} status", ctx=ctx_fg)
                     status = NodeTools.parse_nodetool_status(result.stdout)

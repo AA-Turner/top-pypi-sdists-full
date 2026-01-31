@@ -106,11 +106,10 @@ from jax.typing import ArrayLike
 
 import numpyro
 from numpyro._typing import Message, TraceT
-from numpyro.distributions.distribution import COERCIONS
+from numpyro.distributions.distribution import COERCIONS, Distribution
 from numpyro.primitives import (
     _PYRO_STACK,
     CondIndepStackFrame,
-    DistributionT,
     Messenger,
     apply_stack,
     plate,
@@ -131,6 +130,7 @@ __all__ = [
     "seed",
     "substitute",
     "trace",
+    "uncondition",
     "do",
 ]
 
@@ -165,7 +165,7 @@ class trace(Messenger):
                       'value': Array(-0.20584235, dtype=float32)})])
     """
 
-    def __enter__(self) -> TraceT:  # type: ignore [override]
+    def __enter__(self) -> TraceT:
         super(trace, self).__enter__()
         self.trace: TraceT = OrderedDict()
         return self.trace
@@ -359,7 +359,7 @@ class collapse(trace):
             if isinstance(msg["fn"], Funsor) or isinstance(msg["value"], (str, Funsor)):
                 msg["stop"] = True
 
-    def __enter__(self) -> TraceT:  # type: ignore [override]
+    def __enter__(self) -> TraceT:
         self.preserved_plates = frozenset(
             h.name for h in _PYRO_STACK if isinstance(h, plate)
         )
@@ -475,6 +475,52 @@ class condition(Messenger):
             msg["is_observed"] = True
 
 
+class uncondition(Messenger):
+    """
+    Messenger to force the value of observed nodes to be sampled from their
+    distribution, ignoring observations.
+
+    **Example:**
+
+    .. doctest::
+
+       >>> from jax import random
+       >>> import numpyro
+       >>> from numpyro.handlers import seed, trace, uncondition
+       >>> import numpyro.distributions as dist
+
+       >>> def model(obs=None):
+       ...     return numpyro.sample('x', dist.Normal(0., 1.), obs=obs)
+
+       >>> # By default, the observed value is used
+       >>> model = seed(model, random.PRNGKey(0))
+       >>> exec_trace = trace(model).get_trace(obs=1.5)
+       >>> assert exec_trace['x']['value'] == 1.5
+       >>> assert exec_trace['x']['is_observed']
+
+       >>> # With uncondition, we sample from the prior instead
+       >>> unconditioned_model = uncondition(seed(model, random.PRNGKey(0)))
+       >>> exec_trace = trace(unconditioned_model).get_trace(obs=1.5)
+       >>> assert exec_trace['x']['value'] != 1.5  # sampled value
+       >>> assert not exec_trace['x']['is_observed']
+       >>> assert exec_trace['x']['infer']['was_observed']
+       >>> assert exec_trace['x']['infer']['obs'] == 1.5
+    """
+
+    def process_message(self, msg: Message) -> None:
+        if msg["type"] != "sample":
+            return
+        if msg["is_observed"]:
+            msg["is_observed"] = False
+            msg["infer"]["was_observed"] = True
+            msg["infer"]["obs"] = msg["value"]
+            msg["value"] = None
+            # Request an rng_key if none was provided (since seed handler
+            # may have skipped this site when it saw an observed value)
+            if msg["kwargs"]["rng_key"] is None:
+                msg["kwargs"]["rng_key"] = numpyro.prng_key()
+
+
 class infer_config(Messenger):
     """
     Given a callable `fn` that contains NumPyro primitive calls
@@ -527,7 +573,7 @@ class lift(Messenger):
     def __init__(
         self,
         fn: Optional[Callable] = None,
-        prior: Optional[Union[DistributionT, dict[str, DistributionT]]] = None,
+        prior: Optional[Union[Distribution, dict[str, Distribution]]] = None,
     ) -> None:
         super().__init__(fn)
         self.prior = prior

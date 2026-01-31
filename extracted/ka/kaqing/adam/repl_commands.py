@@ -66,7 +66,8 @@ from adam.commands.fs.head_local import HeadLocal
 from adam.commands.fs.ls_local import LsLocal
 from adam.commands.fs.rm import RmLocal
 from adam.commands.fs.rm_logs import RmLogs
-from adam.commands.fs.show_last_results import ShowLastResults
+from adam.commands.fs.show_job_result import ShowJobResults
+from adam.commands.fs.show_jobs import ShowJobs
 from adam.commands.fs.tail import Tail
 from adam.commands.fs.tail_local import TailLocal
 from adam.commands.kubectl import Kubectl
@@ -117,7 +118,7 @@ class ReplCommands:
                 DeviceApp(), DevicePostgres(), DeviceCass(), DeviceAuditLog(), DeviceExport(),
                 DownloadFile(), FindLocalFiles(), FindProcesses(), GetParam(),
                 Head(), HeadLocal(), Ls(), LsLocal(), PreviewTable(), Pwd(), RmLogs(),
-                SetParam(), ShowAdam(), ShowHost(), ShowKubectlCommands(), ShowLastResults(),
+                SetParam(), ShowAdam(), ShowHost(), ShowKubectlCommands(), ShowJobResults(),
                 ShowLogin(), ShowOffloadedCompletes(), ShowParams(),
                 Tail(), TailLocal()] + \
                 RmLocal().cmd_list()
@@ -129,7 +130,7 @@ class ReplCommands:
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
                 RestartNodes(), RestartCluster(), RollOut(),
                 ShowCassandraRing(), ShowCassandraStatus(), ShowNodeRestartable(), ShowCassandraVersion(),
-                ShowCassandraRepairs(), ShowColumnCounts(), ShowStorage(), ShowExportDatabases(),
+                ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
                 ShowExportSessions(), ShowExportSession(), ShowProcesses(),
                 Watch()] + \
                 Debug().cmd_list() + \

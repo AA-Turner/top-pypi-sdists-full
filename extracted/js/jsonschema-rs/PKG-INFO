@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.40.1
+Version: 0.40.3
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -706,6 +706,20 @@ For detailed benchmarks, see our [full performance comparison](https://github.co
 ## Python support
 
 `jsonschema-rs` supports CPython 3.10 through 3.14 and PyPy 3.10+.
+
+Pre-built wheels are available for:
+
+- **Linux**: `x86_64`, `i686`, `aarch64` (glibc and musl)
+- **macOS**: `x86_64`, `aarch64`, `universal2`
+- **Windows**: `x64`, `x86`
+
+## Troubleshooting
+
+If you encounter linking errors when building from source on Linux (e.g., undefined symbol errors related to `ring` or crypto), try using the `mold` linker:
+
+```bash
+RUSTFLAGS="-C link-arg=-fuse-ld=mold" pip install jsonschema-rs --no-binary :all:
+```
 
 ## Acknowledgements
 

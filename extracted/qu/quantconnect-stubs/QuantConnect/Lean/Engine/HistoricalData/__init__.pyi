@@ -256,3 +256,32 @@ class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
         ...
 
 
+class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider, metaclass=abc.ABCMeta):
+    """
+    Base class for history providers that resolve symbol mappings
+    and synchronize multiple data streams into time-aligned slices.
+    """
+
+    @overload
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
+        """
+        ...
+
+    @overload
+    def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Gets historical data for a single resolved history request.
+        Implementations should assume the symbol is already correctly mapped.
+        
+        :param request: The resolved history request.
+        :returns: The historical data.
+        """
+        ...
+
+

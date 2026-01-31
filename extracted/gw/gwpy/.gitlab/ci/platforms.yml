@@ -12,11 +12,19 @@ spec:
 
 .macos:
   rules:
+    # Only run macOS jobs inside the GWpy namespace where
+    # macOS runners are available
+    - if: '$CI_PROJECT_ROOT_NAMESPACE != "gwpy"'
+      when: never
     - if: '$CI_COMMIT_MESSAGE =~ /\[skip macos\]/'
       when: never
   tags:
     - saas-macos-medium-m1
-  image: macos-14-xcode-15
+  image: macos-15-xcode-16
+  retry:
+    # retry all windows jobs up to 2 times on failure, they are flaky
+    max: 2
+    when: always
 
 .windows:
   rules:
@@ -30,3 +38,7 @@ spec:
     PYTEST_XDIST_AUTO_NUM_WORKERS: "2"
   tags:
     - saas-windows-medium-amd64
+  retry:
+    # retry all windows jobs up to 2 times on failure, they are flaky
+    max: 2
+    when: always

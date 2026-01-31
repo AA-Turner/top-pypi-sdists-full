@@ -1,16 +1,12 @@
-from collections.abc import Callable
-from datetime import datetime
-from functools import partial
 import os
 import boto3
 
 from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.importer import Importer
-from adam.commands.export.utils_export import export_log_dir
 from adam.config import Config
-from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
-from adam.utils import debug, log_timing, tabulize, log2, ing, log_exc
+from adam.utils import debug, log_timing, ing, log_exc
+from adam.utils_tabulize import tabulize
 from adam.utils_athena import Athena
 from adam.utils_context import Context
 from adam.utils_sqlite import SQLite
@@ -30,10 +26,6 @@ class ExportDatabases:
         else:
             cnt0 = Athena.run_query(query, database=database, ctx=ctx)
             cnt += cnt0
-
-        # if Config().get('repl.history.push-cat-log-file', True):
-        #     if log_file and ReplSession().prompt_session:
-        #         ReplSession().prompt_session.history.append_string(f':cat {log_file}')
 
         return cnt
 
@@ -90,7 +82,7 @@ class ExportDatabases:
 
         return dbs
 
-    def show_database(database: str):
+    def show_database(database: str, ctx: Context = Context.NULL):
         if not database:
             return
 
@@ -104,7 +96,11 @@ class ExportDatabases:
             else:
                 keyspaces[keyspace] = 1
 
-        tabulize(keyspaces.items(), lambda a: f'{a[0]},{a[1]}', header='SCHEMA,# of TABLES', separator=',')
+        tabulize(keyspaces.items(),
+                 lambda a: f'{a[0]},{a[1]}',
+                 header='SCHEMA,# of TABLES',
+                 separator=',',
+                 ctx=ctx.copy(show_out=True))
 
     def database_names():
         return ExportDatabases.copy_database_names() + ExportDatabases.export_database_names()
@@ -186,9 +182,12 @@ class ExportDatabases:
         if not database or database.startswith('e'):
             Athena.clear_cache()
 
-    def show_databases(importer: str = None):
+    def show_databases(importer: str = None, ctx: Context = Context.NULL):
         lines = [f'{k}\t{v}' for k, v in ExportDatabases.database_names_with_keyspace_cnt(importer).items()]
-        tabulize(lines, header='NAME\tKEYSPACES', separator='\t')
+        tabulize(lines,
+                 header='NAME\tKEYSPACES',
+                 separator='\t',
+                 ctx=ctx.copy(show_out=True))
 
 class ExportDatabaseService:
     def __init__(self, handler: 'ExportDatabaseHandler'):
@@ -197,23 +196,6 @@ class ExportDatabaseService:
     def sql(self, query: str, database: str = None, ctx: Context = Context.NULL):
         if not database:
             database = self.handler.state.export_session
-
-        # def output(export_log: str, out: str):
-        #     # serving for 1. export log or 2. job log for the sampling select 10 rows afterward
-        #     flag = 'at'
-        #     if not export_log:
-        #         export_log = f'{export_log_dir()}/{datetime.now().strftime("%d%H%M%S")}-export.log'
-        #         flag = 'w'
-
-        #     with open(export_log, flag) as f:
-        #         if flag == 'at':
-        #             f.write(query)
-        #             f.write('\n')
-        #         f.write(out)
-
-        #     return export_log
-
-        # log_file = f'{export_log_dir()}/{datetime.now().strftime("%d%H%M%S")}-export.log'
 
         ExportDatabases.run_query(query, database, ctx=ctx)
 
@@ -233,14 +215,14 @@ class ExportDatabaseService:
 
         state.export_session = None
 
-    def show_databases(self, importer: str = None):
-        ExportDatabases.show_databases(importer)
+    def show_databases(self, importer: str = None, ctx: Context = Context.NULL):
+        ExportDatabases.show_databases(importer, ctx=ctx)
 
-    def show_database(self, database: str = None):
+    def show_database(self, database: str = None, ctx: Context = Context.NULL):
         if not database:
             database = self.handler.state.export_session
 
-        ExportDatabases.show_database(database)
+        ExportDatabases.show_database(database, ctx=ctx)
 
 class ExportDatabaseHandler:
     def __init__(self, state: ReplState = None):

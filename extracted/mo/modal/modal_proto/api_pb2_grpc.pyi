@@ -738,6 +738,10 @@ class ModalClientStub:
         modal_proto.api_pb2.WorkspaceBillingReportItem,
     ]
     """Workspaces"""
+    WorkspaceDashboardUrlGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
+        modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
+    ]
     WorkspaceNameLookup: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.WorkspaceNameLookupResponse,
@@ -1820,6 +1824,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> collections.abc.Iterator[modal_proto.api_pb2.WorkspaceBillingReportItem]:
         """Workspaces"""
+    @abc.abstractmethod
+    def WorkspaceDashboardUrlGet(
+        self,
+        request: modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceDashboardUrlResponse: ...
     @abc.abstractmethod
     def WorkspaceNameLookup(
         self,

@@ -2,7 +2,8 @@ from adam.commands.command import Command
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.utils import tabulize, log_exc
+from adam.utils import log_exc
+from adam.utils_tabulize import tabulize
 
 class MedusaShowRestoreJobs(Command):
     COMMAND = 'show restores'
@@ -36,7 +37,8 @@ class MedusaShowRestoreJobs(Command):
                 tabulize(CustomResources.medusa_show_restorejobs(dc, ns),
                          header='NAME\tCREATED\tFINISHED',
                          separator='\t',
-                         to=2)
+                         err=True,
+                         ctx=self.context())
 
             return state
 

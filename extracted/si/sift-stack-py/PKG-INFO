@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sift_stack_py
-Version: 0.9.6
+Version: 0.10.0
 Summary: Python client library for the Sift API
 Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
 License: Copyright (c) 2024 Azimuth Industries Inc.
@@ -50,7 +50,7 @@ Requires-Dist: polars~=1.8; extra == "all"
 Requires-Dist: pyOpenSSL<24.0.0; extra == "all"
 Requires-Dist: pyarrow>=17.0.0; extra == "all"
 Requires-Dist: rosbags~=0.0; extra == "all"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc4; extra == "all"
+Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "all"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "all"
 Provides-Extra: build
 Requires-Dist: build==1.2.1; extra == "build"
@@ -87,7 +87,7 @@ Requires-Dist: pytest-mock==3.14.0; extra == "dev-all"
 Requires-Dist: pytest==8.2.2; extra == "dev-all"
 Requires-Dist: rosbags~=0.0; extra == "dev-all"
 Requires-Dist: ruff~=0.12.10; extra == "dev-all"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc4; extra == "dev-all"
+Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "dev-all"
 Requires-Dist: tomlkit~=0.13.3; extra == "dev-all"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "dev-all"
 Provides-Extra: development
@@ -137,7 +137,7 @@ Requires-Dist: pytest-mock==3.14.0; extra == "docs-build"
 Requires-Dist: pytest==8.2.2; extra == "docs-build"
 Requires-Dist: rosbags~=0.0; extra == "docs-build"
 Requires-Dist: ruff~=0.12.10; extra == "docs-build"
-Requires-Dist: sift-stream-bindings>=0.2.0-rc4; extra == "docs-build"
+Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "docs-build"
 Requires-Dist: tomlkit~=0.13.3; extra == "docs-build"
 Requires-Dist: types-pyOpenSSL<24.0.0; extra == "docs-build"
 Provides-Extra: file-imports
@@ -155,9 +155,9 @@ Requires-Dist: types-pyOpenSSL<24.0.0; extra == "openssl"
 Provides-Extra: rosbags
 Requires-Dist: rosbags~=0.0; extra == "rosbags"
 Provides-Extra: sift-stream
-Requires-Dist: sift-stream-bindings>=0.2.0-rc4; extra == "sift-stream"
+Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "sift-stream"
 Provides-Extra: sift-stream-bindings
-Requires-Dist: sift-stream-bindings>=0.2.0-rc4; extra == "sift-stream-bindings"
+Requires-Dist: sift-stream-bindings>=0.2.0-rc8; extra == "sift-stream-bindings"
 Provides-Extra: tdms
 Requires-Dist: npTDMS~=1.9; extra == "tdms"
 

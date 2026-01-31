@@ -42,8 +42,26 @@ class TestBigQuery(Validator):
         self.assertEqual(table.db, "x-0")
         self.assertEqual(table.name, "_y")
 
-        self.validate_identity("SAFE.SUBSTR('foo', 0, -2)").assert_is(exp.Dot)
-        self.validate_identity("SAFE.TIMESTAMP(foo, zone)").assert_is(exp.Timestamp)
+        self.validate_identity("SAFE.SOME_RANDOM_FUNC(a, b, c)").assert_is(exp.SafeFunc)
+        self.validate_identity(
+            "SAFE.SUBSTR('foo', 0, -2)",
+        ).assert_is(exp.SafeFunc).this.assert_is(exp.Substring)
+        self.validate_identity("SAFE.TIMESTAMP(foo, zone)").assert_is(exp.SafeFunc).this.assert_is(
+            exp.Timestamp
+        )
+        self.validate_identity(
+            "SAFE.PARSE_DATE('%Y-%m-%d', '2024-01-15')",
+            "SAFE.PARSE_DATE('%F', '2024-01-15')",
+        ).assert_is(exp.SafeFunc).this.assert_is(exp.StrToDate)
+        self.validate_identity(
+            "SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '2024-01-15 10:30:00')",
+            "SAFE.PARSE_DATETIME('%F %T', '2024-01-15 10:30:00')",
+        ).assert_is(exp.SafeFunc).this.assert_is(exp.ParseDatetime)
+        self.validate_identity(
+            "SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', '2024-01-15 10:30:00')",
+            "SAFE.PARSE_TIMESTAMP('%F %T', '2024-01-15 10:30:00')",
+        ).assert_is(exp.SafeFunc).this.assert_is(exp.StrToTime)
+
         self.validate_identity("TIMESTAMP(foo, zone)").assert_is(exp.Timestamp)
         self.validate_identity("SELECT * FROM x-0.y")
         self.assertEqual(exp.to_table("`a.b`.`c.d`", dialect="bigquery").sql(), '"a"."b"."c"."d"')
@@ -59,7 +77,12 @@ class TestBigQuery(Validator):
         self.assertEqual(select_with_quoted_udf.selects[0].name, "p.d.UdF")
 
         self.validate_identity("SELECT EXP(1)")
-        self.validate_identity("NET.HOST('http://example.com')").assert_is(exp.NetHost)
+        self.validate_identity("NET.HOST('http://example.com')").assert_is(
+            exp.NetFunc
+        ).this.assert_is(exp.Host)
+        self.validate_identity("NET.REG_DOMAIN('http://example.com')").assert_is(
+            exp.NetFunc
+        ).this.assert_is(exp.RegDomain)
         self.validate_identity("DATE_TRUNC(x, @foo)").unit.assert_is(exp.Parameter)
         self.validate_identity("ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2)")
         self.validate_identity("ARRAY_CONCAT_AGG(x LIMIT 2)")
@@ -419,7 +442,7 @@ LANGUAGE js AS
             "SELECT STRUCT(1, 2, 3), STRUCT(), STRUCT('abc'), STRUCT(1, t.str_col), STRUCT(1 as a, 'abc' AS b), STRUCT(str_col AS abc)",
             write={
                 "bigquery": "SELECT STRUCT(1, 2, 3), STRUCT(), STRUCT('abc'), STRUCT(1, t.str_col), STRUCT(1 AS a, 'abc' AS b), STRUCT(str_col AS abc)",
-                "duckdb": "SELECT {'_0': 1, '_1': 2, '_2': 3}, {}, {'_0': 'abc'}, {'_0': 1, '_1': t.str_col}, {'a': 1, 'b': 'abc'}, {'abc': str_col}",
+                "duckdb": "SELECT {'_0': 1, '_1': 2, '_2': 3}, {}, {'_0': 'abc'}, {'_0': 1, 'str_col': t.str_col}, {'a': 1, 'b': 'abc'}, {'abc': str_col}",
                 "hive": "SELECT STRUCT(1, 2, 3), STRUCT(), STRUCT('abc'), STRUCT(1, t.str_col), STRUCT(1, 'abc'), STRUCT(str_col)",
                 "spark2": "SELECT STRUCT(1, 2, 3), STRUCT(), STRUCT('abc'), STRUCT(1, t.str_col), STRUCT(1 AS a, 'abc' AS b), STRUCT(str_col AS abc)",
                 "spark": "SELECT STRUCT(1, 2, 3), STRUCT(), STRUCT('abc'), STRUCT(1, t.str_col), STRUCT(1 AS a, 'abc' AS b), STRUCT(str_col AS abc)",
@@ -457,7 +480,7 @@ LANGUAGE js AS
                 "clickhouse": UnsupportedError,
                 "databricks": UnsupportedError,
                 "drill": UnsupportedError,
-                "duckdb": UnsupportedError,
+                "duckdb": "CASE WHEN LEVENSHTEIN(col1, col2) IS NULL OR 3 IS NULL THEN NULL ELSE LEAST(LEVENSHTEIN(col1, col2), 3) END",
                 "hive": UnsupportedError,
                 "postgres": "LEVENSHTEIN_LESS_EQUAL(col1, col2, 3)",
                 "presto": UnsupportedError,
@@ -1662,7 +1685,7 @@ WHERE
             "ARRAY_CONCAT([1, 2], [3, 4], [5, 6])",
             write={
                 "bigquery": "ARRAY_CONCAT([1, 2], [3, 4], [5, 6])",
-                "duckdb": "ARRAY_CONCAT([1, 2], ARRAY_CONCAT([3, 4], [5, 6]))",
+                "duckdb": "LIST_CONCAT([1, 2], [3, 4], [5, 6])",
                 "postgres": "ARRAY_CAT(ARRAY[1, 2], ARRAY_CAT(ARRAY[3, 4], ARRAY[5, 6]))",
                 "redshift": "ARRAY_CONCAT(ARRAY(1, 2), ARRAY_CONCAT(ARRAY(3, 4), ARRAY(5, 6)))",
                 "snowflake": "ARRAY_CAT([1, 2], ARRAY_CAT([3, 4], [5, 6]))",

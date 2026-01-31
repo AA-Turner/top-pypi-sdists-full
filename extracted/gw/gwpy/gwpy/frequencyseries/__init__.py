@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,14 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Create, manipulate, read, and write spectrum data
-"""
+"""Create, manipulate, read, and write spectrum data."""
 
-# import objects
+# Import objects
 from .frequencyseries import FrequencySeries
 from .hist import SpectralVariance
 
-# import unified I/O
-from . import io  # pylint: disable=unused-import
+# Import unified I/O
+from . import io
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"

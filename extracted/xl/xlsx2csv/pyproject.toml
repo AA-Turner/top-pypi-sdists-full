@@ -34,12 +34,14 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business",
     "Topic :: Utilities",
 ]
 urls = {Homepage = "http://github.com/dilshod/xlsx2csv"}
 #dynamic = ["version"]
-version = "0.8.4"
+version = "0.8.6"
 
 [project.scripts]
 xlsx2csv = "xlsx2csv:main"

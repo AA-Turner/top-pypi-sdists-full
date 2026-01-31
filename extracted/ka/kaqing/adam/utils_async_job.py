@@ -4,11 +4,12 @@ import re
 import traceback
 from typing import TextIO
 
-from adam.repl_session import ReplSession
-from adam.utils import log2, log_dir
+from adam.utils import log_dir
 
 class AsyncJobs:
     _last_command: 'CommandInfo' = None
+    _show_restarts_command: 'CommandInfo' = None
+    _commands: dict[str, 'CommandInfo'] = {}
 
     def local_log_file(command: str, job_id: str = None, err = False, dir: str = None, extra: dict[str, str] = {}):
         try:
@@ -51,6 +52,10 @@ class AsyncJobs:
             cmd = CommandInfo(command, job_id, extra)
             if AsyncJobs.write_last_command(cmd, replace=replace_last_file):
                 AsyncJobs._last_command = cmd
+                AsyncJobs._commands[job_id] = cmd
+
+            if (tks := command.split(' ')) and tks[0] == 'restart' and tks[1] == 'nodes':
+                AsyncJobs._show_restarts_command = cmd
 
         cmd_name = ''
         if command and command.startswith('nodetool '):
@@ -70,14 +75,26 @@ class AsyncJobs:
 
         return id
 
-    def last_command():
-        if cmd := AsyncJobs._last_command:
+    def last_command(job_id: str = None):
+        if job_id:
+            if job_id in AsyncJobs._commands:
+                return AsyncJobs._commands[job_id]
+
+            return None
+        else:
+            if cmd := AsyncJobs._last_command:
+                return cmd
+
+            cmd = AsyncJobs.read_last_command()
+            AsyncJobs._last_command = cmd
+
             return cmd
 
-        cmd = AsyncJobs.read_last_command()
-        AsyncJobs._last_command = cmd
+    def commands():
+        return AsyncJobs._commands
 
-        return cmd
+    def show_restarts_command():
+        return AsyncJobs._show_restarts_command
 
     def write_last_command(cmd: 'CommandInfo', replace = True):
         file = f'{log_dir()}/last'
@@ -91,7 +108,8 @@ class AsyncJobs:
         return True
 
     def read_last_command() -> 'CommandInfo':
-        with open(f'{log_dir()}/last', 'rt') as f:
+        path = f'{log_dir()}/last'
+        with open(path, 'rt') as f:
             return CommandInfo.read(f)
 
 class CommandInfo:

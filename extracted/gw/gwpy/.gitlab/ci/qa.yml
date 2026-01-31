@@ -22,10 +22,22 @@ spec:
       default: ""
       description: "Extra options to pass to mypy"
       type: string
+    python_version:
+      default: "3.13"
+      description: "Python version to use for testing"
+      type: string
+    minimum_python_version:
+      default: "3.11"
+      description: "Python version for minimum dependency compatibility check"
+      type: string
 
 ---
 
 include:
+  - component: gitlab.com/components/dependency-scanning/main@~latest
+    inputs:
+      stage: $[[ inputs.stage ]]
+      job_name: "dependency-scanning"
   - component: gitlab.com/components/sast/sast@~latest
     inputs:
       stage: $[[ inputs.stage ]]
@@ -64,18 +76,15 @@ semgrep-sast:
 
 ruff:
   extends: .qa
-  image: python
+  image: ghcr.io/astral-sh/ruff:alpine
   script:
-    - python -m pip install
-          ruff
-          $[[ inputs.requirements ]]
-    - python -m ruff check
-          $[[ inputs.ruff_options ]]
+    - ruff check
           $[[ inputs.project_dir ]]
+          $[[ inputs.ruff_options ]]
           --exit-zero
-    - python -m ruff check
-          $[[ inputs.ruff_options ]]
+    - ruff check
           $[[ inputs.project_dir ]]
+          $[[ inputs.ruff_options ]]
           --exit-zero
           --output-format gitlab
           --output-file gl-ruff.json
@@ -83,41 +92,57 @@ ruff:
     reports:
       codequality: gl-ruff.json
 
-mypy:
+ty:
   extends: .qa
-  image: python
+  image: ghcr.io/astral-sh/uv:debian
+  variables:
+    UV_MANAGED_PYTHON: 1
   script:
-    - python -m pip install
-          mypy
-          mypy-gitlab-code-quality
-    # run mypy and print to console
-    - python -m mypy
-          $[[ inputs.mypy_options ]]
-          --install-types
-          --non-interactive
+    # Install the project
+    - uv venv --python $[[ inputs.python_version ]]
+    - uv pip install -e . --group dev
+    # Run ty and format for gitlab
+    - uvx ty check
           $[[ inputs.project_dir ]]
-      || exitcode="$?"
-    # run mypy again and format as code quality report
-    - python -m mypy
-          $[[ inputs.mypy_options ]]
-          --no-error-summary
+          --exit-zero
+          --output-format gitlab
+          > gl-ty.json
+    # Run ty and print to console
+    - uvx ty check
           $[[ inputs.project_dir ]]
-      | mypy-gitlab-code-quality > gl-mypy-code-quality.json || true
-    # propagate fatal exitcode
-    - if [ "${exitcode:-0}" -gt 1 ]; then exit ${exitcode}; fi
+          --exit-zero
   artifacts:
     reports:
-      codequality: gl-mypy-code-quality.json
+      codequality: gl-ty.json
 
 rstcheck:
   extends:
     - .python_base
     - .qa
-  image: python
+  image: ghcr.io/astral-sh/uv:debian
   script:
-    - python -m pip install rstcheck[sphinx]
-    - python .gitlab/ci/rstcheck.py > rstcheck.json
-    - python -m json.tool rstcheck.json
+    - uvx --with rstcheck[sphinx] python .gitlab/ci/rstcheck.py > gl-rstcheck.json
+    - uvx python -m json.tool gl-rstcheck.json
   artifacts:
     reports:
-      codequality: rstcheck.json
+      codequality: gl-rstcheck.json
+
+uv.lock:
+  image: ghcr.io/astral-sh/uv:debian
+  extends:
+    - .qa
+  script:
+    # Generate uv.lock file with minimum dependencies
+    - uv venv --python $[[ inputs.minimum_python_version ]]
+    - uv lock --resolution lowest-direct
+  artifacts:
+    paths:
+      - uv.lock
+
+dependency-scanning:
+  needs: ["uv.lock"]
+  rules:
+    # skip if we can't run advanced dependency scanning
+    - if: '$GITLAB_FEATURES =~ /\bdependency_scanning\b/'
+      when: never
+    - !reference [.qa, rules]

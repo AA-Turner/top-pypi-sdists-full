@@ -279,7 +279,7 @@ def test_emd_with_flow_validate_square_distance_matrix():
 def test_emd_samples_1():
     first_array = [1, 2, 3, 4]
     second_array = [2, 3, 4, 5]
-    emd_assert(emd_samples(first_array, second_array), 0.75)
+    emd_assert(emd_samples(first_array, second_array, bins=4), 0.75)
 
 
 def test_emd_samples_1_binsize():
@@ -291,13 +291,13 @@ def test_emd_samples_1_binsize():
 def test_emd_samples_1_manual_range():
     first_array = [1, 2, 3, 4]
     second_array = [2, 3, 4, 5]
-    emd_assert(emd_samples(first_array, second_array, range=(0, 10)), 1.0)
+    emd_assert(emd_samples(first_array, second_array, bins=10, range=(0, 10)), 1.0)
 
 
 def test_emd_samples_1_not_normalized():
     first_array = [1, 2, 3, 4]
     second_array = [2, 3, 4, 5]
-    emd_assert(emd_samples(first_array, second_array, normalized=False), 3.0)
+    emd_assert(emd_samples(first_array, second_array, bins=4, normalized=False), 3.0)
 
 
 def test_emd_samples_1_custom_distance():
@@ -306,7 +306,7 @@ def test_emd_samples_1_custom_distance():
 
     first_array = [1, 2, 3, 4]
     second_array = [2, 3, 4, 5]
-    emd_assert(emd_samples(first_array, second_array, distance=dist), 0.25)
+    emd_assert(emd_samples(first_array, second_array, bins=4, distance=dist), 0.25)
 
 
 def test_emd_samples_all_kwargs():
@@ -332,25 +332,50 @@ def test_emd_samples_all_kwargs():
 def test_emd_samples_2():
     first_array = [1]
     second_array = [2]
-    emd_assert(emd_samples(first_array, second_array), 0.5)
+    # Use explicit bins=2 since bins='auto' gives only 1 bin for this small dataset
+    emd_assert(emd_samples(first_array, second_array, bins=2), 0.5)
 
 
 def test_emd_samples_3():
     first_array = [1, 1, 1, 2, 3]
     second_array = [1, 2, 2, 2, 3]
-    emd_assert(emd_samples(first_array, second_array), 0.32)
+    # Use explicit bins=5 since bins='auto' behavior varies across NumPy versions
+    emd_assert(emd_samples(first_array, second_array, bins=5), 0.32)
 
 
 def test_emd_samples_4():
     first_array = [1, 2, 3, 4, 5]
     second_array = [99, 98, 97, 96, 95]
-    emd_assert(emd_samples(first_array, second_array), 78.4)
+    emd_assert(emd_samples(first_array, second_array, bins=5), 78.4)
 
 
 def test_emd_samples_5():
     first_array = [1]
     second_array = [1, 2, 3, 4, 5]
-    emd_assert(emd_samples(first_array, second_array), 1.8)
+    emd_assert(emd_samples(first_array, second_array, bins=4), 1.8)
+
+
+# bins='auto' with integer inputs (regression tests for GitHub issue #68)
+# NumPy 2.1+ enforces bin width >= 1 for integer dtypes, which can cause
+# too few bins. The fix converts to float64 before computing bin edges.
+
+
+def test_emd_samples_auto_bins_integer_input():
+    """bins='auto' should produce nonzero EMD for distinct integer samples."""
+    first_array = [1]
+    second_array = [2]
+    # Without the fix, this returns 0.0 (only 1 bin, so histograms are identical)
+    result = emd_samples(first_array, second_array)
+    assert result > 0, f"EMD should be nonzero for distinct samples, got {result}"
+
+
+def test_emd_samples_auto_bins_integer_vs_float_consistency():
+    """bins='auto' should give same result for integer and float inputs."""
+    int_result = emd_samples([1, 2, 3], [4, 5, 6])
+    float_result = emd_samples([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
+    assert abs(int_result - float_result) < 1e-10, (
+        f"Integer and float inputs should give same EMD: {int_result} vs {float_result}"
+    )
 
 
 # Validation
@@ -381,3 +406,164 @@ def test_emd_samples_validate_distance_matrix_size():
     second_array = [1, 2, 3, 4]
     with pytest.raises(ValueError):
         emd_samples(first_array, second_array, distance=dist)
+
+
+# Backend tests
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+@pytest.fixture
+def balanced_inputs():
+    """Balanced histograms (same sum) for testing."""
+    first = np.array([0.25, 0.25, 0.25, 0.25])
+    second = np.array([0.1, 0.2, 0.3, 0.4])
+    dist = np.array([
+        [0.0, 1.0, 2.0, 3.0],
+        [1.0, 0.0, 1.0, 2.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [3.0, 2.0, 1.0, 0.0],
+    ])
+    return first, second, dist
+
+
+@pytest.fixture
+def unbalanced_inputs():
+    """Unbalanced histograms (different sums) for testing."""
+    first = np.array([0.0, 2.0, 1.0, 2.0])
+    second = np.array([2.0, 1.0, 2.0, 1.0])
+    dist = np.array([
+        [0.0, 1.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+        [1.0, 2.0, 0.0, 1.0],
+        [2.0, 1.0, 1.0, 0.0],
+    ])
+    return first, second, dist
+
+
+# Test backend parameter
+
+
+def test_emd_backend_pot(balanced_inputs):
+    """Test emd() with POT backend."""
+    first, second, dist = balanced_inputs
+    result = emd(first, second, dist, backend='pot')
+    assert isinstance(result, float)
+    assert result >= 0
+
+
+def test_emd_backend_cpp(balanced_inputs):
+    """Test emd() with C++ backend."""
+    first, second, dist = balanced_inputs
+    result = emd(first, second, dist, backend='cpp')
+    assert isinstance(result, float)
+    assert result >= 0
+
+
+def test_emd_with_flow_backend_pot(balanced_inputs):
+    """Test emd_with_flow() with POT backend."""
+    first, second, dist = balanced_inputs
+    result, flow = emd_with_flow(first, second, dist, backend='pot')
+    assert isinstance(result, float)
+    assert result >= 0
+    assert len(flow) == len(first)
+
+
+def test_emd_with_flow_backend_cpp(balanced_inputs):
+    """Test emd_with_flow() with C++ backend."""
+    first, second, dist = balanced_inputs
+    result, flow = emd_with_flow(first, second, dist, backend='cpp')
+    assert isinstance(result, float)
+    assert result >= 0
+    assert len(flow) == len(first)
+
+
+def test_emd_samples_backend_pot():
+    """Test emd_samples() with POT backend."""
+    first = [1, 2, 3, 4]
+    second = [2, 3, 4, 5]
+    result = emd_samples(first, second, bins=4, backend='pot')
+    assert isinstance(result, float)
+    assert result >= 0
+
+
+def test_emd_samples_backend_cpp():
+    """Test emd_samples() with C++ backend."""
+    first = [1, 2, 3, 4]
+    second = [2, 3, 4, 5]
+    result = emd_samples(first, second, bins=4, backend='cpp')
+    assert isinstance(result, float)
+    assert result >= 0
+
+
+def test_emd_invalid_backend(balanced_inputs):
+    """Test that invalid backend raises ValueError."""
+    first, second, dist = balanced_inputs
+    with pytest.raises(ValueError):
+        emd(first, second, dist, backend='invalid')
+
+
+def test_emd_with_flow_invalid_backend(balanced_inputs):
+    """Test that invalid backend raises ValueError for emd_with_flow."""
+    first, second, dist = balanced_inputs
+    with pytest.raises(ValueError):
+        emd_with_flow(first, second, dist, backend='invalid')
+
+
+def test_emd_samples_invalid_backend():
+    """Test that invalid backend raises ValueError for emd_samples."""
+    with pytest.raises(ValueError):
+        emd_samples([1, 2], [3, 4], backend='invalid')
+
+
+# Backend equivalence tests
+
+
+def test_emd_backend_equivalence_balanced(balanced_inputs):
+    """Test that POT and C++ backends give same result for balanced histograms."""
+    first, second, dist = balanced_inputs
+    result_pot = emd(first, second, dist, backend='pot')
+    result_cpp = emd(first, second, dist, backend='cpp')
+    assert abs(result_pot - result_cpp) < 1e-6, (
+        f"POT ({result_pot}) and C++ ({result_cpp}) should give same result"
+    )
+
+
+def test_emd_backend_equivalence_unbalanced(unbalanced_inputs):
+    """Test that POT and C++ backends give same result for unbalanced histograms."""
+    first, second, dist = unbalanced_inputs
+    result_pot = emd(first, second, dist, backend='pot')
+    result_cpp = emd(first, second, dist, backend='cpp')
+    assert abs(result_pot - result_cpp) < 1e-5, (
+        f"POT ({result_pot}) and C++ ({result_cpp}) should give same result"
+    )
+
+
+def test_emd_backend_equivalence_extra_mass_penalty(unbalanced_inputs):
+    """Test equivalence with custom extra_mass_penalty."""
+    first, second, dist = unbalanced_inputs
+    result_pot = emd(first, second, dist, extra_mass_penalty=2.5, backend='pot')
+    result_cpp = emd(first, second, dist, extra_mass_penalty=2.5, backend='cpp')
+    assert abs(result_pot - result_cpp) < 1e-5, (
+        f"POT ({result_pot}) and C++ ({result_cpp}) should give same result with extra_mass_penalty"
+    )
+
+
+def test_emd_with_flow_backend_equivalence_cost(balanced_inputs):
+    """Test that POT and C++ backends give same EMD cost for emd_with_flow."""
+    first, second, dist = balanced_inputs
+    cost_pot, _ = emd_with_flow(first, second, dist, backend='pot')
+    cost_cpp, _ = emd_with_flow(first, second, dist, backend='cpp')
+    assert abs(cost_pot - cost_cpp) < 1e-6, (
+        f"POT ({cost_pot}) and C++ ({cost_cpp}) should give same cost"
+    )
+
+
+def test_emd_samples_backend_equivalence():
+    """Test that POT and C++ backends give same result for emd_samples."""
+    first = [1, 2, 3, 4, 5]
+    second = [2, 3, 4, 5, 6]
+    result_pot = emd_samples(first, second, bins=5, backend='pot')
+    result_cpp = emd_samples(first, second, bins=5, backend='cpp')
+    assert abs(result_pot - result_cpp) < 1e-6, (
+        f"POT ({result_pot}) and C++ ({result_cpp}) should give same result"
+    )

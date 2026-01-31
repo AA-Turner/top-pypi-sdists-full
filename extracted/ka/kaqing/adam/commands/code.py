@@ -1,12 +1,8 @@
 import code
-from functools import partial
 
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra_table_names, run_cql
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import tabulize
-from adam.utils_context import Context
-from adam.utils_k8s.statefulsets import StatefulSets
+from adam.utils_tabulize import tabulize
 
 class Code(Command):
     COMMAND = 'python'
@@ -31,12 +27,6 @@ class Code(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            sts = state.sts
-            pod = state.pod
-            pods = StatefulSets.pod_names(state.sts, state.namespace)
-            tables = cassandra_table_names(state)
-            cql = partial(run_cql, state, Context.new(show_out=True))
-
             my_local = globals() | locals()
             # my_local = globals() | {'StatefulSets': StatefulSets} | locals()
             lines = [
@@ -47,7 +37,7 @@ class Code(Command):
                 "cql('select...'): run cql statement"
             ]
 
-            code.interact(local=my_local, banner=tabulize(lines, header='Variables', separator=':'))
+            code.interact(local=my_local, banner=tabulize(lines, header='Variables', separator=':', ctx=self.context()))
 
             return state
 

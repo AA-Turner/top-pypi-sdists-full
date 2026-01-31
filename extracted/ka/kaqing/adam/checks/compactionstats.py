@@ -16,7 +16,7 @@ class CompactionStats(Check):
         issues: list[Issue] = []
 
         try:
-            ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+            ctx_fg = ctx.copy(background=False, text_color=Color.gray)
             result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} compactionstats", ctx=ctx_fg)
             compactions = parse_nodetool_compactionstats(result.stdout)
             pod_details = {

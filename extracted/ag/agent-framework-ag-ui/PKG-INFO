@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-ag-ui
-Version: 1.0.0b260128
+Version: 1.0.0b260130
 Summary: AG-UI protocol integration for Agent Framework
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python

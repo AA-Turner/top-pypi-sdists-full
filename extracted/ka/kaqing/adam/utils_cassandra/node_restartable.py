@@ -1,5 +1,5 @@
 from adam.config import Config
-from adam.utils import tabulize
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class NodeRestartable:
@@ -26,7 +26,7 @@ class NodeRestartable:
                lambda p: f'{p}\t{self.host_ids_by_pod[p]}',
                header='POD\tHOST_ID',
                separator='\t',
-               text_color=ctx.text_color)
+               ctx=ctx.copy(show_out=True, text_color=ctx.text_color))
 
       if self.downs:
             ctx.log2(f'[REPLICAS DOWN] The following nodes with replicas are down.')
@@ -63,6 +63,6 @@ class NodeRestartable:
            return '-'
 
        if self.dup_copies:
-           return f'DUP COPIES: {sorted(list(self.dup_copies))[0]}'
+           return f'MC: {sorted(list(self.dup_copies))[0]}'
 
        return '-'

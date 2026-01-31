@@ -5,7 +5,8 @@ from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils import duration, tabulize, log2, log_exc
+from adam.utils import duration, log2, log_exc
+from adam.utils_tabulize import tabulize
 
 class ShowLogin(Command):
     COMMAND = 'show login'
@@ -32,8 +33,10 @@ class ShowLogin(Command):
         with self.validate(args, state) as (args, state):
             login: IdpLogin = None
             with log_exc(True):
+                ctx = self.context()
+
                 if not(host := Apps.app_host('c3', 'c3', state.namespace)):
-                    log2('Cannot locate ingress for app.')
+                    ctx.log2('Cannot locate ingress for app.')
                     return state
 
                 login = Idp.login(host, use_token_from_env=True)
@@ -45,7 +48,7 @@ class ShowLogin(Command):
                         f'IDP expires in\t{duration(time.time(), it.exp)}',
                         f'IDP Groups\t{",".join(it.groups)}'
                     ]
-                    tabulize(lines, separator='\t')
+                    tabulize(lines, separator='\t', ctx=ctx)
 
             return state
 

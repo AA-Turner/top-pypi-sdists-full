@@ -32,9 +32,9 @@ class Cqlsh(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with cassandra(state) as pods:
-                    pods.cql(args, ctx=Context.new(cmd, show_out=True, backgrounded=backgrounded, history=Context.PODS))
+                    pods.cql(args, ctx=Context.new(cmd, show_out=True, background=background, history=Context.PODS))
 
     def completion(self, state: ReplState) -> dict[str, any]:
         if state.device != state.C:

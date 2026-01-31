@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.2.43
+Version: 0.3.0
 Summary: Generic helpers for GenAI
 Project-URL: Homepage, https://github.com/datarobot-oss/datarobot-genai
 Author: DataRobot, Inc.
@@ -43,9 +43,11 @@ Requires-Dist: opentelemetry-api<2.0.0,>=1.22.0; extra == 'drmcp'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.22.0; extra == 'drmcp'
 Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.22.0; extra == 'drmcp'
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.22.0; extra == 'drmcp'
+Requires-Dist: perplexityai<1.0,>=0.27; extra == 'drmcp'
 Requires-Dist: pydantic-settings<3.0.0,>=2.1.0; extra == 'drmcp'
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == 'drmcp'
 Requires-Dist: python-dotenv<2.0.0,>=1.1.0; extra == 'drmcp'
+Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == 'drmcp'
 Provides-Extra: langgraph
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == 'langgraph'
 Requires-Dist: langgraph-prebuilt<0.7.0,>=0.2.3; extra == 'langgraph'

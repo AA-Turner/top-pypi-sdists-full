@@ -1,3 +1,16 @@
+spec:
+  inputs:
+    minimum_python_version:
+      default: "3.11"
+      description: "Python version for minimum dependency compatibility check"
+      type: string
+    experimental_python_version:
+      default: "3.14"
+      description: "Python version for experimental dependency compatibility check"
+      type: string
+
+---
+
 # -- GWpy test pipeline
 
 include:
@@ -9,22 +22,49 @@ include:
     inputs:
       job_name: "basic_test"
       pip_cmd: "uv pip"
-      pytest_options: "--color yes --cov gwpy --numprocesses auto gwpy/"
-      install_extra: "test"
+      pip_options: "--group test"
+      pytest_options: >-
+        --color yes
+        --cov gwpy
+        --numprocesses auto
+        -ra
+        --timeout 1800
+        gwpy/
 
   # full test template
   - local: .gitlab/ci/test-job.yml
     inputs:
       pip_cmd: "uv pip"
-      pytest_options: "--color yes --cov gwpy --durations 50 --numprocesses auto gwpy/ examples/"
-      install_extra: "dev,test"
+      pip_options: "--group dev"
+      pytest_options: >-
+        --color yes
+        --cov gwpy
+        --numprocesses auto
+        -ra
+        --timeout 1800
+        gwpy/
+
+  # examples tests
+  - local: .gitlab/ci/test-job.yml
+    inputs:
+      job_name: "examples_test"
+      pip_cmd: "uv pip"
+      pip_options: "--group dev"
+      pytest_options: >-
+        --color yes
+        --cov gwpy
+        --durations 50
+        --numprocesses auto
+        -ra
+        --timeout 1800
+        examples/
 
   # compatibility test template (smaller test suite)
   - local: .gitlab/ci/compatibility.yml
     inputs:
       stage: test
-      minimum_python_version: "3.9"
-      experimental_python_version: "3.13"
+      minimum_python_version: $[[ inputs.minimum_python_version ]]
+      experimental_python_version: $[[ inputs.experimental_python_version ]]
       pytest_options: "--color yes --cov gwpy --numprocesses auto gwpy/"
 
   # measure coverage over all jobs
@@ -32,27 +72,80 @@ include:
 
 # -- templates
 
+# Bash script to retry a command with exponential backoff
+# Inspired by https://medium.com/@obaff/13-bash-only-tricks-you-can-drop-into-any-ci-cd-pipeline-e70ed0caca4c
+.retry_sh: &retry_sh |
+  retry() {
+    local retries=3
+    local delay=5
+    local exitcode=1
+    for ((i=1; i<=retries; i++)); do
+      if [ $i -gt 1 ]; then
+        sleep "$delay"
+        delay=$((delay * 2))
+        echo -e "\x1B[93m[retry] Running '$@' [$i/$retries]…\x1B[0m" >&2
+      fi
+      "$@" && return 0
+      exitcode=$?
+      if [ "$i" -lt "$retries" ]; then
+        echo -e "\x1B[93m[retry] Attempt $i failed. Waiting $delay s…\x1B[0m" >&2
+      else
+        echo -e "\x1B[93m[retry] Attempt $i failed. No more retries left, returning $exitcode.\x1B[0m" >&2
+      fi
+    done
+    return $exitcode  # propagate failure
+  }
+
+.retry_psh: &retry_psh |
+  function Retry-Command {
+    $retries = 3
+    $delay = 5
+    $exitcode = 1
+    $command = $args
+    for ($i = 1; $i -le $retries; $i++) {
+      if ($i -gt 1) {
+        Start-Sleep -Seconds $delay
+        $delay = $delay * 2
+        Write-Host "[retry] Running '$command' [$i/$retries]…" -ForegroundColor Yellow
+      }
+      $commandString = $command -join ' '
+      Invoke-Expression $commandString
+      if ($LASTEXITCODE -eq 0 -or $?) {
+        return 0
+      }
+      $exitcode = $LASTEXITCODE
+      if ($i -lt $retries) {
+        Write-Host "[retry] Attempt $i failed. Waiting $delay s…" -ForegroundColor Yellow
+      } else {
+        Write-Host "[retry] Attempt $i failed. No more retries left, returning $exitcode." -ForegroundColor Yellow
+      }
+    }
+    return $exitcode
+  }
+  Set-Alias -Name retry -Value Retry-Command
+
 # all development versions
 .dev_test:
+  needs: []
   extends: .test
   parallel:
     matrix:
       - PYTHON_VERSION:
-          - "3.9"
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
 
 # only well-supported production versions
 .prod_test:
+  needs: []
   extends: .test
   parallel:
     matrix:
       - PYTHON_VERSION:
-          - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
 
 .brew:
   extends: .macos
@@ -75,8 +168,9 @@ include:
 
 .uv_install: &uv_install
   # install uv
-  - wget -qO- https://astral.sh/uv/install.sh | sh -s - -q
-  - source ${XDG_BIN_HOME:-$HOME/.local/bin}/env
+  - *retry_sh
+  - retry curl -LsSf https://astral.sh/uv/install.sh | sh -s - -q
+  - source ${UV_INSTALL_DIR}/env
 
 .uv_venv: &uv_venv
   # configure a virtual environment for the right Python version
@@ -85,9 +179,9 @@ include:
 
 .uv_install_windows: &uv_install_windows
   # install uv
-  - powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  - $env:PATH = $env:USERPROFILE + "\.local\bin;$env:PATH"
-  - $env:PATH -split ';'
+  - *retry_psh
+  - retry 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
+  - $env:PATH += ";$UV_INSTALL_DIR"
 
 .uv_venv_windows: &uv_venv_windows
   # configure a virtual environment for the right Python version
@@ -99,6 +193,7 @@ include:
   variables:
     # set the cache directory for uv
     UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_INSTALL_DIR: "$CI_PROJECT_DIR/.uv/bin"
   before_script:
     - *uv_install
     - *uv_venv
@@ -169,12 +264,6 @@ python_test_macos:
   rules:
     - !reference [.macos, rules]
     - !reference [.rules_full_test, rules]
-  parallel:
-    matrix:
-      - PYTHON_VERSION:
-          - "3.10"
-          - "3.11"
-          #- "3.12" <-- cannot build ligo-segments on macOS
 
 # Windows
 python_test_windows:
@@ -184,6 +273,32 @@ python_test_windows:
   rules:
     - !reference [.windows, rules]
     - !reference [.rules_full_test, rules]
+
+# anchors for needs statements
+
+.needs_python_test_linux:
+  needs:
+    - job: python_test_linux
+      artifacts: false
+      parallel:
+        matrix:
+          - PYTHON_VERSION: ['$[[ matrix.PYTHON_VERSION ]]']
+
+.needs_python_test_macos:
+  needs:
+    - job: python_test_macos
+      artifacts: false
+      parallel:
+        matrix:
+          - PYTHON_VERSION: ['$[[ matrix.PYTHON_VERSION ]]']
+
+.needs_python_test_windows:
+  needs:
+    - job: python_test_windows
+      artifacts: false
+      parallel:
+        matrix:
+          - PYTHON_VERSION: ['$[[ matrix.PYTHON_VERSION ]]']
 
 # -- conda tests
 #
@@ -196,23 +311,21 @@ python_test_windows:
 
 .conda_create_test_env:
   before_script:
+    # install rattler solver
+    - retry conda install --quiet --yes --name base --channel conda-forge
+        "conda-rattler-solver>=0.0.5"
+    - conda config --system --set solver rattler
     - conda info --all
-    # create an (almost) empty environment
-    - conda create -n pip2conda
-        --yes
-        --quiet
-        python
-    - conda activate pip2conda
-    # and use uv to install pip2conda into it
-    - uv pip install pip2conda
-    # then use pip2conda to solve (sort of) the test environment
-    - python -m pip2conda
-        --all
+    # use pip2conda to solve (sort of) the test environment
+    - retry uvx --with "pip2conda>=0.9.0"
+      pip2conda
+        --all-extras
+        --all-groups
         --output environment.txt
         --python-version ${PYTHON_VERSION}
     - cat environment.txt
     # create the test environment
-    - conda create --quiet --yes --name test --file environment.txt
+    - retry conda create --quiet --yes --name test --file environment.txt
     - conda list --name test
     - conda activate test
 
@@ -234,11 +347,23 @@ conda_test_linux:
   extends:
     - .conda_test
     - .linux
+    - .needs_python_test_linux
   rules:
     - !reference [.linux, rules]
     - !reference [.rules_full_test, rules]
   image: quay.io/condaforge/miniforge3
+  variables:
+    DEBIAN_FRONTEND: noninteractive
   before_script:
+    - *retry_sh
+    # install latex packages
+    - apt-get -yqq update && apt-get install -yqq --no-install-recommends
+        cm-super-minimal
+        dvipng
+        texlive-fonts-recommended
+        texlive-latex-extra
+    # install curl
+    - apt-get -yqq update && apt-get -yqq install curl
     # install uv
     - *uv_install
     # init conda
@@ -252,20 +377,22 @@ conda_test_linux:
 conda_test_macos:
   extends:
     - .conda_test
-    - .brew
+    - .macos
+    - .needs_python_test_macos
   rules:
     - !reference [.macos, rules]
     - !reference [.rules_full_test, rules]
   before_script:
-    # install miniforge using Homebrew
-    - brew install miniforge
+    - *retry_sh
+    # install miniforge
+    - retry curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+    - retry bash Miniforge3-$(uname)-$(uname -m).sh -b -p "$CI_PROJECT_DIR/miniforge3"
+    - . $CI_PROJECT_DIR/miniforge3/etc/profile.d/conda.sh
     # then do the same init as Linux
     - !reference [conda_test_linux, before_script]
   cache:
     # cache uv/conda packages
     - !reference [.conda_test, cache]
-    # and homebrew packages
-    - !reference [.brew, cache]
 
 # Windows
 conda_test_windows:
@@ -275,14 +402,16 @@ conda_test_windows:
     - .conda_test
     - .choco
     - .uv_windows
+    - .needs_python_test_windows
   rules:
     - !reference [.windows, rules]
     - !reference [.rules_full_test, rules]
   before_script:
+    - *retry_psh
     # install uv
     - *uv_install_windows
     # install miniforge using choco
-    - choco install
+    - retry choco install
         --cache $CHOCO_CACHE_DIR
         --yes
         miniforge3
@@ -296,3 +425,34 @@ conda_test_windows:
     - !reference [.conda_test, cache]
     # and choco packages
     - !reference [.choco, cache]
+
+# -- examples tests
+#
+# Full development environment running the examples/ scripts
+#
+# These are allowed to fail, as they are not critical, and failures are
+# often due to transient network issues downloading data, or issues with
+# third-party services.
+#
+# However, they are used in the documentation, so we want to keep an eye
+# on them.
+#
+
+.examples:
+  script: !reference [.examples_test, script]
+  allow_failure: true
+
+examples_test_linux:
+  extends:
+    - conda_test_linux
+    - .examples
+
+examples_test_macos:
+  extends:
+    - conda_test_macos
+    - .examples
+
+examples_test_windows:
+  extends:
+    - conda_test_windows
+    - .examples

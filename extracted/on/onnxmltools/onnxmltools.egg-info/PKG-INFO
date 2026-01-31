@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxmltools
-Version: 1.15.0
+Version: 1.16.0
 Summary: Converts Machine Learning models to ONNX
 Author-email: ONNX <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0

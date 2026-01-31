@@ -1,0 +1,8 @@
+import{i as e,n as t}from"./rolldown-runtime-BKYq3fBv.js";import{Cr as n,En as r,Fr as i,Nn as a,Qn as o,Tn as s,ai as c,d as l,f as u,gr as d,sr as f}from"./vendor-primevue-Cg-HmKZY.js";import{in as p,rn as m}from"./api-CJ30itpV.js";import{fo as h,po as g}from"./dialogService-DvYmp2_F.js";var _,v=t((()=>{a(),l(),s(),h(),m(),_=f({__name:`GlobalToast`,setup(e){let t=r(),a=p(),s=g();i(()=>a.messagesToAdd,e=>{e.length!==0&&(e.forEach(e=>{t.add(e)}),a.messagesToAdd=[])},{deep:!0}),i(()=>a.messagesToRemove,e=>{e.length!==0&&(e.forEach(e=>{t.remove(e)}),a.messagesToRemove=[])},{deep:!0}),i(()=>a.removeAllRequested,e=>{e&&(t.removeAllGroups(),a.removeAllRequested=!1)});function updateToastPosition(){let e=document.getElementById(`dynamic-toast-style`)||createStyleElement(),t=document.querySelector(`.graph-canvas-container`)?.getBoundingClientRect();t&&(e.textContent=`
+    .p-toast.p-component.p-toast-top-right {
+      top: ${t.top+100}px !important;
+      right: ${window.innerWidth-(t.left+t.width)+20}px !important;
+       z-index: 10000 !important;
+    }
+  `)}function createStyleElement(){let e=document.createElement(`style`);return e.id=`dynamic-toast-style`,document.head.appendChild(e),e}return i(()=>s.get(`Comfy.UseNewMenu`),()=>d(updateToastPosition),{immediate:!0}),i(()=>s.get(`Comfy.Sidebar.Location`),()=>d(updateToastPosition),{immediate:!0}),(e,t)=>(n(),o(c(u)))}})})),y,b=t((()=>{v(),v(),y=_}));export{b as n,y as t};
+//# sourceMappingURL=GlobalToast-CoBIQD6t.js.map

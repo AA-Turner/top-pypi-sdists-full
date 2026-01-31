@@ -541,6 +541,7 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
                 "partition_key": "toYYYYMM(run_validation)",
             },
             "columns": [
+                {"name": "cluster", "type": "LowCardinality(String)"},
                 {"name": "host", "type": "LowCardinality(String)"},
                 {"name": "version", "type": "LowCardinality(String)"},
                 {"name": "stable_version", "type": "LowCardinality(String)"},

@@ -6,21 +6,26 @@ import hashlib
 import json
 import re
 import sys
-import typing
 from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    TypedDict,
+)
 
 from rstcheck_core.config import RstcheckConfig
 from rstcheck_core.runner import RstcheckMainRunner
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from typing import Literal
 
     from rstcheck_core.types import LintError
 
+    Severity = Literal["info", "minor", "major", "critical", "blocker"]
+
 MESSAGE_RE = re.compile(
     r"\((?P<severity>[A-Z]+)/[0-9]+\)(\s+)(?P<message>.*)",
 )
-SEVERITY: dict[str, str] = {
+SEVERITY: dict[str, Severity] = {
     "ERROR": "major",
     "SEVERE": "major",
     "INFO": "info",
@@ -28,24 +33,24 @@ SEVERITY: dict[str, str] = {
 }
 
 
-class CodeQualityLocation(typing.TypedDict):
+class CodeQualityLocation(TypedDict):
     """Location parameter in a `CodeQualityItem`."""
 
     path: str
     lines: dict[str, int]
 
 
-class CodeQualityItem(typing.TypedDict):
+class CodeQualityItem(TypedDict):
     """Gitlab Code Quality item.
 
     See <https://docs.gitlab.com/ci/testing/code_quality/#code-quality-report-format>.
     """
 
-    description: str
     check_name: str
+    description: str
     fingerprint: str
-    severity: Literal["info", "minor", "major", "critical", "blocker"]
     location: CodeQualityLocation
+    severity: Severity
 
 
 def rstcheck(
@@ -74,7 +79,7 @@ def codeclimate_item(item: LintError) -> CodeQualityItem:
         usedforsecurity=False,
     ).hexdigest()
     match = MESSAGE_RE.match(item["message"]).groupdict()
-    return {
+    return CodeQualityItem({
         "check_name": match["message"],
         "description": match["message"],
         "fingerprint": fingerprint,
@@ -86,7 +91,7 @@ def codeclimate_item(item: LintError) -> CodeQualityItem:
             },
         },
         "severity": SEVERITY.get(match["severity"], "info"),
-    }
+    })
 
 
 def codeclimate(items: list[LintError]) -> list[CodeQualityItem]:

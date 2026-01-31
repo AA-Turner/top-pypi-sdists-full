@@ -17,11 +17,11 @@ use crate::vector::hnsw::atomic_bitvec::AtomicBitVec;
 use crate::vector::hnsw::error::{HNSWError, Result};
 use crate::vector::hnsw::node_storage::NodeStorage;
 use crate::vector::hnsw::query_buffers::VisitedList;
+use crate::vector::hnsw::storage::NeighborStorage;
 use crate::vector::hnsw::types::{Candidate, DistanceFunction, HNSWParams};
 use ordered_float::OrderedFloat;
-use parking_lot::Mutex;
 use rayon::prelude::*;
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::RefCell;
 use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use tracing::{debug, info};
@@ -57,26 +57,26 @@ thread_local! {
 
 /// Parallel HNSW builder
 ///
-/// Uses cached vectors for lock-free distance computation.
-/// Only neighbor lists require synchronization via per-node locks.
+/// Uses atomic neighbor storage for lock-free reads during search.
+/// Vectors are cached separately for lock-free distance computation.
 ///
-/// SAFETY: The storage is wrapped in UnsafeCell for interior mutability.
-/// We ensure thread safety by:
-/// 1. Using per-node locks for neighbor list modifications
-/// 2. Vectors are immutable after allocation (stored in separate Vec)
-/// 3. Node metadata (level, slot) is immutable after allocation
+/// Thread safety:
+/// 1. `neighbors` uses atomic operations for lock-free reads, per-node locks for writes
+/// 2. `vectors` is immutable after allocation, safe to share
+/// 3. `levels` is immutable after allocation, safe to share
 pub struct ParallelBuilder {
-    /// Node storage (for neighbor lists and metadata)
-    /// Wrapped in UnsafeCell for interior mutability with manual synchronization
-    storage: UnsafeCell<NodeStorage>,
+    /// Vector dimensions
+    dimensions: usize,
     /// Cached vectors for lock-free distance computation
     vectors: Vec<Vec<f32>>,
+    /// Atomic neighbor storage with lock-free reads
+    neighbors: NeighborStorage,
     /// Node levels
     levels: Vec<u8>,
-    /// Per-node locks for neighbor list modification
-    node_locks: Vec<Mutex<()>>,
     /// Bitmap tracking which nodes are fully connected
     ready_bitmap: AtomicBitVec,
+    /// Bitmap tracking which nodes need pruning (deferred until end)
+    needs_pruning: AtomicBitVec,
     /// Atomic entry point (u32::MAX = None)
     entry_point: AtomicU32,
     /// Construction parameters
@@ -85,6 +85,8 @@ pub struct ParallelBuilder {
     distance_fn: DistanceFunction,
     /// Random number generator state (atomic for thread-safe level assignment)
     rng_state: AtomicU64,
+    /// Whether to use SQ8 quantization for final index
+    use_quantization: bool,
 }
 
 /// Number of nodes to insert sequentially before switching to parallel
@@ -100,32 +102,19 @@ impl ParallelBuilder {
     ) -> Result<Self> {
         params.validate().map_err(HNSWError::InvalidParams)?;
 
-        let storage = if use_quantization {
-            NodeStorage::new_sq8(dimensions, params.m, params.max_level as usize)
-        } else {
-            NodeStorage::new(dimensions, params.m, params.max_level as usize)
-        };
-
         Ok(Self {
-            storage: UnsafeCell::new(storage),
+            dimensions,
             vectors: Vec::new(),
+            neighbors: NeighborStorage::new(params.max_level as usize, params.m),
             levels: Vec::new(),
-            node_locks: Vec::new(),
             ready_bitmap: AtomicBitVec::empty(),
+            needs_pruning: AtomicBitVec::empty(),
             entry_point: AtomicU32::new(u32::MAX),
             rng_state: AtomicU64::new(params.seed),
             params,
             distance_fn,
+            use_quantization,
         })
-    }
-
-    /// Get mutable reference to storage
-    ///
-    /// SAFETY: Caller must ensure exclusive access via appropriate locking
-    #[inline]
-    #[allow(clippy::mut_from_ref)]
-    unsafe fn storage(&self) -> &mut NodeStorage {
-        &mut *self.storage.get()
     }
 
     /// Build index from vectors using parallel construction
@@ -139,12 +128,10 @@ impl ParallelBuilder {
         let start = std::time::Instant::now();
 
         // Validate all vectors for dimensions and NaN/Inf
-        // SAFETY: No concurrent access yet - we're still in single-threaded setup
-        let dimensions = unsafe { self.storage() }.dimensions();
         for vec in &vectors {
-            if vec.len() != dimensions {
+            if vec.len() != self.dimensions {
                 return Err(HNSWError::DimensionMismatch {
-                    expected: dimensions,
+                    expected: self.dimensions,
                     actual: vec.len(),
                 });
             }
@@ -152,7 +139,11 @@ impl ParallelBuilder {
                 return Err(HNSWError::InvalidVector);
             }
         }
-        debug!(batch_size, dimensions, "Validated all vectors");
+        debug!(
+            batch_size,
+            dimensions = self.dimensions,
+            "Validated all vectors"
+        );
 
         // Phase 1: Allocate all nodes, assign levels, store vectors
         self.allocate_all_nodes(&vectors);
@@ -179,6 +170,9 @@ impl ParallelBuilder {
             debug!(parallel_count, "Parallel insertion complete");
         }
 
+        // Phase 5: Batch prune all overflow nodes (deferred pruning)
+        self.prune_all_overflows();
+
         let elapsed = start.elapsed();
         let rate = batch_size as f64 / elapsed.as_secs_f64();
         info!(
@@ -197,31 +191,18 @@ impl ParallelBuilder {
         self.vectors = vectors.to_vec();
         self.levels = Vec::with_capacity(n);
 
-        // SAFETY: Single-threaded setup phase - no concurrent access
-        // Using raw pointer to avoid borrow checker issues with self.levels
-        let storage_ptr = self.storage.get();
-
-        for vector in vectors {
-            let storage = unsafe { &mut *storage_ptr };
-            let node_id = storage.allocate_node();
+        // Allocate neighbor storage for all nodes
+        for node_id in 0..n {
             let level = self.random_level();
-
-            storage.set_vector(node_id, vector);
-            storage.set_slot(node_id, node_id);
-            storage.set_level(node_id, level);
-
-            if level > 0 {
-                storage.allocate_upper_levels(node_id, level);
-            }
-
+            self.neighbors.allocate_node(node_id as u32, level);
             self.levels.push(level);
         }
     }
 
     /// Initialize concurrency structures
     fn init_concurrency(&mut self, capacity: usize) {
-        self.node_locks = (0..capacity).map(|_| Mutex::new(())).collect();
         self.ready_bitmap = AtomicBitVec::new(capacity);
+        self.needs_pruning = AtomicBitVec::new(capacity);
     }
 
     /// Assign random level using atomic RNG
@@ -377,39 +358,40 @@ impl ParallelBuilder {
                     }
                 }
 
-                // Get neighbors (requires lock)
-                let neighbors = {
-                    let _lock = self.node_locks[current.node_id as usize].lock();
-                    // SAFETY: Protected by per-node lock
-                    unsafe { self.storage() }.neighbors_at_level(current.node_id, level)
-                };
+                // Get neighbors using lock-free atomic reads
+                // NeighborStorage uses atomic operations for both level 0 and upper levels
+                self.neighbors
+                    .with_neighbors(current.node_id, level, |neighbors| {
+                        for &neighbor_id in neighbors {
+                            if buffers.visited.contains(neighbor_id) {
+                                continue;
+                            }
+                            buffers.visited.insert(neighbor_id);
 
-                for neighbor_id in neighbors {
-                    if buffers.visited.contains(neighbor_id) {
-                        continue;
-                    }
-                    buffers.visited.insert(neighbor_id);
+                            if use_ready_filter && !self.ready_bitmap.is_ready(neighbor_id as usize)
+                            {
+                                continue;
+                            }
 
-                    if use_ready_filter && !self.ready_bitmap.is_ready(neighbor_id as usize) {
-                        continue;
-                    }
+                            let dist = self.distance_cmp(query, neighbor_id);
+                            let neighbor = Candidate::new(neighbor_id, dist);
 
-                    let dist = self.distance_cmp(query, neighbor_id);
-                    let neighbor = Candidate::new(neighbor_id, dist);
-
-                    if let Some(&farthest) = buffers.working.peek() {
-                        if neighbor.distance < farthest.distance || buffers.working.len() < ef {
-                            buffers.candidates.push(Reverse(neighbor));
-                            buffers.working.push(neighbor);
-                            if buffers.working.len() > ef {
-                                buffers.working.pop();
+                            if let Some(&farthest) = buffers.working.peek() {
+                                if neighbor.distance < farthest.distance
+                                    || buffers.working.len() < ef
+                                {
+                                    buffers.candidates.push(Reverse(neighbor));
+                                    buffers.working.push(neighbor);
+                                    if buffers.working.len() > ef {
+                                        buffers.working.pop();
+                                    }
+                                }
+                            } else {
+                                buffers.candidates.push(Reverse(neighbor));
+                                buffers.working.push(neighbor);
                             }
                         }
-                    } else {
-                        buffers.candidates.push(Reverse(neighbor));
-                        buffers.working.push(neighbor);
-                    }
-                }
+                    });
             }
 
             // Collect results sorted by distance
@@ -421,12 +403,12 @@ impl ParallelBuilder {
                     .results_with_dist
                     .push((c.node_id, c.distance.into_inner()));
             }
-            buffers
-                .results_with_dist
-                .sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            buffers.results_with_dist.sort_unstable_by(|a, b| {
+                a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
 
-            // Return a clone (buffer stays for next use)
-            buffers.results_with_dist.clone()
+            // Take ownership - buffer will be cleared on next use anyway
+            std::mem::take(&mut buffers.results_with_dist)
         })
     }
 
@@ -446,52 +428,80 @@ impl ParallelBuilder {
     }
 
     /// Connect node to neighbors with fine-grained locking
+    ///
+    /// Uses NeighborStorage's internal per-node locking for thread safety.
+    /// Uses deferred pruning: marks overflow nodes for batch pruning at end.
     fn connect_with_locks(&self, node_id: u32, neighbors: &[u32], level: u8) {
         let m = self.params.m_for_level(level);
 
         // Set forward links (node -> neighbors)
-        {
-            let _lock = self.node_locks[node_id as usize].lock();
-            // SAFETY: Protected by per-node lock
-            unsafe { self.storage() }.set_neighbors_at_level(node_id, level, neighbors.to_vec());
-        }
+        // NeighborStorage.set_neighbors() handles locking internally
+        self.neighbors
+            .set_neighbors(node_id, level, neighbors.to_vec());
 
-        // Add reverse links (neighbors -> node) with proper pruning
+        // Add reverse links (neighbors -> node)
         for &neighbor_id in neighbors {
-            // Lock ordering: lower ID first
-            let (first_id, second_id) = if node_id < neighbor_id {
-                (node_id, neighbor_id)
-            } else {
-                (neighbor_id, node_id)
-            };
-
-            let _lock1 = self.node_locks[first_id as usize].lock();
-            let _lock2 = if first_id == second_id {
-                None
-            } else {
-                Some(self.node_locks[second_id as usize].lock())
-            };
-
-            // SAFETY: Protected by per-node locks (both nodes locked in order)
-            let storage = unsafe { self.storage() };
-
-            // Check if already connected
-            if storage.contains_neighbor(neighbor_id, level, node_id) {
+            // Check if already connected (lock-free read)
+            if self
+                .neighbors
+                .contains_neighbor(neighbor_id, level, node_id)
+            {
                 continue;
             }
 
-            let mut neighbor_neighbors = storage.neighbors_at_level(neighbor_id, level);
-            neighbor_neighbors.push(node_id);
-
-            // Prune if over capacity
-            if neighbor_neighbors.len() > m {
+            // Try O(1) atomic append - avoids Vec allocation in common case
+            if self.neighbors.add_neighbor(neighbor_id, level, node_id) {
+                // Successfully added. Mark for deferred pruning if overflow.
+                if self.neighbors.neighbor_count(neighbor_id, level) > m {
+                    self.needs_pruning.set(neighbor_id as usize);
+                }
+            } else {
+                // Capacity full - must prune immediately to make room
+                let mut neighbor_neighbors = self.neighbors.get_neighbors(neighbor_id, level);
+                neighbor_neighbors.push(node_id);
                 let neighbor_vec = &self.vectors[neighbor_id as usize];
-                neighbor_neighbors =
-                    self.select_neighbors_heuristic(&neighbor_neighbors, m, neighbor_vec);
+                let pruned = self.select_neighbors_heuristic(&neighbor_neighbors, m, neighbor_vec);
+                self.neighbors.set_neighbors(neighbor_id, level, pruned);
             }
-
-            storage.set_neighbors_at_level(neighbor_id, level, neighbor_neighbors);
         }
+    }
+
+    /// Batch prune all nodes marked as needing pruning
+    ///
+    /// Called after all nodes are inserted. Processes overflows in parallel.
+    fn prune_all_overflows(&self) {
+        let n = self.vectors.len();
+
+        // Collect nodes that need pruning
+        let overflow_nodes: Vec<u32> = (0..n as u32)
+            .filter(|&id| self.needs_pruning.is_ready(id as usize))
+            .collect();
+
+        if overflow_nodes.is_empty() {
+            return;
+        }
+
+        debug!(
+            count = overflow_nodes.len(),
+            "Pruning overflow nodes in batch"
+        );
+
+        // Prune in parallel
+        overflow_nodes.into_par_iter().for_each(|node_id| {
+            let level = self.levels[node_id as usize];
+            let node_vec = &self.vectors[node_id as usize];
+
+            // Check and prune each level
+            for l in 0..=level {
+                let m = self.params.m_for_level(l);
+                let neighbors = self.neighbors.get_neighbors(node_id, l);
+
+                if neighbors.len() > m {
+                    let pruned = self.select_neighbors_heuristic(&neighbors, m, node_vec);
+                    self.neighbors.set_neighbors(node_id, l, pruned);
+                }
+            }
+        });
     }
 
     /// Select neighbors using diversity heuristic (with pre-computed distances)
@@ -604,6 +614,12 @@ impl ParallelBuilder {
     /// Lock-free distance from query to node (uses cached vectors)
     #[inline]
     fn distance_cmp(&self, query: &[f32], id: u32) -> f32 {
+        debug_assert!(
+            (id as usize) < self.vectors.len(),
+            "id {} out of bounds (len={})",
+            id,
+            self.vectors.len()
+        );
         let vec = &self.vectors[id as usize];
         self.distance_fn.distance_for_comparison(query, vec)
     }
@@ -611,17 +627,72 @@ impl ParallelBuilder {
     /// Lock-free distance between two nodes (uses cached vectors)
     #[inline]
     fn distance_between_cmp(&self, id_a: u32, id_b: u32) -> f32 {
+        debug_assert!(
+            (id_a as usize) < self.vectors.len(),
+            "id_a {} out of bounds (len={})",
+            id_a,
+            self.vectors.len()
+        );
+        debug_assert!(
+            (id_b as usize) < self.vectors.len(),
+            "id_b {} out of bounds (len={})",
+            id_b,
+            self.vectors.len()
+        );
         let vec_a = &self.vectors[id_a as usize];
         let vec_b = &self.vectors[id_b as usize];
         self.distance_fn.distance_for_comparison(vec_a, vec_b)
     }
 
     /// Convert builder to HNSWIndex
+    ///
+    /// Builds NodeStorage from vectors and neighbors.
     fn into_index(self) -> HNSWIndex {
         let entry_point = self.entry_point.load(Ordering::Acquire);
+        let n = self.vectors.len();
+
+        // Build NodeStorage from scratch
+        let mut storage = if self.use_quantization {
+            NodeStorage::new_sq8(
+                self.dimensions,
+                self.params.m,
+                self.params.max_level as usize,
+            )
+        } else {
+            NodeStorage::new(
+                self.dimensions,
+                self.params.m,
+                self.params.max_level as usize,
+            )
+        };
+
+        // Copy vectors, levels, and neighbors to NodeStorage
+        for node_id in 0..n {
+            let node_id_u32 = node_id as u32;
+            let level = self.levels[node_id];
+
+            // Allocate node and set metadata
+            storage.allocate_node();
+            storage.set_vector(node_id_u32, &self.vectors[node_id]);
+            storage.set_slot(node_id_u32, node_id_u32);
+            storage.set_level(node_id_u32, level);
+
+            // Copy level 0 neighbors
+            let neighbors = self.neighbors.get_neighbors(node_id_u32, 0);
+            storage.set_neighbors(node_id_u32, &neighbors);
+
+            // Copy upper level neighbors
+            if level > 0 {
+                storage.allocate_upper_levels(node_id_u32, level);
+                for l in 1..=level {
+                    let neighbors = self.neighbors.get_neighbors(node_id_u32, l);
+                    storage.set_neighbors_at_level(node_id_u32, l, neighbors);
+                }
+            }
+        }
 
         HNSWIndex {
-            storage: self.storage.into_inner(),
+            storage,
             entry_point: if entry_point == u32::MAX {
                 None
             } else {
@@ -635,15 +706,16 @@ impl ParallelBuilder {
 }
 
 // SAFETY: ParallelBuilder is Sync because:
-// 1. `storage` (UnsafeCell<NodeStorage>) - access is synchronized via per-node locks
-// 2. `vectors` (Vec<Vec<f32>>) - immutable after allocation, safe to share
+// 1. `vectors` (Vec<Vec<f32>>) - immutable after allocation, safe to share
+// 2. `neighbors` (NeighborStorage) - uses atomic operations and internal per-node locks
 // 3. `levels` (Vec<u8>) - immutable after allocation, safe to share
-// 4. `node_locks` (Vec<Mutex<()>>) - Mutex is Sync
-// 5. `ready_bitmap` (AtomicBitVec) - uses atomics, safe to share
+// 4. `ready_bitmap` (AtomicBitVec) - uses atomics, safe to share
+// 5. `needs_pruning` (AtomicBitVec) - uses atomics, safe to share
 // 6. `entry_point` (AtomicU32) - atomic, safe to share
 // 7. `params` (HNSWParams) - immutable, safe to share
 // 8. `distance_fn` (DistanceFunction) - immutable, safe to share
 // 9. `rng_state` (AtomicU64) - atomic, safe to share
+// 10. `dimensions`, `use_quantization` - immutable primitives, safe to share
 unsafe impl Sync for ParallelBuilder {}
 
 impl HNSWIndex {

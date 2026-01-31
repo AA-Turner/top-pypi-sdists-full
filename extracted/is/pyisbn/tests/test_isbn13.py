@@ -1,6 +1,5 @@
-#
 """test_isbn13 - Test Isbn13 class."""
-# Copyright © 2012-2020  James Rowe <jnrowe@gmail.com>
+# Copyright © 2012-2025  James Rowe <jnrowe@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -22,17 +21,18 @@ from hypothesis import example, given
 from hypothesis.strategies import sampled_from
 
 from pyisbn import Isbn13
-
 from tests.data import TEST_ISBN13S
 
 
-@example('978-052-187-1723')
+@example("978-052-187-1723")
 @given(sampled_from(TEST_ISBN13S))
 def test_calculate_checksum(isbn: str):
+    """Test calculating the checksum of an ISBN-13."""
     assert Isbn13(isbn).calculate_checksum() == isbn[-1]
 
 
-@example('9780071148160')
+@example("9780071148160")
 @given(sampled_from(TEST_ISBN13S))
 def test_convert(isbn: str):
+    """Test converting an ISBN-13."""
     assert Isbn13(isbn).convert()[:-1] == isbn[3:-1]

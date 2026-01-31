@@ -2,227 +2,566 @@
 
 # isort: skip_file
 
-from .activity_log import ActivityLog
-from .activity_log_activity_type import ActivityLogActivityType
-from .activity_log_list import ActivityLogList
-from .activity_log_metadata import ActivityLogMetadata
-from .activity_log_performed_by import ActivityLogPerformedBy
-from .addressable_list import AddressableList
-from .admin_list import AdminList
-from .admin_priority_level import AdminPriorityLevel
-from .admin_reply_conversation_request import AdminReplyConversationRequest
-from .admin_reply_conversation_request_message_type import AdminReplyConversationRequestMessageType
-from .admin_reply_ticket_request import AdminReplyTicketRequest
-from .admin_reply_ticket_request_message_type import AdminReplyTicketRequestMessageType
-from .admin_reply_ticket_request_reply_options_item import AdminReplyTicketRequestReplyOptionsItem
-from .admin_with_app import AdminWithApp
-from .admin_with_app_avatar import AdminWithAppAvatar
-from .app import App
-from .article_content import ArticleContent
-from .article_content_state import ArticleContentState
-from .article_list import ArticleList
-from .article_statistics import ArticleStatistics
-from .article_translated_content import ArticleTranslatedContent
-from .assign_conversation_request import AssignConversationRequest
-from .assign_conversation_request_type import AssignConversationRequestType
-from .away_status_reason import AwayStatusReason
-from .close_conversation_request import CloseConversationRequest
-from .collection_list import CollectionList
-from .company_attached_contacts import CompanyAttachedContacts
-from .company_attached_segments import CompanyAttachedSegments
-from .company_data import CompanyData
-from .company_list import CompanyList
-from .company_scroll import CompanyScroll
-from .contact_archived import ContactArchived
-from .contact_attached_companies import ContactAttachedCompanies
-from .contact_blocked import ContactBlocked
-from .contact_companies import ContactCompanies
-from .contact_deleted import ContactDeleted
-from .contact_list import ContactList
-from .contact_location import ContactLocation
-from .contact_notes import ContactNotes
-from .contact_reference import ContactReference
-from .contact_reply_base_request import ContactReplyBaseRequest
-from .contact_reply_base_request_reply_options_item import ContactReplyBaseRequestReplyOptionsItem
-from .contact_reply_conversation_request import ContactReplyConversationRequest
-from .contact_reply_email_request import ContactReplyEmailRequest
-from .contact_reply_intercom_user_id_request import ContactReplyIntercomUserIdRequest
-from .contact_reply_ticket_email_request import ContactReplyTicketEmailRequest
-from .contact_reply_ticket_intercom_user_id_request import ContactReplyTicketIntercomUserIdRequest
-from .contact_reply_ticket_request import ContactReplyTicketRequest
-from .contact_reply_ticket_user_id_request import ContactReplyTicketUserIdRequest
-from .contact_reply_user_id_request import ContactReplyUserIdRequest
-from .contact_segments import ContactSegments
-from .contact_social_profiles import ContactSocialProfiles
-from .contact_subscription_types import ContactSubscriptionTypes
-from .contact_tags import ContactTags
-from .contact_unarchived import ContactUnarchived
-from .content_sources_list import ContentSourcesList
-from .conversation_attachment_files import ConversationAttachmentFiles
-from .conversation_attribute_updated_by_admin import ConversationAttributeUpdatedByAdmin
-from .conversation_attribute_updated_by_admin_attribute import ConversationAttributeUpdatedByAdminAttribute
-from .conversation_attribute_updated_by_admin_value import ConversationAttributeUpdatedByAdminValue
-from .conversation_attribute_updated_by_workflow import ConversationAttributeUpdatedByWorkflow
-from .conversation_attribute_updated_by_workflow_attribute import ConversationAttributeUpdatedByWorkflowAttribute
-from .conversation_attribute_updated_by_workflow_value import ConversationAttributeUpdatedByWorkflowValue
-from .conversation_attribute_updated_by_workflow_workflow import ConversationAttributeUpdatedByWorkflowWorkflow
-from .conversation_contacts import ConversationContacts
-from .conversation_deleted import ConversationDeleted
-from .conversation_first_contact_reply import ConversationFirstContactReply
-from .conversation_list import ConversationList
-from .conversation_part import ConversationPart
-from .conversation_part_author import ConversationPartAuthor
-from .conversation_part_metadata import ConversationPartMetadata
-from .conversation_part_metadata_quick_reply_options_item import ConversationPartMetadataQuickReplyOptionsItem
-from .conversation_part_state import ConversationPartState
-from .conversation_parts import ConversationParts
-from .conversation_rating import ConversationRating
-from .conversation_response_time import ConversationResponseTime
-from .conversation_source import ConversationSource
-from .conversation_source_type import ConversationSourceType
-from .conversation_statistics import ConversationStatistics
-from .conversation_teammates import ConversationTeammates
-from .create_or_update_tag_request import CreateOrUpdateTagRequest
-from .create_ticket_reply_with_comment_request import CreateTicketReplyWithCommentRequest
-from .create_ticket_request_assignment import CreateTicketRequestAssignment
-from .create_ticket_request_body import CreateTicketRequestBody
-from .create_ticket_request_contacts_item import CreateTicketRequestContactsItem
-from .create_ticket_request_contacts_item_email import CreateTicketRequestContactsItemEmail
-from .create_ticket_request_contacts_item_external_id import CreateTicketRequestContactsItemExternalId
-from .create_ticket_request_contacts_item_id import CreateTicketRequestContactsItemId
-from .cursor_pages import CursorPages
-from .custom_action_finished import CustomActionFinished
-from .custom_action_finished_action import CustomActionFinishedAction
-from .custom_action_finished_action_result import CustomActionFinishedActionResult
-from .custom_action_started import CustomActionStarted
-from .custom_action_started_action import CustomActionStartedAction
-from .custom_attributes import CustomAttributes
-from .custom_attributes_value import CustomAttributesValue
-from .custom_channel_attribute import CustomChannelAttribute
-from .custom_channel_base_event import CustomChannelBaseEvent
-from .custom_channel_contact import CustomChannelContact
-from .custom_channel_contact_type import CustomChannelContactType
-from .custom_channel_notification_response import CustomChannelNotificationResponse
-from .custom_object_instance_deleted import CustomObjectInstanceDeleted
-from .custom_object_instance_list import CustomObjectInstanceList
-from .customer_request import CustomerRequest
-from .customer_request_email import CustomerRequestEmail
-from .customer_request_intercom_user_id import CustomerRequestIntercomUserId
-from .customer_request_user_id import CustomerRequestUserId
-from .data_attribute_list import DataAttributeList
-from .data_event_list import DataEventList
-from .data_event_list_pages import DataEventListPages
-from .data_event_summary import DataEventSummary
-from .data_event_summary_item import DataEventSummaryItem
-from .data_export_csv import DataExportCsv
-from .datetime import Datetime
-from .deleted_article_object import DeletedArticleObject
-from .deleted_collection_object import DeletedCollectionObject
-from .deleted_company_object import DeletedCompanyObject
-from .deleted_object import DeletedObject
-from .email_address_header import EmailAddressHeader
-from .email_message_metadata import EmailMessageMetadata
-from .error import Error
-from .error_errors_item import ErrorErrorsItem
-from .event_details import EventDetails
-from .file_attribute import FileAttribute
-from .group_content import GroupContent
-from .group_translated_content import GroupTranslatedContent
-from .intercom_version import IntercomVersion
-from .intercom_version_unstable import IntercomVersionUnstable
-from .linked_object import LinkedObject
-from .linked_object_list import LinkedObjectList
-from .linked_object_type import LinkedObjectType
-from .multiple_filter_search_request import MultipleFilterSearchRequest
-from .multiple_filter_search_request_operator import MultipleFilterSearchRequestOperator
-from .multiple_filter_search_request_value import MultipleFilterSearchRequestValue
-from .news_item_request import NewsItemRequest
-from .news_item_request_state import NewsItemRequestState
-from .not_found_error_body import NotFoundErrorBody
-from .not_found_error_body_errors_item import NotFoundErrorBodyErrorsItem
-from .note_list import NoteList
-from .open_conversation_request import OpenConversationRequest
-from .operator_workflow_event import OperatorWorkflowEvent
-from .operator_workflow_event_event import OperatorWorkflowEventEvent
-from .operator_workflow_event_workflow import OperatorWorkflowEventWorkflow
-from .pages_link import PagesLink
-from .paginated_response import PaginatedResponse
-from .paginated_response_data_item import (
-    PaginatedResponseDataItem,
-    PaginatedResponseDataItem_NewsItem,
-    PaginatedResponseDataItem_Newsfeed,
-)
-from .paginated_response_type import PaginatedResponseType
-from .part_attachment import PartAttachment
-from .phone_switch import PhoneSwitch
-from .quick_reply_option import QuickReplyOption
-from .recipient import Recipient
-from .recipient_type import RecipientType
-from .redact_conversation_request import (
-    RedactConversationRequest,
-    RedactConversationRequest_ConversationPart,
-    RedactConversationRequest_Source,
-)
-from .redact_conversation_request_conversation_part import RedactConversationRequestConversationPart
-from .redact_conversation_request_source import RedactConversationRequestSource
-from .reference import Reference
-from .reply_conversation_request_body import ReplyConversationRequestBody
-from .search_request import SearchRequest
-from .search_request_query import SearchRequestQuery
-from .segment_list import SegmentList
-from .single_filter_search_request import SingleFilterSearchRequest
-from .single_filter_search_request_operator import SingleFilterSearchRequestOperator
-from .single_filter_search_request_value import SingleFilterSearchRequestValue
-from .single_filter_search_request_value_item import SingleFilterSearchRequestValueItem
-from .sla_applied import SlaApplied
-from .sla_applied_sla_status import SlaAppliedSlaStatus
-from .snooze_conversation_request import SnoozeConversationRequest
-from .social_profile import SocialProfile
-from .starting_after_paging import StartingAfterPaging
-from .subscription_type_list import SubscriptionTypeList
-from .tag_company_request import TagCompanyRequest
-from .tag_company_request_companies_item import TagCompanyRequestCompaniesItem
-from .tag_list import TagList
-from .tag_multiple_users_request import TagMultipleUsersRequest
-from .tag_multiple_users_request_users_item import TagMultipleUsersRequestUsersItem
-from .tags import Tags
-from .team_list import TeamList
-from .team_priority_level import TeamPriorityLevel
-from .ticket_custom_attributes import TicketCustomAttributes
-from .ticket_custom_attributes_value import TicketCustomAttributesValue
-from .ticket_list import TicketList
-from .ticket_part_author import TicketPartAuthor
-from .ticket_part_author_type import TicketPartAuthorType
-from .ticket_parts import TicketParts
-from .ticket_reply import TicketReply
-from .ticket_reply_part_type import TicketReplyPartType
-from .ticket_request_custom_attributes import TicketRequestCustomAttributes
-from .ticket_request_custom_attributes_value import TicketRequestCustomAttributesValue
-from .ticket_state_list import TicketStateList
-from .ticket_type_attribute import TicketTypeAttribute
-from .ticket_type_attribute_list import TicketTypeAttributeList
-from .ticket_type_list import TicketTypeList
-from .translation import Translation
-from .untag_company_request import UntagCompanyRequest
-from .untag_company_request_companies_item import UntagCompanyRequestCompaniesItem
-from .update_article_request_body import UpdateArticleRequestBody
-from .update_article_request_state import UpdateArticleRequestState
-from .update_ticket_type_request_body import UpdateTicketTypeRequestBody
-from .update_ticket_type_request_category import UpdateTicketTypeRequestCategory
-from .visitor import Visitor
-from .visitor_avatar import VisitorAvatar
-from .visitor_companies import VisitorCompanies
-from .visitor_deleted_object import VisitorDeletedObject
-from .visitor_location_data import VisitorLocationData
-from .visitor_segments import VisitorSegments
-from .visitor_social_profiles import VisitorSocialProfiles
-from .visitor_tags import VisitorTags
-from .visitor_tags_tags_item import VisitorTagsTagsItem
-from .whatsapp_message_status_list import WhatsappMessageStatusList
-from .whatsapp_message_status_list_events_item import WhatsappMessageStatusListEventsItem
-from .whatsapp_message_status_list_events_item_status import WhatsappMessageStatusListEventsItemStatus
-from .whatsapp_message_status_list_pages import WhatsappMessageStatusListPages
-from .whatsapp_message_status_list_pages_next import WhatsappMessageStatusListPagesNext
+import typing
+from importlib import import_module
+
+if typing.TYPE_CHECKING:
+    from .activity_log import ActivityLog
+    from .activity_log_activity_type import ActivityLogActivityType
+    from .activity_log_list import ActivityLogList
+    from .activity_log_metadata import ActivityLogMetadata
+    from .activity_log_performed_by import ActivityLogPerformedBy
+    from .addressable_list import AddressableList
+    from .admin_list import AdminList
+    from .admin_priority_level import AdminPriorityLevel
+    from .admin_reply_conversation_request import AdminReplyConversationRequest
+    from .admin_reply_conversation_request_message_type import AdminReplyConversationRequestMessageType
+    from .admin_reply_ticket_request import AdminReplyTicketRequest
+    from .admin_reply_ticket_request_message_type import AdminReplyTicketRequestMessageType
+    from .admin_reply_ticket_request_reply_options_item import AdminReplyTicketRequestReplyOptionsItem
+    from .admin_with_app import AdminWithApp
+    from .admin_with_app_avatar import AdminWithAppAvatar
+    from .ai_call_response import AiCallResponse
+    from .app import App
+    from .article_content import ArticleContent
+    from .article_content_state import ArticleContentState
+    from .article_list import ArticleList
+    from .article_statistics import ArticleStatistics
+    from .article_translated_content import ArticleTranslatedContent
+    from .assign_conversation_request import AssignConversationRequest
+    from .assign_conversation_request_type import AssignConversationRequestType
+    from .away_status_reason import AwayStatusReason
+    from .call_list import CallList
+    from .close_conversation_request import CloseConversationRequest
+    from .collection_list import CollectionList
+    from .company_attached_contacts import CompanyAttachedContacts
+    from .company_attached_segments import CompanyAttachedSegments
+    from .company_data import CompanyData
+    from .company_list import CompanyList
+    from .company_scroll import CompanyScroll
+    from .contact_archived import ContactArchived
+    from .contact_attached_companies import ContactAttachedCompanies
+    from .contact_blocked import ContactBlocked
+    from .contact_companies import ContactCompanies
+    from .contact_deleted import ContactDeleted
+    from .contact_list import ContactList
+    from .contact_location import ContactLocation
+    from .contact_notes import ContactNotes
+    from .contact_reference import ContactReference
+    from .contact_reply_base_request import ContactReplyBaseRequest
+    from .contact_reply_base_request_reply_options_item import ContactReplyBaseRequestReplyOptionsItem
+    from .contact_reply_conversation_request import ContactReplyConversationRequest
+    from .contact_reply_email_request import ContactReplyEmailRequest
+    from .contact_reply_intercom_user_id_request import ContactReplyIntercomUserIdRequest
+    from .contact_reply_ticket_email_request import ContactReplyTicketEmailRequest
+    from .contact_reply_ticket_intercom_user_id_request import ContactReplyTicketIntercomUserIdRequest
+    from .contact_reply_ticket_request import ContactReplyTicketRequest
+    from .contact_reply_ticket_user_id_request import ContactReplyTicketUserIdRequest
+    from .contact_reply_user_id_request import ContactReplyUserIdRequest
+    from .contact_segments import ContactSegments
+    from .contact_social_profiles import ContactSocialProfiles
+    from .contact_subscription_types import ContactSubscriptionTypes
+    from .contact_tags import ContactTags
+    from .contact_unarchived import ContactUnarchived
+    from .content_sources_list import ContentSourcesList
+    from .conversation_attachment_files import ConversationAttachmentFiles
+    from .conversation_attribute_updated_by_admin import ConversationAttributeUpdatedByAdmin
+    from .conversation_attribute_updated_by_admin_attribute import ConversationAttributeUpdatedByAdminAttribute
+    from .conversation_attribute_updated_by_admin_value import ConversationAttributeUpdatedByAdminValue
+    from .conversation_attribute_updated_by_user import ConversationAttributeUpdatedByUser
+    from .conversation_attribute_updated_by_user_attribute import ConversationAttributeUpdatedByUserAttribute
+    from .conversation_attribute_updated_by_user_value import ConversationAttributeUpdatedByUserValue
+    from .conversation_attribute_updated_by_workflow import ConversationAttributeUpdatedByWorkflow
+    from .conversation_attribute_updated_by_workflow_attribute import ConversationAttributeUpdatedByWorkflowAttribute
+    from .conversation_attribute_updated_by_workflow_value import ConversationAttributeUpdatedByWorkflowValue
+    from .conversation_attribute_updated_by_workflow_workflow import ConversationAttributeUpdatedByWorkflowWorkflow
+    from .conversation_contacts import ConversationContacts
+    from .conversation_deleted import ConversationDeleted
+    from .conversation_first_contact_reply import ConversationFirstContactReply
+    from .conversation_list import ConversationList
+    from .conversation_part import ConversationPart
+    from .conversation_part_author import ConversationPartAuthor
+    from .conversation_part_metadata import ConversationPartMetadata
+    from .conversation_part_metadata_quick_reply_options_item import ConversationPartMetadataQuickReplyOptionsItem
+    from .conversation_part_state import ConversationPartState
+    from .conversation_parts import ConversationParts
+    from .conversation_rating import ConversationRating
+    from .conversation_response_time import ConversationResponseTime
+    from .conversation_sla_applied_by_rule import ConversationSlaAppliedByRule
+    from .conversation_sla_applied_by_rule_sla_definition import ConversationSlaAppliedByRuleSlaDefinition
+    from .conversation_sla_applied_by_workflow import ConversationSlaAppliedByWorkflow
+    from .conversation_sla_applied_by_workflow_sla_definition import ConversationSlaAppliedByWorkflowSlaDefinition
+    from .conversation_sla_paused import ConversationSlaPaused
+    from .conversation_sla_paused_current_sla_status import ConversationSlaPausedCurrentSlaStatus
+    from .conversation_sla_paused_sla_states_value import ConversationSlaPausedSlaStatesValue
+    from .conversation_sla_removed import ConversationSlaRemoved
+    from .conversation_sla_target_missed import ConversationSlaTargetMissed
+    from .conversation_sla_target_missed_current_sla_status import ConversationSlaTargetMissedCurrentSlaStatus
+    from .conversation_sla_target_missed_sla_states_value import ConversationSlaTargetMissedSlaStatesValue
+    from .conversation_sla_target_missed_sla_states_value_status import ConversationSlaTargetMissedSlaStatesValueStatus
+    from .conversation_sla_target_missed_sla_target_type import ConversationSlaTargetMissedSlaTargetType
+    from .conversation_sla_unpaused import ConversationSlaUnpaused
+    from .conversation_source import ConversationSource
+    from .conversation_source_type import ConversationSourceType
+    from .conversation_statistics import ConversationStatistics
+    from .conversation_tags_updated import ConversationTagsUpdated
+    from .conversation_teammates import ConversationTeammates
+    from .create_article_request import CreateArticleRequest
+    from .create_article_request_state import CreateArticleRequestState
+    from .create_data_attribute_request import CreateDataAttributeRequest
+    from .create_data_attribute_request_one import CreateDataAttributeRequestOne
+    from .create_data_attribute_request_one_data_type import CreateDataAttributeRequestOneDataType
+    from .create_data_attribute_request_options import CreateDataAttributeRequestOptions
+    from .create_data_attribute_request_options_options_item import CreateDataAttributeRequestOptionsOptionsItem
+    from .create_internal_article_request import CreateInternalArticleRequest
+    from .create_message_request import CreateMessageRequest
+    from .create_or_update_company_request import CreateOrUpdateCompanyRequest
+    from .create_or_update_tag_request import CreateOrUpdateTagRequest
+    from .create_phone_switch_request import CreatePhoneSwitchRequest
+    from .create_ticket_reply_with_comment_request import CreateTicketReplyWithCommentRequest
+    from .create_ticket_request_assignment import CreateTicketRequestAssignment
+    from .create_ticket_request_body import CreateTicketRequestBody
+    from .create_ticket_request_contacts_item import CreateTicketRequestContactsItem
+    from .create_ticket_request_contacts_item_email import CreateTicketRequestContactsItemEmail
+    from .create_ticket_request_contacts_item_external_id import CreateTicketRequestContactsItemExternalId
+    from .create_ticket_request_contacts_item_id import CreateTicketRequestContactsItemId
+    from .create_ticket_type_request import CreateTicketTypeRequest
+    from .create_ticket_type_request_category import CreateTicketTypeRequestCategory
+    from .cursor_pages import CursorPages
+    from .custom_action_finished import CustomActionFinished
+    from .custom_action_finished_action import CustomActionFinishedAction
+    from .custom_action_finished_action_result import CustomActionFinishedActionResult
+    from .custom_action_started import CustomActionStarted
+    from .custom_action_started_action import CustomActionStartedAction
+    from .custom_attributes import CustomAttributes
+    from .custom_attributes_value import CustomAttributesValue
+    from .custom_channel_attribute import CustomChannelAttribute
+    from .custom_channel_base_event import CustomChannelBaseEvent
+    from .custom_channel_contact import CustomChannelContact
+    from .custom_channel_contact_type import CustomChannelContactType
+    from .custom_channel_notification_response import CustomChannelNotificationResponse
+    from .custom_object_instance_deleted import CustomObjectInstanceDeleted
+    from .custom_object_instance_list import CustomObjectInstanceList
+    from .customer_request import CustomerRequest
+    from .customer_request_email import CustomerRequestEmail
+    from .customer_request_intercom_user_id import CustomerRequestIntercomUserId
+    from .customer_request_user_id import CustomerRequestUserId
+    from .data_attribute_list import DataAttributeList
+    from .data_event_list import DataEventList
+    from .data_event_list_pages import DataEventListPages
+    from .data_event_summary import DataEventSummary
+    from .data_event_summary_item import DataEventSummaryItem
+    from .data_export_csv import DataExportCsv
+    from .datetime import Datetime
+    from .deleted_article_object import DeletedArticleObject
+    from .deleted_collection_object import DeletedCollectionObject
+    from .deleted_company_object import DeletedCompanyObject
+    from .deleted_internal_article_object import DeletedInternalArticleObject
+    from .deleted_object import DeletedObject
+    from .email_address_header import EmailAddressHeader
+    from .email_message_metadata import EmailMessageMetadata
+    from .error import Error
+    from .error_errors_item import ErrorErrorsItem
+    from .event_details import EventDetails
+    from .file_attribute import FileAttribute
+    from .group_content import GroupContent
+    from .group_translated_content import GroupTranslatedContent
+    from .handling_event import HandlingEvent
+    from .handling_event_list import HandlingEventList
+    from .handling_event_type import HandlingEventType
+    from .internal_article_list import InternalArticleList
+    from .linked_object import LinkedObject
+    from .linked_object_category import LinkedObjectCategory
+    from .linked_object_list import LinkedObjectList
+    from .linked_object_type import LinkedObjectType
+    from .multiple_filter_search_request import MultipleFilterSearchRequest
+    from .multiple_filter_search_request_operator import MultipleFilterSearchRequestOperator
+    from .multiple_filter_search_request_value import MultipleFilterSearchRequestValue
+    from .news_item_request import NewsItemRequest
+    from .news_item_request_state import NewsItemRequestState
+    from .not_found_error_body import NotFoundErrorBody
+    from .not_found_error_body_errors_item import NotFoundErrorBodyErrorsItem
+    from .note_list import NoteList
+    from .open_conversation_request import OpenConversationRequest
+    from .operator_workflow_event import OperatorWorkflowEvent
+    from .operator_workflow_event_event import OperatorWorkflowEventEvent
+    from .operator_workflow_event_workflow import OperatorWorkflowEventWorkflow
+    from .pages_link import PagesLink
+    from .paginated_response import PaginatedResponse
+    from .paginated_response_data_item import (
+        PaginatedResponseDataItem,
+        PaginatedResponseDataItem_NewsItem,
+        PaginatedResponseDataItem_Newsfeed,
+    )
+    from .paginated_response_type import PaginatedResponseType
+    from .part_attachment import PartAttachment
+    from .phone_switch import PhoneSwitch
+    from .priority_changed import PriorityChanged
+    from .priority_changed_current_priority import PriorityChangedCurrentPriority
+    from .priority_changed_previous_priority import PriorityChangedPreviousPriority
+    from .quick_reply_option import QuickReplyOption
+    from .recipient import Recipient
+    from .recipient_type import RecipientType
+    from .redact_conversation_request import (
+        RedactConversationRequest,
+        RedactConversationRequest_ConversationPart,
+        RedactConversationRequest_Source,
+    )
+    from .redact_conversation_request_conversation_part import RedactConversationRequestConversationPart
+    from .redact_conversation_request_source import RedactConversationRequestSource
+    from .reference import Reference
+    from .register_fin_voice_call_request import RegisterFinVoiceCallRequest
+    from .register_fin_voice_call_request_source import RegisterFinVoiceCallRequestSource
+    from .reply_conversation_request_body import ReplyConversationRequestBody
+    from .search_request import SearchRequest
+    from .search_request_query import SearchRequestQuery
+    from .segment_list import SegmentList
+    from .single_filter_search_request import SingleFilterSearchRequest
+    from .single_filter_search_request_operator import SingleFilterSearchRequestOperator
+    from .single_filter_search_request_value import SingleFilterSearchRequestValue
+    from .single_filter_search_request_value_two_item import SingleFilterSearchRequestValueTwoItem
+    from .sla_applied import SlaApplied
+    from .sla_applied_sla_status import SlaAppliedSlaStatus
+    from .snooze_conversation_request import SnoozeConversationRequest
+    from .snoozed import Snoozed
+    from .social_profile import SocialProfile
+    from .starting_after_paging import StartingAfterPaging
+    from .subscription_type_list import SubscriptionTypeList
+    from .tag_company_request import TagCompanyRequest
+    from .tag_company_request_companies_item import TagCompanyRequestCompaniesItem
+    from .tag_list import TagList
+    from .tag_multiple_users_request import TagMultipleUsersRequest
+    from .tag_multiple_users_request_users_item import TagMultipleUsersRequestUsersItem
+    from .tags import Tags
+    from .team_list import TeamList
+    from .team_priority_level import TeamPriorityLevel
+    from .teammate_reference import TeammateReference
+    from .teammate_reference_type import TeammateReferenceType
+    from .ticket_custom_attributes import TicketCustomAttributes
+    from .ticket_custom_attributes_value import TicketCustomAttributesValue
+    from .ticket_list import TicketList
+    from .ticket_part_author import TicketPartAuthor
+    from .ticket_part_author_type import TicketPartAuthorType
+    from .ticket_parts import TicketParts
+    from .ticket_reply import TicketReply
+    from .ticket_reply_part_type import TicketReplyPartType
+    from .ticket_request_custom_attributes import TicketRequestCustomAttributes
+    from .ticket_request_custom_attributes_value import TicketRequestCustomAttributesValue
+    from .ticket_state_list import TicketStateList
+    from .ticket_type_attribute import TicketTypeAttribute
+    from .ticket_type_attribute_list import TicketTypeAttributeList
+    from .ticket_type_list import TicketTypeList
+    from .translation import Translation
+    from .untag_company_request import UntagCompanyRequest
+    from .untag_company_request_companies_item import UntagCompanyRequestCompaniesItem
+    from .update_data_attribute_request_body import UpdateDataAttributeRequestBody
+    from .update_data_attribute_request_options import UpdateDataAttributeRequestOptions
+    from .update_data_attribute_request_options_options_item import UpdateDataAttributeRequestOptionsOptionsItem
+    from .visitor import Visitor
+    from .visitor_avatar import VisitorAvatar
+    from .visitor_companies import VisitorCompanies
+    from .visitor_deleted_object import VisitorDeletedObject
+    from .visitor_location_data import VisitorLocationData
+    from .visitor_segments import VisitorSegments
+    from .visitor_social_profiles import VisitorSocialProfiles
+    from .visitor_tags import VisitorTags
+    from .visitor_tags_tags_item import VisitorTagsTagsItem
+    from .whatsapp_message_status_list import WhatsappMessageStatusList
+    from .whatsapp_message_status_list_events_item import WhatsappMessageStatusListEventsItem
+    from .whatsapp_message_status_list_events_item_status import WhatsappMessageStatusListEventsItemStatus
+    from .whatsapp_message_status_list_pages import WhatsappMessageStatusListPages
+    from .whatsapp_message_status_list_pages_next import WhatsappMessageStatusListPagesNext
+    from .workflow_export import WorkflowExport
+    from .workflow_export_workflow import WorkflowExportWorkflow
+    from .workflow_export_workflow_state import WorkflowExportWorkflowState
+_dynamic_imports: typing.Dict[str, str] = {
+    "ActivityLog": ".activity_log",
+    "ActivityLogActivityType": ".activity_log_activity_type",
+    "ActivityLogList": ".activity_log_list",
+    "ActivityLogMetadata": ".activity_log_metadata",
+    "ActivityLogPerformedBy": ".activity_log_performed_by",
+    "AddressableList": ".addressable_list",
+    "AdminList": ".admin_list",
+    "AdminPriorityLevel": ".admin_priority_level",
+    "AdminReplyConversationRequest": ".admin_reply_conversation_request",
+    "AdminReplyConversationRequestMessageType": ".admin_reply_conversation_request_message_type",
+    "AdminReplyTicketRequest": ".admin_reply_ticket_request",
+    "AdminReplyTicketRequestMessageType": ".admin_reply_ticket_request_message_type",
+    "AdminReplyTicketRequestReplyOptionsItem": ".admin_reply_ticket_request_reply_options_item",
+    "AdminWithApp": ".admin_with_app",
+    "AdminWithAppAvatar": ".admin_with_app_avatar",
+    "AiCallResponse": ".ai_call_response",
+    "App": ".app",
+    "ArticleContent": ".article_content",
+    "ArticleContentState": ".article_content_state",
+    "ArticleList": ".article_list",
+    "ArticleStatistics": ".article_statistics",
+    "ArticleTranslatedContent": ".article_translated_content",
+    "AssignConversationRequest": ".assign_conversation_request",
+    "AssignConversationRequestType": ".assign_conversation_request_type",
+    "AwayStatusReason": ".away_status_reason",
+    "CallList": ".call_list",
+    "CloseConversationRequest": ".close_conversation_request",
+    "CollectionList": ".collection_list",
+    "CompanyAttachedContacts": ".company_attached_contacts",
+    "CompanyAttachedSegments": ".company_attached_segments",
+    "CompanyData": ".company_data",
+    "CompanyList": ".company_list",
+    "CompanyScroll": ".company_scroll",
+    "ContactArchived": ".contact_archived",
+    "ContactAttachedCompanies": ".contact_attached_companies",
+    "ContactBlocked": ".contact_blocked",
+    "ContactCompanies": ".contact_companies",
+    "ContactDeleted": ".contact_deleted",
+    "ContactList": ".contact_list",
+    "ContactLocation": ".contact_location",
+    "ContactNotes": ".contact_notes",
+    "ContactReference": ".contact_reference",
+    "ContactReplyBaseRequest": ".contact_reply_base_request",
+    "ContactReplyBaseRequestReplyOptionsItem": ".contact_reply_base_request_reply_options_item",
+    "ContactReplyConversationRequest": ".contact_reply_conversation_request",
+    "ContactReplyEmailRequest": ".contact_reply_email_request",
+    "ContactReplyIntercomUserIdRequest": ".contact_reply_intercom_user_id_request",
+    "ContactReplyTicketEmailRequest": ".contact_reply_ticket_email_request",
+    "ContactReplyTicketIntercomUserIdRequest": ".contact_reply_ticket_intercom_user_id_request",
+    "ContactReplyTicketRequest": ".contact_reply_ticket_request",
+    "ContactReplyTicketUserIdRequest": ".contact_reply_ticket_user_id_request",
+    "ContactReplyUserIdRequest": ".contact_reply_user_id_request",
+    "ContactSegments": ".contact_segments",
+    "ContactSocialProfiles": ".contact_social_profiles",
+    "ContactSubscriptionTypes": ".contact_subscription_types",
+    "ContactTags": ".contact_tags",
+    "ContactUnarchived": ".contact_unarchived",
+    "ContentSourcesList": ".content_sources_list",
+    "ConversationAttachmentFiles": ".conversation_attachment_files",
+    "ConversationAttributeUpdatedByAdmin": ".conversation_attribute_updated_by_admin",
+    "ConversationAttributeUpdatedByAdminAttribute": ".conversation_attribute_updated_by_admin_attribute",
+    "ConversationAttributeUpdatedByAdminValue": ".conversation_attribute_updated_by_admin_value",
+    "ConversationAttributeUpdatedByUser": ".conversation_attribute_updated_by_user",
+    "ConversationAttributeUpdatedByUserAttribute": ".conversation_attribute_updated_by_user_attribute",
+    "ConversationAttributeUpdatedByUserValue": ".conversation_attribute_updated_by_user_value",
+    "ConversationAttributeUpdatedByWorkflow": ".conversation_attribute_updated_by_workflow",
+    "ConversationAttributeUpdatedByWorkflowAttribute": ".conversation_attribute_updated_by_workflow_attribute",
+    "ConversationAttributeUpdatedByWorkflowValue": ".conversation_attribute_updated_by_workflow_value",
+    "ConversationAttributeUpdatedByWorkflowWorkflow": ".conversation_attribute_updated_by_workflow_workflow",
+    "ConversationContacts": ".conversation_contacts",
+    "ConversationDeleted": ".conversation_deleted",
+    "ConversationFirstContactReply": ".conversation_first_contact_reply",
+    "ConversationList": ".conversation_list",
+    "ConversationPart": ".conversation_part",
+    "ConversationPartAuthor": ".conversation_part_author",
+    "ConversationPartMetadata": ".conversation_part_metadata",
+    "ConversationPartMetadataQuickReplyOptionsItem": ".conversation_part_metadata_quick_reply_options_item",
+    "ConversationPartState": ".conversation_part_state",
+    "ConversationParts": ".conversation_parts",
+    "ConversationRating": ".conversation_rating",
+    "ConversationResponseTime": ".conversation_response_time",
+    "ConversationSlaAppliedByRule": ".conversation_sla_applied_by_rule",
+    "ConversationSlaAppliedByRuleSlaDefinition": ".conversation_sla_applied_by_rule_sla_definition",
+    "ConversationSlaAppliedByWorkflow": ".conversation_sla_applied_by_workflow",
+    "ConversationSlaAppliedByWorkflowSlaDefinition": ".conversation_sla_applied_by_workflow_sla_definition",
+    "ConversationSlaPaused": ".conversation_sla_paused",
+    "ConversationSlaPausedCurrentSlaStatus": ".conversation_sla_paused_current_sla_status",
+    "ConversationSlaPausedSlaStatesValue": ".conversation_sla_paused_sla_states_value",
+    "ConversationSlaRemoved": ".conversation_sla_removed",
+    "ConversationSlaTargetMissed": ".conversation_sla_target_missed",
+    "ConversationSlaTargetMissedCurrentSlaStatus": ".conversation_sla_target_missed_current_sla_status",
+    "ConversationSlaTargetMissedSlaStatesValue": ".conversation_sla_target_missed_sla_states_value",
+    "ConversationSlaTargetMissedSlaStatesValueStatus": ".conversation_sla_target_missed_sla_states_value_status",
+    "ConversationSlaTargetMissedSlaTargetType": ".conversation_sla_target_missed_sla_target_type",
+    "ConversationSlaUnpaused": ".conversation_sla_unpaused",
+    "ConversationSource": ".conversation_source",
+    "ConversationSourceType": ".conversation_source_type",
+    "ConversationStatistics": ".conversation_statistics",
+    "ConversationTagsUpdated": ".conversation_tags_updated",
+    "ConversationTeammates": ".conversation_teammates",
+    "CreateArticleRequest": ".create_article_request",
+    "CreateArticleRequestState": ".create_article_request_state",
+    "CreateDataAttributeRequest": ".create_data_attribute_request",
+    "CreateDataAttributeRequestOne": ".create_data_attribute_request_one",
+    "CreateDataAttributeRequestOneDataType": ".create_data_attribute_request_one_data_type",
+    "CreateDataAttributeRequestOptions": ".create_data_attribute_request_options",
+    "CreateDataAttributeRequestOptionsOptionsItem": ".create_data_attribute_request_options_options_item",
+    "CreateInternalArticleRequest": ".create_internal_article_request",
+    "CreateMessageRequest": ".create_message_request",
+    "CreateOrUpdateCompanyRequest": ".create_or_update_company_request",
+    "CreateOrUpdateTagRequest": ".create_or_update_tag_request",
+    "CreatePhoneSwitchRequest": ".create_phone_switch_request",
+    "CreateTicketReplyWithCommentRequest": ".create_ticket_reply_with_comment_request",
+    "CreateTicketRequestAssignment": ".create_ticket_request_assignment",
+    "CreateTicketRequestBody": ".create_ticket_request_body",
+    "CreateTicketRequestContactsItem": ".create_ticket_request_contacts_item",
+    "CreateTicketRequestContactsItemEmail": ".create_ticket_request_contacts_item_email",
+    "CreateTicketRequestContactsItemExternalId": ".create_ticket_request_contacts_item_external_id",
+    "CreateTicketRequestContactsItemId": ".create_ticket_request_contacts_item_id",
+    "CreateTicketTypeRequest": ".create_ticket_type_request",
+    "CreateTicketTypeRequestCategory": ".create_ticket_type_request_category",
+    "CursorPages": ".cursor_pages",
+    "CustomActionFinished": ".custom_action_finished",
+    "CustomActionFinishedAction": ".custom_action_finished_action",
+    "CustomActionFinishedActionResult": ".custom_action_finished_action_result",
+    "CustomActionStarted": ".custom_action_started",
+    "CustomActionStartedAction": ".custom_action_started_action",
+    "CustomAttributes": ".custom_attributes",
+    "CustomAttributesValue": ".custom_attributes_value",
+    "CustomChannelAttribute": ".custom_channel_attribute",
+    "CustomChannelBaseEvent": ".custom_channel_base_event",
+    "CustomChannelContact": ".custom_channel_contact",
+    "CustomChannelContactType": ".custom_channel_contact_type",
+    "CustomChannelNotificationResponse": ".custom_channel_notification_response",
+    "CustomObjectInstanceDeleted": ".custom_object_instance_deleted",
+    "CustomObjectInstanceList": ".custom_object_instance_list",
+    "CustomerRequest": ".customer_request",
+    "CustomerRequestEmail": ".customer_request_email",
+    "CustomerRequestIntercomUserId": ".customer_request_intercom_user_id",
+    "CustomerRequestUserId": ".customer_request_user_id",
+    "DataAttributeList": ".data_attribute_list",
+    "DataEventList": ".data_event_list",
+    "DataEventListPages": ".data_event_list_pages",
+    "DataEventSummary": ".data_event_summary",
+    "DataEventSummaryItem": ".data_event_summary_item",
+    "DataExportCsv": ".data_export_csv",
+    "Datetime": ".datetime",
+    "DeletedArticleObject": ".deleted_article_object",
+    "DeletedCollectionObject": ".deleted_collection_object",
+    "DeletedCompanyObject": ".deleted_company_object",
+    "DeletedInternalArticleObject": ".deleted_internal_article_object",
+    "DeletedObject": ".deleted_object",
+    "EmailAddressHeader": ".email_address_header",
+    "EmailMessageMetadata": ".email_message_metadata",
+    "Error": ".error",
+    "ErrorErrorsItem": ".error_errors_item",
+    "EventDetails": ".event_details",
+    "FileAttribute": ".file_attribute",
+    "GroupContent": ".group_content",
+    "GroupTranslatedContent": ".group_translated_content",
+    "HandlingEvent": ".handling_event",
+    "HandlingEventList": ".handling_event_list",
+    "HandlingEventType": ".handling_event_type",
+    "InternalArticleList": ".internal_article_list",
+    "LinkedObject": ".linked_object",
+    "LinkedObjectCategory": ".linked_object_category",
+    "LinkedObjectList": ".linked_object_list",
+    "LinkedObjectType": ".linked_object_type",
+    "MultipleFilterSearchRequest": ".multiple_filter_search_request",
+    "MultipleFilterSearchRequestOperator": ".multiple_filter_search_request_operator",
+    "MultipleFilterSearchRequestValue": ".multiple_filter_search_request_value",
+    "NewsItemRequest": ".news_item_request",
+    "NewsItemRequestState": ".news_item_request_state",
+    "NotFoundErrorBody": ".not_found_error_body",
+    "NotFoundErrorBodyErrorsItem": ".not_found_error_body_errors_item",
+    "NoteList": ".note_list",
+    "OpenConversationRequest": ".open_conversation_request",
+    "OperatorWorkflowEvent": ".operator_workflow_event",
+    "OperatorWorkflowEventEvent": ".operator_workflow_event_event",
+    "OperatorWorkflowEventWorkflow": ".operator_workflow_event_workflow",
+    "PagesLink": ".pages_link",
+    "PaginatedResponse": ".paginated_response",
+    "PaginatedResponseDataItem": ".paginated_response_data_item",
+    "PaginatedResponseDataItem_NewsItem": ".paginated_response_data_item",
+    "PaginatedResponseDataItem_Newsfeed": ".paginated_response_data_item",
+    "PaginatedResponseType": ".paginated_response_type",
+    "PartAttachment": ".part_attachment",
+    "PhoneSwitch": ".phone_switch",
+    "PriorityChanged": ".priority_changed",
+    "PriorityChangedCurrentPriority": ".priority_changed_current_priority",
+    "PriorityChangedPreviousPriority": ".priority_changed_previous_priority",
+    "QuickReplyOption": ".quick_reply_option",
+    "Recipient": ".recipient",
+    "RecipientType": ".recipient_type",
+    "RedactConversationRequest": ".redact_conversation_request",
+    "RedactConversationRequestConversationPart": ".redact_conversation_request_conversation_part",
+    "RedactConversationRequestSource": ".redact_conversation_request_source",
+    "RedactConversationRequest_ConversationPart": ".redact_conversation_request",
+    "RedactConversationRequest_Source": ".redact_conversation_request",
+    "Reference": ".reference",
+    "RegisterFinVoiceCallRequest": ".register_fin_voice_call_request",
+    "RegisterFinVoiceCallRequestSource": ".register_fin_voice_call_request_source",
+    "ReplyConversationRequestBody": ".reply_conversation_request_body",
+    "SearchRequest": ".search_request",
+    "SearchRequestQuery": ".search_request_query",
+    "SegmentList": ".segment_list",
+    "SingleFilterSearchRequest": ".single_filter_search_request",
+    "SingleFilterSearchRequestOperator": ".single_filter_search_request_operator",
+    "SingleFilterSearchRequestValue": ".single_filter_search_request_value",
+    "SingleFilterSearchRequestValueTwoItem": ".single_filter_search_request_value_two_item",
+    "SlaApplied": ".sla_applied",
+    "SlaAppliedSlaStatus": ".sla_applied_sla_status",
+    "SnoozeConversationRequest": ".snooze_conversation_request",
+    "Snoozed": ".snoozed",
+    "SocialProfile": ".social_profile",
+    "StartingAfterPaging": ".starting_after_paging",
+    "SubscriptionTypeList": ".subscription_type_list",
+    "TagCompanyRequest": ".tag_company_request",
+    "TagCompanyRequestCompaniesItem": ".tag_company_request_companies_item",
+    "TagList": ".tag_list",
+    "TagMultipleUsersRequest": ".tag_multiple_users_request",
+    "TagMultipleUsersRequestUsersItem": ".tag_multiple_users_request_users_item",
+    "Tags": ".tags",
+    "TeamList": ".team_list",
+    "TeamPriorityLevel": ".team_priority_level",
+    "TeammateReference": ".teammate_reference",
+    "TeammateReferenceType": ".teammate_reference_type",
+    "TicketCustomAttributes": ".ticket_custom_attributes",
+    "TicketCustomAttributesValue": ".ticket_custom_attributes_value",
+    "TicketList": ".ticket_list",
+    "TicketPartAuthor": ".ticket_part_author",
+    "TicketPartAuthorType": ".ticket_part_author_type",
+    "TicketParts": ".ticket_parts",
+    "TicketReply": ".ticket_reply",
+    "TicketReplyPartType": ".ticket_reply_part_type",
+    "TicketRequestCustomAttributes": ".ticket_request_custom_attributes",
+    "TicketRequestCustomAttributesValue": ".ticket_request_custom_attributes_value",
+    "TicketStateList": ".ticket_state_list",
+    "TicketTypeAttribute": ".ticket_type_attribute",
+    "TicketTypeAttributeList": ".ticket_type_attribute_list",
+    "TicketTypeList": ".ticket_type_list",
+    "Translation": ".translation",
+    "UntagCompanyRequest": ".untag_company_request",
+    "UntagCompanyRequestCompaniesItem": ".untag_company_request_companies_item",
+    "UpdateDataAttributeRequestBody": ".update_data_attribute_request_body",
+    "UpdateDataAttributeRequestOptions": ".update_data_attribute_request_options",
+    "UpdateDataAttributeRequestOptionsOptionsItem": ".update_data_attribute_request_options_options_item",
+    "Visitor": ".visitor",
+    "VisitorAvatar": ".visitor_avatar",
+    "VisitorCompanies": ".visitor_companies",
+    "VisitorDeletedObject": ".visitor_deleted_object",
+    "VisitorLocationData": ".visitor_location_data",
+    "VisitorSegments": ".visitor_segments",
+    "VisitorSocialProfiles": ".visitor_social_profiles",
+    "VisitorTags": ".visitor_tags",
+    "VisitorTagsTagsItem": ".visitor_tags_tags_item",
+    "WhatsappMessageStatusList": ".whatsapp_message_status_list",
+    "WhatsappMessageStatusListEventsItem": ".whatsapp_message_status_list_events_item",
+    "WhatsappMessageStatusListEventsItemStatus": ".whatsapp_message_status_list_events_item_status",
+    "WhatsappMessageStatusListPages": ".whatsapp_message_status_list_pages",
+    "WhatsappMessageStatusListPagesNext": ".whatsapp_message_status_list_pages_next",
+    "WorkflowExport": ".workflow_export",
+    "WorkflowExportWorkflow": ".workflow_export_workflow",
+    "WorkflowExportWorkflowState": ".workflow_export_workflow_state",
+}
+
+
+def __getattr__(attr_name: str) -> typing.Any:
+    module_name = _dynamic_imports.get(attr_name)
+    if module_name is None:
+        raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
+    try:
+        module = import_module(module_name, __package__)
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
+    except ImportError as e:
+        raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
+    except AttributeError as e:
+        raise AttributeError(f"Failed to get {attr_name} from {module_name}: {e}") from e
+
+
+def __dir__():
+    lazy_attrs = list(_dynamic_imports.keys())
+    return sorted(lazy_attrs)
+
 
 __all__ = [
     "ActivityLog",
@@ -240,6 +579,7 @@ __all__ = [
     "AdminReplyTicketRequestReplyOptionsItem",
     "AdminWithApp",
     "AdminWithAppAvatar",
+    "AiCallResponse",
     "App",
     "ArticleContent",
     "ArticleContentState",
@@ -249,6 +589,7 @@ __all__ = [
     "AssignConversationRequest",
     "AssignConversationRequestType",
     "AwayStatusReason",
+    "CallList",
     "CloseConversationRequest",
     "CollectionList",
     "CompanyAttachedContacts",
@@ -285,6 +626,9 @@ __all__ = [
     "ConversationAttributeUpdatedByAdmin",
     "ConversationAttributeUpdatedByAdminAttribute",
     "ConversationAttributeUpdatedByAdminValue",
+    "ConversationAttributeUpdatedByUser",
+    "ConversationAttributeUpdatedByUserAttribute",
+    "ConversationAttributeUpdatedByUserValue",
     "ConversationAttributeUpdatedByWorkflow",
     "ConversationAttributeUpdatedByWorkflowAttribute",
     "ConversationAttributeUpdatedByWorkflowValue",
@@ -301,11 +645,37 @@ __all__ = [
     "ConversationParts",
     "ConversationRating",
     "ConversationResponseTime",
+    "ConversationSlaAppliedByRule",
+    "ConversationSlaAppliedByRuleSlaDefinition",
+    "ConversationSlaAppliedByWorkflow",
+    "ConversationSlaAppliedByWorkflowSlaDefinition",
+    "ConversationSlaPaused",
+    "ConversationSlaPausedCurrentSlaStatus",
+    "ConversationSlaPausedSlaStatesValue",
+    "ConversationSlaRemoved",
+    "ConversationSlaTargetMissed",
+    "ConversationSlaTargetMissedCurrentSlaStatus",
+    "ConversationSlaTargetMissedSlaStatesValue",
+    "ConversationSlaTargetMissedSlaStatesValueStatus",
+    "ConversationSlaTargetMissedSlaTargetType",
+    "ConversationSlaUnpaused",
     "ConversationSource",
     "ConversationSourceType",
     "ConversationStatistics",
+    "ConversationTagsUpdated",
     "ConversationTeammates",
+    "CreateArticleRequest",
+    "CreateArticleRequestState",
+    "CreateDataAttributeRequest",
+    "CreateDataAttributeRequestOne",
+    "CreateDataAttributeRequestOneDataType",
+    "CreateDataAttributeRequestOptions",
+    "CreateDataAttributeRequestOptionsOptionsItem",
+    "CreateInternalArticleRequest",
+    "CreateMessageRequest",
+    "CreateOrUpdateCompanyRequest",
     "CreateOrUpdateTagRequest",
+    "CreatePhoneSwitchRequest",
     "CreateTicketReplyWithCommentRequest",
     "CreateTicketRequestAssignment",
     "CreateTicketRequestBody",
@@ -313,6 +683,8 @@ __all__ = [
     "CreateTicketRequestContactsItemEmail",
     "CreateTicketRequestContactsItemExternalId",
     "CreateTicketRequestContactsItemId",
+    "CreateTicketTypeRequest",
+    "CreateTicketTypeRequestCategory",
     "CursorPages",
     "CustomActionFinished",
     "CustomActionFinishedAction",
@@ -342,6 +714,7 @@ __all__ = [
     "DeletedArticleObject",
     "DeletedCollectionObject",
     "DeletedCompanyObject",
+    "DeletedInternalArticleObject",
     "DeletedObject",
     "EmailAddressHeader",
     "EmailMessageMetadata",
@@ -351,9 +724,12 @@ __all__ = [
     "FileAttribute",
     "GroupContent",
     "GroupTranslatedContent",
-    "IntercomVersion",
-    "IntercomVersionUnstable",
+    "HandlingEvent",
+    "HandlingEventList",
+    "HandlingEventType",
+    "InternalArticleList",
     "LinkedObject",
+    "LinkedObjectCategory",
     "LinkedObjectList",
     "LinkedObjectType",
     "MultipleFilterSearchRequest",
@@ -376,6 +752,9 @@ __all__ = [
     "PaginatedResponseType",
     "PartAttachment",
     "PhoneSwitch",
+    "PriorityChanged",
+    "PriorityChangedCurrentPriority",
+    "PriorityChangedPreviousPriority",
     "QuickReplyOption",
     "Recipient",
     "RecipientType",
@@ -385,6 +764,8 @@ __all__ = [
     "RedactConversationRequest_ConversationPart",
     "RedactConversationRequest_Source",
     "Reference",
+    "RegisterFinVoiceCallRequest",
+    "RegisterFinVoiceCallRequestSource",
     "ReplyConversationRequestBody",
     "SearchRequest",
     "SearchRequestQuery",
@@ -392,10 +773,11 @@ __all__ = [
     "SingleFilterSearchRequest",
     "SingleFilterSearchRequestOperator",
     "SingleFilterSearchRequestValue",
-    "SingleFilterSearchRequestValueItem",
+    "SingleFilterSearchRequestValueTwoItem",
     "SlaApplied",
     "SlaAppliedSlaStatus",
     "SnoozeConversationRequest",
+    "Snoozed",
     "SocialProfile",
     "StartingAfterPaging",
     "SubscriptionTypeList",
@@ -407,6 +789,8 @@ __all__ = [
     "Tags",
     "TeamList",
     "TeamPriorityLevel",
+    "TeammateReference",
+    "TeammateReferenceType",
     "TicketCustomAttributes",
     "TicketCustomAttributesValue",
     "TicketList",
@@ -424,10 +808,9 @@ __all__ = [
     "Translation",
     "UntagCompanyRequest",
     "UntagCompanyRequestCompaniesItem",
-    "UpdateArticleRequestBody",
-    "UpdateArticleRequestState",
-    "UpdateTicketTypeRequestBody",
-    "UpdateTicketTypeRequestCategory",
+    "UpdateDataAttributeRequestBody",
+    "UpdateDataAttributeRequestOptions",
+    "UpdateDataAttributeRequestOptionsOptionsItem",
     "Visitor",
     "VisitorAvatar",
     "VisitorCompanies",
@@ -442,4 +825,7 @@ __all__ = [
     "WhatsappMessageStatusListEventsItemStatus",
     "WhatsappMessageStatusListPages",
     "WhatsappMessageStatusListPagesNext",
+    "WorkflowExport",
+    "WorkflowExportWorkflow",
+    "WorkflowExportWorkflowState",
 ]

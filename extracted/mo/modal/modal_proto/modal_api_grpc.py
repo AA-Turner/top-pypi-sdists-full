@@ -192,4 +192,5 @@ class ModalClientModal:
         self.VolumeRemoveFile2 = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.VolumeRemoveFile2, client, server_url)
         self.VolumeRename = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.VolumeRename, client, server_url)
         self.WorkspaceBillingReport = modal._grpc_client.UnaryStreamWrapper(grpclib_stub.WorkspaceBillingReport, client, server_url)
+        self.WorkspaceDashboardUrlGet = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.WorkspaceDashboardUrlGet, client, server_url)
         self.WorkspaceNameLookup = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.WorkspaceNameLookup, client, server_url)

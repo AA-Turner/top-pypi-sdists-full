@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.repl_state import ReplState
 from adam.sql.async_executor import AsyncExecutor
-from adam.utils import tabulize
+from adam.utils_tabulize import tabulize
 
 class ShowOffloadedCompletes(Command):
     COMMAND = 'show offloaded completes'
@@ -34,7 +34,10 @@ class ShowOffloadedCompletes(Command):
                 f'duration\t{last-first:2.2f}'
             ]
 
-            tabulize(lines, header='key\tduration(in sec)', separator='\t')
+            tabulize(lines,
+                     header='key\tduration(in sec)',
+                     separator='\t',
+                     ctx=self.context())
 
             return state
 

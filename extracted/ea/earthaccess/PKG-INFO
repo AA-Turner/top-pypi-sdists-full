@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthaccess
-Version: 0.15.1
+Version: 0.16.0
 Summary: Client library for NASA Earthdata APIs
 Project-URL: Repository, https://github.com/nsidc/earthaccess
 Project-URL: Documentation, https://earthaccess.readthedocs.io
@@ -31,7 +31,7 @@ Requires-Dist: pqdm>=0.1
 Requires-Dist: python-cmr>=0.10.0
 Requires-Dist: requests>=2.26
 Requires-Dist: s3fs>=2025.2
-Requires-Dist: tenacity>=9.0
+Requires-Dist: tenacity>=8.0
 Requires-Dist: tinynetrc>=1.3.1
 Requires-Dist: typing-extensions>=4.10.0
 Provides-Extra: dev
@@ -93,7 +93,8 @@ Requires-Dist: obstore>=0.8.0; extra == 'test'
 Requires-Dist: pytest-cov>=5.0; extra == 'test'
 Requires-Dist: pytest-watch>=4.2; extra == 'test'
 Requires-Dist: pytest>=8.3; extra == 'test'
-Requires-Dist: python-magic>=0.4; extra == 'test'
+Requires-Dist: python-magic-bin>=0.4; (platform_system == 'Windows') and extra == 'test'
+Requires-Dist: python-magic>=0.4; (platform_system != 'Windows') and extra == 'test'
 Requires-Dist: responses>=0.14; extra == 'test'
 Requires-Dist: types-requests>=0.1; extra == 'test'
 Requires-Dist: types-setuptools>=0.1; extra == 'test'

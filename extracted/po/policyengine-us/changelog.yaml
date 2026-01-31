@@ -12579,3 +12579,24 @@
     - Add 2025 tests for standard deduction, EITC, military benefit subtraction, age
       deduction, rebate, and exemptions
   date: 2026-01-29 23:19:08
+- bump: minor
+  changes:
+    changed:
+    - Update Michigan 2025 Individual Income Tax Model parameters
+  date: 2026-01-30 15:33:22
+- bump: minor
+  changes:
+    added:
+    - Add Virginia HB979 income tax reform with new 8% and 10% brackets for high earners.
+  date: 2026-01-30 20:44:48
+- bump: patch
+  changes:
+    added:
+    - Added income_tax_positive variable for CBO-consistent calibration
+  date: 2026-01-31 00:45:39
+- bump: patch
+  changes:
+    added:
+    - Add 2018 CHIP FCEP pregnant income limits from MACPAC MACStats December 2018
+      Data Book.
+  date: 2026-01-31 03:23:17

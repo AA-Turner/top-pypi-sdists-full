@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,26 +16,53 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""A `Segment` is a interval of time marked by a GPS [start, stop)
-semi-open interval. These typically represent periods when a
-gravitational-wave laser interferometer was operating in a specific
-configuration.
+"""Representations of semi-open intervals (of time).
+
+These are typically used to represents periods when a gravitational-wave
+detector was operating in a particular state.
 """
 
-from astropy.io import registry as io_registry
+from __future__ import annotations
 
-from igwn_segments import (segment, segmentlist, segmentlistdict)
+import os
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+)
 
-from ..io.mp import read_multi as io_read_multi
+from igwn_segments import (
+    segment,
+    segmentlist,
+    segmentlistdict,
+)
+
+from ..io.registry import UnifiedReadWriteMethod
 from ..utils.decorators import return_as
+from .connect import (
+    SegmentListRead,
+    SegmentListWrite,
+)
+
+if TYPE_CHECKING:
+    from typing import Self
+
+    from astropy.table import Table
+
+
+T = TypeVar("T")
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __credits__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__all__ = ['Segment', 'SegmentList', 'SegmentListDict']
+__all__ = [
+    "Segment",
+    "SegmentList",
+    "SegmentListDict",
+]
 
 
-class Segment(segment):
-    """A tuple defining a semi-open interval ``[start, end)``
+class Segment(segment, Generic[T]):
+    """A tuple defining a semi-open interval ``[start, end)``.
 
     Each `Segment` represents the range of values in a given interval, with
     general arithmetic supported for combining/comparing overlapping segments.
@@ -43,10 +70,10 @@ class Segment(segment):
     Parameters
     ----------
     start : `float`
-        the start value of this `Segment`
+        The start value of this `Segment`.
 
     end : `float`
-        the end value of this `Segment`
+        The end value of this `Segment`.
 
     Examples
     --------
@@ -69,27 +96,24 @@ class Segment(segment):
     >>> bool(Segment(0, 1))
     True
     """
+
     @property
-    def start(self):
-        """The GPS start time of this segment
-        """
+    def start(self) -> T:
+        """The beginning of this segment."""
         return self[0]
 
     @property
-    def end(self):
-        """The GPS end time of this segment
-        """
+    def end(self) -> T:
+        """The end of this segment."""
         return self[1]
 
-    def __repr__(self):
-        return "%s(%s, %s)" % (self.__class__.__name__, self[0], self[1])
-
-    def __str__(self):
-        return "[%s ... %s)" % (self[0], self[1])
+    def __repr__(self) -> str:
+        """Return a representation of this segment."""
+        return f"{type(self).__name__}({self[0]}, {self[1]})"
 
 
 class SegmentList(segmentlist):
-    """A `list` of `Segments <Segment>`
+    """A `list` of `Segments <Segment>`.
 
     The `SegmentList` provides additional methods that assist in the
     manipulation of lists of `Segments <Segment>`. In particular,
@@ -127,25 +151,31 @@ class SegmentList(segmentlist):
 
     # -- representations ------------------------
 
-    def __repr__(self):
-        return "<SegmentList([%s])>" % "\n              ".join(map(repr, self))
+    def __repr__(self) -> str:
+        """Return a representation of this segmentlist."""
+        return f"<{type(self).__name__}([{{}}])>".format(
+            f"{os.linesep}              ".join(map(repr, self)),
+        )
 
-    def __str__(self):
-        return "[%s]" % "\n ".join(map(str, self))
+    def __str__(self) -> str:
+        """Return a string representation of this segmentlist."""
+        return "[{}]".format("\n ".join(map(str, self)))
 
     # -- type casting ---------------------------
 
     extent = return_as(Segment)(segmentlist.extent)
 
-    def coalesce(self):
+    def coalesce(self) -> Self:
+        """Coalesce this `SegmentList` by joining connected segments."""
         super().coalesce()
         for i, seg in enumerate(self):
             self[i] = Segment(seg[0], seg[1])
         return self
+
     coalesce.__doc__ = segmentlist.coalesce.__doc__
 
-    def to_table(self):
-        """Convert this `SegmentList` to a `~astropy.table.Table`
+    def to_table(self) -> Table:
+        """Convert this `SegmentList` to a `~astropy.table.Table`.
 
         The resulting `Table` has four columns: `index`, `start`, `end`, and
         `duration`, corresponding to the zero-counted list index, GPS start
@@ -158,74 +188,17 @@ class SegmentList(segmentlist):
         from astropy.table import Table
         return Table(
             rows=[(i, s[0], s[1], abs(s)) for i, s in enumerate(self)],
-            names=('index', 'start', 'end', 'duration'),
+            names=("index", "start", "end", "duration"),
         )
 
     # -- i/o ------------------------------------
 
-    @classmethod
-    def read(cls, source, format=None, coalesce=False, **kwargs):
-        # pylint: disable=redefined-builtin
-        """Read segments from file into a `SegmentList`
-
-        Parameters
-        ----------
-        filename : `str`
-            path of file to read
-
-        format : `str`, optional
-            source format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        coalesce : `bool`, optional
-            if `True` coalesce the segment list before returning,
-            otherwise return exactly as contained in file(s).
-
-        **kwargs
-            other keyword arguments depend on the format, see the online
-            documentation for details (:ref:`gwpy-segments-io`)
-
-        Returns
-        -------
-        segmentlist : `SegmentList`
-            `SegmentList` active and known segments read from file.
-
-        Raises
-        ------
-        IndexError
-            if ``source`` is an empty list
-
-        Notes
-        -----"""
-        def combiner(listofseglists):
-            """Combine `SegmentList` from each file into a single object
-            """
-            out = cls(seg for seglist in listofseglists for seg in seglist)
-            if coalesce:
-                return out.coalesce()
-            return out
-
-        return io_read_multi(combiner, cls, source, format=format, **kwargs)
-
-    def write(self, target, *args, **kwargs):
-        """Write this `SegmentList` to a file
-
-        Arguments and keywords depend on the output format, see the
-        online documentation for full details for each format.
-
-        Parameters
-        ----------
-        target : `str`
-            output filename
-
-        Notes
-        -----"""
-        return io_registry.write(self, target, *args, **kwargs)
+    read = UnifiedReadWriteMethod(SegmentListRead)
+    write = UnifiedReadWriteMethod(SegmentListWrite)
 
 
 class SegmentListDict(segmentlistdict):
-    """A `dict` of `SegmentLists <SegmentList>`
+    """A `dict` of `SegmentLists <SegmentList>`.
 
     This class implements a standard mapping interface, with additional
     features added to assist with the manipulation of a collection of
@@ -264,8 +237,3 @@ class SegmentListDict(segmentlistdict):
     >>> c
     {'H2': [Segment(6.0, 15)], 'H1': [Segment(0.0, 9.0)]}
     """
-    pass
-
-
-# clean up the namespace
-del segment, segmentlist, segmentlistdict

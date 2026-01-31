@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agenta
-Version: 0.81.1
+Version: 0.81.2
 Summary: The SDK for agenta is an open-source LLMOps platform.
 Keywords: LLMOps,LLM,evaluation,prompt engineering
 Author: Mahmoud Mabrouk
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: daytona (>=0.129,<0.130)
-Requires-Dist: fastapi (>=0.127)
+Requires-Dist: daytona (>=0.136,<0.137)
+Requires-Dist: fastapi (>=0.128)
 Requires-Dist: httpx (>=0.28,<0.29)
 Requires-Dist: jinja2 (>=3,<4)
 Requires-Dist: litellm (>=1,<2)

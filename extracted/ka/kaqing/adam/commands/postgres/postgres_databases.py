@@ -61,7 +61,7 @@ class PostgresDatabases:
         #  template1                             | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |            | libc            | =c/postgres          +
         #                                        |          |          |             |             |            |                 | postgres=CTc/postgres
         # (48 rows)
-        if r := PostgresDatabases.run_sql(state, '\l', ctx=Context.new(backgrounded=False, show_out=False)):
+        if r := PostgresDatabases.run_sql(state, '\l', ctx=Context.new(background=False, show_out=False)):
             s = 0
             for line in r.stdout.split('\n'):
                 line: str = line.strip(' \r')
@@ -91,7 +91,7 @@ class PostgresDatabases:
         # ----------+------------------------------------------------------------+-------+---------------
         #  postgres | c3_2_admin_aclpriv                                         | table | postgres
         #  postgres | c3_2_admin_aclpriv_a                                       | table | postgres
-        if r := PostgresDatabases.run_sql(state, '\dt', ctx=Context.new(backgrounded=False, show_out=False)):
+        if r := PostgresDatabases.run_sql(state, '\dt', ctx=Context.new(background=False, show_out=False)):
             s = 0
             for line in r.stdout.split('\n'):
                 line: str = line.strip(' \r')
@@ -131,7 +131,7 @@ class PostgresDatabases:
             # remove double quotes from the sql argument
             cmd = cmd1.split(' ') + [sql]
 
-            p = subprocess.run(cmd, capture_output=not ctx.backgrounded, text=True)
+            p = subprocess.run(cmd, capture_output=not ctx.background, text=True)
             r = LocalExecResult.from_completed_process(cmd, p)
 
             ctx.log2(r.stdout)

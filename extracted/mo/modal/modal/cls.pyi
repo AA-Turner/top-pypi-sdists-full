@@ -47,6 +47,7 @@ class _ServiceOptions:
         """Implement protobuf-like MergeFrom semantics for this dataclass.
 
         This mostly exists to support "stacking" of `.with_options()` calls.
+        Returns a new _ServiceOptions instance without modifying self.
         """
         ...
 

@@ -59,11 +59,11 @@ pub use tensorzero_core::db::{ClickHouseConnection, ModelUsageTimePoint, TimeWin
 pub use tensorzero_core::endpoints::datasets::v1::types::{
     CreateChatDatapointRequest, CreateDatapointRequest, CreateDatapointsFromInferenceRequest,
     CreateDatapointsFromInferenceRequestParams, CreateDatapointsRequest, CreateDatapointsResponse,
-    CreateJsonDatapointRequest, DeleteDatapointsRequest, DeleteDatapointsResponse,
+    CreateJsonDatapointRequest, DatasetMetadata, DeleteDatapointsRequest, DeleteDatapointsResponse,
     GetDatapointsRequest, GetDatapointsResponse, JsonDatapointOutputUpdate, ListDatapointsRequest,
-    UpdateChatDatapointRequest, UpdateDatapointMetadataRequest, UpdateDatapointRequest,
-    UpdateDatapointsMetadataRequest, UpdateDatapointsRequest, UpdateDatapointsResponse,
-    UpdateJsonDatapointRequest,
+    ListDatasetsRequest, ListDatasetsResponse, UpdateChatDatapointRequest,
+    UpdateDatapointMetadataRequest, UpdateDatapointRequest, UpdateDatapointsMetadataRequest,
+    UpdateDatapointsRequest, UpdateDatapointsResponse, UpdateJsonDatapointRequest,
 };
 pub use tensorzero_core::endpoints::datasets::{
     ChatInferenceDatapoint, Datapoint, DatapointKind, JsonInferenceDatapoint,
@@ -73,9 +73,6 @@ pub use tensorzero_core::endpoints::feedback::Params as FeedbackParams;
 pub use tensorzero_core::endpoints::inference::{
     ChatCompletionInferenceParams, InferenceOutput, InferenceParams, InferenceResponse,
     InferenceResponseChunk, InferenceStream,
-};
-pub use tensorzero_core::endpoints::internal::action::{
-    ActionInput, ActionInputInfo, ActionResponse,
 };
 pub use tensorzero_core::endpoints::internal::config::{
     GetConfigResponse, WriteConfigRequest, WriteConfigResponse,
@@ -364,6 +361,24 @@ pub trait ClientExt {
         params: CreateDatapointsFromInferenceRequestParams,
     ) -> Result<CreateDatapointsResponse, TensorZeroError>;
 
+    /// Lists all datasets with optional filtering and pagination.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The request parameters for listing datasets.
+    ///
+    /// # Returns
+    ///
+    /// A `ListDatasetsResponse` containing metadata for matching datasets.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TensorZeroError` if the request fails.
+    async fn list_datasets(
+        &self,
+        request: ListDatasetsRequest,
+    ) -> Result<ListDatasetsResponse, TensorZeroError>;
+
     // ================================================================
     // Workflow evaluation operations
     // ================================================================
@@ -470,28 +485,6 @@ pub trait ClientExt {
     ) -> Result<HashMap<String, f64>, TensorZeroError>;
 
     // ================================================================
-    // Action operations
-    // ================================================================
-
-    /// Executes an action (inference or feedback) using a historical config snapshot.
-    ///
-    /// This allows replaying actions with the exact configuration that was used
-    /// at the time the snapshot was created.
-    ///
-    /// # Arguments
-    ///
-    /// * `params` - The action parameters including the snapshot hash and action type.
-    ///
-    /// # Returns
-    ///
-    /// An `ActionResponse` containing either an inference or feedback response.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TensorZeroError` if the request fails.
-    async fn action(&self, params: ActionInputInfo) -> Result<ActionResponse, TensorZeroError>;
-
-    // ================================================================
     // Config access
     // ================================================================
     fn config(&self) -> Option<&Config>;
@@ -596,32 +589,6 @@ impl ClientExt for Client {
         }
     }
 
-    async fn action(&self, params: ActionInputInfo) -> Result<ActionResponse, TensorZeroError> {
-        match self.mode() {
-            ClientMode::HTTPGateway(client) => {
-                let url = client.base_url.join("internal/action").map_err(|e| {
-                    TensorZeroError::Other {
-                        source: Error::new(ErrorDetails::InvalidBaseUrl {
-                            message: format!(
-                                "Failed to join base URL with /internal/action endpoint: {e}"
-                            ),
-                        })
-                        .into(),
-                    }
-                })?;
-                let builder = client.http_client.post(url).json(&params);
-                Ok(client.send_and_parse_http_response(builder).await?.0)
-            }
-            ClientMode::EmbeddedGateway { .. } => Err(TensorZeroError::Other {
-                source: Error::new(ErrorDetails::InternalError {
-                    message: "Action endpoint is not supported for embedded gateway mode"
-                        .to_string(),
-                })
-                .into(),
-            }),
-        }
-    }
-
     /// Gets the config from the embedded gateway
     /// Returns None for HTTP gateway mode
     fn config(&self) -> Option<&Config> {
@@ -649,12 +616,14 @@ impl ClientExt for Client {
             }),
             ClientMode::EmbeddedGateway { gateway, timeout } => {
                 Ok(with_embedded_timeout(*timeout, async {
-                    tensorzero_core::endpoints::batch_inference::start_batch_inference(
-                        gateway.handle.app_state.clone(),
-                        params,
-                        // We currently ban auth-enabled configs in embedded gateway mode,
-                        // so we don't have an API key here
-                        None,
+                    Box::pin(
+                        tensorzero_core::endpoints::batch_inference::start_batch_inference(
+                            gateway.handle.app_state.clone(),
+                            params,
+                            // We currently ban auth-enabled configs in embedded gateway mode,
+                            // so we don't have an API key here
+                            None,
+                        ),
                     )
                     .await
                     .map_err(err_to_http)
@@ -1149,6 +1118,57 @@ impl ClientExt for Client {
         }
     }
 
+    async fn list_datasets(
+        &self,
+        request: ListDatasetsRequest,
+    ) -> Result<ListDatasetsResponse, TensorZeroError> {
+        match self.mode() {
+            ClientMode::HTTPGateway(client) => {
+                let ListDatasetsRequest {
+                    function_name,
+                    limit,
+                    offset,
+                } = &request;
+                let mut url = client.base_url.join("internal/datasets").map_err(|e| {
+                    TensorZeroError::Other {
+                        source: Error::new(ErrorDetails::InvalidBaseUrl {
+                            message: format!(
+                                "Failed to join base URL with /internal/datasets endpoint: {e}"
+                            ),
+                        })
+                        .into(),
+                    }
+                })?;
+                // Add query params
+                if let Some(function_name) = function_name {
+                    url.query_pairs_mut()
+                        .append_pair("function_name", function_name);
+                }
+                if let Some(limit) = limit {
+                    url.query_pairs_mut()
+                        .append_pair("limit", &limit.to_string());
+                }
+                if let Some(offset) = offset {
+                    url.query_pairs_mut()
+                        .append_pair("offset", &offset.to_string());
+                }
+                let builder = client.http_client.get(url);
+                Ok(client.send_and_parse_http_response(builder).await?.0)
+            }
+            ClientMode::EmbeddedGateway { gateway, timeout } => {
+                with_embedded_timeout(*timeout, async {
+                    tensorzero_core::endpoints::datasets::v1::list_datasets(
+                        &gateway.handle.app_state.clickhouse_connection_info,
+                        request,
+                    )
+                    .await
+                    .map_err(err_to_http)
+                })
+                .await
+            }
+        }
+    }
+
     /// Query the Clickhouse database for inferences.
     ///
     /// This function is only available in EmbeddedGateway mode.
@@ -1462,7 +1482,11 @@ impl ClientExt for Client {
                         .map_err(err_to_http)?;
                     Ok(GetConfigResponse {
                         hash: snapshot.hash.to_string(),
-                        config: snapshot.config.into(),
+                        config: snapshot.config.try_into().map_err(|e: &'static str| {
+                            err_to_http(Error::new(ErrorDetails::Config {
+                                message: e.to_string(),
+                            }))
+                        })?,
                         extra_templates: snapshot.extra_templates,
                         tags: snapshot.tags,
                     })

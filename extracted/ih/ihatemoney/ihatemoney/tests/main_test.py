@@ -3,13 +3,19 @@ import smtplib
 import socket
 from unittest.mock import MagicMock, patch
 
-import pytest
 from sqlalchemy import orm
 from werkzeug.security import check_password_hash
+import pytest
 
 from ihatemoney import models
 from ihatemoney.currency_convertor import CurrencyConverter
-from ihatemoney.manage import delete_project, generate_config, password_hash
+from ihatemoney.manage import (
+    delete_project,
+    generate_config,
+    get_project_count,
+    password_hash,
+)
+from ihatemoney.utils import eval_arithmetic_expression
 from ihatemoney.run import load_configuration
 from ihatemoney.tests.common.ihatemoney_testcase import BaseTestCase, IhatemoneyTestCase
 
@@ -113,7 +119,7 @@ class TestModels(IhatemoneyTestCase):
 
         # add members
         self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
-        self.client.post("/raclette/members/add", data={"name": "fred"})
+        self.client.post("/raclette/members/add", data={"name": "jeanne"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
         # Add a member with a balance=0 :
         self.client.post("/raclette/members/add", data={"name": "pépé"})
@@ -126,6 +132,7 @@ class TestModels(IhatemoneyTestCase):
                 "what": "fromage à raclette",
                 "payer": 1,
                 "payed_for": [1, 2, 3],
+                "bill_type": "Expense",
                 "amount": "10.0",
             },
         )
@@ -137,6 +144,7 @@ class TestModels(IhatemoneyTestCase):
                 "what": "red wine",
                 "payer": 2,
                 "payed_for": [1],
+                "bill_type": "Expense",
                 "amount": "20",
             },
         )
@@ -148,6 +156,7 @@ class TestModels(IhatemoneyTestCase):
                 "what": "delicatessen",
                 "payer": 1,
                 "payed_for": [1, 2],
+                "bill_type": "Expense",
                 "amount": "10",
             },
         )
@@ -168,9 +177,72 @@ class TestModels(IhatemoneyTestCase):
 
         # add members
         self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
-        self.client.post("/raclette/members/add", data={"name": "fred"})
+        self.client.post("/raclette/members/add", data={"name": "jeanne"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
         # Add a member with a balance=0 :
+        self.client.post("/raclette/members/add", data={"name": "pépé"})
+
+        # create bills
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage à raclette",
+                "payer": 1,
+                "payed_for": [1, 2, 3],
+                "bill_type": "Expense",
+                "amount": "10.0",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "red wine",
+                "payer": 2,
+                "payed_for": [1],
+                "bill_type": "Expense",
+                "amount": "20",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "delicatessen",
+                "payer": 1,
+                "payed_for": [1, 2],
+                "bill_type": "Expense",
+                "amount": "10",
+            },
+        )
+
+        project = models.Project.query.get_by_name(name="raclette")
+        zorglub = models.Person.query.get_by_name(name="zorglub", project=project)
+        zorglub_bills = models.Bill.query.options(
+            orm.subqueryload(models.Bill.owers)
+        ).filter(models.Bill.owers.contains(zorglub))
+        for bill in zorglub_bills.all():
+            if bill.what == "red wine":
+                pay_each_expected = 20 / 2
+                assert bill.pay_each() == pay_each_expected
+            if bill.what == "fromage à raclette":
+                pay_each_expected = 10 / 4
+                assert bill.pay_each() == pay_each_expected
+            if bill.what == "delicatessen":
+                pay_each_expected = 10 / 3
+                assert bill.pay_each() == pay_each_expected
+
+    def test_demo_project_count(self):
+        """Test command the get-project-count"""
+        self.post_project("raclette")
+
+        # add members
+        self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
+        self.client.post("/raclette/members/add", data={"name": "fred"})
+        self.client.post("/raclette/members/add", data={"name": "tata"})
         self.client.post("/raclette/members/add", data={"name": "pépé"})
 
         # create bills
@@ -196,32 +268,31 @@ class TestModels(IhatemoneyTestCase):
             },
         )
 
-        self.client.post(
-            "/raclette/add",
-            data={
-                "date": "2011-08-10",
-                "what": "delicatessen",
-                "payer": 1,
-                "payed_for": [1, 2],
-                "amount": "10",
-            },
-        )
+        assert self.get_project("raclette").has_bills()
 
-        project = models.Project.query.get_by_name(name="raclette")
-        zorglub = models.Person.query.get_by_name(name="zorglub", project=project)
-        zorglub_bills = models.Bill.query.options(
-            orm.subqueryload(models.Bill.owers)
-        ).filter(models.Bill.owers.contains(zorglub))
-        for bill in zorglub_bills.all():
-            if bill.what == "red wine":
-                pay_each_expected = 20 / 2
-                assert bill.pay_each() == pay_each_expected
-            if bill.what == "fromage à raclette":
-                pay_each_expected = 10 / 4
-                assert bill.pay_each() == pay_each_expected
-            if bill.what == "delicatessen":
-                pay_each_expected = 10 / 3
-                assert bill.pay_each() == pay_each_expected
+        # Now check the different parameters
+        runner = self.app.test_cli_runner()
+        result0 = runner.invoke(get_project_count)
+        assert result0.output.strip() == "Number of projects: 1"
+
+        # With more than 1 bill, without printing emails
+        result1 = runner.invoke(get_project_count, "False 1")
+        assert result1.output.strip() == "Number of projects: 1"
+
+        # With more than 2 bill, without printing emails
+        result2 = runner.invoke(get_project_count, "False 2")
+        assert result2.output.strip() == "Number of projects: 0"
+
+        # With more than 0 days old
+        result3 = runner.invoke(get_project_count, "False 0 0")
+        assert result3.output.strip() == "Number of projects: 0"
+
+        result4 = runner.invoke(get_project_count, "False 0 20000")
+        assert result4.output.strip() == "Number of projects: 1"
+
+        # Print emails
+        result5 = runner.invoke(get_project_count, "True")
+        assert "raclette@notmyidea.org" in result5.output
 
 
 class TestEmailFailure(IhatemoneyTestCase):
@@ -395,10 +466,18 @@ class TestCurrencyConverter:
 
     def test_failing_remote(self):
         rates = {}
-        with patch("requests.Response.json", new=lambda _: {}), pytest.warns(
-            UserWarning
-        ):
+        with patch("requests.Response.json", new=lambda _: {}):
             # we need a non-patched converter, but it seems that MagickMock
             # is mocking EVERY instance of the class method. Too bad.
             rates = CurrencyConverter.get_rates(self.converter)
         assert rates == {CurrencyConverter.no_currency: 1}
+
+
+class TestUtils:
+    def test_eval_arithmetic_expression(self):
+        assert eval_arithmetic_expression("32.3") == 32.3
+        assert eval_arithmetic_expression("-(3+2/4*5-2)") == -3.5
+        with pytest.raises(ValueError):
+            eval_arithmetic_expression("32.3/")
+        with pytest.raises(ValueError):
+            eval_arithmetic_expression("coucouc")

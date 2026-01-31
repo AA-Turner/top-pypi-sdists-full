@@ -8,7 +8,7 @@ import math
 from functools import lru_cache
 from .. import util
 from .. import algebra as alg
-from ..gamut import Fit
+from . import Fit
 from ..cat import WHITES
 from ..spaces import Prism, Luminant, Space, HSLish, HSVish, HWBish
 from ..spaces.hsl import hsl_to_srgb, srgb_to_hsl
@@ -176,8 +176,8 @@ def raytrace_box(
         bx = bmax[i]
 
         # Non parallel case
-        if d:
-            inv_d = 1 / d
+        if abs(d) > 1e-15:
+            inv_d = 1.0 / d
             t1 = (bn - a) * inv_d
             t2 = (bx - a) * inv_d
             tnear = max(min(t1, t2), tnear)
@@ -192,14 +192,11 @@ def raytrace_box(
         return []
 
     # Favor the intersection first in the direction start -> end
-    if tnear < 0:
+    if tnear < 0.0:
         tnear = tfar
 
-    # An infinitesimally small point was used, not a ray.
-    # The origin is the intersection. Our use case will
-    # discard such scenarios, but others may wish to set
-    # intersection to origin.
-    if math.isinf(tnear):
+    # Point is  close to the surface, so `tnear` could be very large.
+    if not math.isfinite(tnear):
         return []
 
     # Calculate intersection interpolation.
@@ -309,7 +306,7 @@ class RayTrace(Fit):
 
             # Offset is required for some perceptual spaces that are sensitive
             # to anchors that get too close to the surface.
-            offset = 1e-15
+            offset = 1e-6
 
             # Use an iterative process of casting rays to find the intersect with the RGB gamut
             # and correcting the intersection onto the LCh chroma reduction path.
@@ -342,19 +339,19 @@ class RayTrace(Fit):
                 coords = cs.from_base(mapcolor[:-1]) if coerced else mapcolor[:-1]
                 intersection = raytrace_box(anchor, coords, bmin=bmin, bmax=bmax)
 
+                # If we cannot find an intersection, reset to last good color and quit
+                if not intersection:
+                    mapcolor[:-1] = last
+                    break
+
                 # Adjust anchor point closer to surface to improve results.
                 if i and all((bmin[r] + offset) < coords[r] < (bmax[r] - offset) for r in range(3)):
                     anchor = coords
 
                 # Update color with the intersection point on the RGB surface.
-                if intersection:
-                    last = cs.to_base(intersection) if coerced else intersection
-                    mapcolor[:-1] = last
-                    continue
-
-                # If we cannot find an intersection, reset to last good color
+                last = cs.to_base(intersection) if coerced else intersection
                 mapcolor[:-1] = last
-                break  # pragma: no cover
+                continue
 
             # Remove noise from floating point conversion.
             if coerced:

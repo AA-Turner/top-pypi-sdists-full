@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2019-2020)
+# Copyright (c) 2019-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,8 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for :mod:`gwpy.signal.spectral.registry`
-"""
+"""Tests for :mod:`gwpy.signal.spectral.registry`."""
 
 import pytest
 
@@ -28,22 +26,21 @@ def teardown_module():
     # remove test methods from registry
     # otherwise they will impact other tests, and test ordering
     # is annoying to predict
-    fft_registry.METHODS.pop('fake_method', '')
+    fft_registry.METHODS.pop("fake_method", "")
 
 
 def test_register_get():
-    """Test :mod:`gwpy.signal.spectral.registry`
-    """
+    """Test :mod:`gwpy.signal.spectral.registry`."""
     def fake_method():
         pass
 
     # test register
     fft_registry.register_method(fake_method)
-    assert 'fake_method' in fft_registry.METHODS
+    assert "fake_method" in fft_registry.METHODS
 
     # test get
-    f = fft_registry.get_method('fake_method')
+    f = fft_registry.get_method("fake_method")
     assert f is fake_method
 
     with pytest.raises(KeyError):
-        fft_registry.get_method('unregistered')
+        fft_registry.get_method("unregistered")

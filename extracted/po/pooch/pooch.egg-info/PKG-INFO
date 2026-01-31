@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pooch
-Version: 1.8.2
+Version: 1.9.0
 Summary: A friend to fetch your data files
 Author-email: The Pooch Developers <fatiandoaterra@protonmail.com>
 Maintainer-email: Leonardo Uieda <leo@uieda.com>
-License: BSD-3-Clause
+License-Expression: BSD-3-Clause
 Project-URL: Documentation, https://www.fatiando.org/pooch
 Project-URL: Changelog, https://www.fatiando.org/pooch/latest/changes.html
 Project-URL: Bug Tracker, https://github.com/fatiando/pooch/issues
@@ -14,17 +14,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.md
@@ -37,6 +38,10 @@ Provides-Extra: sftp
 Requires-Dist: paramiko>=2.7.0; extra == "sftp"
 Provides-Extra: xxhash
 Requires-Dist: xxhash>=1.4.3; extra == "xxhash"
+Provides-Extra: test
+Requires-Dist: pytest-httpserver; extra == "test"
+Requires-Dist: pytest-localftpserver; extra == "test"
+Dynamic: license-file
 
 <img src="https://github.com/fatiando/pooch/raw/main/doc/_static/readme-banner.png" alt="Pooch: A friend to fetch your data files">
 
@@ -44,7 +49,8 @@ Requires-Dist: xxhash>=1.4.3; extra == "xxhash"
 <a href="https://www.fatiando.org/pooch"><strong>Documentation</strong> (latest)</a> •
 <a href="https://www.fatiando.org/pooch/dev"><strong>Documentation</strong> (main branch)</a> •
 <a href="https://github.com/fatiando/pooch/blob/main/CONTRIBUTING.md"><strong>Contributing</strong></a> •
-<a href="https://www.fatiando.org/contact/"><strong>Contact</strong></a>
+<a href="https://www.fatiando.org/contact/"><strong>Contact</strong></a> •
+<a href="https://github.com/orgs/fatiando/discussions"><strong>Ask a question</strong></a>
 </p>
 
 <p align="center">
@@ -82,7 +88,7 @@ Are you a **scientist** or researcher? Pooch can help you too!
 
 ## Projects using Pooch
 
-[SciPy](https://github.com/scipy/scipy), 
+[SciPy](https://github.com/scipy/scipy),
 [scikit-image](https://github.com/scikit-image/scikit-image),
 [xarray](https://github.com/pydata/xarray),
 [Ensaio](https://github.com/fatiando/ensaio),
@@ -117,7 +123,11 @@ Are you a **scientist** or researcher? Pooch can help you too!
 [Py-ART](https://github.com/ARM-DOE/pyart),
 [HyperSpy](https://github.com/hyperspy/hyperspy),
 [RosettaSciIO](https://github.com/hyperspy/rosettasciio),
-[eXSpy](https://github.com/hyperspy/exspy)
+[eXSpy](https://github.com/hyperspy/exspy),
+[SPLASH](https://github.com/Adam-Boesky/astro_SPLASH),
+[xclim](https://github.com/Ouranosinc/xclim),
+[CLISOPS](https://github.com/roocs/clisops),
+[scXpand](https://github.com/yizhak-lab-ccg/scXpand)
 
 
 > If you're using Pooch, **send us a pull request** adding your project to the list.
@@ -156,7 +166,7 @@ For **package developers** including sample data in their projects:
 """
 Module mypackage/datasets.py
 """
-import pkg_resources
+from importlib import resources
 import pandas
 import pooch
 
@@ -191,7 +201,7 @@ GOODBOY = pooch.create(
 # manage large numbers of data files. The registry file should be packaged
 # and distributed with your software.
 GOODBOY.load_registry(
-    pkg_resources.resource_stream("mypackage", "registry.txt")
+    resources.open_text("mypackage", "registry.txt")
 )
 
 # Define functions that your users can call to get back the data in memory

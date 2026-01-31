@@ -272,13 +272,14 @@ class AgentMonitorSelectExpressionType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
     * `ALL`None
+    * `COUNT`None
     * `EVALUATION`None
     * `SPAN_TREE`None
     * `SPAN_VIEW`None
     """
 
     __schema__ = schema
-    __choices__ = ("ALL", "EVALUATION", "SPAN_TREE", "SPAN_VIEW")
+    __choices__ = ("ALL", "COUNT", "EVALUATION", "SPAN_TREE", "SPAN_VIEW")
 
 
 class AgentTraceFormatEnum(pycarlo.lib.types.Enum):
@@ -512,8 +513,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
     * `AGENT_EVALUATION_ANOMALY`None
     * `AGENT_METRIC_ANOMALIES`None
     * `AGENT_METRIC_ANOMALY`None
-    * `AGENT_TRAJECTORY_ANOMALIES`None
-    * `AGENT_TRAJECTORY_ANOMALY`None
+    * `AGENT_TRAJECTORY_BREACH`None
     * `AIRFLOW_DAG_FAILURE`None
     * `ANOMALIES`None
     * `COMPARISON_RULE_BREACH`None
@@ -567,8 +567,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
         "AGENT_EVALUATION_ANOMALY",
         "AGENT_METRIC_ANOMALIES",
         "AGENT_METRIC_ANOMALY",
-        "AGENT_TRAJECTORY_ANOMALIES",
-        "AGENT_TRAJECTORY_ANOMALY",
+        "AGENT_TRAJECTORY_BREACH",
         "AIRFLOW_DAG_FAILURE",
         "ANOMALIES",
         "COMPARISON_RULE_BREACH",
@@ -620,7 +619,6 @@ class AlertType(pycarlo.lib.types.Enum):
     * `AGENT_ANOMALIES`None
     * `AGENT_EVALUATION_ANOMALIES`None
     * `AGENT_METRIC_ANOMALIES`None
-    * `AGENT_TRAJECTORY_ANOMALIES`None
     * `ANOMALIES`None
     * `CUSTOM_RULE_ANOMALIES`None
     * `DBT_ERRORS`None
@@ -641,7 +639,6 @@ class AlertType(pycarlo.lib.types.Enum):
         "AGENT_ANOMALIES",
         "AGENT_EVALUATION_ANOMALIES",
         "AGENT_METRIC_ANOMALIES",
-        "AGENT_TRAJECTORY_ANOMALIES",
         "ANOMALIES",
         "CUSTOM_RULE_ANOMALIES",
         "DBT_ERRORS",
@@ -1439,6 +1436,7 @@ class CustomRuleModelQueryResultType(pycarlo.lib.types.Enum):
 class CustomRuleModelRuleType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT_TRAJECTORY`: Agent Trajectory
     * `COMPARISON`: Comparison
     * `CUSTOM_SQL`: Custom SQL
     * `FIELD_QUALITY`: Metric - legacy
@@ -1451,6 +1449,7 @@ class CustomRuleModelRuleType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT_TRAJECTORY",
         "COMPARISON",
         "CUSTOM_SQL",
         "FIELD_QUALITY",
@@ -3156,7 +3155,6 @@ class IncidentModelIncidentType(pycarlo.lib.types.Enum):
     * `AGENT_ANOMALIES`: Agent anomalies
     * `AGENT_EVALUATION_ANOMALIES`: Agent evaluation anomalies
     * `AGENT_METRIC_ANOMALIES`: Agent metric anomalies
-    * `AGENT_TRAJECTORY_ANOMALIES`: Agent trajectory anomalies
     * `ANOMALIES`: Anomalies
     * `CUSTOM_RULE_ANOMALIES`: Custom rule anomalies
     * `DBT_ERRORS`: dbt errors
@@ -3177,7 +3175,6 @@ class IncidentModelIncidentType(pycarlo.lib.types.Enum):
         "AGENT_ANOMALIES",
         "AGENT_EVALUATION_ANOMALIES",
         "AGENT_METRIC_ANOMALIES",
-        "AGENT_TRAJECTORY_ANOMALIES",
         "ANOMALIES",
         "CUSTOM_RULE_ANOMALIES",
         "DBT_ERRORS",
@@ -3216,7 +3213,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
     * `agent_anomaly`None
     * `agent_evaluation_anomaly`None
     * `agent_metric_anomaly`None
-    * `agent_trajectory_anomaly`None
+    * `agent_trajectory_breach`None
     * `airflow_dag_failure`None
     * `comparison_rule_breach`None
     * `data_added`None
@@ -3254,7 +3251,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
         "agent_anomaly",
         "agent_evaluation_anomaly",
         "agent_metric_anomaly",
-        "agent_trajectory_anomaly",
+        "agent_trajectory_breach",
         "airflow_dag_failure",
         "comparison_rule_breach",
         "data_added",
@@ -3719,7 +3716,6 @@ class MetricMonitoringModelType(pycarlo.lib.types.Enum):
     * `AGENT`: Agent
     * `AGENT_EVALUATION`: Agent Evaluation
     * `AGENT_METRIC`: Agent Metric
-    * `AGENT_TRAJECTORY`: Agent Trajectory
     * `CATEGORIES`: Dimension
     * `HOURLY_STATS`: Statistical metrics over an hour interval
     * `JSON_SCHEMA`: JSON schema
@@ -3732,7 +3728,6 @@ class MetricMonitoringModelType(pycarlo.lib.types.Enum):
         "AGENT",
         "AGENT_EVALUATION",
         "AGENT_METRIC",
-        "AGENT_TRAJECTORY",
         "CATEGORIES",
         "HOURLY_STATS",
         "JSON_SCHEMA",
@@ -5177,7 +5172,6 @@ class TableAnomalyModelReason(pycarlo.lib.types.Enum):
     * `AGENT`: Agent Anomaly
     * `AGENT_EVALUATION`: Agent Evaluation Anomaly
     * `AGENT_METRIC`: Agent Metric Anomaly
-    * `AGENT_TRAJECTORY`: Agent Trajectory Anomaly
     * `COMPARISON_RULE`: Comparison Rule Anomaly
     * `CUSTOM_RULE`: Custom Rule Anomaly
     * `DIST`: Distribution Anomaly
@@ -5197,7 +5191,6 @@ class TableAnomalyModelReason(pycarlo.lib.types.Enum):
         "AGENT",
         "AGENT_EVALUATION",
         "AGENT_METRIC",
-        "AGENT_TRAJECTORY",
         "COMPARISON_RULE",
         "CUSTOM_RULE",
         "DIST",
@@ -11608,6 +11601,7 @@ class IMonitor(sgqlc.types.Interface):
         "entity_mcons",
         "entity_count",
         "assigned_asset_mcons",
+        "unassigned_asset_mcons",
         "schedule_type",
         "name",
         "rule_name",
@@ -11697,6 +11691,11 @@ class IMonitor(sgqlc.types.Interface):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="assignedAssetMcons"
     )
     """MCONs for tables manually assigned to this monitor"""
+
+    unassigned_asset_mcons = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="unassignedAssetMcons"
+    )
+    """MCONs for tables manually unassigned from this monitor"""
 
     schedule_type = sgqlc.types.Field(String, graphql_name="scheduleType")
     """Monitor scheduling type"""
@@ -13152,10 +13151,10 @@ class AccountNotificationSetting(sgqlc.types.Type):
     Supported options include: anomalies, schema_changes,
     json_schema_changes, deleted_tables, metric_anomalies,
     agent_metric_anomalies, agent_evaluation_anomalies,
-    agent_trajectory_anomalies, agent_anomalies,
-    metric_comparison_anomalies, custom_rule_anomalies,
-    performance_anomalies, dbt_errors, etl_errors,
-    pseudo_integration_test, rule_run_execution_error, merged
+    agent_anomalies, metric_comparison_anomalies,
+    custom_rule_anomalies, performance_anomalies, dbt_errors,
+    etl_errors, pseudo_integration_test, rule_run_execution_error,
+    merged
     """
 
     incident_sub_types = sgqlc.types.Field(
@@ -14289,7 +14288,6 @@ class AlertTypeSummary(sgqlc.types.Type):
         "metric_anomalies",
         "agent_metric_anomalies",
         "agent_evaluation_anomalies",
-        "agent_trajectory_anomalies",
         "agent_anomalies",
         "metric_comparison_anomalies",
         "custom_rule_anomalies",
@@ -14313,8 +14311,6 @@ class AlertTypeSummary(sgqlc.types.Type):
     agent_metric_anomalies = sgqlc.types.Field(Int, graphql_name="agentMetricAnomalies")
 
     agent_evaluation_anomalies = sgqlc.types.Field(Int, graphql_name="agentEvaluationAnomalies")
-
-    agent_trajectory_anomalies = sgqlc.types.Field(Int, graphql_name="agentTrajectoryAnomalies")
 
     agent_anomalies = sgqlc.types.Field(Int, graphql_name="agentAnomalies")
 
@@ -14721,25 +14717,19 @@ class AssetsUsageResults(sgqlc.types.Type):
     """Total number of nodes."""
 
 
-class AssignAsset(sgqlc.types.Type):
-    """Assign a table to a monitor"""
-
-    __schema__ = schema
-    __field_names__ = ("assignment",)
-    assignment = sgqlc.types.Field("AssignedAssetOutput", graphql_name="assignment")
-    """(experimental) The created assignment"""
-
-
 class AssignedAssetOutput(sgqlc.types.Type):
     """A table assigned to a monitor"""
 
     __schema__ = schema
-    __field_names__ = ("monitor_uuid", "table_mcon")
+    __field_names__ = ("monitor_uuid", "table_mcon", "unassigned")
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
     """UUID of the monitor"""
 
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
     """MCON of the assigned table"""
+
+    unassigned = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="unassigned")
+    """True if the assignment was manually unassigned"""
 
 
 class AssignmentWithProperties(sgqlc.types.Type):
@@ -17697,6 +17687,15 @@ class CreateAccountSecret(sgqlc.types.Type):
     """The secret that was created"""
 
 
+class CreateAssignedAsset(sgqlc.types.Type):
+    """Create an assignment between a table to a monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("assignment",)
+    assignment = sgqlc.types.Field(AssignedAssetOutput, graphql_name="assignment")
+    """(experimental) The created assignment"""
+
+
 class CreateAzureDevOpsIntegration(sgqlc.types.Type):
     """Create a new Azure DevOps integration."""
 
@@ -18175,11 +18174,10 @@ class CreateOrUpdateDataProductV2(sgqlc.types.Type):
 class CreateOrUpdateDataSamplingRestrictions(sgqlc.types.Type):
     """Create or update data sampling restrictions for a warehouse. This
     restricts what data is allowed to be sampled from the related
-    warehouse for all users. All given restrictions are cumulative:
-    includes select what to include; excludes further constrain from
-    whatever is included. Use `add_new_databases_automatically` to
-    control whether new databases discovered during metadata
-    collection are automatically added to the restrictions. Use
+    warehouse for all users. By default addNewDatabasesAutomatically
+    is True, so all databases are included and you use exclusions to
+    narrow down. Set addNewDatabasesAutomatically to False to use
+    explicit assignments/tags instead. Use
     removeDataSamplingRestrictions mutation to remove all sampling
     restrictions.
     """
@@ -20007,20 +20005,19 @@ class DataSamplingRestrictions(sgqlc.types.Type):
         "add_new_databases_automatically",
     )
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
-    """Assets (as MCONs) to include in sampled data. By default, all
-    warehouse databases are included. Exclusions may apply--see
-    exclusion settings in related fields.
+    """Assets (as MCONs) currently included in sampled data. When
+    addNewDatabasesAutomatically is True, this contains all databases
+    in the warehouse (minus excluded ones).
     """
 
     excluded_assignments = sgqlc.types.Field(
         sgqlc.types.list_of(String), graphql_name="excludedAssignments"
     )
-    """Assets (as MCONs) to exclude from sampled data."""
+    """Assets (as MCONs) excluded from sampled data."""
 
     tags = sgqlc.types.Field(sgqlc.types.list_of("TagKeyValuePairOutput"), graphql_name="tags")
     """Asset tag key/value pairs to match for inclusion in sampled data.
-    Unless otherwise excluded, data for assets matching these tags may
-    be sampled.
+    Only used when addNewDatabasesAutomatically is False.
     """
 
     excluded_tags = sgqlc.types.Field(
@@ -20033,8 +20030,9 @@ class DataSamplingRestrictions(sgqlc.types.Type):
     add_new_databases_automatically = sgqlc.types.Field(
         Boolean, graphql_name="addNewDatabasesAutomatically"
     )
-    """Controls whether to automatically include any newly discovered
-    databases in the warehouse, during metadata collection.
+    """When True: all databases are auto-included and refreshed during
+    metadata collection. When False: only explicit assignments/tags
+    are used for inclusion.
     """
 
 
@@ -20964,6 +20962,15 @@ class DeleteAssetCollectionPreferences(sgqlc.types.Type):
 
     asset_type = sgqlc.types.Field(String, graphql_name="assetType")
     """The asset type that the preferences were removed for."""
+
+
+class DeleteAssignedAsset(sgqlc.types.Type):
+    """Delete an assignment between a table and a monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Int, graphql_name="deleted")
+    """(experimental) Number of assignments deleted"""
 
 
 class DeleteAudienceNotificationSetting(sgqlc.types.Type):
@@ -24458,7 +24465,6 @@ class IncidentTypeSummary(sgqlc.types.Type):
         "metric_anomalies",
         "agent_metric_anomalies",
         "agent_evaluation_anomalies",
-        "agent_trajectory_anomalies",
         "agent_anomalies",
         "metric_comparison_anomalies",
         "custom_rule_anomalies",
@@ -24482,8 +24488,6 @@ class IncidentTypeSummary(sgqlc.types.Type):
     agent_metric_anomalies = sgqlc.types.Field(Int, graphql_name="agentMetricAnomalies")
 
     agent_evaluation_anomalies = sgqlc.types.Field(Int, graphql_name="agentEvaluationAnomalies")
-
-    agent_trajectory_anomalies = sgqlc.types.Field(Int, graphql_name="agentTrajectoryAnomalies")
 
     agent_anomalies = sgqlc.types.Field(Int, graphql_name="agentAnomalies")
 
@@ -34332,11 +34336,10 @@ class Mutation(sgqlc.types.Type):
       incident types (default=all). Supported options include:
       anomalies, schema_changes, json_schema_changes, deleted_tables,
       metric_anomalies, agent_metric_anomalies,
-      agent_evaluation_anomalies, agent_trajectory_anomalies,
-      agent_anomalies, metric_comparison_anomalies,
-      custom_rule_anomalies, performance_anomalies, dbt_errors,
-      etl_errors, pseudo_integration_test, rule_run_execution_error,
-      merged
+      agent_evaluation_anomalies, agent_anomalies,
+      metric_comparison_anomalies, custom_rule_anomalies,
+      performance_anomalies, dbt_errors, etl_errors,
+      pseudo_integration_test, rule_run_execution_error, merged
     * `audience_id` (`UUID`): Audience associated with the recipient
     * `custom_message` (`String`): A custom message to be sent with
       triggered notification
@@ -34750,11 +34753,10 @@ class Mutation(sgqlc.types.Type):
       incident types (default=all). Supported options include:
       anomalies, schema_changes, json_schema_changes, deleted_tables,
       metric_anomalies, agent_metric_anomalies,
-      agent_evaluation_anomalies, agent_trajectory_anomalies,
-      agent_anomalies, metric_comparison_anomalies,
-      custom_rule_anomalies, performance_anomalies, dbt_errors,
-      etl_errors, pseudo_integration_test, rule_run_execution_error,
-      merged
+      agent_evaluation_anomalies, agent_anomalies,
+      metric_comparison_anomalies, custom_rule_anomalies,
+      performance_anomalies, dbt_errors, etl_errors,
+      pseudo_integration_test, rule_run_execution_error, merged
     * `assets_mcons` (`[String]`): Allowlist by asset mcons
     * `audience_id` (`UUID!`): Audience associated with the rule
     * `custom_message` (`String`): A custom message to be sent with
@@ -42159,23 +42161,27 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `add_new_databases_automatically` (`Boolean`): Controls whether
-      to automatically include any newly discovered databases in the
-      warehouse, during metadata collection.
-    * `assignments` (`[String]`): A list of assets (as MCONs). Use to
-      only sample data from the given assets in the related warehouse.
-      When `add_new_databases_automatically` is True, these are used
-      as initial assignments and new databases will be added. When
-      `add_new_databases_automatically` is False, only these assets
-      will be included. Any configured exclusions will still apply.
+    * `add_new_databases_automatically` (`Boolean`): Controls
+      inclusion behavior. Defaults to True. When True: all databases
+      in the warehouse are auto-included; `assignments` and `tags` are
+      ignored. Use `excluded_assignments` and `excluded_tags` to
+      exclude specific databases. New databases discovered during
+      metadata collection are automatically added. When False: only
+      explicitly provided `assignments` and/or `tags` are included.
+    * `assignments` (`[String]`): A list of assets (as MCONs) to
+      include. Only used when addNewDatabasesAutomatically is False.
+      When True (default), all databases are auto-included and this
+      parameter is ignored.
     * `excluded_assignments` (`[String]`): A list of assets (as
       MCONs). Use to prevent sampling data from the given assets in
       the related warehouse.
-    * `excluded_tags` (`[TagKeyValuePairInput]`): Tag key/value pairs.
-      Use to prevent sampling data from the matched assets in the
-      related warehouse.
-    * `tags` (`[TagKeyValuePairInput]`): Tag key/value pairs. Use to
-      only sample data for matching objects in the related warehouse.
+    * `excluded_tags` (`[TagKeyValuePairInput]`): Asset tag key/value
+      pairs to match for exclusion from sampled data.in the related
+      warehouse. Only used when addNewDatabasesAutomatically is False.
+    * `tags` (`[TagKeyValuePairInput]`): Asset tag key/value pairs to
+      match for inclusion in sampled data. Only used when
+      addNewDatabasesAutomatically is False. When True (default), all
+      databases are auto-included and this parameter is ignored.
     * `warehouse_uuid` (`UUID!`): The warehouse's UUID
     """
 
@@ -46135,7 +46141,7 @@ class Mutation(sgqlc.types.Type):
     """
 
     assign_asset = sgqlc.types.Field(
-        AssignAsset,
+        CreateAssignedAsset,
         graphql_name="assignAsset",
         args=sgqlc.types.ArgDict(
             (
@@ -46151,19 +46157,22 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="tableMcon", default=None
                     ),
                 ),
+                ("unassigned", sgqlc.types.Arg(Boolean, graphql_name="unassigned", default=None)),
             )
         ),
     )
-    """(experimental) Assign a table to a monitor
+    """(experimental) Create an assignment between a table to a monitor
 
     Arguments:
 
     * `monitor_uuid` (`UUID!`): UUID of the monitor
     * `table_mcon` (`String!`): MCON of the table to assign
+    * `unassigned` (`Boolean`): True if an assignment is to be
+      manually unassigned
     """
 
     unassign_asset = sgqlc.types.Field(
-        "UnassignAsset",
+        DeleteAssignedAsset,
         graphql_name="unassignAsset",
         args=sgqlc.types.ArgDict(
             (
@@ -46182,7 +46191,7 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Unassign a table from a monitor
+    """(experimental) Delete an assignment between a table and a monitor
 
     Arguments:
 
@@ -66154,7 +66163,7 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get tables assigned to a monitor
+    """(experimental) Get assigned assets for a monitor
 
     Arguments:
 
@@ -73304,15 +73313,6 @@ class UCSTableMonitorConfigOutput(sgqlc.types.Type):
         sgqlc.types.non_null(UCSDetectorThresholdOutput), graphql_name="detectorThreshold"
     )
     """Detector freshness threshold"""
-
-
-class UnassignAsset(sgqlc.types.Type):
-    """Unassign a table from a monitor"""
-
-    __schema__ = schema
-    __field_names__ = ("deleted",)
-    deleted = sgqlc.types.Field(Int, graphql_name="deleted")
-    """(experimental) Number of assignments deleted"""
 
 
 class UnexpandedRegexPattern(sgqlc.types.Type):

@@ -1637,6 +1637,10 @@ class File(System.Object):
         ...
 
     @staticmethod
+    def open_null_handle() -> Microsoft.Win32.SafeHandles.SafeFileHandle:
+        ...
+
+    @staticmethod
     def open_read(path: str) -> System.IO.FileStream:
         ...
 

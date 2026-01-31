@@ -35,7 +35,7 @@ from spatialdata._core.validation import validate_table_attr_keys
 from spatialdata._logging import logger
 from spatialdata._types import ArrayLike
 from spatialdata._utils import _check_match_length_channels_c_dim
-from spatialdata.config import LARGE_CHUNK_THRESHOLD_BYTES
+from spatialdata.config import settings
 from spatialdata.models import C, X, Y, Z, get_axes_names
 from spatialdata.models._utils import (
     DEFAULT_COORDINATE_SYSTEM,
@@ -239,6 +239,10 @@ class RasterSchema(DataArraySchema):
                 chunks=chunks,
             )
             _parse_transformations(data, parsed_transform)
+        else:
+            # Chunk single scale images
+            if chunks is not None:
+                data = data.chunk(chunks=chunks)
         cls()._check_chunk_size_not_too_large(data)
         # recompute coordinates for (multiscale) spatial image
         return compute_coordinates(data)
@@ -311,9 +315,9 @@ class RasterSchema(DataArraySchema):
                 return
             n_elems = np.array(list(max_per_dimension.values())).prod().item()
             usage = n_elems * data.dtype.itemsize
-            if usage > LARGE_CHUNK_THRESHOLD_BYTES:
+            if usage > settings.large_chunk_threshold_bytes:
                 warnings.warn(
-                    f"Detected chunks larger than: {usage} > {LARGE_CHUNK_THRESHOLD_BYTES} bytes. "
+                    f"Detected chunks larger than: {usage} > {settings.large_chunk_threshold_bytes} bytes. "
                     "This can lead to low "
                     "performance and memory issues downstream, and sometimes cause compression errors when writing "
                     "(https://github.com/scverse/spatialdata/issues/812#issuecomment-2575983527). Please consider using"
@@ -323,7 +327,7 @@ class RasterSchema(DataArraySchema):
                     "2) Multiscale representations can be achieved by using the `scale_factors` argument in the "
                     "`parse()` function.\n"
                     "You can suppress this warning by increasing the value of "
-                    "`spatialdata.config.LARGE_CHUNK_THRESHOLD_BYTES`.",
+                    "`spatialdata.settings.large_chunk_threshold_bytes`.",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -668,7 +672,11 @@ class PointsModel:
         if ATTRS_KEY in data.attrs and "feature_key" in data.attrs[ATTRS_KEY]:
             feature_key = data.attrs[ATTRS_KEY][cls.FEATURE_KEY]
             if feature_key not in data.columns:
-                warnings.warn(f"Column `{feature_key}` not found." + SUGGESTION, UserWarning, stacklevel=2)
+                warnings.warn(
+                    f"Column `{feature_key}` not found." + SUGGESTION,
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     @singledispatchmethod
     @classmethod
@@ -808,9 +816,7 @@ class PointsModel:
                 sort=sort,
                 **kwargs,
             )
-            # we cannot compute the divisions whne the index is not monotonically increasing and npartitions > 1
-            if not table.known_divisions and (sort or table.npartitions == 1):
-                table.divisions = table.compute_current_divisions()
+            # TODO: dask does not allow for setting divisions directly anymore. We have to decide on forcing the user.
             if feature_key is not None:
                 feature_categ = dd.from_pandas(
                     data[feature_key].astype(str).astype("category"),
@@ -885,7 +891,7 @@ class PointsModel:
             # It also just changes the state of the series, so it is not a big deal.
             if isinstance(data[c].dtype, CategoricalDtype) and not data[c].cat.known:
                 try:
-                    data[c] = data[c].cat.set_categories(data[c].head(1).cat.categories)
+                    data[c] = data[c].cat.set_categories(data[c].compute().cat.categories)
                 except ValueError:
                     logger.info(f"Column `{c}` contains unknown categories. Consider casting it.")
 
@@ -1030,16 +1036,21 @@ class TableModel:
             raise ValueError(f"`{attr[self.REGION_KEY_KEY]}` not found in `adata.obs`. Please create the column.")
         if attr[self.INSTANCE_KEY] not in data.obs:
             raise ValueError(f"`{attr[self.INSTANCE_KEY]}` not found in `adata.obs`. Please create the column.")
-        if (dtype := data.obs[attr[self.INSTANCE_KEY]].dtype) not in [
-            int,
-            np.int16,
-            np.uint16,
-            np.int32,
-            np.uint32,
-            np.int64,
-            np.uint64,
-            "O",
-        ] or (dtype == "O" and (val_dtype := type(data.obs[attr[self.INSTANCE_KEY]].iloc[0])) is not str):
+        if (
+            (dtype := data.obs[attr[self.INSTANCE_KEY]].dtype)
+            not in [
+                int,
+                np.int16,
+                np.uint16,
+                np.int32,
+                np.uint32,
+                np.int64,
+                np.uint64,
+                "O",
+            ]
+            and not pd.api.types.is_string_dtype(data.obs[attr[self.INSTANCE_KEY]])
+            or (dtype == "O" and (val_dtype := type(data.obs[attr[self.INSTANCE_KEY]].iloc[0])) is not str)
+        ):
             dtype = dtype if dtype != "O" else val_dtype
             raise TypeError(
                 f"Only int, np.int16, np.int32, np.int64, uint equivalents or string allowed as dtype for "
@@ -1049,6 +1060,21 @@ class TableModel:
         found_regions = data.obs[attr[self.REGION_KEY_KEY]].unique().tolist()
         if len(set(expected_regions).symmetric_difference(set(found_regions))) > 0:
             raise ValueError(f"Regions in the AnnData object and `{attr[self.REGION_KEY_KEY]}` do not match.")
+
+        # Warning for object/string columns with NaN in region_key or instance_key
+        instance_key = attr[self.INSTANCE_KEY]
+        region_key = attr[self.REGION_KEY_KEY]
+        for key_name, key_value in [("region_key", region_key), ("instance_key", instance_key)]:
+            if key_value in data.obs:
+                col = data.obs[key_value]
+                col_dtype = col.dtype
+                if (col_dtype == "object" or pd.api.types.is_string_dtype(col_dtype)) and col.isna().any():
+                    logger.warning(
+                        f"The {key_name} column '{key_value}' is of {col_dtype} type and contains NaN values. "
+                        "After writing and reading with AnnData, NaN values may (depending on the AnnData version) "
+                        "be converted to strings. This may cause issues when matching instances across read/write "
+                        "cycles."
+                    )
 
     def validate(
         self,

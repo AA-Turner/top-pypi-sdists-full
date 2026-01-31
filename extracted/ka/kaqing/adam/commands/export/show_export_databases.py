@@ -27,7 +27,7 @@ class ShowExportDatabases(Command):
 
         with self.validate(args, state) as (args, state):
             with export_db(state) as dbs:
-                dbs.show_databases()
+                dbs.show_databases(self.context())
 
             return state
 

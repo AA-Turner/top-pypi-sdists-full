@@ -35,11 +35,11 @@ from docling_core.transforms.serializer.base import (
     SerializationResult,
     Span,
 )
-from docling_core.types.doc.document import (
-    DOCUMENT_TOKENS_EXPORT_LABELS,
+from docling_core.types.doc import (
     ContentLayer,
     DescriptionAnnotation,
     DocItem,
+    DocItemLabel,
     DoclingDocument,
     FloatingItem,
     Formatting,
@@ -57,7 +57,7 @@ from docling_core.types.doc.document import (
     TableItem,
     TextItem,
 )
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc.document import DOCUMENT_TOKENS_EXPORT_LABELS
 
 _DEFAULT_LABELS = DOCUMENT_TOKENS_EXPORT_LABELS
 _DEFAULT_LAYERS = set(ContentLayer)
@@ -317,7 +317,7 @@ class DocSerializer(BaseModel, BaseDocSerializer):
         parts: list[SerializationResult],
         **kwargs: Any,
     ) -> SerializationResult:
-        """Serialize a document out of its pages."""
+        """Serialize a document out of its parts."""
         ...
 
     def _serialize_body(self, **kwargs) -> SerializationResult:
@@ -327,6 +327,10 @@ class DocSerializer(BaseModel, BaseDocSerializer):
         return res
 
     def _meta_is_wrapped(self) -> bool:
+        return False
+
+    def _item_wraps_meta(self, item: NodeItem) -> bool:
+        """Whether the item's serializer handles meta wrapping internally."""
         return False
 
     @override
@@ -369,7 +373,7 @@ class DocSerializer(BaseModel, BaseDocSerializer):
 
         my_visited.add(my_item.self_ref)
 
-        if my_item.meta and not self._meta_is_wrapped():
+        if my_item.meta and not self._meta_is_wrapped() and not self._item_wraps_meta(my_item):
             meta_part = self.serialize_meta(item=my_item, **my_kwargs)
             if meta_part.text:
                 parts.append(meta_part)

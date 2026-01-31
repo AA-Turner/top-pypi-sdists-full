@@ -35,12 +35,13 @@ class FindProcesses(Command):
                         log2(f'{len(pids)} processes were terminated with keywords: {",".join(keywords)}.')
                         processes, pids = self._find_processes(state, keywords, kill=kill)
 
-                    ProcessInfo.tabulize(processes)
-                    log2()
+                    ctx = ctx=self.context()
+                    ProcessInfo.tabulize(processes, ctx)
+                    ctx.log2()
                     if pids:
-                        log2(f'PIDS with {",".join(keywords)}: {",".join(pids)}')
+                        ctx.log2(f'PIDS with {",".join(keywords)}: {",".join(pids)}')
                     else:
-                        log2(f'No processes were found with keywords: {",".join(keywords)}.')
+                        ctx.log2(f'No processes were found with keywords: {",".join(keywords)}.')
 
                     return state
 

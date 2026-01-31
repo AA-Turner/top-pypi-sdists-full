@@ -8,7 +8,9 @@ from adam.log import Log
 from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import debug, debug_trace, json_to_csv, tabulize, log2, log_exc
+from adam.utils import debug, debug_trace, json_to_csv, log2, log_exc
+from adam.utils_context import Context
+from adam.utils_tabulize import tabulize
 from adam.apps import Apps
 
 class AppLogin:
@@ -43,7 +45,7 @@ class AppSession:
 
         return session
 
-    def run(env: str, app: str, namespace: str, type: str, action: str, payload: any = None, forced = False):
+    def run(env: str, app: str, namespace: str, type: str, action: str, payload: any = None, forced = False, ctx: Context=Context.NULL):
         app_session: AppSession = AppSession.create(env, app, namespace)
 
         def run0(app_login: AppLogin, retried: bool):
@@ -63,7 +65,13 @@ class AppSession:
                             js = r.json()
                             with log_exc(js):
                                 header, lines = json_to_csv(js, delimiter='\t')
-                                tabulize(lines, header=header, separator='\t')
+                                if header == '""': # single value json
+                                    header = None
+
+                                tabulize(lines,
+                                         header=header,
+                                         separator='\t',
+                                         ctx=ctx.copy(show_out=True))
                         except:
                             if urlparse(r.url).hostname != urlparse(uri).hostname and not retried:
                                 app_login = app_session.login(idp_uri=app_login.idp_uri, forced=forced, use_token_from_env=False, use_cached_creds=False)

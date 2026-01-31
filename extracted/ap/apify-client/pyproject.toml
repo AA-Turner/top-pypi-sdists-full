@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify_client"
-version = "2.4.0"
+version = "2.4.1"
 description = "Apify API client for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -42,8 +42,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # TODO: Remove this constraint once pydoc-markdown updates its dependencies.
+    # Package pydoc-markdown is unmaintained and pins old docspec-python with vulnerable black.
+    # See https://github.com/apify/apify-client-python/pull/582/ for more details.
+    # We explicitly constrain black>=24.3.0 to override the transitive dependency.
+    "black>=24.3.0",
     "dycw-pytest-only<3.0.0",
     "griffe",
+    "poethepoet<1.0.0",
     "pre-commit<5.0.0",
     "pydoc-markdown<5.0.0",
     "pytest-asyncio<2.0.0",
@@ -153,10 +159,10 @@ known-local-folder = ["apify_client"]
 max-branches = 18
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-r a --verbose"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
-timeout = 1200
+timeout = 1800
 
 [tool.ty.environment]
 python-version = "3.10"
@@ -178,3 +184,39 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
 
 [tool.ipdb]
 context = 7
+
+# Run tasks with: uv run poe <task>
+[tool.poe.tasks]
+clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
+install-sync = "uv sync --all-extras"
+build = "uv build"
+publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+type-check = "uv run ty check"
+unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
+unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-unit.xml tests/unit"
+integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
+integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-integration.xml tests/integration"
+check-async-docstrings = "uv run python scripts/check_async_docstrings.py"
+fix-async-docstrings = "uv run python scripts/fix_async_docstrings.py"
+check-code = ["lint", "type-check", "unit-tests", "check-async-docstrings"]
+
+[tool.poe.tasks.install-dev]
+shell = "uv sync --all-extras && uv run pre-commit install"
+
+[tool.poe.tasks.lint]
+shell = "uv run ruff format --check && uv run ruff check"
+
+[tool.poe.tasks.format]
+shell = "uv run ruff check --fix && uv run ruff format"
+
+[tool.poe.tasks.update-docs-theme]
+shell = "corepack enable && yarn up @apify/docs-theme"
+cwd = "website"
+
+[tool.poe.tasks.build-docs]
+shell = "./build_api_reference.sh && corepack enable && yarn && uv run yarn build"
+cwd = "website"
+
+[tool.poe.tasks.run-docs]
+shell = "./build_api_reference.sh && corepack enable && yarn && uv run yarn start"
+cwd = "website"

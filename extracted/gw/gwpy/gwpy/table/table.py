@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Louisiana State University (2017)
-#               Cardiff University (2017-2022)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2022 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,26 +16,67 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Extend :mod:`astropy.table` with the `EventTable`
-"""
+"""Extend :mod:`astropy.table` with the `EventTable`."""
 
-import warnings
+from __future__ import annotations
+
 from functools import wraps
-from operator import attrgetter
 from math import ceil
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 
 import numpy
-
+from astropy.table import (
+    Table,
+)
 from gwosc.api import DEFAULT_URL as DEFAULT_GWOSC_URL
 
-from astropy.table import (Table, vstack)
-from astropy.io import registry
+from ..io.registry import (
+    UnifiedReadWriteMethod,
+    inherit_unified_io,
+)
+from ..time import (
+    LIGOTimeGPSLike,
+    to_gps,
+)
+from .connect import (
+    EventTableFetch,
+    EventTableRead,
+    EventTableWrite,
+)
+from .filter import (
+    filter_table,
+    parse_operator,
+)
 
-from ..io.mp import read_multi as io_read_multi
-from ..time import gps_types
-from .filter import (filter_table, parse_operator)
+if TYPE_CHECKING:
+    from collections.abc import (
+        Callable,
+        Sequence,
+    )
+    from typing import (
+        ParamSpec,
+        Self,
+        TypeVar,
+    )
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+    from astropy.table import Column
+
+    from ..plot import Plot
+    from ..time import SupportsToGps
+    from ..timeseries import (
+        TimeSeries,
+        TimeSeriesDict,
+    )
+    from .filter import FilterLike
+
+    # ParamSpec for decorators
+    P = ParamSpec("P")
+    R = TypeVar("R")
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 TIME_LIKE_COLUMN_NAMES = [
     "time",  # standard
@@ -45,45 +85,15 @@ TIME_LIKE_COLUMN_NAMES = [
 ]
 
 
-# -- utilities ----------------------------------------------------------------
+# -- utilities -----------------------
 
-def inherit_io_registrations(cls):
-    parent = cls.__mro__[1]
-    for row in registry.get_formats(data_class=parent):
-        name = row["Format"]
-        # read
-        if row["Read"].lower() == "yes":
-            registry.register_reader(
-                name,
-                cls,
-                registry.get_reader(name, parent),
-                force=False,
-            )
-        # write
-        if row["Write"].lower() == "yes":
-            registry.register_writer(
-                name,
-                cls,
-                registry.get_writer(name, parent),
-                force=False,
-            )
-        # identify
-        if row["Auto-identify"].lower() == "yes":
-            registry.register_identifier(
-                name,
-                cls,
-                registry._identifiers[(name, parent)],
-                force=False,
-            )
-    return cls
-
-
-def _rates_preprocess(func):
+def _rates_preprocess(func: Callable[P, R]) -> Callable[P, R]:
     @wraps(func)
-    def wrapped_func(self, *args, **kwargs):
-        timecolumn = kwargs.get('timecolumn')
-        start = kwargs.get('start')
-        end = kwargs.get('end')
+    def wrapped_func(*args: P.args, **kwargs: P.kwargs) -> R:
+        self: EventTable = args[0]  # type: ignore[assignment]
+        timecolumn = kwargs.get("timecolumn")
+        start = cast("SupportsToGps | None", kwargs.get("start"))
+        end = cast("SupportsToGps | None", kwargs.get("end"))
 
         # get timecolumn if we are going to need it
         if (
@@ -91,28 +101,33 @@ def _rates_preprocess(func):
             or not self.colnames
         ):
             try:
-                kwargs['timecolumn'] = self._get_time_column()
+                kwargs["timecolumn"] = self._get_time_column()
             except ValueError as exc:
-                exc.args = ('{0}, please give `timecolumn` '
-                            'keyword'.format(exc.args[0]),)
+                exc.args = (f"{exc.args[0]}, please give `timecolumn` keyword",)
                 raise
         # otherwise use anything (it doesn't matter)
-        kwargs.setdefault('timecolumn', self.colnames[0])
+        kwargs.setdefault("timecolumn", self.colnames[0])
 
         # set start and end
-        times = self[kwargs['timecolumn']]
+        times = self[kwargs["timecolumn"]]
         if start is None:
-            kwargs['start'] = times.min()
+            start = times.min()
+        else:
+            start = to_gps(start)
         if end is None:
-            kwargs['end'] = times.max()
+            end = times.max()
+        else:
+            end = to_gps(end)
+        kwargs["start"] = start
+        kwargs["end"] = end
 
-        return func(self, *args, **kwargs)
+        return func(*args, **kwargs)
     return wrapped_func
 
 
-# -- Table --------------------------------------------------------------------
+# -- Table ---------------------------
 
-@inherit_io_registrations
+@inherit_unified_io
 class EventTable(Table):
     """A container for a table of events.
 
@@ -120,34 +135,32 @@ class EventTable(Table):
     with extra read/write formats, and methods to perform filtering,
     rate calculations, and visualisation.
 
-    See also
+    See Also
     --------
     astropy.table.Table
         for details on parameters for creating an `EventTable`
     """
-    # -- utilities ------------------------------
 
-    def _is_time_column(self, name):
-        """Return `True` if a column in this table represents 'time'
+    # -- utilities -------------------
+
+    def _is_time_column(self, name: str) -> bool:
+        """Return `True` if a column in this table represents 'time'.
 
         This method checks the name of the column against a hardcoded list
-        of time-like names, then checks the `dtype` of the column (or the
-        first element in the column) against a hardcoded list of time-like
-        dtypes (`gwpy.time.gps_types`).
+        of time-like names, then checks the first element of the named
+        columne to see if it looks like a `LIGOTimeGPS`-like object.
         """
         # if the name looks like a time column, accept that
         if name.lower() in TIME_LIKE_COLUMN_NAMES:
             return True
 
         # if the dtype of this column looks right, accept that
-        if self[name].dtype in gps_types:
-            return True
         try:
-            return isinstance(self[name][0], gps_types)
+            return isinstance(self[name][0], LIGOTimeGPSLike)
         except IndexError:
             return False
 
-    def _get_time_column(self):
+    def _get_time_column(self) -> str:
         """Return the name of the 'time' column in this table.
 
         This method tries the following:
@@ -168,223 +181,70 @@ class EventTable(Table):
             )
             msg = (
                 "cannot identify time column for table, no columns "
-                "named {}, or with a GPS dtype".format(tcolnames)
+                f"named {tcolnames}, or with a GPS dtype"
             )
             if len(matches) > 1:
                 msg = msg.replace("no columns", "multiple columns")
-            raise ValueError(msg)
+            raise ValueError(msg) from None
         return time
 
-    # -- i/o ------------------------------------
+    # -- i/o -------------------------
+
+    read = UnifiedReadWriteMethod(EventTableRead)
+    write = UnifiedReadWriteMethod(EventTableWrite)
+    fetch = UnifiedReadWriteMethod(EventTableFetch)
 
     @classmethod
-    def read(cls, source, *args, **kwargs):  # pylint: disable=arguments-differ
-        """Read data into an `EventTable`
-
-        Parameters
-        ----------
-        source : `str`, `list`
-            Source of data, any of the following:
-
-            - `str` path of single data file,
-            - `str` path of LAL-format cache file,
-            - `list` of paths.
-
-        *args
-            other positional arguments will be passed directly to the
-            underlying reader method for the given format
-
-        format : `str`, optional
-            the format of the given source files; if not given, an attempt
-            will be made to automatically identify the format
-
-        columns : `list` of `str`, optional
-            the list of column names to read
-
-        selection : `str`, or `list` of `str`, optional
-            one or more column filters with which to downselect the
-            returned table rows as they as read, e.g. ``'snr > 5'``;
-            multiple selections should be connected by ' && ', or given as
-            a `list`, e.g. ``'snr > 5 && frequency < 1000'`` or
-            ``['snr > 5', 'frequency < 1000']``
-
-        nproc : `int`, optional, default: 1
-            number of CPUs to use for parallel reading of multiple files
-
-        verbose : `bool`, optional
-            print a progress bar showing read status, default: `False`
-
-        .. note::
-
-           Keyword arguments other than those listed here may be required
-           depending on the `format`
-
-        Returns
-        -------
-        table : `EventTable`
-
-        Raises
-        ------
-        astropy.io.registry.IORegistryError
-            if the `format` cannot be automatically identified
-        IndexError
-            if ``source`` is an empty list
-
-        Notes
-        -----"""
-        return io_read_multi(vstack, cls, source, *args, **kwargs)
-
-    def write(self, target, *args, **kwargs):
-        """Write this table to a file
-
-        Parameters
-        ----------
-        target: `str`
-            filename for output data file
-
-        *args
-            other positional arguments will be passed directly to the
-            underlying writer method for the given format
-
-        format : `str`, optional
-            format for output data; if not given, an attempt will be made
-            to automatically identify the format based on the `target`
-            filename
-
-        **kwargs
-            other keyword arguments will be passed directly to the
-            underlying writer method for the given format
-
-        Raises
-        ------
-        astropy.io.registry.IORegistryError
-            if the `format` cannot be automatically identified
-
-        Notes
-        -----"""
-        return registry.write(self, target, *args, **kwargs)
-
-    @classmethod
-    def fetch(cls, format_, *args, **kwargs):
-        """Fetch a table of events from a database
-
-        Parameters
-        ----------
-        format : `str`, `~sqlalchemy.engine.Engine`
-            the format of the remote data, see _Notes_ for a list of
-            registered formats, OR an SQL database `Engine` object
-
-        *args
-            all other positional arguments are specific to the
-            data format, see below for basic usage
-
-        columns : `list` of `str`, optional
-            the columns to fetch from the database table, defaults to all
-
-        selection : `str`, or `list` of `str`, optional
-            one or more column filters with which to downselect the
-            returned table rows as they as read, e.g. ``'snr > 5'``;
-            multiple selections should be connected by ' && ', or given as
-            a `list`, e.g. ``'snr > 5 && frequency < 1000'`` or
-            ``['snr > 5', 'frequency < 1000']``
-
-        **kwargs
-            all other positional arguments are specific to the
-            data format, see the online documentation for more details
-
-
-        Returns
-        -------
-        table : `EventTable`
-            a table of events recovered from the remote database
-
-        Examples
-        --------
-        >>> from gwpy.table import EventTable
-
-        To download a table of all blip glitches from the Gravity Spy database:
-
-        >>> EventTable.fetch(
-        ...     'gravityspy',
-        ...     'glitches',
-        ...     selection=['ml_label=Blip', 'ml_confidence>0.9'],
-        ... )
-
-        To download a table from any SQL-type server
-
-        >>> from sqlalchemy.engine import create_engine
-        >>> engine = create_engine(...)
-        >>> EventTable.fetch(engine, 'mytable')
-
-        Notes
-        -----"""
-        # handle open database engine
-        try:
-            from sqlalchemy.engine import Engine
-        except ImportError:
-            pass
-        else:
-            if isinstance(format_, Engine):
-                from .io.sql import fetch
-                return cls(fetch(format_, *args, **kwargs))
-
-        # standard registered fetch
-        from .io.fetch import get_fetcher
-        fetcher = get_fetcher(format_, cls)
-        out = fetcher(*args, **kwargs)
-        if not isinstance(out, cls):
-            if issubclass(cls, type(out)):
-                try:
-                    return cls(out)
-                except Exception as exc:
-                    exc.args = (
-                        "could not convert fetch() output to {0}: {1}".format(
-                            cls.__name__, str(exc),
-                        ),
-                    )
-                    raise
-            raise TypeError(
-                "fetch() should return a {0} instance".format(cls.__name__),
-            )
-        return out
-
-    @classmethod
-    def fetch_open_data(cls, catalog, columns=None, selection=None,
-                        host=DEFAULT_GWOSC_URL, **kwargs):
+    def fetch_open_data(
+        cls,
+        catalog: str,
+        columns: list[str] | None = None,
+        where: str | list[str] | None = None,
+        host: str = DEFAULT_GWOSC_URL,
+        **kwargs,
+    ) -> Self:
         """Fetch events from an open-data catalogue hosted by GWOSC.
+
+        This is an alias for `EventTable.fetch(format='gwosc')`.
 
         Parameters
         ----------
         catalog : `str`
-            the name of the catalog to fetch, e.g. ``'GWTC-1-confident'``
+            The name of the catalog to fetch, e.g. ``'GWTC-1-confident'``.
 
         columns : `list` of `str`, optional
-            the list of column names to read
+            The list of column names to read.
 
-        selection : `str`, or `list` of `str`, optional
-            one or more column filters with which to downselect the
-            returned events as they as read, e.g. ``'mass1 < 30'``;
-            multiple selections should be connected by ' && ', or given as
-            a `list`, e.g. ``'mchirp < 3 && distance < 500'`` or
+        where : `str`, or `list` of `str`, optional
+            One or more column filters with which to downselect the
+            returned table rows as they as read, e.g. ``'snr > 5'``,
+            similar to a SQL ``WHERE`` statement.
+            Multiple conditions should be connected by ' && ' or ' and ',
+            or given a `list`, e.g. ``'mchirp < 3 && distance < 500'`` or
             ``['mchirp < 3', 'distance < 500']``
 
         host : `str`, optional
-            the open-data host to use
+            The open-data host to use.
+
+        **kwargs
+            Other keyword arguments are passed to the fetch method.
         """
-        from .io.losc import fetch_catalog
-        tab = fetch_catalog(catalog, columns=columns, selection=selection,
-                            host=host, **kwargs)
-        if type(tab) is cls:  # don't copy unless we need to
-            return tab
-        return cls(tab)
+        return cls.fetch(
+            source="gwosc",
+            catalog=catalog,
+            columns=columns,
+            where=where,
+            host=host,
+            **kwargs,
+        )
 
-    # -- ligolw compatibility -------------------
+    # -- ligolw compatibility --------
 
-    def get_column(self, name):
-        """Return the `Column` with the given name
+    def get_column(self, name: str) -> Column:
+        """Return the `Column` with the given name.
 
         This method is provided only for compatibility with the
-        :class:`ligo.lw.table.Table`.
+        :class:`igwn_ligolw.ligolw.Table`.
 
         Parameters
         ----------
@@ -402,10 +262,16 @@ class EventTable(Table):
         """
         return self[name]
 
-    # -- extensions -----------------------------
+    # -- extensions ------------------
 
     @_rates_preprocess
-    def event_rate(self, stride, start=None, end=None, timecolumn=None):
+    def event_rate(
+        self,
+        stride: float,
+        start: SupportsToGps | None = None,
+        end: SupportsToGps | None = None,
+        timecolumn: str | None = None,
+    ) -> TimeSeries:
         """Calculate the rate `~gwpy.timeseries.TimeSeries` for this `Table`.
 
         Parameters
@@ -434,23 +300,42 @@ class EventTable(Table):
         ValueError
             if the ``timecolumn`` cannot be guessed from the table contents
         """
-        # NOTE: decorator sets timecolumn, start, end to non-None values
         from gwpy.timeseries import TimeSeries
+
+        # NOTE: decorator sets timecolumn, start, end to non-None values
+        timecolumn = cast("str", timecolumn)
+        start = cast("float", start)
+        end = cast("float", end)
+
         times = self[timecolumn]
-        if times.dtype.name == 'object':  # cast to ufuncable type
-            times = times.astype('longdouble', copy=False)
-        nsamp = int(ceil((end - start) / stride))
+        if times.dtype.name == "object":  # cast to ufuncable type
+            times = times.astype("longdouble", copy=False)
+        nsamp = ceil((end - start) / stride)
         timebins = numpy.arange(nsamp + 1) * stride + start
+
         # create histogram
         return TimeSeries(
             numpy.histogram(times, bins=timebins)[0] / float(stride),
-            t0=start, dt=stride, unit='Hz', name='Event rate')
+            t0=start,
+            dt=stride,
+            unit="Hz",
+            name="Event rate",
+        )
 
     @_rates_preprocess
-    def binned_event_rates(self, stride, column, bins, operator='>=',
-                           start=None, end=None, timecolumn=None):
-        """Calculate an event rate `~gwpy.timeseries.TimeSeriesDict` over
-        a number of bins.
+    def binned_event_rates(
+        self,
+        stride: float,
+        column: str,
+        bins: Sequence[tuple[float, float]] | Sequence[float],
+        operator: str | Callable[[object, object], bool] = ">=",
+        start: SupportsToGps | None = None,
+        end: SupportsToGps | None = None,
+        timecolumn: str | None = None,
+    ) -> TimeSeriesDict:
+        """Calculate an event rate `~gwpy.timeseries.TimeSeriesDict`.
+
+        Calculate the event rate over a number of bins.
 
         Parameters
         ----------
@@ -495,14 +380,18 @@ class EventTable(Table):
             a dict of (bin, `~gwpy.timeseries.TimeSeries`) pairs describing a
             rate of events per second (Hz) for each of the bins.
         """
-        # NOTE: decorator sets timecolumn, start, end to non-None values
-
         from gwpy.timeseries import TimeSeriesDict
+
+        # NOTE: decorator sets timecolumn, start, end to non-None values
+        timecolumn = cast("str", timecolumn)
+        start = cast("float", start)
+        end = cast("float", end)
 
         # generate column bins
         if not bins:
             bins = [(-numpy.inf, numpy.inf)]
-        if operator == 'in' and not isinstance(bins[0], tuple):
+        if operator == "in" and not isinstance(bins[0], tuple):
+            bins = cast("list[float]", bins)
             bins = [(bin_, bins[i+1]) for i, bin_ in enumerate(bins[:-1])]
         elif isinstance(operator, str):
             op_func = parse_operator(operator)
@@ -518,21 +407,17 @@ class EventTable(Table):
                 keep = (coldata >= bin_[0]) & (coldata < bin_[1])
             else:
                 keep = op_func(coldata, bin_)
-            out[bin_] = self[keep].event_rate(stride, start=start, end=end,
-                                              timecolumn=timecolumn)
-            out[bin_].name = ' '.join((column, str(operator), str(bin_)))
+            out[bin_] = self[keep].event_rate(
+                stride,
+                start=start,
+                end=end,
+                timecolumn=timecolumn,
+            )
+            out[bin_].name = " ".join((column, str(operator), str(bin_)))
 
         return out
 
-    def plot(self, *args, **kwargs):
-        """DEPRECATED, use `EventTable.scatter`
-        """
-        warnings.warn('{0}.plot was renamed {0}.scatter and will be removed '
-                      'in an upcoming release'.format(type(self).__name__),
-                      DeprecationWarning)
-        return self.scatter(*args, **kwargs)
-
-    def scatter(self, x, y, **kwargs):
+    def scatter(self, x: str, y: str, **kwargs) -> Plot:
         """Make a scatter plot of column ``x`` vs column ``y``.
 
         Parameters
@@ -554,7 +439,7 @@ class EventTable(Table):
         plot : `~gwpy.plot.Plot`
             the newly created figure
 
-        See also
+        See Also
         --------
         matplotlib.pyplot.figure
             for documentation of keyword arguments used to create the
@@ -565,12 +450,12 @@ class EventTable(Table):
         gwpy.plot.Axes.scatter
             for documentation of keyword arguments used to display the table
         """
-        color = kwargs.pop('color', None)
+        color = kwargs.pop("color", None)
         if color is not None:
-            kwargs['c'] = self[color]
-        return self._plot('scatter', self[x], self[y], **kwargs)
+            kwargs["c"] = self[color]
+        return self._plot("scatter", self[x], self[y], **kwargs)
 
-    def tile(self, x, y, w, h, **kwargs):
+    def tile(self, x: str, y: str, w: str, h: str, **kwargs) -> Plot:
         """Make a tile plot of this table.
 
         Parameters
@@ -598,7 +483,7 @@ class EventTable(Table):
         plot : `~gwpy.plot.Plot`
             the newly created figure
 
-        See also
+        See Also
         --------
         matplotlib.pyplot.figure
             for documentation of keyword arguments used to create the
@@ -609,41 +494,41 @@ class EventTable(Table):
         gwpy.plot.Axes.tile
             for documentation of keyword arguments used to display the table
         """
-        color = kwargs.pop('color', None)
+        color = kwargs.pop("color", None)
         if color is not None:
-            kwargs['color'] = self[color]
-        return self._plot('tile', self[x], self[y], self[w], self[h], **kwargs)
+            kwargs["color"] = self[color]
+        return self._plot("tile", self[x], self[y], self[w], self[h], **kwargs)
 
-    def _plot(self, method, *args, **kwargs):
+    def _plot(self, method: str, *args: Column, **kwargs) -> Plot:
         from matplotlib import rcParams
+
         from ..plot import Plot
         from ..plot.tex import label_to_latex
 
         if self._is_time_column(args[0].name):
             # map X column to GPS axis
-            kwargs.setdefault('figsize', (12, 6))
-            kwargs.setdefault('xscale', 'auto-gps')
+            kwargs.setdefault("figsize", (12, 6))
+            kwargs.setdefault("xscale", "auto-gps")
 
-        kwargs['method'] = method
+        kwargs["method"] = method
         plot = Plot(*args, **kwargs)
 
         # set default labels
         ax = plot.gca()
-        for axis, col in zip(
-                filter(attrgetter('isDefault_label'), (ax.xaxis, ax.yaxis)),
-                args[:2],
-        ):
+        for axis, col in zip((ax.xaxis, ax.yaxis), args[:2], strict=False):
+            if not axis.isDefault_label:
+                continue
             name = col.name
-            if rcParams['text.usetex']:
-                name = r'\texttt{{{0}}}'.format(label_to_latex(col.name))
+            if rcParams["text.usetex"]:
+                name = rf"\texttt{{{label_to_latex(col.name)}}}"
             if col.unit is not None:
-                name += ' [{0}]'.format(col.unit.to_string('latex_inline'))
+                name += " [{}]".format(col.unit.to_string("latex_inline"))
             axis.set_label_text(name)
             axis.isDefault_label = True
 
         return plot
 
-    def hist(self, column, **kwargs):
+    def hist(self, column: str, **kwargs) -> Plot:
         """Generate a `HistogramPlot` of this `Table`.
 
         Parameters
@@ -663,7 +548,7 @@ class EventTable(Table):
         plot : `~gwpy.plot.Plot`
             The newly created figure.
 
-        See also
+        See Also
         --------
         matplotlib.pyplot.figure
             for documentation of keyword arguments used to create the
@@ -677,17 +562,17 @@ class EventTable(Table):
             might not actually be the one used.
         """
         from ..plot import Plot
-        return Plot(self[column], method='hist', **kwargs)
+        return Plot(self[column], method="hist", **kwargs)
 
-    def filter(self, *column_filters):
-        """Apply one or more column slice filters to this `EventTable`
+    def filter(self, *column_filters: FilterLike) -> Self:
+        """Apply one or more column slice filters to this `EventTable`.
 
         Multiple column filters can be given, and will be applied
         concurrently
 
         Parameters
         ----------
-        column_filter : `str`, `tuple`
+        *column_filters : `str`, `tuple`
             a column slice filter definition, e.g. ``'snr > 10``, or
             a filter tuple definition, e.g. ``('snr', <my_func>, <arg>)``
 
@@ -715,9 +600,16 @@ class EventTable(Table):
         """
         return filter_table(self, *column_filters)
 
-    def cluster(self, index, rank, window):
-        """Cluster this `EventTable` over a given column, `index`, maximizing
-        over a specified column in the table, `rank`.
+    def cluster(
+        self,
+        index: str,
+        rank: str,
+        window: float,
+    ) -> Self:
+        """Cluster this `EventTable` over a given column.
+
+        Cluster over the `index` column, maximizing over the `rank` column
+        in the table.
 
         The clustering algorithm uses a pooling method to identify groups
         of points that are all separated in `index` by less than `window`.
@@ -751,7 +643,8 @@ class EventTable(Table):
         >>> table.cluster('end_time', 'snr', 0.1)
         """
         if window <= 0.0:
-            raise ValueError('Window must be a positive value')
+            msg = "Window must be a positive value"
+            raise ValueError(msg)
 
         # If no rows, no need to cluster
         if len(self) == 0:

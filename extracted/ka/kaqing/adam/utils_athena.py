@@ -1,11 +1,11 @@
-from collections.abc import Callable
 import functools
 import time
 import boto3
 import botocore
 
 from adam.config import Config
-from adam.utils import tabulize, log, log2, log_exc, wait_log
+from adam.utils import log2, log_exc, wait_log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 # no state utility class
@@ -92,10 +92,10 @@ class Athena:
             column_info = rs[0]['Data']
             columns = [col.get('VarCharValue') for col in column_info]
             tabulize(rs[1:],
-                           lambda r: '\t'.join(col.get('VarCharValue') if col else '' for col in r['Data']),
-                           header='\t'.join(columns),
-                           separator='\t',
-                           log_file=ctx.log_file)
+                     lambda r: '\t'.join(col.get('VarCharValue') if col else '' for col in r['Data']),
+                     header='\t'.join(columns),
+                     separator='\t',
+                     ctx=ctx)
 
             return len(rs)-1, ctx.log_file
       else:

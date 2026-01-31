@@ -3,16 +3,21 @@ import os
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import dask.dataframe as dd
 import numpy as np
+import pandas as pd
+import pyarrow.parquet as pq
 import pytest
 import zarr
 from anndata import AnnData
 from numpy.random import default_rng
+from shapely import MultiPolygon, Polygon
+from upath import UPath
 from zarr.errors import GroupNotFoundError
 
+import spatialdata.config
 from spatialdata import SpatialData, deepcopy, read_zarr
 from spatialdata._core.validation import ValidationError
 from spatialdata._io._utils import _are_directories_identical, get_dask_backing_files
@@ -73,20 +78,90 @@ class TestReadWrite:
         sdata = SpatialData.read(tmpdir)
         assert_spatial_data_objects_are_identical(labels, sdata)
 
+    @pytest.mark.parametrize("geometry_encoding", ["WKB", "geoarrow"])
     def test_shapes(
         self,
         tmp_path: str,
         shapes: SpatialData,
         sdata_container_format: SpatialDataContainerFormatType,
+        geometry_encoding: Literal["WKB", "geoarrow"],
     ) -> None:
         tmpdir = Path(tmp_path) / "tmp.zarr"
 
         # check the index is correctly written and then read
         shapes["circles"].index = np.arange(1, len(shapes["circles"]) + 1)
 
-        shapes.write(tmpdir, sdata_formats=sdata_container_format)
+        # add a mixed Polygon + MultiPolygon element
+        shapes["mixed"] = pd.concat([shapes["poly"], shapes["multipoly"]])
+
+        shapes.write(tmpdir, sdata_formats=sdata_container_format, shapes_geometry_encoding=geometry_encoding)
         sdata = SpatialData.read(tmpdir)
-        assert_spatial_data_objects_are_identical(shapes, sdata)
+
+        if geometry_encoding == "WKB":
+            assert_spatial_data_objects_are_identical(shapes, sdata)
+        else:
+            # convert each Polygon to a MultiPolygon
+            mixed_multipolygon = shapes["mixed"].assign(
+                geometry=lambda df: df.geometry.apply(lambda g: MultiPolygon([g]) if isinstance(g, Polygon) else g)
+            )
+            assert sdata["mixed"].equals(mixed_multipolygon)
+            assert not sdata["mixed"].equals(shapes["mixed"])
+
+            del shapes["mixed"]
+            del sdata["mixed"]
+            assert_spatial_data_objects_are_identical(shapes, sdata)
+
+    @pytest.mark.parametrize("geometry_encoding", ["WKB", "geoarrow"])
+    def test_shapes_geometry_encoding_write_element(
+        self,
+        tmp_path: str,
+        shapes: SpatialData,
+        sdata_container_format: SpatialDataContainerFormatType,
+        geometry_encoding: Literal["WKB", "geoarrow"],
+    ) -> None:
+        """Test shapes geometry encoding with write_element() and global settings."""
+        tmpdir = Path(tmp_path) / "tmp.zarr"
+
+        # First write an empty SpatialData to create the zarr store
+        empty_sdata = SpatialData()
+        empty_sdata.write(tmpdir, sdata_formats=sdata_container_format)
+
+        shapes["mixed"] = pd.concat([shapes["poly"], shapes["multipoly"]])
+
+        # Add shapes to the empty sdata
+        for shape_name in shapes.shapes:
+            empty_sdata[shape_name] = shapes[shape_name]
+
+        # Store original setting and set global encoding
+        original_encoding = spatialdata.config.settings.shapes_geometry_encoding
+        try:
+            spatialdata.config.settings.shapes_geometry_encoding = geometry_encoding
+
+            # Write each shape element - should use global setting
+            for shape_name in shapes.shapes:
+                empty_sdata.write_element(shape_name, sdata_formats=sdata_container_format)
+
+                # Verify the encoding metadata in the parquet file
+                parquet_file = tmpdir / "shapes" / shape_name / "shapes.parquet"
+                with pq.ParquetFile(parquet_file) as pf:
+                    md = pf.metadata
+                    d = json.loads(md.metadata[b"geo"].decode("utf-8"))
+                    found_encoding = d["columns"]["geometry"]["encoding"]
+                    if geometry_encoding == "WKB":
+                        expected_encoding = "WKB"
+                    elif shape_name == "circles":
+                        expected_encoding = "point"
+                    elif shape_name == "poly":
+                        expected_encoding = "polygon"
+                    elif shape_name in ["multipoly", "mixed"]:
+                        expected_encoding = "multipolygon"
+                    else:
+                        raise ValueError(
+                            f"Uncovered case for shape_name: {shape_name}, found encoding: {found_encoding}."
+                        )
+                    assert found_encoding == expected_encoding
+        finally:
+            spatialdata.config.settings.shapes_geometry_encoding = original_encoding
 
     def test_points(
         self,
@@ -229,8 +304,7 @@ class TestReadWrite:
         del sdata[new_name]
         sdata.delete_element_from_disk(new_name)
 
-    # @pytest.mark.parametrize("dask_backed", [True, False])
-    @pytest.mark.parametrize("dask_backed", [True])
+    @pytest.mark.parametrize("dask_backed", [True, False])
     @pytest.mark.parametrize("workaround", [1, 2])
     def test_incremental_io_on_disk(
         self,
@@ -964,3 +1038,72 @@ def test_can_read_sdata_with_reconsolidation(full_sdata, sdata_container_format:
 
         new_sdata = SpatialData.read(path, reconsolidate_metadata=True)
         assert_spatial_data_objects_are_identical(full_sdata, new_sdata)
+
+
+def test_read_sdata(tmp_path: Path, points: SpatialData) -> None:
+    sdata_path = tmp_path / "sdata.zarr"
+    points.write(sdata_path)
+
+    # path as Path
+    sdata_from_path = SpatialData.read(sdata_path)
+    assert sdata_from_path.path == sdata_path
+
+    # path as str
+    sdata_from_str = SpatialData.read(str(sdata_path))
+    assert sdata_from_str.path == sdata_path
+
+    # path as UPath
+    sdata_from_upath = SpatialData.read(UPath(sdata_path))
+    assert sdata_from_upath.path == sdata_path
+
+    # path as zarr Group
+    zarr_group = zarr.open_group(sdata_path, mode="r")
+    sdata_from_zarr_group = SpatialData.read(zarr_group)
+    assert sdata_from_zarr_group.path == sdata_path
+
+    # Assert all read methods produce identical SpatialData objects
+    assert_spatial_data_objects_are_identical(sdata_from_path, sdata_from_str)
+    assert_spatial_data_objects_are_identical(sdata_from_path, sdata_from_upath)
+    assert_spatial_data_objects_are_identical(sdata_from_path, sdata_from_zarr_group)
+
+
+def test_sdata_with_nan_in_obs() -> None:
+    """Test writing SpatialData with mixed string/NaN values in obs works correctly.
+
+    Regression test for https://github.com/scverse/spatialdata/issues/399
+    Previously this raised TypeError: expected unicode string, found nan.
+    Now the write succeeds, though NaN values in object-dtype columns are
+    converted to the string "nan" after round-trip.
+    """
+    from spatialdata.models import TableModel
+
+    table = TableModel.parse(
+        AnnData(
+            obs=pd.DataFrame(
+                {
+                    "region": ["region1", "region2"],
+                    "instance": [0, 0],
+                    "column_only_region1": ["string", np.nan],
+                    "column_only_region2": [np.nan, 3],
+                }
+            )
+        ),
+        region_key="region",
+        instance_key="instance",
+        region=["region1", "region2"],
+    )
+    sdata = SpatialData(tables={"table": table})
+    assert sdata["table"].obs["column_only_region1"].iloc[1] is np.nan
+    assert np.isnan(sdata["table"].obs["column_only_region2"].iloc[0])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "data.zarr")
+        sdata.write(path)
+
+        sdata2 = SpatialData.read(path)
+        assert "column_only_region1" in sdata2["table"].obs.columns
+        assert sdata2["table"].obs["column_only_region1"].iloc[0] == "string"
+        assert sdata2["table"].obs["column_only_region2"].iloc[1] == 3
+        # After round-trip, NaN in object-dtype column becomes string "nan"
+        assert sdata2["table"].obs["column_only_region1"].iloc[1] == "nan"
+        assert np.isnan(sdata2["table"].obs["column_only_region2"].iloc[0])

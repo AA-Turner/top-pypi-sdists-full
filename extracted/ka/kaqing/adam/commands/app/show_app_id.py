@@ -28,12 +28,14 @@ class ShowAppId(Command):
         with self.validate(args, state) as (args, state):
             c3_app_id = 'Unknown'
 
+            ctx = self.context()
+
             apps = CustomResources.get_app_ids()
             cr_name = CustomResources.get_cr_name(state.sts if state.sts else state.pod, namespace=state.namespace)
             if cr_name in apps:
                 c3_app_id = (apps[cr_name])
 
-            log(c3_app_id)
+            ctx.log(c3_app_id)
 
             return c3_app_id
 

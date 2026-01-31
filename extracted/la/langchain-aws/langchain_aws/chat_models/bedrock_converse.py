@@ -916,7 +916,7 @@ class ChatBedrockConverse(BaseChatModel):
         # For regional model IDs (e.g., us.anthropic.claude-3-5-haiku-20241022-v1:0),
         # get the base model ID by removing the regional prefix
         if self.model_id.startswith(
-            ("eu.", "us.", "us-gov.", "apac.", "sa.", "amer.", "global.", "jp.")
+            ("eu.", "us.", "us-gov.", "apac.", "sa.", "amer.", "global.", "jp.", "au.")
         ):
             return self.model_id.partition(".")[2]
 
@@ -2033,7 +2033,9 @@ def _lc_content_to_bedrock(
                     }
                 )
         elif block["type"] == "reasoning_content":
-            reasoning_content = block.get("reasoningContent", {})
+            reasoning_content = block.get("reasoningContent") or block.get(
+                "reasoning_content", {}
+            )
             if reasoning_content.get("signature", ""):
                 bedrock_content.append(
                     {

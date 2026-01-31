@@ -2029,31 +2029,28 @@ class TestTestgresCommon:
 
     class tagTableChecksumTestData:
         record_count: int
-        checksum: int
 
         def __init__(
             self,
             record_count: int,
-            checksum: int
         ):
             assert type(record_count) == int  # noqa: E721
-            assert type(checksum) == int  # noqa: E721
             self.record_count = record_count  # noqa: E721
-            self.checksum = checksum  # noqa: E721
             return
 
     sm_TableCheckSumTestDatas = [
-        tagTableChecksumTestData(0, 0),
-        tagTableChecksumTestData(1, 4602640778579266704),
-        tagTableChecksumTestData(2, 0),
-        tagTableChecksumTestData(3, 0),
-        tagTableChecksumTestData(987, 0),
-        tagTableChecksumTestData(999, 0),
-        tagTableChecksumTestData(1000, 0),
-        tagTableChecksumTestData(1001, 0),
-        tagTableChecksumTestData(1999, 0),
-        tagTableChecksumTestData(19999, 0),
-        tagTableChecksumTestData(199999, 0),
+        tagTableChecksumTestData(0),
+        tagTableChecksumTestData(1),
+        tagTableChecksumTestData(2),
+        tagTableChecksumTestData(3),
+        tagTableChecksumTestData(987),
+        tagTableChecksumTestData(999),
+        tagTableChecksumTestData(1000),
+        tagTableChecksumTestData(1001),
+        tagTableChecksumTestData(1999),
+        tagTableChecksumTestData(19999),
+        tagTableChecksumTestData(199999),
+        tagTableChecksumTestData(1999999),
     ]
 
     @pytest.fixture(
@@ -2105,7 +2102,7 @@ class TestTestgresCommon:
 
                 with cn.connection.cursor() as cursor:
                     assert cursor is not None
-                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+                    cursor.execute("SELECT hashtext(t::text) FROM \"t\" as t;")
 
                     checksum1 = 0
                     record_count = 0
@@ -2116,7 +2113,7 @@ class TestTestgresCommon:
                         assert type(row) in [list, tuple]  # noqa: E721
                         assert len(row) == 1
                         record_count += 1
-                        checksum1 += hash(row[0])
+                        checksum1 += int(row[0])
                         pass
 
                     assert record_count == table_checksum_test_data.record_count
@@ -2165,7 +2162,7 @@ class TestTestgresCommon:
 
                 with cn.connection.cursor() as cursor:
                     assert cursor is not None
-                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+                    cursor.execute("SELECT hashtext(t::text) FROM \"t\" as t;")
 
                     checksum1 = 0
                     record_count = 0
@@ -2176,7 +2173,7 @@ class TestTestgresCommon:
                         assert type(row) in [list, tuple]  # noqa: E721
                         assert len(row) == 1
                         record_count += 1
-                        checksum1 += hash(row[0])
+                        checksum1 += int(row[0])
                         pass
 
                     assert record_count == table_checksum_test_data.record_count

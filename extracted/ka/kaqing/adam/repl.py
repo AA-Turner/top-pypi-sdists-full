@@ -13,12 +13,14 @@ from adam.commands.help import Help
 from adam.config import Config
 from adam.sql.async_executor import AsyncExecutor
 from adam.utils_audits import Audits
+from adam.utils_context import Context
 from adam.utils_k8s.kube_context import KubeContext
 from adam.log import Log
 from adam.repl_commands import ReplCommands
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
-from adam.utils import CommandLog, clear_wait_log_flag, debug_trace, deep_sort_dict, tabulize, log2, log_exc, log_timing
+from adam.utils import CommandLog, clear_wait_log_flag, debug_trace, deep_sort_dict, log2, log_exc, log_timing
+from adam.utils_tabulize import tabulize
 from adam.apps import Apps
 from adam.utils_repl.repl_completer import ReplCompleter, merge_completions
 from . import __version__
@@ -148,13 +150,17 @@ def enter_repl(state: ReplState):
 
                 CommandLog.close_log_file()
 
-def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str):
+def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx: Context = Context.NULL):
     action_taken, result = Devices.of(state).try_fallback_action(cmds, state, cmd)
 
     if not action_taken:
-        log2(f'* Invalid command: {cmd}')
-        log2()
-        tabulize([c.help(state) for c in cmd_list if c.help(state)], separator='\t', err=True)
+        ctx=ctx.copy(show_out=True)
+        ctx.log2(f'* Invalid command: {cmd}')
+        ctx.log2()
+        tabulize([c.help(state) for c in cmd_list if c.help(state)],
+                 separator='\t',
+                 err=True,
+                 ctx=ctx)
 
     return result
 

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,102 +16,135 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for :mod:`gwpy.cli`
-"""
+"""Unit tests for :mod:`gwpy.cli`."""
 
+from __future__ import annotations
+
+import contextlib
 import warnings
 from argparse import ArgumentParser
-from unittest import mock
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+    cast,
+)
 
 import pytest
-
-from numpy import random
-
 from matplotlib import pyplot
+from numpy.random import default_rng
 
-from ...cli import cliproduct
-from ...frequencyseries import FrequencySeries
-from ...timeseries import TimeSeries
 from ...plot import Plot
-from ...testing import (utils, mocks)
+from ...testing import utils
+from ...timeseries import TimeSeries
+from .. import (
+    SpectrumProduct,
+    TransferFunctionProduct,
+    cliproduct,
+)
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+if TYPE_CHECKING:
+    from argparse import Namespace
+    from pathlib import Path
+    from typing import ClassVar
+
+    NamespaceType = TypeVar("NamespaceType", bound=Namespace)
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
+
+CliProductType = TypeVar("CliProductType", bound=cliproduct.CliProduct)
+ImageProductType = TypeVar("ImageProductType", bound=cliproduct.ImageProduct)
+TimeDomainProductType = TypeVar(
+    "TimeDomainProductType",
+    bound=cliproduct.TimeDomainProduct,
+)
+FrequencyDomainProductType = TypeVar(
+    "FrequencyDomainProductType",
+    bound=cliproduct.FrequencyDomainProduct,
+)
+
+RNG0 = default_rng(0)
+RNG1 = default_rng(1)
+
+# set data for nds2_connection test fixture
+NDS2_CONNECTION_FIXTURE_DATA = [
+    TimeSeries(
+        RNG0.random(10240),
+        t0=0,
+        sample_rate=1024,
+        name="X1:TEST-CHANNEL",
+    ),
+    TimeSeries(
+        RNG1.random(10240),
+        t0=0,
+        sample_rate=1024,
+        name="Y1:TEST-CHANNEL",
+    ),
+]
 
 
-# -- utilities ----------------------------------------------------------------
+# -- utilities -----------------------
 
-def _random_data(*shape):
-    return random.rand(*shape)
-
-
-def mock_nds2_connection():
-    random.seed(0)
-    xts = TimeSeries(_random_data(10240), t0=0,
-                     sample_rate=1024, name='X1:TEST-CHANNEL')
-    random.seed(1)  # use different seed to give coherence something to do
-    yts = TimeSeries(_random_data(10240), t0=0,
-                     sample_rate=1024, name='Y1:TEST-CHANNEL')
-    data = [xts, yts]
-    conn = mocks.nds2_connection(
-        buffers=list(map(mocks.nds2_buffer_from_timeseries, data)),
-    )
-    return conn, data
-
-
-def update_namespace(args, **params):
-    for key in params:
-        setattr(args, key, params[key])
+def update_namespace(args: NamespaceType, **params) -> NamespaceType:
+    """Update the `argparse.Namespace` with new parameters."""
+    for key, value in params.items():
+        setattr(args, key, value)
     return args
 
 
-# -- function tests -----------------------------------------------------------
+# -- function tests ------------------
 
 def test_to_float():
-    to_s = cliproduct.to_float('s')
-    s = to_s(4)
+    """Test `to_float`."""
+    to_s = cliproduct.to_float("s")
+    s = to_s(3)
     assert isinstance(s, float)
-    assert s == 4.
-    assert to_s('4ms') == 0.004
+    assert s == 3.
+    assert to_s("3ms") == 0.004
 
 
-# -- class tests --------------------------------------------------------------
+# -- class tests ---------------------
 
-class _TestCliProduct(object):
-    ACTION = None
-    TEST_CLASS = cliproduct.CliProduct
-    TEST_ARGS = [
-        '--chan', 'X1:TEST-CHANNEL',
-        '--start', 0,
-        '--nds2-server', 'nds.test.gwpy',
-        '--dpi', 100,
-        '--geometry', '640x480',
+class _TestCliProduct(Generic[CliProductType]):
+    """Test the `CliProduct` class."""
+
+    ACTION: ClassVar[str | None] = None
+    TEST_CLASS: ClassVar[type[cliproduct.CliProduct]] = cliproduct.CliProduct  # type: ignore[type-abstract]
+    TEST_ARGS: ClassVar[list[str]] = [
+        "--chan", "X1:TEST-CHANNEL",
+        "--start", "0",
+        "--nds2-server", "nds.test.gwpy",
+        "--dpi", "100",
+        "--geometry", "640x480",
     ]
+    NDS2_CONNECTION_FIXTURE_DATA = NDS2_CONNECTION_FIXTURE_DATA
 
-    # -- fixtures -------------------------------
+    # -- fixtures --------------------
 
     @pytest.fixture
-    def args(self):
-        """Creates and parser arguments for a given `CliProduct`
+    @classmethod
+    def args(cls) -> Namespace:
+        """Create and parser arguments for a given `CliProduct`.
 
         Returns the `argparse.Namespace`
         """
         parser = ArgumentParser()
-        parser.add_argument('--verbose', action='count', default=1)
-        parser.add_argument('--silent', action='store_true')
-        self.TEST_CLASS.init_cli(parser)
-        return parser.parse_args(map(str, self.TEST_ARGS))
+        parser.add_argument("--verbose", action="count", default=1)
+        parser.add_argument("--silent", action="store_true")
+        cls.TEST_CLASS.init_cli(parser)
+        return parser.parse_args([str(x) for x in cls.TEST_ARGS])
 
     @pytest.fixture
-    def prod(self, args):
-        """Returns a `CliProduct`
-        """
-        prod = self.TEST_CLASS(args)
+    @classmethod
+    def prod(cls, args):
+        """Return a `CliProduct`."""
+        prod = cls.TEST_CLASS(args)
         yield prod
-        if prod.plot:
+        with contextlib.suppress(RuntimeError):
             prod.plot.close()
 
     @staticmethod
-    def _prod_add_data(prod):
+    def _prod_add_data(prod: CliProductType) -> CliProductType:
         # we need this method separate, rather than in dataprod, so that
         # we can have classes override the dataprod fixture with extra
         # stuff properly
@@ -121,38 +154,51 @@ class _TestCliProduct(object):
         i = 0
         for start in prod.start_list:
             for chan in prod.chan_list:
-                random.seed(i)
-                ts = TimeSeries(_random_data(int(fs*dur)), t0=start,
-                                sample_rate=512, name=chan)
+                rng = default_rng(i)
+                ts = TimeSeries(
+                    rng.random(int(fs*dur)),
+                    t0=start,
+                    sample_rate=512,
+                    name=chan,
+                )
                 prod.timeseries.append(ts)
                 i += 1
         return prod
 
     @pytest.fixture
-    def dataprod(self, prod):
-        """Returns a `CliProduct` with data
-        """
-        return self._prod_add_data(prod)
+    @classmethod
+    def dataprod(cls, prod):
+        """Return a `CliProduct` with data."""
+        return cls._prod_add_data(prod)
 
     @staticmethod
-    def _plotprod_init(prod):
-        prod.plot = pyplot.figure(FigureClass=Plot)
+    def _plotprod_init(prod: CliProductType) -> CliProductType:
+        prod.plot = cast("Plot", pyplot.figure(FigureClass=Plot))
+        prod.plot.gca()  # Initialise some axes
         return prod
 
     @pytest.fixture
-    def plotprod(self, dataprod):
-        return self._plotprod_init(dataprod)
+    @classmethod
+    def plotprod(cls, dataprod):
+        """Return a `CliProduct` with data and a plot."""
+        return cls._plotprod_init(dataprod)
 
-    # -- tests ----------------------------------
+    # -- tests -----------------------
 
-    def test_init(self, args):
+    def test_init(self, args: Namespace):
+        """Test `CliProduct` initialization."""
+        channels = [
+            self.TEST_ARGS[i+1]
+            for i, arg in enumerate(self.TEST_ARGS)
+            if arg == "--chan"
+        ]
         prod = self.TEST_CLASS(args)
-        assert prod.verbose == args.verbose
-        assert prod.plot is None
+        with pytest.raises(RuntimeError):
+            assert prod.plot is None
         assert prod.plot_num == 0
         assert prod.start_list == [0]
         assert prod.duration == 10.
-        assert prod.chan_list == ['X1:TEST-CHANNEL']
+        assert prod.chan_list == channels
         assert prod.n_datasets == len(prod.start_list) * len(prod.chan_list)
         assert prod.timeseries == []
         assert prod.dpi == 100.
@@ -160,74 +206,128 @@ class _TestCliProduct(object):
         assert prod.height == 480
         assert prod.figsize == (6.4, 4.8)
 
-    def test_action(self, prod):
+    def test_action(self, prod: CliProductType):
+        """Test `CliProduct.action`."""
         if self.ACTION is None:
             raise NotImplementedError
         assert prod.action is self.ACTION
 
-    @pytest.mark.parametrize('level', (1, 2, 3))
-    def test_log(self, prod, level, capsys):
-        v = prod.verbose
-        prod.log(level, 'Test')
-        out, err = capsys.readouterr()
-        if v >= level:
-            assert out == 'Test\n'
-        else:
-            assert out == ''
+    @pytest.mark.parametrize("level", [
+        pytest.param(1, id="info"),
+        pytest.param(2, id="debug"),
+    ])
+    def test_log(
+        self,
+        prod: CliProductType,
+        level: int,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Test `CliProduct.log`."""
+        caplog.set_level("INFO", logger=prod.logger.name)
+        with pytest.warns(
+            DeprecationWarning,
+            match="`CliProduct.log` is deprecated",
+        ):
+            prod.log(level, "Test")
+        assert ("Test" in caplog.text) is (level <= 1)
 
     @pytest.mark.requires("nds2")
-    def test_get_data(self, prod):
-        conn, data = mock_nds2_connection()
-        with mock.patch('nds2.connection') as mocker:
-            mocker.return_value = conn
-            prod.get_data()
+    @pytest.mark.usefixtures("nds2_connection")
+    def test_get_data(self, prod: CliProductType):
+        """Test `CliProduct.get_data`."""
+        prod.get_data()
 
         utils.assert_quantity_sub_equal(
             prod.timeseries[0],
-            data[0],
+            NDS2_CONNECTION_FIXTURE_DATA[0],
             exclude=("channel",),
         )
 
-    @pytest.mark.parametrize('ftype, filt', [
-        ('highpass', {'highpass': 10}),
-        ('lowpass', {'lowpass': 100}),
-        ('bandpass', {'highpass': 10, 'lowpass': 100}),
+    @pytest.mark.parametrize(("ftype", "filt"), [
+        pytest.param("highpass", {"highpass": 10}, id="highpass"),
+        pytest.param("lowpass", {"lowpass": 100}, id="lowpass"),
+        pytest.param("bandpass", {"highpass": 10, "lowpass": 100}, id="bandpass"),
     ])
-    def test_filter_timeseries(self, dataprod, ftype, filt):
+    def test_filter_timeseries(
+        self,
+        dataprod: CliProductType,
+        ftype: str,
+        filt: dict[str, float],
+    ):
+        """Test `CliProduct._filter_timeseries`."""
         ts = dataprod.timeseries[0]
-        if ftype == 'bandpass':
-            result = ts.bandpass(filt['highpass'], filt['lowpass'])
+        if ftype == "bandpass":
+            result = ts.bandpass(filt["highpass"], filt["lowpass"])
         else:
-            result = getattr(ts, ftype)(filt[ftype])
+            result = cast("TimeSeries", getattr(ts, ftype)(filt[ftype]))
 
-        fts = dataprod._filter_timeseries(ts, **filt)
+        fts = dataprod._filter_timeseries(ts, **filt)  # type: ignore[arg-type]
         utils.assert_quantity_sub_equal(fts, result)
 
-    @pytest.mark.parametrize('params, title', [
-        ({'highpass': 100}, 'high pass (100.0)'),
-        ({'lowpass': 100}, 'low pass (100.0)'),
-        ({'highpass': 100, 'lowpass': 200}, 'band pass (100.0-200.)'),
-        ({'highpass': 100, 'notch': [60]}, 'high pass (100.0), notch(60.0)'),
+    @pytest.mark.parametrize(("params", "title"), [
+        pytest.param(
+            {"highpass": 100},
+            "high pass (100.0)",
+            id="highpass",
+        ),
+        pytest.param(
+            {"lowpass": 100},
+            "low pass (100.0)",
+            id="lowpass",
+        ),
+        pytest.param(
+            {"highpass": 100, "lowpass": 200},
+            "band pass (100.0-200.)",
+            id="highlowband",
+        ),
+        pytest.param(
+            {"highpass": 100, "notch": [60]},
+            "high pass (100.0), notch(60.0)",
+            id="highnotch",
+        ),
     ])
-    def test_get_title(self, prod, params, title):
+    def test_get_title(
+        self,
+        prod: CliProductType,
+        params: dict[str, float],
+        title: str,
+    ):
+        """Test `CliProduct.get_title`."""
         update_namespace(prod.args, **params)  # update parameters
         assert prod.get_title() == title
 
-    def test_get_suptitle(self, prod):
+    def test_get_suptitle(self, prod: CliProductType):
+        """Test `CliProduct.get_suptitle`."""
         assert prod.get_suptitle() == prod.chan_list[0]
 
-    @pytest.mark.parametrize('params', [
-        {},
-        {'xscale': 'linear', 'xmin': 0, 'xmax': 5, 'xlabel': 'X-label',
-         'yscale': 'log', 'ymin': 0, 'ymax': 50, 'ylabel': 'Y-label'},
+    @pytest.mark.parametrize("params", [
+        pytest.param({}, id="default"),
+        pytest.param(
+            {
+                "xscale": "linear",
+                "xmin": 0,
+                "xmax": 5,
+                "xlabel": "X-label",
+                "yscale": "log",
+                "ymin": 0,
+                "ymax": 50,
+                "ylabel": "Y-label",
+            },
+            id="custom",
+        ),
     ])
-    def test_set_plot_properties(self, plotprod, params):
+    def test_set_plot_properties(
+        self,
+        plotprod: CliProductType,
+        params: dict[str, float],
+    ):
+        """Test `CliProduct.set_plot_properties`."""
         args = plotprod.args
         update_namespace(args, **params)  # update parameters
 
-        if isinstance(plotprod, cliproduct.TransferFunctionProduct):
+        if isinstance(plotprod, TransferFunctionProduct):
             data = plotprod.tfs
-        elif isinstance(plotprod, cliproduct.FrequencyDomainProduct):
+        elif isinstance(plotprod, SpectrumProduct):
             data = plotprod.spectra
         else:
             data = plotprod.timeseries
@@ -248,94 +348,81 @@ class _TestCliProduct(object):
 
         ymin, ymax = ax.get_ylim()
 
-        assert ax.get_xscale() == params.get('xscale', args.xscale)
-        assert ax.get_xlim() == (params.get('xmin', xmin),
-                                 params.get('xmax', xmax))
-        assert ax.get_xlabel() == params.get('xlabel', plotprod.get_xlabel())
+        assert ax.get_xscale() == params.get("xscale", args.xscale)
+        assert ax.get_xlim() == (params.get("xmin", xmin),
+                                 params.get("xmax", xmax))
+        assert ax.get_xlabel() == params.get("xlabel", plotprod.get_xlabel())
 
-        assert ax.get_yscale() == params.get('yscale', args.yscale or 'linear')
-        assert ax.get_ylim() == (params.get('ymin', ymin),
-                                 params.get('ymax', ymax))
-        assert ax.get_ylabel() == params.get('ylabel', plotprod.get_ylabel())
+        assert ax.get_yscale() == params.get("yscale", args.yscale or "linear")
+        assert ax.get_ylim() == (params.get("ymin", ymin),
+                                 params.get("ymax", ymax))
+        assert ax.get_ylabel() == params.get("ylabel", plotprod.get_ylabel())
 
     @pytest.mark.requires("nds2")
-    def test_run(self, tmp_path, prod):
-        conn, _ = mock_nds2_connection()
+    @pytest.mark.usefixtures("nds2_connection")
+    def test_run(
+        self,
+        tmp_path: Path,
+        prod: CliProductType,
+    ):
+        """Test `CliProduct.run`."""
         tmp = tmp_path / "plot.png"
-        with mock.patch('nds2.connection') as mocker:
-            mocker.return_value = conn
-            prod.args.out = str(tmp)
-            prod.run()
-            assert tmp.is_file()
-            assert prod.plot_num == 1
-            assert not prod.has_more_plots()
+        prod.args.out = str(tmp)
+        prod.run()
+        assert tmp.is_file()
+        assert prod.plot_num == 1
+        assert not prod.has_more_plots()
 
 
-class _TestImageProduct(_TestCliProduct):
-    TEST_CLASS = cliproduct.ImageProduct
+class _TestImageProduct(_TestCliProduct[ImageProductType], Generic[ImageProductType]):
+    """Test the `ImageProduct` class."""
 
-    @pytest.fixture
-    def plotprod(self, dataprod):
-        self._plotprod_init(dataprod)
-        dataprod.plot.gca().pcolormesh(dataprod.result)
-        return dataprod
+    TEST_CLASS: ClassVar[type[cliproduct.ImageProduct]] = cliproduct.ImageProduct  # type: ignore[type-abstract]
 
-    def test_extra_plot_options(self, args):
-        for key in ('nocolorbar', 'cmap', 'imin', 'imax'):
+    def test_extra_plot_options(self, args: Namespace):
+        """Test `ImageProduct.extra_plot_options`."""
+        for key in ("nocolorbar", "cmap", "imin", "imax"):
             assert hasattr(args, key)
 
-    @pytest.mark.parametrize('visible', [False, True])
-    def test_set_plot_properties(self, plotprod, visible):
+    @pytest.mark.parametrize("visible", [False, True])
+    def test_set_plot_properties(
+        self,
+        plotprod: ImageProductType,
+        visible: bool,
+    ):
+        """Test `ImageProduct.set_plot_properties`."""
         update_namespace(plotprod.args, nocolorbar=not visible)
         plotprod.set_plot_properties()
         if visible:
             label = plotprod.get_color_label()
-            assert plotprod.plot.colorbars[0].ax.get_ylabel() == label
+            coloraxes = plotprod.ax.child_axes[0]
+            assert coloraxes.get_ylabel() == label
         else:
-            assert not plotprod.plot.colorbars
+            # check our axes doesn't have any children
+            assert not plotprod.ax.child_axes
 
 
-class _TestFFTMixin(object):
-    pass
+class _TestFFTMixin:
+    """Test the `FFTMixin` class."""
 
 
-class _TestTimeDomainProduct(_TestCliProduct):
-    pass
+class _TestTimeDomainProduct(
+    _TestCliProduct[TimeDomainProductType],
+    Generic[TimeDomainProductType],
+):
+    """Test the `TimeDomainProduct` class."""
+
+    TEST_CLASS: ClassVar[type[cliproduct.TimeDomainProduct]] = (
+        cliproduct.TimeDomainProduct  # type: ignore[type-abstract]
+    )
 
 
-class _TestFrequencyDomainProduct(_TestCliProduct):
-    @pytest.fixture
-    def dataprod(self, prod):
-        self._prod_add_data(prod)
-        fftlength = prod.args.secpfft
-        for i, ts in enumerate(prod.timeseries):
-            nsamp = int(fftlength * 512 / 2.) + 1
-            random.seed(i)
-            fs = FrequencySeries(_random_data(nsamp), x0=0, dx=1/fftlength,
-                                 channel=ts.channel, name=ts.name)
-            prod.spectra.append(fs)
-        return prod
+class _TestFrequencyDomainProduct(
+    _TestCliProduct[FrequencyDomainProductType],
+    Generic[FrequencyDomainProductType],
+):
+    """Test the `FrequencyDomainProduct` class."""
 
-
-class _TestTransferFunctionProduct(_TestCliProduct):
-    @pytest.fixture
-    def dataprod(self, prod):
-        self._prod_add_data(prod)
-        fftlength = prod.args.secpfft
-        for i, ts in enumerate(prod.timeseries):
-            nsamp = int(fftlength * 512 / 2.) + 1
-            random.seed(i)
-            if i % 2 == 0:
-                name = (f'{prod.timeseries[i+1].name}---'
-                        f'{prod.timeseries[i].name}')
-                fs = FrequencySeries(
-                    _random_data(nsamp) + 1j*_random_data(nsamp),
-                    x0=0,
-                    dx=1/fftlength,
-                    channel=prod.timeseries[i+1].channel,
-                    name=f'{name}',
-                    dtype=complex,
-                )
-                prod.test_chan = prod.timeseries[i+1].name
-            prod.tfs.append(fs)
-        return prod
+    TEST_CLASS: ClassVar[type[cliproduct.FrequencyDomainProduct]] = (
+        cliproduct.FrequencyDomainProduct  # type: ignore[type-abstract]
+    )

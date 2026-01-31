@@ -6,9 +6,8 @@ import re
 from collections import deque
 from datetime import datetime
 from functools import lru_cache
-from io import StringIO
 from json import loads
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from tornado import escape
 from tornado.util import ObjectDict, exec_in, unicode_type
@@ -29,6 +28,7 @@ REQUIRED_PARAM_NOT_DEFINED = "Required parameter is not defined"
 # Pre-compiled regex patterns for performance
 _STRING_LINE_NUMBER_RE = re.compile(r"\<string\>:(\d*)")
 _ARRAY_TYPE_RE = re.compile(r"Array\((\w+)\)")
+_EMBEDDED_TEMPLATE_EXPRESSION_RE = re.compile(r"\{\{(.*?)\}\}")
 
 
 def secret_template_key(secret_name: str) -> str:
@@ -2159,12 +2159,32 @@ def get_var_names_and_types(t, node_id=None):
     [{'name': 'with_value', 'type': 'Float32', 'default': 0.1}]
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE description = {{String(d, 'test_1')}} AND value = {{Int8(v, 3)}}"))
     [{'name': 'd', 'type': 'String', 'default': 'test_1'}, {'name': 'v', 'type': 'Int8', 'default': 3}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(number_variable) %} where number_variable = {{UInt64(number_variable)}} {% end %}"))
+    [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
     >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(number_variable)}}) %} where 1 {% end %}"))
     [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
     >>> get_var_names_and_types(Template("select * from test {% if defined(testing) and defined(testing2) %} where 1 {%end %}"))
     [{'name': 'testing', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'testing2', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
     >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(number_variable)}}) %} where 1 {% end %}"))
     [{'name': 'number_variable', 'type': 'UInt64', 'default': None}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined({{UInt64(x)}}) and defined(y) %} where 1 {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(y) and x > 0 %} where x = {{UInt64(x)}} {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("select * from test {% if defined(y) and defined(z) and x > 0 %} {{UInt64(x)}} {% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'z', 'type': 'String', 'default': None, 'used_in': 'function_call'}]
+    >>> get_var_names_and_types(Template("{% if '{{' in marker %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'marker', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% if a %}1{% elif defined(y) %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'y', 'type': 'String', 'default': None, 'used_in': 'function_call'}, {'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'a', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% for x in items %}{{Int32(x, 0)}}{% end %}"))
+    [{'name': 'x', 'type': 'Int32', 'default': 0}, {'name': 'items', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% while more %}{{UInt64(x)}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'more', 'type': 'String', 'default': None}]
+    >>> get_var_names_and_types(Template("{% set a = Int32(x, 0) %}"))
+    [{'name': 'a', 'type': 'String', 'default': None}, {'name': 'x', 'type': 'Int32', 'default': 0}]
+    >>> get_var_names_and_types(Template("{% try %}{{UInt64(x)}}{% except E as e %}{{e}}{% end %}"))
+    [{'name': 'x', 'type': 'UInt64', 'default': None}, {'name': 'E', 'type': 'String', 'default': None}, {'name': 'e', 'type': 'String', 'default': None}]
     >>> get_var_names_and_types(Template("select {{Array(cod_stock_source_type,'Int16', defined=False)}}"))
     [{'name': 'cod_stock_source_type', 'type': 'Array(Int16)', 'defined': False, 'default': None}]
     >>> get_var_names_and_types(Template("select {{Array(cod_stock_source_type, defined=False)}}"))
@@ -2194,7 +2214,7 @@ def get_var_names_and_types(t, node_id=None):
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE description = {{Float32(with_value, -0.1)}} AND description = {{Float32(zero, 0)}} AND value = {{Float32(no_default)}}"))
     [{'name': 'with_value', 'type': 'Float32', 'default': -0.1}, {'name': 'zero', 'type': 'Float32', 'default': 0}, {'name': 'no_default', 'type': 'Float32', 'default': None}]
     >>> get_var_names_and_types(Template('''SELECT * FROM abcd WHERE hotel_id <> 0 {% if defined(date_from) %} AND script_created_at > {{DateTime(date_from, '2020-09-09 10:10:10', description="This is a description", required=True)(date_from, '2020-09-09', description="Filter script alert creation date", required=False)}} {% end %}'''))
-    [{'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}, {'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}]
+    [{'name': 'date_from', 'type': 'DateTime', 'description': 'This is a description', 'required': True, 'default': '2020-09-09 10:10:10'}]
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE symbol = {{Int128(symbol_id, 11111, description='Symbol Id', required=True)}} AND user = {{Int256(user_id, 3555, description='User Id')}}"))
     [{'name': 'symbol_id', 'type': 'Int128', 'description': 'Symbol Id', 'required': True, 'default': 11111}, {'name': 'user_id', 'type': 'Int256', 'description': 'User Id', 'default': 3555}]
     >>> get_var_names_and_types(Template("SELECT now() > {{DateTime64(timestamp, '2020-09-09 10:10:10.000')}}"))
@@ -2205,32 +2225,118 @@ def get_var_names_and_types(t, node_id=None):
     [{'name': 'symbol_id', 'type': 'Int64', 'default': '9223372036854775807'}]
     """
     try:
+        # Recursive helper that traverses the template's parsed chunks and collects
+        # variable data including types and defaults.
+        #
+        # Optimization: Instead of calling x.generate(writer) which generates full
+        # Python code (expensive for large templates), we parse just the statement
+        # and recurse into the body separately.
+        #
+        # Backward compatibility: The original implementation called get_var_data on
+        # full generated code, where type functions (Array, Int32, etc.) would overwrite
+        # variables from defined(). To maintain this behavior, we process body expressions
+        # FIRST to get types, then only add variables from control statements if they
+        # weren't already found in body expressions.
 
-        def _n(chunks, v):
+        # Track variable names seen from EXPRESSIONS (not control statements)
+        # Used to prevent control statements from adding variables with wrong types
+        typed_names: set[str] = set()
+
+        statement_wraps: dict[str, Callable[[str], str]] = {
+            "control": lambda statement: f"{statement}: pass",
+            "elif": lambda statement: "if False: pass\n" + statement + ": pass",
+            "except": lambda statement: "try: pass\n" + statement + ": pass",
+        }
+
+        def parse_statement_code_if_new_vars(statement_code: str, *, skip_names: set[str]) -> list[dict[str, Any]]:
+            """Parse statement code and return variables not already typed by expressions."""
+            try:
+                # `{{...}}` inside `{% ... %}` is not template syntax in Tornado templates.
+                # It becomes Python braces (e.g. set literals), which can hide unrelated vars
+                # in the statement. Strip them so we still parse the rest of the statement.
+                if "{{" in statement_code and "}}" in statement_code:
+                    statement_code = _EMBEDDED_TEMPLATE_EXPRESSION_RE.sub("None", statement_code)
+                var_data = get_var_data(statement_code, node_id=node_id)
+            except Exception:
+                return []
+
+            if not var_data:
+                return []
+
+            return [vd for vd in var_data if vd["name"] not in skip_names]
+
+        def parse_statement(statement: str, *, wrap: Callable[[str], str] | None) -> list[dict[str, Any]]:
+            """Parse a statement and return variables not already typed by expressions."""
+            statement_expr_names: set[str] = set()
+            vars_out: list[dict[str, Any]] = []
+
+            if "{{" in statement and "}}" in statement:
+                for match in _EMBEDDED_TEMPLATE_EXPRESSION_RE.finditer(statement):
+                    expr = match.group(1).strip()
+                    if not expr:
+                        continue
+                    try:
+                        var_data = get_var_data(expr, node_id=node_id)
+                    except Exception:
+                        continue
+
+                    if not var_data:
+                        continue
+
+                    for vd in var_data:
+                        # Body expressions win for types; do not add statement-derived typed vars.
+                        if vd["name"] in typed_names:
+                            continue
+                        statement_expr_names.add(vd["name"])
+                        vars_out.append(vd)
+
+            statement_code = wrap(statement) if wrap else statement
+            vars_out.extend(
+                parse_statement_code_if_new_vars(statement_code, skip_names=typed_names | statement_expr_names)
+            )
+            return vars_out
+
+        def _n(chunks: list, vars_out: list[dict[str, Any]]) -> None:
             for x in chunks:
-                if type(x).__name__ == "_ChunkList":
-                    _n(x.chunks, v)
-                elif type(x).__name__ == "_Expression":
-                    var_data = get_var_data(x.expression, node_id=node_id)
-                    if var_data:
-                        v += var_data
-                elif type(x).__name__ == "_ControlBlock":
-                    buffer = StringIO()
-                    writer = CodeWriter(buffer, t)
-                    x.generate(writer)
-                    var_data = get_var_data(buffer.getvalue(), node_id=node_id)
-                    if var_data:
-                        v += var_data
-                    _n(x.body.chunks, v)
+                kind = type(x).__name__
+                match kind:
+                    case "_ChunkList":
+                        _n(x.chunks, vars_out)
 
-        var = []
-        _n(t.file.body.chunks, var)
-        return var
+                    case "_Expression":
+                        # Template expression like {{Int32(num_val, 0)}} - extract type info
+                        var_data = get_var_data(x.expression, node_id=node_id)
+                        if var_data:
+                            typed_names.update(vd["name"] for vd in var_data)
+                            vars_out.extend(var_data)
+
+                    case "_ControlBlock":
+                        # Process body FIRST to get type functions
+                        _n(x.body.chunks, vars_out)
+                        # Then parse statement, but only add vars NOT already typed by expressions
+                        if x.statement != "try":
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["control"]))
+
+                    case "_IntermediateControlBlock":
+                        # elif/else/except/finally - only add vars not typed by expressions
+                        if x.statement.startswith("elif "):
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["elif"]))
+                        elif x.statement.startswith("except "):
+                            vars_out.extend(parse_statement(x.statement, wrap=statement_wraps["except"]))
+
+                    case "_Statement":
+                        # {% set x = ... %}, {% break %}, etc.
+                        if x.statement not in ("break", "continue") and "{{" not in x.statement:
+                            vars_out.extend(parse_statement(x.statement, wrap=None))
+
+        vars_out: list[dict[str, Any]] = []
+        _n(t.file.body.chunks, vars_out)
+        return vars_out
     except SecurityException as e:
         raise SQLTemplateException(e)
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=2**10)
 def get_var_names_and_types_cached(t: Template):
     return get_var_names_and_types(t)
 
@@ -2700,6 +2806,8 @@ def render_sql_template(
     t, template_variables, variable_warnings = get_template_and_variables(
         sql, name, escape_arrays=escape_split_to_array
     )
+
+    ## TODO: Could we skip running this unless we need it for some variable preprocessing?
     template_variables_with_types = get_var_names_and_types_cached(t)
 
     if variables is not None:

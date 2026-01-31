@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LCPDelta"
-version = "2.1.24"
+version = "2.1.25"
 authors = [
   { name="LCP Delta", email="enact.helpdesk@lcp.uk.com" },
 ]
@@ -48,7 +48,7 @@ dev = [
 [tool.ruff]
 src = ["lcpdelta_python_package/src"]
 line-length = 120
-target-version = "2.1.24"
+target-version = "2.1.25"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["E402", "F401"]

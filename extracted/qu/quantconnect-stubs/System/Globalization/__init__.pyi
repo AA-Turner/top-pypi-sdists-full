@@ -2125,6 +2125,12 @@ class IdnMapping(System.Object):
     def get_unicode(self, ascii: str, index: int, count: int) -> str:
         ...
 
+    def try_get_ascii(self, unicode: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_get_unicode(self, ascii: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
 
 class DaylightTime(System.Object):
     """This class has no documentation."""

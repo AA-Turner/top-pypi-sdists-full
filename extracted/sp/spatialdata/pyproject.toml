@@ -23,9 +23,10 @@ license = {file = "LICENSE"}
 readme = "README.md"
 dependencies = [
     "anndata>=0.9.1",
+    "annsel>=0.1.2",
     "click",
     "dask-image",
-    "dask>=2024.10.0,<=2024.11.2",
+    "dask>=2025.2.0",
     "datashader",
     "fsspec[s3,http]",
     "geopandas>=0.14",
@@ -42,7 +43,7 @@ dependencies = [
     "shapely>=2.0.1",
     "spatial_image>=1.2.3",
     "scikit-image",
-    "scipy",
+    "scipy!=1.17.0",
     "typing_extensions>=4.8.0",
     "universal_pathlib>=0.2.6",
     "xarray>=2024.10.0",
@@ -77,6 +78,7 @@ docs = [
 ]
 benchmark = [
     "asv",
+    "memray",
 ]
 torch = [
     "torch"

@@ -1,5 +1,5 @@
-use anyhow::{bail, Context, Result};
-use log::{debug, error, log, Level};
+use anyhow::{Context, Result, bail};
+use log::{Level, debug, error, log};
 use std::io::Error;
 use std::net::Shutdown;
 use std::path::{Path, PathBuf};
@@ -10,13 +10,13 @@ use std::task::Poll;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader, ReadBuf};
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{TransportCommand, TransportEvent};
-use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask};
+use crate::packet_sources::{PacketSourceConf, PacketSourceTask, forward_packets};
 use crate::shutdown;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tokio::net::UnixDatagram;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -61,7 +61,7 @@ async fn start_redirector(
         while let Ok(Some(line)) = stderr.next_line().await {
             if shutdown2.is_shutting_down() {
                 // We don't want to log during exit, https://github.com/vorner/pyo3-log/issues/30
-                eprintln!("{}", line);
+                eprintln!("{line}");
                 continue;
             }
 
@@ -92,9 +92,9 @@ async fn start_redirector(
             }
             other => {
                 if shutdown.is_shutting_down() {
-                    eprintln!("[linux-redirector] exited during shutdown: {:?}", other)
+                    eprintln!("[linux-redirector] exited during shutdown: {other:?}")
                 } else {
-                    error!("[linux-redirector] exited: {:?}", other)
+                    error!("[linux-redirector] exited: {other:?}")
                 }
             }
         }

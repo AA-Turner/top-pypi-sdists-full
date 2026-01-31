@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spatialdata
-Version: 0.6.1
+Version: 0.7.0
 Summary: Spatial data format.
 Project-URL: Documentation, https://spatialdata.scverse.org/en/latest
 Project-URL: Source, https://github.com/scverse/spatialdata.git
@@ -39,9 +39,10 @@ License: BSD 3-Clause License
 License-File: LICENSE
 Requires-Python: >=3.11
 Requires-Dist: anndata>=0.9.1
+Requires-Dist: annsel>=0.1.2
 Requires-Dist: click
 Requires-Dist: dask-image
-Requires-Dist: dask<=2024.11.2,>=2024.10.0
+Requires-Dist: dask>=2025.2.0
 Requires-Dist: datashader
 Requires-Dist: fsspec[http,s3]
 Requires-Dist: geopandas>=0.14
@@ -55,7 +56,7 @@ Requires-Dist: pooch
 Requires-Dist: pyarrow
 Requires-Dist: rich
 Requires-Dist: scikit-image
-Requires-Dist: scipy
+Requires-Dist: scipy!=1.17.0
 Requires-Dist: setuptools
 Requires-Dist: shapely>=2.0.1
 Requires-Dist: spatial-image>=1.2.3
@@ -67,6 +68,7 @@ Requires-Dist: xarray>=2024.10.0
 Requires-Dist: zarr>=3.0.0
 Provides-Extra: benchmark
 Requires-Dist: asv; extra == 'benchmark'
+Requires-Dist: memray; extra == 'benchmark'
 Provides-Extra: dev
 Requires-Dist: bump2version; extra == 'dev'
 Requires-Dist: sentry-prevent-cli; extra == 'dev'

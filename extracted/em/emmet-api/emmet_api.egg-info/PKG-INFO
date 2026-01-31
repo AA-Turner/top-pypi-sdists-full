@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: emmet-api
-Version: 0.86.2
+Version: 0.86.3
 Summary: Emmet API Server
 Author-email: The Materials Project <feedback@materialsproject.org>
 License: Modified BSD
 Project-URL: Homepage, https://github.com/materialsproject/emmet/tree/main/emmet-api/
 Project-URL: Documentation, https://materialsproject.github.io/emmet/
 Requires-Python: >=3.11
-Requires-Dist: emmet-core>=0.86.1
+Requires-Dist: emmet-core<0.87.0,>=0.86.3rc1
 Requires-Dist: fastapi>=0.123.1
-Requires-Dist: gunicorn
+Requires-Dist: gunicorn>=24.1.1
 Requires-Dist: boto3
 Requires-Dist: ddtrace
 Requires-Dist: setproctitle

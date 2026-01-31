@@ -73,6 +73,7 @@ class TestPostgres(Validator):
         self.validate_identity("SELECT TRIM(' X' FROM ' XXX ')")
         self.validate_identity("SELECT TRIM(LEADING 'bla' FROM ' XXX ' COLLATE utf8_bin)")
         self.validate_identity("""SELECT * FROM JSON_TO_RECORDSET(z) AS y("rank" INT)""")
+        self.validate_identity("SELECT ~x")
         self.validate_identity("x ~ 'y'")
         self.validate_identity("x ~* 'y'")
         self.validate_identity("SELECT * FROM r CROSS JOIN LATERAL UNNEST(ARRAY[1]) AS s(location)")
@@ -166,6 +167,16 @@ class TestPostgres(Validator):
             "ORDER BY 2, 3"
         )
         self.validate_identity(
+            "SELECT e'foo \\' bar'",
+            "SELECT e'foo '' bar'",
+        )
+        self.validate_identity("SELECT e'\\n'")
+        self.validate_identity("SELECT e'\\t'")
+        self.validate_identity(
+            "SELECT e'update table_name set a = \\'foo\\' where 1 = 0' AS x FROM tab",
+            "SELECT e'update table_name set a = ''foo'' where 1 = 0' AS x FROM tab",
+        )
+        self.validate_identity(
             "select count() OVER(partition by a order by a range offset preceding exclude current row)",
             "SELECT COUNT() OVER (PARTITION BY a ORDER BY a range BETWEEN offset preceding AND CURRENT ROW EXCLUDE CURRENT ROW)",
         )
@@ -224,7 +235,6 @@ class TestPostgres(Validator):
             "x !~* 'y'",
             "NOT x ~* 'y'",
         )
-
         self.validate_identity(
             "x ~~ 'y'",
             "x LIKE 'y'",
@@ -1034,6 +1044,16 @@ FROM json_data, field_ids""",
             },
         )
 
+        self.validate_identity("SELECT MLEAST(VARIADIC ARRAY[10, -1, 5, 4.4])")
+        self.validate_identity(
+            "SELECT MLEAST(VARIADIC ARRAY[]::numeric[])",
+            "SELECT MLEAST(VARIADIC CAST(ARRAY[] AS DECIMAL[]))",
+        )
+        self.validate_identity(
+            "SELECT * FROM schema_name.table_name st WHERE JSON_EXTRACT_PATH_TEXT((st.data)::json, variadic array['test'::text]) = 'test'::text",
+            "SELECT * FROM schema_name.table_name AS st WHERE JSON_EXTRACT_PATH_TEXT(CAST((st.data) AS JSON), VARIADIC ARRAY[CAST('test' AS TEXT)]) = CAST('test' AS TEXT)",
+        )
+
     def test_ddl(self):
         # Checks that user-defined types are parsed into DataType instead of Identifier
         self.parse_one("CREATE TABLE t (a udt)").this.expressions[0].args["kind"].assert_is(
@@ -1210,6 +1230,34 @@ FROM json_data, field_ids""",
             "CREATE OR REPLACE FUNCTION function_name (input_a character varying DEFAULT NULL::character varying)",
             "CREATE OR REPLACE FUNCTION function_name(input_a VARCHAR DEFAULT CAST(NULL AS VARCHAR))",
         )
+
+        # Function parameter modes
+        self.validate_identity("CREATE FUNCTION foo(a INT)")
+        self.validate_identity("CREATE FUNCTION foo(IN a INT)")
+        self.validate_identity("CREATE FUNCTION foo(OUT a INT)")
+        self.validate_identity("CREATE FUNCTION foo(INOUT a INT)")
+        self.validate_identity("CREATE FUNCTION foo(VARIADIC a INT[])")
+        self.validate_identity("CREATE FUNCTION foo(out INT)")  # "out" as identifier
+        self.validate_identity("CREATE FUNCTION foo(inout VARCHAR)")  # "inout" as identifier
+        self.validate_identity("CREATE FUNCTION foo(variadic INT[])")  # "variadic" as identifier
+        self.validate_identity(
+            "CREATE FUNCTION foo(a INT, OUT b INT, INOUT c VARCHAR, VARIADIC d INT[])"
+        )
+        self.validate_identity("CREATE OR REPLACE FUNCTION foo(INOUT id UUID)")
+        self.validate_identity(
+            "CREATE OR REPLACE FUNCTION foo(id UUID, OUT created_at TIMESTAMPTZ)"
+        )
+        self.validate_identity("CREATE FUNCTION foo(OUT x INT DEFAULT 5)")
+        self.validate_identity("CREATE FUNCTION foo(INOUT y VARCHAR DEFAULT 'test')")
+        self.validate_identity("CREATE FUNCTION foo(IN a INT DEFAULT 0, OUT b INT)")
+        self.validate_all(
+            "CREATE FUNCTION foo(VARIADIC args INT[] DEFAULT ARRAY[]::INT[])",
+            write={
+                "postgres": "CREATE FUNCTION foo(VARIADIC args INT[] DEFAULT CAST(ARRAY[] AS INT[]))",
+            },
+        )
+        self.validate_identity("CREATE FUNCTION foo(OUT result INT, IN input INT DEFAULT 10)")
+
         self.validate_identity(
             "CREATE TABLE products (product_no INT UNIQUE, name TEXT, price DECIMAL)",
             "CREATE TABLE products (product_no INT UNIQUE, name TEXT, price DECIMAL)",

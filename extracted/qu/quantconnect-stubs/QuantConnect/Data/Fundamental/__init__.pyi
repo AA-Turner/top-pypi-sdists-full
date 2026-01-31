@@ -63672,6 +63672,16 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         """Gets the default resolution for this data and security type"""
         ...
 
+    @staticmethod
+    def for_date(time: datetime.datetime, symbol: QuantConnect.Symbol) -> QuantConnect.Data.Fundamental.Fundamental:
+        """
+        Creates a new instance
+        
+        :param time: The current time
+        :param symbol: The associated symbol
+        """
+        ...
+
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """Return the URL string source of the file. This will be converted to a stream"""
         ...

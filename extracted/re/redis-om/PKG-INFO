@@ -1,40 +1,43 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: redis-om
-Version: 0.3.5
+Version: 1.0.6
 Summary: Object mappings, and more, for Redis.
-Home-page: https://github.com/redis/redis-om-python
+Project-URL: Repository, https://github.com/redis/redis-om-python
+Project-URL: Code, https://github.com/redis/redis-om-python
+Project-URL: Issue tracker, https://github.com/redis/redis-om-python/issues
+Author-email: Redis OSS <oss@redis.com>
+Maintainer-email: Redis OSS <oss@redis.com>
 License: BSD-3-Clause
-Author: Redis OSS
-Author-email: oss@redis.com
-Maintainer: Redis OSS
-Maintainer-email: oss@redis.com
-Requires-Python: >=3.8,<4.0
-Classifier: Development Status :: 3 - Alpha
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Database
-Requires-Dist: click (>=8.0.1,<9.0.0)
-Requires-Dist: hiredis (>=2.2.3,<4.0.0)
-Requires-Dist: more-itertools (>=8.14,<11.0)
-Requires-Dist: pydantic (>=1.10.2,<3.0.0)
-Requires-Dist: python-ulid (>=1.0.3,<2.0.0)
-Requires-Dist: redis (>=3.5.3,<6.0.0)
-Requires-Dist: setuptools (>=70.0)
-Requires-Dist: types-redis (>=3.5.9,<5.0.0)
-Requires-Dist: typing-extensions (>=4.4.0,<5.0.0)
-Project-URL: Code, https://github.com/redis/redis-om-python
-Project-URL: Issue tracker, https://github.com/redis/redis-om-python/issues
-Project-URL: Repository, https://github.com/redis/redis-om-python
+Requires-Python: <4.0,>=3.10
+Requires-Dist: click>=8.0.1
+Requires-Dist: hiredis<4.0.0,>=2.2.3
+Requires-Dist: more-itertools<11.0,>=8.14
+Requires-Dist: pydantic-extra-types>=2.10.5
+Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: python-ulid<=3.1.0,>=1.0.3
+Requires-Dist: redis<8.0.0,>=4.2.0
+Requires-Dist: redisvl>=0.13.0
+Requires-Dist: setuptools>=70.0
+Requires-Dist: types-redis<5.0.0,>=3.5.9
+Requires-Dist: typing-extensions>=4.4.0
+Provides-Extra: examples
+Requires-Dist: asgi-lifespan>=2.1.0; extra == 'examples'
+Requires-Dist: fastapi>=0.128.0; extra == 'examples'
+Requires-Dist: flask>=3.1.2; extra == 'examples'
+Requires-Dist: httpx>=0.28.1; extra == 'examples'
+Requires-Dist: uvicorn>=0.40.0; extra == 'examples'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -58,6 +61,8 @@ Description-Content-Type: text/markdown
 [![Build Status][ci-svg]][ci-url]
 
 **Redis OM Python** makes it easy to model Redis data in your Python applications.
+
+📖 **[Read the Documentation](https://redis.github.io/redis-om-python/)** | 🚀 **[Getting Started](https://redis.github.io/redis-om-python/getting_started/)**
 
 [Redis OM .NET](https://github.com/redis/redis-om-dotnet) | [Redis OM Node.js](https://github.com/redis/redis-om-node) | [Redis OM Spring](https://github.com/redis/redis-om-spring) | **Redis OM Python**
 
@@ -99,14 +104,14 @@ This **preview** release contains the following features:
 
 ## 💻 Installation
 
-Installation is simple with `pip`, Poetry, or Pipenv.
+Installation is simple with `pip` or [uv](https://docs.astral.sh/uv/).
 
 ```sh
 # With pip
 $ pip install redis-om
 
-# Or, using Poetry
-$ poetry add redis-om
+# Or, using uv
+$ uv add redis-om
 ```
 
 ## 🏁 Getting started
@@ -119,7 +124,7 @@ Before writing any code you'll need a Redis instance with the appropriate Redis 
 docker run -p 6379:6379 -p 8001:8001 redis/redis-stack
 ```
 
-This launches the [redis-stack](https://redis.io/docs/stack/) an extension of Redis that adds all manner of modern data structures to Redis. You'll also notice that if you open up http://localhost:8001 you'll have access to the redis-insight GUI, a GUI you can use to visualize and work with your data in Redis.
+This launches the [redis-stack](https://redis.io/docs/latest/) an extension of Redis that adds all manner of modern data structures to Redis. You'll also notice that if you open up http://localhost:8001 you'll have access to the redis-insight GUI, a GUI you can use to visualize and work with your data in Redis.
 
 
 ## 📇 Modeling Your Data
@@ -191,7 +196,7 @@ andrew.expire(120)
 assert Customer.get(andrew.pk) == andrew
 ```
 
-**Ready to learn more?** Check out the [getting started](docs/getting_started.md) guide.
+**Ready to learn more?** Check out the [getting started](https://redis.github.io/redis-om-python/getting_started/) guide.
 
 Or, continue reading to see how Redis OM makes data validation a snap.
 
@@ -241,7 +246,7 @@ except ValidationError as e:
 
 **Any existing Pydantic validator should work** as a drop-in type annotation with a Redis OM model. You can also write arbitrarily complex custom validations!
 
-To learn more, see the [documentation on data validation](docs/validation.md).
+To learn more, see the [documentation on data validation](https://redis.github.io/redis-om-python/validation/).
 
 ## 🔎 Rich Queries and Embedded Models
 
@@ -255,7 +260,7 @@ Next, we'll show you the **rich query expressions** and **embedded models** Redi
 
 Redis OM comes with a rich query language that allows you to query Redis with Python expressions.
 
-To show how this works, we'll make a small change to the `Customer` model we defined earlier. We'll add `Field(index=True)` to tell Redis OM that we want to index the `last_name` and `age` fields:
+To show how this works, we'll make a small change to the `Customer` model we defined earlier. We'll add `index=True` to the model class to tell Redis OM that we want to index all fields in the model:
 
 ```python
 import datetime
@@ -264,18 +269,17 @@ from typing import Optional
 from pydantic import EmailStr
 
 from redis_om import (
-    Field,
     HashModel,
     Migrator
 )
 
 
-class Customer(HashModel):
+class Customer(HashModel, index=True):
     first_name: str
-    last_name: str = Field(index=True)
+    last_name: str
     email: EmailStr
     join_date: datetime.date
-    age: int = Field(index=True)
+    age: int
     bio: Optional[str] = None
 
 
@@ -333,14 +337,13 @@ class Address(EmbeddedJsonModel):
     postal_code: str = Field(index=True)
 
 
-class Customer(JsonModel):
-    first_name: str = Field(index=True)
-    last_name: str = Field(index=True)
-    email: str = Field(index=True)
+class Customer(JsonModel, index=True):
+    first_name: str
+    last_name: str
+    email: str
     join_date: datetime.date
-    age: int = Field(index=True)
-    bio: Optional[str] = Field(index=True, full_text_search=True,
-                               default="")
+    age: int
+    bio: Optional[str] = Field(full_text_search=True, default="")
 
     # Creates an embedded model.
     address: Address
@@ -393,7 +396,7 @@ redis_conn.set("hello", "world")
 
 ## 📚 Documentation
 
-The Redis OM documentation is available [here](docs/index.md).
+The Redis OM documentation is available at **[redis.github.io/redis-om-python](https://redis.github.io/redis-om-python/)**.
 
 ## ⛏️ Troubleshooting
 
@@ -407,7 +410,37 @@ Some advanced features of Redis OM rely on core features from two source availab
 
 You can run these modules in your self-hosted Redis deployment, or you can use [Redis Enterprise][redis-enterprise-url], which includes both modules.
 
-To learn more, read [our documentation](docs/redis_modules.md).
+To learn more, read [our documentation](https://redis.github.io/redis-om-python/redis_setup/).
+
+## Connecting to Azure Managed Redis with EntraID
+
+Once you have EntraID setup for your Azure Managed Redis (AMR) deployment, you can use Redis OM Python with it by leveraging the [redis-py-entraid](https://github.com/redis/redis-py-entraid) library.
+Simply install the library with:
+
+```
+pip install redis-entraid
+```
+
+Then you'll initialize your credentials provider, connect to redis, and pass the database object into your metamodel:
+
+```python
+
+from redis import Redis
+from redis_entraid.cred_provider import create_from_default_azure_credential
+from redis_om import HashModel, Field
+credential_provider = create_from_default_azure_credential(
+        ("https://redis.azure.com/.default",),
+    )
+
+db = Redis(host="cluster-name.region.redis.azure.net", port=10000, ssl=True, ssl_cert_reqs=None, credential_provider=credential_provider)
+db.flushdb()
+class User(HashModel, index=True):
+    first_name: str
+    last_name: str
+
+    class Meta:
+        database = db
+```
 
 ## ❤️ Contributing
 
@@ -435,9 +468,8 @@ Redis OM uses the [MIT license][license-url].
 [redis-om-js]: https://github.com/redis-om/redis-om-js
 [redis-om-dotnet]: https://github.com/redis-om/redis-om-dotnet
 [redis-om-spring]: https://github.com/redis-om/redis-om-spring
-[redisearch-url]: https://redis.io/docs/stack/search/
-[redis-json-url]: https://redis.io/docs/stack/json/
+[redisearch-url]: https://redis.io/docs/latest/develop/interact/search-and-query/
+[redis-json-url]: https://redis.io/docs/latest/develop/data-types/json/
 [pydantic-url]: https://github.com/samuelcolvin/pydantic
 [ulid-url]: https://github.com/ulid/spec
 [redis-enterprise-url]: https://redis.com/try-free/
-

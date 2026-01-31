@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -825,6 +825,7 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
         self,
         messages: List[Dict],
         tools: Optional[List[Dict]] = None,
+        enable_thinking: Optional[bool] = None,
         generate_config: Optional["PytorchGenerateConfig"] = None,
     ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
@@ -839,6 +840,8 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
         generate_config: Optional["PytorchGenerateConfig"]
             Additional configuration for the chat generation.
             "PytorchGenerateConfig" -> configuration for pytorch model
+        enable_thinking: Optional[bool]
+            Toggle thinking mode per request for hybrid reasoning LLMs.
 
         Returns
         -------
@@ -861,8 +864,24 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
         }
         if tools is not None:
             request_body["tools"] = tools
-        if generate_config is not None:
-            for key, value in generate_config.items():
+        if generate_config is not None or enable_thinking is not None:
+            merged_config: Dict[str, Any] = (
+                dict(generate_config) if generate_config is not None else {}
+            )
+            if enable_thinking is not None:
+                chat_template_kwargs = merged_config.get("chat_template_kwargs") or {}
+                if isinstance(chat_template_kwargs, str):
+                    try:
+                        chat_template_kwargs = json.loads(chat_template_kwargs)
+                    except json.JSONDecodeError:
+                        chat_template_kwargs = {}
+                if not isinstance(chat_template_kwargs, dict):
+                    chat_template_kwargs = {}
+                chat_template_kwargs = dict(chat_template_kwargs)
+                chat_template_kwargs["enable_thinking"] = enable_thinking
+                chat_template_kwargs["thinking"] = enable_thinking
+                merged_config["chat_template_kwargs"] = chat_template_kwargs
+            for key, value in merged_config.items():
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
@@ -1267,6 +1286,7 @@ class AsyncClient:
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         model_path: Optional[str] = None,
+        enable_thinking: Optional[bool] = None,
         **kwargs,
     ) -> str:
         """
@@ -1308,6 +1328,9 @@ class AsyncClient:
             Specify the GPU index where the model is located.
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
+        enable_thinking: Optional[bool]
+            Enable or disable thinking mode for hybrid reasoning LLMs (e.g., Qwen3). None uses
+            the model default.
         **kwargs:
             Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
@@ -1340,6 +1363,7 @@ class AsyncClient:
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
             "model_path": model_path,
+            "enable_thinking": enable_thinking,
         }
 
         wait_ready = kwargs.pop("wait_ready", True)
@@ -1815,7 +1839,10 @@ class AsyncClient:
         return response_data
 
     async def query_engine_by_model_name(
-        self, model_name: str, model_type: Optional[str] = "LLM"
+        self,
+        model_name: str,
+        model_type: Optional[str] = "LLM",
+        enable_virtual_env: Optional[bool] = None,
     ):
         """
         Get the engine parameters with the model name registered on the server.
@@ -1835,7 +1862,10 @@ class AsyncClient:
             url = f"{self.base_url}/v1/engines/{model_name}"
         else:
             url = f"{self.base_url}/v1/engines/{model_type}/{model_name}"
-        response = await self.session.get(url, headers=self._headers)
+        params = {}
+        if enable_virtual_env is not None:
+            params["enable_virtual_env"] = str(enable_virtual_env).lower()
+        response = await self.session.get(url, headers=self._headers, params=params)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to query engine parameters by model name, detail: {await _get_error_string(response)}"

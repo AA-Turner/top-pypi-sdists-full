@@ -2,7 +2,8 @@ from adam.app_session import AppSession
 from adam.commands.command import Command
 from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log, log_exc
+from adam.utils import log, log_exc
+from adam.utils_tabulize import tabulize
 
 class Pwd(Command):
     COMMAND = 'pwd'
@@ -33,7 +34,7 @@ class Pwd(Command):
                 f'',
                 f'HOST\t{host}',
                 f'NAMESPACE\t{state.namespace if state.namespace else "/"}',
-            ], header='DEVICE\tLOCATION', separator='\t')
+            ], header='DEVICE\tLOCATION', separator='\t', ctx=self.context())
             log()
 
             return state

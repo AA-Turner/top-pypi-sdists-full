@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: insights-core
-Version: 3.7.1
+Version: 3.7.2
 Summary: Insights Core is a data collection and analysis framework
 Home-page: https://github.com/redhatinsights/insights-core
 Author: Red Hat, Inc.
@@ -253,7 +253,7 @@ Requires-Dist: wheel; extra == "develop"
 Provides-Extra: docs
 Requires-Dist: MarkupSafe; extra == "docs"
 Requires-Dist: Pygments; extra == "docs"
-Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: Sphinx<=8.2.3; extra == "docs"
 Requires-Dist: colorama; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
 Requires-Dist: ipython; extra == "docs"

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,11 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Input/Output routines for gwpy.frequencyseries
-"""
+"""Input/Output routines for gwpy.frequencyseries."""
 
-from . import (  # pylint: disable=unused-import
-    ascii,
+from . import (
+    ascii,  # noqa: A004
     hdf5,
     ligolw,
 )

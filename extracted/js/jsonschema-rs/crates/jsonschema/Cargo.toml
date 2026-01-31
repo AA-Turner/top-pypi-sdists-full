@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema"
-version = "0.40.1"
+version = "0.40.2"
 description = "JSON schema validaton library"
 keywords = ["jsonschema", "validation"]
 categories = ["web-programming"]
@@ -13,7 +13,7 @@ authors.workspace = true
 
 [features]
 default = ["resolve-http", "resolve-file"]
-resolve-http = ["reqwest"]
+resolve-http = ["reqwest", "rustls"]
 resolve-file = []
 resolve-async = [
     "referencing/retrieve-async",
@@ -25,10 +25,13 @@ resolve-async = [
 arbitrary-precision = ["serde_json/arbitrary_precision", "dep:num-bigint"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.13", features = [
+reqwest = { version = "0.13", default-features = false, features = [
   "blocking",
   "json",
+  "http2",
+  "rustls-no-provider",
 ], optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
 tokio = { version = "1.0", features = ["fs", "rt"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -52,7 +55,7 @@ num-bigint = { version = "0.4", optional = true }
 num-cmp = "0.1"
 num-traits = "0.2.19"
 percent-encoding = "2.3"
-referencing = { version = "0.40.1", path = "../jsonschema-referencing" }
+referencing = { version = "0.40.2", path = "../jsonschema-referencing" }
 regex = "1.11.1"
 regex-syntax = "0.8.5"
 serde.workspace = true

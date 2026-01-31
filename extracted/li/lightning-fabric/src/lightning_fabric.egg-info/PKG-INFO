@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightning-fabric
-Version: 2.6.0
+Version: 2.6.1
 Home-page: https://github.com/Lightning-AI/lightning
 Download-URL: https://github.com/Lightning-AI/lightning
 Author: Lightning AI et al.
@@ -18,40 +18,41 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.1.0
 Requires-Dist: fsspec[http]>=2022.5.0
-Requires-Dist: packaging>=20.0
+Requires-Dist: packaging>=23.0
 Requires-Dist: typing-extensions>4.5.0
 Requires-Dist: lightning-utilities>=0.10.0
-Provides-Extra: examples
-Requires-Dist: torchvision>=0.16.0; extra == "examples"
-Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
 Provides-Extra: extra
 Requires-Dist: hydra-core>=1.2.0; extra == "extra"
+Provides-Extra: strategies
+Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
+Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "strategies"
 Provides-Extra: test
-Requires-Dist: coverage==7.11.0; python_version >= "3.10" and extra == "test"
+Requires-Dist: coverage==7.13.1; python_version >= "3.10" and extra == "test"
 Requires-Dist: coverage==7.10.7; python_version < "3.10" and extra == "test"
-Requires-Dist: numpy>=1.21.0; extra == "test"
-Requires-Dist: pytest==8.4.2; extra == "test"
+Requires-Dist: numpy>1.21.0; python_version < "3.12" and extra == "test"
+Requires-Dist: numpy>2.1.0; python_version >= "3.12" and extra == "test"
+Requires-Dist: pytest==9.0.2; extra == "test"
 Requires-Dist: pytest-cov==7.0.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-rerunfailures==16.0.1; python_version < "3.10" and extra == "test"
 Requires-Dist: pytest-rerunfailures==16.1; python_version >= "3.10" and extra == "test"
 Requires-Dist: pytest-random-order==1.2.0; extra == "test"
 Requires-Dist: click==8.1.8; python_version < "3.11" and extra == "test"
-Requires-Dist: click==8.3.0; python_version > "3.10" and extra == "test"
+Requires-Dist: click==8.3.1; python_version > "3.10" and extra == "test"
 Requires-Dist: tensorboardX>=2.6; extra == "test"
 Requires-Dist: huggingface-hub; extra == "test"
-Provides-Extra: strategies
-Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
-Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "strategies"
+Provides-Extra: examples
+Requires-Dist: torchvision>=0.16.0; extra == "examples"
+Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
 Provides-Extra: deepspeed
 Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "deepspeed"
 Provides-Extra: bitsandbytes
@@ -68,17 +69,18 @@ Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and plat
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "dev"
 Requires-Dist: torchvision>=0.16.0; extra == "dev"
 Requires-Dist: torchmetrics>=0.10.0; extra == "dev"
-Requires-Dist: coverage==7.11.0; python_version >= "3.10" and extra == "dev"
+Requires-Dist: coverage==7.13.1; python_version >= "3.10" and extra == "dev"
 Requires-Dist: coverage==7.10.7; python_version < "3.10" and extra == "dev"
-Requires-Dist: numpy>=1.21.0; extra == "dev"
-Requires-Dist: pytest==8.4.2; extra == "dev"
+Requires-Dist: numpy>1.21.0; python_version < "3.12" and extra == "dev"
+Requires-Dist: numpy>2.1.0; python_version >= "3.12" and extra == "dev"
+Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-cov==7.0.0; extra == "dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures==16.0.1; python_version < "3.10" and extra == "dev"
 Requires-Dist: pytest-rerunfailures==16.1; python_version >= "3.10" and extra == "dev"
 Requires-Dist: pytest-random-order==1.2.0; extra == "dev"
 Requires-Dist: click==8.1.8; python_version < "3.11" and extra == "dev"
-Requires-Dist: click==8.3.0; python_version > "3.10" and extra == "dev"
+Requires-Dist: click==8.3.1; python_version > "3.10" and extra == "dev"
 Requires-Dist: tensorboardX>=2.6; extra == "dev"
 Requires-Dist: huggingface-hub; extra == "dev"
 Dynamic: author

@@ -14,7 +14,8 @@ from adam.utils_context import Context
 from adam.utils_issues import IssuesUtils
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import SORT, Color, offload, tabulize, log_exc
+from adam.utils import SORT, Color, offload, log_exc
+from adam.utils_tabulize import tabulize
 
 class ShowCassandraStatus(Command):
     COMMAND = 'show cassandra status'
@@ -39,10 +40,10 @@ class ShowCassandraStatus(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with extract_options(args, ['-s', '--show']) as (args, verbose):
-                    ctx = Context.new(cmd, backgrounded=backgrounded, show_out=verbose, text_color=Color.gray, show_verbose=verbose)
-                    if backgrounded:
+                    ctx = Context.new(cmd, background=background, show_out=verbose, text_color=Color.gray, show_verbose=verbose)
+                    if background:
                         with offload(name='display-table') as exec:
                             exec.submit(lambda: self.show_status(state, ctx=ctx))
                     else:
@@ -79,7 +80,7 @@ class ShowCassandraStatus(Command):
 
             with log_exc(True):
                 with cassandra(state, pod=pod_name) as pods:
-                    result = pods.nodetool('status', ctx=ctx.copy(backgrounded=False, show_out=False))
+                    result = pods.nodetool('status', ctx=ctx.copy(background=False, show_out=False))
                     status = NodeTools.parse_nodetool_status(result.stdout)
                     if status:
                         statuses.append(status)
@@ -116,4 +117,4 @@ class ShowCassandraStatus(Command):
         columns = Columns.create_columns(cols)
 
         tabulize(status, lambda s: ','.join([c.host_value(check_results, s) for c in columns]), header=header, separator=',', sorted=SORT, log_file=ctx.log_file)
-        IssuesUtils.show(check_results, log_file=ctx.log_file)
+        IssuesUtils.show(check_results, ctx=ctx)

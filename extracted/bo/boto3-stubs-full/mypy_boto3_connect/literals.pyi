@@ -345,7 +345,7 @@ ContactInteractionTypeType = Literal["AGENT", "AUTOMATED"]
 ContactMediaProcessingFailureModeType = Literal[
     "DELIVER_UNPROCESSED_MESSAGE", "DO_NOT_DELIVER_UNPROCESSED_MESSAGE"
 ]
-ContactMetricNameType = Literal["POSITION_IN_QUEUE"]
+ContactMetricNameType = Literal["ESTIMATED_WAIT_TIME", "POSITION_IN_QUEUE"]
 ContactParticipantRoleType = Literal["AGENT", "CUSTOM_BOT", "SYSTEM"]
 ContactRecordingTypeType = Literal["AGENT", "IVR", "SCREEN"]
 ContactStateType = Literal[
@@ -370,6 +370,7 @@ CurrentMetricNameType = Literal[
     "AGENTS_STAFFED",
     "CONTACTS_IN_QUEUE",
     "CONTACTS_SCHEDULED",
+    "ESTIMATED_WAIT_TIME",
     "OLDEST_CONTACT_AGE",
     "SLOTS_ACTIVE",
     "SLOTS_AVAILABLE",

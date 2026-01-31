@@ -20,7 +20,7 @@ class Disk(Check):
         result = {}
 
         try:
-            ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+            ctx_fg = ctx.copy(background=False, text_color=Color.gray)
             cass_data_path = Config().get('checks.cassandra-data-path', '/c3/cassandra')
             df_result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"df -h | grep -e '{cass_data_path}' -e 'overlay'", ctx=ctx_fg)
 

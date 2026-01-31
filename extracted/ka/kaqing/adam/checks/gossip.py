@@ -33,7 +33,7 @@ class Gossip(Check):
         #   TOKENS:21:<hidden>
         # STATUS line missing -> NORMAL
         # user, pw = get_user_pass(pod_name, ns)
-        ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+        ctx_fg = ctx.copy(background=False, text_color=Color.gray)
         result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} gossipinfo", ctx=ctx_fg)
 
         nodes = self.parse_gossipinfo(result.stdout)

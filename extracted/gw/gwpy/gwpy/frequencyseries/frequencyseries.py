@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,64 +16,95 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Representation of a frequency series
-"""
+"""Representation of a frequency series."""
+
+from __future__ import annotations
 
 import warnings
+from typing import (
+    TYPE_CHECKING,
+    cast,
+)
 
 import numpy
+from astropy import units
 from numpy import fft as npfft
 
-from astropy import units
-from astropy.io import registry as io_registry
-
+from ..io.registry import UnifiedReadWriteMethod
 from ..types import Series
+from ..utils.misc import property_alias
+from .connect import (
+    FrequencySeriesRead,
+    FrequencySeriesWrite,
+)
 
-__author__ = "Duncan Macleod <duncan.macleod@ligo.org"
+if TYPE_CHECKING:
+    from typing import (
+        ClassVar,
+        Self,
+    )
 
-__all__ = ['FrequencySeries']
+    import pycbc.types
+    from astropy.units import (
+        Quantity,
+        UnitBase,
+    )
+
+    from ..detector import Channel
+    from ..plot import Plot
+    from ..signal.filter_design import FilterCompatible
+    from ..time import SupportsToGps
+    from ..timeseries import TimeSeries
+    from ..typing import (
+        ArrayLike1D,
+        QuantityLike,
+        UnitLike,
+    )
+    from ..utils.lal import LALFrequencySeriesType
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
 class FrequencySeries(Series):
-    """A data array holding some metadata to represent a frequency series
+    """A data array holding some metadata to represent a frequency series.
 
     Parameters
     ----------
     value : array-like
-        input data array
+        Input data array.
 
     unit : `~astropy.units.Unit`, optional
-        physical unit of these data
+        Physical unit of these data.
 
     f0 : `float`, `~astropy.units.Quantity`, optional, default: `0`
-        starting frequency for these data
+        Starting frequency for these data.
 
     df : `float`, `~astropy.units.Quantity`, optional, default: `1`
-        frequency resolution for these data
+        Frequency resolution for these data.
 
     frequencies : `array-like`
-        the complete array of frequencies indexing the data.
+        The complete array of frequencies indexing the data.
         This argument takes precedence over `f0` and `df` so should
-        be given in place of these if relevant, not alongside
+        be given in place of these if relevant, not alongside.
 
     epoch : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
         GPS epoch associated with these data,
-        any input parsable by `~gwpy.time.to_gps` is fine
+        any input parsable by `~gwpy.time.to_gps` is fine.
 
     name : `str`, optional
-        descriptive title for this array
+        Descriptive title for this array.
 
     channel : `~gwpy.detector.Channel`, `str`, optional
-        source data stream for these data
+        Source data stream for these data.
 
     dtype : `~numpy.dtype`, optional
-        input data type
+        Input data type.
 
     copy : `bool`, optional, default: `False`
-        choose to copy the input data to new memory
+        Choose to copy the input data to new memory.
 
     subok : `bool`, optional, default: `True`
-        allow passing of sub-classes by the array generator
+        Allow passing of sub-classes by the array generator.
 
     Notes
     -----
@@ -86,133 +117,91 @@ class FrequencySeries(Series):
        ~FrequencySeries.plot
        ~FrequencySeries.zpk
     """
-    _default_xunit = units.Unit('Hz')
-    _print_slots = ['f0', 'df', 'epoch', 'name', 'channel']
 
-    def __new__(cls, data, unit=None, f0=None, df=None, frequencies=None,
-                name=None, epoch=None, channel=None, **kwargs):
-        """Generate a new FrequencySeries.
-        """
+    _default_xunit: ClassVar[UnitBase] = units.hertz
+    _print_slots: ClassVar[tuple[str, ...]] = (
+        "f0",
+        "df",
+        "epoch",
+        "name",
+        "channel",
+    )
+
+    def __new__(
+        cls,
+        data: ArrayLike1D,
+        unit: UnitLike = None,
+        f0: Quantity | float | None = None,
+        df: Quantity | float | None = None,
+        frequencies: ArrayLike1D | None = None,
+        name: str | None = None,
+        epoch: SupportsToGps | None = None,
+        channel: Channel | str | None = None,
+        **kwargs,
+    ) -> Self:
+        """Generate a new FrequencySeries."""
         if f0 is not None:
-            kwargs['x0'] = f0
+            kwargs["x0"] = f0
         if df is not None:
-            kwargs['dx'] = df
+            kwargs["dx"] = df
         if frequencies is not None:
-            kwargs['xindex'] = frequencies
+            kwargs["xindex"] = frequencies
 
         # generate FrequencySeries
         return super().__new__(
-            cls, data, unit=unit, name=name, channel=channel,
-            epoch=epoch, **kwargs)
+            cls,
+            data,
+            unit=unit,
+            name=name,
+            channel=channel,
+            epoch=epoch,
+            **kwargs,
+        )
 
-    # -- FrequencySeries properties -------------
+    # -- FrequencySeries properties --
 
-    f0 = property(Series.x0.__get__, Series.x0.__set__, Series.x0.__delete__,
-                  """Starting frequency for this `FrequencySeries`
+    f0 = property_alias(Series.x0, "Starting frequency for this `FrequencySeries`")  # type: ignore[arg-type]
+    df = property_alias(Series.dx, "Frequency spacing of this `FrequencySeries`")  # type: ignore[arg-type]
+    frequencies = property_alias(Series.xindex, "Series of frequencies for each sample")  # type: ignore[arg-type]
 
-                  :type: `~astropy.units.Quantity` scalar
-                  """)
+    # -- FrequencySeries i/o ---------
 
-    df = property(Series.dx.__get__, Series.dx.__set__, Series.dx.__delete__,
-                  """Frequency spacing of this `FrequencySeries`
+    read = UnifiedReadWriteMethod(FrequencySeriesRead)
+    write = UnifiedReadWriteMethod(FrequencySeriesWrite)
 
-                  :type: `~astropy.units.Quantity` scalar
-                  """)
+    # -- FrequencySeries methods -----
 
-    frequencies = property(fget=Series.xindex.__get__,
-                           fset=Series.xindex.__set__,
-                           fdel=Series.xindex.__delete__,
-                           doc="""Series of frequencies for each sample""")
-
-    # -- FrequencySeries i/o --------------------
-
-    @classmethod
-    def read(cls, source, *args, **kwargs):
-        """Read data into a `FrequencySeries`
-
-        Arguments and keywords depend on the output format, see the
-        online documentation for full details for each format, the
-        parameters below are common to most formats.
-
-        Parameters
-        ----------
-        source : `str`, `list`
-            Source of data, any of the following:
-
-            - `str` path of single data file,
-            - `str` path of LAL-format cache file,
-            - `list` of paths.
-
-        *args
-            Other arguments are (in general) specific to the given
-            ``format``.
-
-        format : `str`, optional
-            Source format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        **kwargs
-            Other keywords are (in general) specific to the given ``format``.
-
-        Raises
-        ------
-        IndexError
-            if ``source`` is an empty list
-
-        Notes
-        -----"""
-        return io_registry.read(cls, source, *args, **kwargs)
-
-    def write(self, target, *args, **kwargs):
-        """Write this `FrequencySeries` to a file
-
-        Arguments and keywords depend on the output format, see the
-        online documentation for full details for each format, the
-        parameters below are common to most formats.
-
-        Parameters
-        ----------
-        target : `str`
-            output filename
-
-        format : `str`, optional
-            output format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        Notes
-        -----"""
-        return io_registry.write(self, target, *args, **kwargs)
-
-    # -- FrequencySeries methods ----------------
-
-    def plot(self, xscale='log', **kwargs):
+    def plot(
+        self,
+        method: str = "plot",
+        xscale: str = "log",
+        **kwargs,
+    ) -> Plot:
+        """Plot the data for this `FrequencySeries`."""
         # use log y-scale for ASD, PSD
         u = self.unit
         try:
-            hzpow = u.powers[u.bases.index(units.Hz)]
+            hzpow = u.powers[u.bases.index(units.Hz)]  # type: ignore[union-attr]
         except ValueError:
             pass
         else:
             if hzpow < 0:
-                kwargs.setdefault('yscale', 'log')
+                kwargs.setdefault("yscale", "log")
 
-        kwargs.update(xscale=xscale)
-        return super().plot(**kwargs)
+        return super().plot(method=method, xscale=xscale, **kwargs)
 
-    def ifft(self):
-        """Compute the one-dimensional discrete inverse Fourier
-        transform of this `FrequencySeries`.
+    def ifft(self) -> TimeSeries:
+        """Compute the one-dimensional discrete inverse Fourier transform.
 
         Returns
         -------
         out : :class:`~gwpy.timeseries.TimeSeries`
-            the normalised, real-valued `TimeSeries`.
+            The normalised, real-valued `TimeSeries`.
 
-        See also
+        See Also
         --------
-        numpy.fft.irfft : The inverse (real) FFT function
+        numpy.fft.irfft
+            The inverse (real) FFT function.
 
         Notes
         -----
@@ -223,6 +212,7 @@ class FrequencySeries(Series):
         >>> timeseries.fft().ifft() == timeseries
         """
         from ..timeseries import TimeSeries
+
         nout = (self.size - 1) * 2
         # Undo normalization from TimeSeries.fft
         # The DC component does not have the factor of two applied
@@ -237,37 +227,76 @@ class FrequencySeries(Series):
             dift,
             epoch=self.epoch,
             channel=self.channel,
+            name=self.name,
             unit=self.unit,
-            dx=(1/self.dx/nout).to(TimeSeries._default_xunit),
+            dx=(1 / self.dx / nout).to("s"),
         )
 
-    def zpk(self, zeros, poles, gain, analog=True):
-        """Filter this `FrequencySeries` by applying a zero-pole-gain filter
+    def zpk(
+        self,
+        zeros: ArrayLike1D,
+        poles: ArrayLike1D,
+        gain: float,
+        *,
+        analog: bool = True,
+        sample_rate: QuantityLike | None = None,
+        unit: str = "rad/s",
+        normalize_gain: bool = False,
+    ) -> Self:
+        """Filter this `FrequencySeries` by applying a zero-pole-gain filter.
 
         Parameters
         ----------
         zeros : `array-like`
-            list of zero frequencies (in Hertz)
+            List of zero frequencies (in Hertz).
 
         poles : `array-like`
-            list of pole frequencies (in Hertz)
+            List of pole frequencies (in Hertz).
 
         gain : `float`
-            DC gain of filter
+            DC gain of filter.
 
         analog : `bool`, optional
-            type of ZPK being applied, if `analog=True` all parameters
-            will be converted in the Z-domain for digital filtering
+            Type of ZPK being applied, if ``analog=True`` all parameters
+            will be converted in the Z-domain for digital filtering via
+            the bilinear transform.
+
+        sample_rate : `float`, `~astropy.units.Quantity`, optional
+            Sample rate of data (in Hertz), used to apply a digital filter.
+            Defaults to the last frequency value of this `FrequencySeries`
+            (i.e. the Nyquist frequency).
+
+        unit : `str`, optional
+            For analogue ZPK filters, the units in which the zeros and poles are
+            specified. Either ``'Hz'`` or ``'rad/s'`` (default).
+
+        normalize_gain : `bool`, optional
+            Whether to normalize the gain when converting from Hz to rad/s.
+
+            - `False` (default):
+              Multiply zeros/poles by -2π but leave gain unchanged.
+              This matches the LIGO GDS **'f' plane** convention
+              (``plane='f'`` in ``s2z()``).
+
+            - `True`:
+              Normalize gain to preserve frequency response magnitude.
+              Gain is scaled by :math:`|∏p_i/∏z_i| · (2π)^{(n_p - n_z)}`.
+              Use this when your filter was designed with the transfer
+              function :math:`H(f) = k·∏(f-z_i)/∏(f-p_i)` in Hz.
+              This matches the LIGO GDS **'n' plane** convention
+              (``plane='n'`` in ``s2z()``).
+
+            Only used for analogue filters in Hz (``analog=True, unit="Hz"``).
 
         Returns
         -------
         spectrum : `FrequencySeries`
-            the frequency-domain filtered version of the input data
+            The frequency-domain filtered version of the input data.
 
-        See also
+        See Also
         --------
         FrequencySeries.filter
-            for details on how a digital ZPK-format filter is applied
+            For details on how a digital ZPK-format filter is applied.
 
         Examples
         --------
@@ -276,88 +305,156 @@ class FrequencySeries(Series):
 
             >>> data2 = data.zpk([100]*5, [1]*5, 1e-10)
         """
-        return self.filter(zeros, poles, gain, analog=analog)
+        return self.filter(
+            (zeros, poles, gain),
+            sample_rate=sample_rate,
+            analog=analog,
+            unit=unit,
+            normalize_gain=normalize_gain,
+        )
 
-    def interpolate(self, df):
+    def interpolate(self, df: float) -> Self:
         """Interpolate this `FrequencySeries` to a new resolution.
 
         Parameters
         ----------
         df : `float`
-            desired frequency resolution of the interpolated `FrequencySeries`,
-            in Hz
+            Desired frequency resolution of the interpolated `FrequencySeries`, in Hz.
 
         Returns
         -------
         out : `FrequencySeries`
-            the interpolated version of the input `FrequencySeries`
+            The interpolated version of the input `FrequencySeries`.
 
-        See also
+        See Also
         --------
         numpy.interp
-            for the underlying 1-D linear interpolation scheme
+            For the underlying 1-D linear interpolation scheme.
         """
         f0 = self.f0.decompose().value
-        N = (self.size - 1) * (self.df.decompose().value / df) + 1
-        fsamples = numpy.arange(0, numpy.rint(N),
-                                dtype=self.real.dtype) * df + f0
-        out = type(self)(numpy.interp(fsamples, self.frequencies.value,
-                                      self.value))
+        n_samples = (self.size - 1) * (self.df.decompose().value / df) + 1
+        fsamples = numpy.arange(
+            0,
+            numpy.rint(n_samples),
+            dtype=self.real.dtype,
+        ) * df + f0
+        out = type(self)(
+            numpy.interp(fsamples, self.frequencies.value, self.value),
+        )
         out.__array_finalize__(self)
         out.f0 = f0
         out.df = df
         return out
 
-    def filter(self, *filt, **kwargs):
+    def filter(
+        self,
+        filt: FilterCompatible,
+        *,
+        analog: bool = False,
+        sample_rate: QuantityLike | None = None,
+        unit: str = "rad/s",
+        normalize_gain: bool = False,
+        inplace: bool = False,
+    ) -> Self:
         """Apply a filter to this `FrequencySeries`.
+
+        The input filter argument is designed to accept any filter created
+        by the :mod:`scipy.signal` filter design functions, and operates on
+        the conventions of that module.
 
         Parameters
         ----------
-        *filt : filter arguments
-            1, 2, 3, or 4 arguments defining the filter to be applied,
+        filt : `numpy.ndarray` or `tuple`
+            The filter to be applied.
+            This can be specified in any of the following forms, with
+            the appropriate number of elements in the tuple:
 
-                - an ``Nx1`` `~numpy.ndarray` of FIR coefficients
-                - an ``Nx6`` `~numpy.ndarray` of SOS coefficients
-                - ``(numerator, denominator)`` polynomials
-                - ``(zeros, poles, gain)``
-                - ``(A, B, C, D)`` 'state-space' representation
+            - `numpy.ndarray` - 1D array of FIR filter coefficients.
+            - `tuple[numpy.ndarray, numpy.ndarray]` - numerator/demoinator
+              polynomials of the transfer function.
+            - `numpy.ndarray` - 2D array of SOS coefficients.
+            - `tuple[numpy.ndarray, numpy.ndarray, float]` - zero-pole-gain
+              representation.
 
         analog : `bool`, optional
-            if `True`, filter definition will be converted from Hertz
-            to Z-domain digital representation, default: `False`
+            Type of ZPK being applied, if ``analog=True`` all parameters
+            will be converted in the Z-domain for digital filtering via
+            the bilinear transform.
 
-        inplace : `bool`, optional
-            if `True`, this array will be overwritten with the filtered
-            version, default: `False`
+        sample_rate : `float`, `~astropy.units.Quantity`, optional
+            Sample rate of data (in Hertz), used to apply a digital filter.
+            Defaults to the last frequency value of this `FrequencySeries`
+            (i.e. the Nyquist frequency).
+
+        unit : `str`, optional
+            For analogue ZPK filters, the units in which the zeros and poles are
+            specified. Either ``'Hz'`` or ``'rad/s'`` (default).
+
+        normalize_gain : `bool`, optional
+            Whether to normalize the gain when converting from Hz to rad/s.
+
+            - `False` (default):
+              Multiply zeros/poles by -2π but leave gain unchanged.
+              This matches the LIGO GDS **'f' plane** convention
+              (``plane='f'`` in ``s2z()``).
+
+            - `True`:
+              Normalize gain to preserve frequency response magnitude.
+              Gain is scaled by :math:`|∏p_i/∏z_i| · (2π)^{(n_p - n_z)}`.
+              Use this when your filter was designed with the transfer
+              function :math:`H(f) = k·∏(f-z_i)/∏(f-p_i)` in Hz.
+              This matches the LIGO GDS **'n' plane** convention
+              (``plane='n'`` in ``s2z()``).
+
+            Only used for analogue filters in Hz (``analog=True, unit="Hz"``).
+
+        inplace : bool, optional
+            If `True`, this array will be overwritten with the filtered
+            version.
 
         Returns
         -------
         result : `FrequencySeries`
-            the filtered version of the input `FrequencySeries`,
+            The filtered version of the input `FrequencySeries`,
             if ``inplace=True`` was given, this is just a reference to
-            the modified input array
+            the modified input array.
 
         Raises
         ------
         ValueError
-            if ``filt`` arguments cannot be interpreted properly
-        """
-        from ._fdcommon import fdfilter
-        return fdfilter(self, *filt, **kwargs)
+            If ``filt`` arguments cannot be interpreted properly.
 
-    def filterba(self, *args, **kwargs):
-        warnings.warn("filterba will be removed soon, please use "
-                      "FrequencySeries.filter instead, with the same "
-                      "arguments", DeprecationWarning)
-        return self.filter(*args, **kwargs)
+        See Also
+        --------
+        FrequencySeries.zpk
+            For applying a zero-pole-gain filter, including in other
+            units (e.g. poles and zeros specified in Hertz).
+        """
+        from ._fdcommon import _fdfilter
+        return cast("Self", _fdfilter(
+            self,
+            filt,
+            analog=analog,
+            inplace=inplace,
+            sample_rate=sample_rate,
+            unit=unit,
+            normalize_gain=normalize_gain,
+        ))
 
     @classmethod
-    def from_lal(cls, lalfs, copy=True):
-        """Generate a new `FrequencySeries` from a LAL `FrequencySeries`
-        of any type.
+    def from_lal(
+        cls,
+        lalfs: LALFrequencySeriesType,
+        *,
+        copy: bool = True,
+    ) -> Self:
+        """Generate a new `FrequencySeries` from a LAL `FrequencySeries`.
+
+        Any type of LAL FrequencySeries is supported.
         """
         # convert units
         from ..utils.lal import from_lal_unit
+
         try:
             unit = from_lal_unit(lalfs.sampleUnits)
         except TypeError:
@@ -375,28 +472,30 @@ class FrequencySeries(Series):
             copy=copy,
         )
 
-    def to_lal(self):
+    def to_lal(self) -> LALFrequencySeriesType:
         """Convert this `FrequencySeries` into a LAL FrequencySeries.
 
         Returns
         -------
         lalspec : `FrequencySeries`
-            an XLAL-format FrequencySeries of a given type, e.g.
-            `REAL8FrequencySeries`
-
-        Notes
-        -----
-        Currently, this function is unable to handle unit string
-        conversion.
+            An XLAL-format FrequencySeries of a given type, e.g.
+            `REAL8FrequencySeries`.
         """
         import lal
-        from ..utils.lal import (find_typed_function, to_lal_unit)
+
+        from ..utils.lal import (
+            find_typed_function,
+            to_lal_unit,
+        )
 
         # map unit
         try:
             unit, scale = to_lal_unit(self.unit)
         except ValueError as exc:
-            warnings.warn(f"{exc}, defaulting to lal.DimensionlessUnit")
+            warnings.warn(
+                f"{exc}, defaulting to lal.DimensionlessUnit",
+                stacklevel=2,
+            )
             unit = lal.DimensionlessUnit
             scale = 1
 
@@ -404,59 +503,74 @@ class FrequencySeries(Series):
         epoch = lal.LIGOTimeGPS(0 if self.epoch is None else self.epoch.gps)
 
         # create FrequencySeries
-        create = find_typed_function(self.dtype, 'Create', 'FrequencySeries')
-        lalfs = create(self.name, epoch, self.f0.value, self.df.value,
-                       unit, self.shape[0])
+        create = find_typed_function(self.dtype, "Create", "FrequencySeries")
+        lalfs = create(
+            self.name or "",
+            epoch,
+            self.f0.value,
+            self.df.value,
+            unit,
+            self.shape[0],
+        )
         lalfs.data.data = self.value * scale
 
         return lalfs
 
     @classmethod
-    def from_pycbc(cls, fs, copy=True):
-        """Convert a `pycbc.types.frequencyseries.FrequencySeries` into
-        a `FrequencySeries`
+    def from_pycbc(
+        cls,
+        fs: pycbc.types.TimeSeries,
+        *,
+        copy: bool = True,
+    ) -> Self:
+        """Convert a `pycbc.types.frequencyseries.FrequencySeries`.
 
         Parameters
         ----------
         fs : `pycbc.types.frequencyseries.FrequencySeries`
-            the input PyCBC `~pycbc.types.frequencyseries.FrequencySeries`
-            array
+            The input PyCBC `~pycbc.types.frequencyseries.FrequencySeries` array.
 
-        copy : `bool`, optional, default: `True`
-            if `True`, copy these data to a new array
+        copy : `bool`, optional
+            If `True`, copy these data to a new array.
 
         Returns
         -------
         spectrum : `FrequencySeries`
-            a GWpy version of the input frequency series
+            A GWpy version of the input frequency series.
         """
-        return cls(fs.data, f0=0, df=fs.delta_f, epoch=fs.epoch, copy=copy)
+        return cls(
+            fs.data,
+            f0=0,
+            df=fs.delta_f,
+            epoch=fs.epoch,
+            copy=copy,
+        )
 
-    def to_pycbc(self, copy=True):
-        """Convert this `FrequencySeries` into a
-        `~pycbc.types.frequencyseries.FrequencySeries`
+    def to_pycbc(self, *, copy: bool = True) -> pycbc.types.FrequencySeries:
+        """Convert this `FrequencySeries` into a PyCBC FrequencySeries.
 
         Parameters
         ----------
-        copy : `bool`, optional, default: `True`
-            if `True`, copy these data to a new array
+        copy : `bool`, optional
+            If `True`, copy these data to a new array.
 
         Returns
         -------
         frequencyseries : `pycbc.types.frequencyseries.FrequencySeries`
-            a PyCBC representation of this `FrequencySeries`
+            A PyCBC representation of this `FrequencySeries`.
         """
         from pycbc import types
 
-        if self.epoch is None:
-            epoch = None
-        else:
-            epoch = self.epoch.gps
-        if self.f0.to('Hz').value:
-            raise ValueError(
+        epoch = None if self.epoch is None else self.epoch.gps
+        if self.f0.to("Hz").value:
+            msg = (
                 f"Cannot convert FrequencySeries to PyCBC with f0 = {self.f0}."
                 " Starting frequency must be equal to 0 Hz."
             )
-        return types.FrequencySeries(self.value,
-                                     delta_f=self.df.to('Hz').value,
-                                     epoch=epoch, copy=copy)
+            raise ValueError(msg)
+        return types.FrequencySeries(
+            self.value,
+            delta_f=self.df.to("Hz").value,
+            epoch=epoch,
+            copy=copy,
+        )

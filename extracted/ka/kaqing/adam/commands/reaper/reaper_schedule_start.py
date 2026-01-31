@@ -29,7 +29,7 @@ class ReaperScheduleStart(Command):
             with validate_args(args, state, name='schedule') as schedule_id:
                 with reaper(state) as http:
                     http.post(f'repair_schedule/start/{schedule_id}')
-                    Reapers.show_schedule(state, schedule_id)
+                    Reapers.show_schedule(state, schedule_id, ctx=self.context())
 
                 return schedule_id
 

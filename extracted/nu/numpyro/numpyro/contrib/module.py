@@ -484,8 +484,6 @@ def nnx_module(name, nn_module):
 
     mutable_holder = None
     if eager_other_state_dict:
-        mutable_holder = numpyro_mutable(name + "$state")
-    if mutable_holder is None:
         mutable_holder = numpyro_mutable(
             name + "$state", {"state": eager_other_state_dict}
         )
@@ -500,7 +498,7 @@ def nnx_module(name, nn_module):
         if mutable_holder:
             nnx.replace_by_pure_dict(mutable_state, mutable_holder["state"])
 
-        model = nnx.merge(graph_def, params_state, mutable_state)
+        model = nnx.merge(graph_def, params_state, mutable_state, copy=True)
 
         model_call = model(*call_args, **call_kwargs)
 

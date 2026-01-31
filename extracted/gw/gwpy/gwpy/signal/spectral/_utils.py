@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,37 +16,41 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for FFT routines
-"""
+"""Utilities for FFT routines."""
 
 from astropy import units
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-def scale_timeseries_unit(tsunit, scaling='density'):
-    """Scale the unit of a `TimeSeries` to match that of a `FrequencySeries`
+def scale_timeseries_unit(
+    tsunit: units.UnitBase,
+    scaling: str = "density",
+) -> units.UnitBase:
+    """Scale the unit of a `TimeSeries` to match that of a `FrequencySeries`.
 
     Parameters
     ----------
     tsunit : `~astropy.units.UnitBase`
-        input unit from `TimeSeries`
+        Input unit from `TimeSeries`.
+
     scaling : `str`
-        type of frequency series, either 'density' for a PSD, or
-        'spectrum' for a power spectrum.
+        Type of frequency series, either ``"density"`` for a PSD, or
+        ``"spectrum"`` for a power spectrum.
 
     Returns
     -------
     unit : `~astropy.units.Unit`
-        unit to be applied to the resulting `FrequencySeries`.
+        Unit to be applied to the resulting `FrequencySeries`.
     """
     # set units
-    if scaling == 'density':
+    if scaling == "density":
         baseunit = units.Hertz
-    elif scaling == 'spectrum':
+    elif scaling == "spectrum":
         baseunit = units.dimensionless_unscaled
     else:
-        raise ValueError("Unknown scaling: %r" % scaling)
+        msg = f"unknown scaling: '{scaling}'"
+        raise ValueError(msg)
     if tsunit:
         specunit = tsunit ** 2 / baseunit
     else:

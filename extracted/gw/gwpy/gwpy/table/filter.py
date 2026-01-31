@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2017-2020)
+# Copyright (c) 2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,71 +15,114 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilies for filtering a `Table` using column slice definitions
-"""
+"""Utilies for filtering a `Table` using column slice definitions."""
+
+from __future__ import annotations
 
 import operator
 import re
 import token
-from collections import OrderedDict
 from io import StringIO
 from tokenize import generate_tokens
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    NamedTuple,
+    TypeVar,
+    cast,
+)
 
 import numpy
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+FilterOperandType = TypeVar("FilterOperandType")
 
-OPERATORS = OrderedDict([
-    ('<', operator.lt),
-    ('<=', operator.le),
-    ('=', operator.eq),
-    ('==', operator.eq),
-    ('>=', operator.ge),
-    ('>', operator.gt),
-    ('!=', operator.ne),
-])
+if TYPE_CHECKING:
+    from collections.abc import (
+        Callable,
+        Iterable,
+        Iterator,
+    )
 
-OPERATORS_INV = OrderedDict([
-    ('<=', operator.ge),
-    ('<', operator.gt),
-    ('>', operator.lt),
-    ('>=', operator.le),
-])
+    from astropy.table import Column
 
-QUOTE_REGEX = re.compile(r'^[\s\"\']+|[\s\"\']+$')
-DELIM_REGEX = re.compile(r'(and|&+)', re.I)
+    from . import Table
+
+    T = TypeVar("T", bound=Table)
+
+    FilterTuple = tuple[
+        str | tuple[str, ...],
+        Callable[[Table | Column, FilterOperandType], numpy.ndarray],
+        FilterOperandType,
+    ]
+    FilterLike = str | FilterTuple
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
+
+OPERATORS: dict[str, Callable] = {
+    "<": operator.lt,
+    "<=": operator.le,
+    "=": operator.eq,
+    "==": operator.eq,
+    ">=": operator.ge,
+    ">": operator.gt,
+    "!=": operator.ne,
+}
+
+OPERATORS_INV: dict[str, Callable] = {
+    "<=": operator.ge,
+    "<": operator.gt,
+    ">": operator.lt,
+    ">=": operator.le,
+}
+
+QUOTE_REGEX = re.compile(r"^[\s\"\']+|[\s\"\']+$")
+DELIM_REGEX = re.compile(r"(and|&+)", re.IGNORECASE)
 
 
-# -- filter parsing -----------------------------------------------------------
+# -- filter parsing ------------------
 
-def _float_or_str(value):
-    """Internal method to attempt `float(value)` handling a `ValueError`
+FILTER_SIMPLE_ARG_COUNT = 3
+FILTER_COMPOUND_ARG_COUNT = 5
+
+class FilterSpec(NamedTuple, Generic[FilterOperandType]):
+    """A table column filter definition.
+
+    The generic type parameter _O represents the type of the operand,
+    which should match the second parameter of the operator callable.
     """
+
+    column: str | tuple[str, ...]
+    operator: Callable[[Table | Column, FilterOperandType], numpy.ndarray]
+    operand: FilterOperandType
+
+
+def _float_or_str(value: str) -> float | str:
+    """Attempt `float(value)` handling a `ValueError`."""
     # remove any surrounding quotes
-    value = QUOTE_REGEX.sub('', value)
+    value = QUOTE_REGEX.sub("", value)
     try:  # attempt `float()` conversion
         return float(value)
     except ValueError:  # just return the input
         return value
 
 
-def parse_operator(mathstr):
-    """Parse a `str` as a function from the `operator` module
+def parse_operator(mathstr: str) -> Callable:
+    """Parse a `str` as a function from the `operator` module.
 
     Parameters
     ----------
     mathstr : `str`
-        a `str` representing a mathematical operator
+        A `str` representing a mathematical operator.
 
     Returns
     -------
     op : `func`
-        a callable `operator` module function
+        One of the functions from the `operator` module.
 
     Raises
     ------
     KeyError
-        if input `str` cannot be mapped to an `operator` function
+        If input `str` cannot be mapped to an `operator` function.
 
     Examples
     --------
@@ -90,12 +132,14 @@ def parse_operator(mathstr):
     try:
         return OPERATORS[mathstr]
     except KeyError as exc:
-        exc.args = ('Unrecognised operator %r' % mathstr,)
+        exc.args = (
+            f"Unrecognised operator '{mathstr}'",
+        )
         raise
 
 
-def parse_column_filter(definition):
-    """Parse a `str` of the form 'column>50'
+def parse_column_filter(definition: str) -> list[FilterSpec]:
+    """Parse a `str` of the form 'column>50'.
 
     Parameters
     ----------
@@ -106,23 +150,23 @@ def parse_column_filter(definition):
 
     Returns
     -------
-    filters : `list` of `tuple`
-        a `list` of filter 3-`tuple`s, where each `tuple` contains the
+    filters : `list` of `FilterSpec`
+        A `list` of filter 3-`tuple`s, where each `tuple` contains the
         following elements:
 
         - ``column`` (`str`) - the name of the column on which to operate
         - ``operator`` (`callable`) - the operator to call when evaluating
           the filter
-        - ``operand`` (`anything`) - the argument to the operator function
+        - ``operand`` (anything) - the argument to the operator function
 
     Raises
     ------
     ValueError
-        if the filter definition cannot be parsed
+        If the filter definition cannot be parsed.
 
     KeyError
-        if any parsed operator string cannnot be mapped to a function from
-        the `operator` module
+        If any parsed operator string cannnot be mapped to a function from
+        the `operator` module.
 
     Notes
     -----
@@ -134,79 +178,94 @@ def parse_column_filter(definition):
     Examples
     --------
     >>> parse_column_filter("frequency>10")
-    [('frequency', <function operator.gt>, 10.)]
+    FilterSpec(column='frequency', operator=<built-in function gt>, operand=10.0)
     >>> parse_column_filter("50 < snr < 100")
-    [('snr', <function operator.gt>, 50.), ('snr', <function operator.lt>, 100.)]
-    >>> parse_column_filter("channel = "H1:TEST")
-    [('channel', <function operator.eq>, 'H1:TEST')]
-    """  # noqa
+    [FilterSpec(column='snr', operator=<built-in function gt>, operand=50.0),
+     FilterSpec(column='snr', operator=<built-in function lt>, operand=100.0)]
+    >>> parse_column_filter('channel = "H1:TEST"')
+    FilterSpec(column='channel', operator=<built-in function eq>, operand='H1:TEST')
+    """
     # parse definition into parts (skipping null tokens)
     parts = list(generate_tokens(StringIO(definition.strip()).readline))
-    while parts[-1][0] in (token.ENDMARKER, token.NEWLINE):
+    while parts[-1].type in {token.ENDMARKER, token.NEWLINE}:
         parts = parts[:-1]
 
-    # parse simple definition: e.g: snr > 5
-    if len(parts) == 3:
-        a, b, c = parts  # pylint: disable=invalid-name
-        if a[0] in [token.NAME, token.STRING]:  # string comparison
-            name = QUOTE_REGEX.sub('', a[1])
-            oprtr = OPERATORS[b[1]]
-            value = _float_or_str(c[1])
-            return [(name, oprtr, value)]
-        elif b[0] in [token.NAME, token.STRING]:
-            name = QUOTE_REGEX.sub('', b[1])
-            oprtr = OPERATORS_INV[b[1]]
-            value = _float_or_str(a[1])
-            return [(name, oprtr, value)]
+    # parse simple definition: e.g: snr > 5 or 5 < snr
+    if len(parts) == FILTER_SIMPLE_ARG_COUNT:
+        left, op_, right = parts
+        if left.type in {token.NAME, token.STRING}:  # snr > 5
+            name = QUOTE_REGEX.sub("", left.string)
+            oprtr = OPERATORS[op_.string]
+            value = _float_or_str(right.string)
+            return [FilterSpec(name, oprtr, value)]
+        if right.type in {token.NAME, token.STRING}:  # 5 < snr
+            name = QUOTE_REGEX.sub("", right.string)
+            oprtr = OPERATORS_INV[op_.string]
+            value = _float_or_str(left.string)
+            return [FilterSpec(name, oprtr, value)]
 
     # parse between definition: e.g: 5 < snr < 10
-    elif len(parts) == 5:
-        a, b, c, d, e = list(zip(*parts))[1]  # pylint: disable=invalid-name
-        name = QUOTE_REGEX.sub('', c)
-        return [(name, OPERATORS_INV[b], _float_or_str(a)),
-                (name, OPERATORS[d], _float_or_str(e))]
+    elif len(parts) == FILTER_COMPOUND_ARG_COUNT:
+        left, op1, mid, op2, right = parts
+        name = QUOTE_REGEX.sub("", mid.string)
+        return [
+            FilterSpec(
+                name,
+                OPERATORS_INV[op1.string],
+                _float_or_str(left.string),
+            ),
+            FilterSpec(
+                name,
+                OPERATORS[op2.string],
+                _float_or_str(right.string),
+            ),
+        ]
 
-    raise ValueError("Cannot parse filter definition from %r" % definition)
+    msg = f"cannot parse filter definition from '{definition}'"
+    raise ValueError(msg)
 
 
-def parse_column_filters(*definitions):
-    """Parse multiple compound column filter definitions
+def parse_column_filters(
+    *definitions: FilterLike | Iterable[FilterLike],
+) -> list[FilterSpec]:
+    """Parse multiple compound column filter definitions.
 
     Examples
     --------
     >>> parse_column_filters('snr > 10', 'frequency < 1000')
-    [('snr', <function operator.gt>, 10.), ('frequency', <function operator.lt>, 1000.)]
+    [FilterSpec(column='snr', operator=<built-in function gt>, operand=10.0),
+     FilterSpec(column='frequency', operator=<built-in function lt>, operand=1000.0)]
     >>> parse_column_filters('snr > 10 && frequency < 1000')
-    [('snr', <function operator.gt>, 10.), ('frequency', <function operator.lt>, 1000.)]
-    """  # noqa: E501
+    [FilterSpec(column='snr', operator=<built-in function gt>, operand=10.0),
+     FilterSpec(column='frequency', operator=<built-in function lt>, operand=1000.0)]
+    """
     fltrs = []
     for def_ in _flatten(definitions):
-        if is_filter_tuple(def_):
-            fltrs.append(def_)
-        else:
+        if isinstance(def_, str):
             for splitdef in DELIM_REGEX.split(def_)[::2]:
                 fltrs.extend(parse_column_filter(splitdef))
+        else:
+            fltrs.append(FilterSpec(*def_))
     return fltrs
 
 
-def _flatten(container):
-    """Flatten arbitrary nested list of filters into a 1-D list
-    """
-    if isinstance(container, str):
-        container = [container]
+def _flatten(
+    container: Iterable,
+) -> Iterator[FilterLike]:
+    """Flatten arbitrary nested list of filters into a 1-D list."""
     for elem in container:
         if isinstance(elem, str) or is_filter_tuple(elem):
             yield elem
         else:
-            for elem2 in _flatten(elem):
-                yield elem2
+            yield from _flatten(elem)
 
 
-def is_filter_tuple(tup):
-    """Return whether a `tuple` matches the format for a column filter
-    """
+def is_filter_tuple(tup: object) -> bool:
+    """Return whether a `tuple` matches the format for a column filter."""
+    if isinstance(tup, FilterSpec):
+        return True
     try:
-        names, func, args = tup
+        names, func, _ = cast("tuple[str | tuple[str, ...], Callable, tuple]", tup)  # type: ignore[misc]
         return (
             (isinstance(names, str) or all(isinstance(x, str) for x in names))
             and callable(func)
@@ -215,38 +274,40 @@ def is_filter_tuple(tup):
         return False
 
 
-# -- filter -------------------------------------------------------------------
+# -- filter --------------------------
 
-def filter_table(table, *column_filters):
-    """Apply one or more column slice filters to a `Table`
+def filter_table(
+    table: T,
+    *column_filters: FilterLike | Iterable[FilterLike],
+) -> T:
+    """Apply one or more column slice filters to a `Table`.
 
-    Multiple column filters can be given, and will be applied
-    concurrently
+    Multiple column filters can be given, and will be applied serially.
 
     Parameters
     ----------
     table : `~astropy.table.Table`
-        the table to filter
+        The table to filter.
 
-    column_filter : `str`, `tuple`
-        a column slice filter definition, in one of two formats:
+    column_filters : `str`, `tuple`
+        One or more column slice filter definition, in one of two formats:
 
         - `str` - e.g. ``'snr > 10``
-        - `tuple` - ``(<column(s)>, <operator>, <operand>)``, e.g.
-          ``('snr', operator.gt, 10)``
+        - `FilterSpec` (`tuple`) - ``(<column(s)>, <operator>, <operand>)``,
+          e.g. ``('snr', operator.gt, 10)``
 
-        multiple filters can be given and will be applied in order
+        Multiple filters can be given and will be applied in order.
 
     Returns
     -------
     table : `~astropy.table.Table`
-        a view of the input table with only those rows matching the filters
+        A view of the input table with only those rows matching the filters.
 
     Examples
     --------
     >>> filter(my_table, 'snr>10', 'frequency<1000')
 
-    custom operations can be defined using filter tuple definitions:
+    Custom operations can be defined using filter tuple definitions:
 
     >>> from gwpy.table.filters import in_segmentlist
     >>> filter(my_table, ('time', in_segmentlist, segs))

@@ -13,10 +13,20 @@
 # limitations under the License.
 from pytorch_lightning.loggers.comet import CometLogger
 from pytorch_lightning.loggers.csv_logs import CSVLogger
+from pytorch_lightning.loggers.litlogger import LitLogger
 from pytorch_lightning.loggers.logger import Logger
 from pytorch_lightning.loggers.mlflow import MLFlowLogger
 from pytorch_lightning.loggers.neptune import NeptuneLogger
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-__all__ = ["CometLogger", "CSVLogger", "Logger", "MLFlowLogger", "TensorBoardLogger", "WandbLogger", "NeptuneLogger"]
+__all__ = [
+    "LitLogger",
+    "CometLogger",
+    "CSVLogger",
+    "Logger",
+    "MLFlowLogger",
+    "TensorBoardLogger",
+    "WandbLogger",
+    "NeptuneLogger",
+]

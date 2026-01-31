@@ -1,4 +1,3 @@
-import traceback
 from kubernetes import client
 from typing import List
 
@@ -10,9 +9,10 @@ from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState
-from adam.utils import SORT, duration, kaqing_log_file, tabulize, log2
+from adam.utils import SORT, duration, kaqing_log_file, log2
+from adam.utils_tabulize import tabulize
 
-def show_pods(pods: List[client.V1Pod], ns: str, show_namespace = True, show_host_id = True):
+def show_pods(pods: List[client.V1Pod], ns: str, show_namespace = True, show_host_id = True, ctx: Context = Context.NULL):
     if len(pods) == 0:
         log2('No pods found.')
         return
@@ -50,24 +50,33 @@ def show_pods(pods: List[client.V1Pod], ns: str, show_namespace = True, show_hos
             line += f"@{ns}"
         return line + f" {ready}/{pod_cnt} {status}"
 
-    tabulize(pods, line, header='HOST_ID POD_NAME READY POD_STATUS' if show_host_id else 'POD_NAME READY POD_STATUS')
+    tabulize(pods,
+             line,
+             header='HOST_ID POD_NAME READY POD_STATUS' if show_host_id else 'POD_NAME READY POD_STATUS',
+             ctx=ctx.copy(show_out=True))
 
-def show_rollout(sts: str, ns: str):
+def show_rollout(sts: str, ns: str, ctx: Context = Context.NULL):
     restarted, rollingout = StatefulSets.restarted_at(sts, ns)
     if restarted:
         d = duration(restarted)
         if rollingout:
-            log2(f'* Cluster is being rolled out for {d}...')
+            ctx.log2(f'* Cluster is being rolled out for {d}...')
         else:
-            log2(f'Cluster has completed rollout {d} ago.')
+            ctx.log2(f'Cluster has completed rollout {d} ago.')
 
 def show_table(state: ReplState, pods: list[str], cols: str, header: str, ctx: Context = Context.NULL):
     columns = Columns.create_columns(cols)
 
     results = run_checks(cluster=state.sts, pod=state.pod, namespace=state.namespace, checks=collect_checks(columns), ctx=ctx)
 
-    tabulize(pods, lambda p: ','.join([c.pod_value(results, p) for c in columns]), header=header, separator=',', log_file=ctx.log_file, sorted=SORT)
-    IssuesUtils.show(results, state.in_repl, log_file=ctx.log_file)
+    tabulize(pods,
+             lambda p: ','.join([c.pod_value(results, p) for c in columns]),
+             header=header,
+             separator=',',
+             log_file=ctx.log_file,
+             sorted=SORT,
+             ctx=ctx.copy(show_out=True))
+    IssuesUtils.show(results, state.in_repl, ctx=ctx)
 
 def write_to_kaqing_log_file(r: str, i: str = None):
     with kaqing_log_file() as f:

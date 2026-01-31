@@ -1,6 +1,5 @@
-#
 """test_meta - Tests for project maintenance."""
-# Copyright © 2012-2019  James Rowe <jnrowe@gmail.com>
+# Copyright © 2019-2025  James Rowe <jnrowe@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -20,15 +19,18 @@
 
 import json
 import os
+import pathlib
 
-from pytest import mark
+import pytest
 
 
-@mark.skipif('TRAVIS_PYTHON_VERSION' in os.environ,
-             reason='Maintainer test for use in git hooks')
+@pytest.mark.skipif(
+    "GITHUB_WORKFLOW" in os.environ,
+    reason="Maintainer test for use in git hooks",
+)
 def test_formatting():
-    with open('tests/books.json') as fp:
-        data = fp.read()
+    """Test the formatting of the books.json file."""
+    data = pathlib.Path("tests/books.json").read_text(encoding="utf-8")
     content = json.loads(data)
     dumped = json.dumps(content, indent=4) + "\n"
     assert data == dumped

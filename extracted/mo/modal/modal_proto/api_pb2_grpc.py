@@ -885,6 +885,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingReportItem.FromString,
                 )
+        self.WorkspaceDashboardUrlGet = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceDashboardUrlGet',
+                request_serializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlResponse.FromString,
+                )
         self.WorkspaceNameLookup = channel.unary_unary(
                 '/modal.client.ModalClient/WorkspaceNameLookup',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -1971,6 +1976,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WorkspaceDashboardUrlGet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def WorkspaceNameLookup(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2849,6 +2860,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.WorkspaceBillingReport,
                     request_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.WorkspaceBillingReportItem.SerializeToString,
+            ),
+            'WorkspaceDashboardUrlGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceDashboardUrlGet,
+                    request_deserializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlResponse.SerializeToString,
             ),
             'WorkspaceNameLookup': grpc.unary_unary_rpc_method_handler(
                     servicer.WorkspaceNameLookup,
@@ -5820,6 +5836,23 @@ class ModalClient(object):
         return grpc.experimental.unary_stream(request, target, '/modal.client.ModalClient/WorkspaceBillingReport',
             modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.SerializeToString,
             modal__proto_dot_api__pb2.WorkspaceBillingReportItem.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WorkspaceDashboardUrlGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceDashboardUrlGet',
+            modal__proto_dot_api__pb2.WorkspaceDashboardUrlRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WorkspaceDashboardUrlResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -40,6 +40,13 @@ class TestAlertsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_grouped_alerts_in_workspace(self) -> None:
+        """Test case for get_grouped_alerts_in_workspace
+
+        Get Workspace Alerts Grouped.
+        """
+        pass
+
     def test_get_model_alerts(self) -> None:
         """Test case for get_model_alerts
 

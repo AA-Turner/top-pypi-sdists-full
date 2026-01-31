@@ -120,13 +120,13 @@ class TestGamut(util.ColorAsserts, unittest.TestCase):
         """Test SDR extreme high case."""
 
         color = Color('hsl(none 0% 110%)')
-        self.assertColorEqual(color.fit(), Color('hsl(0 50% 100%)'))
+        self.assertColorEqual(color.fit(), Color('hsl(0 0 100)'))
 
     def test_hdr_extreme_high(self):
         """Test HDR extreme high case."""
 
         color = Color('color(--rec2100-pq 1.01 0.2 0)')
-        self.assertColorEqual(color.fit(), Color('color(rec2100-pq 1 0.63544 1)'))
+        self.assertColorEqual(color.fit(), Color('color(rec2100-pq 1 0.67404 0.61331)'))
 
     def test_hdr_extreme_low(self):
         """Test HDR extreme low case."""
@@ -422,7 +422,15 @@ class TestRayTrace(util.ColorAsserts, unittest.TestCase):
         # When the intersect is not found, the last good intersect will be selected.
         self.assertColorEqual(
             Color('lch-d65', [0.1, 50, 270]).fit('srgb', method='raytrace', pspace='hct', adaptive=0.05),
-            Color('color(--lch-d65 0.08441 0.22909 34.545 / 1)')
+            Color('color(--lch-d65 0.08441 0.22909 34.545)')
+        )
+
+    def test_ray_trace_very_close_to_gamut(self):
+        """Test a scenario where a color is very close to the gamut."""
+
+        self.assertColorEqual(
+            Color('srgb', [1.0000000000000004, 0.19694944045886786, 0.026717808177518357]).fit(method='raytrace'),
+            Color('rgb(255 50.222 6.813)')
         )
 
 

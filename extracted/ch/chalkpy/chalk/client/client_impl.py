@@ -103,6 +103,7 @@ from chalk.client.models import (
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
     OfflineQueryContext,
+    OfflineQueryDeadlineOptions,
     OfflineQueryInput,
     OfflineQueryInputSql,
     OfflineQueryInputUri,
@@ -2229,7 +2230,7 @@ https://docs.chalk.ai/cli/apply
         store_offline: bool = False,
         num_shards: int | None = None,
         num_workers: int | None = None,
-        completion_deadline: timedelta | None = None,
+        completion_deadline: Union[timedelta, OfflineQueryDeadlineOptions, None] = None,
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
@@ -3607,7 +3608,7 @@ https://docs.chalk.ai/cli/apply
         num_shards: int | None = None,
         num_workers: int | None = None,
         feature_for_lower_upper_bound: Optional[str] = None,
-        completion_deadline: timedelta | None = None,
+        completion_deadline: Union[timedelta, OfflineQueryDeadlineOptions, None] = None,
         max_retries: int | None = None,
         optional_output_expressions: Optional[List[str]] = None,
         required_output_expressions: Optional[List[str]] = None,
@@ -3651,6 +3652,13 @@ https://docs.chalk.ai/cli/apply
         upper_bound_str = process_bound(upper_bound)
         if branch is ...:
             branch = self._branch
+
+        retyped_completion_deadline: Union[None, str, OfflineQueryDeadlineOptions] = None
+        if isinstance(completion_deadline, OfflineQueryDeadlineOptions):
+            retyped_completion_deadline = completion_deadline.with_chalk_durations()
+        elif isinstance(completion_deadline, timedelta):
+            retyped_completion_deadline = timedelta_to_duration(completion_deadline)
+
         req = CreateOfflineQueryJobRequest(
             output=optional_output,
             output_expressions=optional_output_expressions or [],
@@ -3683,7 +3691,7 @@ https://docs.chalk.ai/cli/apply
             num_shards=num_shards,
             num_workers=num_workers,
             feature_for_lower_upper_bound=feature_for_lower_upper_bound,
-            completion_deadline=timedelta_to_duration(completion_deadline) if completion_deadline is not None else None,
+            completion_deadline=retyped_completion_deadline,
             max_retries=max_retries,
             use_job_queue=use_job_queue,
             overlay_graph=_get_overlay_graph_b64(),
@@ -4438,6 +4446,7 @@ https://docs.chalk.ai/cli/apply
         explain: bool = False,
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
+        planner_options: Mapping[str, str | int | bool] | None = None,
     ) -> PlanQueryResponse:
         encoded_inputs = encode_outputs(input).string_outputs
         outputs = encode_outputs(output).string_outputs
@@ -4472,6 +4481,7 @@ https://docs.chalk.ai/cli/apply
             store_plan_stages=store_plan_stages,
             explain=explain,
             num_input_rows=num_input_rows,
+            planner_options=planner_options,
         )
 
         extra_headers: dict[str, str] = {}

@@ -288,11 +288,22 @@ class TestHive(Validator):
             },
         )
         self.validate_all(
-            "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS a",
+            "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS pos, col",
             write={
-                "presto": "SELECT a FROM x CROSS JOIN UNNEST(y) WITH ORDINALITY AS t(a)",
-                "hive": "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS a",
-                "spark": "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS a",
+                "presto": "SELECT a FROM x CROSS JOIN LATERAL (SELECT pos - 1 AS pos, col FROM UNNEST(y) WITH ORDINALITY AS t(col, pos))",
+                "trino": "SELECT a FROM x CROSS JOIN LATERAL (SELECT pos - 1 AS pos, col FROM UNNEST(y) WITH ORDINALITY AS t(col, pos))",
+                "duckdb": "SELECT a FROM x CROSS JOIN LATERAL (SELECT pos - 1 AS pos, col FROM UNNEST(y) WITH ORDINALITY AS t(col, pos))",
+                "hive": "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS pos, col",
+                "spark": "SELECT a FROM x LATERAL VIEW POSEXPLODE(y) t AS pos, col",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM x LATERAL VIEW POSEXPLODE(MAP(col, 'val')) t AS pos, key, value",
+            write={
+                "presto": "SELECT * FROM x CROSS JOIN LATERAL (SELECT pos - 1 AS pos, key, value FROM UNNEST(MAP(ARRAY[col], ARRAY['val'])) WITH ORDINALITY AS t(key, value, pos))",
+                "trino": "SELECT * FROM x CROSS JOIN LATERAL (SELECT pos - 1 AS pos, key, value FROM UNNEST(MAP(ARRAY[col], ARRAY['val'])) WITH ORDINALITY AS t(key, value, pos))",
+                "hive": "SELECT * FROM x LATERAL VIEW POSEXPLODE(MAP(col, 'val')) t AS pos, key, value",
+                "spark": "SELECT * FROM x LATERAL VIEW POSEXPLODE(MAP(col, 'val')) t AS pos, key, value",
             },
         )
         self.validate_all(
@@ -460,11 +471,11 @@ class TestHive(Validator):
         self.validate_all(
             "DATEDIFF(TO_DATE(y), x)",
             write={
-                "duckdb": "DATE_DIFF('DAY', CAST(x AS DATE), CAST(y AS DATE))",
+                "duckdb": "DATE_DIFF('DAY', CAST(x AS DATE), TRY_CAST(y AS DATE))",
                 "presto": "DATE_DIFF('DAY', CAST(CAST(x AS TIMESTAMP) AS DATE), CAST(CAST(CAST(CAST(y AS TIMESTAMP) AS DATE) AS TIMESTAMP) AS DATE))",
                 "hive": "DATEDIFF(TO_DATE(y), x)",
                 "spark": "DATEDIFF(TO_DATE(y), x)",
-                "": "DATEDIFF(CAST(y AS DATE), CAST(x AS DATE))",
+                "": "DATEDIFF(TRY_CAST(y AS DATE), CAST(x AS DATE))",
             },
         )
         self.validate_all(
@@ -609,15 +620,6 @@ class TestHive(Validator):
             },
         )
         self.validate_all(
-            "PERCENTILE(x, 0.5)",
-            write={
-                "duckdb": "QUANTILE(x, 0.5)",
-                "presto": "APPROX_PERCENTILE(x, 0.5)",
-                "hive": "PERCENTILE(x, 0.5)",
-                "spark": "PERCENTILE(x, 0.5)",
-            },
-        )
-        self.validate_all(
             "PERCENTILE_APPROX(x, 0.5)",
             read={
                 "hive": "PERCENTILE_APPROX(x, 0.5)",
@@ -630,6 +632,24 @@ class TestHive(Validator):
                 "presto": "APPROX_PERCENTILE(x, 0.5)",
                 "duckdb": "APPROX_QUANTILE(x, 0.5)",
                 "spark": "PERCENTILE_APPROX(x, 0.5)",
+            },
+        )
+        self.validate_all(
+            "PERCENTILE_APPROX(x, 0.5)",
+            read={
+                "hive": "PERCENTILE_APPROX(ALL x, 0.5)",
+                "spark2": "PERCENTILE_APPROX(ALL x, 0.5)",
+                "spark": "PERCENTILE_APPROX(ALL x, 0.5)",
+                "databricks": "PERCENTILE_APPROX(ALL x, 0.5)",
+            },
+        )
+        self.validate_all(
+            "PERCENTILE_APPROX(x, 0.5, 200)",
+            read={
+                "hive": "PERCENTILE_APPROX(ALL x, 0.5, 200)",
+                "spark2": "PERCENTILE_APPROX(ALL x, 0.5, 200)",
+                "spark": "PERCENTILE_APPROX(ALL x, 0.5, 200)",
+                "databricks": "PERCENTILE_APPROX(ALL x, 0.5, 200)",
             },
         )
         self.validate_all(
@@ -973,3 +993,49 @@ class TestHive(Validator):
                         "duckdb": f"SELECT * FROM t1 {join} JOIN t2 ON TRUE",
                     },
                 )
+
+    def test_percentile(self):
+        self.validate_all(
+            "PERCENTILE(x, 0.5)",
+            write={
+                "duckdb": "QUANTILE(x, 0.5)",
+                "presto": "APPROX_PERCENTILE(x, 0.5)",
+                "hive": "PERCENTILE(x, 0.5)",
+                "spark2": "PERCENTILE(x, 0.5)",
+                "spark": "PERCENTILE(x, 0.5)",
+                "databricks": "PERCENTILE(x, 0.5)",
+            },
+        )
+
+        self.validate_all(
+            "PERCENTILE(DISTINCT x, 0.5)",
+            read={
+                "hive": "PERCENTILE(DISTINCT x, 0.5)",
+                "spark": "PERCENTILE(DISTINCT x, 0.5)",
+                "databricks": "PERCENTILE(DISTINCT x, 0.5)",
+            },
+            write={
+                "spark": "PERCENTILE(DISTINCT x, 0.5)",
+                "databricks": "PERCENTILE(DISTINCT x, 0.5)",
+            },
+        )
+
+        self.validate_all(
+            "PERCENTILE(x, 0.5)",
+            read={
+                "hive": "PERCENTILE(ALL x, 0.5)",
+                "spark2": "PERCENTILE(ALL x, 0.5)",
+                "spark": "PERCENTILE(ALL x, 0.5)",
+                "databricks": "PERCENTILE(ALL x, 0.5)",
+            },
+        )
+
+        quantile_expr = self.validate_identity("PERCENTILE(DISTINCT x, 0.5)")
+        quantile_expr.assert_is(exp.Quantile)
+        quantile_expr.this.assert_is(exp.Distinct)
+        quantile_expr.args.get("quantile").assert_is(exp.Literal)
+
+        quantile_expr = self.validate_identity("PERCENTILE(ALL x, 0.5)", "PERCENTILE(x, 0.5)")
+        quantile_expr.assert_is(exp.Quantile)
+        quantile_expr.this.assert_is(exp.Column)
+        quantile_expr.args.get("quantile").assert_is(exp.Literal)

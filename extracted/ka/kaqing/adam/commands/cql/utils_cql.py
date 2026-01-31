@@ -80,7 +80,7 @@ def run_cql(state: ReplState,
 
     with log_timing(cql):
         with cassandra(state) as pods:
-            # return pods.exec(command, action='cql', on_any=on_any, ctx=ctx.copy(text_color='gray' if not ctx or ctx.backgrounded else None))
+            # return pods.exec(command, action='cql', on_any=on_any, ctx=ctx.copy(text_color='gray' if not ctx or ctx.background else None))
             return pods.exec(command, action='cql', on_any=on_any, ctx=ctx)
 
 def parse_cql_desc_tables(out: str):
@@ -295,7 +295,7 @@ class CassandraPodService:
         return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, ctx=ctx)
 
     def display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
-        if ctx.backgrounded:
+        if ctx.background:
             with offload(name='display-table') as exec:
                 exec.submit(lambda: self._display_table(cols, header, ctx=ctx))
         else:

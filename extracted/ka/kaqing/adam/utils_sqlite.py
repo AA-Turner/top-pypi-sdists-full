@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 import functools
 import glob
 import os
@@ -7,7 +5,8 @@ import sqlite3
 import pandas
 
 from adam.config import Config
-from adam.utils import creating_dir, tabulize, log, wait_log
+from adam.utils import creating_dir, wait_log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class CursorHandler:
@@ -117,11 +116,12 @@ class SQLite:
             return SQLite.run_query_with_conn(conn, query, ctx=ctx)
 
     def run_query_with_conn(conn, query: str, ctx: Context = Context.NULL) -> int:
-        # log_file = None
-
         df = SQLite.query(conn, query)
         lines = ['\t'.join(map(str, line)) for line in df.values.tolist()]
-        tabulize(lines, header='\t'.join(df.columns.tolist()), separator='\t', log_file=ctx.log_file)
+        tabulize(lines,
+                 header='\t'.join(df.columns.tolist()),
+                 separator='\t',
+                 ctx=ctx.copy(show_out=True))
 
         return len(lines)
 

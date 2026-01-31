@@ -50,9 +50,9 @@ setup(
         "setuptools",  # Needed to parse setup.cfg
         "packaging",
         "python-dotenv",
-        "typer<0.17.0",
-        "dagster-shared==1.12.12",
-        "dagster-cloud-cli==1.12.12",
+        "typer>=0.15.1,<1.0",
+        "dagster-shared==1.12.13",
+        "dagster-cloud-cli==1.12.13",
     ],
     include_package_data=True,
     zip_safe=False,
@@ -60,12 +60,12 @@ setup(
     extras_require={
         "test": [
             "click",
-            "dagster==1.12.12",
+            "dagster==1.12.13",
             "freezegun",
             "psutil",
             "pydantic",
             "pytest",
-            "dagster-graphql==1.12.12",
+            "dagster-graphql==1.12.13",
             f"create-dagster{pin}",
         ],
     },

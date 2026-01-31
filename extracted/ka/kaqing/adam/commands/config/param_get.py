@@ -2,7 +2,9 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log, log2
+from adam.utils import log, log2
+from adam.utils_tabulize import tabulize
+from adam.utils_context import Context
 
 class GetParam(Command):
     COMMAND = 'get'
@@ -25,7 +27,10 @@ class GetParam(Command):
 
         with self.validate(args, state) as (args, state):
             def msg():
-                tabulize(Config().keys(), lambda key: f'{key}\t{Config().get(key, None)}', separator='\t')
+                tabulize(Config().keys(),
+                         lambda key: f'{key}\t{Config().get(key, None)}',
+                         separator='\t',
+                         ctx=self.context())
 
             with validate_args(args, state, msg=msg) as key:
                 if v := Config().get(key, None):

@@ -4,7 +4,7 @@ from adam.commands import extract_trailing_options, validate_args
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import tabulize
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class ShowCassandraRing(Command):
@@ -30,17 +30,16 @@ class ShowCassandraRing(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with validate_args(args, state, name='Cassandra Node IP'):
                     ip = args[0]
 
                     with cassandra(state) as pods:
-                        r = pods.nodetool('ring', Context.new(cmd, backgrounded=backgrounded))
+                        r = pods.nodetool('ring', Context.new(cmd, background=background))
                         if isinstance(r, list):
                             r = r[0]
 
                         ring = parse_nodetool_ring(r.stdout)
-                        # print(ring)
 
                         lines : dict[str, set] = {}
 
@@ -50,31 +49,12 @@ class ShowCassandraRing(Command):
 
                             return lines[ip]
 
-                        # s = 0
-                        # for n in ring:
-                        #     if s == 0:
-                        #         if n['address'] == ip:
-                        #             line(ip).add(n['token'])
-
-                        #             s = 1
-                            # elif s == 1:
-                            #     line(n['address']).add(n['token'])
-
-                            #     s = 2
-                            # elif s == 2:
-                            #     line(n['address']).add(n['token'])
-
-                            #     s = 0
-
-                        # tabulize(sorted(lines.keys()), lambda k: f'{k}\t{", ".join(lines[k])}', header='Address\tTokens', separator='\t')
-
                         token = None
                         s = 0
                         for n in ring[1:]:
                             if s == 0:
                                 if n['address'] == ip:
                                     token = n['token']
-                                    # line(token).add(n['address'])
 
                                     s = 1
                             elif s == 1:
@@ -86,14 +66,13 @@ class ShowCassandraRing(Command):
 
                                 s = 0
 
-                        tabulize(sorted(lines.keys()), lambda k: f'{k}\t{", ".join(sorted(list(lines[k])))}', header='Token\tAddresses', separator='\t')
-
+                        tabulize(sorted(lines.keys()),
+                                 lambda k: f'{k}\t{", ".join(sorted(list(lines[k])))}',
+                                 header='Token\tAddresses',
+                                 separator='\t',
+                                 ctx=self.context())
 
                         return state
-
-            #                 result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", ctx=ctx_fg)
-            # status = parse_nodetool_status(result.stdout)
-
 
     def completion(self, state: ReplState):
         return super().completion(state, {'&': None})

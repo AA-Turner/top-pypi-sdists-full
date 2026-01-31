@@ -28,7 +28,7 @@ class ShowExportSession(Command):
         with self.validate(args, state) as (args, state):
             with validate_args(args, state, name='export session') as session:
                 with export_session(state) as sessions:
-                    sessions.show_session(session)
+                    sessions.show_session(session, self.context())
 
             return state
 

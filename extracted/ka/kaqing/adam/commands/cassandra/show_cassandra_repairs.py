@@ -27,9 +27,9 @@ class ShowCassandraRepairs(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with cassandra(state) as pods:
-                    return pods.nodetool('repair_admin list', Context.new(cmd, backgrounded=backgrounded))
+                    return pods.nodetool('repair_admin list', Context.new(cmd, background=background))
 
     def completion(self, state: ReplState):
         return super().completion(state, {'&': None})

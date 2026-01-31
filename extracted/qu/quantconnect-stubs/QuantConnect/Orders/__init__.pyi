@@ -1526,6 +1526,22 @@ class BitfinexOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
 
+class OrderPosition(IntEnum):
+    """Position of the order"""
+
+    BUY_TO_OPEN = 0
+    """Indicates the buy order will result in a long position, starting either from zero or an existing long position (0)"""
+
+    BUY_TO_CLOSE = 1
+    """Indicates the buy order is starting from an existing short position, resulting in a closed or long position (1)"""
+
+    SELL_TO_OPEN = 2
+    """Indicates the sell order will result in a short position, starting either from zero or an existing short position (2)"""
+
+    SELL_TO_CLOSE = 3
+    """Indicates the sell order is starting from an existing long position, resulting in a closed or short position (3)"""
+
+
 class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
     """Wolverine order properties"""
 
@@ -1536,6 +1552,15 @@ class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
 
     @exchange_post_fix.setter
     def exchange_post_fix(self, value: str) -> None:
+        ...
+
+    @property
+    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
+        """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default handling"""
+        ...
+
+    @position_side.setter
+    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
         ...
 
 
@@ -2591,22 +2616,6 @@ class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
     @outside_regular_trading_hours.setter
     def outside_regular_trading_hours(self, value: bool) -> None:
         ...
-
-
-class OrderPosition(IntEnum):
-    """Position of the order"""
-
-    BUY_TO_OPEN = 0
-    """Indicates the buy order will result in a long position, starting either from zero or an existing long position (0)"""
-
-    BUY_TO_CLOSE = 1
-    """Indicates the buy order is starting from an existing short position, resulting in a closed or long position (1)"""
-
-    SELL_TO_OPEN = 2
-    """Indicates the sell order will result in a short position, starting either from zero or an existing short position (2)"""
-
-    SELL_TO_CLOSE = 3
-    """Indicates the sell order is starting from an existing long position, resulting in a closed or short position (3)"""
 
 
 class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):

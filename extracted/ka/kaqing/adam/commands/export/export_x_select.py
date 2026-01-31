@@ -29,10 +29,10 @@ class ExportXSelect(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with validate_args(args, state, name='SQL statement') as query:
                     with export_db(state) as dbs:
-                        dbs.sql(f'select {query}', ctx=Context.new(cmd, backgrounded))
+                        dbs.sql(f'select {query}', ctx=Context.new(cmd, background))
 
                     return state
 

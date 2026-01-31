@@ -30,6 +30,7 @@ from fal.api import (
 from fal.api import (
     function as fal_function,
 )
+from fal.auth import key_credentials
 from fal.container import ContainerImage
 from fal.exceptions import FalServerlessException, RequestCancelledException
 from fal.logging import get_logger
@@ -181,12 +182,28 @@ class AppClientError(FalServerlessException):
     headers: dict[str, str] = field(default_factory=dict)
 
 
+def _default_auth_headers() -> dict[str, str]:
+    key_creds = key_credentials()
+    if not key_creds:
+        return {}
+    key_id, key_secret = key_creds
+    return {"Authorization": f"Key {key_id}:{key_secret}"}
+
+
 class EndpointClient:
-    def __init__(self, url, endpoint, signature, timeout: int | None = None):
+    def __init__(
+        self,
+        url,
+        endpoint,
+        signature,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         self.url = url
         self.endpoint = endpoint
         self.signature = signature
         self.timeout = timeout
+        self.headers = headers or {}
 
         annotations = endpoint.__annotations__ or {}
         self.return_type = annotations.get("return") or None
@@ -198,6 +215,7 @@ class EndpointClient:
                 self.url + self.signature.path,
                 json=data.dict() if hasattr(data, "dict") else dict(data),
                 timeout=self.timeout,
+                headers=self.headers,
             )
             if not resp.is_success:
                 # allow logs to be printed before raising the exception
@@ -224,6 +242,7 @@ class AppClient:
     ):
         self.url = url
         self.cls = cls
+        self._headers = _default_auth_headers()
 
         for name, endpoint in inspect.getmembers(cls, inspect.isfunction):
             signature = getattr(endpoint, "route_signature", None)
@@ -234,6 +253,7 @@ class AppClient:
                 endpoint,
                 signature,
                 timeout=timeout,
+                headers=self._headers,
             )
             setattr(self, name, endpoint_client)
 
@@ -274,12 +294,15 @@ class AppClient:
             last_error = None
             attempt = 0
 
+            headers = _default_auth_headers()
             with httpx.Client() as client:
                 while time.perf_counter() - start_time < startup_timeout:
                     attempt += 1
 
                     try:
-                        resp = client.get(url, timeout=health_request_timeout)
+                        resp = client.get(
+                            url, timeout=health_request_timeout, headers=headers
+                        )
                     except httpx.TimeoutException:
                         last_error = (
                             f"Request timed out after {health_request_timeout} seconds"
@@ -318,7 +341,7 @@ class AppClient:
 
     def health(self):
         with httpx.Client() as client:
-            resp = client.get(self.url + "/health")
+            resp = client.get(self.url + "/health", headers=self._headers)
             resp.raise_for_status()
             return resp.json()
 
@@ -897,6 +920,18 @@ def endpoint(
     return marker_fn
 
 
+def msgpack_decode_message(message: bytes) -> Any:
+    import msgpack
+
+    return msgpack.unpackb(message, raw=False)
+
+
+def msgpack_encode_message(message: Any) -> bytes:
+    import msgpack
+
+    return msgpack.packb(message, use_bin_type=True)
+
+
 def _fal_websocket_template(
     func: EndpointT,
     route_signature: RouteSignature,
@@ -909,8 +944,10 @@ def _fal_websocket_template(
     from collections import deque
     from contextlib import suppress
 
-    import msgpack
     from fastapi import WebSocket, WebSocketDisconnect
+
+    decode_message = route_signature.decode_message or msgpack_decode_message
+    encode_message = route_signature.encode_message or msgpack_encode_message
 
     async def mirror_input(queue: deque[Any], websocket: WebSocket) -> None:
         while True:
@@ -922,7 +959,7 @@ def _fal_websocket_template(
             except asyncio.TimeoutError:
                 return
 
-            input = msgpack.unpackb(raw_input, raw=False)
+            input = decode_message(raw_input)
             if route_signature.input_modal:
                 input = route_signature.input_modal(**input)
 
@@ -935,7 +972,7 @@ def _fal_websocket_template(
     ) -> None:
         loop = asyncio.get_event_loop()
         max_allowed_buffering = route_signature.buffering or 1
-        outgoing_messages: asyncio.Queue[bytes] = asyncio.Queue(
+        outgoing_messages: asyncio.Queue[bytes | str] = asyncio.Queue(
             maxsize=max_allowed_buffering * 2  # x2 for outgoing timings
         )
 
@@ -996,9 +1033,7 @@ def _fal_websocket_template(
                         f"{type(output)}"
                     )
 
-            messages = [
-                msgpack.packb(output, use_bin_type=True),
-            ]
+            messages: list[bytes | str] = [encode_message(output)]
             if route_signature.emit_timings:
                 # We emit x-fal messages in JSON, no matter what the
                 # input/output format is.
@@ -1103,6 +1138,8 @@ def realtime(
     session_timeout: float | None = None,
     input_modal: Any | None = _SENTINEL,
     max_batch_size: int = 1,
+    encode_message: Callable[[Any], bytes] | None = None,
+    decode_message: Callable[[bytes], Any] | None = None,
 ) -> Callable[[EndpointT], EndpointT]:
     """Designate the decorated function as a realtime application endpoint."""
 
@@ -1129,6 +1166,8 @@ def realtime(
             buffering=buffering,
             session_timeout=session_timeout,
             max_batch_size=max_batch_size,
+            encode_message=encode_message,
+            decode_message=decode_message,
         )
         return _fal_websocket_template(
             original_func,

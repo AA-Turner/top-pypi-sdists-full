@@ -27,7 +27,7 @@ class ShowAppQueues(Command):
         with self.validate(args, state) as (_, state):
             with extract_options(args, '--force') as (args, forced):
                 with app(state) as http:
-                    http.post(['InvalidationQueue.countAll'], forced=forced)
+                    http.post(['InvalidationQueue.countAll'], forced=forced, ctx=self.context())
 
                 return state
 

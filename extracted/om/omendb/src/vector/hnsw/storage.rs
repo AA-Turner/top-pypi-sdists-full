@@ -1467,8 +1467,8 @@ impl Level0Storage {
         self.counts[idx].store(count as u16, Ordering::Release);
     }
 
-    /// Add a single neighbor - O(1) per neighbor (used in tests)
-    #[cfg(test)]
+    /// Add a single neighbor with locking - O(1) append
+    /// Returns false if at capacity
     pub fn add_neighbor(&self, node_id: u32, neighbor: u32) -> bool {
         let idx = node_id as usize;
         if idx >= self.write_locks.len() {
@@ -1553,6 +1553,33 @@ impl Level0Storage {
             return None;
         }
         Some(self.write_locks[idx].lock())
+    }
+
+    /// Check if neighbor exists (lock-free)
+    #[inline]
+    pub fn contains(&self, node_id: u32, neighbor: u32) -> bool {
+        let idx = node_id as usize;
+        if idx >= self.counts.len() {
+            return false;
+        }
+        let base = idx * self.max_m0;
+        let count = self.counts[idx].load(Ordering::Acquire) as usize;
+        for i in 0..count.min(self.max_m0) {
+            if self.data[base + i].load(Ordering::Relaxed) == neighbor {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get neighbor count (lock-free)
+    #[inline]
+    pub fn count(&self, node_id: u32) -> usize {
+        let idx = node_id as usize;
+        if idx >= self.counts.len() {
+            return 0;
+        }
+        self.counts[idx].load(Ordering::Acquire) as usize
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -1677,8 +1704,8 @@ impl UpperLevelStorage {
         }
     }
 
-    /// Add neighbor at upper level (used in tests)
-    #[cfg(test)]
+    /// Add neighbor at upper level with locking - O(1) append
+    /// Returns false if at capacity
     pub fn add_neighbor(&self, node_id: u32, level: u8, neighbor: u32) -> bool {
         let idx = node_id as usize;
         if idx >= self.locks.len() {
@@ -1783,6 +1810,23 @@ impl UpperLevelStorage {
             .map_or(0, |links| links.max_level)
     }
 
+    /// Get neighbor count at level (lock-free)
+    #[inline]
+    pub fn count(&self, node_id: u32, level: u8) -> usize {
+        debug_assert!(level >= 1);
+        let idx = node_id as usize;
+        if idx >= self.nodes.len() {
+            return 0;
+        }
+        match &self.nodes[idx] {
+            Some(links) if level <= links.max_level => {
+                let level_idx = (level - 1) as usize;
+                links.counts[level_idx].load(Ordering::Acquire) as usize
+            }
+            _ => 0,
+        }
+    }
+
     pub fn memory_usage(&self) -> usize {
         let mut total = self.nodes.len() * std::mem::size_of::<Option<UpperNodeLinks>>();
         total += self.locks.len() * std::mem::size_of::<Mutex<()>>();
@@ -1883,6 +1927,17 @@ impl NeighborStorage {
         self.set_neighbors(node_id, level, neighbors);
     }
 
+    /// Add a single neighbor with locking - O(1) append
+    /// Returns false if at capacity (caller should prune and retry)
+    #[inline]
+    pub fn add_neighbor(&self, node_id: u32, level: u8, neighbor: u32) -> bool {
+        if level == 0 {
+            self.level0.add_neighbor(node_id, neighbor)
+        } else {
+            self.upper.add_neighbor(node_id, level, neighbor)
+        }
+    }
+
     /// Add bidirectional link with deadlock prevention
     pub fn add_bidirectional_link(&self, node_a: u32, node_b: u32, level: u8) {
         if node_a == node_b {
@@ -1953,6 +2008,27 @@ impl NeighborStorage {
     #[must_use]
     pub fn max_levels(&self) -> usize {
         self.max_levels
+    }
+
+    /// Check if neighbor exists at level (lock-free)
+    #[inline]
+    pub fn contains_neighbor(&self, node_id: u32, level: u8, neighbor: u32) -> bool {
+        if level == 0 {
+            self.level0.contains(node_id, neighbor)
+        } else {
+            self.upper
+                .with_neighbors(node_id, level, |n| n.contains(&neighbor))
+        }
+    }
+
+    /// Get neighbor count at level (lock-free)
+    #[inline]
+    pub fn neighbor_count(&self, node_id: u32, level: u8) -> usize {
+        if level == 0 {
+            self.level0.count(node_id)
+        } else {
+            self.upper.count(node_id, level)
+        }
     }
 
     /// Get number of nodes

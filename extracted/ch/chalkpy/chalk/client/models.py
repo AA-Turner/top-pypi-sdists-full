@@ -20,6 +20,7 @@ from chalk.features.tag import EnvironmentId
 from chalk.prompts import Prompt
 from chalk.queries.query_context import ContextJsonDict
 from chalk.utils.df_utils import read_parquet
+from chalk.utils.duration import timedelta_to_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
@@ -820,6 +821,48 @@ class ResourceRequests(BaseModel):
     """Resource group to use for this job. If not specified, the default resource group will be used."""
 
 
+class OfflineQueryDeadlineOptions(BaseModel):
+    """
+    Specification for setting deadlines for shards of the query or the entire query itself.
+    """
+
+    shard_deadline: Union[timedelta, str, None] = None
+    """
+    Maximum amount of time a query shard can work before being failed.
+    """
+
+    retry_on_shard_deadline: Optional[bool] = None
+    """
+    Whether to retry when the per-shard deadline is triggered. Will default to true.
+    """
+
+    query_deadline: Union[timedelta, str, None] = None
+    """
+    Maximum amount of time that the entire query can work before being failed.
+    """
+
+    retry_on_query_deadline: Optional[bool] = None
+    """
+    Whether to retry when the entire query's deadline is triggered. Will default to false.
+    """
+
+    def with_chalk_durations(self) -> OfflineQueryDeadlineOptions:
+        return OfflineQueryDeadlineOptions(
+            shard_deadline=(
+                timedelta_to_duration(self.shard_deadline)
+                if isinstance(self.shard_deadline, timedelta)
+                else self.shard_deadline
+            ),
+            retry_on_shard_deadline=self.retry_on_shard_deadline,
+            query_deadline=(
+                timedelta_to_duration(self.query_deadline)
+                if isinstance(self.query_deadline, timedelta)
+                else self.query_deadline
+            ),
+            retry_on_query_deadline=self.retry_on_query_deadline,
+        )
+
+
 class CreateOfflineQueryJobRequest(BaseModel):
     output: List[str]
     """A list of output feature root fqns to query"""
@@ -902,7 +945,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
     num_workers: Optional[int] = None
     feature_for_lower_upper_bound: Optional[str] = None
 
-    completion_deadline: Optional[str] = None
+    completion_deadline: Union[None, str, OfflineQueryDeadlineOptions] = None
     max_retries: Optional[int] = None
 
     use_job_queue: bool = False
@@ -915,7 +958,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
         if values["input"] is None or isinstance(
-            values["input"], (UploadedParquetShardedOfflineQueryInput, OfflineQueryInputUri)
+            values["input"], (UploadedParquetShardedOfflineQueryInput, OfflineQueryInputUri, OfflineQueryInputSql)
         ):
             return values
         expected_use_multiple_computers = isinstance(values["input"], tuple)
@@ -1653,6 +1696,7 @@ class PlanQueryRequest(BaseModel):
     explain: bool = False
     store_plan_stages: bool = False
     encoding_options: FeatureEncodingOptions = FeatureEncodingOptions()
+    planner_options: Mapping[str, str | int | bool | float] | None = None
 
 
 class FeatureSchema(BaseModel):

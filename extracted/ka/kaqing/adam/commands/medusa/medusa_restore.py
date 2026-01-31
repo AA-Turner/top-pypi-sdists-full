@@ -7,7 +7,8 @@ from adam.commands.medusa.utils_medusa import medusa_backup_names
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.utils import tabulize, log2, log_exc
+from adam.utils import log_exc
+from adam.utils_tabulize import tabulize
 
 class MedusaRestore(Command):
     COMMAND = 'restore'
@@ -37,18 +38,20 @@ class MedusaRestore(Command):
             if not dc:
                 return state
 
+            ctx = self.context()
             def msg(missing: bool):
                 if missing:
-                    log2('\n* Missing Backup Name')
-                    log2('Usage: qing restore <backup> <sts@name_space>\n')
+                    ctx.log2('\n* Missing Backup Name')
+                    ctx.log2('Usage: qing restore <backup> <sts@name_space>\n')
                 else:
-                    log2('\n* Backup job name is not valid.')
+                    ctx.log2('\n* Backup job name is not valid.')
 
                 tabulize(CustomResources.medusa_show_backupjobs(dc, ns),
                          lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '')}",
                          header='NAME\tCREATED\tFINISHED',
                          separator='\t',
-                         to=2)
+                         err=True,
+                         ctx=ctx)
 
             with validate_args(args, state, msg=partial(msg, True)) as bkname:
                 if not (job := CustomResources.medusa_get_backupjob(dc, ns, bkname)):

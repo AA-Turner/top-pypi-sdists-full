@@ -1,11 +1,12 @@
 from adam.commands.bash.bash_completer import BashCompleter
-from adam.commands.command import Command, InvalidStateException
+from adam.commands.command import Command
 from adam.commands.commands_utils import show_pods, show_rollout
 from adam.commands.cql.utils_cql import cassandra, cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log, log2, wait_log
+from adam.utils import log2, wait_log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.cassandra_clusters import CassandraClusters
 from adam.utils_k8s.custom_resources import CustomResources
@@ -50,12 +51,12 @@ class DeviceCass(Command, Device):
     def default_container(self, _: ReplState) -> str:
         return 'cassandra'
 
-    def ls(self, cmd: str, state: ReplState):
+    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
         if state.pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.sts and state.namespace:
-            show_pods(StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace())
-            show_rollout(state.sts, state.namespace)
+            show_pods(StatefulSets.pods(state.sts, state.namespace), state.namespace, show_namespace=not KubeContext.in_cluster_namespace(), ctx=ctx)
+            show_rollout(state.sts, state.namespace, ctx=ctx)
         else:
             self.show_statefulsets()
 
@@ -152,8 +153,10 @@ class DeviceCass(Command, Device):
                 else:
                     wait_log(f'Moving to the only Cassandra cluster: {state.sts}@{state.namespace}...')
 
-    def show_tables(self, state: ReplState):
-        tabulize(cassandra_table_names(state), separator=',')
+    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
+        tabulize(cassandra_table_names(state),
+                 separator=',',
+                 ctx=ctx.copy(show_out=True))
 
     def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
         with cassandra(state) as pods:

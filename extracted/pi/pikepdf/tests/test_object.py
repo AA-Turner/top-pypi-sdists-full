@@ -803,6 +803,7 @@ def test_get_unique_resource_names(sandwich):
     assert name == "/R14"
     assert suffix == 14
 
+
 @pytest.fixture
 def cyclic_toc(resources):
     with Pdf.open(resources / 'cyclic-toc.pdf') as pdf:
@@ -811,9 +812,9 @@ def cyclic_toc(resources):
 
 class TestCyclicEquality:
     def test_cyclic_toc(self, cyclic_toc):
-        assert cyclic_toc.get_object(5,0) != cyclic_toc.get_object(9,0)
-        assert cyclic_toc.get_object(5,0) == cyclic_toc.get_object(5,0)
-        assert cyclic_toc.get_object(9,0) == cyclic_toc.get_object(9,0)
+        assert cyclic_toc.get_object(5, 0) != cyclic_toc.get_object(9, 0)
+        assert cyclic_toc.get_object(5, 0) == cyclic_toc.get_object(5, 0)
+        assert cyclic_toc.get_object(9, 0) == cyclic_toc.get_object(9, 0)
 
     def test_loop(self):
         pdf = pikepdf.new()
@@ -850,3 +851,49 @@ class TestCyclicEquality:
         a2['/sibling'] = a1
         assert a == a1['/parent']
         assert a1 == a2
+
+
+class TestKeyErrors:
+    def test_scalar_lookup_error(self):
+        """Test object_get_key (via __getattr__)"""
+        n = Name("/Foo")
+        with pytest.raises(ValueError, match=r"cannot get key '/startswith'"):
+            _ = n.startswith
+
+    def test_scalar_contains_error(self):
+        """Test object_has_key (via 'in' operator)"""
+        n = Name("/Foo")
+        with pytest.raises(ValueError, match=r"cannot check existence of key '/Bar'"):
+            _ = '/Bar' in n
+
+    def test_array_set_error(self):
+        """Test object_set_key (via __setitem__)"""
+        arr = Array([1, 2])
+        with pytest.raises(ValueError, match=r"cannot set key '/Bar'"):
+            arr['/Bar'] = 1
+
+    def test_array_del_error(self):
+        """Test object_del_key (via __delitem__)"""
+        arr = Array([1, 2])
+        with pytest.raises(ValueError, match=r"cannot delete key '/Bar'"):
+            del arr['/Bar']
+
+
+class TestCopy:
+    def test_copy_array(self):
+        arr = Array([1, 2])
+        copy = arr.copy()
+        assert copy == arr and copy is not arr
+
+    def test_copy_dictionary(self):
+        d = Dictionary({'/A': 1, '/B': 2})
+        copy = d.copy()
+        assert copy == d and copy is not d
+        copy['/C'] = 3
+        assert copy != d
+
+    def test_copy_stream(self):
+        pdf = pikepdf.new()
+        s = Stream(pdf, b'foo')
+        copy = s.copy()
+        assert copy == s and copy is not s

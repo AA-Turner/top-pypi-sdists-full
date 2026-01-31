@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dnfile
-Version: 0.17.0
+Version: 0.18.0
 Summary: Parse .NET executable files.
 Author: MalwareFrank
 License: MIT License
@@ -13,6 +13,8 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -132,6 +134,14 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 =======
 History
 =======
+
+0.18.0 (2026)
+-------------
+
+* BUGFIX: sanity check value of mdtable num_rows value; do not process if larger than stream size
+* FEATURE: UserString objects, add ability to set string decode error option
+* add py 3.10 and 3.11 to supported versions list
+* minor example changes
 
 0.17.0 (2025)
 -------------

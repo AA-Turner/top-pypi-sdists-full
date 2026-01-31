@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: silero
-Version: 0.5.2
+Version: 0.5.3
 Summary: Silero Models: pre-trained enterprise-grade TTS models.
 Home-page: https://github.com/snakers4/silero-models
 Author: Silero Team
@@ -8,7 +8,7 @@ Author-email: hello@silero.ai
 Project-URL: Bug Tracker, https://github.com/snakers4/silero-models/issues
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
@@ -24,6 +24,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: LICENSE_CIS
 Requires-Dist: torch>=1.12.0
 Requires-Dist: omegaconf>=2.1.0
 Dynamic: license-file
@@ -110,8 +111,10 @@ Russian-only models support automated stress and homographs.
 - All of the below models support `8000`, `24000`, `48000` sampling rates and contain no auto-stress or homographs;
 - `v5_cis_base` models assume that proper stress should be added for each word for all languages, i.e. `к+ошка`;
 - `v5_cis_base_nostress` models assume that proper stress should be added for each word ONLY for slavic languages (i.e. `ru`, `bel`, `ukr`); 
-- All of the below models are published under `MIT` licence;
-- V5 models support [SSML](https://github.com/snakers4/silero-models/wiki/SSML). Also see Colab examples for main SSML tag usage.
+- All of the below models are published under `MIT` [licence](https://github.com/snakers4/silero-models/blob/master/LICENSE_CIS);
+- V5 UTMOS and throughput [metrics](https://github.com/snakers4/silero-models/wiki/%D0%9F%D1%83%D0%B1%D0%BB%D0%B8%D1%87%D0%BD%D0%B0%D1%8F-%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F-%D0%BF%D0%BE-%D1%81%D0%BA%D0%BE%D1%80%D0%BE%D1%81%D1%82%D0%B8-%D0%B8-%D0%BA%D0%B0%D1%87%D0%B5%D1%81%D1%82%D0%B2%D1%83-%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%8B);
+- V5 models support [SSML](https://github.com/snakers4/silero-models/wiki/SSML). Also see Colab examples for main SSML tag usage;
+- Use [cases](https://github.com/snakers4/silero-models/wiki/%D0%9D%D0%B0%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F-%D0%BF%D1%80%D0%B8%D0%BA%D0%BB%D0%B0%D0%B4%D0%BD%D0%BE%D0%B3%D0%BE-%D0%B8%D1%81%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F-%D0%BC%D0%BE%D0%B4%D0%B5%D0%BB%D0%B5%D0%B9-%D1%81%D0%B8%D0%BD%D1%82%D0%B5%D0%B7%D0%B0) for the model;
 
 | ID                                    | Speakers                                     | Language             | Colab |
 | ------------------------------------- | -------------------------------------------- | -------------------- | -------------------- |
@@ -135,7 +138,41 @@ Russian-only models support automated stress and homographs.
 | `v5_cis_base`, `v5_cis_base_nostress` | `kjh_karina`, `kjh_sibday`                   | `kjh` (Khakas)       | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snakers4/silero-models/blob/master/examples_tts_cis.ipynb) |
 | `v5_cis_base`, `v5_cis_base_nostress` | `chv_ekaterina`                              | `chv` (Chuvash)      | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snakers4/silero-models/blob/master/examples_tts_cis.ipynb) |
 | `v5_cis_base`, `v5_cis_base_nostress` | `erz_alexandr`                               | `erz` (Erzya)        | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snakers4/silero-models/blob/master/examples_tts_cis.ipynb) |
-| `v5_cis_base`, `v5_cis_base_nostress` | `sah_zinaida`                                | `sah` (Yakut)        | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snakers4/silero-models/blob/master/examples_tts_cis.ipynb) |
+| `v5_cis_base`, `v5_cis_base_nostress` | `sah_zinaida`                                | `sah` (Yakut)        | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/snakers4/silero-models/blob/master/examples_tts_cis.ipynb) 
+
+
+<details>
+  <summary>Supported alphabets</summary>
+
+
+ Please note that Georgian and Armenian are in fact internally supported via direct translation into cyrillic script inside of the package. Azerbaijani and Uzbek support both alphabets (Cyrillic and Latin).
+
+| ID  | Название      | Алфавит(ы)                                 |
+|-----|---------------|--------------------------------------------|
+| aze | `aze` (Azerbaijani)    | abcçdeәfgğhxıijkqlmnoöprsştuüvyz           |
+| aze | `aze` (Azerbaijani)    | абвгғдеәжзиыјкҝлмноөпрстуүфхһчҹш           |
+| hye | `hye` (Armenian)      | աբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆև    |
+| bak | `bak` (Bashkir)      | абвгдежзийклмнопрстуфхцчшщъыьэюяёғҙҡңҫүһәө |
+| bel | `bel` (Belarus)    | абвгдежзйклмнопрстуфхцчшыьэюяёіў           |
+| kat | `kat` (Georgian)     | აბგდევზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰ        |
+| kbd | `kbd` (Kab.-Cherkes) | абвгдежзийклмнопрстуфхцчшщъыьэюяёӏ         |
+| kaz | `kaz` (Kazakh)        | абвгдежзийклмнопрстуфхцчшщыьэюяіғқңүұһәө   |
+| xal | `xal` (Kalmyk)      | абвгдежзийклмнопрстуфхцчшщъыьэюяҗңүһәө     |
+| kir | `kir` (Kyrgyz)     | абвгдежзийклмнопрстуфхцчшыьэюяёңүө         |
+| mdf | `mdf` (Moksha)     | абвгдежзийклмнопрстуфхцчшщъыьэюяё          |
+| ru  | `ru`  (Russian)        | абвгдеёжзийклмнопрстуфхцчшщъыьэюя          |
+| tgk |  `tgk` (Tajik)      | абвгдежзийклмнопрстуфхчшъэюяёғқҳҷӣӯ        |
+| tat | `tat` (Tatar)      | абвгдежзийклмнопрстуфхцчшъыьэюяҗңүһәө      |
+| udm | `udm` (Udmurt)      | абвгдежзийклмнопрстуфхцчшщъыьэюяёӝӟӥӧӵ     |
+| uzb |  `uzb` (Uzbek)      | абвгдежзийклмнопрстуфхцчшъьэюяёўғқҳ        |
+| uzb |  `uzb` (Uzbek)      | abcdefghijklmnopqrstuvxyz                  |
+| ukr | `ukr` (Ukrainian)    | абвгґдеєжзиіїйклмнопрстуфхцчшщьюя          |
+| kjh | `kjh` (Khakas)       | абвгдежзийклмнопрстуфхцчшщъыьэюяёіғңҷӧӱ    |
+| chv | `chv` (Chuvash)      | абвгдежзийклмнопрстуфхцчшщъыьэюяёҫӑӗӳ      |
+| erz | `erz` (Erzya)       | абвгдежзийклмнопрстуфхцчшщъыьэюяё          |
+| sah | `sah` (Yakut)       | абвгдежзийклмнопрстуфхцчшщъыьэюяёҕҥүһө     |
+  
+</details>
 
 #### V5 CIS Ext Models
 

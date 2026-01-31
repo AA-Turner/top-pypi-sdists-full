@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scalene
-Version: 2.1.0
+Version: 2.1.2
 Summary: Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions
 Author-email: Emery Berger <emery@cs.umass.edu>, Sam Stern <jstern@umass.edu>, Juan Altmayer Pizzorno <juan@altmayer.com>
 Project-URL: Homepage, https://github.com/plasma-umass/scalene
@@ -40,6 +40,13 @@ Requires-Dist: numpy>=2.3.4; python_version >= "3.14"
 Requires-Dist: astunparse>=1.6.3; python_version < "3.9"
 Requires-Dist: pydantic>=2.6
 Requires-Dist: pyyaml>=6.0
+Provides-Extra: test
+Requires-Dist: pytest>=7.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21; extra == "test"
+Requires-Dist: hypothesis>=6.0; extra == "test"
+Requires-Dist: tensorflow>=2.15; (python_version < "3.14" and platform_system != "Windows") and extra == "test"
+Requires-Dist: jax>=0.4.20; (python_version < "3.14" and platform_system != "Windows") and extra == "test"
+Requires-Dist: jaxlib>=0.4.20; (python_version < "3.14" and platform_system != "Windows") and extra == "test"
 Dynamic: license-file
 
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-icon-white.png)

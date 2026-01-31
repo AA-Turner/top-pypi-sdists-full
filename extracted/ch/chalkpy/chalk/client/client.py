@@ -33,6 +33,7 @@ from chalk.client.models import (
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
     ManualTriggerScheduledQueryResponse,
+    OfflineQueryDeadlineOptions,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
@@ -526,6 +527,7 @@ class ChalkClient:
         explain: bool = False,
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
+        planner_options: Mapping[str, str | int | bool] | None = None,
     ) -> PlanQueryResponse:
         """Plan a query without executing it.
 
@@ -575,6 +577,10 @@ class ChalkClient:
             The number of input rows that this plan will be run with. If unknown, specify `None`.
         headers
             Additional headers to provide with the request
+        planner_options
+            Dictionary of additional options to pass to the Chalk query engine.
+            Values may be provided as part of conversations with Chalk support
+            to enable or disable specific functionality.
 
         Returns
         -------
@@ -922,7 +928,7 @@ class ChalkClient:
         store_offline: bool = False,
         num_shards: int | None = None,
         num_workers: int | None = None,
-        completion_deadline: timedelta | None = None,
+        completion_deadline: Union[timedelta, OfflineQueryDeadlineOptions, None] = None,
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
@@ -1038,8 +1044,8 @@ class ChalkClient:
             If specified, the query will be run asynchronously across a maximum `num_workers` pod workers at any time.
             This parameter is useful if you have a large number of shards and would like to limit the number of pods running at once.
         completion_deadline
-            If specified, shards must complete within 'completion_deadline' duration, or they will be terminated.
-            Terminated shards can be tried.
+            If specified as a timedelta, applies a completion deadline to each shard; each shard's query will fail (allowing retries) if it does not complete within the duration.
+            If specified as an OfflineQueryDeadlineOptions, allows more fine-grained control of shard- or query-level deadlines, with options to retry on failure or not.
         max_retries
             If specified, failed offline query shards will be retried. The retry budget is shared across all shards.
             By default, max_retries=num_shards/

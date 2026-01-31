@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,51 +16,67 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Common utilities for frequency-domain operations
+"""Common utilities for frequency-domain operations.
 
 This module holds code used by both the `FrequencySeries` and `Spectrogram`.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy
 
-from scipy import signal
+from ..signal import filter_design
 
-from ..signal.filter_design import parse_filter
+if TYPE_CHECKING:
+    from typing import TypeVar
+
+    from astropy.units.typing import QuantityLike
+
+    from ..frequencyseries import FrequencySeries
+    from ..signal.filter_design import FilterCompatible
+    from ..spectrogram import Spectrogram
+
+    FreqDomainData = TypeVar("FreqDomainData", FrequencySeries, Spectrogram)
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-def fdfilter(data, *filt, **kwargs):
-    """Filter a frequency-domain data object
+def _fdfilter(
+    data: FreqDomainData,
+    filt: FilterCompatible,
+    *,
+    sample_rate: QuantityLike | None = None,
+    analog: bool = False,
+    unit: str = "rad/s",
+    normalize_gain: bool = False,
+    inplace: bool = False,
+    **kwargs,
+) -> FreqDomainData:
+    """Filter a frequency-domain data object.
 
-    See also
+    See Also
     --------
     gwpy.frequencyseries.FrequencySeries.filter
     gwpy.spectrogram.Spectrogram.filter
     """
-    # parse keyword args
-    inplace = kwargs.pop('inplace', False)
-    analog = kwargs.pop('analog', False)
-    fs = kwargs.pop('sample_rate', None)
-    if kwargs:
-        raise TypeError(
-            "filter() got an unexpected keyword argument "
-            f"'{list(kwargs).pop()}'"
-        )
+    freqs = data.frequencies.to("Hz").value
+    if sample_rate is None:
+        sample_rate = freqs[-1] * 2
 
-    # parse filter
-    if fs is None:
-        fs = 2 * (data.shape[-1] * data.df).to('Hz').value
-    form, filt = parse_filter(filt, analog=analog, sample_rate=fs)
-    lti = signal.lti(*filt)
-
-    # generate frequency response
-    freqs = data.frequencies.value.copy()
-    fresp = numpy.nan_to_num(abs(lti.freqresp(w=freqs)[1]))
+    _, fresp = numpy.abs(filter_design.frequency_response(
+        filt,
+        freqs,
+        analog=analog,
+        sample_rate=sample_rate,
+        unit=unit,
+        normalize_gain=normalize_gain,
+        **kwargs,
+    ))
 
     # apply to array
     if inplace:
         data *= fresp
         return data
-    new = data * fresp
-    return new
+    return data * fresp

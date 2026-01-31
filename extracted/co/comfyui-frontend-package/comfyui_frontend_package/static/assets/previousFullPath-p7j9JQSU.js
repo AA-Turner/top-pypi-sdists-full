@@ -1,0 +1,2 @@
+import{i as e,n as t}from"./rolldown-runtime-BKYq3fBv.js";var decodeQueryParam,isSafeInternalRedirectPath,getSafePreviousFullPath,n=t((()=>{decodeQueryParam=e=>{try{return decodeURIComponent(e)}catch{return null}},isSafeInternalRedirectPath=e=>e.startsWith(`/`)&&!e.startsWith(`//`),getSafePreviousFullPath=e=>{let t=e.previousFullPath,n=Array.isArray(t)?t[0]:t;if(!n)return null;let r=decodeQueryParam(n);return r&&isSafeInternalRedirectPath(r)?r:null}}));export{n,getSafePreviousFullPath as t};
+//# sourceMappingURL=previousFullPath-p7j9JQSU.js.map

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sae-lens
-Version: 6.31.0
+Version: 6.32.1
 Summary: Training and Analyzing Sparse Autoencoders (SAEs)
 License: MIT
 License-File: LICENSE
@@ -27,7 +27,7 @@ Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
 Requires-Dist: safetensors (>=0.4.2,<1.0.0)
 Requires-Dist: simple-parsing (>=0.1.6,<0.2.0)
 Requires-Dist: tenacity (>=9.0.0)
-Requires-Dist: transformer-lens (>=2.16.1,<3.0.0)
+Requires-Dist: transformer-lens (>=2.16.1)
 Requires-Dist: transformers (>=4.38.1,<5.0.0)
 Requires-Dist: typing-extensions (>=4.10.0,<5.0.0)
 Project-URL: Homepage, https://decoderesearch.github.io/SAELens

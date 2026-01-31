@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uproot
-Version: 5.7.0
+Version: 5.7.1
 Summary: ROOT I/O in pure Python and NumPy.
 Project-URL: Download, https://github.com/scikit-hep/uproot5/releases
 Project-URL: Homepage, https://github.com/scikit-hep/uproot5

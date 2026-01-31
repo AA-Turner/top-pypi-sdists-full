@@ -36,6 +36,14 @@ def payload():
 
 
 class TestJWT:
+    def test_jwt_with_options(self):
+        jwt = PyJWT(options={"verify_signature": False})
+        assert jwt.options["verify_signature"] is False
+        # assert that unrelated option is unchanged from default
+        assert jwt.options["strict_aud"] is False
+        # assert that verify_signature is respected unless verify_exp is overridden
+        assert jwt.options["verify_exp"] is False
+
     def test_decodes_valid_jwt(self, jwt):
         example_payload = {"hello": "world"}
         example_secret = "secret"
@@ -170,6 +178,16 @@ class TestJWT:
                 lambda t=t: jwt.encode(t, "secret", algorithms=["HS256"]),
             )
 
+    def test_encode_with_non_str_iss(self, jwt):
+        """Regression test for Issue #1039."""
+        with pytest.raises(TypeError):
+            jwt.encode(
+                {
+                    "iss": 123,
+                },
+                key="secret",
+            )
+
     def test_encode_with_typ(self, jwt):
         payload = {
             "iss": "https://scim.example.com",
@@ -246,7 +264,7 @@ class TestJWT:
         with pytest.raises(DecodeError):
             jwt.decode(example_jwt, "secret", algorithms=["HS256"])
 
-    def test_decode_raises_exception_if_aud_is_none(self, jwt):
+    def test_decode_allows_aud_to_be_none(self, jwt):
         # >>> jwt.encode({'aud': None}, 'secret')
         example_jwt = (
             "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
@@ -640,9 +658,8 @@ class TestJWT:
     def test_custom_json_encoder(self, jwt):
         class CustomJSONEncoder(json.JSONEncoder):
             def default(self, o):
-                if isinstance(o, Decimal):
-                    return "it worked"
-                return super().default(o)
+                assert isinstance(o, Decimal)
+                return "it worked"
 
         data = {"some_decimal": Decimal("2.2")}
 
@@ -738,8 +755,11 @@ class TestJWT:
 
         with pytest.warns(RemovedInPyjwt3Warning) as record:
             jwt.decode(jwt_message, secret, algorithms=["HS256"], foo="bar")
-        assert len(record) == 1
-        assert "foo" in str(record[0].message)
+        deprecation_warnings = [
+            w for w in record if issubclass(w.category, RemovedInPyjwt3Warning)
+        ]
+        assert len(deprecation_warnings) == 1
+        assert "foo" in str(deprecation_warnings[0].message)
 
     def test_decode_complete_warns_on_unsupported_kwarg(self, jwt, payload):
         secret = "secret"
@@ -747,8 +767,11 @@ class TestJWT:
 
         with pytest.warns(RemovedInPyjwt3Warning) as record:
             jwt.decode_complete(jwt_message, secret, algorithms=["HS256"], foo="bar")
-        assert len(record) == 1
-        assert "foo" in str(record[0].message)
+        deprecation_warnings = [
+            w for w in record if issubclass(w.category, RemovedInPyjwt3Warning)
+        ]
+        assert len(deprecation_warnings) == 1
+        assert "foo" in str(deprecation_warnings[0].message)
 
     def test_decode_strict_aud_forbids_list_audience(self, jwt, payload):
         secret = "secret"
@@ -943,3 +966,33 @@ class TestJWT:
 
         with pytest.raises(InvalidJTIError):
             jwt.decode(token, secret, algorithms=["HS256"])
+
+    def test_validate_iss_with_container_of_str(self, jwt: PyJWT) -> None:
+        """Check _validate_iss works with Container[str]."""
+        payload = {
+            "iss": "urn:expected",
+        }
+        # pytest.mark.parametrize triggers Untyped Decorator mypy issue,
+        # so trying inline for now
+        for issuer in (
+            ["urn:expected", "urn:other"],
+            ("urn:expected", "urn:other"),
+            {"urn:expected", "urn:other"},
+        ):
+            jwt._validate_iss(payload, issuer=issuer)
+
+    def test_validate_iss_with_non_str(self, jwt):
+        """Regression test for #1039"""
+        payload = {
+            "iss": 123,
+        }
+        with pytest.raises(InvalidIssuerError):
+            jwt._validate_iss(payload, issuer="123")
+
+    def test_validate_iss_with_non_str_issuer(self, jwt):
+        """Regression test for #1039"""
+        payload = {
+            "iss": "123",
+        }
+        with pytest.raises(InvalidIssuerError):
+            jwt._validate_iss(payload, issuer=123)

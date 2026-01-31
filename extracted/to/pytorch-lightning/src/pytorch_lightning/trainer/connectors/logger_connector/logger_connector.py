@@ -22,9 +22,9 @@ from lightning_fabric.loggers.tensorboard import _TENSORBOARD_AVAILABLE, _TENSOR
 from lightning_fabric.plugins.environments import SLURMEnvironment
 from lightning_fabric.utilities import move_data_to_device
 from lightning_fabric.utilities.apply_func import convert_tensors_to_scalars
-from pytorch_lightning.loggers import CSVLogger, Logger, TensorBoardLogger
+from pytorch_lightning.loggers import CSVLogger, LitLogger, Logger, TensorBoardLogger
 from pytorch_lightning.trainer.connectors.logger_connector.result import _METRICS, _OUT_DICT, _PBAR_DICT
-from pytorch_lightning.utilities.rank_zero import WarningCache
+from pytorch_lightning.utilities.rank_zero import WarningCache, rank_zero_info
 
 warning_cache = WarningCache()
 
@@ -86,6 +86,13 @@ class _LoggerConnector:
             self.trainer.loggers = list(logger)
         else:
             self.trainer.loggers = [logger]
+
+        if not any(isinstance(logger, LitLogger) for logger in self.trainer.loggers):
+            rank_zero_info(
+                "💡 Tip: For seamless cloud logging and experiment tracking,"
+                " try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger,"
+                " which logs metrics and artifacts automatically to the Lightning Experiments platform."
+            )
 
     def log_metrics(self, metrics: _OUT_DICT, step: Optional[int] = None) -> None:
         """Logs the metric dict passed in. If `step` parameter is None and `step` key is presented is metrics, uses

@@ -253,14 +253,15 @@ To further configure your DatadogLambda construct for Lambda, use the following 
 | `javaLayerArn`               | `java_layer_arn`                | The custom ARN of the Java layer to install. Required if you are deploying at least one Lambda function written in Java and `addLayers` is `true`. **Warning**: This parameter and `javaLayerVersion` are mutually exclusive. If used, only set one or the other.                                                                                                                                                                                                                                                                                                              |
 | `dotnetLayerVersion`         | `dotnet_layer_version`          | Version of the .NET layer to install, such as `23`. Required if you are deploying at least one Lambda function written in .NET and `addLayers` is `true`. Find the latest version number from [here](https://github.com/DataDog/dd-trace-dotnet-aws-lambda-layer/releases). **Warning**: This parameter and `dotnetLayerArn` are mutually exclusive. If used, only set one or the other.                                                                                                                                                                                                                                                         |
 | `dotnetLayerArn`             | `dotnet_layer_arn`              | The custom ARN of the .NET layer to install. Required if you are deploying at least one Lambda function written in .NET and `addLayers` is `true`. **Warning**: This parameter and `dotnetLayerVersion` are mutually exclusive. If used, only set one or the other. .                                                                                                                                                                                                                                                                                                          |
-| `extensionLayerVersion`      | `extension_layer_version`       | Version of the Datadog Lambda Extension layer to install, such as 5. When `extensionLayerVersion` is set, `apiKey` (or if encrypted, `apiKMSKey`, `apiKeySecret`, or `apiKeySecretArn`) needs to be set as well. When enabled, lambda function log groups will not be subscribed by the forwarder. Learn more about the Lambda extension [here](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/). **Warning**: This parameter and `extensionVersionArn` are mutually exclusive. Set only one or the other. **Note**: If this parameter is set, it adds a layer even if `addLayers` is set to `false`.                       |
-| `extensionLayerArn`          | `extension_layer_arn`           | The custom ARN of the Datadog Lambda Extension layer to install. When `extensionLayerArn` is set, `apiKey` (or if encrypted, `apiKMSKey`, `apiKeySecret`, or `apiKeySecretArn`) needs to be set as well. When enabled, lambda function log groups are not subscribed by the forwarder. Learn more about the Lambda extension [here](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/). **Warning**: This parameter and`extensionLayerVersion` are mutually exclusive. If used, only set one or the other. **Note**: If this parameter is set, it adds a layer even if `addLayers` is set to `false`.                         |
+| `extensionLayerVersion`      | `extension_layer_version`       | Version of the Datadog Lambda Extension layer to install, such as 5. When `extensionLayerVersion` is set, `apiKey` (or if encrypted, `apiKMSKey`, `apiKeySecret`, or `apiKeySecretArn`) needs to be set as well. When enabled, lambda function log groups will not be subscribed by the forwarder. Learn more about the Lambda extension [here](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/) and get the [latest version](https://github.com/DataDog/datadog-lambda-extension/releases). **Warning**: This parameter and `extensionVersionArn` are mutually exclusive. Set only one or the other. **Note**: If this parameter is set, it adds a layer even if `addLayers` is set to `false`.                       |
+| `extensionLayerArn`          | `extension_layer_arn`           | The custom ARN of the Datadog Lambda Extension layer to install. When `extensionLayerArn` is set, `apiKey` (or if encrypted, `apiKMSKey`, `apiKeySecret`, or `apiKeySecretArn`) needs to be set as well. When enabled, lambda function log groups are not subscribed by the forwarder. Learn more about the Lambda extension [here](https://docs.datadoghq.com/serverless/datadog_lambda_library/extension/) and get the [latest version](https://github.com/DataDog/datadog-lambda-extension/releases). **Warning**: This parameter and`extensionLayerVersion` are mutually exclusive. If used, only set one or the other. **Note**: If this parameter is set, it adds a layer even if `addLayers` is set to `false`.                         |
 | `forwarderArn`               | `forwarder_arn`                 | When set, the plugin automatically subscribes the Datadog Forwarder to the functions' log groups. Do not set `forwarderArn` when `extensionLayerVersion` or `extensionLayerArn` is set.                                                                                                                                                                                                                                                                                                                                                                                        |
 | `createForwarderPermissions` | `createForwarderPermissions`    | When set to `true`, creates a Lambda permission on the the Datadog Forwarder per log group. Since the Datadog Forwarder has permissions configured by default, this is unnecessary in most use cases.                                                                                                                                                                                                                                                                                                                                                                          |
 | `flushMetricsToLogs`         | `flush_metrics_to_logs`         | Send custom metrics using CloudWatch logs with the Datadog Forwarder Lambda function (recommended). Defaults to `true` . If you disable this parameter, it's required to set `apiKey` (or if encrypted, `apiKMSKey`, `apiKeySecret`, or `apiKeySecretArn`).                                                                                                                                                                                                                                                                                                                    |
 | `site`                       | `site`                          | Set which Datadog site to send data. This is only used when `flushMetricsToLogs` is `false` or `extensionLayerVersion` or `extensionLayerArn` is set. Possible values are `datadoghq.com`, `datadoghq.eu`, `us3.datadoghq.com`, `us5.datadoghq.com`, `ap1.datadoghq.com`, `ap2.datadoghq.com`, and `ddog-gov.com`. The default is `datadoghq.com`.                                                                                                                                                                                                                             |
 | `apiKey`                     | `api_key`                       | Datadog API Key, only needed when `flushMetricsToLogs` is `false` or `extensionLayerVersion` or `extensionLayerArn` is set. For more information about getting a Datadog API key, see the [API key documentation](https://docs.datadoghq.com/account_management/api-app-keys/#api-keys).                                                                                                                                                                                                                                                                                                                                                          |
 | `apiKeySecretArn`            | `api_key_secret_arn`            | The ARN of the secret storing the Datadog API key in AWS Secrets Manager. Use this parameter in place of `apiKey` when `flushMetricsToLogs` is `false` or `extensionLayer` is set. Remember to add the `secretsmanager:GetSecretValue` permission to the Lambda execution role.                                                                                                                                                                                                                                                                                                |
+| `apiKeySsmArn`               | `api_key_ssm_arn`               | The ARN of the parameter storing the Datadog API key in AWS Systems Manager Parameter Store (for example, `arn:aws:ssm:us-east-1:123456789012:parameter/my/parameter/name`). Use this parameter in place of `apiKey` when `flushMetricsToLogs` is `false` or `extensionLayer` is set. Supports both `String` and `SecureString` parameter types. When `grantSecretReadAccess` is `true` (default), the construct automatically grants `ssm:GetParameter` and `kms:Decrypt` (for the AWS managed key `alias/aws/ssm`) permissions. If using a custom KMS key for SecureString encryption, you must grant `kms:Decrypt` permission for that key separately. |
 | `apiKeySecret`               | `api_key_secret`                | An [AWS CDK ISecret](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_secretsmanager.ISecret.html) representing a secret storing the Datadog API key in AWS Secrets Manager. Use this parameter in place of `apiKeySecretArn` to automatically grant your Lambda execution roles read access to the given secret. [See here](#automatically-grant-aws-secret-read-access-to-lambda-execution-role) for an example. **Only available in datadog-cdk-constructs-v2**.                                                                                                                                                                                      |
 | `apiKmsKey`                  | `api_kms_key`                   | Datadog API Key encrypted using KMS. Use this parameter in place of `apiKey` when `flushMetricsToLogs` is `false` or `extensionLayerVersion` or `extensionLayerArn` is set, and you are using KMS encryption.                                                                                                                                                                                                                                                                                                                                                                  |
 | `enableDatadogTracing`       | `enable_datadog_tracing`        | Enable Datadog tracing on your Lambda functions. Defaults to `true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -285,7 +286,7 @@ To further configure your DatadogLambda construct for Lambda, use the following 
 | `decodeAuthorizerContext`    | `decode_authorizer_context`     | When set to `true` for Lambdas that are authorized via Lambda authorizers, it will parse and use the encoded tracing context (if found). Supported for Node.js and Python. Defaults to `true`.                                                                                                                                                                                                                                                                                                                                                                                 |
 | `apmFlushDeadline`           | `apm_flush_deadline`            | Used to determine when to submit spans before a timeout occurs, in milliseconds. When the remaining time in an AWS Lambda invocation is less than the value set, the tracer attempts to submit the current active spans and all finished spans. Supported for Node.js and Python. Defaults to `100` milliseconds.                                                                                                                                                                                                                                                              |
 | `redirectHandler`            | `redirect_handler`              | When set to `false`, skip redirecting handler to the Datadog Lambda Library's handler. Useful when only instrumenting with Datadog Lambda Extension. Defaults to `true`.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `grantSecretReadAccess`      | `grant_secret_read_access`      | When set to `true` and `apiKeySecretArn` is provided, automatically grant read access to the given secret to all the lambdas added. Defaults to `true`.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `grantSecretReadAccess`      | `grant_secret_read_access`      | When set to `true`, and `apiKeySecretArn` or `apiKeySsmArn` is provided, automatically grant read access to the given secret or parameter to all the lambdas added. Defaults to `true`.                                                                                                                                                                                                                                                                                                                                                                                         |
 | `llmObsEnabled`              | `llm_obs_enabled`               | Toggle to enable submitting data to LLM Observability Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `llmObsMlApp`                | `llm_obs_ml_app`                | The name of your LLM application, service, or project, under which all traces and spans are grouped. This helps distinguish between different applications or experiments. See [Application naming guidelines](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#application-naming-guidelines) for allowed characters and other constraints. To override this value for a given root span, see [Tracing multiple applications](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#tracing-multiple-applications).  Required if `llmObsEnabled` is `true` |
 | `llmObsAgentlessEnabled`     | `llm_obs_agentless_enabled`     | Only required if you are not using the Datadog Lambda Extension, in which case this should be set to `true`.  Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -964,6 +965,7 @@ class DatadogAppSecMode(enum.Enum):
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_ssm_arn": "apiKeySsmArn",
         "apm": "apm",
         "checks_cardinality": "checksCardinality",
         "cluster_name": "clusterName",
@@ -991,6 +993,7 @@ class DatadogECSBaseProps:
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
         cluster_name: typing.Optional[builtins.str] = None,
@@ -1014,6 +1017,7 @@ class DatadogECSBaseProps:
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
         :param cluster_name: The cluster name to use for tagging.
@@ -1044,6 +1048,7 @@ class DatadogECSBaseProps:
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument apm", value=apm, expected_type=type_hints["apm"])
             check_type(argname="argument checks_cardinality", value=checks_cardinality, expected_type=type_hints["checks_cardinality"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
@@ -1069,6 +1074,8 @@ class DatadogECSBaseProps:
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_ssm_arn is not None:
+            self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if apm is not None:
             self._values["apm"] = apm
         if checks_cardinality is not None:
@@ -1133,6 +1140,15 @@ class DatadogECSBaseProps:
         Must define at least 1 source for the API key.
         '''
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the Datadog API key in SSM Parameter Store.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key_ssm_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1285,6 +1301,7 @@ class DatadogECSFargate(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
         cluster_name: typing.Optional[builtins.str] = None,
@@ -1310,6 +1327,7 @@ class DatadogECSFargate(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
         :param cluster_name: The cluster name to use for tagging.
@@ -1335,6 +1353,7 @@ class DatadogECSFargate(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
             cluster_name=cluster_name,
@@ -1369,6 +1388,7 @@ class DatadogECSFargate(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
         cluster_name: typing.Optional[builtins.str] = None,
@@ -1400,6 +1420,7 @@ class DatadogECSFargate(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
         :param cluster_name: The cluster name to use for tagging.
@@ -1430,6 +1451,7 @@ class DatadogECSFargate(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
             cluster_name=cluster_name,
@@ -1460,6 +1482,7 @@ class DatadogECSFargate(
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_ssm_arn": "apiKeySsmArn",
         "apm": "apm",
         "checks_cardinality": "checksCardinality",
         "cluster_name": "clusterName",
@@ -1489,6 +1512,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
         cluster_name: typing.Optional[builtins.str] = None,
@@ -1514,6 +1538,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
         :param cluster_name: The cluster name to use for tagging.
@@ -1550,6 +1575,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument apm", value=apm, expected_type=type_hints["apm"])
             check_type(argname="argument checks_cardinality", value=checks_cardinality, expected_type=type_hints["checks_cardinality"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
@@ -1577,6 +1603,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_ssm_arn is not None:
+            self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if apm is not None:
             self._values["apm"] = apm
         if checks_cardinality is not None:
@@ -1645,6 +1673,15 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         Must define at least 1 source for the API key.
         '''
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the Datadog API key in SSM Parameter Store.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key_ssm_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1811,6 +1848,7 @@ class DatadogECSFargateTaskDefinition(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
         cluster_name: typing.Optional[builtins.str] = None,
@@ -1839,6 +1877,7 @@ class DatadogECSFargateTaskDefinition(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
         :param cluster_name: The cluster name to use for tagging.
@@ -1869,6 +1908,7 @@ class DatadogECSFargateTaskDefinition(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
             cluster_name=cluster_name,
@@ -2253,6 +2293,7 @@ class DatadogLambda(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         api_kms_key: typing.Optional[builtins.str] = None,
         apm_flush_deadline: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
         capture_cloud_service_payload: typing.Optional[builtins.bool] = None,
@@ -2305,6 +2346,7 @@ class DatadogLambda(
         :param api_key: 
         :param api_key_secret: 
         :param api_key_secret_arn: 
+        :param api_key_ssm_arn: 
         :param api_kms_key: 
         :param apm_flush_deadline: 
         :param capture_cloud_service_payload: 
@@ -2359,6 +2401,7 @@ class DatadogLambda(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_ssm_arn=api_key_ssm_arn,
             api_kms_key=api_kms_key,
             apm_flush_deadline=apm_flush_deadline,
             capture_cloud_service_payload=capture_cloud_service_payload,
@@ -2569,6 +2612,7 @@ class DatadogLambda(
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_ssm_arn": "apiKeySsmArn",
         "api_kms_key": "apiKmsKey",
         "apm_flush_deadline": "apmFlushDeadline",
         "capture_cloud_service_payload": "captureCloudServicePayload",
@@ -2623,6 +2667,7 @@ class DatadogLambdaProps:
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         api_kms_key: typing.Optional[builtins.str] = None,
         apm_flush_deadline: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
         capture_cloud_service_payload: typing.Optional[builtins.bool] = None,
@@ -2673,6 +2718,7 @@ class DatadogLambdaProps:
         :param api_key: 
         :param api_key_secret: 
         :param api_key_secret_arn: 
+        :param api_key_ssm_arn: 
         :param api_kms_key: 
         :param apm_flush_deadline: 
         :param capture_cloud_service_payload: 
@@ -2724,6 +2770,7 @@ class DatadogLambdaProps:
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument api_kms_key", value=api_kms_key, expected_type=type_hints["api_kms_key"])
             check_type(argname="argument apm_flush_deadline", value=apm_flush_deadline, expected_type=type_hints["apm_flush_deadline"])
             check_type(argname="argument capture_cloud_service_payload", value=capture_cloud_service_payload, expected_type=type_hints["capture_cloud_service_payload"])
@@ -2777,6 +2824,8 @@ class DatadogLambdaProps:
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_ssm_arn is not None:
+            self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if api_kms_key is not None:
             self._values["api_kms_key"] = api_kms_key
         if apm_flush_deadline is not None:
@@ -2886,6 +2935,11 @@ class DatadogLambdaProps:
     @builtins.property
     def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("api_key_ssm_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3138,6 +3192,7 @@ class DatadogLambdaProps:
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_ssm_arn": "apiKeySsmArn",
         "api_kms_key": "apiKmsKey",
         "extension_layer_arn": "extensionLayerArn",
         "extension_layer_version": "extensionLayerVersion",
@@ -3171,6 +3226,7 @@ class DatadogLambdaStrictProps:
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         api_kms_key: typing.Optional[builtins.str] = None,
         extension_layer_arn: typing.Optional[builtins.str] = None,
         extension_layer_version: typing.Optional[jsii.Number] = None,
@@ -3200,6 +3256,7 @@ class DatadogLambdaStrictProps:
         :param api_key: 
         :param api_key_secret: 
         :param api_key_secret_arn: 
+        :param api_key_ssm_arn: 
         :param api_kms_key: 
         :param extension_layer_arn: 
         :param extension_layer_version: 
@@ -3230,6 +3287,7 @@ class DatadogLambdaStrictProps:
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument api_kms_key", value=api_kms_key, expected_type=type_hints["api_kms_key"])
             check_type(argname="argument extension_layer_arn", value=extension_layer_arn, expected_type=type_hints["extension_layer_arn"])
             check_type(argname="argument extension_layer_version", value=extension_layer_version, expected_type=type_hints["extension_layer_version"])
@@ -3262,6 +3320,8 @@ class DatadogLambdaStrictProps:
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_ssm_arn is not None:
+            self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if api_kms_key is not None:
             self._values["api_kms_key"] = api_kms_key
         if extension_layer_arn is not None:
@@ -3362,6 +3422,11 @@ class DatadogLambdaStrictProps:
     @builtins.property
     def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("api_key_ssm_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4110,6 +4175,7 @@ class Transport(
         site: typing.Optional[builtins.str] = None,
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
         api_kms_key: typing.Optional[builtins.str] = None,
         extension_layer_version: typing.Optional[jsii.Number] = None,
         extension_layer_arn: typing.Optional[builtins.str] = None,
@@ -4119,6 +4185,7 @@ class Transport(
         :param site: -
         :param api_key: -
         :param api_key_secret_arn: -
+        :param api_key_ssm_arn: -
         :param api_kms_key: -
         :param extension_layer_version: -
         :param extension_layer_arn: -
@@ -4129,10 +4196,11 @@ class Transport(
             check_type(argname="argument site", value=site, expected_type=type_hints["site"])
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument api_kms_key", value=api_kms_key, expected_type=type_hints["api_kms_key"])
             check_type(argname="argument extension_layer_version", value=extension_layer_version, expected_type=type_hints["extension_layer_version"])
             check_type(argname="argument extension_layer_arn", value=extension_layer_arn, expected_type=type_hints["extension_layer_arn"])
-        jsii.create(self.__class__, self, [flush_metrics_to_logs, site, api_key, api_key_secret_arn, api_kms_key, extension_layer_version, extension_layer_arn])
+        jsii.create(self.__class__, self, [flush_metrics_to_logs, site, api_key, api_key_secret_arn, api_key_ssm_arn, api_kms_key, extension_layer_version, extension_layer_arn])
 
     @jsii.member(jsii_name="applyEnvVars")
     def apply_env_vars(self, lam: "_aws_cdk_aws_lambda_ceddda9d.Function") -> None:
@@ -4191,6 +4259,18 @@ class Transport(
             type_hints = typing.get_type_hints(_typecheckingstub__a239562249ca542ce2cf0d1c83a0a743656792a47b3366d1ae3d031f42f5c3ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "apiKeySecretArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeySsmArn")
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiKeySsmArn"))
+
+    @api_key_ssm_arn.setter
+    def api_key_ssm_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f1bac0920740601316f9c4b816e302dbd50234e5968fa9f99bf66b7e5f4bb76)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "apiKeySsmArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="apiKmsKey")
@@ -4349,6 +4429,7 @@ def _typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
     cluster_name: typing.Optional[builtins.str] = None,
@@ -4381,6 +4462,7 @@ def _typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
     cluster_name: typing.Optional[builtins.str] = None,
@@ -4408,6 +4490,7 @@ def _typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
     cluster_name: typing.Optional[builtins.str] = None,
@@ -4442,6 +4525,7 @@ def _typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
     cluster_name: typing.Optional[builtins.str] = None,
@@ -4540,6 +4624,7 @@ def _typecheckingstub__7d2984f96d56b35b6bf9f462eeb539cb66d7814bc0c2c05efa693a19e
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     api_kms_key: typing.Optional[builtins.str] = None,
     apm_flush_deadline: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
     capture_cloud_service_payload: typing.Optional[builtins.bool] = None,
@@ -4664,6 +4749,7 @@ def _typecheckingstub__63d91330a506031886b9d88e6eb264015f9a55aa2384c231f96607376
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     api_kms_key: typing.Optional[builtins.str] = None,
     apm_flush_deadline: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
     capture_cloud_service_payload: typing.Optional[builtins.bool] = None,
@@ -4726,6 +4812,7 @@ def _typecheckingstub__83a8c4fb2da825eb5b4c4706ded5ed3a805d4d22c40216a83a3029924
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     api_kms_key: typing.Optional[builtins.str] = None,
     extension_layer_arn: typing.Optional[builtins.str] = None,
     extension_layer_version: typing.Optional[jsii.Number] = None,
@@ -4867,6 +4954,7 @@ def _typecheckingstub__a0096d7b257dfe55c39e9a74f016968fe42afe4617f426d50fed2ef34
     site: typing.Optional[builtins.str] = None,
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
     api_kms_key: typing.Optional[builtins.str] = None,
     extension_layer_version: typing.Optional[jsii.Number] = None,
     extension_layer_arn: typing.Optional[builtins.str] = None,
@@ -4899,6 +4987,12 @@ def _typecheckingstub__972f96a848003a1b191a5a2b1b385eb8ae5537da456ee82835b121b2f
     pass
 
 def _typecheckingstub__a239562249ca542ce2cf0d1c83a0a743656792a47b3366d1ae3d031f42f5c3ba(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f1bac0920740601316f9c4b816e302dbd50234e5968fa9f99bf66b7e5f4bb76(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""

@@ -9,6 +9,7 @@ from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.sql.lark_completer import LarkCompleter
 from adam.utils import log2
+from adam.utils_context import Context
 
 repl_cmds: list['Command'] = []
 
@@ -117,11 +118,26 @@ class Command:
 
         return None
 
+    def command_or_alias_tokens(self, args: list[str]):
+        a = list(filter(None, args))
+        spec = self.command_tokens()
+        if spec == a[:len(spec)]:
+            return spec
+
+        if aliases := self.aliases():
+            for alias in aliases:
+                a = list(filter(None, args))
+                spec = alias.split(' ')
+                if spec == a[:len(spec)]:
+                    return spec
+
+        return None
+
     def apply_state(self, args: list[str], state: ReplState, resolve_pg = True, args_to_check = 6) -> tuple[ReplState, list[str]]:
         """
         Applies any contextual arguments such as namespace or statefulset to the ReplState and returns any non-contextual arguments.
         """
-        return state.apply_args(args, cmd=self.command_tokens(), resolve_pg=resolve_pg, args_to_check=args_to_check)
+        return state.apply_args(args, cmd=self.command_or_alias_tokens(args), resolve_pg=resolve_pg, args_to_check=args_to_check)
 
     def command_tokens(self):
         return self.command().split(' ')
@@ -206,6 +222,9 @@ class Command:
             cmd = s
         print()
 
+    def context(self, show_out=True):
+        return Context.new(self.command, show_out=show_out)
+
 class InvalidStateException(Exception):
     def __init__(self, state: ReplState):
         super().__init__(f'Invalid state')
@@ -250,7 +269,7 @@ class ValidateArgCountHandler:
         self.default = default
         self.separator = separator
 
-    def __enter__(self) -> Union[tuple[list[str], ReplState], tuple[str, ReplState]]:
+    def __enter__(self) -> Union[str, list[str]]:
         if self.exactly > 0 and len(self.args) != self.exactly or len(self.args) < self.at_least:
             if self.default:
                 v = self.default

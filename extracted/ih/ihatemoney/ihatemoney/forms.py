@@ -14,6 +14,8 @@ from wtforms.fields import (
     BooleanField,
     DateField,
     DecimalField,
+    HiddenField,
+    IntegerField,
     Label,
     PasswordField,
     SelectField,
@@ -39,7 +41,7 @@ from wtforms.validators import (
 )
 
 from ihatemoney.currency_convertor import CurrencyConverter
-from ihatemoney.models import Bill, LoggingMode, Person, Project
+from ihatemoney.models import Bill, BillType, LoggingMode, Person, Project
 from ihatemoney.utils import (
     em_surround,
     eval_arithmetic_expression,
@@ -90,7 +92,6 @@ def get_billform_for(project, set_default=True, **kwargs):
 
 
 class CommaDecimalField(DecimalField):
-
     """A class to deal with comma in Decimal Field"""
 
     def process_formdata(self, value):
@@ -364,6 +365,12 @@ class BillForm(FlaskForm):
     payed_for = SelectMultipleField(
         _("For whom?"), validators=[DataRequired()], coerce=int
     )
+    bill_type = SelectField(
+        _("Bill Type"),
+        choices=BillType.choices(),
+        coerce=BillType,
+        default=BillType.EXPENSE,
+    )
     submit = SubmitField(_("Submit"))
     submit2 = SubmitField(_("Submit and add a new one"))
 
@@ -377,12 +384,14 @@ class BillForm(FlaskForm):
             payer_id=self.payer.data,
             project_default_currency=project.default_currency,
             what=self.what.data,
+            bill_type=self.bill_type.data,
         )
 
     def save(self, bill, project):
         bill.payer_id = self.payer.data
         bill.amount = self.amount.data
         bill.what = self.what.data
+        bill.bill_type = BillType(self.bill_type.data)
         bill.external_link = self.external_link.data
         bill.date = self.date.data
         bill.owers = Person.query.get_by_ids(self.payed_for.data, project)
@@ -396,6 +405,7 @@ class BillForm(FlaskForm):
         self.payer.data = bill.payer_id
         self.amount.data = bill.amount
         self.what.data = bill.what
+        self.bill_type.data = bill.bill_type
         self.external_link.data = bill.external_link
         self.original_currency.data = bill.original_currency
         self.date.data = bill.date
@@ -427,6 +437,22 @@ class BillForm(FlaskForm):
                 project_currency=self.project_currency,
             )
             raise ValidationError(msg)
+
+
+class HiddenCommaDecimalField(HiddenField, CommaDecimalField):
+    pass
+
+
+class HiddenIntegerField(HiddenField, IntegerField):
+    pass
+
+
+class SettlementForm(FlaskForm):
+    """Used internally for validation, not directly visible to users"""
+
+    amount = HiddenCommaDecimalField("Amount", validators=[DataRequired()])
+    sender_id = HiddenIntegerField("Sender", validators=[DataRequired()])
+    receiver_id = HiddenIntegerField("Receiver", validators=[DataRequired()])
 
 
 class MemberForm(FlaskForm):

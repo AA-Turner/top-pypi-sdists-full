@@ -3,8 +3,6 @@
 # distutils: language = c++
 # emd.pyx
 
-from pkg_resources import parse_version
-
 from libcpp.pair cimport pair
 from libcpp.vector cimport vector
 import cython
@@ -12,6 +10,9 @@ import cython
 # Import both NumPy and the Cython declarations for NumPy
 import numpy as np
 cimport numpy as np
+
+# Initialize NumPy C API
+np.import_array()
 
 
 # Declare the interface to the C++ EMD library
@@ -32,10 +33,17 @@ cdef extern from "lib/emd_hat.hpp":
                                                    double) except +
 
 
+# Import the POT backend
+# =======================
+
+from ._pot_backend import _pot_emd, _pot_emd_with_flow
+
+
 # Define the API
 # ==============
 
 DEFAULT_EXTRA_MASS_PENALTY = -1.0
+DEFAULT_BACKEND = 'pot'
 
 
 def _validate_emd_input(first_histogram, second_histogram, distance_matrix):
@@ -51,13 +59,14 @@ def _validate_emd_input(first_histogram, second_histogram, distance_matrix):
 def emd(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
         np.ndarray[np.float64_t, ndim=1, mode="c"] second_histogram,
         np.ndarray[np.float64_t, ndim=2, mode="c"] distance_matrix,
-        extra_mass_penalty=DEFAULT_EXTRA_MASS_PENALTY):
+        extra_mass_penalty=DEFAULT_EXTRA_MASS_PENALTY,
+        backend=DEFAULT_BACKEND):
     u"""Return the EMD between two histograms using the given distance matrix.
 
     The Earth Mover's Distance is the minimal cost of turning one histogram into
-    another by moving around the “dirt” in the bins, where the cost of moving
+    another by moving around the "dirt" in the bins, where the cost of moving
     dirt from one bin to another is given by the amount of dirt times the
-    “ground distance” between the bins.
+    "ground distance" between the bins.
 
     Arguments:
         first_histogram (np.ndarray): A 1D array of type np.float64 of length N.
@@ -75,6 +84,10 @@ def emd(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
             then the resulting distance is not guaranteed to be a metric). The
             default value is -1, which means the maximum value in the distance
             matrix is used.
+        backend (str): The backend to use for computation. Options are:
+            - 'pot' (default): Use POT (Python Optimal Transport) library.
+              Faster and supports multi-threading.
+            - 'cpp': Use the legacy C++ implementation (Pele & Werman).
 
     Returns:
         float: The EMD value.
@@ -82,24 +95,33 @@ def emd(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
     Raises:
         ValueError: If the length of either histogram is greater than the number
         of rows or columns of the distance matrix, or if the histograms aren't
-        the same length.
+        the same length, or if an unknown backend is specified.
     """
     _validate_emd_input(first_histogram, second_histogram, distance_matrix)
-    return emd_hat_gd_metric_double(first_histogram,
-                                    second_histogram,
-                                    distance_matrix,
-                                    extra_mass_penalty)
+    if backend == 'cpp':
+        return emd_hat_gd_metric_double(first_histogram,
+                                        second_histogram,
+                                        distance_matrix,
+                                        extra_mass_penalty)
+    elif backend == 'pot':
+        return _pot_emd(first_histogram,
+                        second_histogram,
+                        distance_matrix,
+                        extra_mass_penalty)
+    else:
+        raise ValueError(f"Unknown backend: {backend}. Use 'pot' or 'cpp'.")
 
 
 def emd_with_flow(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
                   np.ndarray[np.float64_t, ndim=1, mode="c"] second_histogram,
                   np.ndarray[np.float64_t, ndim=2, mode="c"] distance_matrix,
-                  extra_mass_penalty=DEFAULT_EXTRA_MASS_PENALTY):
+                  extra_mass_penalty=DEFAULT_EXTRA_MASS_PENALTY,
+                  backend=DEFAULT_BACKEND):
     u"""Return the EMD between two histograms using the given distance matrix.
 
     The Earth Mover's Distance is the minimal cost of turning one histogram into
-    another by moving around the “dirt” in the bins, where the cost of the
-    “ground distance” between the bins. moving dirt from one bin to another is
+    another by moving around the "dirt" in the bins, where the cost of the
+    "ground distance" between the bins. moving dirt from one bin to another is
     given by the amount of dirt times
 
     Arguments:
@@ -118,6 +140,10 @@ def emd_with_flow(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
             then the resulting distance is not guaranteed to be a metric). The
             default value is -1, which means the maximum value in the distance
             matrix is used.
+        backend (str): The backend to use for computation. Options are:
+            - 'pot' (default): Use POT (Python Optimal Transport) library.
+              Faster and supports multi-threading.
+            - 'cpp': Use the legacy C++ implementation (Pele & Werman).
 
     Returns:
         (tuple(float, list(list(float)))): The EMD value and the associated
@@ -126,13 +152,21 @@ def emd_with_flow(np.ndarray[np.float64_t, ndim=1, mode="c"] first_histogram,
     Raises:
         ValueError: If the length of either histogram is greater than the number
         of rows or columns of the distance matrix, or if the histograms aren't
-        the same length.
+        the same length, or if an unknown backend is specified.
     """
     _validate_emd_input(first_histogram, second_histogram, distance_matrix)
-    return emd_hat_gd_metric_double_with_flow_wrapper(first_histogram,
-                                                      second_histogram,
-                                                      distance_matrix,
-                                                      extra_mass_penalty)
+    if backend == 'cpp':
+        return emd_hat_gd_metric_double_with_flow_wrapper(first_histogram,
+                                                          second_histogram,
+                                                          distance_matrix,
+                                                          extra_mass_penalty)
+    elif backend == 'pot':
+        return _pot_emd_with_flow(first_histogram,
+                                  second_histogram,
+                                  distance_matrix,
+                                  extra_mass_penalty)
+    else:
+        raise ValueError(f"Unknown backend: {backend}. Use 'pot' or 'cpp'.")
 
 
 def euclidean_pairwise_distance_matrix(x):
@@ -141,14 +175,7 @@ def euclidean_pairwise_distance_matrix(x):
     return distance_matrix.reshape(len(x), len(x))
 
 
-# Use `np.histogram_bin_edges` if available (since NumPy version 1.15.0)
-if parse_version(np.__version__) >= parse_version('1.15.0'):
-    get_bins = np.histogram_bin_edges
-else:
-    def get_bins(a, bins=10, **kwargs):
-        if isinstance(bins, str):
-            hist, bins = np.histogram(a, bins=bins, **kwargs)
-        return bins
+get_bins = np.histogram_bin_edges
 
 
 def emd_samples(first_array,
@@ -157,7 +184,8 @@ def emd_samples(first_array,
                 distance='euclidean',
                 normalized=True,
                 bins='auto',
-                range=None):
+                range=None,
+                backend=DEFAULT_BACKEND):
     u"""Return the EMD between the histograms of two arrays.
 
     See ``emd()`` for more information about the EMD.
@@ -194,10 +222,18 @@ def emd_samples(first_array,
             to ``numpy.histogram()``. Defaults to the range of the union of
             ``first_array`` and `second_array``.` Note: if the given range is
             not a superset of the default range, no warning will be given.
+        backend (str): The backend to use for computation. Options are:
+            - 'pot' (default): Use POT (Python Optimal Transport) library.
+              Faster and supports multi-threading.
+            - 'cpp': Use the legacy C++ implementation (Pele & Werman).
 
     Returns:
         float: The EMD value between the histograms of ``first_array`` and
         ``second_array``.
+
+    Raises:
+        ValueError: If arrays are empty, distance matrix is invalid, or an
+        unknown backend is specified.
     """
     first_array = np.array(first_array)
     second_array = np.array(second_array)
@@ -209,7 +245,9 @@ def emd_samples(first_array,
         range = (min(np.min(first_array), np.min(second_array)),
                  max(np.max(first_array), np.max(second_array)))
     # Get bin edges using both arrays
-    bins = get_bins(np.concatenate([first_array, second_array]),
+    # Convert to float64 to avoid NumPy 2.1+ integer bin width constraint
+    # (bin width is forced to >= 1 for integer dtypes, causing too few bins)
+    bins = get_bins(np.concatenate([first_array, second_array]).astype(np.float64),
                     range=range,
                     bins=bins)
     # Compute histograms
@@ -240,9 +278,16 @@ def emd_samples(first_array,
         raise ValueError(
             'Distance matrix must have at least as many rows/columns as there '
             'are bins in the histograms; check your `distance` function.')
-    # Return the EMD (no need to call the wrapper function, since this function
-    # does its own validation, so we call the exposed C++ function directly)
-    return emd_hat_gd_metric_double(first_histogram,
-                                    second_histogram,
-                                    distance_matrix,
-                                    extra_mass_penalty)
+    # Return the EMD using the selected backend
+    if backend == 'cpp':
+        return emd_hat_gd_metric_double(first_histogram,
+                                        second_histogram,
+                                        distance_matrix,
+                                        extra_mass_penalty)
+    elif backend == 'pot':
+        return _pot_emd(first_histogram,
+                        second_histogram,
+                        distance_matrix,
+                        extra_mass_penalty)
+    else:
+        raise ValueError(f"Unknown backend: {backend}. Use 'pot' or 'cpp'.")

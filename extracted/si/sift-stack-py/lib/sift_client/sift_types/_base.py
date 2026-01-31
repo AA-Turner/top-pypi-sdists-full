@@ -9,6 +9,7 @@ from typing import (
     Callable,
     ClassVar,
     Generic,
+    Protocol,
     TypeVar,
 )
 
@@ -21,6 +22,19 @@ if TYPE_CHECKING:
 
 ProtoT = TypeVar("ProtoT", bound=message.Message)
 SelfT = TypeVar("SelfT", bound="BaseType")
+
+
+class BaseTypeProtocol(Protocol):
+    """Protocol for defining public properties for types that inherit from BaseType."""
+
+    @property
+    def client(self) -> SiftClient: ...
+
+    @property
+    def id_(self) -> str | None: ...
+
+    @property
+    def _id_or_error(self) -> str: ...
 
 
 class BaseType(BaseModel, Generic[ProtoT, SelfT], ABC):
@@ -57,7 +71,7 @@ class BaseType(BaseModel, Generic[ProtoT, SelfT], ABC):
         """Update this instance with the values from another instance."""
         # This bypasses the frozen status of the model
         for key in other.__class__.model_fields.keys():
-            if key in self.model_fields:
+            if key in self.__class__.model_fields:
                 self.__dict__.update({key: getattr(other, key)})
 
         # Make sure we also update the proto since it is excluded
@@ -68,7 +82,7 @@ class BaseType(BaseModel, Generic[ProtoT, SelfT], ABC):
     @model_validator(mode="after")
     def _validate_timezones(self):
         """Validate datetime fiels have timezone information."""
-        for field_name in self.model_fields.keys():
+        for field_name in self.__class__.model_fields.keys():
             val = getattr(self, field_name)
             if isinstance(val, datetime) and val.tzinfo is None:
                 raise ValueError(f"{field_name} must have timezone information")

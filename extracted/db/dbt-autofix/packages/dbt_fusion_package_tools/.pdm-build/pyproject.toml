@@ -1,0 +1,36 @@
+[project]
+name = "dbt-fusion-package-tools"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10, <3.14"
+dependencies = [
+    "mashumaro>=3.9,<3.15",
+    "pyyaml>=6.0.2 ; python_version >= '3.13'",
+    "pyyaml>=6.0 ; python_version < '3.13'",
+    "dbt-protos>=1.0.410",
+    "requests<3.0.0",
+    "rich>=14.0.0",
+    "click>=8.2.0,<9.0",
+    "typer>=0.16.0",
+]
+dynamic = []
+version = "0.18.7"
+
+[project.scripts]
+dbt-fusion-package-tools = "dbt_fusion_package_tools:main"
+dbt-fusion-package-schema-compat = "dbt_fusion_package_tools.check_parse_conformance:main"
+package-hub-compat = "dbt_fusion_package_tools.scripts.package_hub_fusion_compatibility:app"
+update-package-hub = "dbt_fusion_package_tools.scripts.update_package_hub_json:app"
+
+[tool.uv]
+package = true
+
+[tool.pdm.version]
+source = "scm"
+version_format = "pdm_build:format_version"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

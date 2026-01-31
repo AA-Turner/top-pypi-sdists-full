@@ -44,6 +44,7 @@ from .literals import (
     ContactInitiationMethodType,
     ContactInteractionTypeType,
     ContactMediaProcessingFailureModeType,
+    ContactMetricNameType,
     ContactParticipantRoleType,
     ContactRecordingTypeType,
     ContactStateType,
@@ -2099,7 +2100,7 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
 
 
 class ContactMetricInfoTypeDef(TypedDict):
-    Name: Literal["POSITION_IN_QUEUE"]
+    Name: ContactMetricNameType
 
 
 class ContactMetricValueTypeDef(TypedDict):
@@ -6108,7 +6109,7 @@ class GetContactMetricsRequestTypeDef(TypedDict):
 
 
 class ContactMetricResultTypeDef(TypedDict):
-    Name: Literal["POSITION_IN_QUEUE"]
+    Name: ContactMetricNameType
     Value: ContactMetricValueTypeDef
 
 

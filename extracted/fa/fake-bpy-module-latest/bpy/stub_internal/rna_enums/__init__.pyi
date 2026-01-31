@@ -771,6 +771,7 @@ type FmodifierTypeItems = typing.Literal[
     "NOISE",  # Noise.Add pseudo-random noise on top of F-Curves.
     "LIMITS",  # Limits.Restrict maximum and minimum values of F-Curve.
     "STEPPED",  # Stepped Interpolation.Snap values to nearest grid step, e.g. for a stop-motion look.
+    "SMOOTH",  # Gaussian Smoothing.Smooth curve using Gaussian smoothing.
 ]
 type GeometryComponentTypeItems = typing.Literal[
     "MESH",  # Mesh.Mesh component containing point, corner, edge and face data.
@@ -2304,6 +2305,7 @@ type NodeVecMathItems = typing.Literal[
     "SIGN",  # Sign.Entry-wise sign.
     "MINIMUM",  # Minimum.Entry-wise minimum.
     "MAXIMUM",  # Maximum.Entry-wise maximum.
+    "ROUND",  # Round.Entry-wise round to the nearest integer. Round upward if the fraction part is 0.5.
     "FLOOR",  # Floor.Entry-wise floor.
     "CEIL",  # Ceil.Entry-wise ceil.
     "FRACTION",  # Fraction.The fraction part of A entry-wise.

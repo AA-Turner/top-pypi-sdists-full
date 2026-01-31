@@ -177,7 +177,7 @@ TBLPROPERTIES (
         self.validate_all(
             "TO_DATE(x, 'yyyy-MM-dd')",
             write={
-                "duckdb": "CAST(x AS DATE)",
+                "duckdb": "TRY_CAST(x AS DATE)",
                 "hive": "TO_DATE(x)",
                 "presto": "CAST(CAST(x AS TIMESTAMP) AS DATE)",
                 "spark": "TO_DATE(x)",
@@ -188,7 +188,7 @@ TBLPROPERTIES (
         self.validate_all(
             "TO_DATE(x, 'yyyy')",
             write={
-                "duckdb": "CAST(STRPTIME(x, '%Y') AS DATE)",
+                "duckdb": "CAST(CAST(TRY_STRPTIME(x, '%Y') AS TIMESTAMP) AS DATE)",
                 "hive": "TO_DATE(x, 'yyyy')",
                 "presto": "CAST(DATE_PARSE(x, '%Y') AS DATE)",
                 "spark": "TO_DATE(x, 'yyyy')",
@@ -797,6 +797,14 @@ TBLPROPERTIES (
                 "spark": "SELECT LEFT(x, 2), RIGHT(x, 2)",
             },
         )
+        self.validate_identity(
+            "SELECT SUBSTR('Spark' FROM 5 FOR 1)", "SELECT SUBSTRING('Spark', 5, 1)"
+        )
+        self.validate_identity("SELECT SUBSTR('Spark SQL', 5)", "SELECT SUBSTRING('Spark SQL', 5)")
+        self.validate_identity(
+            "SELECT SUBSTR(ENCODE('Spark SQL', 'utf-8'), 5)",
+            "SELECT SUBSTRING(ENCODE('Spark SQL', 'utf-8'), 5)",
+        )
         self.validate_all(
             "MAP_FROM_ARRAYS(ARRAY(1), c)",
             write={
@@ -940,6 +948,7 @@ TBLPROPERTIES (
         self.validate_identity("BITMAP_OR_AGG(x)")
         self.validate_identity("SELECT ELT(2, 'foo', 'bar', 'baz') AS Result")
         self.validate_identity("SELECT MAKE_INTERVAL(100, 11, 12, 13, 14, 14, 15)")
+        self.validate_identity("SELECT name, GROUPING_ID() FROM customer GROUP BY ROLLUP (name)")
 
     def test_bool_or(self):
         self.validate_all(
@@ -1166,3 +1175,30 @@ TBLPROPERTIES (
                     annotated.sql("presto"),
                     """WITH "test_table" AS (SELECT 12345 AS "id_column", ARRAY[CAST(ROW('John', 30) AS ROW("name" VARCHAR, "age" INTEGER)), CAST(ROW('Mary', 20) AS ROW("name" VARCHAR, "age" INTEGER)), CAST(ROW('Mike', 80) AS ROW("name" VARCHAR, "age" INTEGER)), CAST(ROW('Dan', 50) AS ROW("name" VARCHAR, "age" INTEGER))] AS "struct_column") SELECT "test_table"."id_column" AS "id_column", "explode_view"."name" AS "name", "explode_view"."age" AS "age" FROM "test_table" AS "test_table" CROSS JOIN UNNEST("test_table"."struct_column") AS "explode_view"("name", "age")""",
                 )
+
+    def test_approx_percentile(self):
+        self.validate_all(
+            "PERCENTILE_APPROX(DISTINCT col, 0.3)",
+            read={
+                "spark": "APPROX_PERCENTILE(DISTINCT col, 0.3)",
+                "databricks": "APPROX_PERCENTILE(DISTINCT col, 0.3)",
+            },
+        )
+        self.validate_all(
+            "PERCENTILE_APPROX(DISTINCT col, 0.3, 200)",
+            read={
+                "spark": "APPROX_PERCENTILE(DISTINCT col, 0.3, 200)",
+                "databricks": "APPROX_PERCENTILE(DISTINCT col, 0.3, 200)",
+            },
+        )
+
+        approx_quantile_expr = self.validate_identity("PERCENTILE_APPROX(DISTINCT col, 0.3)")
+        approx_quantile_expr.assert_is(exp.ApproxQuantile)
+        approx_quantile_expr.this.assert_is(exp.Distinct)
+        approx_quantile_expr.args.get("quantile").assert_is(exp.Literal)
+
+        approx_quantile_expr = self.validate_identity("PERCENTILE_APPROX(DISTINCT col, 0.3, 200)")
+        approx_quantile_expr.assert_is(exp.ApproxQuantile)
+        approx_quantile_expr.this.assert_is(exp.Distinct)
+        approx_quantile_expr.args.get("quantile").assert_is(exp.Literal)
+        approx_quantile_expr.args.get("accuracy").assert_is(exp.Literal)

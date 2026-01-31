@@ -646,32 +646,27 @@ class TestJWS:
             assert "PS512" not in jws_algorithms
 
     @pytest.mark.parametrize(
-        "algo",
+        "algo,priv_key_file,pub_key_file",
         [
-            "ES256",
-            "ES256K",
-            "ES384",
-            "ES512",
+            ("ES256", "jwk_ec_key_P-256.json", "jwk_ec_pub_P-256.json"),
+            ("ES256K", "jwk_ec_key_secp256k1.json", "jwk_ec_pub_secp256k1.json"),
+            ("ES384", "jwk_ec_key_P-384.json", "jwk_ec_pub_P-384.json"),
+            ("ES512", "jwk_ec_key_P-521.json", "jwk_ec_pub_P-521.json"),
         ],
     )
     @crypto_required
-    def test_encode_decode_ecdsa_related_algorithms(self, jws, payload, algo):
-        # PEM-formatted EC key
-        with open(key_path("testkey_ec.priv"), "rb") as ec_priv_file:
-            priv_eckey = load_pem_private_key(ec_priv_file.read(), password=None)
+    def test_encode_decode_ecdsa_related_algorithms(
+        self, jws, payload, algo, priv_key_file, pub_key_file
+    ):
+        from jwt.algorithms import ECAlgorithm
+
+        # Load keys from JWK files (each algorithm requires its specific curve)
+        with open(key_path(priv_key_file)) as priv_file:
+            priv_eckey = ECAlgorithm.from_jwk(priv_file.read())
             jws_message = jws.encode(payload, priv_eckey, algorithm=algo)
 
-        with open(key_path("testkey_ec.pub"), "rb") as ec_pub_file:
-            pub_eckey = load_pem_public_key(ec_pub_file.read())
-            jws.decode(jws_message, pub_eckey, algorithms=[algo])
-
-        # string-formatted key
-        with open(key_path("testkey_ec.priv")) as ec_priv_file:
-            priv_eckey = ec_priv_file.read()  # type: ignore[assignment]
-            jws_message = jws.encode(payload, priv_eckey, algorithm=algo)
-
-        with open(key_path("testkey_ec.pub")) as ec_pub_file:
-            pub_eckey = ec_pub_file.read()  # type: ignore[assignment]
+        with open(key_path(pub_key_file)) as pub_file:
+            pub_eckey = ECAlgorithm.from_jwk(pub_file.read())
             jws.decode(jws_message, pub_eckey, algorithms=[algo])
 
     def test_ecdsa_related_algorithms(self, jws):
@@ -709,9 +704,8 @@ class TestJWS:
     def test_custom_json_encoder(self, jws, payload):
         class CustomJSONEncoder(json.JSONEncoder):
             def default(self, o):
-                if isinstance(o, Decimal):
-                    return "it worked"
-                return super().default(o)
+                assert isinstance(o, Decimal)
+                return "it worked"
 
         data = {"some_decimal": Decimal("2.2")}
 
@@ -732,14 +726,9 @@ class TestJWS:
         headers = {"testheader": True}
         token = jws.encode(payload, "secret", headers=headers)
 
-        if not isinstance(token, str):
-            token = token.decode()
-
         header = token[0 : token.index(".")].encode()
         header = base64url_decode(header)
-
-        if not isinstance(header, str):
-            header = header.decode()
+        header = header.decode()
 
         header_obj = json.loads(header)
 
@@ -881,8 +870,11 @@ class TestJWS:
                 detached_payload=payload,
                 foo="bar",
             )
-        assert len(record) == 1
-        assert "foo" in str(record[0].message)
+        deprecation_warnings = [
+            w for w in record if issubclass(w.category, RemovedInPyjwt3Warning)
+        ]
+        assert len(deprecation_warnings) == 1
+        assert "foo" in str(deprecation_warnings[0].message)
 
     def test_decode_complete_warns_on_unuspported_kwarg(self, jws, payload):
         secret = "secret"
@@ -898,5 +890,8 @@ class TestJWS:
                 detached_payload=payload,
                 foo="bar",
             )
-        assert len(record) == 1
-        assert "foo" in str(record[0].message)
+        deprecation_warnings = [
+            w for w in record if issubclass(w.category, RemovedInPyjwt3Warning)
+        ]
+        assert len(deprecation_warnings) == 1
+        assert "foo" in str(deprecation_warnings[0].message)

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Louisiana State University (2014-2017)
-#               Cardiff University (2017-2021)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-The TimeSeriesBase
-==================
+"""The base time-series array object.
 
 This module defines the following classes
 
@@ -38,50 +35,110 @@ This module defines the following classes
 user-facing objects.**
 """
 
-import sys
+from __future__ import annotations
+
 import warnings
-from collections import OrderedDict
-from math import ceil
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import numpy
-
 from astropy import units
-from astropy.io import registry as io_registry
-
+from astropy.units import Quantity
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 
-from ..types import Series
-from ..detector import (Channel, ChannelList)
+from ..detector import Channel
+from ..io.registry import UnifiedReadWriteMethod
 from ..segments import SegmentList
-from ..time import (Time, LIGOTimeGPS, gps_types, to_gps)
-from ..utils import gprint
+from ..time import (
+    LIGOTimeGPS,
+    Time,
+    to_gps,
+)
+from ..types import Series
+from ..utils.misc import property_alias
+from .connect import (
+    TimeSeriesBaseDictGet,
+    TimeSeriesBaseDictRead,
+    TimeSeriesBaseDictWrite,
+    TimeSeriesBaseGet,
+    TimeSeriesBaseRead,
+    TimeSeriesBaseWrite,
+)
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+if TYPE_CHECKING:
+    import re
+    from collections.abc import (
+        Callable,
+        Iterable,
+        Mapping,
+    )
+    from typing import (
+        ClassVar,
+        Literal,
+        Self,
+        SupportsFloat,
+        SupportsIndex,
+    )
 
-__all__ = ['TimeSeriesBase', 'TimeSeriesBaseDict', 'TimeSeriesBaseList']
+    import arrakis
+    import nds2
+    import pycbc
+    from astropy.units import UnitBase
+    from astropy.units.typing import QuantityLike
+    from numpy.typing import (
+        DTypeLike,
+        NDArray,
+    )
+
+    from ..plot import Plot
+    from ..segments import Segment
+    from ..time import SupportsToGps
+    from ..typing import (
+        ArrayLike1D,
+        UnitLike,
+    )
+    from ..utils.lal import LALTimeSeriesType
+    from .statevector import StateTimeSeries
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
+
+__all__ = [
+    "TimeSeriesBase",
+    "TimeSeriesBaseDict",
+    "TimeSeriesBaseList",
+]
 
 
 _UFUNC_STRING = {
-    'less': '<',
-    'less_equal': '<=',
-    'equal': '==',
-    'greater_equal': '>=',
-    'greater': '>',
+    "less": "<",
+    "less_equal": "<=",
+    "equal": "==",
+    "greater_equal": ">=",
+    "greater": ">",
 }
 
 
-# -- utilities ----------------------------------------------------------------
+# -- utilities -----------------------
 
-def _format_time(gps):
-    if isinstance(gps, gps_types):
-        return float(gps)
+def _format_time(gps: Time | Quantity | SupportsFloat) -> float:
+    """Format a GPS time into a float."""
     if isinstance(gps, Time):
         return gps.gps
-    return gps
+    if isinstance(gps, Quantity):
+        return gps.to(units.second).value
+    return float(gps)
 
 
-def _dynamic_scaled(scaled, channel):
-    """Determine default for scaled based on channel name
+def _dynamic_scaled(
+    scaled: bool | None,  # noqa: FBT001
+    channel: str | Channel,
+) -> bool:
+    """Determine default for scaled based on channel name.
 
     This is mainly to work around LIGO not correctly recording ADC
     scaling parameters for most of Advanced LIGO (through 2023).
@@ -91,15 +148,15 @@ def _dynamic_scaled(scaled, channel):
     Parameters
     ----------
     scaled : `bool`, `None`
-        the scaled argument as given by the user
+        The scaled argument as given by the user.
 
-    channel : `str`
-        the name of the channel to be read
+    channel : `str`, `Channel`
+        The name of the channel to be read.
 
     Returns
     -------
     scaled : `bool`
-        `False` if channel is from LIGO, otherwise `True`
+        `False` if channel is from LIGO, otherwise `True`.
 
     Examples
     --------
@@ -113,7 +170,7 @@ def _dynamic_scaled(scaled, channel):
     return not str(channel).startswith(("H0", "L0", "H1", "L1"))
 
 
-# -- TimeSeriesBase------------------------------------------------------------
+# -- TimeSeriesBase-------------------
 
 class TimeSeriesBase(Series):
     """An `Array` with time-domain metadata.
@@ -121,71 +178,96 @@ class TimeSeriesBase(Series):
     Parameters
     ----------
     value : array-like
-        input data array
+        Input data array.
 
     unit : `~astropy.units.Unit`, optional
-        physical unit of these data
+        Physical unit of these data.
 
     t0 : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
         GPS epoch associated with these data,
-        any input parsable by `~gwpy.time.to_gps` is fine
+        any input parsable by `~gwpy.time.to_gps` is fine.
 
-    dt : `float`, `~astropy.units.Quantity`, optional, default: `1`
-        time between successive samples (seconds), can also be given inversely
-        via `sample_rate`
+    dt : `float`, `~astropy.units.Quantity`, optional
+        Time between successive samples (seconds), can also be given inversely
+        via `sample_rate`.
 
-    sample_rate : `float`, `~astropy.units.Quantity`, optional, default: `1`
-        the rate of samples per second (Hertz), can also be given inversely
-        via `dt`
+    sample_rate : `float`, `~astropy.units.Quantity`, optional
+        The rate of samples per second (Hertz), can also be given inversely
+        via `dt`.
 
     times : `array-like`
-        the complete array of GPS times accompanying the data for this series.
+        The complete array of GPS times accompanying the data for this series.
         This argument takes precedence over `t0` and `dt` so should be given
-        in place of these if relevant, not alongside
+        in place of these if relevant, not alongside.
 
     name : `str`, optional
-        descriptive title for this array
+        Descriptive title for this array.
 
     channel : `~gwpy.detector.Channel`, `str`, optional
-        source data stream for these data
+        Source data stream for these data.
 
     dtype : `~numpy.dtype`, optional
-        input data type
+        Input data type.
 
     copy : `bool`, optional, default: `False`
-        choose to copy the input data to new memory
+        Choose to copy the input data to new memory.
 
     subok : `bool`, optional, default: `True`
-        allow passing of sub-classes by the array generator
+        Allow passing of sub-classes by the array generator.
     """
-    _default_xunit = units.second
-    _print_slots = ('t0', 'dt', 'name', 'channel')
-    DictClass = None
 
-    def __new__(cls, data, unit=None, t0=None, dt=None, sample_rate=None,
-                times=None, channel=None, name=None, **kwargs):
-        """Generate a new `TimeSeriesBase`.
-        """
+    _default_xunit: ClassVar[UnitBase] = units.second
+    _print_slots: ClassVar[tuple[str, ...]] = (
+        "t0",
+        "dt",
+        "name",
+        "channel",
+    )
+    DictClass: ClassVar[type[TimeSeriesBaseDict]]
+
+    def __new__(
+        cls,
+        data: ArrayLike1D,
+        unit: UnitLike = None,
+        t0: SupportsToGps | None = None,
+        dt: float | Quantity | None = None,
+        sample_rate: float | Quantity | None = None,
+        times: ArrayLike1D | None = None,
+        channel: Channel | str | None = None,
+        name: str | None = None,
+        **kwargs,
+    ) -> Self:
+        """Generate a new `TimeSeriesBase`."""
         # parse t0 or epoch
-        epoch = kwargs.pop('epoch', None)
+        epoch = kwargs.pop("epoch", None)
         if epoch is not None and t0 is not None:
-            raise ValueError("give only one of epoch or t0")
+            msg = "give only one of epoch or t0"
+            raise ValueError(msg)
         if epoch is None and t0 is not None:
-            kwargs['x0'] = _format_time(t0)
+            kwargs["x0"] = _format_time(t0)
         elif epoch is not None:
-            kwargs['x0'] = _format_time(epoch)
+            kwargs["x0"] = _format_time(epoch)
+
         # parse sample_rate or dt
         if sample_rate is not None and dt is not None:
-            raise ValueError("give only one of sample_rate or dt")
+            msg = "give only one of sample_rate or dt"
+            raise ValueError(msg)
         if sample_rate is None and dt is not None:
-            kwargs['dx'] = dt
+            kwargs["dx"] = dt
+
         # parse times
         if times is not None:
-            kwargs['xindex'] = times
+            kwargs["xindex"] = times
 
         # generate TimeSeries
-        new = super().__new__(cls, data, name=name, unit=unit,
-                              channel=channel, **kwargs)
+        new = super().__new__(
+            cls,
+            data,
+            name=name,
+            unit=unit,
+            channel=channel,
+            **kwargs,
+        )
 
         # manually set sample_rate if given
         if sample_rate is not None:
@@ -193,244 +275,240 @@ class TimeSeriesBase(Series):
 
         return new
 
-    # -- TimeSeries properties ------------------
+    # -- TimeSeries properties -------
 
     # rename properties from the Series
-    t0 = Series.x0
-    dt = Series.dx
-    span = Series.xspan
-    times = Series.xindex
+    t0 = property_alias(Series.x0, "GPS start time of this series.")  # type: ignore[arg-type]
+    dt = property_alias(Series.dx, "Time (seconds) between successive samples.")  # type: ignore[arg-type]
+    span = property_alias(Series.xspan, "Time (seconds) spanned by this series.")  # type: ignore[arg-type]
+    times = property_alias(Series.xindex, "Array of GPS times for each sample.")  # type: ignore[arg-type]
 
     # -- epoch
     # this gets redefined to attach to the t0 property
     @property
-    def epoch(self):
+    def epoch(self) -> Time | None:
         """GPS epoch for these data.
 
-        This attribute is stored internally by the `t0` attribute
-
-        :type: `~astropy.time.Time`
+        This attribute is stored internally by the `t0` attribute.
         """
         try:
-            return Time(self.t0, format='gps', scale='utc')
+            return Time(self.t0, format="gps", scale="utc")
         except AttributeError:
             return None
 
     @epoch.setter
-    def epoch(self, epoch):
+    def epoch(self, epoch: Time | SupportsToGps | None) -> None:
         if epoch is None:
             del self.t0
         elif isinstance(epoch, Time):
             self.t0 = epoch.gps
         else:
             try:
-                self.t0 = to_gps(epoch)
+                self.t0 = to_gps(epoch)  # type: ignore[assignment]
             except TypeError:
                 self.t0 = epoch
 
     # -- sample_rate
     @property
-    def sample_rate(self):
+    def sample_rate(self) -> Quantity:
         """Data rate for this `TimeSeries` in samples per second (Hertz).
 
         This attribute is stored internally by the `dx` attribute
-
-        :type: `~astropy.units.Quantity` scalar
         """
-        return (1 / self.dt).to('Hertz')
+        return (1 / self.dt).to("Hertz")
 
     @sample_rate.setter
-    def sample_rate(self, val):
+    def sample_rate(self, val: QuantityLike | None) -> None:
         if val is None:
             del self.dt
             return
-        self.dt = (1 / units.Quantity(val, units.Hertz)).to(self.xunit)
+        self.dt = (1 / Quantity(val, units.Hertz)).to(self.xunit)
 
     # -- duration
     @property
-    def duration(self):
-        """Duration of this series in seconds
+    def duration(self) -> Quantity:
+        """Duration of this series in seconds.
 
         :type: `~astropy.units.Quantity` scalar
         """
-        return units.Quantity(self.span[1] - self.span[0], self.xunit,
-                              dtype=float)
+        return Quantity(
+            abs(self.span),
+            self.xunit,
+            dtype=float,
+        )
 
-    # -- TimeSeries accessors -------------------
+    # -- TimeSeries i/o --------------
 
-    @classmethod
-    def read(cls, source, *args, **kwargs):
-        """Read data into a `TimeSeries`
+    read = UnifiedReadWriteMethod(TimeSeriesBaseRead)
+    write = UnifiedReadWriteMethod(TimeSeriesBaseWrite)
+    get = UnifiedReadWriteMethod(TimeSeriesBaseGet)
 
-        Arguments and keywords depend on the output format, see the
-        online documentation for full details for each format, the parameters
-        below are common to most formats.
-
-        Parameters
-        ----------
-        source : `str`, `list`
-            Source of data, any of the following:
-
-            - `str` path of single data file,
-            - `str` path of LAL-format cache file,
-            - `list` of paths.
-
-        name : `str`, `~gwpy.detector.Channel`
-            the name of the channel to read, or a `Channel` object.
-
-        start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
-            GPS start time of required data, defaults to start of data found;
-            any input parseable by `~gwpy.time.to_gps` is fine
-
-        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
-            GPS end time of required data, defaults to end of data found;
-            any input parseable by `~gwpy.time.to_gps` is fine
-
-        format : `str`, optional
-            source format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        nproc : `int`, optional
-            number of parallel processes to use, serial process by
-            default.
-
-        pad : `float`, optional
-            value with which to fill gaps in the source data,
-            by default gaps will result in a `ValueError`.
-
-        Raises
-        ------
-        IndexError
-            if ``source`` is an empty list
-
-        Notes
-        -----"""
-        from .io.core import read as timeseries_reader
-        return timeseries_reader(cls, source, *args, **kwargs)
-
-    def write(self, target, *args, **kwargs):
-        """Write this `TimeSeries` to a file
-
-        Parameters
-        ----------
-        target : `str`
-            path of output file
-
-        format : `str`, optional
-            output format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        Notes
-        -----"""
-        return io_registry.write(self, target, *args, **kwargs)
+    # -- TimeSeries accessors --------
 
     @classmethod
-    def fetch(cls, channel, start, end, host=None, port=None, verbose=False,
-              connection=None, verify=False, pad=None, allow_tape=None,
-              scaled=None, type=None, dtype=None):
-        """Fetch data from NDS
+    def fetch(
+        cls,
+        channel: str | Channel,
+        start: SupportsToGps,
+        end: SupportsToGps,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        verbose: bool | str = False,
+        connection: nds2.connection | None = None,
+        verify: bool = False,
+        pad: float | None = None,
+        allow_tape: bool | None = None,
+        scaled: bool | None = None,
+        type: int | str | None = None,  # noqa: A002
+        dtype: int | str | None = None,
+    ) -> Self:
+        """Fetch data from NDS.
 
         Parameters
         ----------
         channel : `str`, `~gwpy.detector.Channel`
-            the data channel for which to query
+            The name (or representation) of the data channel to fetch.
 
         start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
             GPS start time of required data,
             any input parseable by `~gwpy.time.to_gps` is fine
 
-        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
-            GPS end time of required data,
+        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
+            GPS end time of required data, defaults to end of data found;
             any input parseable by `~gwpy.time.to_gps` is fine
 
         host : `str`, optional
             URL of NDS server to use, if blank will try any server
             (in a relatively sensible order) to get the data
 
+            One of ``connection`` or ``host`` must be given.
+
         port : `int`, optional
-            port number for NDS server query, must be given with `host`
+            Port number for NDS server query, must be given with `host`.
 
-        verify : `bool`, optional, default: `False`
-            check channels exist in database before asking for data
-
-        scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
-            this option has no effect
-
-        connection : `nds2.connection`, optional
-            open NDS connection to use
+        verify : `bool`, optional
+            Check channels exist in database before asking for data.
+            Default is `True`.
 
         verbose : `bool`, optional
-            print verbose output about NDS progress, useful for debugging;
-            if ``verbose`` is specified as a string, this defines the
-            prefix for the progress meter
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
 
-        type : `int`, optional
-            NDS2 channel type integer or string name to match
+        connection : `nds2.connection`, optional
+            Open NDS connection to use.
+            Default is to open a new connection using ``host`` and ``port``
+            arguments.
 
-        dtype : `type`, `numpy.dtype`, `str`, optional
-            NDS2 data type to match
+            One of ``connection`` or ``host`` must be given.
+
+        pad : `float`, optional
+            Float value to insert between gaps.
+            Default behaviour is to raise an exception when any gaps are
+            found.
+
+        scaled : `bool`, optional
+            Apply slope and bias calibration to ADC data, for non-ADC data
+            this option has no effect.
+
+        allow_tape : `bool`, optional
+            Allow data access from slow tapes.
+            If ``host`` or ``connection`` is given, the default is to do
+            whatever the server default is, otherwise servers will be searched
+            with ``allow_tape=False`` first, then ``allow_tape=True`` if that
+            fails.
+
+        type : `int`, `str`, optional
+            NDS2 channel type integer or string name to match.
+            Default is to search for any channel type.
+
+        dtype : `numpy.dtype`, `str`, `type`, or `dict`, optional
+            NDS2 data type to match.
+            Default is to search for any data type.
         """
-        return cls.DictClass.fetch(
-            [channel], start, end, host=host, port=port, verbose=verbose,
-            connection=connection, verify=verify, pad=pad, scaled=scaled,
-            allow_tape=allow_tape, type=type, dtype=dtype)[str(channel)]
+        return cls.get(
+            channel,
+            start,
+            end,
+            source="nds2",
+            host=host,
+            port=port,
+            verbose=verbose,
+            connection=connection,
+            verify=verify,
+            pad=pad,
+            scaled=scaled,
+            allow_tape=allow_tape,
+            type=type,
+            dtype=dtype,
+        )
 
     @classmethod
-    def fetch_open_data(cls, ifo, start, end, sample_rate=4096,
-                        version=None, format='hdf5',
-                        host=GWOSC_DEFAULT_HOST, verbose=False,
-                        cache=None, **kwargs):
+    def fetch_open_data(
+        cls,
+        ifo: str,
+        start: SupportsToGps,
+        end: SupportsToGps,
+        sample_rate: float = 4096,
+        version: int | None = None,
+        format: Literal["gwf", "hdf5"] = "hdf5",  # noqa: A002
+        host: str = GWOSC_DEFAULT_HOST,
+        *,
+        verbose: bool | None = None,
+        cache: bool | None = None,
+        **kwargs,
+    ) -> Self:
         """Fetch open-access data from GWOSC.
+
+        This is just a shim around ``TimeSeries.get(..., source='gwosc')``.
 
         Parameters
         ----------
         ifo : `str`
-            the two-character prefix of the IFO in which you are interested,
-            e.g. `'L1'`
+            The two-character prefix of the IFO in which you are interested,
+            e.g. `'L1'`.
 
         start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
             GPS start time of required data, defaults to start of data found;
-            any input parseable by `~gwpy.time.to_gps` is fine
+            any input parseable by `~gwpy.time.to_gps` is fine.
 
         end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
             GPS end time of required data, defaults to end of data found;
-            any input parseable by `~gwpy.time.to_gps` is fine
+            any input parseable by `~gwpy.time.to_gps` is fine.
 
         sample_rate : `float`, optional,
-            the sample rate of desired data; most data are stored
+            The sample rate of desired data; most data are stored
             by GWOSC at 4096 Hz, however there may be event-related
-            data releases with a 16384 Hz rate, default: `4096`
+            data releases with a 16384 Hz rate, default: `4096`.
 
         version : `int`, optional
-            version of files to download, defaults to highest discovered
-            version
+            Version of files to download, defaults to highest discovered
+            version.
 
         format : `str`, optional
-            the data format to download and parse, default: ``'h5py'``
+            The data format to download and parse, default: ``'h5py'``
 
             - ``'hdf5'``
-            - ``'gwf'`` - requires |LDAStools.frameCPP|_
+            - ``'gwf'`` - requires |lalframe|_
 
         host : `str`, optional
-            HTTP host name of GWOSC server to access
+            HTTP host name of GWOSC server to access.
 
-        verbose : `bool`, optional, default: `False`
-            print verbose output while fetching data
+        verbose : `bool`, optional
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
 
         cache : `bool`, optional
-            save/read a local copy of the remote URL, default: `False`;
+            Save/read a local copy of the remote URL, default: `False`;
             useful if the same remote data are to be accessed multiple times.
-            Set `GWPY_CACHE=1` in the environment to auto-cache.
+            Set ``GWPY_CACHE=1`` in the environment to auto-cache.
 
         timeout : `float`, optional
-            the time to wait for a response from the GWOSC server.
+            The time to wait for a response from the GWOSC server.
 
-        **kwargs
-            any other keyword arguments are passed to the `TimeSeries.read`
-            method that parses the file that was downloaded
+        kwargs
+            Any other keyword arguments are passed to the `TimeSeries.read`
+            method that parses the file that was downloaded.
 
         Examples
         --------
@@ -451,7 +529,7 @@ class TimeSeriesBase(Series):
                     unit: Unit(dimensionless),
                     t0: 1126259446.0 s,
                     dt: 1.0 s,
-                    name: Data quality,
+                    name: quality/simple,
                     channel: None,
                     bits: Bits(0: data present
                                1: passes cbc CAT1 test
@@ -471,224 +549,287 @@ class TimeSeriesBase(Series):
         -----
         `StateVector` data are not available in ``txt.gz`` format.
         """
-        from .io.losc import fetch_gwosc_data
-        return fetch_gwosc_data(
+        return cls.get(
             ifo,
             start,
             end,
+            source="gwosc",
             sample_rate=sample_rate,
             version=version,
             format=format,
             verbose=verbose,
             cache=cache,
             host=host,
-            cls=cls,
+            series_class=cls,
             **kwargs,
         )
 
     @classmethod
-    def find(cls, channel, start, end, frametype=None, pad=None,
-             scaled=None, nproc=1, verbose=False, **readargs):
-        """Find and read data from frames for a channel
+    def find(
+        cls,
+        channel: str | Channel,
+        start: SupportsToGps,
+        end: SupportsToGps,
+        *,
+        observatory: str | None = None,
+        frametype: str | None = None,
+        frametype_match: str | re.Pattern | None = None,
+        host: str | None = None,
+        urltype: str | None = "file",
+        ext: str = "gwf",
+        pad: float | None = None,
+        scaled: bool | None = None,
+        allow_tape: bool | None = None,
+        parallel: int = 1,
+        verbose: bool | str = False,
+        **readargs,
+    ) -> Self:
+        """Find and return data for multiple channels using GWDataFind.
+
+        This method uses :mod:`gwdatafind` to discover the URLs
+        that provide the requested data, then reads those files using
+        :meth:`TimeSeriesDict.read()`.
+
+        This is just a shim around ``TimeSeries.get(..., source='gwdatafind')``.
 
         Parameters
         ----------
-        channel : `str`, `~gwpy.detector.Channel`
-            the name of the channel to read, or a `Channel` object.
+        channel : `str`
+            Name of data channel to find.
 
         start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
             GPS start time of required data,
-            any input parseable by `~gwpy.time.to_gps` is fine
+            any input parseable by `~gwpy.time.to_gps` is fine.
 
         end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
-            GPS end time of required data,
-            any input parseable by `~gwpy.time.to_gps` is fine
+            GPS end time of required data, defaults to end of data found;
+            any input parseable by `~gwpy.time.to_gps` is fine.
+
+        observatory : `str`, optional
+            The observatory to use when searching for data.
+            Default is to use the observatory from the channel name prefix,
+            but this should be specified when searching for data in a
+            multi-observatory dataset (e.g. `observatory='HLV'`).
 
         frametype : `str`, optional
-            name of frametype in which this channel is stored, will search
-            for containing frame types if necessary
+            Name of frametype (dataset) in which this channel is stored.
+            Default is to search all available datasets for a match, which
+            can be very slow.
 
-        nproc : `int`, optional, default: `1`
-            number of parallel processes to use, serial process by
-            default.
+        frametype_match : `str`, optional
+            Regular expression to use for frametype matching.
 
-        pad : `float`, optional
-            value with which to fill gaps in the source data,
-            by default gaps will result in a `ValueError`.
+        host : `str`, optional
+            Name of the GWDataFind server to use.
+            Default is set by `gwdatafind.utils.get_default_host`.
 
-        allow_tape : `bool`, optional, default: `True`
-            allow reading from frame files on (slow) magnetic tape
+        urltype : `str`, optional
+            The URL type to use.
+            Default is "file" to use paths available on the file system.
 
-        verbose : `bool`, optional
-            print verbose output about read progress, if ``verbose``
-            is specified as a string, this defines the prefix for the
-            progress meter
-
-        **readargs
-            any other keyword arguments to be passed to `.read()`
-        """
-        return cls.DictClass.find(
-            [channel], start, end,
-            frametype=frametype,
-            verbose=verbose,
-            pad=pad,
-            scaled=scaled,
-            nproc=nproc,
-            **readargs
-        )[str(channel)]
-
-    @classmethod
-    def get(cls, channel, start, end, pad=None, scaled=None,
-            dtype=None, verbose=False, allow_tape=None, **kwargs):
-        """Get data for this channel from frames or NDS
-
-        This method dynamically accesses either frames on disk, or a
-        remote NDS2 server to find and return data for the given interval
-
-        Parameters
-        ----------
-        channel : `str`, `~gwpy.detector.Channel`
-            the name of the channel to read, or a `Channel` object.
-
-        start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
-            GPS start time of required data,
-            any input parseable by `~gwpy.time.to_gps` is fine
-
-        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
-            GPS end time of required data,
-            any input parseable by `~gwpy.time.to_gps` is fine
+        ext : `str`, optional
+            The file extension for which to search.
+            "gwf" is the only file extension supported, but this may be
+            extended in the future.
 
         pad : `float`, optional
-            value with which to fill gaps in the source data,
+            Value with which to fill gaps in the source data,
             by default gaps will result in a `ValueError`.
 
         scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
-            this option has no effect
+            Apply slope and bias calibration to ADC data, for non-ADC data
+            this option has no effect.
 
-        nproc : `int`, optional, default: `1`
-            number of parallel processes to use, serial process by
-            default.
+        parallel : `int`, optional
+            Number of parallel processes to use.
 
-        allow_tape : `bool`, optional, default: `None`
-            allow the use of frames that are held on tape, default is `None`
-            to attempt to allow the `TimeSeries.fetch` method to
-            intelligently select a server that doesn't use tapes for
-            data storage (doesn't always work), but to eventually allow
-            retrieving data from tape if required
+        allow_tape : `bool`, optional
+            Allow reading from frame files on (slow) magnetic tape.
 
         verbose : `bool`, optional
-            print verbose output about data access progress, if ``verbose``
-            is specified as a string, this defines the prefix for the
-            progress meter
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
 
-        **kwargs
-            other keyword arguments to pass to either
-            :meth:`.find` (for direct GWF file access) or
-            :meth:`.fetch` for remote NDS2 access
-
-        See also
-        --------
-        TimeSeries.fetch
-            for grabbing data from a remote NDS2 server
-        TimeSeries.find
-            for discovering and reading data from local GWF files
+        readargs
+            Any other keyword arguments to be passed to `.read()`.
         """
-        return cls.DictClass.get(
-            [channel], start, end, pad=pad, scaled=scaled, dtype=dtype,
-            verbose=verbose, allow_tape=allow_tape, **kwargs)[str(channel)]
+        return cls.get(
+            channel,
+            start,
+            end,
+            source="gwdatafind",
+            observatory=observatory,
+            frametype=frametype,
+            frametype_match=frametype_match,
+            host=host,
+            urltype=urltype,
+            ext=ext,
+            verbose=verbose,
+            pad=pad,
+            scaled=scaled,
+            allow_tape=allow_tape,
+            parallel=parallel,
+            **readargs,
+        )
 
-    # -- utilities ------------------------------
+    # -- utilities -------------------
 
-    def plot(self, method='plot', figsize=(12, 4), xscale='auto-gps',
-             **kwargs):
-        """Plot the data for this timeseries
+    def plot(
+        self,
+        method: str = "plot",
+        figsize: tuple[int, int] = (12, 4),
+        xscale: str = "auto-gps",
+        **kwargs,
+    ) -> Plot:
+        """Plot the data for this timeseries.
 
         Returns
         -------
         figure : `~matplotlib.figure.Figure`
-            the newly created figure, with populated Axes.
+            The newly created figure, with populated Axes.
 
-        See also
+        See Also
         --------
         matplotlib.pyplot.figure
-            for documentation of keyword arguments used to create the
-            figure
+            For documentation of keyword arguments used to create the
+            figure.
         matplotlib.figure.Figure.add_subplot
-            for documentation of keyword arguments used to create the
-            axes
+            For documentation of keyword arguments used to create the
+            axes.
         matplotlib.axes.Axes.plot
-            for documentation of keyword arguments used in rendering the data
+            For documentation of keyword arguments used in rendering the data.
         """
         kwargs.update(figsize=figsize, xscale=xscale)
         return super().plot(method=method, **kwargs)
 
     @classmethod
-    def from_nds2_buffer(cls, buffer_, scaled=None, copy=True, **metadata):
-        """Construct a new series from an `nds2.buffer` object
+    def from_arrakis(
+        cls,
+        series: arrakis.block.Series,
+        *,
+        copy: bool = True,
+        **metadata,
+    ) -> Self:
+        """Construct a new series from an `arrakis.Series` object.
+
+        Parameters
+        ----------
+        series : `arrakis.Series`
+            The input Arrakis data series to read.
+
+        copy : `bool`, optional
+            If `True`, copy the contained data array to new to a new array.
+
+        metadata
+            Any other metadata keyword arguments to pass to the `TimeSeries`
+            constructor.
+
+        Returns
+        -------
+        timeseries : `TimeSeries`
+            A new `TimeSeries` containing the data from the `arrakis.Series`
+            and the appropriate metadata.
+        """
+        # get Channel from buffer
+        channel = Channel.from_arrakis(series.channel)
+
+        # set default metadata
+        defaults = {
+            "channel": channel,
+            "epoch": LIGOTimeGPS(0, series.time_ns),
+            "dt": series.dt,
+            "unit": None,
+            "name": series.name,
+        }
+        metadata = {**defaults, **metadata}
+
+        # construct new TimeSeries-like object
+        return cls(series.data, copy=copy, **metadata)
+
+    @classmethod
+    def from_nds2_buffer(
+        cls,
+        buffer: nds2.buffer,
+        *,
+        scaled: bool | None = None,
+        copy: bool = True,
+        **metadata,
+    ) -> Self:
+        """Construct a new series from an `nds2.buffer` object.
 
         **Requires:** |nds2|_
 
         Parameters
         ----------
-        buffer_ : `nds2.buffer`
-            the input NDS2-client buffer to read
+        buffer : `nds2.buffer`
+            The input NDS2-client buffer to read.
 
         scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
-            this option has no effect
+            Apply slope and bias calibration to ADC data, for non-ADC data
+            this option has no effect.
 
         copy : `bool`, optional
-            if `True`, copy the contained data array to new  to a new array
+            Tf `True`, copy the contained data array to new  to a new array.
 
-        **metadata
-            any other metadata keyword arguments to pass to the `TimeSeries`
-            constructor
+        metadata
+            Any other metadata keyword arguments to pass to the `TimeSeries`
+            constructor.
 
         Returns
         -------
         timeseries : `TimeSeries`
-            a new `TimeSeries` containing the data from the `nds2.buffer`,
-            and the appropriate metadata
+            A new `TimeSeries` containing the data from the `nds2.buffer`,
+            and the appropriate metadata.
         """
         # get Channel from buffer
-        channel = Channel.from_nds2(buffer_.channel)
+        channel = Channel.from_nds2(buffer.channel)
 
         # set default metadata
-        metadata.setdefault('channel', channel)
-        metadata.setdefault('epoch', LIGOTimeGPS(buffer_.gps_seconds,
-                                                 buffer_.gps_nanoseconds))
-        metadata.setdefault('sample_rate', channel.sample_rate)
-        metadata.setdefault('unit', channel.unit)
-        metadata.setdefault('name', buffer_.name)
+        defaults = {
+            "channel": channel,
+            "epoch": LIGOTimeGPS(buffer.gps_seconds, buffer.gps_nanoseconds),
+            "sample_rate": channel.sample_rate,
+            "unit": channel.unit,
+            "name": buffer.name,
+        }
+        metadata = {**defaults, **metadata}
 
         # unwrap data
         scaled = _dynamic_scaled(scaled, channel.name)
-        slope = buffer_.signal_slope
-        offset = buffer_.signal_offset
+        slope = buffer.signal_slope
+        offset = buffer.signal_offset
         null_scaling = slope == 1. and offset == 0.
         if scaled and not null_scaling:
-            data = buffer_.data.copy() * slope + offset
+            data = buffer.data.copy() * slope + offset
             copy = False
         else:
-            data = buffer_.data
+            data = buffer.data
 
         # construct new TimeSeries-like object
         return cls(data, copy=copy, **metadata)
 
     @classmethod
-    def from_lal(cls, lalts, copy=True):
-        """Generate a new TimeSeries from a LAL TimeSeries of any type.
-        """
+    def from_lal(
+        cls,
+        lalts: LALTimeSeriesType,
+        *,
+        copy: bool = True,
+    ) -> Self:
+        """Generate a new TimeSeries from a LAL TimeSeries of any type."""
         # convert the units
-        from ..utils.lal import (from_lal_unit, from_lal_type)
+        from ..utils.lal import (
+            from_lal_type,
+            from_lal_unit,
+        )
+
         unit = from_lal_unit(lalts.sampleUnits)
 
+        dtype: DTypeLike
         try:
             dtype = lalts.data.data.dtype
         except AttributeError:  # no data
-            dtype = from_lal_type(lalts)
-            data = []
+            dtype = from_lal_type(type(lalts))
+            data = numpy.array([], dtype=dtype)
         else:
             data = lalts.data.data
 
@@ -708,7 +849,7 @@ class TimeSeriesBase(Series):
             return out.copy()
         return out
 
-    def to_lal(self):
+    def to_lal(self) -> LALTimeSeriesType:
         """Convert this `TimeSeries` into a LAL TimeSeries.
 
         .. note::
@@ -716,21 +857,28 @@ class TimeSeriesBase(Series):
            This operation always copies data to new memory.
         """
         import lal
-        from ..utils.lal import (find_typed_function, to_lal_unit)
+
+        from ..utils.lal import (
+            find_typed_function,
+            to_lal_unit,
+        )
 
         # map unit
         try:
             unit, scale = to_lal_unit(self.unit)
         except ValueError as exc:
-            warnings.warn(f"{exc}, defaulting to lal.DimensionlessUnit")
+            warnings.warn(
+                f"{exc}, defaulting to lal.DimensionlessUnit",
+                stacklevel=2,
+            )
             unit = lal.DimensionlessUnit
             scale = 1
 
         # create TimeSeries
-        create = find_typed_function(self.dtype, 'Create', 'TimeSeries')
+        create = find_typed_function(self.dtype, "Create", "TimeSeries")
         lalts = create(
             self.name or str(self.channel or "") or None,
-            LIGOTimeGPS(to_gps(self.epoch.gps)),
+            LIGOTimeGPS(self.t0.value),
             0,
             self.dt.value,
             unit,
@@ -745,108 +893,130 @@ class TimeSeriesBase(Series):
         return lalts
 
     @classmethod
-    def from_pycbc(cls, pycbcseries, copy=True):
-        """Convert a `pycbc.types.timeseries.TimeSeries` into a `TimeSeries`
+    def from_pycbc(
+        cls,
+        pycbcseries: pycbc.types.TimeSeries,
+        *,
+        copy: bool = True,
+    ) -> Self:
+        """Convert a `pycbc.types.timeseries.TimeSeries` into a `TimeSeries`.
 
         Parameters
         ----------
         pycbcseries : `pycbc.types.timeseries.TimeSeries`
-            the input PyCBC `~pycbc.types.timeseries.TimeSeries` array
+            The input PyCBC `~pycbc.types.timeseries.TimeSeries` array.
 
-        copy : `bool`, optional, default: `True`
-            if `True`, copy these data to a new array
+        copy : `bool`, optional
+            If `True`, copy these data to a new array.
 
         Returns
         -------
         timeseries : `TimeSeries`
-            a GWpy version of the input timeseries
+            A GWpy version of the input timeseries.
         """
-        return cls(pycbcseries.data, t0=pycbcseries.start_time,
-                   dt=pycbcseries.delta_t, copy=copy)
+        return cls(
+            pycbcseries.data,
+            t0=pycbcseries.start_time,
+            dt=pycbcseries.delta_t,
+            copy=copy,
+        )
 
-    def to_pycbc(self, copy=True):
-        """Convert this `TimeSeries` into a PyCBC
-        `~pycbc.types.timeseries.TimeSeries`
+    def to_pycbc(self, *, copy: bool = True) -> pycbc.types.TimeSeries:
+        """Convert this `TimeSeries` into a PyCBC `~pycbc.types.timeseries.TimeSeries`.
 
         Parameters
         ----------
         copy : `bool`, optional, default: `True`
-            if `True`, copy these data to a new array
+            If `True`, copy these data to a new array.
 
         Returns
         -------
         timeseries : `~pycbc.types.timeseries.TimeSeries`
-            a PyCBC representation of this `TimeSeries`
+            A PyCBC representation of this `TimeSeries`.
         """
         from pycbc import types
-        return types.TimeSeries(self.value,
-                                delta_t=self.dt.to('s').value,
-                                epoch=self.epoch.gps, copy=copy)
+        return types.TimeSeries(
+            self.value,
+            delta_t=self.dt.to("s").value,
+            epoch=self.t0.value, copy=copy,
+        )
 
-    # -- TimeSeries operations ------------------
+    # -- TimeSeries operations -------
 
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        out = super().__array_ufunc__(ufunc, method, *inputs, **kwargs)
+    def __array_ufunc__(  # type: ignore[override]
+        self,
+        function: Callable,
+        method: str,
+        *inputs,
+        **kwargs,
+    ) -> Self | Quantity | StateTimeSeries:
+        """Override the default array ufunc to handle TimeSeries metadata."""
+        out = super().__array_ufunc__(function, method, *inputs, **kwargs)
         if out.dtype is numpy.dtype(bool) and len(inputs) == 2:
             from .statevector import StateTimeSeries
             orig, value = inputs
             try:
-                op_ = _UFUNC_STRING[ufunc.__name__]
+                op_ = _UFUNC_STRING[function.__name__]
             except KeyError:
-                op_ = ufunc.__name__
+                op_ = function.__name__
             out = out.view(StateTimeSeries)
             out.__metadata_finalize__(orig)
             oname = orig.name if isinstance(orig, type(self)) else orig
             vname = value.name if isinstance(value, type(self)) else value
-            out.name = '{0!s} {1!s} {2!s}'.format(oname, op_, vname)
+            out.name = f"{oname!s} {op_!s} {vname!s}"
         return out
 
     # Quantity overrides __eq__ and __ne__ in a way that doesn't work for us,
     # so we just undo that
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        """Return `True` if ``other`` is equal to this `TimeSeries`."""
         return numpy.ndarray.__eq__(self, other)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
+        """Return `True` if ``other`` is not equal to this `TimeSeries`."""
         return numpy.ndarray.__ne__(self, other)
 
 
-# -- TimeSeriesBaseDict -------------------------------------------------------
+# -- TimeSeriesBaseDict --------------
 
-def as_series_dict_class(seriesclass):
-    """Decorate a `dict` class to declare itself as the `DictClass` for
-    its `EntryClass`
+def as_series_dict_class(
+    seriesclass: type[TimeSeriesBase],
+) -> Callable[[type[TimeSeriesBaseDict]], type[TimeSeriesBaseDict]]:
+    """Return a decorator for a `dict` class to define `DictClass` for its `EntryClass`.
 
     This method should be used to decorate sub-classes of the
     `TimeSeriesBaseDict` to provide a reference to that class from the
     relevant subclass of `TimeSeriesBase`.
     """
-    def decorate_class(cls):
-        """Set ``cls`` as the `DictClass` attribute for this series type
-        """
+    def decorate_class(cls: type[TimeSeriesBaseDict]) -> type[TimeSeriesBaseDict]:
+        """Set ``cls`` as the `DictClass` attribute for this series type."""
         seriesclass.DictClass = cls
         return cls
+
     return decorate_class
 
 
+# Type variable for generic dict values
+_V = TypeVar("_V", bound=TimeSeriesBase)
+
+
 @as_series_dict_class(TimeSeriesBase)
-class TimeSeriesBaseDict(OrderedDict):
-    """Ordered key-value mapping of named `TimeSeriesBase` objects
+class TimeSeriesBaseDict(dict[str | Channel, _V], Generic[_V]):
+    """Key-value mapping of named `TimeSeriesBase` objects.
 
     This object is designed to hold data for many different sources (channels)
-    for a single time span.
+    for a single time span. Dictionary keys are ordered by insertion order.
 
     The main entry points for this object are the
     :meth:`~TimeSeriesBaseDict.read` and :meth:`~TimeSeriesBaseDict.fetch`
     data access methods.
     """
-    EntryClass = TimeSeriesBase
+
+    EntryClass: ClassVar[type[TimeSeriesBase]] = TimeSeriesBase
 
     @property
-    def span(self):
-        """The GPS ``[start, stop)`` extent of data in this `dict`
-
-        :type: `~gwpy.segments.Segment`
-        """
+    def span(self) -> Segment:
+        """The GPS ``[start, stop)`` extent of data in this `dict`."""
         span = SegmentList()
         for value in self.values():
             span.append(value.span)
@@ -854,138 +1024,90 @@ class TimeSeriesBaseDict(OrderedDict):
             return span.extent()
         except ValueError as exc:  # empty list
             exc.args = (
-                'cannot calculate span for empty {0}'.format(
-                    type(self).__name__),
+                f"cannot calculate span for empty {type(self).__name__}",
             )
             raise
 
-    @classmethod
-    def read(cls, source, *args, **kwargs):
-        """Read data for multiple channels into a `TimeSeriesDict`
+    read = UnifiedReadWriteMethod(TimeSeriesBaseDictRead)
+    write = UnifiedReadWriteMethod(TimeSeriesBaseDictWrite)
+    get = UnifiedReadWriteMethod(TimeSeriesBaseDictGet)
 
-        Parameters
-        ----------
-        source : `str`, `list`
-            Source of data, any of the following:
+    def __iadd__(self, other: dict[str | Channel, numpy.ndarray]) -> Self:
+        """Append a `TimeSeriesBase` or `numpy.ndarray` to this dict."""
+        self.append(other)
+        return self
 
-            - `str` path of single data file,
-            - `str` path of LAL-format cache file,
-            - `list` of paths.
-
-        channels : `~gwpy.detector.channel.ChannelList`, `list`
-            a list of channels to read from the source.
-
-        start : `~gwpy.time.LIGOTimeGPS`, `float`, `str` optional
-            GPS start time of required data, anything parseable by
-            :func:`~gwpy.time.to_gps` is fine
-
-        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
-            GPS end time of required data, anything parseable by
-            :func:`~gwpy.time.to_gps` is fine
-
-        format : `str`, optional
-            source format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        nproc : `int`, optional
-            number of parallel processes to use, serial process by
-            default.
-
-        pad : `float`, optional
-            value with which to fill gaps in the source data,
-            by default gaps will result in a `ValueError`.
-
-        Returns
-        -------
-        tsdict : `TimeSeriesDict`
-            a `TimeSeriesDict` of (`channel`, `TimeSeries`) pairs. The keys
-            are guaranteed to be the ordered list `channels` as given.
-
-        Notes
-        -----"""
-        from .io.core import read as timeseries_reader
-        return timeseries_reader(cls, source, *args, **kwargs)
-
-    def write(self, target, *args, **kwargs):
-        """Write this `TimeSeriesDict` to a file
-
-        Arguments and keywords depend on the output format, see the
-        online documentation for full details for each format.
-
-        Parameters
-        ----------
-        target : `str`
-            output filename
-
-        format : `str`, optional
-            output format identifier. If not given, the format will be
-            detected if possible. See below for list of acceptable
-            formats.
-
-        Notes
-        -----"""
-        return io_registry.write(self, target, *args, **kwargs)
-
-    def __iadd__(self, other):
-        return self.append(other)
-
-    def copy(self):
-        """Return a copy of this dict with each value copied to new memory
-        """
+    def copy(self) -> Self:
+        """Return a copy of this dict with each value copied to new memory."""
         new = self.__class__()
         for key, val in self.items():
             new[key] = val.copy()
         return new
 
-    def append(self, other, copy=True, **kwargs):
-        """Append the dict ``other`` to this one
+    def append(
+        self,
+        other: Mapping[str | Channel, NDArray],
+        *,
+        copy: bool = True,
+        **kwargs,
+    ) -> Self:
+        """Append the dict ``other`` to this one.
 
         Parameters
         ----------
         other : `dict` of `TimeSeries`
-            the container to append to this one
+            The container to append to this one.
 
         copy : `bool`, optional
-            if `True` copy data from ``other`` before storing, only
-            affects those keys in ``other`` that aren't in ``self``
+            If `True` copy data from ``other`` before storing, only
+            affects those keys in ``other`` that aren't in ``self``.
 
         **kwargs
-            other keyword arguments to send to `TimeSeries.append`
+            Other keyword arguments to send to `TimeSeries.append`.
 
-        See also
+        See Also
         --------
         TimeSeries.append
-            for details of the underlying series append operation
+            For details of the underlying series append operation.
         """
         for key, series in other.items():
             if key in self:
                 self[key].append(series, **kwargs)
-            elif copy:
-                self[key] = series.copy()
             else:
+                if not isinstance(series, self.EntryClass):
+                    msg = (
+                        f"cannot append {type(series).__name__} to "
+                        f"{type(self).__name__} for new key {key!r}"
+                    )
+                    raise ValueError(msg)
+                if copy:
+                    series = series.copy()  # noqa: PLW2901
                 self[key] = series
         return self
 
-    def prepend(self, other, **kwargs):
-        """Prepend the dict ``other`` to this one
+    def prepend(
+        self,
+        other: Mapping[str | Channel, _V],
+        **kwargs,
+    ) -> Self:
+        """Prepend the dict ``other`` to this one.
 
         Parameters
         ----------
         other : `dict` of `TimeSeries`
-            the container to prepend to this one
+            The container to prepend to this one.
 
         copy : `bool`, optional
-            if `True` copy data from ``other`` before storing, only
-            affects those keys in ``other`` that aren't in ``self``
+            If `True` copy data from ``other`` before storing, only
+            affects those keys in ``other`` that aren't in ``self``.
 
-        **kwargs
-            other keyword arguments to send to `TimeSeries.prepend`
+        kwargs
+            Other keyword arguments to send to `TimeSeries.prepend`.
 
-        See also
+        See Also
         --------
         TimeSeries.prepend
-            for details of the underlying series prepend operation
+            For details of the underlying series prepend operation.
         """
         for key, series in other.items():
             if key in self:
@@ -994,7 +1116,13 @@ class TimeSeriesBaseDict(OrderedDict):
                 self[key] = series
         return self
 
-    def crop(self, start=None, end=None, copy=False):
+    def crop(
+        self,
+        start: SupportsToGps | None = None,
+        end: SupportsToGps | None = None,
+        *,
+        copy: bool = False,
+    ) -> Self:
         """Crop each entry of this `dict`.
 
         This method calls the :meth:`crop` method of all entries and
@@ -1014,7 +1142,7 @@ class TimeSeriesBaseDict(OrderedDict):
             If `True` copy the data for each entry to fresh memory,
             otherwise return a view.
 
-        See also
+        See Also
         --------
         TimeSeries.crop
             for more details
@@ -1023,7 +1151,11 @@ class TimeSeriesBaseDict(OrderedDict):
             self[key] = val.crop(start=start, end=end, copy=copy)
         return self
 
-    def resample(self, rate, **kwargs):
+    def resample(
+        self,
+        rate: dict[str | Channel, float] | float,
+        **kwargs,
+    ) -> Self:
         """Resample items in this dict.
 
         This operation over-writes items inplace.
@@ -1039,22 +1171,37 @@ class TimeSeriesBaseDict(OrderedDict):
              method.
         """
         if not isinstance(rate, dict):
-            rate = dict((c, rate) for c in self)
+            rate = dict.fromkeys(self, rate)
         for key, resamp in rate.items():
             self[key] = self[key].resample(resamp, **kwargs)
         return self
 
     @classmethod
-    def fetch(cls, channels, start, end, host=None, port=None,
-              verify=False, verbose=False, connection=None,
-              pad=None, scaled=None, allow_tape=None, type=None,
-              dtype=None):
+    def fetch(
+        cls,
+        channels: list[str | Channel],
+        start: SupportsToGps,
+        end: SupportsToGps,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        verbose: bool | str = False,
+        connection: nds2.connection | None = None,
+        verify: bool = False,
+        pad: float | None = None,
+        allow_tape: bool | None = None,
+        scaled: bool | None = None,
+        type: int | str | None = None,  # noqa: A002
+        dtype: int | str | None = None,
+    ) -> Self:
         """Fetch data from NDS for a number of channels.
+
+        This is just a shim around ``TimeSeriesDict.get(..., source='nds2')``.
 
         Parameters
         ----------
-        channels : `list`
-            required data channels.
+        channels : `str`, `~gwpy.detector.Channel`
+            List of names of data channels to find.
 
         start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
             GPS start time of required data,
@@ -1068,133 +1215,222 @@ class TimeSeriesBaseDict(OrderedDict):
             URL of NDS server to use, if blank will try any server
             (in a relatively sensible order) to get the data
 
-        port : `int`, optional
-            port number for NDS server query, must be given with `host`.
+            One of ``connection`` or ``host`` must be given.
 
-        verify : `bool`, optional, default: `True`
-            check channels exist in database before asking for data
+        port : `int`, optional
+            Port number for NDS server query, must be given with `host`.
+
+        verify : `bool`, optional
+            Check channels exist in database before asking for data.
+            Default is `True`.
 
         verbose : `bool`, optional
-            print verbose output about NDS download progress, if ``verbose``
-            is specified as a string, this defines the prefix for the
-            progress meter
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
 
         connection : `nds2.connection`, optional
-            open NDS connection to use.
+            Open NDS connection to use.
+            Default is to open a new connection using ``host`` and ``port``
+            arguments.
+
+            One of ``connection`` or ``host`` must be given.
+
+        pad : `float`, optional
+            Float value to insert between gaps.
+            Default behaviour is to raise an exception when any gaps are
+            found.
 
         scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
+            Apply slope and bias calibration to ADC data, for non-ADC data
             this option has no effect.
 
         allow_tape : `bool`, optional
-            allow data access from slow tapes. If `host` or `connection` is
-            given, the default is to do whatever the server default is,
-            otherwise servers will be searched in logical order allowing tape
-            access if necessary to retrieve the data
+            Allow data access from slow tapes.
+            If ``host`` or ``connection`` is given, the default is to do
+            whatever the server default is, otherwise servers will be searched
+            with ``allow_tape=False`` first, then ``allow_tape=True`` if that
+            fails.
 
         type : `int`, `str`, optional
             NDS2 channel type integer or string name to match.
+            Default is to search for any channel type.
 
-        dtype : `numpy.dtype`, `str`, `type`, or `dict`
-            NDS2 data type to match
+        dtype : `numpy.dtype`, `str`, `type`, or `dict`, optional
+            NDS2 data type to match.
+            Default is to search for any data type.
 
         Returns
         -------
-        data : :class:`~gwpy.timeseries.TimeSeriesBaseDict`
-            a new `TimeSeriesBaseDict` of (`str`, `TimeSeries`) pairs fetched
+        data : `TimeSeriesBaseDict`
+            A new `TimeSeriesBaseDict` of (`str`, `TimeSeries`) pairs fetched
             from NDS.
         """
-        from ..io import nds2 as io_nds2
-        from .io.nds2 import (print_verbose, fetch)
-
-        if dtype is None:
-            dtype = {}
-
-        # -- open a connection ------------------
-
-        # open connection to specific host
-        if connection is None and host is not None:
-            print_verbose("Opening new connection to {0}...".format(host),
-                          end=' ', verbose=verbose)
-            connection = io_nds2.auth_connect(host, port)
-            print_verbose('connected', verbose=verbose)
-        # otherwise cycle through connections in logical order
-        elif connection is None:
-            ifos = set([Channel(channel).ifo for channel in channels])
-            if len(ifos) == 1:
-                ifo = list(ifos)[0]
-            else:
-                ifo = None
-            hostlist = io_nds2.host_resolution_order(ifo, epoch=start)
-            if allow_tape is None:
-                tapes = [False, True]
-            else:
-                tapes = [allow_tape]
-            for allow_tape_ in tapes:
-                error = ""  # container for error message from cls.fetch()
-                for host_, port_ in hostlist:
-                    try:
-                        return cls.fetch(channels, start, end, host=host_,
-                                         port=port_, verbose=verbose,
-                                         type=type, dtype=dtype, pad=pad,
-                                         scaled=scaled, allow_tape=allow_tape_)
-                    except (RuntimeError, ValueError) as exc:
-                        error = str(exc)  # need to assign to take out of scope
-                        msg = error.split('\n', 1)[0]
-                        warnings.warn(
-                            f"failed to fetch data for {', '.join(channels)} "
-                            f"in interval [{start}, {end}): {msg}",
-                            io_nds2.NDSWarning,
-                        )
-
-                # if failing occurred because of data on tape, don't try
-                # reading channels individually, the same error will occur
-                if not allow_tape_ and 'Requested data is on tape' in error:
-                    continue
-
-                # if we got this far, we can't get all channels in one go
-                if len(channels) > 1:
-                    return cls(
-                        (c, cls.EntryClass.fetch(c, start, end,
-                                                 verbose=verbose, type=type,
-                                                 verify=verify,
-                                                 dtype=dtype.get(c), pad=pad,
-                                                 scaled=scaled,
-                                                 allow_tape=allow_tape_))
-                        for c in channels)
-            err = "Cannot find all relevant data on any known server."
-            if not verbose:
-                err += (" Try again using the verbose=True keyword argument "
-                        " to see detailed failures.")
-            raise RuntimeError(err)
-
-        # -- at this point we have an open connection, so perform fetch
-
-        start = to_gps(start)
-        end = to_gps(end)
-        istart = int(start)
-        iend = int(ceil(end))
-
-        return fetch(channels, istart, iend, connection=connection,
-                     host=host, port=port, verbose=verbose, type=type,
-                     dtype=dtype, pad=pad, allow_tape=allow_tape,
-                     scaled=scaled,
-                     series_class=cls.EntryClass).crop(start, end)
+        return cls.get(
+            channels,
+            start,
+            end,
+            source="nds2",
+            host=host,
+            port=port,
+            verify=verify,
+            verbose=verbose,
+            connection=connection,
+            pad=pad,
+            scaled=scaled,
+            allow_tape=allow_tape,
+            type=type,
+            dtype=dtype,
+            series_class=cls.EntryClass,
+        )
 
     @classmethod
-    def find(cls, channels, start, end, frametype=None,
-             frametype_match=None, pad=None, scaled=None, nproc=1,
-             verbose=False, allow_tape=True, observatory=None, **readargs):
+    def fetch_open_data(
+        cls,
+        detectors: str,
+        start: SupportsToGps,
+        end: SupportsToGps,
+        *,
+        sample_rate: float = 4096,
+        version: int | None = None,
+        format: str = "hdf5",  # noqa: A002
+        host: str = GWOSC_DEFAULT_HOST,
+        verbose: bool | None = None,
+        cache: bool | None = None,
+        parallel: int = 1,
+        **kwargs,
+    ) -> Self:
+        """Fetch open-access data from the LIGO Open Science Center.
+
+        This is just a shim around ``TimeSeriesDict.get(..., source='gwosc')``.
+
+        Parameters
+        ----------
+        detectors : `list` of `str`
+            List of two-character prefices of the IFOs in which you
+            are interested, e.g. `['H1', 'L1']`.
+
+        start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
+            GPS start time of required data,
+            any input parseable by `~gwpy.time.to_gps` is fine.
+
+        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
+            GPS end time of required data,
+            any input parseable by `~gwpy.time.to_gps` is fine.
+
+        sample_rate : `float`, `Quantity`,
+            The sample rate (Hertz) of desired data; most data are stored
+            by GWOSC at 4096 Hz, however there may be event-related
+            data releases with a 16384 Hz rate.
+
+        version : `int`
+            Version of files to download, defaults to highest discovered
+            version.
+
+        format : `str`
+            The data format to download and parse.
+            One of
+
+            "hdf5"
+                HDF5 data files, read using `h5py`.
+
+            "gwf"
+                Gravitational-Wave Frame files, requires |LDAStools.frameCPP|_.
+
+        host : `str`
+            Host name of GWOSC server to access.
+
+        verbose : `bool`
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
+
+        cache : `bool`
+            Save/read a local copy of the remote URL, default: `False`;
+            useful if the same remote data are to be accessed multiple times.
+            Set `GWPY_CACHE=1` in the environment to auto-cache.
+
+        parallel : `int`
+            Number of parallel threads to use when downloading data for
+            multiple detectors. Default is ``1``.
+
+        kwargs
+            Any other keyword arguments are passed to the `TimeSeries.read`
+            method that parses the file that was downloaded.
+
+        See Also
+        --------
+        TimeSeries.fetch_open_data
+            For more examples.
+
+        TimeSeries.read
+            For details of how files are read.
+
+        Examples
+        --------
+        >>> from gwpy.timeseries import TimeSeriesDict
+        >>> print(TimeSeriesDict.fetch_open_data(['H1', 'L1'], 1126259446, 1126259478))
+        TimeSeriesDict({'H1': <TimeSeries([2.17704028e-19, 2.08763900e-19, 2.39681183e-19, ...,
+                     3.55365541e-20, 6.33533516e-20, 7.58121195e-20]
+                    unit=Unit(dimensionless),
+                    t0=<Quantity 1.12625945e+09 s>,
+                    dt=<Quantity 0.00024414 s>,
+                    name='Strain',
+                    channel=None)>, 'L1': <TimeSeries([-1.04289994e-18, -1.03586274e-18, -9.89322445e-19,
+                     ..., -1.01767748e-18, -9.82876816e-19,
+                     -9.59276974e-19]
+                    unit=Unit(dimensionless),
+                    t0=<Quantity 1.12625945e+09 s>,
+                    dt=<Quantity 0.00024414 s>,
+                    name='Strain',
+                    channel=None)>})
+        """  # noqa: E501
+        return cls.get(
+            detectors,
+            start,
+            end,
+            source="gwosc",
+            sample_rate=sample_rate,
+            version=version,
+            format=format,
+            host=host,
+            verbose=verbose,
+            cache=cache,
+            parallel=parallel,
+            series_class=cls.EntryClass,
+            **kwargs,
+        )
+
+    @classmethod
+    def find(
+        cls,
+        channels: list[str | Channel],
+        start: SupportsToGps,
+        end: SupportsToGps,
+        *,
+        observatory: str | None = None,
+        frametype: str | None = None,
+        frametype_match: str | re.Pattern | None = None,
+        host: str | None = None,
+        urltype: str | None = "file",
+        ext: str = "gwf",
+        pad: float | None = None,
+        scaled: bool | None = None,
+        allow_tape: bool | None = None,
+        parallel: int = 1,
+        verbose: bool | str = False,
+        **readargs,
+    ) -> Self:
         """Find and read data from frames for a number of channels.
 
         This method uses :mod:`gwdatafind` to discover the (`file://`) URLs
         that provide the requested data, then reads those files using
         :meth:`TimeSeriesDict.read()`.
 
+        This is just a shim around ``TimeSeriesDict.get(..., source="gwdatafind")``.
+
         Parameters
         ----------
         channels : `list`
-            Required data channels.
+            List of names of data channels to find.
 
         start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
             GPS start time of required data,
@@ -1204,32 +1440,50 @@ class TimeSeriesBaseDict(OrderedDict):
             GPS end time of required data, defaults to end of data found;
             any input parseable by `~gwpy.time.to_gps` is fine
 
-        frametype : `str`
-            Name of frametype in which this channel is stored; if not given
-            all frametypes discoverable via GWDataFind will be searched for
-            the required channels.
+        observatory : `str`, optional
+            The observatory to use when searching for data.
+            Default is to use the observatory from the channel name prefix,
+            but this should be specified when searching for data in a
+            multi-observatory dataset (e.g. `observatory='HLV'`).
 
-        frametype_match : `str`
+        frametype : `str`, optional
+            Name of frametype (dataset) in which this channel is stored.
+            Default is to search all available datasets for a match, which
+            can be very slow.
+
+        frametype_match : `str`, optional
             Regular expression to use for frametype matching.
 
-        pad : `float`
+        host : `str`, optional
+            Name of the GWDataFind server to use.
+            Default is set by `gwdatafind.utils.get_default_host`.
+
+        urltype : `str`, optional
+            The URL type to use.
+            Default is "file" to use paths available on the file system.
+
+        ext : `str`, optional
+            The file extension for which to search.
+            "gwf" is the only file extension supported, but this may be
+            extended in the future.
+
+        pad : `float`, optional
             Value with which to fill gaps in the source data,
             by default gaps will result in a `ValueError`.
 
-        scaled : `bool`
+        scaled : `bool`, optional
             Apply slope and bias calibration to ADC data, for non-ADC data
             this option has no effect.
 
-        nproc : `int`
-            Number of parallel processes to use.
+        parallel : `int`, optional
+            Number of parallel threads to use when reading data.
 
-        allow_tape : `bool`
+        allow_tape : `bool`, optional
             Allow reading from frame files on (slow) magnetic tape.
 
         verbose : `bool`, optional
-            Print verbose output about read progress, if ``verbose``
-            is specified as a string, this defines the prefix for the
-            progress meter.
+            This argument is deprecated and will be removed in a future release.
+            Use DEBUG-level logging instead, see :ref:`gwpy-logging`.
 
         readargs
             Any other keyword arguments to be passed to `.read()`.
@@ -1243,237 +1497,119 @@ class TimeSeriesBaseDict(OrderedDict):
             If no files are found to read, or if the read operation
             fails.
         """
-        from ..io import datafind as io_datafind
-
-        start = to_gps(start)
-        end = to_gps(end)
-
-        # -- find frametype(s)
-
-        frametypes = {}
-
-        if frametype is None:
-            matched = io_datafind.find_best_frametype(
-                channels,
-                start,
-                end,
-                frametype_match=frametype_match,
-                allow_tape=allow_tape,
-            )
-
-            # flip dict to frametypes with a list of channels
-            for name, ftype in matched.items():
-                try:
-                    frametypes[ftype].append(name)
-                except KeyError:
-                    frametypes[ftype] = [name]
-
-            if verbose and len(frametypes) > 1:
-                gprint(f"Determined {len(frametypes)} frametypes to read")
-            elif verbose:
-                gprint(f"Determined best frametype as '{list(frametypes)[0]}'")
-        else:  # use the given frametype for all channels
-            frametypes[frametype] = channels
-
-        # -- read data
-
-        out = cls()
-        for frametype, clist in frametypes.items():
-            if verbose:
-                verbose = f"Reading '{frametype}' data"
-
-            # parse as a ChannelList
-            channellist = ChannelList.from_names(*clist)
-            # strip trend tags from channel names
-            names = [c.name for c in channellist]
-
-            # find observatory for this group
-            if observatory is None:
-                try:
-                    obs = ''.join(
-                        sorted(set(c.ifo[0] for c in channellist)))
-                except TypeError as exc:
-                    raise ValueError(
-                        "Cannot parse list of IFOs from channel names",
-                    ) from exc
-
-            else:
-                obs = observatory
-            # find frames
-            cache = io_datafind.find_urls(
-                obs,
-                frametype,
-                start,
-                end,
-                on_gaps="error" if pad is None else "warn",
-            )
-            if not cache:
-                raise RuntimeError(
-                    f"No {observatory}-{frametype} URLs found for "
-                    f"[{start}, {end})",
-                )
-
-            # read data
-            new = cls.read(
-                cache,
-                names,
-                start=start,
-                end=end,
-                pad=pad,
-                scaled=scaled,
-                nproc=nproc,
-                verbose=verbose,
-                **readargs,
-            )
-
-            # map back to user-given channel name and append
-            out.append(type(new)(
-                (key, new[chan]) for (key, chan) in zip(clist, names)
-            ))
-        return out
+        return cls.get(
+            channels,
+            start,
+            end,
+            source="gwdatafind",
+            observatory=observatory,
+            frametype=frametype,
+            frametype_match=frametype_match,
+            host=host,
+            urltype=urltype,
+            ext=ext,
+            pad=pad,
+            scaled=scaled,
+            allow_tape=allow_tape,
+            parallel=parallel,
+            verbose=verbose,
+            **readargs,
+        )
 
     @classmethod
-    def get(cls, channels, start, end, pad=None, scaled=None,
-            dtype=None, verbose=False, allow_tape=None, **kwargs):
-        """Retrieve data for multiple channels from frames or NDS
-
-        This method dynamically accesses either frames on disk, or a
-        remote NDS2 server to find and return data for the given interval
+    def from_arrakis(
+        cls,
+        block: arrakis.SeriesBlock,
+        *,
+        copy: bool = True,
+        **metadata,
+    ) -> Self:
+        """Construct a new dict from an `arrakis.SeriesBlock`.
 
         Parameters
         ----------
-        channels : `list`
-            required data channels.
+        block : `arrakis.SeriesBlock`
+            The input Arrakis data to read.
 
-        start : `~gwpy.time.LIGOTimeGPS`, `float`, `str`
-            GPS start time of required data,
-            any input parseable by `~gwpy.time.to_gps` is fine
+        copy : `bool`, optional
+            If `True`, copy the contained data array to new  to a new array.
 
-        end : `~gwpy.time.LIGOTimeGPS`, `float`, `str`, optional
-            GPS end time of required data, defaults to end of data found;
-            any input parseable by `~gwpy.time.to_gps` is fine
+        metadata
+            Any other metadata keyword arguments to pass to the `TimeSeries`
+            constructor.
 
-        frametype : `str`, optional
-            name of frametype in which this channel is stored, by default
-            will search for all required frame types
-
-        pad : `float`, optional
-            value with which to fill gaps in the source data,
-            by default gaps will result in a `ValueError`.
-
-        scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
-            this option has no effect.
-
-        nproc : `int`, optional, default: `1`
-            number of parallel processes to use, serial process by
-            default.
-
-        allow_tape : `bool`, optional, default: `None`
-            allow the use of frames that are held on tape, default is `None`
-            to attempt to allow the `TimeSeries.fetch` method to
-            intelligently select a server that doesn't use tapes for
-            data storage (doesn't always work), but to eventually allow
-            retrieving data from tape if required
-
-        verbose : `bool`, optional
-            print verbose output about data access progress, if ``verbose``
-            is specified as a string, this defines the prefix for the
-            progress meter
-
-        **kwargs
-            other keyword arguments to pass to either
-            `TimeSeriesBaseDict.find` (for direct GWF file access) or
-            `TimeSeriesBaseDict.fetch` for remote NDS2 access
+        Returns
+        -------
+        dict : `TimeSeriesDict`
+            A new `TimeSeriesDict` containing the data from the Arrakis block.
         """
-        # separate non-None nds2-only keywords here
-        nds_kw = {}
-        for key in ('host', 'port', 'connection', 'type', 'dtype'):
-            val = kwargs.pop(key, None)
-            if val is not None:
-                nds_kw[key] = val
-
-        # try and find from frames
-        if not nds_kw:
-            if verbose:
-                gprint("Attempting to access data from frames...")
-            try:
-                return cls.find(channels, start, end, pad=pad, scaled=scaled,
-                                verbose=verbose,
-                                allow_tape=allow_tape or False,
-                                **kwargs)
-            except (ImportError, RuntimeError, ValueError) as exc:
-                if verbose:
-                    gprint(str(exc), file=sys.stderr)
-                    gprint("Failed to access data from frames, trying NDS...")
-
-        # remove kwargs for .find()
-        for key in ('nproc', 'frametype', 'frametype_match', 'observatory'):
-            kwargs.pop(key, None)
-        kwargs.update(nds_kw)  # replace nds keywords
-
-        # otherwise fetch from NDS
-        try:
-            return cls.fetch(channels, start, end, pad=pad, scaled=scaled,
-                             dtype=dtype, allow_tape=allow_tape,
-                             verbose=verbose, **kwargs)
-        except RuntimeError as exc:
-            # if all else fails, try and get each channel individually
-            if len(channels) == 1:
-                raise
-            else:
-                if verbose:
-                    gprint(str(exc), file=sys.stderr)
-                    gprint("Failed to access data for all channels as a "
-                           "group, trying individually:")
-                return cls(
-                    (c, cls.EntryClass.get(c, start, end, pad=pad,
-                                           scaled=scaled, dtype=dtype,
-                                           allow_tape=allow_tape,
-                                           verbose=verbose, **kwargs))
-                    for c in channels)
+        tsd = cls()
+        for name, series in block.items():
+            tsd[name] = tsd.EntryClass.from_arrakis(
+                series,
+                copy=copy,
+                **metadata,
+            )
+        return tsd
 
     @classmethod
-    def from_nds2_buffers(cls, buffers, scaled=None, copy=True, **metadata):
-        """Construct a new dict from a list of `nds2.buffer` objects
+    def from_nds2_buffers(
+        cls,
+        buffers: Iterable[nds2.buffer],
+        *,
+        scaled: bool | None = None,
+        copy: bool = True,
+        **metadata,
+    ) -> Self:
+        """Construct a new dict from a list of `nds2.buffer` objects.
 
         **Requires:** |nds2|_
 
         Parameters
         ----------
         buffers : `list` of `nds2.buffer`
-            the input NDS2-client buffers to read
+            The input NDS2-client buffers to read.
 
         scaled : `bool`, optional
-            apply slope and bias calibration to ADC data, for non-ADC data
+            Apply slope and bias calibration to ADC data, for non-ADC data
             this option has no effect.
 
         copy : `bool`, optional
-            if `True`, copy the contained data array to new  to a new array
+            If `True`, copy the contained data array to new  to a new array.
 
-        **metadata
-            any other metadata keyword arguments to pass to the `TimeSeries`
-            constructor
+        metadata
+            Any other metadata keyword arguments to pass to the `TimeSeries`
+            constructor.
 
         Returns
         -------
         dict : `TimeSeriesDict`
-            a new `TimeSeriesDict` containing the data from the given buffers
+            A new `TimeSeriesDict` containing the data from the given buffers.
         """
         tsd = cls()
         for buf in buffers:
             tsd[buf.channel.name] = tsd.EntryClass.from_nds2_buffer(
-                buf, scaled=scaled, copy=copy, **metadata)
+                buf,
+                scaled=scaled,
+                copy=copy,
+                **metadata,
+            )
         return tsd
 
-    def plot(self, label='key', method='plot', figsize=(12, 4),
-             xscale='auto-gps', **kwargs):
+    def plot(
+        self,
+        label: str = "key",
+        method: str = "plot",
+        figsize: tuple[float, float] = (12, 4),
+        xscale: str = "auto-gps",
+        **kwargs,
+    ) -> Plot:
         """Plot the data for this `TimeSeriesBaseDict`.
 
         Parameters
         ----------
         label : `str`, optional
-            labelling system to use, or fixed label for all elements
+            Labelling system to use, or fixed label for all elements
             Special values include
 
             - ``'key'``: use the key of the `TimeSeriesBaseDict`,
@@ -1481,13 +1617,28 @@ class TimeSeriesBaseDict(OrderedDict):
 
             If anything else, that fixed label will be used for all lines.
 
-        **kwargs
-            all other keyword arguments are passed to the plotter as
-            appropriate
+        method : `str`, optional
+            The plotting method to use. This can be any method supported by the
+            underlying plotting library (e.g., Matplotlib).
+
+        figsize : `tuple[float, float]`, optional
+            The size of the figure to create, in inches.
+
+        xscale : `str`, optional
+            The scale of the x-axis. This can be one of
+
+            - ``'linear'``: linear scale
+            - ``'log'``: logarithmic scale
+            - ``'auto-gps'``: automatically determine scale based on GPS time
+
+        kwargs
+            All other keyword arguments are passed to the plotter as appropriate.
         """
         kwargs.update({
             "method": method,
             "label": label,
+            "figsize": figsize,
+            "xscale": xscale,
         })
 
         # make plot
@@ -1499,105 +1650,148 @@ class TimeSeriesBaseDict(OrderedDict):
             plot = Plot(self.values(), **kwargs)
 
         # update labels
-        artmap = {'plot': 'lines', 'scatter': 'collections'}
-        artists = [x for ax in plot.axes for
-                   x in getattr(ax, artmap.get(method, 'lines'))]
-        for key, artist in zip(self, artists):
-            if label.lower() == 'name':
+        artmap = {
+            "plot": "lines",
+            "scatter": "collections",
+        }
+        artists = [
+            x for ax in plot.axes
+            for x in getattr(ax, artmap.get(method, "lines"))
+        ]
+        for key, artist in zip(self, artists, strict=True):
+            if label.lower() == "name":
                 lab = self[key].name
-            elif label.lower() == 'key':
-                lab = key
+            elif label.lower() == "key":
+                lab = str(key)
             else:
                 lab = label
             artist.set_label(lab)
 
         return plot
 
-    def step(self, label='key', where='post', figsize=(12, 4),
-             xscale='auto-gps', **kwargs):
+    def step(
+        self,
+        label: str = "key",
+        where: Literal["pre", "post", "mid"] = "post",
+        figsize: tuple[float, float] = (12, 4),
+        xscale: str = "auto-gps",
+        **kwargs,
+    ) -> Plot:
         """Create a step plot of this dict.
 
         Parameters
         ----------
         label : `str`, optional
-            labelling system to use, or fixed label for all elements
+            Labelling system to use, or fixed label for all elements.
             Special values include
 
-            - ``'key'``: use the key of the `TimeSeriesBaseDict`,
-            - ``'name'``: use the :attr:`~TimeSeries.name` of each element
+            ``'key'``
+                Use the key of the `TimeSeriesBaseDict`
+
+            ``'name'``
+                Use the :attr:`~TimeSeries.name` of each element
 
             If anything else, that fixed label will be used for all lines.
 
-        **kwargs
-            all other keyword arguments are passed to the plotter as
-            appropriate
+        where : `str`, optional
+            The location of the step change. This can be one of
+
+            - ``'pre'``: the step change occurs before the x value
+            - ``'post'``: the step change occurs after the x value
+            - ``'mid'``: the step change occurs at the midpoint of the x value
+
+        figsize : `tuple[float, float]`, optional
+            The size of the figure to create, in inches.
+
+        xscale : `str`, optional
+            The scale of the x-axis. This can be one of
+
+            - ``'linear'``: linear scale
+            - ``'log'``: logarithmic scale
+            - ``'auto-gps'``: automatically determine scale based on GPS time
+
+        kwargs
+            All other keyword arguments are passed to the plotter as appropriate.
         """
         kwargs.setdefault(
             "drawstyle",
-            "steps-{}".format(where),
+            f"steps-{where}",
         )
-        tmp = type(self)()
+        tmp = cast("Self", type(self)())
         for key, series in self.items():
             tmp[key] = series.append(series.value[-1:], inplace=False)
 
-        return tmp.plot(label=label, figsize=figsize, xscale=xscale,
-                        **kwargs)
+        return tmp.plot(
+            label=label,
+            figsize=figsize,
+            xscale=xscale,
+            **kwargs,
+        )
 
 
-# -- TimeSeriesBaseList -------------------------------------------------------
+# -- TimeSeriesBaseList --------------
 
-class TimeSeriesBaseList(list):
-    """Fancy list representing a list of `TimeSeriesBase`
+# Type variable for generic list entries
+_T = TypeVar("_T", bound=TimeSeriesBase)
+
+
+class TimeSeriesBaseList(list[_T], Generic[_T]):
+    """Fancy list representing a list of `TimeSeriesBase`.
 
     The `TimeSeriesBaseList` provides an easy way to collect and organise
     `TimeSeriesBase` for a single `Channel` over multiple segments.
 
     Parameters
     ----------
-    *items
-        any number of `TimeSeriesBase`
+    items
+        Any number of `TimeSeriesBase`.
 
     Returns
     -------
     list
-        a new `TimeSeriesBaseList`
+        A new `TimeSeriesBaseList`.
 
     Raises
     ------
     TypeError
         if any elements are not `TimeSeriesBase`
     """
-    EntryClass = TimeSeriesBase
 
-    def __init__(self, *items):
-        """Initialise a new list
-        """
-        super().__init__()
-        for item in items:
-            self.append(item)
+    EntryClass: ClassVar[type[TimeSeriesBase]] = TimeSeriesBase
+
+    def __init__(self, *items: _T) -> None:
+        """Initialise a new list."""
+        if len(items) == 1 and isinstance(items[0], (list, tuple)):
+            super().__init__(*items)
+        else:
+            super().__init__()
+            for item in items:
+                self.append(item)
 
     @property
-    def segments(self):
-        """The `span` of each series in this list
-        """
-        from ..segments import SegmentList
+    def segments(self) -> SegmentList:
+        """The `span` of each series in this list."""
         return SegmentList([item.span for item in self])
 
-    def append(self, item):
+    def append(self, item: _T) -> None:
+        """Add a new element to the end of the list."""
         if not isinstance(item, self.EntryClass):
-            raise TypeError("Cannot append type '%s' to %s"
-                            % (type(item).__name__, type(self).__name__))
+            msg = f"Cannot append type '{type(item).__name__}' to {type(self).__name__}"
+            raise TypeError(msg)
+
         super().append(item)
-        return self
+
     append.__doc__ = list.append.__doc__
 
-    def extend(self, item):
+    def extend(self, item: Iterable[_T]) -> None:
+        """Add multiple elements to the end of the list."""
         item = TimeSeriesBaseList(*item)
         super().extend(item)
+
     extend.__doc__ = list.extend.__doc__
 
-    def coalesce(self):
-        """Merge contiguous elements of this list into single objects
+    def coalesce(self) -> Self:
+        """Merge contiguous elements of this list into single objects.
 
         This method implicitly sorts and potentially shortens this list.
         """
@@ -1612,7 +1806,7 @@ class TimeSeriesBaseList(list):
                     try:
                         this = self[i] = this.append(self[j])
                     except ValueError as exc:
-                        if 'cannot resize this array' in str(exc):
+                        if "cannot resize this array" in str(exc):
                             this = this.copy()
                             this = self[i] = this.append(self[j])
                         else:
@@ -1624,21 +1818,30 @@ class TimeSeriesBaseList(list):
         del self[i:]
         return self
 
-    def join(self, pad=None, gap=None):
-        """Concatenate all of the elements of this list into a single object
+    def join(
+        self,
+        pad: float | None = None,
+        gap: Literal["raise", "ignore", "pad"] | None = None,
+    ) -> _T:
+        """Concatenate all of the elements of this list into a single object.
 
         Parameters
         ----------
         pad : `float`, optional
-            value with which to fill gaps in the source data,
+            Value with which to fill gaps in the source data,
             by default gaps will result in a `ValueError`.
 
-        gap : `str`, optional, default: `'raise'`
-            what to do if there are gaps in the data, one of
+        gap : `str`, optional
+            What to do if there are gaps in the data, one of
 
-            - ``'raise'`` - raise a `ValueError`
-            - ``'ignore'`` - remove gap and join data
-            - ``'pad'`` - pad gap with zeros
+            ``'raise'``
+                Raise a `ValueError`
+
+            ``'ignore'``
+                Remove gap and join data
+
+            ``'pad'``
+                Pad gap with zeros
 
             If `pad` is given and is not `None`, the default is ``'pad'``,
             otherwise ``'raise'``.
@@ -1646,33 +1849,38 @@ class TimeSeriesBaseList(list):
         Returns
         -------
         series : `gwpy.types.TimeSeriesBase` subclass
-             a single series containing all data from each entry in this list
+             A single series containing all data from each entry in this list.
 
-        See also
+        See Also
         --------
         TimeSeries.append
-            for details on how the individual series are concatenated together
+            For details on how the individual series are concatenated together.
         """
         if not self:
-            return self.EntryClass(numpy.empty((0,) * self.EntryClass._ndim))
-        self.sort(key=lambda t: t.epoch.gps)
+            return self.EntryClass(numpy.empty((0,) * self.EntryClass._ndim))  # noqa: SLF001
+        self.sort(key=lambda t: t.x0.value)
         out = self[0].copy()
         for series in self[1:]:
             out.append(series, gap=gap, pad=pad)
         return out
 
-    def __getslice__(self, i, j):
-        return type(self)(*super().__getslice__(i, j))
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> _T: ...
+    @overload
+    def __getitem__(self, key: slice) -> Self: ...
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: SupportsIndex | slice) -> Self | _T:
+        """Get an item from this list.
+
+        If the key is a slice, return a new `TimeSeriesBaseList` containing
+        the sliced elements, otherwise return the element at that index.
+        """
         if isinstance(key, slice):
-            return type(self)(
-                *super().__getitem__(key))
+            return type(self)(*super().__getitem__(key))
         return super().__getitem__(key)
 
-    def copy(self):
-        """Return a copy of this list with each element copied to new memory
-        """
+    def copy(self) -> Self:
+        """Return a copy of this list with each element copied to new memory."""
         out = type(self)()
         for series in self:
             out.append(series.copy())

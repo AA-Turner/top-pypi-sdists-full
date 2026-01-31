@@ -13,7 +13,7 @@ class Status(Check):
 
         try:
             status, result = NodeTools.status(ctx)
-            # ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+            # ctx_fg = ctx.copy(background=False, text_color=Color.gray)
             # result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", ctx=ctx_fg)
             # status = parse_nodetool_status(result.stdout)
             pod_details = {

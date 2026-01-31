@@ -8,20 +8,43 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-11]
+        os: [ubuntu-22.04, macos-14, macos-15-intel]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.0
-        with:
-          package-dir: .
-          output-dir: wheelhouse
-          config-file: "{package}/pyproject.toml"
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-dev
 
-      - uses: actions/upload-artifact@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
+          python-version: '3.12'
+
+      - name: Get version from git tag
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Patch version in meson.build
+        run: |
+          sed -i.bak "s/version: '0.0.0'/version: '${{ steps.version.outputs.version }}'/" meson.build
+          cat meson.build | head -5
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel>=3.0
+
+      - name: Build wheels
+        run: cibuildwheel --output-dir wheelhouse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl

@@ -15,6 +15,7 @@ from docling_core.transforms.serializer.markdown import (
     MarkdownParams,
     OrigListItemMarkerMode,
 )
+from docling_core.transforms.serializer.webvtt import WebVTTDocSerializer
 from docling_core.transforms.visualizer.layout_visualizer import LayoutVisualizer
 from docling_core.types.doc.base import ImageRefMode
 from docling_core.types.doc.document import (
@@ -33,7 +34,7 @@ def verify(exp_file: Path, actual: str):
         with open(exp_file, "w", encoding="utf-8") as f:
             f.write(f"{actual}\n")
     else:
-        with open(exp_file, "r", encoding="utf-8") as f:
+        with open(exp_file, encoding="utf-8") as f:
             expected = f.read().rstrip()
 
         # Normalize platform-dependent quote escaping for DocTags outputs
@@ -348,6 +349,31 @@ def test_md_pipe_in_table():
     ser = doc.export_to_markdown()
     assert ser == "| Fruits &#124; Veggies   |\n|-------------------------|"
 
+
+def test_md_compact_table():
+    """Test compact table format removes padding and uses minimal separators."""
+    from docling_core.transforms.serializer.markdown import MarkdownTableSerializer
+
+    # Test the _compact_table method directly
+    padded_table = """| item   | qty   | description           |
+| ------ | ----: | :-------------------: |
+| spam   | 42    | A canned meat product |
+| eggs   | 451   | Fresh farm eggs       |
+| bacon  | 0     | Out of stock          |"""
+
+    expected_compact = """| item | qty | description |
+| - | -: | :-: |
+| spam | 42 | A canned meat product |
+| eggs | 451 | Fresh farm eggs |
+| bacon | 0 | Out of stock |"""
+
+    compact_result = MarkdownTableSerializer._compact_table(padded_table)
+    assert compact_result == expected_compact
+
+    # Verify space savings
+    assert len(compact_result) < len(padded_table)
+
+
 # ===============================
 # HTML tests
 # ===============================
@@ -563,3 +589,27 @@ def test_html_inline_and_formatting():
     ser = HTMLDocSerializer(doc=doc)
     actual = ser.serialize().text
     verify(exp_file=src.with_suffix(".gt.html"), actual=actual)
+
+
+# ===============================
+# WebVTT tests
+# ===============================
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    [
+        "webvtt_example_01",
+        "webvtt_example_02",
+        "webvtt_example_03",
+        "webvtt_example_04",
+        "webvtt_example_05",
+    ],
+)
+def test_webvtt(file_name):
+    src = Path(f"./test/data/doc/{file_name}.json")
+    doc = DoclingDocument.load_from_json(src)
+
+    ser = WebVTTDocSerializer(doc=doc)
+    actual = ser.serialize().text
+    verify(exp_file=src.with_suffix(".gt.vtt"), actual=actual)

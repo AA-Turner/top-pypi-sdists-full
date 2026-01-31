@@ -8,6 +8,7 @@ from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import Color
+from adam.utils_repl.set_completer import SetCompleter
 
 class RestartNodes(Command):
     COMMAND = 'restart nodes'
@@ -32,17 +33,25 @@ class RestartNodes(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state, apply=False) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with extract_options(args, '--force') as (args, forced):
                     with validate_args(args, state, name='pod name'):
-                        if backgrounded:
+                        # restart nodes allow comma separator
+                        safe_args = []
+                        for arg in args:
+                            for a in arg.split(','):
+                                if a:
+                                    safe_args.append(a)
+                        args = safe_args
+
+                        if background:
                             # start with foreground, it become background if the node restart thread is not yet runnig during scheduling
                             ctx = Context.new(cmd=cmd, show_out=True)
 
                             for pod in args:
                                 NodeRestarter.schedule(state, pod, ctx)
                         else:
-                            ctx = Context.new(cmd=cmd, show_out=True, backgrounded=backgrounded)
+                            ctx = Context.new(cmd=cmd, show_out=True, background=background)
                             for arg in args:
                                 if forced:
                                     ctx.log(f'[{arg}] Restarting...')
@@ -61,7 +70,8 @@ class RestartNodes(Command):
                         return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, lambda: {p: {'--force': {'&': None}, '&': None} for p in StatefulSets.pod_names(state.sts, state.namespace)})
+        return super().completion(state, lambda: SetCompleter(StatefulSets.pod_names(state.sts, state.namespace), options={'--force': {'&': None}, '&': None}))
+        # return super().completion(state, lambda: {p: {'--force': {'&': None}, '&': None} for p in StatefulSets.pod_names(state.sts, state.namespace)})
 
     def help(self, state: ReplState):
-        return super().help(state, 'restart Cassandra nodes  --force do not check node dependency', args='<pod-name>... [--force] [&]')
+        return super().help(state, 'restart Cassandra nodes  --force do not check node dependency', args='<pod-name>,... [--force] [&]')

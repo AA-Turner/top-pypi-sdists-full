@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blacksheep"
+dynamic = ["version"]
+authors = [{ name = "Roberto Prevato", email = "roberto.prevato@gmail.com" }]
+description = "Fast web framework for Python asyncio"
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Environment :: Web Environment",
+    "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["blacksheep", "web framework", "asyncio"]
+dependencies = [
+    "certifi>=2025.4.26",
+    "guardpost>=1.0.4",
+    "rodi~=2.0.8",
+    "essentials>=1.1.8,<2.0",
+    "essentials-openapi>=1.2.0,<2.0",
+    "itsdangerous~=2.2.0",
+    "h11>=0.14.0,<1.0.0",
+    "h2>=4.0.0,<5.0.0",
+    "httptools>=0.7.1; platform_python_implementation != 'PyPy'",
+    "async-timeout>=4.0.0; python_version < '3.11'",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["blacksheep*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "blacksheep.__version__" }
+
+[project.optional-dependencies]
+jinja = ["Jinja2~=3.1.6"]
+full = [
+    "cryptography>=45.0.2,<47.0.0",
+    "PyJWT~=2.10.1",
+    "websockets~=15.0.1",
+    "Jinja2~=3.1.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/Neoteroi/BlackSheep"
+Documentation = "https://www.neoteroi.dev/blacksheep/"
+Issues = "https://github.com/Neoteroi/BlackSheep/issues"
+Repository = "https://github.com/Neoteroi/BlackSheep"
+Changelog = "https://github.com/Neoteroi/BlackSheep/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+include-package-data = true

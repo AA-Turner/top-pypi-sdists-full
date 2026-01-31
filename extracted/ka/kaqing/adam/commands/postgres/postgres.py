@@ -32,7 +32,7 @@ class Postgres(IntermediateCommand):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with validate_args(args, state, name='SQL statement') as sql:
                     if not state.pg_path:
                         if state.in_repl:
@@ -44,9 +44,9 @@ class Postgres(IntermediateCommand):
 
                     r: ExecResult = None
                     with postgres(state) as pod:
-                        r = pod.sql(args, ctx=Context.new(cmd, backgrounded, show_out=True, history=Context.PODS))
+                        r = pod.sql(args, ctx=Context.new(cmd, background, show_out=True, history=Context.PODS))
 
-                    if not backgrounded and r:
+                    if not background and r:
                         log(r.stdout)
                         log2(r.stderr)
 

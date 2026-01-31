@@ -1,6 +1,5 @@
-#
 """test_isbn10 - Test Isbn10 class."""
-# Copyright © 2012-2020  James Rowe <jnrowe@gmail.com>
+# Copyright © 2012-2025  James Rowe <jnrowe@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -22,17 +21,18 @@ from hypothesis import example, given
 from hypothesis.strategies import sampled_from
 
 from pyisbn import Isbn10
-
 from tests.data import TEST_ISBN10S
 
 
-@example('3540009787')
+@example("3540009787")
 @given(sampled_from(TEST_ISBN10S))
 def test_calculate_checksum(isbn: str):
+    """Test calculating the checksum of an ISBN-10."""
     assert Isbn10(isbn).calculate_checksum() == isbn[-1]
 
 
-@example('3540009787')
+@example("3540009787")
 @given(sampled_from(TEST_ISBN10S))
 def test_convert(isbn: str):
-    assert Isbn10(isbn).convert()[:-1] == '978' + isbn[:-1]
+    """Test converting an ISBN-10."""
+    assert Isbn10(isbn).convert()[:-1] == "978" + isbn[:-1]

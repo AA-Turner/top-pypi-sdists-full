@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2019-2020)
+# Copyright (c) 2019-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,12 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for :mod:`gwpy.utils.enum`
-"""
-
-import pytest
+"""Tests for :mod:`gwpy.utils.enum`."""
 
 import numpy
+import pytest
 
 from .. import enum as gwpy_enum
 
@@ -31,17 +28,17 @@ class _MyEnum(gwpy_enum.NumpyTypeEnum):
     FLOAT32 = 200
 
 
-class TestNumpyTypeEnum(object):
+class TestNumpyTypeEnum:
+    """Test `gwpy.utils.enum.NumpyTypeEnum`."""
+
     TEST_CLASS = _MyEnum
 
     def test_dtype(self):
-        """Test `NumpyTypeEnum.dtype` property
-        """
+        """Test `NumpyTypeEnum.dtype` property."""
         assert self.TEST_CLASS.INT16.dtype is numpy.dtype("int16")
 
     def test_type(self):
-        """Test `NumpyTypeEnum.type` property
-        """
+        """Test `NumpyTypeEnum.type` property."""
         assert self.TEST_CLASS.INT16.type is numpy.int16
 
     @pytest.mark.parametrize("arg", [
@@ -51,25 +48,23 @@ class TestNumpyTypeEnum(object):
         numpy.dtype("int16"),
     ])
     def test_find(self, arg):
-        """Test :meth:`NumpyTypeEnum.find` method
-        """
+        """Test :meth:`NumpyTypeEnum.find` method."""
         assert self.TEST_CLASS.find(arg) is self.TEST_CLASS.INT16
 
     def test_find_value(self):
-        """Test :meth:`NumpyTypeEnum.find` method with value
+        """Test :meth:`NumpyTypeEnum.find` method with value.
 
         This is a round-about way of testing that .find() can take in an
         the enum value (integer) for TEST_CLASS, and return just the enum
         """
         assert self.TEST_CLASS.find(
-            self.TEST_CLASS.INT16.value
+            self.TEST_CLASS.INT16.value,
         ) is self.TEST_CLASS.INT16
 
     def test_find_errors(self):
-        """Test :meth:`NumpyTypeEnum.find` method error handling
-        """
+        """Test :meth:`NumpyTypeEnum.find` method error handling."""
         with pytest.raises(
             ValueError,
             match=f"^'blah' is not a valid {self.TEST_CLASS.__name__}$",
         ):
-            self.TEST_CLASS.find('blah')
+            self.TEST_CLASS.find("blah")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-pydantic-field
-Version: 0.5.1
+Version: 0.5.2
 Summary: Type-Safe Pydantic Schemas for Django JSONFields
 Keywords: django,pydantic,json,schema
 Author: Savva Surenkov
@@ -40,10 +40,10 @@ Requires-Dist: django-jsonform>=2.0,<3 ; extra == 'jsonform'
 Requires-Dist: uritemplate ; extra == 'openapi'
 Requires-Dist: inflection ; extra == 'openapi'
 Requires-Python: >=3.10
-Project-URL: Changelog, https://github.com/surenkov/django-pydantic-field/releases
-Project-URL: Documentation, https://github.com/surenkov/django-pydantic-field
 Project-URL: Homepage, https://github.com/surenkov/django-pydantic-field
+Project-URL: Documentation, https://github.com/surenkov/django-pydantic-field
 Project-URL: Source, https://github.com/surenkov/django-pydantic-field
+Project-URL: Changelog, https://github.com/surenkov/django-pydantic-field/releases
 Provides-Extra: jsonform
 Provides-Extra: openapi
 Description-Content-Type: text/markdown

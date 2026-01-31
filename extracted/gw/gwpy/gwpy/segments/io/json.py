@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2017-2020)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,89 +16,94 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Read/write segments and flags from DQSEGDB-format JSON
-"""
+"""Read/write segments and flags from DQSEGDB-format JSON."""
 
 import json
+from typing import IO
 
-from ...io import registry
-from ...io.utils import (
+from ...io.registry import (
+    default_registry,
     identify_factory,
+)
+from ...io.utils import (
     with_open,
 )
 from .. import DataQualityFlag
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-# -- read ---------------------------------------------------------------------
+# -- read ----------------------------
 
 @with_open
-def read_json_flag(fobj):
-    """Read a `DataQualityFlag` from a segments-web.ligo.org JSON file
-    """
+def read_json_flag(fobj: IO) -> DataQualityFlag:
+    """Read a `DataQualityFlag` from a segments-web.ligo.org JSON file."""
     data = json.load(fobj)
 
     # format flag
-    name = '{ifo}:{name}:{version}'.format(**data)
-    out = DataQualityFlag(name, active=data['active'],
-                          known=data['known'])
+    name = "{ifo}:{name}:{version}".format(**data)
+    out = DataQualityFlag(name, active=data["active"],
+                          known=data["known"])
 
     # parse 'metadata'
     try:
-        out.description = data['metadata'].get('flag_description', None)
+        out.description = data["metadata"].get("flag_description", None)
     except KeyError:  # no metadata available, but that's ok
         pass
     else:
-        out.isgood = not data['metadata'].get(
-            'active_indicates_ifo_badness', False)
+        out.isgood = not data["metadata"].get(
+            "active_indicates_ifo_badness", False)
 
     return out
 
 
-# -- write --------------------------------------------------------------------
+# -- write ---------------------------
 
 @with_open(mode="w", pos=1)
-def write_json_flag(flag, fobj, **kwargs):
-    """Write a `DataQualityFlag` to a JSON file
+def write_json_flag(
+    flag: DataQualityFlag,
+    fobj: IO,
+    **kwargs,
+):
+    """Write a `DataQualityFlag` to a JSON file.
 
     Parameters
     ----------
     flag : `DataQualityFlag`
-        data to write
+        Data to write.
 
-    fobj : `str`, `file`
-        target file (or filename) to write
+    fobj : `file`
+        Target file (or filename) to write.
 
     **kwargs
         other keyword arguments to pass to :func:`json.dump`
 
-    See also
+    See Also
     --------
     json.dump
         for details on acceptable keyword arguments
     """
     # build json packet
     data = {}
-    data['ifo'] = flag.ifo
-    data['name'] = flag.tag
-    data['version'] = flag.version
-    data['active'] = flag.active
-    data['known'] = flag.known
-    data['metadata'] = {}
-    data['metadata']['active_indicates_ifo_badness'] = not flag.isgood
-    data['metadata']['flag_description'] = flag.description
+    data["ifo"] = flag.ifo
+    data["name"] = flag.tag
+    data["version"] = flag.version
+    data["active"] = flag.active
+    data["known"] = flag.known
+    data["metadata"] = {}
+    data["metadata"]["active_indicates_ifo_badness"] = not flag.isgood
+    data["metadata"]["flag_description"] = flag.description
 
     # write
     json.dump(data, fobj, **kwargs)
 
 
-# -- identify -----------------------------------------------------------------
+# -- register ------------------------
 
-identify_json = identify_factory('json')  # pylint: disable=invalid-name
-
-# -- register -----------------------------------------------------------------
-
-registry.register_reader('json', DataQualityFlag, read_json_flag)
-registry.register_writer('json', DataQualityFlag, write_json_flag)
-registry.register_identifier('json', DataQualityFlag, identify_json)
+default_registry.register_reader("json", DataQualityFlag, read_json_flag)
+default_registry.register_writer("json", DataQualityFlag, write_json_flag)
+default_registry.register_identifier(
+    "json",
+    DataQualityFlag,
+    identify_factory("json"),
+)

@@ -31,7 +31,19 @@ from pathlib import PurePath
 from types import GeneratorType
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from .._compat import ENCODERS_BY_TYPE, BaseModel
+from pydantic import BaseModel
+
+try:
+    from pydantic.deprecated.json import ENCODERS_BY_TYPE
+    from pydantic_core import PydanticUndefined
+
+    PYDANTIC_V2 = True
+except ImportError:
+    # Pydantic v1 compatibility
+    from pydantic.json import ENCODERS_BY_TYPE
+
+    PydanticUndefined = ...
+    PYDANTIC_V2 = False
 
 
 SetIntStr = Set[Union[int, str]]
@@ -39,7 +51,7 @@ DictIntStrAny = Dict[Union[int, str], Any]
 
 
 def generate_encoders_by_class_tuples(
-    type_encoder_map: Dict[Any, Callable[[Any], Any]]
+    type_encoder_map: Dict[Any, Callable[[Any], Any]],
 ) -> Dict[Callable[[Any], Any], Tuple[Any, ...]]:
     encoders_by_class_tuples: Dict[Callable[[Any], Any], Tuple[Any, ...]] = defaultdict(
         tuple
@@ -72,7 +84,7 @@ def jsonable_encoder(
         encoder = getattr(obj.__config__, "json_encoders", {})
         if custom_encoder:
             encoder.update(custom_encoder)
-        obj_dict = obj.dict(
+        obj_dict = obj.model_dump(
             include=include,  # type: ignore # in Pydantic
             exclude=exclude,  # type: ignore # in Pydantic
             by_alias=by_alias,
@@ -106,6 +118,7 @@ def jsonable_encoder(
                     or (not isinstance(key, str))
                     or (not key.startswith("_sa"))
                 )
+                and value is not PydanticUndefined
                 and (value is not None or not exclude_none)
                 and ((include and key in include) or not exclude or key not in exclude)
             ):

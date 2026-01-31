@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mashumaro
-Version: 3.17
+Version: 3.18
 Summary: Fast and well tested serialization library
 Author-email: Alexander Tikhonov <random.gauss@gmail.com>
 License-Expression: Apache-2.0
@@ -176,7 +176,7 @@ Use pip to install:
 $ pip install mashumaro
 ```
 
-The current version of `mashumaro` supports Python versions 3.9 — 3.13.
+The current version of `mashumaro` supports Python versions 3.9 — 3.14.
 
 
 It's not recommended to use any version of Python that has reached its

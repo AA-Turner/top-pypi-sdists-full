@@ -312,6 +312,8 @@ class FileSystemRequestQueueClient(RequestQueueClient):
                 update_modified_at=True,
                 update_accessed_at=True,
                 new_pending_request_count=0,
+                new_handled_request_count=0,
+                new_total_request_count=0,
             )
 
             # Invalidate is_empty cache.
@@ -452,8 +454,6 @@ class FileSystemRequestQueueClient(RequestQueueClient):
                 logger.warning(f'Request with unique key "{unique_key}" not found in the queue.')
                 return None
 
-            state = self._state.current_value
-            state.in_progress_requests.add(request.unique_key)
             await self._update_metadata(update_accessed_at=True)
             return request
 

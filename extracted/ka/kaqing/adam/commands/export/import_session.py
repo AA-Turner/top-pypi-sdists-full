@@ -34,7 +34,7 @@ class ImportSession(Command):
                 with validate_args(args, state, name='export session') as spec:
                     with state_with_pod(state) as state:
                         with export(state) as exporter:
-                            exporter.import_session(spec, ctx=Context.new(cmd, backgrounded=False, history=Context.LOCAL))
+                            exporter.import_session(spec, ctx=Context.new(cmd, background=False, history=Context.LOCAL))
 
                             return state
 

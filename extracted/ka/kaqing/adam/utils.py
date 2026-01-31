@@ -59,58 +59,6 @@ NO_SORT = 0
 SORT = 1
 REVERSE_SORT = -1
 
-def tabulize(lines: list[T],
-             fn: Callable[..., T] = None,
-             header: str = None,
-             dashed_line = False,
-             separator = ' ',
-             sorted: int = NO_SORT,
-             log_file: str = None,
-             err = False,
-             text_color: str = None):
-    if fn:
-        lines = list(map(fn, lines))
-
-    if sorted == SORT:
-        lines.sort()
-    elif sorted == REVERSE_SORT:
-        lines.sort(reverse=True)
-
-    maxes = []
-    nls = []
-
-    def format_line(line: str):
-        nl = []
-        words = line.split(separator)
-        for i, word in enumerate(words):
-            nl.append(word.ljust(maxes[i], ' '))
-        nls.append('  '.join(nl))
-
-    all_lines = lines
-    if header:
-        all_lines = [header] + lines
-
-    for line in all_lines:
-        words = line.split(separator)
-        for i, word in enumerate(words):
-            lw = len(word)
-            if len(maxes) <= i:
-                maxes.append(lw)
-            elif maxes[i] < lw:
-                maxes[i] = lw
-
-    if header:
-        format_line(header)
-        if dashed_line:
-            nls.append(''.ljust(sum(maxes) + (len(maxes) - 1) * 2, '-'))
-    for line in lines:
-        format_line(line)
-
-    table = '\n'.join(nls)
-    _log(table, file=log_file, err=err, text_color=text_color)
-
-    return table
-
 def convert_seconds(total_seconds_float):
     total_seconds_int = int(total_seconds_float)  # Convert float to integer seconds
 
@@ -276,7 +224,7 @@ def json_to_csv(json_data: list[dict[any, any]], delimiter: str = ','):
         flatten(y)
         return out
 
-    if isinstance(json_data, dict):
+    if not isinstance(json_data, list):
         json_data = [json_data]
 
     flattened_data = [flatten_json(record) for record in json_data]

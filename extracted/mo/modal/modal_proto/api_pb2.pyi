@@ -10956,6 +10956,7 @@ class TokenInfoGetResponse(google.protobuf.message.Message):
     SERVICE_USER_IDENTITY_FIELD_NUMBER: builtins.int
     CREATED_AT_FIELD_NUMBER: builtins.int
     EXPIRES_AT_FIELD_NUMBER: builtins.int
+    TOKEN_NAME_FIELD_NUMBER: builtins.int
     token_id: builtins.str
     workspace_id: builtins.str
     workspace_name: builtins.str
@@ -10968,6 +10969,7 @@ class TokenInfoGetResponse(google.protobuf.message.Message):
         """Token metadata"""
     @property
     def expires_at(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    token_name: builtins.str
     def __init__(
         self,
         *,
@@ -10978,9 +10980,10 @@ class TokenInfoGetResponse(google.protobuf.message.Message):
         service_user_identity: global___ServiceUserIdentity | None = ...,
         created_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         expires_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        token_name: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "expires_at", b"expires_at", "identity", b"identity", "service_user_identity", b"service_user_identity", "user_identity", b"user_identity"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "expires_at", b"expires_at", "identity", b"identity", "service_user_identity", b"service_user_identity", "token_id", b"token_id", "user_identity", b"user_identity", "workspace_id", b"workspace_id", "workspace_name", b"workspace_name"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "expires_at", b"expires_at", "identity", b"identity", "service_user_identity", b"service_user_identity", "token_id", b"token_id", "token_name", b"token_name", "user_identity", b"user_identity", "workspace_id", b"workspace_id", "workspace_name", b"workspace_name"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["identity", b"identity"]) -> typing_extensions.Literal["user_identity", "service_user_identity"] | None: ...
 
 global___TokenInfoGetResponse = TokenInfoGetResponse
@@ -12004,6 +12007,34 @@ class WorkspaceBillingReportRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "resolution", b"resolution", "start_timestamp", b"start_timestamp", "tag_names", b"tag_names"]) -> None: ...
 
 global___WorkspaceBillingReportRequest = WorkspaceBillingReportRequest
+
+class WorkspaceDashboardUrlRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENVIRONMENT_NAME_FIELD_NUMBER: builtins.int
+    environment_name: builtins.str
+    def __init__(
+        self,
+        *,
+        environment_name: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["environment_name", b"environment_name"]) -> None: ...
+
+global___WorkspaceDashboardUrlRequest = WorkspaceDashboardUrlRequest
+
+class WorkspaceDashboardUrlResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    URL_FIELD_NUMBER: builtins.int
+    url: builtins.str
+    def __init__(
+        self,
+        *,
+        url: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["url", b"url"]) -> None: ...
+
+global___WorkspaceDashboardUrlResponse = WorkspaceDashboardUrlResponse
 
 class WorkspaceNameLookupResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

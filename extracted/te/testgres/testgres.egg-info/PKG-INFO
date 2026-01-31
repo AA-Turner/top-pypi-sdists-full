@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgres
-Version: 1.13.3
+Version: 1.13.4
 Summary: Testing utility for PostgreSQL and its extensions
 Author-email: Postgres Professional <testgres@postgrespro.ru>
 License: PostgreSQL
@@ -40,7 +40,7 @@ Dynamic: license-file
 
 # testgres
 
-Utility for orchestrating temporary PostgreSQL clusters in Python tests. Supports Python 3.7.17 and newer.
+Utility for orchestrating temporary PostgreSQL clusters in Python tests. Supports Python 3.7.3 and newer.
 
 ## Installation
 

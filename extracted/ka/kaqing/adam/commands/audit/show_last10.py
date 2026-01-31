@@ -27,8 +27,8 @@ class ShowLast10(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
-                run_configured_query('audit.queries.last10', args, ctx=Context.new(cmd, show_out=True, backgrounded=backgrounded))
+            with extract_trailing_options(args, '&') as (args, background):
+                run_configured_query('audit.queries.last10', args, ctx=Context.new(cmd, show_out=True, background=background))
 
                 return state
 

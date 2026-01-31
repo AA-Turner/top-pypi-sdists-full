@@ -27,21 +27,21 @@ class NodeRestarter:
     _completed: dict[tuple[str, str], float] = {}
     _waiting_ons: dict[tuple[str, str], str] = {}
 
-    def start(state: ReplState, ctx: Context):
-        with NodeRestarter.lock:
-            if not NodeRestarter.nodes_thread:
-                ctx = ctx.copy(backgrounded=True)
-
-                NodeRestarter._ctx = ctx
-                NodeRestarter.nodes_thread = threading.Thread(target=NodeRestarter.loop, args=(state, ctx,), daemon=True)
-                NodeRestarter.nodes_thread.start()
-
     def schedule(state: ReplState, pod: str, ctx: Context):
         NodeRestarter.start(state, ctx)
 
         NodeRestarter._ctx.log2(f'[{ts()}] Restart requested for {pod}@{state.namespace}.')
         with NodeRestarter.lock:
             NodeRestarter._queue[(pod, state.namespace)] = time.time()
+
+    def start(state: ReplState, ctx: Context):
+        with NodeRestarter.lock:
+            if not NodeRestarter.nodes_thread:
+                ctx = ctx.copy(background=True, bg_init_msg='[{job_id}] Use :?? to get job scheduling status.')
+
+                NodeRestarter._ctx = ctx
+                NodeRestarter.nodes_thread = threading.Thread(target=NodeRestarter.loop, args=(state, ctx,), daemon=True)
+                NodeRestarter.nodes_thread.start()
 
     def done(pod: tuple[str, str], ctx: Context):
         ctx.log2(f'[{ts()}] Restarted {pod}.')
@@ -99,7 +99,7 @@ class NodeRestarter:
                         if in_restartings:
                             ir = f', in_restarting:[{", ".join([f"{r[0]}@{r[1]}" for r in in_restartings])}]'
 
-                        node: NodeRestartable = Cassandra.restartable(state.with_namespace(namespace), pod, in_restartings=in_restartings, ctx=ctx.copy(show_out=False, backgrounded=False))
+                        node: NodeRestartable = Cassandra.restartable(state.with_namespace(namespace), pod, in_restartings=in_restartings, ctx=ctx.copy(show_out=False, background=False))
                         if node.restartable():
                             ctx.log2(f'[{ts()}] Restarting {pod}@{namespace}{ir}.')
                             NodeRestarter.restart_node(pod, namespace, ctx)

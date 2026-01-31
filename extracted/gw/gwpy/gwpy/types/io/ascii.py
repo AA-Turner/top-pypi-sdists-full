@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,78 +16,154 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Read a `Series` from AN ASCII file
+"""Read a `Series` from an ASCII file.
 
-These files should be in two-column x,y format
+These files should be in (at least) two-column x,y format.
 """
 
-from numpy import (savetxt, loadtxt, column_stack)
+from __future__ import annotations
 
-from ...io import registry as io_registry
-from ...io.utils import identify_factory
-from .. import Series
+from typing import TYPE_CHECKING
+
+from numpy import (
+    column_stack,
+    loadtxt,
+    savetxt,
+)
+
+from ...io.registry import identify_factory
+from .. import (
+    Array2D,
+    Series,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+    from typing import IO
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-# -- read ---------------------------------------------------------------------
+# -- read ----------------------------
 
-def read_ascii_series(input_, array_type=Series, unpack=True, **kwargs):
-    """Read a `Series` from an ASCII file
+def read_ascii_series(
+    input_: str | Path | IO,
+    array_type: type[Series] = Series,
+    *,
+    unpack: bool = True,
+    **kwargs,
+) -> Series:
+    """Read a `Series` from an ASCII file.
 
     Parameters
     ----------
-    input : `str`, `file`
-        file to read
+    input_ : `str`, `file`
+        File to read.
 
     array_type : `type`
-        desired return type
+        Desired return type.
+
+    unpack : `bool`
+        If `True` (default), unpack the data into separate columns.
+        This argument is passed to `numpy.loadtxt`.
+
+    kwargs
+        Additional keyword arguments to pass to `numpy.loadtxt`.
+
+    Returns
+    -------
+    Series
+        The data read from the file, as a `Series` object.
+
+    See Also
+    --------
+    numpy.loadtxt
+        For documentation of keyword arguments.
     """
-    xarr, yarr = loadtxt(input_, unpack=unpack, **kwargs)
-    return array_type(yarr, xindex=xarr)
+    # load data
+    data = loadtxt(input_, unpack=unpack, **kwargs)
+    # separate first column as index
+    xindex = data[0]
+    # reshape other columns as data
+    if array_type._ndim == 1:
+        ydata = data[1:][0]  # one column
+    else:
+        ydata = data[1:].T  # ND array
+    return array_type(ydata, xindex=xindex)
 
 
-# -- write --------------------------------------------------------------------
+# -- write ---------------------------
 
-def write_ascii_series(series, output, **kwargs):
-    """Write a `Series` to a file in ASCII format
+def write_ascii_series(
+    series: Series,
+    output: str | Path | IO,
+    **kwargs,
+) -> None:
+    """Write a `Series` to a file in ASCII format.
 
     Parameters
     ----------
-    series : :class:`~gwpy.data.Series`
-        data series to write
+    series : `Series`
+        Data series to write.
 
     output : `str`, `file`
-        file to write to
+        File to write to.
 
-    See also
+    kwargs
+        Additional keyword arguments to pass to `numpy.savetxt`.
+
+    See Also
     --------
     numpy.savetxt
-        for documentation of keyword arguments
+        For documentation of keyword arguments.
     """
     xarr = series.xindex.value
     yarr = series.value
-    return savetxt(output, column_stack((xarr, yarr)), **kwargs)
+    savetxt(output, column_stack((xarr, yarr)), **kwargs)
 
 
-# -- register -----------------------------------------------------------------
+# -- register ------------------------
 
-def register_ascii_series_io(array_type, format='txt', identify=True,
-                             **defaults):
-    """Register ASCII read/write/identify methods for the given array
-    """
-    def _read(filepath, **kwargs):
+
+def register_ascii_io(
+    array_type: type[Series],
+    format: str = "txt",  # noqa: A002
+    *,
+    identify: bool = True,
+    reader: Callable = read_ascii_series,
+    writer: Callable = write_ascii_series,
+    **defaults,
+) -> None:
+    """Register ASCII read/write/identify methods for the given type."""
+
+    def _read(source: str | Path | IO, **kwargs) -> Series:
         kwgs = defaults.copy()
         kwgs.update(kwargs)
-        return read_ascii_series(filepath, array_type=array_type, **kwgs)
+        return reader(
+            source,
+            array_type=array_type,
+            **kwgs,
+        )
 
-    def _write(series, output, **kwargs):
+    def _write(
+        series: Series,
+        output: str | Path | IO,
+        **kwargs,
+    ) -> None:
         kwgs = defaults.copy()
         kwgs.update(kwargs)
-        return write_ascii_series(series, output, **kwgs)
+        return writer(series, output, **kwgs)
 
-    io_registry.register_reader(format, array_type, _read)
-    io_registry.register_writer(format, array_type, _write)
+    array_type.read.registry.register_reader(format, array_type, _read)
+    array_type.write.registry.register_writer(format, array_type, _write)
     if identify:
-        io_registry.register_identifier(format, array_type,
-                                        identify_factory(format))
+        array_type.read.registry.register_identifier(
+            format,
+            array_type,
+            identify_factory(format),
+        )
+
+
+register_ascii_io(Series, "csv", delimiter=",")
+register_ascii_io(Array2D, "csv", delimiter=",")

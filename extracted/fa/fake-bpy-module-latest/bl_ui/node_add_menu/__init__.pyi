@@ -32,11 +32,12 @@ class NodeMenu(_bpy_types.Menu):
         """
 
     @classmethod
-    def color_mix_node(cls, context, layout) -> None:
+    def color_mix_node(cls, context, layout, search_weight=0.0) -> None:
         """The Mix Color node, with its different blend modes available while in search.
 
         :param context:
         :param layout:
+        :param search_weight:
         """
 
     @classmethod
@@ -283,7 +284,7 @@ class SwapNodeMenu(NodeMenu):
         """
 
 def add_closure_zone(layout, label) -> None: ...
-def add_color_mix_node(context, layout) -> None: ...
+def add_color_mix_node(context, layout, search_weight=0.0) -> None: ...
 def add_empty_group(layout) -> None: ...
 def add_foreach_geometry_element_zone(layout, label) -> None: ...
 def add_node_type(

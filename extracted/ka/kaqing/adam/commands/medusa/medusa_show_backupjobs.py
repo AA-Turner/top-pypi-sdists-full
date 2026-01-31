@@ -2,8 +2,8 @@ from adam.commands.command import Command
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.utils import tabulize, log_exc
-
+from adam.utils import log_exc
+from adam.utils_tabulize import tabulize
 
 class MedusaShowBackupJobs(Command):
     COMMAND = 'show backups'
@@ -40,7 +40,8 @@ class MedusaShowBackupJobs(Command):
                          lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '') if 'status' in x else 'unknown'}",
                          header='NAME\tCREATED\tFINISHED',
                          separator='\t',
-                         to=2)
+                         err=True,
+                         ctx=self.context())
 
             return state
 

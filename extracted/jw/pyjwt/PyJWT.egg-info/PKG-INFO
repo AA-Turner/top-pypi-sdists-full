@@ -1,14 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyJWT
-Version: 2.10.1
+Version: 2.11.0
 Summary: JSON Web Token implementation in Python
 Author-email: Jose Padilla <hello@jpadilla.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/jpadilla/pyjwt
 Keywords: json,jwt,security,signing,token,web
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -18,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
@@ -26,10 +26,10 @@ License-File: AUTHORS.rst
 Provides-Extra: crypto
 Requires-Dist: cryptography>=3.4.0; extra == "crypto"
 Provides-Extra: dev
-Requires-Dist: coverage[toml]==5.0.4; extra == "dev"
+Requires-Dist: coverage[toml]==7.10.7; extra == "dev"
 Requires-Dist: cryptography>=3.4.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest<7.0.0,>=6.0.0; extra == "dev"
+Requires-Dist: pytest<9.0.0,>=8.4.2; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
 Requires-Dist: zope.interface; extra == "dev"
@@ -38,8 +38,9 @@ Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: zope.interface; extra == "docs"
 Provides-Extra: tests
-Requires-Dist: coverage[toml]==5.0.4; extra == "tests"
-Requires-Dist: pytest<7.0.0,>=6.0.0; extra == "tests"
+Requires-Dist: coverage[toml]==7.10.7; extra == "tests"
+Requires-Dist: pytest<9.0.0,>=8.4.2; extra == "tests"
+Dynamic: license-file
 
 PyJWT
 =====

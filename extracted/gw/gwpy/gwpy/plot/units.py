@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Louisiana State University (2014-2017)
-#               Cardiff University (2017-2021)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,14 +16,21 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Support for plotting with units
-"""
+"""Support for plotting with units."""
+
+from __future__ import annotations
+
+from functools import wraps
+from typing import TYPE_CHECKING
 
 from astropy.units.format import LatexInline
 
+if TYPE_CHECKING:
+    from astropy.units import UnitBase
+
 
 class LatexInlineDimensional(LatexInline):
-    r"""Custom LaTeX formatter that includes physical type (if available)
+    r"""Custom LaTeX formatter that includes physical type (if available).
 
     Mainly for auto-labelling `Axes` in matplotlib figures.
 
@@ -38,17 +44,31 @@ class LatexInlineDimensional(LatexInline):
     This custom 'dimensional' formatter gives:
 
     >>> Unit('m/s').to_string(format='latex_inline_dimensional')
-    'Speed [$\mathrm{m\,s^{-1}}$]'
+    'Speed/Velocity [$\mathrm{m\,s^{-1}}$]'
     """
-    name = 'latex_inline_dimensional'
+
+    name = "latex_inline_dimensional"
 
     @classmethod
-    def to_string(cls, unit, *args, **kwargs):
-        u = f"[{super().to_string(unit, *args, **kwargs)}]"
+    @wraps(LatexInline.to_string)
+    def to_string(
+        cls,
+        unit: UnitBase,
+        **kwargs,
+    ) -> str:
+        """Output this unit in LaTeX format with dimensions."""
+        if unit.physical_type == "dimensionless":
+            return "Dimensionless"
 
-        if unit.physical_type not in {None, 'unknown', 'dimensionless'}:
-            # format physical type of unit for LaTeX
-            ptype = str(unit.physical_type).title().replace("_", r"\_")
-            # return '<Physical type> [<unit>]'
-            return f"{ptype} {u}"
-        return u
+        u = f"[{super().to_string(unit, **kwargs)}]"
+
+        if (
+            unit.physical_type is None
+            or unit.physical_type == "unknown"
+        ):
+            return u
+
+        # format physical type of unit for LaTeX
+        ptype = str(unit.physical_type).title().replace("_", r"\_")
+        # looks like '<Physical type> [<unit>]'
+        return f"{ptype} {u}"

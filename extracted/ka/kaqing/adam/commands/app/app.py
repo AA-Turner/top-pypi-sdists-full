@@ -27,7 +27,7 @@ class App(Command):
         with self.validate(args, state) as (args, state):
             with extract_options(args, '--force') as (args, forced):
                 with app(state) as http:
-                    http.post(args, forced=forced)
+                    http.post(args, forced=forced, ctx=self.context())
 
                 return state
 

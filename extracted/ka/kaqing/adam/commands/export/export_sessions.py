@@ -6,11 +6,11 @@ from adam.commands.export.importer import Importer
 from adam.commands.export.utils_export import ExportTableStatus, csv_dir, fs_exec, table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, log_to_pods, tabulize, log, parallelize
+from adam.utils import log2, log_to_pods, log, parallelize
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_files import PodFiles
-from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_local import local_downloads_dir
 
@@ -121,7 +121,7 @@ class ExportSessions:
 
         return csv_cnt, log_cnt
 
-    def show_session(sts: str, pod: str, namespace: str, session: str):
+    def show_session(sts: str, pod: str, namespace: str, session: str, ctx: Context = Context.NULL):
         if not pod:
             pod = StatefulSets.pod_names(sts, namespace)[0]
 
@@ -133,7 +133,8 @@ class ExportSessions:
         tabulize(tables,
                  lambda t: f'{t.keyspace}\t{t.target_table}\t{"export_completed_pending_import" if t.status == "pending_import" else t.status}\t{t.csv_file}',
                  header='KEYSPACE\tTARGET_TABLE\tSTATUS\tCSV_FILES',
-                 separator='\t')
+                 separator='\t',
+                 ctx=ctx.copy(show_out=True))
 
     def download_session(sts: str, pod: str, namespace: str, session: str):
         if not pod:
@@ -176,15 +177,19 @@ class ExportSessionService:
         if ExportSessions.clean_up_all_sessions(state.sts, self.pod(), state.namespace, ctx=ctx):
             ExportSessions.clear_export_session_cache()
 
-    def show_all_sessions(self):
+    def show_all_sessions(self, ctx: Context = Context.NULL):
         state = self.handler.state
 
         sessions = sorted(ExportSessions.find_export_sessions(self.pod(), state.namespace).items(), reverse=True)
-        tabulize(sessions, lambda args: f'{args[0]}\t{args[1]}', header='EXPORT_SESSION\tSTATUS', separator='\t')
+        tabulize(sessions,
+                 lambda args: f'{args[0]}\t{args[1]}',
+                 header='EXPORT_SESSION\tSTATUS',
+                 separator='\t',
+                 ctx=ctx.copy(show_out=True))
 
-    def show_session(self, session: str):
+    def show_session(self, session: str, ctx: Context = Context.NULL):
         state = self.handler.state
-        ExportSessions.show_session(state.sts, self.pod(), state.namespace, session)
+        ExportSessions.show_session(state.sts, self.pod(), state.namespace, session, ctx=ctx)
 
     def download_session(self, session: str):
         state = self.handler.state

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,57 +16,51 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit test for utils module
-"""
+"""Unit test for utils module."""
 
+import sys
 from math import sqrt
 
 import pytest
 
 from .. import mp as utils_mp
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-@pytest.mark.parametrize('verbose', [False, True, 'Test'])
-@pytest.mark.parametrize('nproc', [1, 2])
+@pytest.mark.parametrize("verbose", [False, True, "Test"])
+@pytest.mark.parametrize("nproc", [1, 2])
 def test_multiprocess_with_queues(capsys, nproc, verbose):
+    """Test `multiprocess_with_queues`."""
     inputs = [1, 4, 9, 16, 25]
     out = utils_mp.multiprocess_with_queues(
         nproc,
         sqrt,
         inputs,
         verbose=verbose,
+        file=sys.stdout,  # need to pass stdout for capsys to work
     )
     assert out == [1, 2, 3, 4, 5]
 
     # assert progress bar prints correctly
     stdout = capsys.readouterr().out.strip()
     if verbose is True:
-        assert stdout.startswith('Processing: ')
+        assert stdout.startswith("Processing: ")
     elif verbose is False:
-        assert stdout == ''
+        assert stdout == ""
     else:
         assert stdout.startswith(verbose)
 
 
-@pytest.mark.parametrize('nproc', [1, 2])
+@pytest.mark.parametrize("nproc", [1, 2])
 def test_multiprocess_with_queues_errors(nproc):
-    """Check that errors from child processes propagate to the parent
-    """
-    with pytest.raises(ValueError, match="^math domain error$"):
+    """Check that errors from child processes propagate to the parent."""
+    with pytest.raises(
+        ValueError,
+        match=r"^(math domain error|expected a nonnegative input)",
+    ):
         utils_mp.multiprocess_with_queues(
             nproc,
             sqrt,
             [-1, -1, -1, -1],
-        )
-
-
-def test_multiprocess_with_queues_raise():
-    with pytest.deprecated_call():
-        utils_mp.multiprocess_with_queues(
-            1,
-            sqrt,
-            [1],
-            raise_exceptions=True,
         )

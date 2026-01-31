@@ -71,6 +71,3 @@ async def _set_token(
     verify: bool = True,
     server_url: typing.Optional[str] = None,
 ): ...
-def _open_url(url: str) -> bool:
-    """Opens url in web browser, making sure we use a modern one (not Lynx etc)"""
-    ...

@@ -27,18 +27,14 @@ impl Prettify for HexStream {
     }
 
     fn render_priority(&self, data: &[u8], _metadata: &dyn Metadata) -> f32 {
-        if is_binary(data) {
-            0.4
-        } else {
-            0.0
-        }
+        if is_binary(data) { 0.4 } else { 0.0 }
     }
 }
 
 impl Reencode for HexStream {
     fn reencode(&self, data: &str, _metadata: &dyn Metadata) -> Result<Vec<u8>> {
         let data = data.trim_end_matches(['\n', '\r']);
-        if data.len() % 2 != 0 {
+        if !data.len().is_multiple_of(2) {
             anyhow::bail!("Invalid hex string: uneven number of characters");
         }
         data_encoding::HEXLOWER_PERMISSIVE

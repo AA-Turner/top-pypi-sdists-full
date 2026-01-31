@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from sift_client.errors import _sift_client_experimental_warning
 from sift_client.resources import (
     AssetsAPI,
     AssetsAPIAsync,
@@ -11,6 +10,8 @@ from sift_client.resources import (
     FileAttachmentsAPI,
     FileAttachmentsAPIAsync,
     IngestionAPIAsync,
+    JobsAPI,
+    JobsAPIAsync,
     PingAPI,
     PingAPIAsync,
     ReportsAPI,
@@ -35,8 +36,6 @@ from sift_client.transport import (
 )
 from sift_client.util.util import AsyncAPIs
 
-_sift_client_experimental_warning()
-
 
 class SiftClient(
     WithGrpcClient,
@@ -45,11 +44,6 @@ class SiftClient(
     """SiftClient is a high-level client for interacting with Sift's APIs.
 
     It provides both synchronous and asynchronous interfaces, strong type checking, and a Pythonic API design.
-
-    !!! warning
-        The Sift Client is experimental and is subject to change.
-
-        To avoid unexpected breaking changes, pin the exact version of the `sift-stack-py` library in your dependencies (for example, in `requirements.txt` or `pyproject.toml`).
 
     Examples:
         from sift_client import SiftClient
@@ -92,6 +86,9 @@ class SiftClient(
 
     ingestion: IngestionAPIAsync
     """Instance of the Ingestion API for making synchronous requests."""
+
+    jobs: JobsAPI
+    """Instance of the Jobs API for making synchronous requests."""
 
     reports: ReportsAPI
     """Instance of the Reports API for making synchronous requests."""
@@ -149,6 +146,7 @@ class SiftClient(
         self.calculated_channels = CalculatedChannelsAPI(self)
         self.channels = ChannelsAPI(self)
         self.file_attachments = FileAttachmentsAPI(self)
+        self.jobs = JobsAPI(self)
         self.rules = RulesAPI(self)
         self.reports = ReportsAPI(self)
         self.runs = RunsAPI(self)
@@ -163,6 +161,7 @@ class SiftClient(
             channels=ChannelsAPIAsync(self),
             file_attachments=FileAttachmentsAPIAsync(self),
             ingestion=IngestionAPIAsync(self),
+            jobs=JobsAPIAsync(self),
             reports=ReportsAPIAsync(self),
             rules=RulesAPIAsync(self),
             runs=RunsAPIAsync(self),

@@ -31,7 +31,7 @@ class _Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.3.1"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.3.2"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -39,6 +39,11 @@ class _Client:
         ...
 
     def is_closed(self) -> bool: ...
+    @property
+    def _is_localhost(self) -> bool:
+        """Returns True if the server URL points to localhost."""
+        ...
+
     @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
         """mdmd:hidden
@@ -158,7 +163,7 @@ class Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.3.1"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.3.2"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -166,6 +171,11 @@ class Client:
         ...
 
     def is_closed(self) -> bool: ...
+    @property
+    def _is_localhost(self) -> bool:
+        """Returns True if the server URL points to localhost."""
+        ...
+
     @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal:
         """mdmd:hidden

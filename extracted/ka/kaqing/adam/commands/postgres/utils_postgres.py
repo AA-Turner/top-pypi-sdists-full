@@ -77,9 +77,9 @@ class PostgresPodService:
         return PostgresDatabases.run_sql(state, query, ctx=ctx)
 
 class PostgresExecHandler:
-    def __init__(self, state: ReplState, backgrounded=False):
+    def __init__(self, state: ReplState, background=False):
         self.state = state
-        self.backgrounded = backgrounded
+        self.background = background
 
     def __enter__(self):
         return PostgresPodService(self)
@@ -87,5 +87,5 @@ class PostgresExecHandler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-def postgres(state: ReplState, backgrounded=False):
-    return PostgresExecHandler(state, backgrounded=backgrounded)
+def postgres(state: ReplState, background=False):
+    return PostgresExecHandler(state, background=background)

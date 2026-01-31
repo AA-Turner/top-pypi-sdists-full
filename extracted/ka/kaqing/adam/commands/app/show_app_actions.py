@@ -3,7 +3,8 @@ from adam.apps import Apps
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log
+from adam.utils import log
+from adam.utils_tabulize import tabulize
 
 class ShowAppActions(Command):
     COMMAND = 'show app actions'
@@ -32,13 +33,20 @@ class ShowAppActions(Command):
             for typ in Apps().app_types():
                 actions.extend(typ.actions)
 
-            lines = tabulize(actions, lambda a: str(a), header='ACTION,ARGS,DESCRIPTION', separator=',')
-            log()
+            ctx = self.context()
+            lines = tabulize(actions,
+                             lambda a: str(a),
+                             header='ACTION,ARGS,DESCRIPTION',
+                             separator=',',
+                             ctx=ctx)
+            ctx.log()
 
             app_session: AppSession = AppSession.create(state.app_env or 'c3', state.app_app or 'c3')
             endpoint = Config().get('app.console-endpoint', 'https://{host}/{env}/{app}/static/console/index.html')
             endpoint = endpoint.replace('{host}', app_session.host).replace('{env}', app_session.env).replace('{app}', state.app_app or 'c3')
-            tabulize([f'CONSOLE:,{endpoint}'], separator=',')
+            tabulize([f'CONSOLE:,{endpoint}'],
+                     separator=',',
+                     ctx=ctx)
 
             return lines
 

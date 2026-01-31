@@ -19,7 +19,7 @@ class CheckContext(Context):
                             pw=pw)
 
         ctx1.cmd=ctx.cmd
-        ctx1.backgrounded=ctx.backgrounded
+        ctx1.background=ctx.background
         ctx1.show_out=ctx.show_out
         ctx1.text_color=ctx.text_color
         ctx1.show_verbose=ctx.show_verbose

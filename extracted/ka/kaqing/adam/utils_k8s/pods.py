@@ -58,7 +58,7 @@ class Pods:
              shell = '/bin/sh',
              env_prefix: str = None,
              ctx: Context = Context.NULL):
-        if command.endswith(' &') or ctx and ctx.backgrounded:
+        if command.endswith(' &') or ctx and ctx.background:
             cmd, _ = Pods._get_command_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx)
             return cmd
 
@@ -78,7 +78,7 @@ class Pods:
 
         ctx = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
 
-        if command.endswith(' &') or ctx and ctx.backgrounded:
+        if command.endswith(' &') or ctx and ctx.background:
             return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
 
         api = client.CoreV1Api()

@@ -1,5 +1,4 @@
 from pathlib import Path
-from test.test_serialization_doctag import verify
 
 import pytest
 
@@ -21,7 +20,8 @@ from docling_core.types.doc import (
     TableData,
 )
 from docling_core.types.doc.labels import CodeLanguageLabel
-from test.test_serialization_idoctag import add_texts_section, add_list_section
+from test.test_serialization_doctag import verify
+from test.test_serialization_idoctag import add_list_section, add_texts_section
 
 DO_PRINT: bool = False
 
@@ -293,10 +293,10 @@ def test_roundtrip_title_prov():
     exp_dt = """
 <doctag version="1.0.0">
   <title>
-    <location value="51" resolution="512"/>
-    <location value="51" resolution="512"/>
-    <location value="154" resolution="512"/>
-    <location value="102" resolution="512"/>
+    <location value="51"/>
+    <location value="51"/>
+    <location value="154"/>
+    <location value="102"/>
     My Title
   </title>
 </doctag>
@@ -415,17 +415,17 @@ def test_roundtrip_list_unordered_prov():
 <doctag version="1.0.0">
   <list ordered="false">
     <list_text>
-      <location value="51" resolution="512"/>
-      <location value="51" resolution="512"/>
-      <location value="154" resolution="512"/>
-      <location value="102" resolution="512"/>
+      <location value="51"/>
+      <location value="51"/>
+      <location value="154"/>
+      <location value="102"/>
       A
     </list_text>
     <list_text>
-      <location value="51" resolution="512"/>
-      <location value="51" resolution="512"/>
-      <location value="154" resolution="512"/>
-      <location value="102" resolution="512"/>
+      <location value="51"/>
+      <location value="51"/>
+      <location value="154"/>
+      <location value="102"/>
       B
     </list_text>
   </list>
@@ -963,8 +963,10 @@ def test_roundtrip_picture_with_classification_caption_and_footnotes():
         fn_item = fn_ref.resolve(doc2)
         assert fn_item.label == DocItemLabel.FOOTNOTE
 
-    # Verify classification data (deprecated field, but should still work)
-    assert len(pic.annotations) >= 1
+    # Verify classification data
+    with pytest.warns(DeprecationWarning):
+        num_annotations = len(pic.annotations)
+    assert num_annotations >= 1
     classif = next(
         (a for a in pic.annotations if isinstance(a, PictureClassificationData)), None
     )
@@ -982,9 +984,6 @@ def test_roundtrip_picture_with_classification_caption_and_footnotes():
     assert dt2 == dt
 
 
-@pytest.mark.xfail(
-    reason="Known feature incompletenes in serialization/deseralization for rich table cells!"
-)
 def test_roundtrip_table_with_rich_cells():
     """Test table with RichTableCells containing paragraphs, lists, and nested tables."""
     doc = DoclingDocument(name="t")
@@ -1118,9 +1117,6 @@ def test_constructed_doc(sample_doc: DoclingDocument):
     verify(exp_reserialized_dt_file, dt2)
 
 
-@pytest.mark.xfail(
-    reason="Known feature incompletenes in serialization/deseralization for rich table cells!"
-)
 def test_constructed_rich_table_doc(rich_table_doc: DoclingDocument):
     doc = rich_table_doc
 
@@ -1147,41 +1143,82 @@ def test_wrapping():
     <content><![CDATA[  leading and < special]]></content>
   </text>
   <text>
-    <location value="5" resolution="512"/>
-    <location value="492" resolution="512"/>
-    <location value="15" resolution="512"/>
-    <location value="502" resolution="512"/>
+    <location value="5"/>
+    <location value="492"/>
+    <location value="15"/>
+    <location value="502"/>
     w/prov simple
   </text>
   <text>
-    <location value="5" resolution="512"/>
-    <location value="492" resolution="512"/>
-    <location value="15" resolution="512"/>
-    <location value="502" resolution="512"/>
+    <location value="5"/>
+    <location value="492"/>
+    <location value="15"/>
+    <location value="502"/>
     <content>  w/prov leading</content>
   </text>
   <text>
-    <location value="5" resolution="512"/>
-    <location value="492" resolution="512"/>
-    <location value="15" resolution="512"/>
-    <location value="502" resolution="512"/>
+    <location value="5"/>
+    <location value="492"/>
+    <location value="15"/>
+    <location value="502"/>
     <content>w/prov trailing  </content>
   </text>
   <text>
-    <location value="5" resolution="512"/>
-    <location value="492" resolution="512"/>
-    <location value="15" resolution="512"/>
-    <location value="502" resolution="512"/>
+    <location value="5"/>
+    <location value="492"/>
+    <location value="15"/>
+    <location value="502"/>
 <![CDATA[w/prov < special]]>  </text>
   <text>
-    <location value="5" resolution="512"/>
-    <location value="492" resolution="512"/>
-    <location value="15" resolution="512"/>
-    <location value="502" resolution="512"/>
+    <location value="5"/>
+    <location value="492"/>
+    <location value="15"/>
+    <location value="502"/>
     <content><![CDATA[  w/prov leading and < special]]></content>
   </text>
 </doctag>
     """
+    doc = _deserialize(dt)
+    dt2 = _serialize(doc)
+    assert dt2.strip() == dt.strip()
+
+def test_rich_table_cells():
+    dt = """
+<doctag version="1.0.0">
+  <floating_group class="table">
+    <otsl>
+      <fcel/>
+      foo
+      <fcel/>
+      <text>
+        <italic>text in italic</italic>
+      </text>
+      <nl/>
+      <fcel/>
+      <floating_group class="table">
+        <otsl>
+          <fcel/>
+          inner cell 0,0
+          <fcel/>
+          inner cell 0,1
+          <nl/>
+          <fcel/>
+          inner cell 1,0
+          <fcel/>
+          <text>
+            <content>inner cell 1,1 </content>
+            <bold>in bold</bold>
+          </text>
+          <nl/>
+        </otsl>
+      </floating_group>
+      <fcel/>
+      bar
+      <nl/>
+    </otsl>
+  </floating_group>
+</doctag>
+"""
     doc = _deserialize(dt)
     dt2 = _serialize(doc)
     assert dt2.strip() == dt.strip()

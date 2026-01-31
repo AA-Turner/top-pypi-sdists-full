@@ -28,9 +28,9 @@ class Bash(Command):
             return super().run(cmd, s0)
 
         with self.validate(args, s0) as (args, s1):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with bash(s0, s1) as exec:
-                    return exec(args, Context.new(cmd, backgrounded=backgrounded))
+                    return exec(args, Context.new(cmd, background=background))
 
     def completion(self, state: ReplState):
         return super().completion(state, {c : {'&': None} for c in ['ls', 'cat', 'head']}, pods=Devices.of(state).pods(state, '-'))

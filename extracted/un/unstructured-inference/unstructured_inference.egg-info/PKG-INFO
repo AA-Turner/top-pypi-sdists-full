@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_inference
-Version: 1.1.7
+Version: 1.2.0
 Summary: A library for performing inference using trained models.
 Home-page: https://github.com/Unstructured-IO/unstructured-inference
 Author: Unstructured Technologies
@@ -33,7 +33,7 @@ Requires-Dist: accelerate
 Requires-Dist: rapidfuzz
 Requires-Dist: pandas
 Requires-Dist: scipy
-Requires-Dist: pypdfium2
+Requires-Dist: pypdfium2>=5.0.0
 Requires-Dist: pdfminer-six
 Dynamic: author
 Dynamic: author-email

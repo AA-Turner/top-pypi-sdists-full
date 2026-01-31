@@ -1,11 +1,12 @@
 from adam.apps import Apps
 from adam.commands import app
 from adam.commands.bash.bash_completer import BashCompleter
-from adam.commands.command import Command, InvalidStateException
+from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log, wait_log
+from adam.utils import wait_log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.ingresses import Ingresses
@@ -48,11 +49,13 @@ class DeviceApp(Command, Device):
     def default_container(self, state: ReplState) -> str:
         return Config().get('app.container-name', 'c3-server')
 
-    def ls(self, cmd: str, state: ReplState):
+    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
         if state.app_pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.app_app:
-            tabulize(self.pod_names(state), header='POD_NAME')
+            tabulize(self.pod_names(state),
+                     header='POD_NAME',
+                     ctx=ctx.copy(show_out=True))
         elif state.app_env:
             def line(n: str, ns: str):
                 host = Ingresses.get_host(Config().get('app.login.ingress', '{app_id}-k8singr-appleader-001').replace('{app_id}', f'{ns}-{n}'), ns)
@@ -67,9 +70,16 @@ class DeviceApp(Command, Device):
 
             svcs = [l for l in [line(n, ns) for n, ns in Apps.apps(state.app_env)] if l]
 
-            tabulize(svcs, header='APP,HOST,ENDPOINT', separator=',')
+            tabulize(svcs,
+                     header='APP,HOST,ENDPOINT',
+                     separator=',',
+                     ctx=ctx.copy(show_out=True))
         else:
-            tabulize(Apps.envs(), lambda a: a[0], header='ENV', separator=',')
+            tabulize(Apps.envs(),
+                     lambda a: a[0],
+                     header='ENV',
+                     separator=',',
+                     ctx=ctx.copy(show_out=True))
 
     def ls_completion(self, cmd, state, default: dict = {}):
         if state.app_app:

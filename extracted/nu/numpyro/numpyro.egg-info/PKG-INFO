@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpyro
-Version: 0.19.0
+Version: 0.20.0
 Summary: Pyro PPL on NumPy
 Home-page: https://github.com/pyro-ppl/numpyro
 Author: Uber AI Labs
@@ -12,20 +12,18 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: jax>=0.4.25
-Requires-Dist: jaxlib>=0.4.25
+Requires-Dist: jax>=0.7.0
+Requires-Dist: jaxlib>=0.7.0
 Requires-Dist: multipledispatch
 Requires-Dist: numpy
 Requires-Dist: tqdm
-Requires-Dist: typing_extensions; python_version < "3.10"
 Provides-Extra: doc
 Requires-Dist: ipython; extra == "doc"
 Requires-Dist: nbsphinx>=0.8.9; extra == "doc"
@@ -41,9 +39,9 @@ Requires-Dist: pytest>=4.1; extra == "test"
 Requires-Dist: pyro-api>=0.1.1; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: scipy>=1.9; extra == "test"
+Requires-Dist: ty>=0.0.4; extra == "test"
 Provides-Extra: dev
-Requires-Dist: dm-haiku>=0.0.14; python_version >= "3.10" and extra == "dev"
-Requires-Dist: dm-haiku<0.0.14; python_version < "3.10" and extra == "dev"
+Requires-Dist: dm-haiku>=0.0.14; extra == "dev"
 Requires-Dist: equinox; extra == "dev"
 Requires-Dist: flax; extra == "dev"
 Requires-Dist: funsor>=0.4.1; extra == "dev"
@@ -65,11 +63,13 @@ Requires-Dist: seaborn; extra == "examples"
 Requires-Dist: scikit-learn; extra == "examples"
 Requires-Dist: wordcloud; extra == "examples"
 Provides-Extra: cpu
-Requires-Dist: jax[cpu]>=0.4.25; extra == "cpu"
+Requires-Dist: jax[cpu]>=0.7.0; extra == "cpu"
 Provides-Extra: tpu
-Requires-Dist: jax[tpu]>=0.4.25; extra == "tpu"
-Provides-Extra: cuda
-Requires-Dist: jax[cuda]>=0.4.25; extra == "cuda"
+Requires-Dist: jax[tpu]>=0.7.0; extra == "tpu"
+Provides-Extra: cuda12
+Requires-Dist: jax[cuda12]>=0.7.0; extra == "cuda12"
+Provides-Extra: cuda13
+Requires-Dist: jax[cuda13]>=0.7.0; extra == "cuda13"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -317,21 +317,29 @@ See the [docs](https://num.pyro.ai/en/latest/contrib.html#stein-variational-infe
 
 To install NumPyro with the latest CPU version of JAX, you can use pip:
 
-```
+```bash
 pip install numpyro
 ```
 
 In case of compatibility issues arise during execution of the above command, you can instead force the installation of a known
 compatible CPU version of JAX with
 
-```
+```bash
 pip install 'numpyro[cpu]'
 ```
 
-To use **NumPyro on the GPU**, you need to install CUDA first and then use the following pip command:
+To use **NumPyro on the GPU**, you need to install CUDA first, and based on your CUDA version, you can use the following pip command:
 
+For **CUDA 12.x.y**:
+
+```bash
+pip install 'numpyro[cuda12]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
-pip install 'numpyro[cuda]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+For **CUDA 13.x.y**:
+
+```bash
+pip install 'numpyro[cuda13]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 If you need further guidance, please have a look at the [JAX GPU installation instructions](https://github.com/jax-ml/jax#pip-installation-gpu-cuda).
@@ -346,7 +354,7 @@ you can install NumPyro using the `pip install numpyro` command.
 
 You can also install NumPyro from source:
 
-```
+```bash
 git clone https://github.com/pyro-ppl/numpyro.git
 cd numpyro
 # install jax/jaxlib first for CUDA support
@@ -355,7 +363,7 @@ pip install -e '.[dev]'  # contains additional dependencies for NumPyro developm
 
 You can also install NumPyro with conda:
 
-```
+```bash
 conda install -c conda-forge numpyro
 ```
 

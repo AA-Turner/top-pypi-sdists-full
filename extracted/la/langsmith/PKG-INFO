@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.6.6
+Version: 0.6.7
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -16,6 +16,7 @@ Requires-Dist: pydantic<3,>=2
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: requests>=2.0.0
 Requires-Dist: uuid-utils<1.0,>=0.12.0
+Requires-Dist: xxhash>=3.0.0
 Requires-Dist: zstandard>=0.23.0
 Provides-Extra: claude-agent-sdk
 Requires-Dist: claude-agent-sdk>=0.1.0; (python_version >= '3.10') and extra == 'claude-agent-sdk'

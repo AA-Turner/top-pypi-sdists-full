@@ -20,6 +20,12 @@ class TestDuckDB(Validator):
         self.validate_identity("SELECT str[0:1]")
         self.validate_identity("SELECT COSH(1.5)")
         self.validate_identity("SELECT MODE(category)")
+        self.validate_identity("SELECT e'\\n'")
+        self.validate_identity("SELECT e'\\t'")
+        self.validate_identity(
+            "SELECT e'update table_name set a = \\'foo\\' where 1 = 0' AS x FROM tab",
+            "SELECT e'update table_name set a = ''foo'' where 1 = 0' AS x FROM tab",
+        )
         with self.assertRaises(ParseError):
             parse_one("1 //", read="duckdb")
 
@@ -624,6 +630,62 @@ class TestDuckDB(Validator):
             },
         )
         self.validate_all(
+            "ARRAY_COMPACT([1, NULL, 2, NULL, 3])",
+            write={
+                "duckdb": "LIST_FILTER([1, NULL, 2, NULL, 3], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_COMPACT([1, NULL, 2, NULL, 3])",
+            },
+        )
+        self.validate_all(
+            "ARRAY_COMPACT(NULL)",
+            write={
+                "duckdb": "LIST_FILTER(NULL, _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_COMPACT(NULL)",
+            },
+        )
+        self.validate_all(
+            "ARRAY_COMPACT([])",
+            write={
+                "duckdb": "LIST_FILTER([], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_COMPACT([])",
+            },
+        )
+        self.validate_all(
+            "ARRAY_COMPACT(['a', NULL, 'b', NULL, 'c'])",
+            write={
+                "duckdb": "LIST_FILTER(['a', NULL, 'b', NULL, 'c'], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_COMPACT(['a', NULL, 'b', NULL, 'c'])",
+            },
+        )
+        self.validate_all(
+            "ARRAY_COMPACT([[1, 2], NULL, [3, 4]])",
+            write={
+                "duckdb": "LIST_FILTER([[1, 2], NULL, [3, 4]], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_COMPACT([[1, 2], NULL, [3, 4]])",
+            },
+        )
+        self.validate_all(
+            "ARRAY_CONSTRUCT_COMPACT(1, 2, 3, 4, 5)",
+            write={
+                "duckdb": "LIST_FILTER([1, 2, 3, 4, 5], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_CONSTRUCT_COMPACT(1, 2, 3, 4, 5)",
+            },
+        )
+        self.validate_all(
+            "ARRAY_CONSTRUCT_COMPACT()",
+            write={
+                "duckdb": "LIST_FILTER([], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_CONSTRUCT_COMPACT()",
+            },
+        )
+        self.validate_all(
+            "ARRAY_CONSTRUCT_COMPACT('a', NULL, 'b', NULL, 'c')",
+            write={
+                "duckdb": "LIST_FILTER(['a', NULL, 'b', NULL, 'c'], _u -> NOT _u IS NULL)",
+                "snowflake": "ARRAY_CONSTRUCT_COMPACT('a', NULL, 'b', NULL, 'c')",
+            },
+        )
+        self.validate_all(
             "SELECT ANY_VALUE(sample_column) FROM sample_table",
             write={
                 "duckdb": "SELECT ANY_VALUE(sample_column) FROM sample_table",
@@ -918,7 +980,7 @@ class TestDuckDB(Validator):
             },
         )
         self.validate_all(
-            "ARRAY_CONCAT([1, 2], [3, 4])",
+            "LIST_CONCAT([1, 2], [3, 4])",
             read={
                 "bigquery": "ARRAY_CONCAT([1, 2], [3, 4])",
                 "postgres": "ARRAY_CAT(ARRAY[1, 2], ARRAY[3, 4])",
@@ -926,7 +988,7 @@ class TestDuckDB(Validator):
             },
             write={
                 "bigquery": "ARRAY_CONCAT([1, 2], [3, 4])",
-                "duckdb": "ARRAY_CONCAT([1, 2], [3, 4])",
+                "duckdb": "LIST_CONCAT([1, 2], [3, 4])",
                 "hive": "CONCAT(ARRAY(1, 2), ARRAY(3, 4))",
                 "postgres": "ARRAY_CAT(ARRAY[1, 2], ARRAY[3, 4])",
                 "presto": "CONCAT(ARRAY[1, 2], ARRAY[3, 4])",
@@ -935,7 +997,7 @@ class TestDuckDB(Validator):
             },
         )
         self.validate_all(
-            "SELECT CAST(CAST(x AS DATE) AS DATE) + INTERVAL 1 DAY",
+            "SELECT CAST(TRY_CAST(x AS DATE) AS DATE) + INTERVAL 1 DAY",
             read={
                 "hive": "SELECT DATE_ADD(TO_DATE(x), 1)",
             },
@@ -1125,11 +1187,8 @@ class TestDuckDB(Validator):
 
         self.validate_all(
             "SELECT e'Hello\nworld'",
-            read={
-                "duckdb": "SELECT E'Hello\nworld'",
-            },
             write={
-                "duckdb": "SELECT e'Hello\nworld'",
+                "duckdb": "SELECT e'Hello\\nworld'",
                 "bigquery": "SELECT CAST(b'Hello\\nworld' AS STRING)",
             },
         )
@@ -1216,6 +1275,10 @@ class TestDuckDB(Validator):
         )
 
         self.validate_identity("SELECT row")
+
+        self.validate_identity(
+            "SELECT TRY_STRPTIME('2013-04-28T20:57:01.123456789+07:00', '%Y-%m-%dT%H:%M:%S.%n%z')"
+        )
 
         self.validate_identity(
             "DELETE FROM t USING (VALUES (1)) AS t1(c), (VALUES (1), (2)) AS t2(c) WHERE t.c = t1.c AND t.c = t2.c"
@@ -1330,6 +1393,8 @@ class TestDuckDB(Validator):
             },
         )
 
+        self.validate_identity("SELECT [1, 2, 3][1 + 1:LENGTH([1, 2, 3]) + -1]")
+
     def test_array_index(self):
         with self.assertLogs(helper_logger) as cm:
             self.validate_all(
@@ -1369,6 +1434,72 @@ class TestDuckDB(Validator):
                     "INFO:sqlglot:Applying array index offset (1)",
                 ],
             )
+
+    def test_array_insert(self):
+        # Test ARRAY_INSERT inserts at beginning
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([99], [1, 2, 3]) END",
+            read={
+                "": "ARRAY_INSERT([1, 2, 3], 0, 99)",
+                "snowflake": "ARRAY_INSERT([1, 2, 3], 0, 99)",
+                "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), 1, 99)",
+            },
+        )
+
+        # Test ARRAY_INSERT inserts after first element
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:1], [99], [1, 2, 3][2:]) END",
+            read={
+                "": "ARRAY_INSERT([1, 2, 3], 1, 99)",
+                "snowflake": "ARRAY_INSERT([1, 2, 3], 1, 99)",
+                "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), 2, 99)",
+            },
+        )
+
+        # Test ARRAY_INSERT inserts at end
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:3], [99], [1, 2, 3][4:]) END",
+            read={
+                "": "ARRAY_INSERT([1, 2, 3], 3, 99)",
+                "snowflake": "ARRAY_INSERT([1, 2, 3], 3, 99)",
+                "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), 4, 99)",
+            },
+        )
+
+        # Test ARRAY_INSERT inserts before last element using negative position
+        self.validate_all(
+            "CASE WHEN [1, 2, 3] IS NULL THEN NULL ELSE LIST_CONCAT([1, 2, 3][1:LENGTH([1, 2, 3]) + -1], [99], [1, 2, 3][LENGTH([1, 2, 3]) + -1 + 1:]) END",
+            read={
+                "": "ARRAY_INSERT([1, 2, 3], -1, 99)",
+                "snowflake": "ARRAY_INSERT([1, 2, 3], -1, 99)",
+                "spark": "ARRAY_INSERT(ARRAY(1, 2, 3), -2, 99)",
+            },
+        )
+
+    def test_array_remove(self):
+        # Test NULL propagation with column reference: Snowflake → DuckDB
+        self.validate_all(
+            "CASE WHEN target IS NULL THEN NULL ELSE LIST_FILTER(the_array, _u -> _u <> target) END",
+            read={
+                "snowflake": "ARRAY_REMOVE(the_array, target)",
+            },
+        )
+
+        # Test literal values: Snowflake → DuckDB
+        self.validate_all(
+            "LIST_FILTER([1, 2, 3], _u -> _u <> 2)",
+            read={
+                "snowflake": "ARRAY_REMOVE([1, 2, 3], 2)",
+            },
+        )
+
+        # Test NULL literal: Snowflake → DuckDB
+        self.validate_all(
+            "CASE WHEN NULL IS NULL THEN NULL ELSE LIST_FILTER([1, 2, 3], _u -> _u <> NULL) END",
+            read={
+                "snowflake": "ARRAY_REMOVE([1, 2, 3], NULL)",
+            },
+        )
 
     def test_time(self):
         self.validate_identity("SELECT CURRENT_DATE")
@@ -2188,4 +2319,23 @@ class TestDuckDB(Validator):
                 "duckdb": "SELECT BIT_XOR(CAST(CAST(val AS DECIMAL(18, 3)) AS INT)) FROM t",
                 "snowflake": "SELECT BITXORAGG(CAST(val AS DECIMAL(18, 3))) FROM t",
             },
+        )
+
+    def test_approx_percentile(self):
+        self.validate_all(
+            "SELECT APPROX_QUANTILE(a, 0.5) FROM t",
+            read={
+                "snowflake": "SELECT APPROX_PERCENTILE(a, 0.5) FROM t",
+            },
+            write={
+                "duckdb": "SELECT APPROX_QUANTILE(a, 0.5) FROM t",
+                "snowflake": "SELECT APPROX_PERCENTILE(a, 0.5) FROM t",
+            },
+        )
+        expr = annotate_types(
+            parse_one("SELECT APPROX_PERCENTILE(CAST(a AS DOUBLE), 0.5) FROM t", read="snowflake")
+        )
+        self.assertEqual(
+            expr.sql(dialect="duckdb"),
+            "SELECT CAST(APPROX_QUANTILE(CAST(a AS DOUBLE), 0.5) AS DOUBLE) FROM t",
         )

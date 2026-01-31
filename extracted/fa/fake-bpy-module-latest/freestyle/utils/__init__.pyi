@@ -134,7 +134,7 @@ def normal_at_I0D(it) -> None:
 
     """
 
-def pairwise(iterable, types={Stroke, StrokeVertexIterator}) -> None:
+def pairwise(iterable, types={StrokeVertexIterator, Stroke}) -> None:
     """Yields a tuple containing the previous and current object"""
 
 def rgb_to_bw(r, g, b) -> None:

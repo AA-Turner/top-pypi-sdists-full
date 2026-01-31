@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: sdv
-Version: 1.32.1
+Version: 1.33.0
 Summary: Generate synthetic data for single table, multi table and sequential data
 Author-email: "DataCebo, Inc." <info@sdv.dev>
-License: BSL-1.1
+License-Expression: BUSL-1.1
 Project-URL: Source Code, https://github.com/sdv-dev/SDV/
 Project-URL: Issue Tracker, https://github.com/sdv-dev/SDV/issues
 Project-URL: Changes, https://github.com/sdv-dev/SDV/blob/main/HISTORY.md
@@ -12,7 +12,6 @@ Project-URL: Chat, https://bit.ly/sdv-slack-invite
 Keywords: sdv,synthetic-data,synhtetic-data-generation,timeseries,single-table,multi-table
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -20,28 +19,37 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: boto3<2.0.0,>=1.28
 Requires-Dist: botocore<2.0.0,>=1.31
-Requires-Dist: cloudpickle>=2.1.0
+Requires-Dist: cloudpickle>=2.1.0; python_version < "3.14"
+Requires-Dist: cloudpickle>=3.1.1; python_version >= "3.14"
 Requires-Dist: graphviz>=0.13.2
 Requires-Dist: numpy>=1.22.2; python_version < "3.10"
 Requires-Dist: numpy>=1.24.0; python_version >= "3.10" and python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
-Requires-Dist: pandas>=1.4.0; python_version < "3.11"
-Requires-Dist: pandas>=1.5.0; python_version >= "3.11" and python_version < "3.12"
-Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version >= "3.13"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
+Requires-Dist: pandas<3,>=1.4.0; python_version < "3.11"
+Requires-Dist: pandas<3,>=1.5.0; python_version >= "3.11" and python_version < "3.12"
+Requires-Dist: pandas<3,>=2.1.1; python_version >= "3.12" and python_version < "3.13"
+Requires-Dist: pandas<3,>=2.2.3; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: pandas<3,>=2.3.3; python_version >= "3.14"
 Requires-Dist: tqdm>=4.29
-Requires-Dist: copulas>=0.12.1
-Requires-Dist: ctgan>=0.11.1
-Requires-Dist: deepecho>=0.7.0
-Requires-Dist: rdt>=1.18.2
-Requires-Dist: sdmetrics>=0.21.0
+Requires-Dist: copulas>=0.12.1; python_version < "3.14"
+Requires-Dist: copulas>=0.14.0; python_version >= "3.14"
+Requires-Dist: ctgan>=0.11.1; python_version < "3.14"
+Requires-Dist: ctgan>=0.12.0; python_version >= "3.14"
+Requires-Dist: deepecho>=0.7.0; python_version < "3.14"
+Requires-Dist: deepecho>=0.8.0; python_version >= "3.14"
+Requires-Dist: rdt>=1.18.2; python_version < "3.14"
+Requires-Dist: rdt>=1.20.0; python_version >= "3.14"
+Requires-Dist: sdmetrics>=0.21.0; python_version < "3.14"
+Requires-Dist: sdmetrics>=0.26.0; python_version >= "3.14"
 Requires-Dist: platformdirs>=4.0
 Requires-Dist: pyyaml>=6.0.1
 Provides-Extra: excel
@@ -50,7 +58,7 @@ Provides-Extra: test
 Requires-Dist: sdv[excel]; extra == "test"
 Requires-Dist: pytest>=3.4.2; extra == "test"
 Requires-Dist: pytest-cov>=2.6.0; extra == "test"
-Requires-Dist: pytest-rerunfailures<15,>=10.3; extra == "test"
+Requires-Dist: pytest-rerunfailures<17,>=10.3; extra == "test"
 Requires-Dist: jupyter<2,>=1.0.0; extra == "test"
 Requires-Dist: pytest-runner>=2.11.1; extra == "test"
 Requires-Dist: tomli<3,>=2.0.0; extra == "test"

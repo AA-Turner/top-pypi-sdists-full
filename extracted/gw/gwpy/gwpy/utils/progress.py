@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2017-2020)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,31 +16,42 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for multi-processing
-"""
+"""Utilities for progress bars."""
+
+from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
-TQDM_BAR_FORMAT = ("{desc}: |{bar}| "
-                   "{n_fmt}/{total_fmt} ({percentage:3.0f}%) "
-                   "ETA {remaining:6s}")
+if TYPE_CHECKING:
+    from typing import TextIO
+
+TQDM_BAR_FORMAT: str = (
+    "{desc}: |{bar}| "
+    "{n_fmt}/{total_fmt} ({percentage:3.0f}%) "
+    "ETA {remaining:6s}"
+)
 
 
-def progress_bar(**kwargs):
-    """Create a `tqdm.tqdm` progress bar
+def progress_bar(
+    desc: str = "Processing",
+    file: TextIO = sys.stdout,
+    bar_format: str = TQDM_BAR_FORMAT,
+    **kwargs,
+) -> tqdm:
+    """Create a `tqdm.tqdm` progress bar.
 
-    This is just a thin wrapper around `tqdm.tqdm` to set some updated defaults
+    This is just a thin wrapper around `tqdm.tqdm` with some updated defaults.
     """
-    tqdm_kw = {
-        'desc': 'Processing',
-        'file': sys.stdout,
-        'bar_format': TQDM_BAR_FORMAT,
-    }
-    tqdm_kw.update(kwargs)
-    pbar = tqdm(**tqdm_kw)
+    pbar = tqdm(
+        desc=desc,
+        file=file,
+        bar_format=bar_format,
+        **kwargs,
+    )
     if not pbar.disable:
-        pbar.desc = pbar.desc.rstrip(': ')
+        pbar.desc = pbar.desc.rstrip(": ")
         pbar.refresh()
     return pbar

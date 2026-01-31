@@ -7,7 +7,9 @@ import re
 import requests
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import Color, convert_seconds, epoch, tabulize, log2, wait_log
+from adam.utils import Color, convert_seconds, epoch, log2, wait_log
+from adam.utils_tabulize import tabulize
+from adam.utils_context import Context
 from adam.utils_k8s.k8s import port_forwarding
 
 class ReaperService:
@@ -88,20 +90,24 @@ class Reapers:
 
         return None
 
-    def show_schedule(state: ReplState, schedule_id: str):
+    def show_schedule(state: ReplState, schedule_id: str, ctx: Context = Context.NULL):
         def filter(schedules: list[dict]):
             return [schedule for schedule in schedules if schedule['id'] == schedule_id]
 
-        Reapers.show_schedules(state, filter)
+        Reapers.show_schedules(state, filter, ctx=ctx)
 
-    def show_schedules(state: ReplState, filter: Callable[[list[dict]], dict] = None):
+    def show_schedules(state: ReplState, filter: Callable[[list[dict]], dict] = None, ctx: Context = Context.NULL):
         schedules = Reapers.list_schedules(state, filter=filter)
 
         # forced refresh of schedule list
         if not filter:
             Reapers.schedules_ids_by_cluster[state.sts] = [schedule['id'] for schedule in schedules]
 
-        tabulize(schedules, lambda s: f"{s['id']} {s['state']} {s['cluster_name']} {s['keyspace_name']}", header='ID STATE CLUSTER KEYSPACE', err=True)
+        tabulize(schedules,
+                 lambda s: f"{s['id']} {s['state']} {s['cluster_name']} {s['keyspace_name']}",
+                 header='ID STATE CLUSTER KEYSPACE',
+                 err=True,
+                 ctx=ctx.copy(show_out=True))
 
     def schedule_ids(state: ReplState, show_output = True, filter: Callable[[list[dict]], dict] = None):
         schedules = Reapers.list_schedules(state, show_output=show_output, filter=filter)
@@ -202,7 +208,7 @@ class Reapers:
 
         return (leaf, auto == 'lazy')
 
-    def tabulize_runs(state: ReplState, response: dict) -> dict[str, any]:
+    def tabulize_runs(state: ReplState, response: dict, ctx: Context = Context.NULL) -> dict[str, any]:
         header = 'ID,START,DURATION,STATE,CLUSTER,KEYSPACE,TABLES,REPAIRED'
 
         def line(run):
@@ -224,6 +230,9 @@ class Reapers:
 
         runs = response.json()
         if runs:
-            tabulize(sorted([line(run) for run in runs], reverse=True), header=header, separator=",")
+            tabulize(sorted([line(run) for run in runs], reverse=True),
+                     header=header,
+                     separator=",",
+                     ctx=ctx.copy(show_out=True))
 
         return runs

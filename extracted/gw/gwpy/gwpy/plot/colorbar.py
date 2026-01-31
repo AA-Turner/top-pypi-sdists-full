@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Louisiana State University (2017)
-#               Cardiff University (2017-2022)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,32 +16,53 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for generating colour bars for figures
+"""Utilities for generating colour bars for figures.
+
+This module mainly exists to support generating colour bars for figures
+where the 'parent' Axes isn't resized to accommodate the new Axes for
+the colour bar.
+
+GWpy adds this functionality by overloading the `Figure.colorbar` method
+with calls to functions below that add support for handling ``fraction=0.``.
 """
 
-from matplotlib.axes import SubplotBase
+from __future__ import annotations
+
+import contextlib
+from typing import TYPE_CHECKING
+
 from matplotlib.colors import LogNorm
-from matplotlib.legend import Legend
+from matplotlib.figure import Figure
+from matplotlib.ticker import LogFormatterSciNotation
 
 from .colors import format_norm
 from .log import LogFormatter
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+if TYPE_CHECKING:
+    from typing import (
+        Any,
+        Literal,
+    )
 
-LOC_CODES = Legend.codes
+    from matplotlib.axes import Axes
+    from matplotlib.collections import Collection
+    from matplotlib.colorbar import Colorbar
+    from matplotlib.image import AxesImage
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-# -- custom colorbar generation -----------------------------------------------
+# -- custom colorbar generation ------
 
-def process_colorbar_kwargs(
-    figure,
-    mappable=None,
-    ax=None,
-    cax=None,
-    use_axesgrid=True,
+def _process_colorbar_kwargs(
+    figure: Figure,
+    mappable: AxesImage | Collection | None = None,
+    ax: Axes | None = None,
+    cax: Axes | None = None,
+    fraction: float = 0.,
     **kwargs,
-):
-    """Internal function to configure the keyword arguments for colorbars.
+) -> tuple[AxesImage | Collection, dict[str, Any]]:
+    """Configure the keyword arguments for colorbars.
 
     The main purpose of this function is to replace the default matplotlib
     behaviour (resizing the 'parent' axes to make space for the colorbar
@@ -54,7 +74,7 @@ def process_colorbar_kwargs(
     figure : `matplotlib.figure.Figure`
         The figure on which to draw the new colorbar axes.
 
-    mappable : matplotlib data collection
+    mappable : `~matplotlib.image.AxesImage`, `~matplotlib.collections.Collection`
         Collection against which to map the colouring, default will
         be the last added mappable artist (collection or image)
 
@@ -64,20 +84,18 @@ def process_colorbar_kwargs(
     cax : `matplotlib.axes.Axes`
         The `Axes` on which to draw the colorbar.
 
-    use_axesgrid : `boolean`
-        If `True`, use `mpl_toolkits.axes_grid1` to generate the colorbar
-        Axes without resizing the parent Axes.
-        If `False`, use the default Matplotlib behaviour.
-        Only used if `cax=None` is given.
+    fraction : `float`
+        The fraction of space to steal from the parent Axes to make
+        space for the colourbar.
 
-    **kwargs
-        Other keyword arguments to pass to
+    kwargs
+        Other keyword arguments are passed to
         :meth:`matplotlib.figure.Figure.colorbar`
 
     Returns
     -------
-    mappable
-        The Collection against which to map the colouring.
+    mappable : `~matplotlib.image.AxesImage`, `~matplotlib.collections.Collection`
+        The collection against which to map the colouring.
 
     kwargs
         A dict of keyword arguments to pass to
@@ -96,126 +114,303 @@ def process_colorbar_kwargs(
     # parse normalisation
     norm, kwargs = format_norm(kwargs, mappable.norm)
     mappable.set_norm(norm)
-    mappable.set_cmap(kwargs.pop('cmap', mappable.get_cmap()))
+    mappable.set_cmap(kwargs.pop("cmap", mappable.get_cmap()))
 
     # -- set tick formatting
 
     if isinstance(norm, LogNorm):
-        kwargs.setdefault('format', LogFormatter())
+        kwargs.setdefault("format", LogFormatter())
 
     # -- create axes for colorbar (if required)
 
     if cax is not None:  # cax was given, we don't need fraction
         kwargs.pop("fraction", None)
-    elif use_axesgrid:  # use axesgrid to generate Axes
-        cax, kwargs = make_axes_axesgrid(ax, **kwargs)
-    # else: let matplotlib generate the Axes using its own default
+    elif fraction == 0.:  # if fraction is 0, make the inset axes ourselves
+        cax, kwargs = _make_inset_axes(ax, **kwargs)
+    else:  # otherwise let matplotlib generate the Axes using its own default
+        kwargs["fraction"] = fraction
 
     # pack kwargs
     kwargs.update(ax=ax, cax=cax)
     return mappable, kwargs
 
 
-# -- utilities ----------------------------------------------------------------
+def colorbar(
+    figure: Figure,
+    ax: Axes | None = None,
+    mappable: AxesImage | Collection | None = None,
+    cax: Axes | None = None,
+    fraction: float = 0.,
+    *,
+    emit: bool = True,
+    **kwargs,
+) -> Colorbar:
+    """Add a colorbar to the current ``figure``.
 
-def find_mappable(*axes):
-    """Find the most recently added mappable layer in the given axes
+    This method differs from the default
+    :meth:`matplotlib.figure.Figure.colorbar` in that it doesn't
+    resize the parent `Axes` to accommodate the colorbar, but rather
+    draws a new Axes alongside it.
 
     Parameters
     ----------
-    *axes : `~matplotlib.axes.Axes`
-        one or more axes to search for a mappable
+    figure : `~matplotlib.figure.Figure`
+        The figure onto which to draw the colorbar.
+
+    ax : `~matplotlib.axes.Axes`, optional
+        Axes relative to which to position colorbar.
+        The default is the `Axes` containing the ``mappable``.
+
+    mappable : `~matplotlib.image.AxesImage`, `~matplotlib.collections.Collection`, optional
+        Collection against which to map the colorbar.
+        Default is the most-recently-added mappable artist.
+
+    cax : `~matplotlib.axes.Axes`, optional
+        Axes on which to draw colorbar.
+        By default a new `Axes` will be created.
+
+    fraction : `float`, optional
+        Fraction of original axes to use for colorbar.
+        The default (``fraction=0``) is to not resize the
+        original axes at all.
+
+    emit : `bool`, optional
+        If `True` update all mappables on `Axes` to match the same
+        colouring as the colorbar.
+
+    kwargs
+        Other keyword arguments are passed to
+        :meth:`~matplotlib.figure.Figure.colorbar`.
+
+    Returns
+    -------
+    cbar : `~matplotlib.colorbar.Colorbar`
+        The newly added `Colorbar`.
+
+    Notes
+    -----
+    To revert to the default matplotlib behaviour, pass ``fraction=0.15``.
+
+    See Also
+    --------
+    matplotlib.figure.Figure.colorbar
+    matplotlib.colorbar.Colorbar
+
+    Examples
+    --------
+    >>> import numpy
+    >>> from gwpy.plot import Plot
+
+    To plot a simple image and add a colorbar:
+
+    >>> plot = Plot()
+    >>> ax = plot.gca()
+    >>> ax.imshow(numpy.random.randn(120).reshape((10, 12)))
+    >>> plot.colorbar(label='Value')
+    >>> plot.show()
+
+    Colorbars can also be generated by directly referencing the parent
+    axes:
+
+    >>> Plot = Plot()
+    >>> ax = plot.gca()
+    >>> ax.imshow(numpy.random.randn(120).reshape((10, 12)))
+    >>> ax.colorbar(label='Value')
+    >>> plot.show()
+    """
+    # pre-process kwargs (and maybe create new Axes)
+    mappable, kwargs = _process_colorbar_kwargs(
+        figure,
+        ax=ax,
+        cax=cax,
+        fraction=fraction,
+        mappable=mappable,
+        **kwargs,
+    )
+
+    # generate colour bar using upstream method
+    cbar = Figure.colorbar(figure, mappable, **kwargs)
+
+    # force the minor ticks to be the same as the major ticks;
+    # in practice, this normally swaps out LogFormatterSciNotation to
+    # gwpy's LogFormatter;
+    # this is hacky, and would be improved using a
+    # subclass of Colorbar in the first place, but matplotlib's
+    # cbar_factory doesn't support that
+    longaxis = (
+        cbar.ax.yaxis if cbar.orientation == "vertical"
+        else cbar.ax.xaxis
+    )
+    if (
+        isinstance(cbar.formatter, LogFormatter)
+        and isinstance(
+            longaxis.get_minor_formatter(),
+            LogFormatterSciNotation,
+        )
+    ):
+        longaxis.set_minor_formatter(type(cbar.formatter)())
+
+    # update mappables for this axis
+    if emit:
+        ax: Axes = kwargs["ax"]
+        norm = mappable.norm
+        cmap = mappable.get_cmap()
+        for map_ in ax.collections + ax.images:
+            map_.set_norm(norm)
+            map_.set_cmap(cmap)
+
+    return cbar
+
+
+# -- utilities -----------------------
+
+def find_mappable(*axes: Axes) -> Collection | AxesImage:
+    """Find the most recently added mappable layer in the given axes.
+
+    Parameters
+    ----------
+    axes : `~matplotlib.axes.Axes`
+        One or more axes to search for a mappable.
+
+    Returns
+    -------
+    mappable :
+
+    Raises
+    ------
+    ValueError
+        If a collection or an image cannot be found to map a colorbar onto.
     """
     for ax in axes:
-        for aset in ('collections', 'images'):
-            try:
+        for aset in ("collections", "images"):
+            with contextlib.suppress(AttributeError, IndexError):
                 return getattr(ax, aset)[-1]
-            except (AttributeError, IndexError):
-                continue
-    raise ValueError("Cannot determine mappable layer on any axes "
-                     "for this colorbar")
+    msg = "cannot determine mappable layer on any axes for this colorbar"
+    raise ValueError(msg)
 
 
-def _get_axes_class(ax):
-    if isinstance(ax, SubplotBase):
-        try:  # matplotlib < 3.7.0
-            return ax._axes_class
-        except AttributeError:  # matplotlib >= 3.7.0
-            return type(ax)
-    return type(ax)
-
-
-def _scale_width(value, ax):
+def _scale_width(value: float, ax: Axes) -> float:
+    """Scale a width value based on the width of the axes."""
     fig = ax.figure
     return value / (ax.get_position().width * fig.get_figwidth())
 
 
-def _scale_height(value, ax):
+def _scale_height(value: float, ax: Axes) -> float:
+    """Scale a height value based on the height of the axes."""
     fig = ax.figure
     return value / (ax.get_position().height * fig.get_figheight())
 
 
-def make_axes_axesgrid(ax, **kwargs):
-    kwargs.setdefault('location', 'right')
-    kwargs.setdefault('ticklocation', kwargs['location'])
+def _colorbar_bounds(
+    ax: Axes,
+    location: Literal["left", "right", "top", "bottom"] = "right",
+    width: float | None = None,
+    length: float = 1.,
+    orientation: Literal["horizontal", "vertical"] | None = None,
+    pad: float | None = None,
+) -> tuple[float, float, float, float]:
+    """Return the ``bounds`` for an inset Axes designed for a colourbar.
 
-    fraction = kwargs.pop('fraction', 0.)
-    try:
-        if fraction:
-            return _make_axes_div(ax, fraction=fraction, **kwargs)
-        return _make_axes_inset(ax, **kwargs)
-    finally:
-        ax.figure.sca(ax)
+    Parameters
+    ----------
+    ax : `matplotlib.axes.Axes`
+        The axes to anchor to.
 
+    location : `str`
+        Where to place the colourbar, one of
 
-def _make_axes_div(ax, location='right', fraction=.15, pad=.08, **kwargs):
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    axes_class = kwargs.pop('axes_class', _get_axes_class(ax))
-    divider = make_axes_locatable(ax)
-    return divider.append_axes(location, fraction, pad=pad,
-                               axes_class=axes_class), kwargs
+        - ``"left"``
+        - ``"right"`` (default)
+        - ``"top"``
+        - ``"bottom"``
 
+    width : `float`
+        The size of the colourbar along its short axis (i.e. 'width' for
+        a vertical bar, 'height' for a horizontal bar), as a fraction of
+        the parent `Axes` size in the same direction.
 
-def _make_axes_inset(ax, location='right', **kwargs):
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    length : `float`
+        The size of the colourbar along its long axis (i.e. 'height' for
+        a vertical bar, 'length' for a horizontal bar), as a fraction of
+        the parent `Axes` size in the same direction.
 
+    orientation : `str` or `None`
+        One of ``"horizontal"`` or ``"vertical"``. The default is
+        ``"horizontal"`` if ``location`` is ``"top"`` or ``"bottom"``,
+        otherwise ``"vertical"``.
+
+    pad : `float`
+        The gap between the parent Axes and the colourbar, as a fraction
+        of the parent Axes length in the relevant direction. Default is
+        equivalent to .1 inches.
+
+    Returns
+    -------
+    bounds : `tuple` of `float`
+        The ``(x0, y0, width, height)`` bounds for an inset Axes to
+        contain a colourbar. This is designed to be passed to
+        :meth:`~matplotlib.axes.Axes.inset_axes`.
+    """
     location = location.lower()
 
-    inset_kw = {
-        'axes_class': _get_axes_class(ax),
-        'bbox_transform': ax.transAxes,
-        'borderpad': 0.,
-    }
+    # calculate default width and padding for the relevant orientation
+    orientation = "vertical" if location in {"left", "right"} else "horizontal"
+    if orientation == "vertical":
+        size = _scale_width(.1, ax)
+    elif orientation == "horizontal":
+        size = _scale_height(.1, ax)
+    pad = size if pad is None else pad
+    width = size if width is None else width
 
-    # get orientation based on location
-    if location.lower() in ('left', 'right'):
-        pad = kwargs.pop('pad', _scale_width(.1, ax))
-        kwargs.setdefault('orientation', 'vertical')
-    elif location.lower() in ('top', 'bottom'):
-        pad = kwargs.pop('pad', _scale_height(.1, ax))
-        kwargs.setdefault('orientation', 'horizontal')
-    orientation = kwargs.get('orientation')
+    # where to start on the long axis (for centre-aligned Axes)
+    l0 = .5 - length / 2.
 
-    # set params for orientation
-    if orientation == 'vertical':
-        inset_kw['width'] = .12
-        inset_kw['height'] = '100%'
+    if location == "left":
+        return 0 - pad - width, l0, width, length
+    if location == "right":
+        return 1 + pad, l0, width, length
+    if location == "top":
+        return l0, 1 + pad, length, width
+    # "bottom":
+    return l0, 0 - pad - width, length, width
+
+
+def _make_inset_axes(
+    ax: Axes,
+    location: Literal["left", "right", "top", "bottom"] = "right",
+    width: float | None = None,
+    length: float = 1.,
+    pad: float | None = None,
+    **kwargs,
+) -> tuple[Axes, dict[str, Any]]:
+    """Create a new `Axes` to support a colorbar using `Axes.inset_axes`."""
+    # set default orientation
+    if location in {"left", "right"}:
+        orientation = kwargs.setdefault("orientation", "vertical")
+    elif location in {"top", "bottom"}:
+        orientation = kwargs.setdefault("orientation", "horizontal")
     else:
-        inset_kw['width'] = '100%'
-        inset_kw['height'] = .12
+        msg = f"inset Axes location '{location}' not recognised"
+        raise ValueError(msg)
 
-    # set location and anchor position based on location name
-    # NOTE: matplotlib-1.2 requres a location code, and fails on a string
-    #       we can move back to just using strings when we drop mpl-1.2
-    inset_kw['loc'], inset_kw['bbox_to_anchor'] = {
-        'left': (LOC_CODES['lower right'], (-pad, 0., 1., 1.)),
-        'right': (LOC_CODES['lower left'], (1+pad, 0., 1., 1.)),
-        'bottom': (LOC_CODES['upper left'], (0., -pad, 1., 1.)),
-        'top': (LOC_CODES['lower left'], (0., 1+pad, 1., 1.)),
-    }[location]
+    # set default ticklocation for the right location/orientation
+    if location == "top" and orientation == "horizontal":
+        kwargs.setdefault("ticklocation", "top")
+    if location == "left" and orientation == "vertical":
+        kwargs.setdefault("ticklocation", "left")
 
-    # allow user overrides
-    for key in filter(inset_kw.__contains__, kwargs):
-        inset_kw[key] = kwargs.pop(key)
+    # calculate default width as a fixed size
+    if width is None:
+        width = _scale_width(0.1, ax)
 
-    return inset_axes(ax, **inset_kw), kwargs
+    # calculate the bounds for the new Axes
+    bounds = _colorbar_bounds(
+        ax,
+        location=location,
+        width=width,
+        length=length,
+        orientation=orientation,
+        pad=pad,
+    )
+
+    return ax.inset_axes(bounds, transform=ax.transAxes), kwargs

@@ -21,6 +21,7 @@ import tinybird.tb.modules.materialization
 import tinybird.tb.modules.mock
 import tinybird.tb.modules.open
 import tinybird.tb.modules.pipe
+import tinybird.tb.modules.project_commands
 import tinybird.tb.modules.secret
 import tinybird.tb.modules.sink
 import tinybird.tb.modules.test

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pikepdf"
-version = "10.2.0"
+version = "10.3.0"
 description = "Read and write PDFs with Python, powered by qpdf"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,7 @@ repository = "https://github.com/pikepdf/pikepdf"
 changelog = "https://pikepdf.readthedocs.io/en/latest/releasenotes/index.html"
 
 [project.optional-dependencies]
-dev = ["pre-commit", "typer", "mypy"]
+dev = ["pre-commit", "cyclopts", "mypy", "pygithub"]
 docs = [
   "myst-parser>=3.0.1",
   "sphinx>=3",
@@ -233,12 +233,12 @@ required-imports = ["from __future__ import annotations"]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*test*.py" = ["D", "E501"]
-"docs/*.py" = ["D", "E501", "E402", "F401"]
+"**/*.ipynb" = ["D", "E", "F"]
 "bin/bump_version.py" = ["E501"]
+"docs/*.py" = ["D", "E501", "E402", "F401"]
 "examples/*.py" = ["D103"]
 "fuzzing/*.py" = ["D", "E501"]
-"**/*.ipynb" = ["D", "E", "F"]
+"tests/*test*.py" = ["D", "E501"]
 
 [tool.ruff.format]
 quote-style = "preserve"

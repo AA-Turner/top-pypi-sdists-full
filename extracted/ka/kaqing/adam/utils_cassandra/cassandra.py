@@ -5,7 +5,8 @@ from adam.commands.cql.utils_cql import cassandra
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import Color, log_timing, tabulize
+from adam.utils import Color, log_timing
+from adam.utils_tabulize import tabulize
 from adam.utils_cassandra.node_restartable import NodeRestartable
 from adam.utils_context import Context
 from adam.utils_k8s.cassandra_nodes import CassandraNodes
@@ -76,7 +77,7 @@ class Cassandra:
                         lambda k: f'{status_by_ip[k]["status"]}\t{k}\t{Cassandra.pods_by_ip[k]}\t{len(tokens[k])}',
                         header='--\tAddress\tPOD\t# Tokens Shared',
                         separator='\t',
-                        text_color=Color.gray)
+                        ctx=ctx.copy(show_out=True, text_color=Color.gray))
 
             downs = {}
             has_multiple_copies = {}

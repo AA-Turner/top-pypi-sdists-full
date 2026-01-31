@@ -41,15 +41,27 @@ class CommandHandler:
 
     @debug_decorator
     def find_config_record(self, params: KeeperParams, title: str) -> Optional[str]:
-        """Find existing config record and return its UID."""
+        """Find existing config record by exact title match using vault search."""
         try:
-            output = self.execute_cli_command(params, f"search -v '{title}'")
-            if uid_match := re.search(r'UID: ([a-zA-Z0-9_-]+)', output):
-                return uid_match.group(1)
+            from ... import vault_extensions
+            
+            logger.debug(f"Searching for record with exact title: '{title}'")
+            records = list(vault_extensions.find_records(params, title))
+            
+            # Filter to exact title match only
+            for record in records:
+                logger.debug(f"Checking record: '{record.title}' (UID: {record.record_uid})")
+                if record.title == title:
+                    logger.debug(f"✓ Found exact title match: '{title}' (UID: {record.record_uid})")
+                    return record.record_uid
+            
+            logger.debug(f"✗ No record found with exact title: '{title}'")
+            return None
+            
         except Exception as e:
             logger.error(f"Error searching for record: {e}")
             print(f"Error searching for record: {e}")
-        return None
+            return None
 
     @debug_decorator
     def get_help_output(self, params: KeeperParams) -> str:
@@ -62,7 +74,7 @@ class CommandHandler:
             params.service_mode = True
             
             from ... import cli
-            cli.do_command(params, 'help')
+            cli.display_command_help(show_enterprise=True, show_shell=False, show_legacy=False)
             return output.getvalue()
         finally:
             sys.stdout = sys.__stdout__

@@ -1,12 +1,13 @@
 from typing import Any, Optional
+
 import pytest
 from dbt_fusion_package_tools.dbt_package_version import DbtPackageVersion
 from dbt_fusion_package_tools.version_utils import (
-    VersionSpecifier,
-    VersionRange,
     Matchers,
-    versions_compatible,
     UnboundedVersionSpecifier,
+    VersionRange,
+    VersionSpecifier,
+    versions_compatible,
 )
 
 
@@ -326,3 +327,21 @@ def test_fusion_compatible_from_raw(input_yaml: dict[Any, Any], expected_match: 
 
     fusion_compatible: bool = package_version.is_require_dbt_version_fusion_compatible()
     assert fusion_compatible == expected_match
+
+
+def test_package_version_eq_expected_match():
+    version1 = DbtPackageVersion("test/package", "1.0.0")
+    version2 = DbtPackageVersion("test/package", "1.0.0")
+    assert version1 == version2
+
+
+def test_package_version_eq_expected_no_version_match():
+    version1 = DbtPackageVersion("test/package", "1.0.0")
+    version2 = DbtPackageVersion("test/package", "1.0.1")
+    assert version1 != version2
+
+
+def test_package_version_eq_expected_no_name_match():
+    version1 = DbtPackageVersion("test/package", "1.0.0")
+    version2 = DbtPackageVersion("test/package2", "1.0.0")
+    assert version1 != version2

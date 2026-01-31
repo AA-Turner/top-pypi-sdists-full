@@ -813,7 +813,8 @@ def _predictive(
     model_args=(),
     model_kwargs={},
 ):
-    masked_model = numpyro.handlers.mask(model, mask=False)
+    # When enumerating discrete sites, we need true log probabilities.
+    masked_model = numpyro.handlers.mask(model, mask=infer_discrete)
     if infer_discrete:
         # inspect the model to get some structure
         rng_key, subkey = random.split(rng_key)
@@ -882,7 +883,10 @@ def _predictive(
     rng_key = rng_key.reshape(batch_shape + key_shape)
     chunk_size = num_samples if parallel else 1
     return soft_vmap(
-        single_prediction, (rng_key, posterior_samples), len(batch_shape), chunk_size
+        single_prediction,
+        (jax.random.key_data(rng_key), posterior_samples),
+        len(batch_shape),
+        chunk_size,
     )
 
 

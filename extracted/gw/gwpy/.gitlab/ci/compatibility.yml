@@ -16,12 +16,13 @@ spec:
       description: "Extra options to pass to pytest"
       type: string
     minimum_python_version:
-      default: "3.9"
+      default: "3.11"
       description: "Python version for minimum dependency compatibility check"
       type: string
     experimental_python_version:
       default: "3.12"
       description: "Python version for experimental dependency compatibility check"
+      type: string
 
 ---
 
@@ -34,8 +35,8 @@ include:
       stage: $[[ inputs.stage ]]
       job_name: "compat_minimum"
       install_target: "."
-      install_extra: "test"
-      pip_options: "--upgrade-strategy=only-if-needed"
+      pip_cmd: "uv pip"
+      pip_options: "--group test --resolution lowest-direct"
       pytest_options: $[[ inputs.pytest_options ]]
 
   # configure experimental dependency compatibility job
@@ -44,65 +45,38 @@ include:
       stage: $[[ inputs.stage ]]
       job_name: "compat_experimental"
       install_target: "."
-      install_extra: "test,dev"
-      pip_options: "--upgrade --upgrade-strategy=eager --pre"
+      pip_cmd: "uv pip"
+      pip_options: "--group dev --upgrade --resolution highest --prerelease allow"
       pytest_options: $[[ inputs.pytest_options ]]
 
-  # configure dependency scanning
-  - component: gitlab.com/components/dependency-scanning/main@~latest
-    inputs:
-      # dependency-scanning needs to run _after_ the test job that generated
-      # the requirements.txt file
-      stage: $[[ inputs.stage ]]
-      job_name: "dependency-scanning"
-
-.compat_rules:
+.compat:
+  needs: []
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /\[skip compat\]/'
       when: never
     - !reference [.rules_nightly, rules]
     - !reference [.rules_full_test, rules]
+  before_script:
+    - uv venv --python ${PYTHON_VERSION}
+    - source .venv/bin/activate
 
 # test against the minimum specified requirements
 compat_minimum:
   extends:
     - .compat_minimum
-    - .compat_rules
+    - .compat
   image: "ghcr.io/astral-sh/uv:python$[[ inputs.minimum_python_version ]]-bookworm"
-  before_script:
-    # replace the requirements as follows:
-    #    >=X.Y.Z ---> X.Y.Z  (exact pin to minimum)
-    #    ^X.Y    ---> ~X.Y    (pin to X.Y.*)
-    - sed -i -E
-        -e 's/>=/==/'
-        -e 's/\^/~/'
-        pyproject.toml
-    # undo the change to python_requires
-    - sed -i -E
-        -e 's/requires-python = "==/requires-python = ">=/'
-        pyproject.toml
-    # use pip-compile to generate requirements.txt for dependency scanning
-    - python -m venv .piptools
-    - .piptools/bin/python -m pip install pip-tools
-    - .piptools/bin/pip-compile
-        --extra test
-        --output-file requirements.txt
-        --verbose
-    - rm -rf .piptools
+  variables:
+    PYTHON_VERSION: $[[ inputs.minimum_python_version ]]
   artifacts:
     paths:
       - .coverage*
-      - requirements.txt
 
 # test against latest/pre-release versions
 compat_experimental:
   extends:
     - .compat_experimental
-    - .compat_rules
+    - .compat
   image: "ghcr.io/astral-sh/uv:python$[[ inputs.experimental_python_version ]]-bookworm"
-
-# run dependency scanning against minimum specified requirements
-# (most likely to highlight issues)
-dependency-scanning:
-  needs: ["compat_minimum"]
-  rules: !reference [.compat_rules, rules]
+  variables:
+    PYTHON_VERSION: $[[ inputs.experimental_python_version ]]

@@ -118,7 +118,12 @@ def search_content_for_implicit_files(f: dict):
     implicit_files = []
     for line in content.split("\n"):
         if "python" in line or any(f_type in line for f_type in UPLOAD_FILE_TYPES):
-            line_parts = shlex.split(line.strip())
+            try:
+                line_parts = shlex.split(line.strip())
+            except ValueError:
+                # Skip lines that can't be parsed by shlex (e.g., lines ending
+                # with backslash for line continuation in bash scripts)
+                continue
             for part in line_parts:
                 implicit_file = handle_possible_implicit_file(part)
                 if implicit_file:
@@ -367,6 +372,18 @@ def get_kwargs_from_header(f: dict, click_params: list):
     default=None,
     type=str,
     help="Equivalent to specifying both ``--upload`` and ``--download`` with the same local directory.",
+)
+@click.option(
+    "--no-implicit-file-upload",
+    default=False,
+    is_flag=True,
+    help=(
+        "Only upload any files referenced directly on the command line "
+        "(e.g., ``foo.py`` when you run``coiled batch run foo.py``), "
+        "don't search that file for paths to other files to upload. "
+        "By default when you run ``coiled batch run foo.py``, we search ``foo.py`` for valid file paths "
+        f"for data and scripts ({', '.join(UPLOAD_FILE_TYPES)}) and upload those files."
+    ),
 )
 @click.option(
     "--pipe-to-files",
@@ -713,14 +730,15 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
     # identify implicit files referenced by other files
     # for example, user runs "coiled batch run foo.sh" and `foo.sh` itself runs `python foo.py`
-    user_files_from_content = []
-    for f in user_files:
-        if "python " in f["content"] or any(f_type in f["content"] for f_type in UPLOAD_FILE_TYPES):
-            more_files = search_content_for_implicit_files(f)
-            if more_files:
-                user_files_from_content.extend(more_files)
-    if user_files_from_content:
-        user_files.extend(user_files_from_content)
+    if not kwargs.get("no_implicit_file_upload", False):
+        user_files_from_content = []
+        for f in user_files:
+            if "python " in f["content"] or any(f_type in f["content"] for f_type in UPLOAD_FILE_TYPES):
+                more_files = search_content_for_implicit_files(f)
+                if more_files:
+                    user_files_from_content.extend(more_files)
+        if user_files_from_content:
+            user_files.extend(user_files_from_content)
 
     host_setup_content = kwargs.get("host_setup_script_content")
     if not host_setup_content and kwargs["host_setup_script"]:

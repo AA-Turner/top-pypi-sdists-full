@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-api-doc-tools
-Version: 2.1.0
+Version: 2.1.2
 Summary: Tools for writing and generating API documentation for edX REST APIs
 Home-page: https://github.com/openedx/api-doc-tools
 Author: Open edX Project
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
@@ -24,6 +23,17 @@ Requires-Dist: Django
 Requires-Dist: djangorestframework>=3.2.0
 Requires-Dist: drf-yasg
 Requires-Dist: setuptools
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 edX API Documentation Tools
 ===========================
@@ -140,8 +150,16 @@ Change Log
 Unreleased
 ----------
 
+2.1.2 - 2026-01-39
+------------------
+* Fix builds to PyPI
+
+2.1.1 - 2026-01-39
+------------------
+* Fix make upgrade, update dependencies
+
 2.1.0 - 2025-04-18
----------------------
+------------------
 * Added Support for ``django 5.2``.
 
 2.0.0 --- 2024-09-09
@@ -153,8 +171,6 @@ Unreleased
 --------------------
 * Add support for python 3.11 and 3.12 support.
 * Removed django32 support.
-
-
 
 1.7.0 --- 2023-07-23
 --------------------

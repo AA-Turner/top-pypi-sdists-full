@@ -148,6 +148,10 @@ class Trade(System.Object):
         """Returns the amount of profit given back before the trade was closed"""
         ...
 
+    @end_trade_drawdown.setter
+    def end_trade_drawdown(self, value: float) -> None:
+        ...
+
     @property
     def is_win(self) -> bool:
         """Returns whether the trade was profitable (is a win) or not (a loss)"""

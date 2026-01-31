@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-cosmos
-Version: 1.12.1
+Version: 1.13.0
 Summary: Orchestrate your dbt projects in Airflow
 Project-URL: Homepage, https://github.com/astronomer/astronomer-cosmos
 Project-URL: Documentation, https://astronomer.github.io/astronomer-cosmos
@@ -51,6 +51,7 @@ Requires-Dist: dbt-redshift; extra == 'all'
 Requires-Dist: dbt-snowflake; extra == 'all'
 Requires-Dist: dbt-spark; extra == 'all'
 Requires-Dist: dbt-sqlserver; extra == 'all'
+Requires-Dist: dbt-starrocks; extra == 'all'
 Requires-Dist: dbt-teradata; extra == 'all'
 Requires-Dist: dbt-vertica; extra == 'all'
 Requires-Dist: gcsfs<2025.3.0; extra == 'all'
@@ -78,6 +79,7 @@ Requires-Dist: dbt-redshift; extra == 'dbt-all'
 Requires-Dist: dbt-snowflake; extra == 'dbt-all'
 Requires-Dist: dbt-spark; extra == 'dbt-all'
 Requires-Dist: dbt-sqlserver; extra == 'dbt-all'
+Requires-Dist: dbt-starrocks; extra == 'dbt-all'
 Requires-Dist: dbt-teradata; extra == 'dbt-all'
 Requires-Dist: dbt-vertica; extra == 'dbt-all'
 Provides-Extra: dbt-athena
@@ -94,6 +96,8 @@ Requires-Dist: airflow-provider-duckdb>=0.2.0; extra == 'dbt-duckdb'
 Requires-Dist: dbt-duckdb; extra == 'dbt-duckdb'
 Provides-Extra: dbt-exasol
 Requires-Dist: dbt-exasol; extra == 'dbt-exasol'
+Provides-Extra: dbt-loom
+Requires-Dist: dbt-loom; extra == 'dbt-loom'
 Provides-Extra: dbt-mysql
 Requires-Dist: dbt-mysql; extra == 'dbt-mysql'
 Provides-Extra: dbt-oracle
@@ -108,6 +112,8 @@ Provides-Extra: dbt-spark
 Requires-Dist: dbt-spark; extra == 'dbt-spark'
 Provides-Extra: dbt-sqlserver
 Requires-Dist: dbt-sqlserver; extra == 'dbt-sqlserver'
+Provides-Extra: dbt-starrocks
+Requires-Dist: dbt-starrocks; extra == 'dbt-starrocks'
 Provides-Extra: dbt-teradata
 Requires-Dist: dbt-teradata; extra == 'dbt-teradata'
 Provides-Extra: dbt-vertica

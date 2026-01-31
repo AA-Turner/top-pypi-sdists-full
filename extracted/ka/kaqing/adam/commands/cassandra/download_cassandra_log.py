@@ -32,7 +32,7 @@ class DownloadCassandraLog(Command):
 
         with self.validate(args, state) as (args, state):
             path = Config().get('logs.path', '/c3/cassandra/logs/system.log')
-            r: PodExecResult = CassandraNodes.exec(state.pod, state.namespace, f'cat {path}', backgrounded=True, history=False)
+            r: PodExecResult = CassandraNodes.exec(state.pod, state.namespace, f'cat {path}', background=True, history=False)
 
             to_file = PodFiles.download_file(state.pod, 'cassandra', state.namespace, path)
             log2(f'Downloaded to {to_file}.')

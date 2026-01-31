@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,42 +16,39 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""This module provides time conversion utilities.
+"""GPS time conversion utilities.
 
-The :class:`~astropy.time.core.Time` object from the astropy package
+The :class:`~astropy.time.Time` object from the astropy package
 is imported for user convenience, and a GPS time conversion function
 is provided.
 
-All other time conversions can be easily completed using the `Time`
-object.
+All other time conversions can be easily completed using the
+:class:`~astropy.time.Time` object.
 """
 
-from importlib import import_module
+from typing import TYPE_CHECKING
 
 from astropy.time import Time
 
-# try and import LIGOTimeGPS from LAL, otherwise use the pure-python backup
-# provided by the ligotimegps package, its slower, but works
-try:
-    from lal import LIGOTimeGPS
-except ImportError:
-    from ligotimegps import LIGOTimeGPS
+from ._ligotimegps import (
+    LIGOTimeGPS,
+    LIGOTimeGPSLike,
+)
+from ._tconvert import (
+    from_gps,
+    tconvert,
+    to_gps,
+)
 
-from ._tconvert import (tconvert, to_gps, from_gps)
+if TYPE_CHECKING:
+    from ._tconvert import SupportsToGps
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
-# build list of compatible gps types
-gps_types = []
-for _modname in ('lal', 'ligotimegps', 'glue.lal',):
-    try:
-        _mod = import_module(_modname)
-    except ImportError:  # library not installed
-        continue
-    try:
-        gps_types.append(getattr(_mod, 'LIGOTimeGPS'))
-    except AttributeError:  # no LIGOTimeGPS available
-        continue
-gps_types = tuple(gps_types)
-
-del import_module
+__all__ = [
+    "LIGOTimeGPS",
+    "LIGOTimeGPSLike",
+    "from_gps",
+    "tconvert",
+    "to_gps",
+]

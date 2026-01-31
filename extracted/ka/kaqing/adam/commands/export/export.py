@@ -32,7 +32,7 @@ class ExportTables(Command):
             with extract_trailing_options(args, '&') as (args, _):
                 with extract_options(args, '--export-only') as (args, export_only):
                     with export(state) as exporter:
-                        exporter.export(args, export_only=export_only, ctx=Context.new(cmd, backgrounded=False, history=Context.LOCAL))
+                        exporter.export(args, export_only=export_only, ctx=Context.new(cmd, background=False, history=Context.LOCAL))
 
                         return state
 

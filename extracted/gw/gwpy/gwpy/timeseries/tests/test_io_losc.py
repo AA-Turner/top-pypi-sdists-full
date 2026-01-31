@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Cardiff University (2021-2022)
+# Copyright (c) 2021-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,16 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for :mod:`gwpy.timeseries.io.losc`
-"""
+"""Tests for :mod:`gwpy.timeseries.io.losc`."""
 
 import pytest
-
 from astropy.utils.data import download_file
-
 from gwosc.locate import get_event_urls
 
-from ...testing.errors import pytest_skip_network_error
+from ...testing.errors import (
+    pytest_skip_flaky_network,
+    pytest_skip_network_error,
+)
 from ...utils.env import bool_env
 from .. import (
     StateVector,
@@ -49,20 +48,22 @@ def gw150914_hdf5():
     return download_file(url, cache=GWPY_CACHE)
 
 
+@pytest_skip_flaky_network
 def test_read_hdf5_gwosc(gw150914_hdf5):
     data = TimeSeries.read(
         gw150914_hdf5,
         format="hdf5.gwosc",
     )
     assert data.span == (1126259447, 1126259479)
-    assert data.name == "Strain"
+    assert data.name == "L1:Strain"
     assert data.max().value == pytest.approx(-4.60035111e-20)
 
 
+@pytest_skip_flaky_network
 def test_read_hdf5_gwosc_state(gw150914_hdf5):
     state = StateVector.read(
         gw150914_hdf5,
         format="hdf5.gwosc",
     )
-    assert state.name == "Data quality"
+    assert state.name == "L1:DQmask"
     assert state.max().value == 127

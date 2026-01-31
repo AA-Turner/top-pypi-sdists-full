@@ -8,7 +8,8 @@ from adam.commands.reaper.utils_reaper import Reapers, port_forwarding
 from adam.config import Config
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import tabulize, log2
+from adam.utils import log2
+from adam.utils_tabulize import tabulize
 
 class ReaperForward(Command):
     COMMAND = 'reaper forward'
@@ -36,6 +37,7 @@ class ReaperForward(Command):
             if not Reapers.pod_name(state):
                 return state
 
+            ctx = self.context()
             spec = Reapers.reaper_spec(state)
             if state.in_repl:
                 if ReaperForwardSession.is_forwarding:
@@ -55,20 +57,23 @@ class ReaperForward(Command):
                     'reaper-username': spec["username"],
                     'reaper-password': spec["password"]
                 }
-                log2()
-                tabulize(d.items(), lambda a: f'{a[0]},{a[1]}', separator=',')
+                ctx.log2()
+                tabulize(d.items(),
+                         lambda a: f'{a[0]},{a[1]}',
+                         separator=',',
+                         ctx=ctx)
 
                 for k, v in d.items():
                     ReplSession().prompt_session.history.append_string(f'cp {k}')
-                log2()
-                log2(f'Use <Up> arrow key to copy the values to clipboard.')
+                ctx.log2()
+                ctx.log2(f'Use <Up> arrow key to copy the values to clipboard.')
             else:
                 try:
-                    log2(f'Click: {spec["web-uri"]}')
-                    log2(f'username: {spec["username"]}')
-                    log2(f'password: {spec["password"]}')
-                    log2()
-                    log2(f"Press Ctrl+C to break.")
+                    ctx.log2(f'Click: {spec["web-uri"]}')
+                    ctx.log2(f'username: {spec["username"]}')
+                    ctx.log2(f'password: {spec["password"]}')
+                    ctx.log2()
+                    ctx.log2(f"Press Ctrl+C to break.")
 
                     time.sleep(Config().get('reaper.port-forward.timeout', 3600 * 24))
                 except KeyboardInterrupt:

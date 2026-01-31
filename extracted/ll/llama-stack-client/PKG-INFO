@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama_stack_client
-Version: 0.4.3
+Version: 0.4.4
 Summary: The official Python library for the llama-stack-client API
 Project-URL: Homepage, https://github.com/llamastack/llama-stack-client-python
 Project-URL: Repository, https://github.com/llamastack/llama-stack-client-python

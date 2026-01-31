@@ -2,37 +2,39 @@
 
 from pathlib import Path
 from typing import Optional
-from test.test_serialization import verify
 
 import pytest
 
 from docling_core.experimental.idoctags import (
     ContentType,
-    WrapMode,
     EscapeMode,
     IDocTagsDocSerializer,
     IDocTagsParams,
     IDocTagsSerializationMode,
     IDocTagsVocabulary,
+    WrapMode,
 )
 from docling_core.types.doc import (
+    BoundingBox,
+    CodeLanguageLabel,
+    CoordOrigin,
+    DescriptionMetaField,
     DocItemLabel,
     DoclingDocument,
     Formatting,
-    Script,
-    TableData,
-)
-from docling_core.types.doc.base import BoundingBox, CoordOrigin, Size
-from docling_core.types.doc.document import (
-    DescriptionMetaField,
+    PictureClassificationLabel,
     PictureClassificationMetaField,
     PictureClassificationPrediction,
     PictureMeta,
     ProvenanceItem,
+    Script,
+    Size,
     SummaryMetaField,
+    TableData,
     TabularChartMetaField,
 )
-from docling_core.types.doc.labels import CodeLanguageLabel, PictureClassificationLabel
+from test.test_serialization import verify
+
 
 def add_texts_section(doc: DoclingDocument):
     doc.add_text(label=DocItemLabel.TEXT, text="Simple text")
@@ -427,7 +429,7 @@ def test_content_allow_all_types(sample_doc: DoclingDocument):
     serializer = IDocTagsDocSerializer(
         doc=doc,
         params=IDocTagsParams(
-            content_types={ct for ct in ContentType},
+            content_types=set(ContentType),
         ),
     )
     ser_txt = serializer.serialize().text
@@ -613,4 +615,56 @@ def test_vlm_mode():
     ser_res = ser.serialize()
     ser_txt = ser_res.text
     exp_file = Path("./test/data/doc/vlm_mode.gt.idt.xml")
+    verify(exp_file=exp_file, actual=ser_txt)
+
+def test_rich_cells(rich_table_doc):
+    ser = IDocTagsDocSerializer(
+        doc=rich_table_doc,
+        params=IDocTagsParams(),
+    )
+    ser_res = ser.serialize()
+    ser_txt = ser_res.text
+    exp_file = Path("./test/data/doc/rich_table.out.idt.xml")
+    verify(exp_file=exp_file, actual=ser_txt)
+
+
+def _create_simple_prov_doc():
+    doc = DoclingDocument(name="")
+    doc.add_page(page_no=1, size=Size(width=100, height=100), image=None)
+    prov = ProvenanceItem(
+        page_no=1,
+        bbox=BoundingBox.from_tuple((1, 2, 3, 4), origin=CoordOrigin.BOTTOMLEFT),
+        charspan=(0, 2),
+    )
+    doc.add_text(label=DocItemLabel.TEXT, text="Hello", prov=prov)
+    doc.add_text(label=DocItemLabel.TEXT, text="World", prov=prov)
+    return doc
+
+def test_def_prov_512():
+    doc = _create_simple_prov_doc()
+    ser = IDocTagsDocSerializer(
+        doc=doc,
+        params=IDocTagsParams(
+            xsize=512,
+            ysize=512,
+        ),
+    )
+    ser_res = ser.serialize()
+    ser_txt = ser_res.text
+    exp_file = Path("./test/data/doc/simple_prov_res_512.out.idt.xml")
+    verify(exp_file=exp_file, actual=ser_txt)
+
+
+def test_def_prov_256():
+    doc = _create_simple_prov_doc()
+    ser = IDocTagsDocSerializer(
+        doc=doc,
+        params=IDocTagsParams(
+            xsize=256,
+            ysize=256,
+        ),
+    )
+    ser_res = ser.serialize()
+    ser_txt = ser_res.text
+    exp_file = Path("./test/data/doc/simple_prov_res_256.out.idt.xml")
     verify(exp_file=exp_file, actual=ser_txt)

@@ -5,7 +5,7 @@ use crate::messages::{
     NetworkCommand, NetworkEvent, SmolPacket, TransportCommand, TransportEvent, TunnelInfo,
 };
 use crate::shutdown;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use core::net::Ipv4Addr;
 use core::net::Ipv6Addr;
 use internet_packet::InternetPacket;
@@ -13,7 +13,7 @@ use smoltcp::{phy::ChecksumCapabilities, wire::*};
 use tokio::sync::watch;
 use tokio::{
     sync::{
-        mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedSender},
+        mpsc::{Receiver, Sender, UnboundedSender, channel, unbounded_channel},
         oneshot,
     },
     task::JoinHandle,
@@ -805,7 +805,7 @@ async fn receive_icmp4_echo() -> Result<()> {
         let mut input_icmpv4_packet = match Icmpv4Packet::new_checked(response.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                return Err(anyhow!("Invalid ICMPv4 packet emitted: {}", e));
+                return Err(anyhow!("Invalid ICMPv4 packet emitted: {e}"));
             }
         };
 
@@ -843,7 +843,7 @@ async fn receive_icmp6_echo() -> Result<()> {
         let mut input_icmpv6_packet = match Icmpv6Packet::new_checked(response.payload_mut()) {
             Ok(p) => p,
             Err(e) => {
-                return Err(anyhow!("Invalid ICMPv6 packet emitted: {}", e));
+                return Err(anyhow!("Invalid ICMPv6 packet emitted: {e}"));
             }
         };
 

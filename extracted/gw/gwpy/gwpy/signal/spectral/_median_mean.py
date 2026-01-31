@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2017-2020)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Hacky registration of median-mean
+"""Hacky registration of median-mean.
 
 `scipy.signal` doesn't support median-mean averages, so this module
 maps that name to an actual method provided by one of the other
@@ -29,11 +29,11 @@ import warnings
 
 from . import _registry as fft_registry
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
 def median_mean(*args, **kwargs):
-    for api_name, api_func in filter(lambda x: x[0].endswith('_median_mean'),
+    for api_name, api_func in filter(lambda x: x[0].endswith("_median_mean"),
                                      fft_registry.METHODS.items()):
         try:
             result = api_func(*args, **kwargs)
@@ -41,13 +41,15 @@ def median_mean(*args, **kwargs):
             continue
         # warn about deprecated name match
         warnings.warn(
-            "no FFT method registered as 'median_mean', used {!r}; "
-            "in the future this will raise a ValueError.".format(api_name),
+            f"no FFT method registered as 'median_mean', used {api_name!r}; "
+            "in the future this will raise a ValueError.",
             DeprecationWarning,
+            stacklevel=2,
         )
         return result
     # try and call normally, mainly to raise the standard error
-    raise KeyError("no PSD method registered with name 'median-mean'")
+    msg = "no PSD method registered with name 'median-mean'"
+    raise KeyError(msg)
 
 
 fft_registry.register_method(median_mean)

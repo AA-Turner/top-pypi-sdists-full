@@ -30,12 +30,12 @@ class ShowColumnCounts(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with validate_args(args, state, name='SQL statement') as table:
                     with export_db(state) as dbs:
                         query = Config().get(f'export.column_counts_query', 'select id, count(id) as columns from {table} group by id')
                         query = query.replace('{table}', table)
-                        dbs.sql(query, state.export_session, Context.new(backgrounded=backgrounded))
+                        dbs.sql(query, state.export_session, Context.new(background=background))
 
             return state
 

@@ -477,6 +477,9 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(table.alias_column_names, ["a", "b"])
 
     def test_cast(self):
+        expression = parse_one("CAST(x AS DATE)")
+        self.assertIs(expression.type, expression.to)
+
         expression = parse_one("select cast(x as DATE)")
         casts = list(expression.find_all(exp.Cast))
         self.assertEqual(len(casts), 1)
@@ -1281,3 +1284,27 @@ FROM foo""",
     def test_hash_large_ast(self):
         expr = parse_one("SELECT 1 UNION ALL " * 3000 + "SELECT 1")
         assert expr == expr
+
+    def test_literal_number(self):
+        for number in (1, -1.1, 1.1, 0, "-1", "1", "1.1", "-1.1", "1e6"):
+            with self.subTest(f"Test Literal number method for: {repr(number)}"):
+                literal = exp.Literal.number(number)
+
+                self.assertTrue(literal.is_number)
+
+                if isinstance(number, str):
+                    is_negative = number.startswith("-")
+                    expected_this = number.lstrip("-")
+                else:
+                    is_negative = number < 0
+                    expected_this = str(abs(number))
+
+                if is_negative:
+                    self.assertIsInstance(literal, exp.Neg)
+                    self.assertIsInstance(literal.this, exp.Literal)
+                    this = literal.this.this
+                else:
+                    self.assertIsInstance(literal, exp.Literal)
+                    this = literal.this
+
+                self.assertEqual(this, expected_this)

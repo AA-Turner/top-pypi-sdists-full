@@ -2,19 +2,19 @@ use std::iter;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use windows::core::w;
-use windows::core::PCWSTR;
-use windows::Win32::UI::Shell::ShellExecuteW;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use windows::Win32::UI::Shell::SE_ERR_ACCESSDENIED;
+use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
+use windows::core::PCWSTR;
+use windows::core::w;
 
 use crate::intercept_conf::InterceptConf;
 use crate::messages::{TransportCommand, TransportEvent};
-use crate::packet_sources::{forward_packets, PacketSourceConf, PacketSourceTask, IPC_BUF_SIZE};
+use crate::packet_sources::{IPC_BUF_SIZE, PacketSourceConf, PacketSourceTask, forward_packets};
 use crate::shutdown;
 
 pub struct WindowsConf {
@@ -81,7 +81,7 @@ impl PacketSourceConf for WindowsConf {
         if cfg!(debug_assertions) {
             if result.0 as u32 <= 32 {
                 let err = windows::core::Error::from_win32();
-                log::warn!("Failed to start child process: {}", err);
+                log::warn!("Failed to start child process: {err}");
             }
         } else if result.0 as u32 == SE_ERR_ACCESSDENIED {
             return Err(anyhow!(
@@ -89,7 +89,7 @@ impl PacketSourceConf for WindowsConf {
             ));
         } else if result.0 as u32 <= 32 {
             let err = windows::core::Error::from_win32();
-            return Err(anyhow!("Failed to start the executable: {}", err));
+            return Err(anyhow!("Failed to start the executable: {err}"));
         }
 
         let (conf_tx, conf_rx) = unbounded_channel();

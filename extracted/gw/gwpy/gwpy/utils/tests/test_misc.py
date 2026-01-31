@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,46 +16,20 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for :mod:`gwpy.utils.misc`
-"""
-
-import sys
+"""Tests for :mod:`gwpy.utils.misc`."""
 
 import pytest
 
 from .. import misc as utils_misc
 
 
-def test_gprint(capsys):
-    """Test for :func:`gwpy.utils.misc.gprint`
-    """
-    utils_misc.gprint('test')
-    assert capsys.readouterr().out == 'test\n'
-    utils_misc.gprint('test', end=' ')
-    assert capsys.readouterr().out == 'test '
-    utils_misc.gprint('test', end='x', file=sys.stderr)
-    cap = capsys.readouterr()
-    assert not cap.out
-    assert cap.err == 'testx'
-
-
-def test_null_context():
-    """Test for :func:`gwpy.utils.misc.null_context`
-    """
-    with pytest.warns(DeprecationWarning):
-        ctx = utils_misc.null_context()
-    with ctx:
-        print('this should work')
-
-
 def test_round_to_power():
-    """Test for :func:`gwpy.utils.misc.round_to_power`
-    """
+    """Test for :func:`gwpy.utils.misc.round_to_power`."""
     # test basic features
     assert utils_misc.round_to_power(2) == 2
     assert utils_misc.round_to_power(9, base=10) == 10
-    assert utils_misc.round_to_power(5, which='lower') == 4
-    assert utils_misc.round_to_power(5, which='upper') == 8
+    assert utils_misc.round_to_power(5, which="lower") == 4
+    assert utils_misc.round_to_power(5, which="upper") == 8
     # test output
     base = 10.
     rounded = utils_misc.round_to_power(9, base=base)
@@ -64,27 +38,24 @@ def test_round_to_power():
 
 
 def test_round_to_power_error():
-    """Test for an errored use case of :func:`gwpy.utils.misc.round_to_power`
-    """
+    """Test for an errored use case of :func:`gwpy.utils.misc.round_to_power`."""
     with pytest.raises(
         ValueError,
-        match="^'which' argument must be one of 'lower', 'upper', or None$",
+        match=r"^'which' argument must be one of 'lower', 'upper', or None$",
     ):
-        utils_misc.round_to_power(7, which='')
+        utils_misc.round_to_power(7, which="")
 
 
 def test_unique():
-    """Test for :func:`gwpy.utils.misc.unique`
-    """
+    """Test for :func:`gwpy.utils.misc.unique`."""
     a = [1, 2, 4, 3, 5, 4, 5, 3]
     assert utils_misc.unique(a) == [1, 2, 4, 3, 5]
 
 
-@pytest.mark.parametrize('func, value, out', [
-    (str, None, None),
-    (str, 1, '1'),
+@pytest.mark.parametrize(("func", "value", "out"), [
+    pytest.param(str, None, None, id="None"),
+    pytest.param(str, 1, "1", id="str->int"),
 ])
 def test_if_not_none(func, value, out):
-    """Test for :func:`gwpy.utils.misc.if_not_none`
-    """
+    """Test for :func:`gwpy.utils.misc.if_not_none`."""
     assert utils_misc.if_not_none(func, value) == out

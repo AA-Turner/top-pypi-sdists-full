@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,31 +16,69 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for :mod:`gwpy.cli.spectrogram`
-"""
+"""Unit tests for :mod:`gwpy.cli.spectrogram`."""
+
+from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+    cast,
+)
 
 import pytest
 
-from ... import cli
-from .base import (_TestImageProduct, _TestTimeDomainProduct, _TestFFTMixin)
+from .. import SpectrogramProduct
+from .base import (
+    _TestFFTMixin,
+    _TestImageProduct,
+    _TestTimeDomainProduct,
+)
+
+if TYPE_CHECKING:
+    from typing import ClassVar
+
+    from ...spectrogram import Spectrogram
+
+SpectrogramProductType = TypeVar("SpectrogramProductType", bound=SpectrogramProduct)
 
 
-class TestCliSpectrogram(_TestFFTMixin, _TestTimeDomainProduct,
-                         _TestImageProduct):
-    TEST_CLASS = cli.Spectrogram
-    ACTION = 'spectrogram'
+class TestSpectrogramProduct(
+    _TestFFTMixin,
+    _TestTimeDomainProduct[SpectrogramProductType],
+    _TestImageProduct[SpectrogramProductType],
+    Generic[SpectrogramProductType],
+):
+    """Tests for `gwpy.cli.SpectrogramProduct`."""
+
+    TEST_CLASS: ClassVar[type[SpectrogramProduct]] = SpectrogramProduct
+    ACTION = "spectrogram"
 
     @pytest.fixture
-    def dataprod(self, prod):
-        self._prod_add_data(prod)
+    @classmethod
+    def dataprod(cls, prod: SpectrogramProductType) -> SpectrogramProductType:
+        """Return a `SpectrogramProduct` with data."""
+        cls._prod_add_data(prod)
         prod.result = prod.get_spectrogram()
         return prod
 
-    def test_get_title(self, prod):
-        assert prod.get_title() == ', '.join([
-            f'fftlength={prod.args.secpfft}',
-            f'overlap={prod.args.overlap}',
+    @pytest.fixture
+    @classmethod
+    def plotprod(cls, dataprod: SpectrogramProductType) -> SpectrogramProductType:
+        """Return a `SpectrogramProduct` with data and a plot."""
+        cls._plotprod_init(dataprod)
+        result = cast("Spectrogram", dataprod.result)
+        dataprod.plot.gca().pcolormesh(result)
+        return dataprod
+
+    def test_get_title(self, prod: SpectrogramProductType):
+        """Test `SpectrogramProduct.get_title()`."""
+        assert prod.get_title() == ", ".join([
+            f"fftlength={prod.args.secpfft}",
+            f"overlap={prod.args.overlap}",
         ])
 
-    def test_get_suptitle(self, prod):
-        assert prod.get_suptitle() == f'Spectrogram: {prod.chan_list[0]}'
+    def test_get_suptitle(self, prod: SpectrogramProductType):
+        """Test `SpectrogramProduct.get_suptitle()`."""
+        assert prod.get_suptitle() == f"Spectrogram: {prod.chan_list[0]}"

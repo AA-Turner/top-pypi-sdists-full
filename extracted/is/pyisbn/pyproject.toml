@@ -1,0 +1,166 @@
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.9.0,<0.10.0"]
+
+[dependency-groups]
+dev = ["mutmut>=3.3,<=4.0", "pytest-html>=4.1,<=5.0", "ruff>=0.14,<=0.15"]
+doc = [
+    "sphinx-autodoc-typehints>=3.2,<=4.0",
+    "sphinx>=9.0,<=10.0",
+    "sphinx_rtd_theme>=3.1,<=4.0",
+    "sphinxcontrib-spelling>=8.0,<9.0",
+]
+test = [
+    "hypothesis>=6.140,<=7.0",
+    "pytest-cov>=7.0,<=8.0",
+    "pytest-randomly>=4.0,<=5.0",
+    "pytest>=9.0,<=10.0",
+]
+
+[project]
+name = "pyisbn"
+version = "1.4.1"
+description = "A module for working with 10- and 13-digit ISBNs"
+readme = "README.rst"
+license = "GPL-3.0-or-later"
+license-files = ["COPYING"]
+authors = [{ name = "James Rowe", email = "jnrowe@gmail.com" }]
+requires-python = ">=3.11"
+keywords = ["ISBN", "ISBN-10", "ISBN-13", "SBN"]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Other/Nonlisted Topic",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Indexing",
+]
+
+[project.urls]
+"Changelog" = "https://github.com/JNRowe/pyisbn/blob/main/NEWS.rst"
+"Contributors" = "https://github.com/JNRowe/pyisbn/contributors/"
+"Documentation" = "https://pyisbn.readthedocs.io/"
+"Git repository" = "https://github.com/JNRowe/pyisbn/"
+"Issue tracker" = "https://github.com/JNRowe/pyisbn/issues/"
+"Source code" = "https://github.com/JNRowe/pyisbn"
+
+[tool.coverage.report]
+fail_under = 100
+precision = 2
+show_missing = true
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source_pkgs = ["pyisbn"]
+
+[tool.mutmut]
+pytest_add_cli_args = ["--cov-fail-under=0", "--randomly-seed=0"]
+# Forcibly set pytest command, as the default behaves badly if you’re using
+# environment isolation
+runner = "pytest -x"
+
+[tool.pytest]
+addopts = [
+    "--cov",
+    "--cov-append",
+    "--cov-context=test",
+    "--durations=5",
+    "--import-mode=importlib",
+    "--no-cov-on-fail",
+    "--pythonwarnings=error",
+]
+minversion = "9.0"
+strict = true
+testpaths = ["tests/"]
+
+[tool.ruff]
+exclude = [".git/", "build/", "dist/", "maybe/"]
+line-length = 80
+target-version = "py311"
+
+[tool.ruff.format]
+docstring-code-format = true
+preview = true
+
+[tool.ruff.lint]
+extend-select = [
+    "A",      # flake8-builtins
+    "ANN",    # flake8-annotations
+    "ARG",    # flake8-unused-arguments
+    "B",      # flake8-bugbear
+    "BLE",    # flake8-blind-except
+    "C4",     # flake8-comprehensions
+    "C90",    # mccabe
+    "CPY",    # flake8-copyright
+    "D",      # pydocstyle
+    "DOC",    # pydoclint
+    "DTZ",    # flake8-datetimez
+    "E",      # pycodestyle
+    "ERA001", # eradicate
+    "EXE",    # flake8-executable
+    "FBT",    # flake8-boolean-trap
+    "FIX",    # flake8-fixme
+    "FURB",   # refurb
+    "N",      # pep8-naming
+    "PERF",   # Perflint
+    "PL",     # Pylint
+    "PT",     # flake8-pytest-style
+    "PTH",    # flake8-use-pathlib
+    "RET",    # flake8-return
+    "RUF",    # Ruff-specific rules
+    "S",      # flake8-bandit
+    "SIM",    # flake8-simplify
+    "TC",     # flake8-type-checking
+    "TID",    # flake8-tidy-imports
+    "UP",     # pyupgrade
+    "W",      # pycodestyle
+    "YTT",    # flake8-2020
+]
+ignore = [
+    "TC006", # Allow unquoted cast() types where possible
+]
+preview = true
+
+[tool.ruff.lint.flake8-copyright]
+min-file-size = 1
+notice-rgx = "Copyright © 20\\d{2}(-20\\d{2})? {2}"
+
+[tool.ruff.lint.flake8-annotations]
+suppress-dummy-args = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN201", "S101"] # Tests don't require return types
+
+[tool.ruff.lint.mccabe]
+max-complexity = 6
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.uv]
+required-version = ">=0.9.0,<=0.10.0"
+
+[tool.uv.build-backend]
+source-include = [
+    ".github/*.rst",
+    "doc/**",
+    "extra/_pyisbn",
+    "extra/doap.rdf",
+    "extra/tool.py",
+    "tests/**",
+    ".editorconfig",
+    "NEWS.rst",
+]

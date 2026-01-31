@@ -940,10 +940,9 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
 
     @staticmethod
     def convert_arrow_table_from_proto(proto: pb.TableParquetBytes) -> pa.Table:
-        import pyarrow.parquet
+        import pyarrow.parquet as pq
 
-        pf = pyarrow.parquet.ParquetFile(io.BytesIO(proto.encoded_parquet_bytes))
-        return pyarrow.parquet.read_table(pf)
+        return pq.read_table(io.BytesIO(proto.encoded_parquet_bytes))
 
     @staticmethod
     def _serialize_pa_decimal_to_pb(value: Union[pa.Decimal128Scalar, pa.Decimal256Scalar]) -> pb.ScalarValue:

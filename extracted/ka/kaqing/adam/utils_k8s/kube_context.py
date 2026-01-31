@@ -3,7 +3,9 @@ import re
 from kubernetes import config as kconfig
 
 from adam.config import Config
-from adam.utils import idp_token_from_env, log2, tabulize
+from adam.utils import idp_token_from_env, log2
+from adam.utils_tabulize import tabulize
+from adam.utils_context import Context
 
 class KubeContext:
     _in_cluster = False
@@ -56,7 +58,10 @@ class KubeContext:
             log2('Use -v <key>=<value> format.')
             log2()
             lines = [f'{key}\t{Config().get(key, None)}' for key in Config().keys()]
-            tabulize(lines, separator='\t', err=True)
+            tabulize(lines,
+                     separator='\t',
+                     err=True,
+                     ctx=Context.new(show_out=True))
 
         for p in param_ovrs:
             tokens = p.split('=')

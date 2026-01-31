@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdk-opinionated-constructs
-Version: 4.7.33
+Version: 4.7.34
 Summary: AWS CDK constructs come without added security configurations.
 License: MIT
 Requires-Python: >=3.11

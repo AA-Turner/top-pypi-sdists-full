@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Louisiana State University (2014-2017)
-#               Cardiff University (2017-2021)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,27 +16,56 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Read/write segment XML in LIGO_LW format into DataQualityFlags
-"""
+"""Read/write segment XML in LIGO_LW format into DataQualityFlags."""
+
+from __future__ import annotations
 
 import operator
 from functools import reduce
+from typing import TYPE_CHECKING
 
-from astropy.io import registry as io_registry
+from ...io.ligolw import (
+    build_content_handler,
+    is_ligolw,
+    read_ligolw,
+    read_table,
+    write_tables,
+)
+from ...io.registry import default_registry
+from ...segments import (
+    DataQualityDict,
+    DataQualityFlag,
+)
 
-from ...io.ligolw import (is_ligolw, build_content_handler, read_ligolw,
-                          write_tables, patch_ligotimegps)
-from ...segments import (DataQualityFlag, DataQualityDict)
+if TYPE_CHECKING:
+    from typing import (
+        Any,
+        TypeAlias,
+    )
+
+    from igwn_ligolw.ligolw import (
+        Document,
+        PartialContentHandler,
+    )
+
+    from ...io.utils import (
+        NamedReadable,
+        Writable,
+    )
+
+    LigolwInput: TypeAlias = NamedReadable | list[NamedReadable]
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-def segment_content_handler():
-    """Build a `~xml.sax.handlers.ContentHandler` to read segment XML tables
-    """
-    from ligo.lw.lsctables import (SegmentTable, SegmentDefTable,
-                                   SegmentSumTable)
-    from ligo.lw.ligolw import PartialLIGOLWContentHandler
+def segment_content_handler() -> PartialContentHandler:
+    """Build a `~xml.sax.handlers.ContentHandler` to read segment XML tables."""
+    from igwn_ligolw.ligolw import PartialLIGOLWContentHandler
+    from igwn_ligolw.lsctables import (
+        SegmentDefTable,
+        SegmentSumTable,
+        SegmentTable,
+    )
 
     def _filter(name, attrs):
         return reduce(
@@ -50,41 +78,50 @@ def segment_content_handler():
 
 # -- read ---------------------------------------------------------------------
 
-def read_ligolw_dict(source, names=None, coalesce=False, **kwargs):
+def read_ligolw_dict(
+    source: LigolwInput,
+    names: list[str] | None = None,
+    coalesce: bool = False,
+    **kwargs,
+) -> DataQualityDict:
     """Read segments for the given flag from the LIGO_LW XML file.
 
     Parameters
     ----------
-    source : `file`, `str`, :class:`~ligo.lw.ligolw.Document`, `list`
-        one (or more) open files or file paths, or LIGO_LW `Document` objects
+    source : `file`, `str`, `list`
+        One (or more) open files or file paths.
 
     names : `list`, `None`, optional
-        list of names to read or `None` to read all into a single
+        List of names to read or `None` to read all into a single
         `DataQualityFlag`.
 
     coalesce : `bool`, optional
-        if `True`, coalesce all parsed `DataQualityFlag` objects before
+        If `True`, coalesce all parsed `DataQualityFlag` objects before
         returning, default: `False`
 
-    **kwargs
-        other keywords are passed to :meth:`DataQualityDict.from_ligolw_tables`
+    kwargs
+        Other keywords are passed to `DataQualityDict.from_ligolw_tables`.
 
     Returns
     -------
     flagdict : `DataQualityDict`
-        a new `DataQualityDict` of `DataQualityFlag` entries with ``active``
+        A new `DataQualityDict` of `DataQualityFlag` entries with ``active``
         and ``known`` segments seeded from the XML tables in the given
         file ``fp``.
     """
     xmldoc = read_ligolw(source, contenthandler=segment_content_handler())
+    segdef = read_table(xmldoc, "segment_definer")
+    segsum = read_table(xmldoc, "segment_summary")
+    seg = read_table(xmldoc, "segment")
 
     # parse tables
-    with patch_ligotimegps(type(xmldoc.childNodes[0]).__module__):
-        out = DataQualityDict.from_ligolw_tables(
-            *xmldoc.childNodes,
-            names=names,
-            **kwargs
-        )
+    out = DataQualityDict.from_ligolw_tables(
+        segdef,
+        segsum,
+        seg,
+        names=names,
+        **kwargs,
+    )
 
     # coalesce
     if coalesce:
@@ -94,24 +131,35 @@ def read_ligolw_dict(source, names=None, coalesce=False, **kwargs):
     return out
 
 
-def read_ligolw_flag(source, name=None, **kwargs):
-    """Read a single `DataQualityFlag` from a LIGO_LW XML file
-    """
-    name = [name] if name is not None else None
-    return list(read_ligolw_dict(source, names=name, **kwargs).values())[0]
+def read_ligolw_flag(
+    source: LigolwInput,
+    name: str | None = None,
+    **kwargs,
+) -> DataQualityFlag:
+    """Read a single `DataQualityFlag` from a LIGO_LW XML file."""
+    return next(iter(read_ligolw_dict(
+        source,
+        names=[name] if name is not None else None,
+        **kwargs,
+    ).values()))
 
 
 # -- write --------------------------------------------------------------------
 
-def write_ligolw(flags, target, attrs=None, **kwargs):
-    """Write this `DataQualityFlag` to the given LIGO_LW Document
+def write_ligolw(
+    flags: DataQualityFlag | DataQualityDict,
+    target: Writable | Document,
+    attrs: dict[str, Any] | None = None,
+    **kwargs,
+) -> None:
+    """Write this `DataQualityFlag` to the given LIGO_LW Document.
 
     Parameters
     ----------
     flags : `DataQualityFlag`, `DataQualityDict`
         `gwpy.segments` object to write
 
-    target : `str`, `file`, :class:`~ligo.lw.ligolw.Document`
+    target : `str`, `file`, :class:`~igwn_ligolw.ligolw.Document`
         the file or document to write into
 
     attrs : `dict`, optional
@@ -120,7 +168,7 @@ def write_ligolw(flags, target, attrs=None, **kwargs):
     **kwargs
         keyword arguments to use when writing
 
-    See also
+    See Also
     --------
     gwpy.io.ligolw.write_ligolw_tables
         for details of acceptable keyword arguments
@@ -129,19 +177,19 @@ def write_ligolw(flags, target, attrs=None, **kwargs):
         flags = DataQualityDict({flags.name: flags})
     return write_tables(
         target,
-        flags.to_ligolw_tables(**attrs or dict()),
-        **kwargs
+        flags.to_ligolw_tables(**attrs or {}),
+        **kwargs,
     )
 
 
 # -- register -----------------------------------------------------------------
 
 # register methods for DataQualityDict
-io_registry.register_reader('ligolw', DataQualityFlag, read_ligolw_flag)
-io_registry.register_writer('ligolw', DataQualityFlag, write_ligolw)
-io_registry.register_identifier('ligolw', DataQualityFlag, is_ligolw)
+default_registry.register_reader("ligolw", DataQualityFlag, read_ligolw_flag)
+default_registry.register_writer("ligolw", DataQualityFlag, write_ligolw)
+default_registry.register_identifier("ligolw", DataQualityFlag, is_ligolw)
 
 # register methods for DataQualityDict
-io_registry.register_reader('ligolw', DataQualityDict, read_ligolw_dict)
-io_registry.register_writer('ligolw', DataQualityDict, write_ligolw)
-io_registry.register_identifier('ligolw', DataQualityDict, is_ligolw)
+default_registry.register_reader("ligolw", DataQualityDict, read_ligolw_dict)
+default_registry.register_writer("ligolw", DataQualityDict, write_ligolw)
+default_registry.register_identifier("ligolw", DataQualityDict, is_ligolw)

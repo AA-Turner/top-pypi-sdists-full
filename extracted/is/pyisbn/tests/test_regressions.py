@@ -1,6 +1,5 @@
-#
 """test_regressions - Test for regressions."""
-# Copyright © 2012-2020  James Rowe <jnrowe@gmail.com>
+# Copyright © 2013-2026  James Rowe <jnrowe@gmail.com>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -18,26 +17,35 @@
 # You should have received a copy of the GNU General Public License along with
 # pyisbn.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import mark, raises
+import pytest
 
-from pyisbn import IsbnError, _isbn_cleanse
+from pyisbn import IsbnError
+from pyisbn._utils import isbn_cleanse  # NoQA: PLC2701
 
 
 # NOTE: Depending on your typeface and editor you may notice that the following
 # +# dashes are not HYPHEN-MINUS.  They're not, and this is on purpose
-@mark.parametrize('isbn', [
-    '978-1-84724-253-2',
-    '978–1–84724–253–2',
-    '978―0199564095',
-])
+@pytest.mark.parametrize(
+    "isbn",
+    [
+        "978-1-84724-253-2",
+        "978–1–84724–253–2",  # NoQA: RUF001
+        "978―0199564095",
+    ],
+)
 def test_issue_7_unistr(isbn: str):
-    assert _isbn_cleanse(isbn) == ''.join(filter(lambda s: s.isdigit(), isbn))
+    """Test for issue #7 (unicode dashes)."""
+    assert isbn_cleanse(isbn) == "".join(filter(lambda s: s.isdigit(), isbn))
 
 
-@mark.parametrize('isbn', [
-    '2901568582497',
-    '5800034170763',
-])
+@pytest.mark.parametrize(
+    "isbn",
+    [
+        "2901568582497",
+        "5800034170763",
+    ],
+)
 def test_issue_16_bookland(isbn: str):
-    with raises(IsbnError, match='Bookland'):
-        _isbn_cleanse(isbn)
+    """Test for issue #16 (Bookland ISBNs)."""
+    with pytest.raises(IsbnError, match="Bookland"):
+        isbn_cleanse(isbn)

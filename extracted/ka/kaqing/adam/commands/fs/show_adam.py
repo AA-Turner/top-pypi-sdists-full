@@ -1,7 +1,7 @@
 import sys
 import os
 
-from adam.utils import tabulize
+from adam.utils_tabulize import tabulize
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,7 +37,7 @@ class ShowAdam(Command):
         tabulize([
             f'version\t{__version__}',
             f'source\t{package}'
-        ], separator='\t', err=True)
+        ], separator='\t', err=True, ctx=self.context())
 
         return state
 

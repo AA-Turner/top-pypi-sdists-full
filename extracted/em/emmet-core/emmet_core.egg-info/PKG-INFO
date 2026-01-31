@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: emmet-core
-Version: 0.86.2
+Version: 0.86.3
 Summary: Core Emmet Library
 Author-email: The Materials Project <feedback@materialsproject.org>
 License: Modified BSD
@@ -18,7 +18,7 @@ Requires-Dist: blake3
 Provides-Extra: all
 Requires-Dist: seekpath>=2.0.1; extra == "all"
 Requires-Dist: robocrys>=0.2.11; extra == "all"
-Requires-Dist: matminer>=0.9.3; extra == "all"
+Requires-Dist: matminer>=0.10.0; extra == "all"
 Requires-Dist: pymatgen-analysis-defects>=2024.7.18; extra == "all"
 Requires-Dist: pymatgen-analysis-diffusion>=2024.7.15; extra == "all"
 Requires-Dist: pymatgen-analysis-alloys>=0.0.6; extra == "all"
@@ -38,13 +38,7 @@ Requires-Dist: types-requests; extra == "test"
 Requires-Dist: wincertstore; extra == "test"
 Requires-Dist: custodian; extra == "test"
 Provides-Extra: docs
-Requires-Dist: mkdocs; extra == "docs"
-Requires-Dist: mkdocs-material<8.3; extra == "docs"
-Requires-Dist: mkdocs-material-extensions; extra == "docs"
-Requires-Dist: mkdocs-minify-plugin; extra == "docs"
-Requires-Dist: mkdocstrings; extra == "docs"
-Requires-Dist: mkdocs-awesome-pages-plugin; extra == "docs"
-Requires-Dist: mkdocs-markdownextradata-plugin; extra == "docs"
-Requires-Dist: mkdocstrings[python]; extra == "docs"
-Requires-Dist: livereload; extra == "docs"
-Requires-Dist: jinja2; extra == "docs"
+Requires-Dist: sphinx<9.0.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.0.2; extra == "docs"
+Requires-Dist: sphinx-markdown-builder>=0.6.8; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"

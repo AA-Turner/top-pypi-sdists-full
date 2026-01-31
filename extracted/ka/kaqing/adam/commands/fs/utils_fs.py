@@ -6,7 +6,8 @@ import re
 from adam.commands.devices.devices import Devices
 from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState
-from adam.utils import Color, PodLogFile, log2, log_dir, log_to_pods, pod_log_dir, tabulize
+from adam.utils import Color, PodLogFile, log2, log_dir, log_to_pods, pod_log_dir
+from adam.utils_tabulize import tabulize
 from adam.utils_cassandra.node_restarter import NodeRestarter
 from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
@@ -15,7 +16,7 @@ from adam.utils_k8s.pods import Pods
 from adam.utils_local import find_local_files
 from adam.utils_async_job import AsyncJobs, CommandInfo
 
-def show_last_local_results(state: ReplState):
+def show_last_local_results(state: ReplState, ctx: Context = Context.NULL):
     last_id, last_command, last_extra = AsyncJobs.last_command()
     logs: list[str] = find_local_files(f'{log_dir()}/{last_id}*')
 
@@ -52,31 +53,52 @@ def show_last_local_results(state: ReplState):
             # nodetool -u cs-a7b13e29bd-superuser -pw lDed6uXQAQP72kHOYuML repair &
             keywords = keywords[-1:]
 
-        for ps in find_pids_for_pod(state.pod, Devices.of(state).default_container(state), state.namespace, keywords, match_last_arg=True):
+        for ps in find_pids_for_pod(state.pod, Devices.of(state).default_container(state), state.namespace, keywords, match_last_arg=True, ctx=ctx.copy(show_out=False)):
             n = ps.pod.split('-')[-1]
             if n in logs_by_n:
                 logs_by_n[n].merge(ps)
 
-    log2(f'[{last_id}] {last_command}')
-    log2()
-    tabulize(sorted(logs_by_n.keys()), fn=lambda n: logs_by_n[n].table_line(), header=LogLine.header, separator='\t')
+    ctx.log2(f'[{last_id}] {last_command}')
+    ctx.log2()
+    tabulize(sorted(logs_by_n.keys()),
+             fn=lambda n: logs_by_n[n].table_line(),
+             header=LogLine.header,
+             separator='\t',
+             ctx=ctx)
 
-def show_last_results(state: ReplState):
-    cmd: CommandInfo = AsyncJobs.last_command()
+def show_last_results(state: ReplState, args: str = None, ctx: Context = Context.NULL):
+    job_id = args
+    if job_id and isinstance(job_id, list):
+        job_id = job_id[0]
+
+    cmd: CommandInfo = AsyncJobs.last_command(job_id)
 
     if not cmd:
-        log2('Last used command was NOT found.')
+        if job_id:
+            log2(f'Last command with job_id: {job_id} was NOT found.')
+        else:
+            log2('Last command was NOT found.')
+
         return
 
     if cmd and (tokens := cmd.command.strip(' &').split(' ')):
         if tokens[0] in ['export']:
-            return show_last_results_for_export(state, cmd)
+            return show_last_results_for_export(state, cmd, ctx=ctx)
         elif tokens[0] in ['show', 'xelect', 'audit']:
-            return show_last_results_for_local_command(state, cmd)
+            return show_last_results_with_local_log(state, cmd, ctx=ctx)
         elif tokens[0] == 'restart':
-            return show_last_results_for_restart_nodes(state, cmd)
+            return show_last_results_for_background_jobs(state, cmd, ctx=ctx)
 
     # default to finding logs from pods
+    show_last_results_with_pod_logs(state, cmd, ctx=ctx)
+
+def show_last_results_with_local_log(state: ReplState, cmd: CommandInfo, ctx: Context = Context.NULL):
+        ctx.log2(f'[{cmd.job_id}] {cmd.command}')
+        log_file = AsyncJobs.local_log_file(cmd.command, job_id = cmd.job_id)
+        os.system(f'cat {log_file}')
+        ctx.log2()
+
+def show_last_results_with_pod_logs(state: ReplState, cmd: CommandInfo, ctx: Context = Context.NULL):
     container = Devices.of(state).default_container(state)
 
     action = 'find-files'
@@ -85,34 +107,32 @@ def show_last_results(state: ReplState):
     with Pods.parallelize(pods, len(pods), msg=msg, action=action) as exec:
         results: list[LogLine] = exec.map(lambda pod: find_logs_for_pod(pod, container, state.namespace, pod_log_dir(), cmd, log_to_pods()))
 
-        log2(f'[{cmd.job_id}] {cmd.command}')
-        log2()
-        tabulize(sorted([l for l in results if l.ordinal != '-'], key=lambda l: l.ordinal), fn=lambda l: l.table_line(), header=LogLine.header, separator='\t')
+        ctx.log2(f'[{cmd.job_id}] {cmd.command}')
+        ctx.log2()
+        tabulize(sorted([l for l in results if l.ordinal != '-'], key=lambda l: l.ordinal),
+                 fn=lambda l: l.table_line(),
+                 header=LogLine.header,
+                 separator='\t',
+                 ctx=ctx)
 
-def show_last_results_for_export(state: ReplState, cmd: CommandInfo):
+def show_last_results_for_export(state: ReplState, cmd: CommandInfo, ctx: Context = Context.NULL):
     if 'session' not in cmd.extra:
-        log2(f'[{cmd.job_id}] {cmd.command}')
+        ctx.log2(f'[{cmd.job_id}] {cmd.command}')
 
         return
 
     with export_session(state) as sessions:
         session = cmd.extra['session']
-        log2(f'[job:{cmd.job_id}][export-session:{session}] {cmd.command}')
-        log2()
-        log2(f'show export session {session}', text_color='gray')
+        ctx.log2(f'[job:{cmd.job_id}][export-session:{session}] {cmd.command}')
+        ctx.log2()
+        ctx.log2(f'show export session {session}', text_color='gray')
         sessions.show_session(session)
 
-def show_last_results_for_local_command(state: ReplState, cmd: CommandInfo):
-        log2(f'[{cmd.job_id}] {cmd.command}')
+def show_last_results_for_background_jobs(state: ReplState, cmd: CommandInfo, ctx: Context = Context.NULL):
+        ctx.log2(f'[{cmd.job_id}] {cmd.command}')
         log_file = AsyncJobs.local_log_file(cmd.command, job_id = cmd.job_id)
         os.system(f'cat {log_file}')
-        log2()
-
-def show_last_results_for_restart_nodes(state: ReplState, cmd: CommandInfo):
-        log2(f'[{cmd.job_id}] {cmd.command}')
-        log_file = AsyncJobs.local_log_file(cmd.command, job_id = cmd.job_id)
-        os.system(f'cat {log_file}')
-        log2()
+        ctx.log2()
         lines = []
 
         waiting_ons = NodeRestarter.waiting_ons()
@@ -123,13 +143,19 @@ def show_last_results_for_restart_nodes(state: ReplState, cmd: CommandInfo):
             return '-'
 
         for k, v in sorted(list(NodeRestarter.completed().items()), key=lambda kv: kv[1]):
-            lines.append(f'{k[0]}\t{k[1]}\tRestarted\t{datetime.fromtimestamp(v)}\t-')
+            lines.append(f'{k[0]}\t{k[1]}\tRestarted\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
         for k, v in sorted(list(NodeRestarter.restartings().items()), key=lambda kv: kv[1]):
-            lines.append(f'{k[0]}\t{k[1]}\tIn Restart\t{datetime.fromtimestamp(v)}\t-')
+            lines.append(f'{k[0]}\t{k[1]}\tIn Restart\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
         for k, v in sorted(list(NodeRestarter.pending().items()), key=lambda kv: kv[1]):
-            lines.append(f'{k[0]}\t{k[1]}\tPending\t{datetime.fromtimestamp(v)}\t{wo(k)}')
+            lines.append(f'{k[0]}\t{k[1]}\tPending\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t{wo(k)}')
 
-        tabulize(lines, header='POD\tNAMESPACE\tSTATUS\tSCHEDULED/COMPLETED\tWAITING_ON', separator='\t')
+        tabulize(lines,
+                 header='POD\tNAMESPACE\tSTATUS\tSCHEDULED/COMPLETED\tWAITING_ON',
+                 separator='\t',
+                 ctx=ctx)
+        ctx.log2()
+        ctx.log2('  *DN  node is down or marked as in_restart')
+        ctx.log2('  *MC  node has more than one copy of some token ranges; cannot be restarted until the copies are relocated to other nodes')
 
 def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, cmd: CommandInfo, remote: bool, ctx: Context = Context.NULL):
     ctx = ctx.copy(show_out=True, text_color=Color.gray)
@@ -243,8 +269,12 @@ class ProcessInfo:
     def table_line(self):
         return '\t'.join([self.pod, self.user, self.pid, self.cmd, self.last_arg])
 
-    def tabulize(processes: list['ProcessInfo']):
-        tabulize(processes, lambda p: p.table_line(), header = ProcessInfo.header, separator='\t')
+    def tabulize(processes: list['ProcessInfo'], ctx: Context = Context.NULL):
+        tabulize(processes,
+                 lambda p: p.table_line(),
+                 header = ProcessInfo.header,
+                 separator='\t',
+                 ctx=ctx.copy(show_out=True))
 
 class LogLine(ProcessInfo):
     header='ORDINAL\tPID\tEXIT_CODE\tCMD\tLAST_ARG\tOUT_SIZE\tERR_SIZE\tLOG(ERR)_FILES'

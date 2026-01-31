@@ -14,22 +14,32 @@ import ftplib
 import warnings
 
 from .utils import parse_url
+from ._version import __version__  # type: ignore[import-not-found]
 
+# Mypy doesn't like assigning None like this.
+# Can just use a guard variable
 try:
-    from tqdm import tqdm
+    from tqdm.auto import tqdm
 except ImportError:
-    tqdm = None
+    tqdm = None  # type: ignore
 
 try:
     import paramiko
 except ImportError:
-    paramiko = None
+    paramiko = None  # type: ignore
 
 
 # Set the default timeout in seconds so it can be configured in a pinch for the
 # methods that don't or can't expose a way set it at runtime.
 # See https://github.com/fatiando/pooch/issues/409
 DEFAULT_TIMEOUT = 30
+
+# Define headers that will be used by DOI downloaders when making requests.
+# Setting the user agent can bypass limit rates imposed by some services
+# like Zenodo (see #502).
+REQUESTS_HEADERS = {
+    "User-Agent": f"pooch{__version__} (https://www.fatiando.org/pooch)",
+}
 
 
 def choose_downloader(url, progressbar=False):
@@ -545,9 +555,13 @@ class DOIDownloader:  # pylint: disable=too-few-public-methods
         (stderr). Requires `tqdm <https://github.com/tqdm/tqdm>`__ to be
         installed. Alternatively, an arbitrary progress bar object can be
         passed. See :ref:`custom-progressbar` for details.
-    chunk_size : int
+    chunk_size : int, optional
         Files are streamed *chunk_size* bytes at a time instead of loading
         everything into memory at one. Usually doesn't need to be changed.
+    headers : dict or None, optional
+        Headers that will be passed to :func:`requests.get`.
+        If None, default headers containing Pooch's user agent will be used.
+        If no headers should be used, pass an empty dictionary.
     **kwargs
         All keyword arguments given when creating an instance of this class
         will be passed to :func:`requests.get`.
@@ -562,31 +576,44 @@ class DOIDownloader:  # pylint: disable=too-few-public-methods
     >>> downloader = DOIDownloader()
     >>> url = "doi:10.6084/m9.figshare.14763051.v1/tiny-data.txt"
     >>> # Not using with Pooch.fetch so no need to pass an instance of Pooch
-    >>> downloader(url=url, output_file="tiny-data.txt", pooch=None)
-    >>> os.path.exists("tiny-data.txt")
+    >>> downloader(
+    ...     url=url, output_file="tiny-data.txt", pooch=None
+    ... ) # doctest: +SKIP
+    >>> os.path.exists("tiny-data.txt") # doctest: +SKIP
     True
-    >>> with open("tiny-data.txt") as f:
+    >>> with open("tiny-data.txt") as f: # doctest: +SKIP
     ...     print(f.read().strip())
     # A tiny data file for test purposes only
     1  2  3  4  5  6
-    >>> os.remove("tiny-data.txt")
+    >>> os.remove("tiny-data.txt") # doctest: +SKIP
 
     Same thing but for our Zenodo archive:
 
     >>> url = "doi:10.5281/zenodo.4924875/tiny-data.txt"
-    >>> downloader(url=url, output_file="tiny-data.txt", pooch=None)
-    >>> os.path.exists("tiny-data.txt")
+    >>> downloader(
+    ...     url=url, output_file="tiny-data.txt", pooch=None
+    ... ) # doctest: +SKIP
+    >>> os.path.exists("tiny-data.txt") # doctest: +SKIP
     True
-    >>> with open("tiny-data.txt") as f:
+    >>> with open("tiny-data.txt") as f: # doctest: +SKIP
     ...     print(f.read().strip())
     # A tiny data file for test purposes only
     1  2  3  4  5  6
-    >>> os.remove("tiny-data.txt")
+    >>> os.remove("tiny-data.txt") # doctest: +SKIP
 
     """
 
-    def __init__(self, progressbar=False, chunk_size=1024, **kwargs):
+    def __init__(
+        self,
+        progressbar=False,
+        chunk_size=1024,
+        headers=None,
+        timeout=DEFAULT_TIMEOUT,
+        **kwargs,
+    ):
         self.kwargs = kwargs
+        self.headers = headers if headers is not None else REQUESTS_HEADERS
+        self.timeout = timeout
         self.progressbar = progressbar
         self.chunk_size = chunk_size
 
@@ -611,7 +638,13 @@ class DOIDownloader:  # pylint: disable=too-few-public-methods
         """
 
         parsed_url = parse_url(url)
-        data_repository = doi_to_repository(parsed_url["netloc"])
+
+        data_repository = doi_to_repository(
+            parsed_url["netloc"],
+            headers=self.headers,
+            timeout=self.timeout,
+            **self.kwargs,
+        )
 
         # Resolve the URL
         file_name = parsed_url["path"]
@@ -622,12 +655,16 @@ class DOIDownloader:  # pylint: disable=too-few-public-methods
 
         # Instantiate the downloader object
         downloader = HTTPDownloader(
-            progressbar=self.progressbar, chunk_size=self.chunk_size, **self.kwargs
+            progressbar=self.progressbar,
+            chunk_size=self.chunk_size,
+            headers=self.headers,
+            timeout=self.timeout,
+            **self.kwargs,
         )
         downloader(download_url, output_file, pooch)
 
 
-def doi_to_url(doi):
+def doi_to_url(doi, **kwargs):
     """
     Follow a DOI link to resolve the URL of the archive.
 
@@ -635,6 +672,8 @@ def doi_to_url(doi):
     ----------
     doi : str
         The DOI of the archive.
+    **kwargs
+        All keyword arguments will be passed to :func:`requests.get`.
 
     Returns
     -------
@@ -646,16 +685,17 @@ def doi_to_url(doi):
     import requests  # pylint: disable=C0415
 
     # Use doi.org to resolve the DOI to the repository website.
-    response = requests.get(f"https://doi.org/{doi}", timeout=DEFAULT_TIMEOUT)
+    response = requests.get(
+        f"https://doi.org/{doi}",
+        **kwargs,
+    )
     url = response.url
     if 400 <= response.status_code < 600:
-        raise ValueError(
-            f"Archive with doi:{doi} not found (see {url}). Is the DOI correct?"
-        )
+        response.raise_for_status()
     return url
 
 
-def doi_to_repository(doi):
+def doi_to_repository(doi, **kwargs):
     """
     Instantiate a data repository instance from a given DOI.
 
@@ -666,6 +706,10 @@ def doi_to_repository(doi):
     ----------
     doi : str
         The DOI of the archive.
+    **kwargs
+        All keyword arguments will be passed also as ``**kwargs`` to the
+        :meth:`DataRepository.initialize` method, that will ultimately get
+        passed to :func:`requests.get`.
 
     Returns
     -------
@@ -686,7 +730,7 @@ def doi_to_repository(doi):
     ]
 
     # Extract the DOI and the repository information
-    archive_url = doi_to_url(doi)
+    archive_url = doi_to_url(doi, **kwargs)
 
     # Try the converters one by one until one of them returned a URL
     data_repository = None
@@ -695,6 +739,7 @@ def doi_to_repository(doi):
             data_repository = repo.initialize(
                 archive_url=archive_url,
                 doi=doi,
+                **kwargs,
             )
 
     if data_repository is None:
@@ -710,7 +755,7 @@ def doi_to_repository(doi):
 
 class DataRepository:  # pylint: disable=too-few-public-methods, missing-class-docstring
     @classmethod
-    def initialize(cls, doi, archive_url):  # pylint: disable=unused-argument
+    def initialize(cls, doi, archive_url, **kwargs):  # pylint: disable=unused-argument
         """
         Initialize the data repository if the given URL points to a
         corresponding repository.
@@ -764,14 +809,15 @@ class DataRepository:  # pylint: disable=too-few-public-methods, missing-class-d
 class ZenodoRepository(DataRepository):  # pylint: disable=missing-class-docstring
     base_api_url = "https://zenodo.org/api/records"
 
-    def __init__(self, doi, archive_url):
+    def __init__(self, doi, archive_url, **kwargs):
         self.archive_url = archive_url
         self.doi = doi
         self._api_response = None
         self._api_version = None
+        self.kwargs = kwargs
 
     @classmethod
-    def initialize(cls, doi, archive_url):
+    def initialize(cls, doi, archive_url, **kwargs):
         """
         Initialize the data repository if the given URL points to a
         corresponding repository.
@@ -787,6 +833,9 @@ class ZenodoRepository(DataRepository):  # pylint: disable=missing-class-docstri
             The DOI that identifies the repository
         archive_url : str
             The resolved URL for the DOI
+        **kwargs
+            All keyword arguments given when creating an instance of this class
+            will be passed to :func:`requests.get`.
         """
 
         # Check whether this is a Zenodo URL
@@ -794,7 +843,7 @@ class ZenodoRepository(DataRepository):  # pylint: disable=missing-class-docstri
         if parsed_archive_url["netloc"] != "zenodo.org":
             return None
 
-        return cls(doi, archive_url)
+        return cls(doi, archive_url, **kwargs)
 
     @property
     def api_response(self):
@@ -805,8 +854,7 @@ class ZenodoRepository(DataRepository):  # pylint: disable=missing-class-docstri
 
             article_id = self.archive_url.split("/")[-1]
             self._api_response = requests.get(
-                f"{self.base_api_url}/{article_id}",
-                timeout=DEFAULT_TIMEOUT,
+                f"{self.base_api_url}/{article_id}", **self.kwargs
             ).json()
 
         return self._api_response
@@ -915,13 +963,14 @@ class ZenodoRepository(DataRepository):  # pylint: disable=missing-class-docstri
 
 
 class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docstring
-    def __init__(self, doi, archive_url):
+    def __init__(self, doi, archive_url, **kwargs):
         self.archive_url = archive_url
         self.doi = doi
         self._api_response = None
+        self.kwargs = kwargs
 
     @classmethod
-    def initialize(cls, doi, archive_url):
+    def initialize(cls, doi, archive_url, **kwargs):
         """
         Initialize the data repository if the given URL points to a
         corresponding repository.
@@ -937,6 +986,9 @@ class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docst
             The DOI that identifies the repository
         archive_url : str
             The resolved URL for the DOI
+        **kwargs
+            All keyword arguments given when creating an instance of this class
+            will be passed to :func:`requests.get`.
         """
 
         # Check whether this is a Figshare URL
@@ -944,7 +996,7 @@ class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docst
         if parsed_archive_url["netloc"] != "figshare.com":
             return None
 
-        return cls(doi, archive_url)
+        return cls(doi, archive_url, **kwargs)
 
     def _parse_version_from_doi(self):
         """
@@ -972,7 +1024,7 @@ class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docst
             # Use the figshare API to find the article ID from the DOI
             article = requests.get(
                 f"https://api.figshare.com/v2/articles?doi={self.doi}",
-                timeout=DEFAULT_TIMEOUT,
+                **self.kwargs,
             ).json()[0]
             article_id = article["id"]
             # Parse desired version from the doi
@@ -999,7 +1051,7 @@ class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docst
                     f"{article_id}/versions/{version}"
                 )
             # Make the request and return the files in the figshare repository
-            response = requests.get(api_url, timeout=DEFAULT_TIMEOUT)
+            response = requests.get(api_url, **self.kwargs)
             response.raise_for_status()
             self._api_response = response.json()["files"]
 
@@ -1043,13 +1095,14 @@ class FigshareRepository(DataRepository):  # pylint: disable=missing-class-docst
 
 
 class DataverseRepository(DataRepository):  # pylint: disable=missing-class-docstring
-    def __init__(self, doi, archive_url):
+    def __init__(self, doi, archive_url, **kwargs):
         self.archive_url = archive_url
         self.doi = doi
         self._api_response = None
+        self.kwargs = kwargs
 
     @classmethod
-    def initialize(cls, doi, archive_url):
+    def initialize(cls, doi, archive_url, **kwargs):
         """
         Initialize the data repository if the given URL points to a
         corresponding repository.
@@ -1065,21 +1118,24 @@ class DataverseRepository(DataRepository):  # pylint: disable=missing-class-docs
             The DOI that identifies the repository
         archive_url : str
             The resolved URL for the DOI
+        **kwargs
+            All keyword arguments given when creating an instance of this class
+            will be passed to :func:`requests.get`.
         """
         # Access the DOI as if this was a DataVerse instance
-        response = cls._get_api_response(doi, archive_url)
+        response = cls._get_api_response(doi, archive_url, **kwargs)
 
         # If we failed, this is probably not a DataVerse instance
         if 400 <= response.status_code < 600:
             return None
 
         # Initialize the repository and overwrite the api response
-        repository = cls(doi, archive_url)
+        repository = cls(doi, archive_url, **kwargs)
         repository.api_response = response
         return repository
 
     @classmethod
-    def _get_api_response(cls, doi, archive_url):
+    def _get_api_response(cls, doi, archive_url, **kwargs):
         """
         Perform the actual API request
 
@@ -1093,7 +1149,7 @@ class DataverseRepository(DataRepository):  # pylint: disable=missing-class-docs
         response = requests.get(
             f"{parsed['protocol']}://{parsed['netloc']}/api/datasets/"
             f":persistentId?persistentId=doi:{doi}",
-            timeout=DEFAULT_TIMEOUT,
+            **kwargs,
         )
         return response
 
@@ -1103,7 +1159,7 @@ class DataverseRepository(DataRepository):  # pylint: disable=missing-class-docs
 
         if self._api_response is None:
             self._api_response = self._get_api_response(
-                self.doi, self.archive_url
+                self.doi, self.archive_url, **self.kwargs
             )  # pragma: no cover
 
         return self._api_response

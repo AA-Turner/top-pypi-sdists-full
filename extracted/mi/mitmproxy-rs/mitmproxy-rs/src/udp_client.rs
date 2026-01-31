@@ -3,13 +3,13 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::Result;
 use pyo3::prelude::*;
-use tokio::net::{lookup_host, UdpSocket};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::net::{UdpSocket, lookup_host};
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::sync::oneshot;
 
 use crate::stream::{Stream, StreamState};
-use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 use mitmproxy::MAX_PACKET_SIZE;
+use mitmproxy::messages::{ConnectionId, TransportCommand, TunnelInfo};
 
 use mitmproxy::packet_sources::udp::remote_host_closed_conn;
 
@@ -25,7 +25,7 @@ pub fn open_udp_connection(
     host: String,
     port: u16,
     local_addr: Option<(String, u16)>,
-) -> PyResult<Bound<PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
         let socket = udp_connect(host, port, local_addr).await?;
 

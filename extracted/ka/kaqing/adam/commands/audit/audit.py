@@ -43,9 +43,9 @@ class Audit(IntermediateCommand):
                 r = self.intermediate_run(cmd, state, args, self.cmd_list(), display_help=False)
 
             if not r or isinstance(r, str) and r == 'command-missing':
-                with extract_trailing_options(args, '&') as (args, backgrounded):
+                with extract_trailing_options(args, '&') as (args, background):
                     with validate_args(args, state, default='select * from audit order by ts desc limit 10') as sql:
-                        ctx = Context.new(cmd, show_out=True, backgrounded=backgrounded)
+                        ctx = Context.new(cmd, show_out=True, background=background)
                         ctx.log2(sql)
                         Athena.run_query(sql, ctx=ctx)
 

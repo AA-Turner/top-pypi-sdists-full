@@ -1,19 +1,6 @@
-import dask
-
-dask.config.set({"dataframe.query-planning": False})
-import dask.dataframe as dd
-
-# Setting `dataframe.query-planning` to False is effective only if run before `dask.dataframe` is initialized. In
-# the case in which the user had initilized `dask.dataframe` before, we would have DASK_EXPER_ENABLED set to `True`.
-# Here we check that this does not happen.
-if hasattr(dd, "DASK_EXPR_ENABLED") and dd.DASK_EXPR_ENABLED:
-    raise RuntimeError(
-        "Unsupported backend: dask-expr has been detected as the backend of dask.dataframe. Please "
-        "use:\nimport dask\ndask.config.set({'dataframe.query-planning': False})\nbefore importing "
-        "dask.dataframe to disable dask-expr. The support is being worked on, for more information please see"
-        "https://github.com/scverse/spatialdata/pull/570"
-    )
 from importlib.metadata import version
+
+import spatialdata.models._accessor  # noqa: F401
 
 __version__ = version("spatialdata")
 
@@ -39,6 +26,7 @@ __all__ = [
     "match_element_to_table",
     "match_table_to_element",
     "match_sdata_to_table",
+    "filter_by_table_query",
     "SpatialData",
     "get_extent",
     "get_centroids",
@@ -53,6 +41,7 @@ __all__ = [
     "deepcopy",
     "sanitize_table",
     "sanitize_name",
+    "settings",
 ]
 
 from spatialdata import dataloader, datasets, models, transformations
@@ -69,6 +58,7 @@ from spatialdata._core.operations.transform import transform
 from spatialdata._core.operations.vectorize import to_circles, to_polygons
 from spatialdata._core.query._utils import get_bounding_box_corners
 from spatialdata._core.query.relational_query import (
+    filter_by_table_query,
     get_element_annotators,
     get_element_instances,
     get_values,
@@ -83,3 +73,4 @@ from spatialdata._io._utils import get_dask_backing_files
 from spatialdata._io.format import SpatialDataFormatType
 from spatialdata._io.io_zarr import read_zarr
 from spatialdata._utils import get_pyramid_levels, unpad_raster
+from spatialdata.config import settings

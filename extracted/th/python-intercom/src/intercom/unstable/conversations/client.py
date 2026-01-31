@@ -9,6 +9,7 @@ from ..tickets.types.ticket import Ticket
 from ..types.conversation_deleted import ConversationDeleted
 from ..types.conversation_list import ConversationList
 from ..types.custom_attributes import CustomAttributes
+from ..types.handling_event_list import HandlingEventList
 from ..types.redact_conversation_request import RedactConversationRequest
 from ..types.reply_conversation_request_body import ReplyConversationRequestBody
 from ..types.search_request_query import SearchRequestQuery
@@ -78,7 +79,10 @@ class ConversationsClient:
         client = Intercom(
             token="YOUR_TOKEN",
         )
-        client.unstable.conversations.list_conversations()
+        client.unstable.conversations.list_conversations(
+            per_page=1,
+            starting_after="starting_after",
+        )
         """
         _response = self._raw_client.list_conversations(
             per_page=per_page, starting_after=starting_after, request_options=request_options
@@ -148,6 +152,7 @@ class ConversationsClient:
         id: int,
         *,
         display_as: typing.Optional[str] = None,
+        include_translations: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Conversation:
         """
@@ -168,7 +173,10 @@ class ConversationsClient:
             The id of the conversation to target
 
         display_as : typing.Optional[str]
-            Set to plaintext to retrieve conversation messages in plain text.
+            Set to plaintext to retrieve conversation messages in plain text. This affects both the body and subject fields.
+
+        include_translations : typing.Optional[bool]
+            If set to true, conversation parts will be translated to the detected language of the conversation.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -188,9 +196,12 @@ class ConversationsClient:
         client.unstable.conversations.retrieve_conversation(
             id=1,
             display_as="plaintext",
+            include_translations=True,
         )
         """
-        _response = self._raw_client.retrieve_conversation(id, display_as=display_as, request_options=request_options)
+        _response = self._raw_client.retrieve_conversation(
+            id, display_as=display_as, include_translations=include_translations, request_options=request_options
+        )
         return _response.data
 
     def update_conversation(
@@ -224,7 +235,7 @@ class ConversationsClient:
             The id of the conversation to target
 
         display_as : typing.Optional[str]
-            Set to plaintext to retrieve conversation messages in plain text.
+            Set to plaintext to retrieve conversation messages in plain text. This affects both the body and subject fields.
 
         read : typing.Optional[bool]
             Mark a conversation as read within Intercom.
@@ -654,6 +665,41 @@ class ConversationsClient:
         )
         return _response.data
 
+    def list_handling_events(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HandlingEventList:
+        """
+        List all pause/resume events for a conversation. These events track when teammates paused or resumed handling a conversation.
+
+        Requires the `read_conversations` OAuth scope.
+
+        Parameters
+        ----------
+        id : str
+            The identifier for the conversation as given by Intercom.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HandlingEventList
+            Successful response
+
+        Examples
+        --------
+        from intercom import Intercom
+
+        client = Intercom(
+            token="YOUR_TOKEN",
+        )
+        client.unstable.conversations.list_handling_events(
+            id="123",
+        )
+        """
+        _response = self._raw_client.list_handling_events(id, request_options=request_options)
+        return _response.data
+
     def redact_conversation(
         self, *, request: RedactConversationRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> Conversation:
@@ -800,7 +846,10 @@ class AsyncConversationsClient:
 
 
         async def main() -> None:
-            await client.unstable.conversations.list_conversations()
+            await client.unstable.conversations.list_conversations(
+                per_page=1,
+                starting_after="starting_after",
+            )
 
 
         asyncio.run(main())
@@ -881,6 +930,7 @@ class AsyncConversationsClient:
         id: int,
         *,
         display_as: typing.Optional[str] = None,
+        include_translations: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Conversation:
         """
@@ -901,7 +951,10 @@ class AsyncConversationsClient:
             The id of the conversation to target
 
         display_as : typing.Optional[str]
-            Set to plaintext to retrieve conversation messages in plain text.
+            Set to plaintext to retrieve conversation messages in plain text. This affects both the body and subject fields.
+
+        include_translations : typing.Optional[bool]
+            If set to true, conversation parts will be translated to the detected language of the conversation.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -926,13 +979,14 @@ class AsyncConversationsClient:
             await client.unstable.conversations.retrieve_conversation(
                 id=1,
                 display_as="plaintext",
+                include_translations=True,
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.retrieve_conversation(
-            id, display_as=display_as, request_options=request_options
+            id, display_as=display_as, include_translations=include_translations, request_options=request_options
         )
         return _response.data
 
@@ -967,7 +1021,7 @@ class AsyncConversationsClient:
             The id of the conversation to target
 
         display_as : typing.Optional[str]
-            Set to plaintext to retrieve conversation messages in plain text.
+            Set to plaintext to retrieve conversation messages in plain text. This affects both the body and subject fields.
 
         read : typing.Optional[bool]
             Mark a conversation as read within Intercom.
@@ -1451,6 +1505,49 @@ class AsyncConversationsClient:
         _response = await self._raw_client.detach_contact_from_conversation(
             conversation_id, contact_id, admin_id=admin_id, request_options=request_options
         )
+        return _response.data
+
+    async def list_handling_events(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HandlingEventList:
+        """
+        List all pause/resume events for a conversation. These events track when teammates paused or resumed handling a conversation.
+
+        Requires the `read_conversations` OAuth scope.
+
+        Parameters
+        ----------
+        id : str
+            The identifier for the conversation as given by Intercom.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HandlingEventList
+            Successful response
+
+        Examples
+        --------
+        import asyncio
+
+        from intercom import AsyncIntercom
+
+        client = AsyncIntercom(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.conversations.list_handling_events(
+                id="123",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_handling_events(id, request_options=request_options)
         return _response.data
 
     async def redact_conversation(

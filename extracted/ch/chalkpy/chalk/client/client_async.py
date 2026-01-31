@@ -12,6 +12,7 @@ from chalk.client.models import (
     BulkOnlineQueryResult,
     FeatureReference,
     FeatureStatisticsResponse,
+    OfflineQueryDeadlineOptions,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
@@ -486,6 +487,7 @@ class AsyncChalkClient:
         explain: bool = False,
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
+        planner_options: Mapping[str, str | int | bool] | None = None,
     ) -> PlanQueryResponse:
         """Plan a query without executing it.
 
@@ -535,6 +537,10 @@ class AsyncChalkClient:
             The number of input rows that this plan will be run with. If unknown, specify `None`.
         headers
             Additional headers to provide with the request
+        planner_options
+            Dictionary of additional options to pass to the Chalk query engine.
+            Values may be provided as part of conversations with Chalk support
+            to enable or disable specific functionality.
 
         Returns
         -------
@@ -642,7 +648,7 @@ class AsyncChalkClient:
         store_offline: bool = False,
         num_shards: int | None = None,
         num_workers: int | None = None,
-        completion_deadline: timedelta | None = None,
+        completion_deadline: Union[timedelta, OfflineQueryDeadlineOptions, None] = None,
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
@@ -745,6 +751,9 @@ class AsyncChalkClient:
         num_workers
             If specified, the query will be run asynchronously across a maximum `num_workers` pod workers at any time.
             This parameter is useful if you have a large number of shards and would like to limit the number of pods running at once.
+        completion_deadline
+            If specified as a timedelta, applies a completion deadline to each shard; each shard's query will fail (allowing retries) if it does not complete within the duration.
+            If specified as an OfflineQueryDeadlineOptions, allows more fine-grained control of shard- or query-level deadlines, with options to retry on failure or not.
         query_name
             The name of the query to execute. If provided, will create a new named query or fill in missing parameters from a preexisting execution.
         query_name_version

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tink
-Version: 1.13.0
+Version: 1.13.1
 Summary: A multi-language, cross-platform library that provides cryptographic APIs that are secure, easy to use correctly, and hard(er) to misuse.
 Home-page: https://github.com/tink-crypto/tink-py
 Author: Tink Developers
@@ -19,7 +19,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: absl-py>=2.1.0
-Requires-Dist: protobuf>=5.29.3
+Requires-Dist: protobuf>=5.29.5
 Requires-Dist: bazel-runfiles>=1.3.0
 Provides-Extra: gcpkms
 Requires-Dist: google-auth>=2.38.0; extra == "gcpkms"

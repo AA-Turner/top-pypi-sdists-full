@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2017-2020)
+# Copyright (c) 2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,34 +16,49 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for multi-processing
-"""
+"""Utilities for multi-processing."""
 
-import warnings
-from multiprocessing import (Queue, Process)
+from __future__ import annotations
+
+from multiprocessing import (
+    Process,
+    Queue,
+)
 from operator import itemgetter
+from typing import TYPE_CHECKING
 
 from .progress import progress_bar
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import TypeVar
 
-def _process_in_out_queues(func, q_in, q_out):
-    """Iterate through a Queue, call, ``func`, and Queue the result
+    T = TypeVar("T")
+    R = TypeVar("R")
+
+
+def _process_in_out_queues(
+    func: Callable,
+    q_in: Queue,
+    q_out: Queue,
+) -> None:
+    """Iterate through a Queue, call, ``func`, and Queue the result.
 
     Parameters
     ----------
     func : `callable`
-        any function that can take an element of the input `Queue` as
-        the only argument
+        Any function that can take an element of the input `Queue` as
+        the only argument.
 
     q_in : `multiprocessing.queue.Queue`
-        the input `Queue`
+        The input `Queue`.
 
     q_out : `multiprocessing.queue.Queue`
-        the output `Queue`
+        The output `Queue`.
 
     Notes
     -----
-    To close the input `Queue`, add ``(None, None)`` as the last item
+    To close the input `Queue`, add ``(None, None)`` as the last item.
     """
     while True:
         # pick item out of input queue
@@ -57,13 +72,19 @@ def _process_in_out_queues(func, q_in, q_out):
         # exceptions are returned and handled upstream
         try:
             q_out.put((idx, func(arg)))
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             q_out.put((idx, exc))
 
 
-def multiprocess_with_queues(nproc, func, inputs, verbose=False,
-                             **progress_kw):
-    """Map a function over a list of inputs using multiprocess
+def multiprocess_with_queues(
+    nproc: int,
+    func: Callable[[T], R],
+    inputs: list[T],
+    *,
+    verbose: bool = False,
+    **progress_kw,
+) -> list[R]:
+    """Map a function over a list of inputs using multiprocess.
 
     This essentially duplicates `multiprocess.map` but allows for
     arbitrary functions (that aren't necessarily importable)
@@ -87,24 +108,22 @@ def multiprocess_with_queues(nproc, func, inputs, verbose=False,
         `str` to customise the heading for the progress bar, default: `False`,
         (default heading ``'Processing:'`` if ``verbose=True`)
 
+    progress_kw : `dict`, optional
+        Keyword arguments to pass to `gwpy.utils.progress.progress_bar`
+        for customising the progress bar, e.g. ``unit='events'``.
+
     Returns
     -------
     outputs : `list`
-        the `list` of results from calling ``func(x)`` for each element
-        of ``inputs``
+        The `list` of results from calling ``func(x)`` for each element
+        of ``inputs``.
     """
-    if progress_kw.pop('raise_exceptions', None) is not None:
-        warnings.warn("the `raise_exceptions` keyword to "
-                      "multiprocess_with_queues is deprecated, and will be "
-                      "removed in a future release, all exceptions will be "
-                      "raised if they occur", DeprecationWarning)
-
     # create progress bar for verbose output
     if bool(verbose):
         if not isinstance(verbose, bool):
-            progress_kw['desc'] = str(verbose)
-        if isinstance(inputs, (list, tuple)):
-            progress_kw.setdefault('total', len(inputs))
+            progress_kw["desc"] = str(verbose)
+        if isinstance(inputs, list | tuple):
+            progress_kw.setdefault("total", len(inputs))
         pbar = progress_bar(**progress_kw)
     else:
         pbar = None
@@ -113,7 +132,8 @@ def multiprocess_with_queues(nproc, func, inputs, verbose=False,
 
     # shortcut single process
     if nproc == 1:
-        def _inner(x):
+
+        def _inner(x: T) -> R:
             try:
                 return func(x)
             finally:
@@ -125,15 +145,16 @@ def multiprocess_with_queues(nproc, func, inputs, verbose=False,
     # -------------------------------------------
 
     # create input and output queues
-    q_in = Queue()
-    q_out = Queue()
+    q_in: Queue = Queue()
+    q_out: Queue = Queue()
 
     # create child processes and start
     proclist = [
         Process(
             target=_process_in_out_queues,
             args=(func, q_in, q_out),
-        ) for _ in range(nproc)
+        )
+        for _ in range(nproc)
     ]
 
     for proc in proclist:
@@ -141,17 +162,18 @@ def multiprocess_with_queues(nproc, func, inputs, verbose=False,
         proc.start()
 
     # populate queue (no need to block in serial put())
-    sent = [q_in.put(x, block=False) for x in enumerate(inputs)]
+    for item in enumerate(inputs):
+        q_in.put(item, block=False)
     for _ in range(nproc):  # add sentinel for each process
         q_in.put((None, None))
 
     # get results
-    res = []
-    for _ in range(len(sent)):
-        x = q_out.get()
+    out = []
+    for _ in range(len(inputs)):
+        x: tuple[int, R] = q_out.get()
         if pbar:
             pbar.update()
-        res.append(x)
+        out.append(x)
 
     # close processes and unwrap results
     for proc in proclist:
@@ -161,7 +183,7 @@ def multiprocess_with_queues(nproc, func, inputs, verbose=False,
         pbar.close()
 
     # unwrap results in order
-    results = [out for _, out in sorted(res, key=itemgetter(0))]
+    results = [res for _, res in sorted(out, key=itemgetter(0))]
 
     # raise exceptions here
     for res in results:

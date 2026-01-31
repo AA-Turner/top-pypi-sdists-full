@@ -10,6 +10,7 @@
 //!
 //! Expected: 5-10x faster batch construction vs sequential insert.
 
+use crate::distance::l2_distance_squared;
 use crate::vector::hnsw::error::Result;
 use crate::vector::hnsw::index::HNSWIndex;
 use crate::vector::hnsw::merge::GraphMerger;
@@ -64,7 +65,7 @@ pub fn kmeans_cluster(vectors: &[Vec<f32>], k: usize, max_iters: usize) -> Vec<C
                     .iter()
                     .enumerate()
                     .map(|(i, c)| (i, l2_distance_squared(v, c)))
-                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .map_or(0, |(i, _)| i);
 
                 let old = *assignment;
@@ -183,18 +184,6 @@ fn build_clusters_from_assignments(
     clusters.retain(|c| !c.is_empty());
 
     clusters
-}
-
-/// Squared L2 distance between two vectors
-#[inline]
-fn l2_distance_squared(a: &[f32], b: &[f32]) -> f32 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| {
-            let diff = x - y;
-            diff * diff
-        })
-        .sum()
 }
 
 /// Batch builder using clustering for parallel construction
@@ -339,7 +328,8 @@ impl BatchBuilder {
             }
 
             // Sort by distance to other centroids (ascending = closest first)
-            boundary_candidates.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            boundary_candidates
+                .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
             // Take top boundary_ratio as boundary nodes
             let num_boundary = (cluster.len() as f32 * boundary_ratio).ceil() as usize;

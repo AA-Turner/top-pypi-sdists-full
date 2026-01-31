@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,10 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for `gwpy-plot` command line module `gwpy.cli.gwpy_plot`
-"""
-
-from unittest import mock
+"""Tests for `gwpy-plot` command line module `gwpy.cli.gwpy_plot`."""
 
 import pytest
 
@@ -27,11 +24,12 @@ from .. import (
     PRODUCTS,
     gwpy_plot,
 )
-from .base import mock_nds2_connection
+from .base import NDS2_CONNECTION_FIXTURE_DATA  # noqa: F401
 
 
-@pytest.mark.parametrize("mode", [None] + list(PRODUCTS.keys()))
+@pytest.mark.parametrize("mode", [None, *PRODUCTS.keys()])
 def test_gwpy_plot_help(mode):
+    """Test the help message for `gwpy-plot` command line module."""
     args = [mode, "--help"] if mode else ["--help"]
     with pytest.raises(SystemExit) as exc:
         gwpy_plot.main(args)
@@ -39,19 +37,22 @@ def test_gwpy_plot_help(mode):
 
 
 @pytest.mark.requires("nds2")
+@pytest.mark.usefixtures("nds2_connection")
 def test_gwpy_plot_timeseries(tmp_path):
+    """Test the `gwpy-plot` command line module with a timeseries plot."""
     tmp = tmp_path / "plot.png"
-    with mock.patch(
-        'nds2.connection',
-        return_value=mock_nds2_connection()[0],
-    ):
-        args = [
-            "timeseries",
-            "--chan", "X1:TEST-CHANNEL",
-            "--start", 0,
-            "--nds2-server", "nds.test.gwpy",  # don't use datafind
-            "--out", str(tmp),
-        ]
-        exitcode = gwpy_plot.main(args)
-        assert not exitcode  # passed
-        assert tmp.is_file()  # plot was created
+    args = list(map(str, [
+        "timeseries",
+        "--chan", "X1:TEST-CHANNEL",
+        "--start", 0,
+        "--nds2-server", "nds.test.gwpy",  # don't use datafind
+        "--out", tmp,
+    ]))
+    exitcode = gwpy_plot.main(args)
+
+    # Check that it worked
+    assert exitcode == 0
+
+    # Check that the output file is a PNG
+    with tmp.open("rb") as f:
+        assert f.read(4) == b"\x89PNG"

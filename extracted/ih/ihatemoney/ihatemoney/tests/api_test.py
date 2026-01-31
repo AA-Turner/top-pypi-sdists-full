@@ -9,7 +9,6 @@ from ihatemoney.tests.common.ihatemoney_testcase import IhatemoneyTestCase
 
 
 class TestAPI(IhatemoneyTestCase):
-
     """Tests the API"""
 
     def api_create(
@@ -43,7 +42,7 @@ class TestAPI(IhatemoneyTestCase):
     def get_auth(self, username, password=None):
         password = password or username
         base64string = (
-            base64.encodebytes(f"{username}:{password}".encode("utf-8"))
+            base64.encodebytes(f"{username}:{password}".encode("utf-8"))  # noqa: E231
             .decode("utf-8")
             .replace("\n", "")
         )
@@ -314,7 +313,7 @@ class TestAPI(IhatemoneyTestCase):
         # edit the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
-            data={"name": "Fred", "weight": 2},
+            data={"name": "Jeanne", "weight": 2},
             headers=self.get_auth("raclette"),
         )
 
@@ -326,14 +325,14 @@ class TestAPI(IhatemoneyTestCase):
         )
 
         self.assertStatus(200, req)
-        assert "Fred" == json.loads(req.data.decode("utf-8"))["name"]
+        assert "Jeanne" == json.loads(req.data.decode("utf-8"))["name"]
         assert 2 == json.loads(req.data.decode("utf-8"))["weight"]
 
         # edit this member with same information
-        # (test PUT idemopotence)
+        # (test PUT idempotence)
         req = self.client.put(
             "/api/projects/raclette/members/1",
-            data={"name": "Fred"},
+            data={"name": "Jeanne"},
             headers=self.get_auth("raclette"),
         )
 
@@ -342,7 +341,7 @@ class TestAPI(IhatemoneyTestCase):
         # de-activate the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
-            data={"name": "Fred", "activated": False},
+            data={"name": "Jeanne", "activated": False},
             headers=self.get_auth("raclette"),
         )
         self.assertStatus(200, req)
@@ -356,7 +355,7 @@ class TestAPI(IhatemoneyTestCase):
         # re-activate the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
-            data={"name": "Fred", "activated": True},
+            data={"name": "Jeanne", "activated": True},
             headers=self.get_auth("raclette"),
         )
 
@@ -388,7 +387,7 @@ class TestAPI(IhatemoneyTestCase):
 
         # add participants
         self.api_add_member("raclette", "zorglub")
-        self.api_add_member("raclette", "fred")
+        self.api_add_member("raclette", "jeanne")
         self.api_add_member("raclette", "quentin")
 
         # get the list of bills (should be empty)
@@ -407,6 +406,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
                 "external_link": "https://raclette.fr",
             },
@@ -429,8 +429,9 @@ class TestAPI(IhatemoneyTestCase):
             "payer_id": 1,
             "owers": [
                 {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
-                {"activated": True, "id": 2, "name": "fred", "weight": 1},
+                {"activated": True, "id": 2, "name": "jeanne", "weight": 1},
             ],
+            "bill_type": "Expense",
             "amount": 25.0,
             "date": "2011-08-10",
             "id": 1,
@@ -462,6 +463,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
                 "external_link": "https://raclette.fr",
             },
@@ -479,6 +481,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "beer",
                 "payer": "2",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
                 "external_link": "https://raclette.fr",
             },
@@ -498,8 +501,9 @@ class TestAPI(IhatemoneyTestCase):
             "payer_id": 2,
             "owers": [
                 {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
-                {"activated": True, "id": 2, "name": "fred", "weight": 1},
+                {"activated": True, "id": 2, "name": "jeanne", "weight": 1},
             ],
+            "bill_type": "Expense",
             "amount": 25.0,
             "date": "2011-09-10",
             "external_link": "https://raclette.fr",
@@ -534,7 +538,7 @@ class TestAPI(IhatemoneyTestCase):
 
         # add participants
         self.api_add_member("raclette", "zorglub")
-        self.api_add_member("raclette", "fred")
+        self.api_add_member("raclette", "jeanne")
 
         # valid amounts
         input_expected = [
@@ -554,6 +558,7 @@ class TestAPI(IhatemoneyTestCase):
                     "what": "fromage",
                     "payer": "1",
                     "payed_for": ["1", "2"],
+                    "bill_type": "Expense",
                     "amount": input_amount,
                 },
                 headers=self.get_auth("raclette"),
@@ -576,8 +581,9 @@ class TestAPI(IhatemoneyTestCase):
                 "payer_id": 1,
                 "owers": [
                     {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
-                    {"activated": True, "id": 2, "name": "fred", "weight": 1},
+                    {"activated": True, "id": 2, "name": "jeanne", "weight": 1},
                 ],
+                "bill_type": "Expense",
                 "amount": expected_amount,
                 "date": "2011-08-10",
                 "id": id,
@@ -611,6 +617,7 @@ class TestAPI(IhatemoneyTestCase):
                     "what": "fromage",
                     "payer": "1",
                     "payed_for": ["1", "2"],
+                    "bill_type": "Expense",
                     "amount": amount,
                 },
                 headers=self.get_auth("raclette"),
@@ -647,7 +654,7 @@ class TestAPI(IhatemoneyTestCase):
 
         # Add participants
         self.api_add_member("raclette", "zorglub")
-        self.api_add_member("raclette", "fred")
+        self.api_add_member("raclette", "jeanne")
         self.api_add_member("raclette", "quentin")
 
         # Add a bill without explicit currency
@@ -658,6 +665,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
                 "external_link": "https://raclette.fr",
             },
@@ -680,8 +688,9 @@ class TestAPI(IhatemoneyTestCase):
             "payer_id": 1,
             "owers": [
                 {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
-                {"activated": True, "id": 2, "name": "fred", "weight": 1},
+                {"activated": True, "id": 2, "name": "jeanne", "weight": 1},
             ],
+            "bill_type": "Expense",
             "amount": 25.0,
             "date": "2011-08-10",
             "id": 1,
@@ -706,6 +715,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "30",
                 "external_link": "https://raclette.fr",
                 "original_currency": "CAD",
@@ -725,8 +735,9 @@ class TestAPI(IhatemoneyTestCase):
             "payer_id": 1,
             "owers": [
                 {"activated": True, "id": 1, "name": "zorglub", "weight": 1.0},
-                {"activated": True, "id": 2, "name": "fred", "weight": 1.0},
+                {"activated": True, "id": 2, "name": "jeanne", "weight": 1.0},
             ],
+            "bill_type": "Expense",
             "amount": 30.0,
             "date": "2011-08-10",
             "id": 1,
@@ -747,6 +758,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "Pierogi",
                 "payer": "1",
                 "payed_for": ["2", "3"],
+                "bill_type": "Expense",
                 "amount": "80",
                 "original_currency": "PLN",
             },
@@ -781,7 +793,7 @@ class TestAPI(IhatemoneyTestCase):
 
         # add participants
         self.api_add_member("raclette", "zorglub")
-        self.api_add_member("raclette", "fred")
+        self.api_add_member("raclette", "jeanne")
 
         # add a bill
         req = self.client.post(
@@ -791,6 +803,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
             },
             headers=self.get_auth("raclette"),
@@ -801,7 +814,8 @@ class TestAPI(IhatemoneyTestCase):
             "/api/projects/raclette/statistics", headers=self.get_auth("raclette")
         )
         self.assertStatus(200, req)
-        assert [
+        received_stats = json.loads(req.data.decode("utf-8"))
+        assert received_stats == [
             {
                 "balance": 12.5,
                 "member": {
@@ -811,20 +825,24 @@ class TestAPI(IhatemoneyTestCase):
                     "weight": 1.0,
                 },
                 "paid": 25.0,
-                "spent": 12.5,
+                "received": 0.0,
+                "spent": -12.5,
+                "transferred": 0.0,
             },
             {
                 "balance": -12.5,
                 "member": {
                     "activated": True,
                     "id": 2,
-                    "name": "fred",
+                    "name": "jeanne",
                     "weight": 1.0,
                 },
-                "paid": 0,
-                "spent": 12.5,
+                "paid": 0.0,
+                "received": 0.0,
+                "spent": -12.5,
+                "transferred": 0.0,
             },
-        ] == json.loads(req.data.decode("utf-8"))
+        ]
 
     def test_username_xss(self):
         # create a project
@@ -844,7 +862,7 @@ class TestAPI(IhatemoneyTestCase):
 
         # add participants
         self.api_add_member("raclette", "zorglub")
-        self.api_add_member("raclette", "freddy familly", 4)
+        self.api_add_member("raclette", "jeannedy familly", 4)
         self.api_add_member("raclette", "quentin")
 
         # add a bill
@@ -855,6 +873,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1", "2"],
+                "bill_type": "Expense",
                 "amount": "25",
             },
             headers=self.get_auth("raclette"),
@@ -875,8 +894,9 @@ class TestAPI(IhatemoneyTestCase):
             "payer_id": 1,
             "owers": [
                 {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
-                {"activated": True, "id": 2, "name": "freddy familly", "weight": 4},
+                {"activated": True, "id": 2, "name": "jeannedy familly", "weight": 4},
             ],
+            "bill_type": "Expense",
             "amount": 25.0,
             "date": "2011-08-10",
             "id": 1,
@@ -909,7 +929,7 @@ class TestAPI(IhatemoneyTestCase):
                 {
                     "activated": True,
                     "id": 2,
-                    "name": "freddy familly",
+                    "name": "jeannedy familly",
                     "weight": 4.0,
                     "balance": -20.0,
                 },
@@ -962,6 +982,7 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1"],
+                "bill_type": "Expense",
                 "amount": "0",
             },
             headers=self.get_auth("raclette"),
@@ -990,8 +1011,71 @@ class TestAPI(IhatemoneyTestCase):
                 "what": "fromage",
                 "payer": "1",
                 "payed_for": ["1"],
+                "bill_type": "Expense",
                 "amount": "9347242149381274732472348728748723473278472843.12",
             },
             headers=self.get_auth("raclette"),
         )
         self.assertStatus(400, req)
+
+    def test_validate_bill_type(self):
+        self.api_create("raclette")
+        self.api_add_member("raclette", "zorglub")
+
+        req = self.client.post(
+            "/api/projects/raclette/bills",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage",
+                "payer": "1",
+                "payed_for": ["1"],
+                "bill_type": "wrong_bill_type",
+                "amount": "50",
+            },
+            headers=self.get_auth("raclette"),
+        )
+
+        self.assertStatus(400, req)
+
+        req = self.client.post(
+            "/api/projects/raclette/bills",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage",
+                "payer": "1",
+                "payed_for": ["1"],
+                "bill_type": "Expense",
+                "amount": "50",
+            },
+            headers=self.get_auth("raclette"),
+        )
+
+        self.assertStatus(201, req)
+
+    def test_default_bill_type(self):
+        self.api_create("raclette")
+        self.api_add_member("raclette", "zorglub")
+
+        # Post a bill without adding a bill type
+        req = self.client.post(
+            "/api/projects/raclette/bills",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage",
+                "payer": "1",
+                "payed_for": ["1"],
+                "amount": "50",
+            },
+            headers=self.get_auth("raclette"),
+        )
+
+        self.assertStatus(201, req)
+
+        req = self.client.get(
+            "/api/projects/raclette/bills/1", headers=self.get_auth("raclette")
+        )
+        self.assertStatus(200, req)
+
+        # Bill type should now be "Expense"
+        got = json.loads(req.data.decode("utf-8"))
+        assert got["bill_type"] == "Expense"

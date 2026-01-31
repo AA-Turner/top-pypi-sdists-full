@@ -29,12 +29,12 @@ class ShowStorage(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with extract_options(args, ['-s', '--show']) as (args, verbose):
                     cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
                     header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
                     with cassandra(state) as pods:
-                        pods.display_table(cols, header, ctx=Context.new(cmd, backgrounded=backgrounded, show_verbose=verbose))
+                        pods.display_table(cols, header, ctx=Context.new(cmd, background=background, show_verbose=verbose))
 
                     return state
 

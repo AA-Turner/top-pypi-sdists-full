@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2018-2020)
+# Copyright (c) 2018-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,13 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for `gwpy.plot.log`
-"""
+"""Tests for `gwpy.plot.log`."""
 
 from unittest import mock
 
 import pytest
-
 from matplotlib import (
     rc_context,
 )
@@ -30,51 +27,56 @@ from matplotlib import (
 from .. import log as plot_log
 
 
-class TestLogFormatter(object):
+class TestLogFormatter:
+    """Tests for `LogFormatter."""
+
     TEST_CLASS = plot_log.LogFormatter
 
     @pytest.fixture
-    def formatter(self):
+    @classmethod
+    def formatter(cls):
+        """Yield an instance of the formatter under test."""
         with mock.patch(
             "gwpy.plot.log.LogFormatter._num_ticks",
             return_value=2,
         ):
-            yield self.TEST_CLASS()
+            yield cls.TEST_CLASS()
 
-    @pytest.mark.parametrize('x, fmt, result, texresult', [
+    @pytest.mark.parametrize(("x", "fmt", "result", "texresult"), [
         pytest.param(
             0.,
             None,
-            r'$\mathdefault{0}$',
-            '$0$',
+            r"$\mathdefault{0}$",
+            "$0$",
             id="0",
         ),
         pytest.param(
             1,
             None,
-            r'$\mathdefault{10^{0}}$',
-            r'$\mathdefault{10^{0}}$',
+            r"$\mathdefault{10^{0}}$",
+            r"$\mathdefault{10^{0}}$",
             id="fmt=None",
         ),
         pytest.param(
             1,
             "%s",
-            r'$\mathdefault{1}$',
-            r'$1$',
+            r"$\mathdefault{1}$",
+            r"$1$",
             id="fmt=%s",
         ),
     ])
     def test_call(self, formatter, x, fmt, result, texresult):
-        with rc_context(rc={'text.usetex': False}):
+        """Test `LogFormatter` individual tick formatting."""
+        with rc_context(rc={"text.usetex": False}):
             assert formatter(x, fmt=fmt) == result
-        with rc_context(rc={'text.usetex': True}):
+        with rc_context(rc={"text.usetex": True}):
             assert formatter(x, fmt=fmt) == texresult
 
     @mock.patch(  # we don't need this function for this test
         "gwpy.plot.log.LogFormatter.set_locs",
         mock.MagicMock(),
     )
-    @pytest.mark.parametrize("values, result", [
+    @pytest.mark.parametrize(("values", "result"), [
         # normal output
         pytest.param(
             [1e-1, 1e2, 1e5, 1e8],
@@ -90,4 +92,5 @@ class TestLogFormatter(object):
         ),
     ])
     def test_format_ticks(self, formatter, values, result):
+        """Test `LogFormatter` bulk tick formatting."""
         assert formatter.format_ticks(values) == result

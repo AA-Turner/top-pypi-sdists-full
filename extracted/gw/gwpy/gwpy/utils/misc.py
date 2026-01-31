@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,43 +16,31 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Miscellaneous utilties for GWpy
-"""
+"""Miscellaneous utilties for GWpy."""
 
-import sys
+from __future__ import annotations
+
 import math
-import warnings
-from collections import OrderedDict
-from contextlib import nullcontext
+from typing import TYPE_CHECKING
 
-
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
-
-
-def gprint(*values, **kwargs):  # pylint: disable=missing-docstring
-    kwargs.setdefault('file', sys.stdout)
-    file_ = kwargs['file']
-    print(*values, **kwargs)
-    file_.flush()
-
-
-gprint.__doc__ = print.__doc__
-
-
-def null_context():
-    """Null context manager
-    """
-    warnings.warn(
-        "gwpy.utils.null_context is deprecated and will be removed in "
-        "GWpy 3.1.0, please update your code to use "
-        "contextlib.nullcontext from the Python standard library (>=3.7)",
-        DeprecationWarning,
+if TYPE_CHECKING:
+    from collections.abc import (
+        Callable,
+        Iterable,
     )
-    return nullcontext()
+    from typing import TypeVar
+
+    T = TypeVar("T")
+    R = TypeVar("R")
+
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-def if_not_none(func, value):
-    """Apply func to value if value is not None
+def if_not_none(
+    func: Callable[[T], R],
+    value: T,
+) -> R | None:
+    """Apply func to value if value is not None.
 
     Examples
     --------
@@ -63,29 +51,33 @@ def if_not_none(func, value):
     None
     """
     if value is None:
-        return
+        return None
     return func(value)
 
 
-def round_to_power(x, base=2, which=None):
-    """Round a positive value to the nearest integer power of `base`
+def round_to_power(
+    x: float,
+    base: float = 2,
+    which: str | None = None,
+) -> float:
+    """Round a positive value to the nearest integer power of `base`.
 
     Parameters
     ----------
-    x : scalar
-        value to round, must be strictly positive
+    x : `float`
+        Value to round, must be strictly positive.
 
-    base : scalar, optional
-        base to whose power `x` will be rounded, default: 2
+    base : `float`
+        Base to whose power `x` will be rounded.
 
-    which : `str` or `NoneType`, optional
-        which value to round to, must be one of `'lower'`, `'upper'`, or
-        `None` to round to whichever is nearest, default: `None`
+    which : `str` or `None`
+        Which value to round to, must be one of `'lower'`, `'upper'`, or
+        `None` to round to whichever is nearest.
 
     Returns
     -------
-    rounded : scalar
-        the rounded value
+    rounded : `float`
+        The rounded value.
 
     Notes
     -----
@@ -101,21 +93,73 @@ def round_to_power(x, base=2, which=None):
     >>> round_to_power(5, which='lower')
     4
     """
-    if which == 'lower':
+    selector: Callable
+    if which == "lower":
         selector = math.floor
-    elif which == 'upper':
+    elif which == "upper":
         selector = math.ceil
-    elif which is not None:
-        raise ValueError("'which' argument must be one of 'lower', "
-                         "'upper', or None")
-    else:
+    elif which is None:
         selector = round
+    else:
+        msg = "'which' argument must be one of 'lower', 'upper', or None"
+        raise ValueError(msg)
     return type(base)(base ** selector(math.log(x, base)))
 
 
-def unique(list_):
-    """Return a version of the input list with unique elements,
-    preserving order
+def property_alias(
+    prop: property,
+    doc: str | None = None,
+) -> property:
+    """Create a property alias for another property.
+
+    This is useful when you want to expose a property from a contained
+    object as a property of the containing object, but want to be able
+    to set a different docstring for the alias.
+
+    Parameters
+    ----------
+    prop : `property`
+        The property to alias.
+
+    doc : `str`, optional
+        The docstring for the new property.  If not given, the docstring
+        of the original property will be used.
+
+    Returns
+    -------
+    alias : `property`
+        The new property which acts as an alias for `prop`.
+
+    Examples
+    --------
+    >>> from gwpy.utils.misc import property_alias
+    >>> class A:
+    ...     @property
+    ...     def x(self):
+    ...         "The x property"
+    ...         return 1
+    >>> class B:
+    ...     def __init__(self):
+    ...         self.a = A()
+    ...     a = property_alias(A.x, "Alias for A.x")
+    >>> b = B()
+    >>> b.a
+    1
+    >>> B.a.__doc__
+    'Alias for A.x'
+    """
+    return property(
+        prop.fget,
+        prop.fset,
+        prop.fdel,
+        doc or prop.__doc__,
+    )
+
+
+def unique(
+    list_: Iterable[T],
+) -> list[T]:
+    """Return a version of ``list_`` with unique elements, preserving order.
 
     Examples
     --------
@@ -123,4 +167,4 @@ def unique(list_):
     >>> unique(['b', 'c', 'a', 'a', 'd', 'e', 'd', 'a'])
     ['b', 'c', 'a', 'd', 'e']
     """
-    return list(OrderedDict.fromkeys(list_).keys())
+    return list(dict.fromkeys(list_))

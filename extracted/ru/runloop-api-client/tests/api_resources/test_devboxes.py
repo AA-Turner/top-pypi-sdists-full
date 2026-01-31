@@ -14,6 +14,7 @@ from tests.utils import assert_matches_type
 from runloop_api_client import Runloop, AsyncRunloop
 from runloop_api_client.types import (
     DevboxView,
+    TunnelView,
     DevboxTunnelView,
     DevboxSnapshotView,
     DevboxExecutionDetailView,
@@ -65,6 +66,12 @@ class TestDevboxes:
             entrypoint="entrypoint",
             environment_variables={"foo": "string"},
             file_mounts={"foo": "string"},
+            gateways={
+                "foo": {
+                    "gateway": "gateway",
+                    "secret": "secret",
+                }
+            },
             launch_parameters={
                 "after_idle": {
                     "idle_time_seconds": 0,
@@ -97,6 +104,7 @@ class TestDevboxes:
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
             snapshot_id="snapshot_id",
+            tunnel={"auth_mode": "open"},
         )
         assert_matches_type(DevboxView, devbox, path=["response"])
 
@@ -279,18 +287,21 @@ class TestDevboxes:
 
     @parametrize
     def test_method_create_tunnel(self, client: Runloop) -> None:
-        devbox = client.devboxes.create_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = client.devboxes.create_tunnel(
+                id="id",
+                port=0,
+            )
+
         assert_matches_type(DevboxTunnelView, devbox, path=["response"])
 
     @parametrize
     def test_raw_response_create_tunnel(self, client: Runloop) -> None:
-        response = client.devboxes.with_raw_response.create_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.devboxes.with_raw_response.create_tunnel(
+                id="id",
+                port=0,
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -299,25 +310,27 @@ class TestDevboxes:
 
     @parametrize
     def test_streaming_response_create_tunnel(self, client: Runloop) -> None:
-        with client.devboxes.with_streaming_response.create_tunnel(
-            id="id",
-            port=0,
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.devboxes.with_streaming_response.create_tunnel(
+                id="id",
+                port=0,
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = response.parse()
-            assert_matches_type(DevboxTunnelView, devbox, path=["response"])
+                devbox = response.parse()
+                assert_matches_type(DevboxTunnelView, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_create_tunnel(self, client: Runloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            client.devboxes.with_raw_response.create_tunnel(
-                id="",
-                port=0,
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                client.devboxes.with_raw_response.create_tunnel(
+                    id="",
+                    port=0,
+                )
 
     @parametrize
     def test_method_delete_disk_snapshot(self, client: Runloop) -> None:
@@ -413,6 +426,52 @@ class TestDevboxes:
             client.devboxes.with_raw_response.download_file(
                 id="",
                 path="path",
+            )
+
+    @parametrize
+    def test_method_enable_tunnel(self, client: Runloop) -> None:
+        devbox = client.devboxes.enable_tunnel(
+            id="id",
+        )
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    def test_method_enable_tunnel_with_all_params(self, client: Runloop) -> None:
+        devbox = client.devboxes.enable_tunnel(
+            id="id",
+            auth_mode="open",
+        )
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    def test_raw_response_enable_tunnel(self, client: Runloop) -> None:
+        response = client.devboxes.with_raw_response.enable_tunnel(
+            id="id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        devbox = response.parse()
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    def test_streaming_response_enable_tunnel(self, client: Runloop) -> None:
+        with client.devboxes.with_streaming_response.enable_tunnel(
+            id="id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            devbox = response.parse()
+            assert_matches_type(TunnelView, devbox, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_enable_tunnel(self, client: Runloop) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.devboxes.with_raw_response.enable_tunnel(
+                id="",
             )
 
     @parametrize
@@ -703,18 +762,21 @@ class TestDevboxes:
 
     @parametrize
     def test_method_remove_tunnel(self, client: Runloop) -> None:
-        devbox = client.devboxes.remove_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = client.devboxes.remove_tunnel(
+                id="id",
+                port=0,
+            )
+
         assert_matches_type(object, devbox, path=["response"])
 
     @parametrize
     def test_raw_response_remove_tunnel(self, client: Runloop) -> None:
-        response = client.devboxes.with_raw_response.remove_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.devboxes.with_raw_response.remove_tunnel(
+                id="id",
+                port=0,
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -723,25 +785,27 @@ class TestDevboxes:
 
     @parametrize
     def test_streaming_response_remove_tunnel(self, client: Runloop) -> None:
-        with client.devboxes.with_streaming_response.remove_tunnel(
-            id="id",
-            port=0,
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.devboxes.with_streaming_response.remove_tunnel(
+                id="id",
+                port=0,
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = response.parse()
-            assert_matches_type(object, devbox, path=["response"])
+                devbox = response.parse()
+                assert_matches_type(object, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_remove_tunnel(self, client: Runloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            client.devboxes.with_raw_response.remove_tunnel(
-                id="",
-                port=0,
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                client.devboxes.with_raw_response.remove_tunnel(
+                    id="",
+                    port=0,
+                )
 
     @parametrize
     def test_method_resume(self, client: Runloop) -> None:
@@ -1614,6 +1678,12 @@ class TestAsyncDevboxes:
             entrypoint="entrypoint",
             environment_variables={"foo": "string"},
             file_mounts={"foo": "string"},
+            gateways={
+                "foo": {
+                    "gateway": "gateway",
+                    "secret": "secret",
+                }
+            },
             launch_parameters={
                 "after_idle": {
                     "idle_time_seconds": 0,
@@ -1646,6 +1716,7 @@ class TestAsyncDevboxes:
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
             snapshot_id="snapshot_id",
+            tunnel={"auth_mode": "open"},
         )
         assert_matches_type(DevboxView, devbox, path=["response"])
 
@@ -1828,18 +1899,21 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_method_create_tunnel(self, async_client: AsyncRunloop) -> None:
-        devbox = await async_client.devboxes.create_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = await async_client.devboxes.create_tunnel(
+                id="id",
+                port=0,
+            )
+
         assert_matches_type(DevboxTunnelView, devbox, path=["response"])
 
     @parametrize
     async def test_raw_response_create_tunnel(self, async_client: AsyncRunloop) -> None:
-        response = await async_client.devboxes.with_raw_response.create_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.devboxes.with_raw_response.create_tunnel(
+                id="id",
+                port=0,
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1848,25 +1922,27 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_streaming_response_create_tunnel(self, async_client: AsyncRunloop) -> None:
-        async with async_client.devboxes.with_streaming_response.create_tunnel(
-            id="id",
-            port=0,
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.devboxes.with_streaming_response.create_tunnel(
+                id="id",
+                port=0,
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = await response.parse()
-            assert_matches_type(DevboxTunnelView, devbox, path=["response"])
+                devbox = await response.parse()
+                assert_matches_type(DevboxTunnelView, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_create_tunnel(self, async_client: AsyncRunloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            await async_client.devboxes.with_raw_response.create_tunnel(
-                id="",
-                port=0,
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                await async_client.devboxes.with_raw_response.create_tunnel(
+                    id="",
+                    port=0,
+                )
 
     @parametrize
     async def test_method_delete_disk_snapshot(self, async_client: AsyncRunloop) -> None:
@@ -1962,6 +2038,52 @@ class TestAsyncDevboxes:
             await async_client.devboxes.with_raw_response.download_file(
                 id="",
                 path="path",
+            )
+
+    @parametrize
+    async def test_method_enable_tunnel(self, async_client: AsyncRunloop) -> None:
+        devbox = await async_client.devboxes.enable_tunnel(
+            id="id",
+        )
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    async def test_method_enable_tunnel_with_all_params(self, async_client: AsyncRunloop) -> None:
+        devbox = await async_client.devboxes.enable_tunnel(
+            id="id",
+            auth_mode="open",
+        )
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    async def test_raw_response_enable_tunnel(self, async_client: AsyncRunloop) -> None:
+        response = await async_client.devboxes.with_raw_response.enable_tunnel(
+            id="id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        devbox = await response.parse()
+        assert_matches_type(TunnelView, devbox, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_enable_tunnel(self, async_client: AsyncRunloop) -> None:
+        async with async_client.devboxes.with_streaming_response.enable_tunnel(
+            id="id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            devbox = await response.parse()
+            assert_matches_type(TunnelView, devbox, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_enable_tunnel(self, async_client: AsyncRunloop) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.devboxes.with_raw_response.enable_tunnel(
+                id="",
             )
 
     @parametrize
@@ -2252,18 +2374,21 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_method_remove_tunnel(self, async_client: AsyncRunloop) -> None:
-        devbox = await async_client.devboxes.remove_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = await async_client.devboxes.remove_tunnel(
+                id="id",
+                port=0,
+            )
+
         assert_matches_type(object, devbox, path=["response"])
 
     @parametrize
     async def test_raw_response_remove_tunnel(self, async_client: AsyncRunloop) -> None:
-        response = await async_client.devboxes.with_raw_response.remove_tunnel(
-            id="id",
-            port=0,
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.devboxes.with_raw_response.remove_tunnel(
+                id="id",
+                port=0,
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2272,25 +2397,27 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_streaming_response_remove_tunnel(self, async_client: AsyncRunloop) -> None:
-        async with async_client.devboxes.with_streaming_response.remove_tunnel(
-            id="id",
-            port=0,
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.devboxes.with_streaming_response.remove_tunnel(
+                id="id",
+                port=0,
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = await response.parse()
-            assert_matches_type(object, devbox, path=["response"])
+                devbox = await response.parse()
+                assert_matches_type(object, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_remove_tunnel(self, async_client: AsyncRunloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            await async_client.devboxes.with_raw_response.remove_tunnel(
-                id="",
-                port=0,
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                await async_client.devboxes.with_raw_response.remove_tunnel(
+                    id="",
+                    port=0,
+                )
 
     @parametrize
     async def test_method_resume(self, async_client: AsyncRunloop) -> None:

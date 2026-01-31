@@ -31,7 +31,7 @@ class Device:
         return None
 
     @abstractmethod
-    def ls(self, cmd: str, state: ReplState):
+    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
         pass
 
     def ls_completion(self, cmd: str, state: ReplState, default: dict = {}):
@@ -56,16 +56,16 @@ class Device:
     def enter(self, state: ReplState):
         pass
 
-    def preview(self, table: str, state: ReplState):
+    def preview(self, table: str, state: ReplState, ctx: Context = Context.NULL):
         if not table:
             if state.in_repl:
                 log2('Table is required.')
                 log2()
                 log2('Tables:')
-                self.show_tables(state)
+                self.show_tables(state, ctx=ctx)
             else:
                 log2('* Table is missing.')
-                self.show_tables(state)
+                self.show_tables(state, ctx=ctx)
 
                 Command.display_help()
 
@@ -77,7 +77,7 @@ class Device:
         return state
 
     @abstractmethod
-    def show_tables(self, state: ReplState):
+    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
         pass
 
     @abstractmethod

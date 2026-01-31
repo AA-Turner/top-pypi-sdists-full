@@ -101,6 +101,11 @@ class LazyFramePlaceholder:
 
     __str__ = __repr__
 
+    def _is_equal(self, other: LazyFramePlaceholder) -> bool:
+        # proto equality is janky but it's hard to write a good eq method here given
+        # we have dicts and the proto round trip is slightly lossy on tuples vs lists
+        return self._to_proto() == other._to_proto()
+
     def _to_proto(self) -> dataframe_pb2.DataFramePlan:
         """
         Convert this proto plan to a dataframe.
@@ -561,7 +566,7 @@ class LazyFramePlaceholder:
             columns=columns,
         )
 
-    def select(self, *columns: str, strict: bool = True) -> "LazyFramePlaceholder":
+    def select(self, *columns: str | Underscore, strict: bool = True) -> "LazyFramePlaceholder":
         """Select existing columns by name.
 
         Parameters
@@ -590,7 +595,7 @@ class LazyFramePlaceholder:
             strict=strict,
         )
 
-    def drop(self, *columns: str, strict: bool = True) -> LazyFramePlaceholder:
+    def drop(self, *columns: str | Underscore, strict: bool = True) -> LazyFramePlaceholder:
         """Drop specified columns from the DataFrame.
 
         Parameters
@@ -619,7 +624,7 @@ class LazyFramePlaceholder:
             strict=strict,
         )
 
-    def explode(self, column: str) -> "LazyFramePlaceholder":
+    def explode(self, column: str | Underscore) -> "LazyFramePlaceholder":
         """Explode a list or array column into multiple rows.
 
         Each element in the list becomes a separate row, with other column
@@ -649,7 +654,10 @@ class LazyFramePlaceholder:
     def join(
         self,
         other: "LazyFramePlaceholder",
-        on: dict[str, str] | typing.Sequence[str],
+        *,
+        on: typing.Mapping[str | Underscore, str | Underscore] | typing.Sequence[str | Underscore] | None = None,
+        left_on: typing.Sequence[str | Underscore] | None = None,
+        right_on: typing.Sequence[str | Underscore] | None = None,
         how: str = "inner",
         right_suffix: str | None = None,
     ) -> "LazyFramePlaceholder":
@@ -660,11 +668,29 @@ class LazyFramePlaceholder:
         other
             Right-hand ``DataFrame``.
         on
-            Column names or mapping of left->right join keys.
+            Join keys. Can be specified in multiple ways:
+            - A sequence of column names (same names on both sides): ``on=["col1", "col2"]``
+            - A mapping of left->right column names: ``on={"left_col": "right_col"}``
+            - If None, must specify ``left_on`` and ``right_on`` separately.
+        left_on
+            Column names for left DataFrame join keys. Only used when ``on`` is None.
+            Must be paired with ``right_on``.
+        right_on
+            Column names for right DataFrame join keys. Only used when ``on`` is None.
+            Must be paired with ``left_on``.
         how
-            Join type (e.g. ``"inner"`` or ``"left"``).
+            Join type. Supported values:
+            - ``"inner"``: Keep only rows that match in both DataFrames (default)
+            - ``"left"``: Keep all rows from left DataFrame
+            - ``"right"``: Keep all rows from right DataFrame
+            - ``"outer"`` or ``"full"``: Keep all rows from both DataFrames
+            - ``"semi"``: Return rows from left that have matches in right (no right columns)
+            - ``"anti"``: Return rows from left that have no matches in right
+            - ``"cross"``: Cartesian product (do not pass in ``on``)
         right_suffix
             Optional suffix applied to right-hand columns when names collide.
+            For example, if both DataFrames have a column ``"value"`` and ``right_suffix="_right"``,
+            the result will have ``"value"`` and ``"value_right"``.
 
         Returns
         -------
@@ -676,18 +702,22 @@ class LazyFramePlaceholder:
             function_name="join",
             other=other,
             on=on,
+            left_on=left_on,
+            right_on=right_on,
             how=how,
             right_suffix=right_suffix,
         )
 
     def join_asof(
         self,
-        other: LazyFramePlaceholder,
-        on: str,
+        other: "LazyFramePlaceholder",
         *,
-        right_on: str | None = None,
-        by: list[str] | None = None,
-        right_by: list[str] | None = None,
+        on: str | Underscore | None = None,
+        left_on: str | Underscore | None = None,
+        right_on: str | Underscore | None = None,
+        by: typing.Mapping[str | Underscore, str | Underscore] | typing.Sequence[str | Underscore] | None = None,
+        left_by: typing.Sequence[str | Underscore] | None = None,
+        right_by: typing.Sequence[str | Underscore] | None = None,
         strategy: typing.Literal["forward", "backward"] = "backward",
         right_suffix: str | None = None,
         coalesce: bool = True,
@@ -698,24 +728,41 @@ class LazyFramePlaceholder:
         it matches on the nearest key from the right DataFrame. This is commonly used
         for time-series data where you want to join with the most recent observation.
 
-        **Important**: Both DataFrames must be sorted by the ``on`` column before calling
-        this method. Use ``.order_by(on)`` to sort if needed.
+        **Important**: Both DataFrames must be sorted by the ``on`` (or ``left_on/right_on``)
+        column before calling this method. Use ``.order_by(on)`` to sort if needed.
 
         Parameters
         ----------
         other
             Right-hand DataFrame to join with.
         on
-            Column name in the left DataFrame to join on (must be sorted).
+            Column name to use as the as-of join key (must be sorted).
+            This column is used for both left and right DataFrames.
+            The join finds the nearest match according to the ``strategy``.
+            Either ``on`` or both ``left_on`` and ``right_on`` must be specified.
+        left_on
+            Column name in left DataFrame for the as-of join key. Only used when ``on``
+            is None. Must be paired with ``right_on``.
         right_on
-            Column name in the right DataFrame to join on. If None, uses ``on``.
+            Column name in right DataFrame for the as-of join key. Can be used with ``on``
+            (to specify a different right column name) or with ``left_on`` (when ``on`` is None).
         by
-            Additional exact-match columns for left DataFrame (optional).
+            Additional exact-match columns (optional). These columns must match exactly
+            before performing the as-of match on the ``on`` column. Can be specified as:
+            - A sequence of column names (same names on both sides): ``by=["col1", "col2"]``
+            - A mapping of left->right column names: ``by={"left_col": "right_col"}``
+            - If None, can specify ``left_by`` and ``right_by`` separately.
+        left_by
+            Column names in left DataFrame for exact-match conditions. Only used when
+            ``by`` is None. Must be paired with ``right_by``.
         right_by
-            Additional exact-match columns for right DataFrame. If None, uses ``by``.
+            Column names in right DataFrame for exact-match conditions. Only used when
+            ``by`` is None. Must be paired with ``left_by``.
         strategy
-            Join strategy - "backward" (default) matches with the most recent past value,
-            "forward" matches with the nearest future value. Can also pass AsOfJoinStrategy enum.
+            Join strategy controlling which match to select:
+            - ``"backward"`` (default): Match with the most recent past value
+            - ``"forward"``: Match with the nearest future value
+            Can also pass ``AsOfJoinStrategy.BACKWARD`` or ``AsOfJoinStrategy.FORWARD``.
         right_suffix
             Suffix to add to overlapping column names from the right DataFrame.
         coalesce
@@ -732,8 +779,10 @@ class LazyFramePlaceholder:
             function_name="join_asof",
             other=other,
             on=on,
+            left_on=left_on,
             right_on=right_on,
             by=by,
+            left_by=left_by,
             right_by=right_by,
             strategy=strategy,
             right_suffix=right_suffix,
@@ -743,13 +792,13 @@ class LazyFramePlaceholder:
     # # Window is not yet supported in LazyFramePlaceholder:
     # def window(
     #     self,
-    #     by: typing.Sequence[str],
-    #     order_by: typing.Sequence[str | tuple[str, str]],
+    #     by: typing.Sequence[str | Underscore],
+    #     order_by: typing.Sequence[str | Underscore | tuple[str | Underscore, str]],
     #     *expressions: WindowExpr,
     # ) -> LazyFramePlaceholder:
     #     ...
 
-    def agg(self, by: typing.Sequence[str], *aggregations: Underscore) -> "LazyFramePlaceholder":
+    def agg(self, by: typing.Sequence[str | Underscore], *aggregations: Underscore) -> "LazyFramePlaceholder":
         """Group by columns and apply aggregation expressions.
 
         Parameters
@@ -780,7 +829,7 @@ class LazyFramePlaceholder:
             args=(by, *aggregations),
         )
 
-    def distinct_on(self, *columns: str) -> "LazyFramePlaceholder":
+    def distinct_on(self, *columns: str | Underscore) -> "LazyFramePlaceholder":
         """Remove duplicate rows based on specified columns.
 
         For rows with identical values in the specified columns, only one
@@ -808,7 +857,7 @@ class LazyFramePlaceholder:
             args=columns,
         )
 
-    def order_by(self, *columns: str | tuple[str, str]) -> LazyFramePlaceholder:
+    def order_by(self, *columns: str | Underscore | tuple[str | Underscore, str]) -> LazyFramePlaceholder:
         """Sort the DataFrame by one or more columns.
 
         Parameters
@@ -884,7 +933,7 @@ class LazyFramePlaceholder:
             connector_id=connector_id,
         )
 
-    def rename(self, new_names: dict[str, str]) -> LazyFramePlaceholder:
+    def rename(self, new_names: typing.Mapping[str | Underscore, str]) -> LazyFramePlaceholder:
         """Rename columns in the DataFrame.
 
         Parameters

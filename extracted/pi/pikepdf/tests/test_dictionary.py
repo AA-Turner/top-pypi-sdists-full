@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
-from pikepdf import Pdf, PdfError
+from pikepdf import Array, Dictionary, Name, Pdf, PdfError, Stream, String
 
 # pylint: disable=redefined-outer-name,pointless-statement,expression-not-assigned
 
@@ -43,3 +45,222 @@ def test_get_equality_dict(congress):
         page['/NoSuchKey']
 
     assert page.get('/NoSuchKey', 42) == 42
+
+
+def test_dictionary_copy_semantics():
+    """Ensure copy() creates a shallow copy, not a reference."""
+    d1 = Dictionary({'/A': 1, '/B': 2})
+    d2 = d1.copy()
+
+    # 1. Content equality check
+    assert d1 == d2
+    assert d1.keys() == d2.keys()
+
+    # 2. Independence check (Modifying copy shouldn't affect original)
+    d2['/C'] = 3
+    assert '/C' in d2
+    assert '/C' not in d1
+
+    # 3. Independence check (Modifying original shouldn't affect copy)
+    d1['/A'] = 99
+    assert d1['/A'] == 99
+    assert d2['/A'] == 1  # Should remain 1
+
+
+def test_dictionary_update():
+    """Ensure update() merges keys correctly."""
+    d = Dictionary({'/A': 1, '/B': 2})
+
+    # 1. Update with new key
+    d.update({'/C': 3})
+    assert d['/C'] == 3
+
+    # 2. Update overwriting existing key
+    d.update({'/A': 100})
+    assert d['/A'] == 100
+
+    # 3. Ensure untouched keys remain
+    assert d['/B'] == 2
+
+    # 4. Test mixed Python types
+    d.update({'/D': "hello", '/E': 3.14})
+    assert str(d['/D']) == "hello"
+    assert float(d['/E']) == 3.14
+
+
+def test_copy_raises_on_non_dict():
+    """Ensure we can't call .copy() on an Array or other types."""
+    # Since QPDFObjectHandle wraps everything, we must ensure .copy()
+    # throws the error we defined in C++ if called on an Array.
+    s = String('hello')
+
+    with pytest.raises(TypeError, match="cannot copy an object of type"):
+        s.copy()
+
+
+def test_dictionary_update_from_pikepdf_dict():
+    """Ensure we can update a pikepdf.Dictionary using another pikepdf.Dictionary."""
+    d1 = Dictionary({'/A': 1})
+    d2 = Dictionary({'/B': 2, '/A': 99})  # Overlap on /A
+
+    # This previously would have raised TypeError
+    d1.update(d2)
+
+    assert d1['/A'] == 99
+    assert d1['/B'] == 2
+
+
+@pytest.fixture
+def bad_pdf_obj():
+    # A minimal valid PDF structure so QPDF doesn't complain on open.
+    # We include an "orphan" object (4 0 obj) that contains the bad key.
+    BAD_PDF_DATA = (
+        b'%PDF-1.0\n'
+        b'1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n'
+        b'2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n'
+        b'3 0 obj << /Type /Page /MediaBox [0 0 200 200] >> endobj\n'
+        b'4 0 obj << /Key\x80 (Value) >> endobj\n'
+        b'trailer << /Root 1 0 R >>\n'
+        b'%%EOF\n'
+    )
+    with Pdf.open(io.BytesIO(BAD_PDF_DATA)) as bad_pdf:
+        bad_obj = bad_pdf.get_object(4, 0)
+        yield bad_pdf, bad_obj
+
+
+def test_iterate_invalid_utf8_keys(bad_pdf_obj):
+    """Verify we can iterate over dictionary keys with invalid UTF-8 without crashing."""
+    obj = bad_pdf_obj[1]
+
+    # 1. Test keys() - this triggered the original crash
+    keys = list(obj.keys())
+    assert len(keys) == 1
+
+    # 2. Verify the key was preserved using surrogateescape
+    # We expect the bad byte \x80 to become \udc80
+    bad_key = keys[0]
+    assert bad_key == "/Key\udc80"
+
+    # 3. Verify we can round-trip it back to the original bytes
+    assert bad_key.encode("utf-8", "surrogateescape") == b"/Key\x80"
+
+
+def test_items_invalid_utf8(bad_pdf_obj):
+    """Verify items() iteration works and values are accessible."""
+    obj = bad_pdf_obj[1]
+
+    # This iterates both keys and values
+    items = list(obj.items())
+
+    assert len(items) == 1
+    key, value = items[0]
+
+    assert key == "/Key\udc80"
+    assert str(value) == "Value"
+
+
+def test_values_invalid_utf8(bad_pdf_obj):
+    """Verify values() iteration works."""
+    obj = bad_pdf_obj[1]
+    values = list(obj.values())
+
+    assert len(values) == 1
+    assert str(values[0]) == "Value"
+
+
+def test_contains_invalid_utf8(bad_pdf_obj):
+    """Verify 'in' operator works with the surrogated key."""
+    obj = bad_pdf_obj[1]
+
+    # We should be able to find the key if we ask for the surrogate version
+    assert "/Key\udc80" in obj
+
+
+def test_invalid_utf8_keys():
+    # The surrogate code \udc80 represents the raw byte 0x80.
+    # We use this string to inject "bad bytes" into the PDF structure
+    # via the C++ layer.
+    bad_key_surrogate = '/Key\udc80'
+
+    # 1. Test Writing (hits key_to_string logic)
+    # This creates a dictionary entry with the raw key b'/Key\x80'
+    d = Dictionary()
+    d[bad_key_surrogate] = 1
+
+    # 2. Test __contains__ (hits __contains__ try/catch logic)
+    assert bad_key_surrogate in d
+
+    # 3. Test __getitem__ (hits key_to_string logic for lookups)
+    assert d[bad_key_surrogate] == 1
+
+    # 4. Test keys() iteration (hits safe_decode logic)
+    # If this wasn't fixed, this line would raise UnicodeDecodeError
+    keys = list(d.keys())
+    assert bad_key_surrogate in keys
+    assert len(keys) == 1
+
+    # 5. Test Deletion
+    del d[bad_key_surrogate]
+    assert bad_key_surrogate not in d
+
+
+def test_dictionary_coverage_edges(bad_pdf_obj):
+    """Cover edge cases for bytes keys and invalid types in __contains__."""
+    _, obj = bad_pdf_obj
+
+    # Cover lookup using a bytes object
+    # We know the key is /Key\x80. In C++, this matches the raw bytes.
+    assert obj[b'/Key\x80'] == 'Value'
+
+    # Cover 'in' operator with invalid type
+    # This forces key_to_string to throw TypeError, which is caught and returns False
+    assert 123 not in obj
+    assert None not in obj
+
+    # Cover iterating the object directly (not .keys())
+    iterator_keys = list(obj)
+    assert len(iterator_keys) == 1
+    assert iterator_keys[0] == '/Key\udc80'
+
+
+def test_values_standard():
+    """Verify standard .values() usage on Dict and Stream."""
+    import pikepdf
+
+    pdf = pikepdf.new()
+    pdf.add_blank_page()
+
+    # Dictionary test
+    d = pdf.make_indirect({
+        "/A": 1,
+        "/B": 2
+    })
+
+    vals = list(d.values())
+    assert len(vals) == 2
+    assert 1 in vals
+    assert 2 in vals
+
+    # Stream tests
+    stream = pdf.pages[0].Contents
+    stream["/Type"] = pikepdf.Name.TestStream
+
+    stream_vals = list(stream.values())
+    assert pikepdf.Name.TestStream in stream_vals
+
+
+def test_values_type_error():
+    """Verify .values() throws the correct error on non-dicts."""
+    import pikepdf
+
+    pdf = pikepdf.new()
+    arr = pdf.make_indirect([1, 2, 3])
+    with pytest.raises(TypeError, match=r"values\(\) not available"):
+        arr.values()
+
+def test_update_stream_error():
+    d = Dictionary()
+    p = Pdf.new()
+    s = Stream(p, b"")
+    with pytest.raises(TypeError, match="stream_dict"):
+        d.update(s)

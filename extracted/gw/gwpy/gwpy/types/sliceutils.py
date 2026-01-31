@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2018-2020)
+# Copyright (c) 2018-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,49 +15,93 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for the core types
+"""Utilities for the core types.
 
 These methods are designed for internal use only.
 """
 
+from __future__ import annotations
+
 from numbers import Integral
+from typing import (
+    TYPE_CHECKING,
+    overload,
+)
 
 import numpy
+
+if TYPE_CHECKING:
+    from typing import (
+        Literal,
+        TypeAlias,
+    )
+
+    from numpy.typing import ArrayLike
+
+    from . import Array
+
+    SliceLike: TypeAlias = int | bool | list | slice | ArrayLike
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-def format_nd_slice(item, ndim):
-    """Preformat a getitem argument as an N-tuple
+def format_nd_slice(
+    item: SliceLike | tuple[SliceLike, ...],
+    ndim: int,
+) -> tuple[SliceLike | None, ...]:
+    """Preformat a getitem argument as an N-tuple.
+
+    Parameters
+    ----------
+    item : `object`, or a `tuple` of `object` instances
+        The item to format as a tuple. If a tuple, it must be of length
+        less than or equal to ``ndim``. If an object, it will be converted
+        to a tuple of length ``ndim`` with the object as the first element.
+
+    ndim : `int`
+        The number of dimensions to format the item for.
+
+    Returns
+    -------
+    item : `tuple`
+        A tuple of length ``ndim`` with the item as the first element,
+        and padded with `None` values if necessary.
     """
     if not isinstance(item, tuple):
         item = (item,)
+    # pad the tuple with `None` until it's ``ndim`` elements
     return item[:ndim] + (None,) * (ndim - len(item))
 
 
-def slice_axis_attributes(old, oldaxis, new, newaxis, slice_):
-    """Set axis metadata for ``new`` by slicing an axis of ``old``
+def slice_axis_attributes(
+    old: Array,
+    oldaxis: Literal["x", "y", "z"],
+    new: Array,
+    newaxis: Literal["x", "y", "z"],
+    slice_: SliceLike,
+) -> Array:
+    """Set axis metadata for ``new`` by slicing an axis of ``old``.
 
     This is primarily for internal use in slice functions (__getitem__)
 
     Parameters
     ----------
     old : `Array`
-        array being sliced
+        Array being sliced.
 
     oldaxis : ``'x'`` or ``'y'``
-        the axis to slice
+        The axis to slice.
 
     new : `Array`
-        product of slice
+        Product of slice.
 
     newaxis : ``'x'`` or ``'y'``
-        the target axis
+        The target axis.
 
     slice_ : `slice`, `numpy.ndarray`
-        the slice to apply to old (or an index array)
+        The slice to apply to old (or an index array).
 
-    See also
+    See Also
     --------
     Series.__getitem__
     Array2D.__getitem__
@@ -66,16 +109,21 @@ def slice_axis_attributes(old, oldaxis, new, newaxis, slice_):
     slice_ = as_slice(slice_)
 
     # attribute names
-    index = '{}index'.format
-    origin = '{}0'.format
-    delta = 'd{}'.format
+    index = "{}index".format
+    origin = "{}0".format
+    delta = "d{}".format
 
     # if array has an index set already, use it
-    if hasattr(old, '_{}index'.format(oldaxis)):
-        setattr(new, index(newaxis), getattr(old, index(oldaxis))[slice_])
+    if hasattr(old, f"_{oldaxis}index"):
+        setattr(
+            new,
+            index(newaxis),
+            getattr(old, index(oldaxis))[slice_],
+        )
+        return new
 
     # otherwise if using a slice, use origin and delta properties
-    elif isinstance(slice_, slice) or not numpy.sum(slice_):
+    if isinstance(slice_, slice) or not numpy.sum(slice_):
         if isinstance(slice_, slice):
             offset = slice_.start or 0
             step = slice_.step or 1
@@ -99,36 +147,65 @@ def slice_axis_attributes(old, oldaxis, new, newaxis, slice_):
     return new
 
 
-def null_slice(slice_):
-    """Returns True if a slice will have no affect
-    """
+def null_slice(slice_: SliceLike) -> bool:
+    """Return `True` if a slice will have no affect."""
     try:
         slice_ = as_slice(slice_)
     except TypeError:
         return False
 
+    # trivial array slice
     if (
         isinstance(slice_, numpy.ndarray)
         and slice_.dtype == bool
         and slice_.all()
     ):
         return True
-    if isinstance(slice_, slice) and slice_ in (
-            slice(None, None, None), slice(0, None, 1)
-    ):
-        return True
+
+    # trivial slice object
+    return (
+        isinstance(slice_, slice)
+        and slice_ in (
+            slice(None, None, None),
+            slice(0, None, 1),
+        )
+    )
 
 
-def as_slice(slice_):
-    """Convert an object to a slice, if possible
+@overload
+def as_slice(slice_: SliceLike) -> slice | numpy.ndarray:
+    ...
+
+
+@overload
+def as_slice(slice_: tuple[SliceLike, ...]) -> tuple[slice | numpy.ndarray, ...]:
+    ...
+
+
+def as_slice(
+    slice_: None | SliceLike | tuple[SliceLike, ...],
+) -> slice | numpy.ndarray | tuple[slice | numpy.ndarray, ...]:
+    """Convert an object to a slice, or tuple of slices, if possible.
+
+    slice_ : `int`, `list` `numpy.ndarray`, `None`
+        The input to cast to a `slice_`.
+
+    Returns
+    -------
+    slice : `slice` or `tuple` of `slice`
+        The input cast into a single slice, or a tuple of slices.
     """
-    if isinstance(slice_, (Integral, numpy.integer, type(None))):
+    if slice_ is None or isinstance(slice_, Integral | numpy.integer):
         return slice(0, None, 1)
 
-    if isinstance(slice_, (slice, numpy.ndarray)):
+    if isinstance(slice_, list):
+        slice_ = numpy.array(slice_)
+
+    if isinstance(slice_, slice | numpy.ndarray):
         return slice_
 
-    if isinstance(slice_, (list, tuple)):
+    if isinstance(slice_, tuple):
         return tuple(map(as_slice, slice_))
 
-    raise TypeError("Cannot format {!r} as slice".format(slice_))
+    msg = f"cannot format '{slice_}' as slice"
+    raise TypeError(msg)

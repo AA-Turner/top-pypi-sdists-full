@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,13 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""This module attaches the HDF5 input output methods to the FrequencySeries.
-"""
+"""HDF5 input/output routines for the FrequencySeries."""
 
 from ...types.io.hdf5 import register_hdf5_array_io
-from .. import (FrequencySeries, SpectralVariance)
+from .. import (
+    FrequencySeries,
+    SpectralVariance,
+)
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 register_hdf5_array_io(FrequencySeries)
 register_hdf5_array_io(SpectralVariance)

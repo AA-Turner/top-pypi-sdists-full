@@ -11,7 +11,7 @@ from mudata import MuData
 @pytest.fixture()
 def modalities(request, obs_n, var_unique):
     n_mod = 3
-    mods = dict()
+    mods = {}
     np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
@@ -21,7 +21,8 @@ def modalities(request, obs_n, var_unique):
         mods[m].var["mod"] = m
 
         # common column
-        mods[m].var["highly_variable"] = np.tile([False, True], mods[m].n_vars // 2)
+        mods[m].var["highly_variable"] = np.random.choice([False, True], size=mods[m].n_vars)
+        mods[m].obs["common_obs_col"] = np.random.randint(0, int(1e6), size=mods[m].n_obs)
 
         if var_unique:
             mods[m].var_names = [f"mod{m}_var{j}" for j in range(mods[m].n_vars)]
@@ -35,9 +36,7 @@ def modalities(request, obs_n, var_unique):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     return mods
@@ -46,7 +45,7 @@ def modalities(request, obs_n, var_unique):
 @pytest.fixture()
 def datasets(request, var_n, obs_unique):
     n_datasets = 3
-    datasets = dict()
+    datasets = {}
     np.random.seed(100)
     for i in range(n_datasets):
         i1 = i + 1
@@ -88,7 +87,6 @@ class TestMultiModal:
         """
         mdata = MuData(modalities)
         mdata.update()
-
         mdata.pull_var()
 
         assert "mod" in mdata.var.columns
@@ -165,6 +163,15 @@ class TestMultiModal:
         for m in mdata.mod.keys():
             assert f"{m}:mod" in mdata.obs.columns
 
+            assert f"{m}:common_obs_col" in mdata.obs.columns
+
+            modmap = mdata.obsmap[m].ravel()
+            mask = modmap > 0
+            assert (
+                mdata.obs[f"{m}:common_obs_col"][mask].to_numpy()
+                == mdata.mod[m].obs["common_obs_col"].to_numpy()[modmap[mask] - 1]
+            ).all()
+
         # join_common shouldn't work
         with pytest.raises(ValueError, match="shared obs_names"):
             mdata.pull_obs(join_common=True)
@@ -182,14 +189,22 @@ class TestMultiModal:
         mdata = MuData(modalities)
         mdata.update()
 
-        mdata.var["pushed"] = True
-        mdata.var["mod2:mod2_pushed"] = True
+        mdata.var["pushed"] = np.random.randint(0, int(1e6), size=mdata.n_var)
+        mdata.var["mod2:mod2_pushed"] = np.random.randint(0, int(1e6), size=mdata.n_var)
         mdata.push_var()
 
         # pushing should work
-        for mod in mdata.mod.values():
+        for modname, mod in mdata.mod.items():
             assert "pushed" in mod.var.columns
+
+            map = mdata.varmap[modname].ravel()
+            mask = map > 0
+            assert (mdata.var["pushed"][mask] == mod.var["pushed"].iloc[map[mask] - 1]).all()
+
         assert "mod2_pushed" in mdata["mod2"].var.columns
+        map = mdata.varmap["mod2"].ravel()
+        mask = map > 0
+        assert (mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"].iloc[map[mask] - 1]).all()
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
@@ -200,14 +215,22 @@ class TestMultiModal:
         mdata = MuData(modalities)
         mdata.update()
 
-        mdata.obs["pushed"] = True
-        mdata.obs["mod2:mod2_pushed"] = True
+        mdata.obs["pushed"] = np.random.randint(0, int(1e6), size=mdata.n_obs)
+        mdata.obs["mod2:mod2_pushed"] = np.random.randint(0, int(1e6), size=mdata.n_obs)
         mdata.push_obs()
 
         # pushing should work
-        for mod in mdata.mod.values():
+        for modname, mod in mdata.mod.items():
             assert "pushed" in mod.obs.columns
+
+            map = mdata.obsmap[modname].ravel()
+            mask = map > 0
+            assert (mdata.obs["pushed"][mask] == mod.obs["pushed"].iloc[map[mask] - 1]).all()
+
         assert "mod2_pushed" in mdata["mod2"].obs.columns
+        map = mdata.obsmap["mod2"].ravel()
+        mask = map > 0
+        assert (mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"].iloc[map[mask] - 1]).all()
 
 
 @pytest.mark.usefixtures("filepath_h5mu")

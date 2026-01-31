@@ -11,6 +11,7 @@ from dask.dataframe import DataFrame as DaskDataFrame
 from geopandas import GeoDataFrame
 from ome_zarr.format import Format
 from pyarrow import ArrowInvalid
+from upath import UPath
 from zarr.errors import ArrayNotFoundError
 
 from spatialdata._core.spatialdata import SpatialData
@@ -120,7 +121,7 @@ def get_raster_format_for_read(
 
 
 def read_zarr(
-    store: str | Path,
+    store: str | Path | UPath | zarr.Group,
     selection: None | tuple[str] = None,
     on_bad_files: Literal[BadFileHandleMethod.ERROR, BadFileHandleMethod.WARN] = BadFileHandleMethod.ERROR,
 ) -> SpatialData:
@@ -130,7 +131,7 @@ def read_zarr(
     Parameters
     ----------
     store
-        Path to the zarr store (on-disk or remote).
+        Path, URL, or zarr.Group to the zarr store (on-disk or remote).
 
     selection
         List of elements to read from the zarr store (images, labels, points, shapes, table). If None, all elements are
@@ -157,7 +158,7 @@ def read_zarr(
     # the following is the SpatialDataContainerFormat version
     if "spatialdata_attrs" not in root_group.metadata.attributes:
         # backward compatibility for pre-versioned SpatialData zarr stores
-        sdata_version = cast(Literal["0.1", "0.2"], "0.1")
+        sdata_version: Literal["0.1", "0.2"] = "0.1"
     else:
         sdata_version = root_group.metadata.attributes["spatialdata_attrs"]["version"]
     if sdata_version == "0.1":
@@ -228,7 +229,7 @@ def read_zarr(
         tables=tables,
         attrs=attrs,
     )
-    sdata.path = Path(store)
+    sdata.path = resolved_store.root
     return sdata
 
 

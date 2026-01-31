@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: harbor
-Version: 0.1.42
+Version: 0.1.43
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -13,7 +13,7 @@ Requires-Dist: rich>=14.1.0
 Requires-Dist: toml>=0.10.2
 Requires-Dist: tenacity>=9.1.2
 Requires-Dist: python-dotenv>=1.1.1
-Requires-Dist: litellm>=1.79.0
+Requires-Dist: litellm>=1.80.8
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: dirhash>=0.5.0
 Requires-Dist: dockerfile-parse>=2.0.1
@@ -101,8 +101,17 @@ harbor run -d "<dataset@version>" -m "<model>" -a "<agent>"
 
 ## Citation
 
-If you use **Harbor** in academic work, please cite the software.
+If you use **Harbor** in academic work, please cite the software:
 
-The preferred citation is provided via the **“Cite this repository”** button on GitHub, which includes a Zenodo DOI for the corresponding release.
+```
+@software{harborframeworkteam2026harborframework,
+      title={Harbor Framework: A framework for evaluating and optimizing agents and models in container environments.}, 
+      author={Harbor Framework Team},
+      year={2026},
+      howpublished={\url{https://github.com/laude-institute/harbor}},
+}
+```
+
+
 
 

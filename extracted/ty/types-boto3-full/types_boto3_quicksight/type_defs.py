@@ -9333,8 +9333,8 @@ class DashboardCustomizationVisualOptionsTypeDef(TypedDict):
 
 class RegisteredUserDashboardFeatureConfigurationsTypeDef(TypedDict):
     StatePersistence: NotRequired[StatePersistenceConfigurationsTypeDef]
-    SharedView: NotRequired[SharedViewConfigurationsTypeDef]
     Bookmarks: NotRequired[BookmarksConfigurationsTypeDef]
+    SharedView: NotRequired[SharedViewConfigurationsTypeDef]
     AmazonQInQuickSight: NotRequired[AmazonQInQuickSightDashboardConfigurationsTypeDef]
     Schedules: NotRequired[SchedulesConfigurationsTypeDef]
     RecentSnapshots: NotRequired[RecentSnapshotsConfigurationsTypeDef]

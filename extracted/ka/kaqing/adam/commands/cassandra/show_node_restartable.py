@@ -31,12 +31,12 @@ class ShowNodeRestartable(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state, apply=False) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with extract_options(args, ['-s', '--show']) as (args, verbose):
                     with validate_args(args, state, name='Pod Name'):
                         pod = args[0]
 
-                        ctx: Context = Context.new(cmd=cmd, show_out=True, show_verbose=verbose, backgrounded=backgrounded)
+                        ctx: Context = Context.new(cmd=cmd, show_out=True, show_verbose=verbose, background=background)
                         node: NodeRestartable = Cassandra.restartable(state, pod, in_restartings=NodeRestarter.restartings(ctx=ctx), ctx=ctx)
 
                         node.log(ctx)

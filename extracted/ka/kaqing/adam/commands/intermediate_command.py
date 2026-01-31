@@ -3,7 +3,9 @@ from abc import abstractmethod
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterCommandHelper
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log, log2
+from adam.utils import log2
+from adam.utils_tabulize import tabulize
+from adam.utils_context import Context
 
 class IntermediateCommand(Command):
     def run(self, cmd: str, state: ReplState):
@@ -19,12 +21,21 @@ class IntermediateCommand(Command):
     def cmd_list(self):
         pass
 
-    def intermediate_run(self, cmd: str, state: ReplState, args: list[str], cmds: list['Command'], separator='\t', display_help=True):
+    def intermediate_run(self,
+                         cmd: str,
+                         state: ReplState,
+                         args: list[str],
+                         cmds: list['Command'],
+                         separator='\t',
+                         display_help=True):
         state, _ = self.apply_state(args, state)
 
         if state.in_repl:
             if display_help:
-                tabulize(cmds, lambda c: c.help(state), separator=separator)
+                tabulize(cmds,
+                         lambda c: c.help(state),
+                         separator=separator,
+                         ctx=self.context())
 
             return 'command-missing'
         else:
@@ -41,12 +52,20 @@ class IntermediateCommand(Command):
         cmds = Command.chain(self.cmd_list())
         return cmds.run(cmd, state)
 
-    def intermediate_help(super_help: str, cmd: str, cmd_list: list['Command'], separator='\t', show_cluster_help=False):
-        log(super_help)
-        log()
-        log('Sub-Commands:')
+    def intermediate_help(super_help: str,
+                          cmd: str,
+                          cmd_list: list['Command'],
+                          separator='\t',
+                          show_cluster_help=False):
+        ctx = Context.new(show_out=True)
+        ctx.log(super_help)
+        ctx.log()
+        ctx.log('Sub-Commands:')
 
-        tabulize(cmd_list, lambda c: c.help(ReplState()).replace(f'{cmd} ', '  ', 1), separator=separator)
+        tabulize(cmd_list,
+                 lambda c: c.help(ReplState()).replace(f'{cmd} ', '  ', 1),
+                 separator=separator,
+                 ctx=Context)
         if show_cluster_help:
-            log()
+            ctx.log()
             ClusterCommandHelper.cluster_help()

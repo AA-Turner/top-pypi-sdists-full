@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2018-2020)
+# Copyright (c) 2018-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,8 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Tests for :mod:`gwpy.utils.decorators`
-"""
+"""Tests for :mod:`gwpy.utils.decorators`."""
 
 import pytest
 
@@ -25,8 +23,7 @@ from .. import decorators
 
 
 def test_return_as():
-    """Test `gwpy.utils.decorators.return_as` works
-    """
+    """Test `gwpy.utils.decorators.return_as` works."""
     @decorators.return_as(float)
     def myfunc(value):
         return int(value)
@@ -40,21 +37,20 @@ def test_return_as():
 
 
 def test_return_as_error():
-    """Test that `gwpy.utils.decorators.return_as` error handling works
-    """
+    """Test that `gwpy.utils.decorators.return_as` error handling works."""
     @decorators.return_as(int)
     def myfunc(value):
         return str(value)
 
     with pytest.raises(
         ValueError,
-        match="^failed to cast return from myfunc as int: ",
+        match=r"^failed to cast return from myfunc as int: ",
     ):
-        myfunc('test')
+        myfunc("test")
 
 
 def test_deprecated_function():
-    """Test that `deprecated_function` works without a message
+    """Test that `deprecated_function` works without a message.
 
     (and without any functional brackets)
     """
@@ -63,18 +59,17 @@ def test_deprecated_function():
         return str(value)
 
     with pytest.warns(DeprecationWarning) as record:
-        myfunc('test')
+        myfunc("test")
     assert len(record) == 1
     assert "myfunc has been deprecated" in str(record[0].message)
 
 
 def test_deprecated_function_message():
-    """Test that `deprecated_function` works with a message
-    """
+    """Test that `deprecated_function` works with a message."""
     @decorators.deprecated_function(message="don't use {0.__name__}")
     def myfunc(value):
         return str(value)
 
     with pytest.warns(DeprecationWarning) as record:
-        myfunc('test')
+        myfunc("test")
     assert str(record[0].message) == "don't use myfunc"

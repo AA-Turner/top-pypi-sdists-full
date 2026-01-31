@@ -825,6 +825,7 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
                     elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql: pass
                     elif "<= NOW()" in sql: pass
                     elif "_LZ FROM" in sql: pass
+                    elif "WHERE BOT_IP=" in sql: logger.info(log_ % f"SQL: WHERE BOT_IP=, PARAM: {param}")
                     elif "WHERE INVITE_DT" in sql: pass
                     elif "WHERE UB_STATUS=" in sql: pass
                     elif "GROUPP_CVOTERESTRICT FROM" in sql: pass
@@ -8201,7 +8202,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                     POST_TEXT = f"{POST_TEXT}<a href='tg://user?id={it}'>{str_empty}</a>"
         if isinstance(POST_MEDIA, list) and not len(POST_MEDIA): POST_TYPE = 'text'
         if POST_TYPE != 'text': POST_TEXT = POST_TEXT[0:1024]
-        print(f"{POST_TEXT=}")
+        # print(f"{POST_TEXT=}")
         # endregion
 
         # region pay
@@ -8604,6 +8605,8 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
             await db_change_pg(sql, (chat_id,), BASE_P)
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        logger.info(log_ % str(f"Sended to {chat_id=}: {True if result else False}"))
     return result
 
 
@@ -14466,7 +14469,7 @@ async def correct_txt_tags_for_tg(txt):
         if not txt or txt == str_empty:
             return result
 
-        print(f"correct_txt_tags_for_tg start {txt=}")
+        if random.choice([True, False]): print(f"correct_txt_tags_for_tg start {txt=}")
 
         txt = re.sub(
             r'<div class="tgui-79024fcb6d81ad79"[^>]*?>(.*?)</div>',
@@ -18569,11 +18572,12 @@ async def in_ban_list(tid, username=None):
                  8400036732,  # Gethun Melike [8400036732, en]
                  # 126101198,  # Dr Azi None [126101198, en]
                  5055238562,  # Zheng 8 [5055238562, en]
+                 5673362307,  # Start YU Z🇹🇷 [5673362307, en]
                  ]
 
-        if username and username.startswith('kwprod'):
-            result = True
-        elif tid in b_ids:
+        # if username and username.startswith('kwprod'):
+        #     result = True
+        if tid in b_ids:
             result = True
     except Exception as e:
         logger.info(log_ % str(e))

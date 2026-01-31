@@ -150,6 +150,7 @@ class _Sandbox(modal._object._Object):
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
+        custom_domain: typing.Optional[str] = None,
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         verbose: bool = False,
         experimental_options: typing.Optional[dict[str, bool]] = None,
@@ -157,7 +158,6 @@ class _Sandbox(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        custom_domain: typing.Optional[str] = None,
     ) -> _Sandbox:
         """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -567,6 +567,7 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
@@ -574,7 +575,6 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-            custom_domain: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -621,6 +621,7 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
@@ -628,7 +629,6 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-            custom_domain: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 

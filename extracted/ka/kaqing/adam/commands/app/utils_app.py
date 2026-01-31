@@ -29,7 +29,7 @@ class AppRestHandler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def post(self, args: list[str]) -> Union[ReplState, str]:
+    def post(self, args: list[str], ctx: Context=Context.NULL) -> Union[ReplState, str]:
         if not args:
             return 'arg missing'
 
@@ -51,7 +51,7 @@ class AppRestHandler:
                 log2(f'Invalid json argument: {e}')
                 return state
 
-        AppSession.run(state.app_env, state.app_app, state.namespace, t_f[0], t_f[1], payload=payload, forced=self.forced)
+        AppSession.run(state.app_env, state.app_app, state.namespace, t_f[0], t_f[1], payload=payload, forced=self.forced, ctx=ctx)
 
         return state
 
@@ -70,7 +70,7 @@ class AppPodService:
 
         return []
 
-    def post(self, args: list[str], forced=False) -> Union[ReplState, str]:
+    def post(self, args: list[str], forced=False, ctx: Context=Context.NULL) -> Union[ReplState, str]:
         state = self.handler.state
 
         if not args:
@@ -92,7 +92,7 @@ class AppPodService:
                 log2(f'Invalid json argument: {e}')
                 return state
 
-        AppSession.run(state.app_env, state.app_app, state.namespace, t_f[0], t_f[1], payload=payload, forced=forced)
+        AppSession.run(state.app_env, state.app_app, state.namespace, t_f[0], t_f[1], payload=payload, forced=forced, ctx=ctx)
 
         return state
 

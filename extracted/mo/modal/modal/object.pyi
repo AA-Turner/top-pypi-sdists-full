@@ -231,6 +231,17 @@ class Object:
         """mdmd:hidden"""
         ...
 
+    class __get_dashboard_url_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> str:
+            """mdmd:hidden"""
+            ...
+
+        async def aio(self, /) -> str:
+            """mdmd:hidden"""
+            ...
+
+    get_dashboard_url: __get_dashboard_url_spec
+
     @property
     def client(self) -> modal.client.Client:
         """mdmd:hidden"""

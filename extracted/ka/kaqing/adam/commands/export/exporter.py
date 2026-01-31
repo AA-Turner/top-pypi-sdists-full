@@ -164,7 +164,7 @@ class Exporter:
         msg = action + ' {size} Cassandra tables'
         pod = state.pod
         if export_state != 'init':
-            ctx = ctx.copy(backgrounded=True, extra={'session': spec.session})
+            ctx = ctx.copy(background=True, extra={'session': spec.session})
 
         with parallelize(spec.tables, max_workers, msg=msg, collect=export_state == 'init', name='exporter') as exec:
             statuses = exec.map(lambda table: Exporter.export_table(table,
@@ -281,7 +281,7 @@ class Exporter:
         with ing(f'[{session}] Triggering dump of table {spec.keyspace}.{table}{f" with consistency {consistency}" if consistency else ""}',
                  suppress_log=suppress_ing_log,
                  job_log=ctx.log_file):
-            run_cql(state, ';'.join(queries), ctx=ctx.copy(backgrounded=True, pod_log_file=table_log_file, history=False))
+            run_cql(state, ';'.join(queries), ctx=ctx.copy(background=True, pod_log_file=table_log_file, history=False))
 
         return table_log_file
 

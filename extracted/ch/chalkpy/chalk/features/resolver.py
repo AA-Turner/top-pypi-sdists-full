@@ -4588,7 +4588,7 @@ def validate_message_attributes(
 def make_model_resolver(
     name: str,
     model: "ModelVersion",
-    inputs: Dict[Feature, str] | List[Feature],
+    input: Dict[Feature, str] | List[Feature],
     output: Feature | List[Feature] | Dict[Feature, str],
     feature_class: Optional[type[Features]] = None,
     resource_group: Optional[str] = None,
@@ -4656,7 +4656,7 @@ def make_model_resolver(
     >>> resolver = make_model_resolver(
     ...     name="risk_model",
     ...     model=model,
-    ...     inputs=[User.age, User.income],
+    ...     input=[User.age, User.income],
     ...     output=User.risk_score,
     ... )
     >>>
@@ -4664,7 +4664,7 @@ def make_model_resolver(
     >>> resolver = make_model_resolver(
     ...     name="multi_output_model",
     ...     model=model,
-    ...     inputs=[User.age, User.income],
+    ...     input=[User.age, User.income],
     ...     output=[User.risk_score, User.credit_score],
     ... )
     >>>
@@ -4672,16 +4672,16 @@ def make_model_resolver(
     >>> resolver = make_model_resolver(
     ...     name="named_model",
     ...     model=model,
-    ...     inputs={User.age: "age_input", User.income: "income_input"},
+    ...     input={User.age: "age_input", User.income: "income_input"},
     ...     output={User.risk_score: "risk_output", User.credit_score: "credit_output"},
     ... )
     """
     from chalk.features.inference import build_inference_function
 
-    if isinstance(inputs, dict):
-        input_features_raw = list(inputs.keys())
+    if isinstance(input, dict):
+        input_features_raw = list(input.keys())
     else:
-        input_features_raw = inputs
+        input_features_raw = input
 
     input_features = [unwrap_feature(f) for f in input_features_raw]
 

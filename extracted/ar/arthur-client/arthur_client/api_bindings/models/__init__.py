@@ -22,6 +22,7 @@ from arthur_client.api_bindings.models.aggregation_spec_schema_init_args_inner i
 from arthur_client.api_bindings.models.alert import Alert
 from arthur_client.api_bindings.models.alert_bound import AlertBound
 from arthur_client.api_bindings.models.alert_check_job_spec import AlertCheckJobSpec
+from arthur_client.api_bindings.models.alert_group import AlertGroup
 from arthur_client.api_bindings.models.alert_rule import AlertRule
 from arthur_client.api_bindings.models.alert_rule_interval import AlertRuleInterval
 from arthur_client.api_bindings.models.alert_rule_notification_webhook import AlertRuleNotificationWebhook
@@ -115,6 +116,7 @@ from arthur_client.api_bindings.models.http_validation_error import HTTPValidati
 from arthur_client.api_bindings.models.health_status import HealthStatus
 from arthur_client.api_bindings.models.infinite_pagination import InfinitePagination
 from arthur_client.api_bindings.models.infinite_resource_list_alert import InfiniteResourceListAlert
+from arthur_client.api_bindings.models.infinite_resource_list_alert_group import InfiniteResourceListAlertGroup
 from arthur_client.api_bindings.models.infinite_resource_list_job import InfiniteResourceListJob
 from arthur_client.api_bindings.models.infrastructure import Infrastructure
 from arthur_client.api_bindings.models.infrastructure_list import InfrastructureList

@@ -17,9 +17,13 @@ from worker_automate_hub.tasks.jobs.geracao_aprovacao_pedidos import (
     geracao_aprovacao_pedidos_171,
     geracao_aprovacao_pedidos_34,
 )
-from worker_automate_hub.tasks.jobs.inclusao_pedidos_raizen import inclusao_pedidos_raizen
+from worker_automate_hub.tasks.jobs.inclusao_pedidos_raizen import (
+    inclusao_pedidos_raizen,
+)
 from worker_automate_hub.tasks.jobs.inclusao_pedidos_vibra import inclusao_pedidos_vibra
-from worker_automate_hub.tasks.jobs.inclusao_pedidos_ipiranga import inclusao_pedidos_ipiranga
+from worker_automate_hub.tasks.jobs.inclusao_pedidos_ipiranga import (
+    inclusao_pedidos_ipiranga,
+)
 from worker_automate_hub.tasks.jobs.notas_faturamento_sap import notas_faturamento_sap
 from worker_automate_hub.tasks.jobs.descartes import descartes
 from worker_automate_hub.tasks.jobs.ecac_estadual_main import (
@@ -144,12 +148,14 @@ from worker_automate_hub.tasks.jobs.sftp_equals_netunna import (
     sftp_equals_netunna,
 )
 
-from worker_automate_hub.tasks.jobs.emissao_nf_frota import (
-emissao_nf_frota
-)
+from worker_automate_hub.tasks.jobs.emissao_nf_frota import emissao_nf_frota
 
 from worker_automate_hub.tasks.jobs.extracao_pedido_compra_sap import (
-extracao_pedidos_compras_sap
+    extracao_pedidos_compras_sap,
+)
+
+from worker_automate_hub.tasks.jobs.extracao_movimento_estoque_sap import (
+    extracao_movimento_estoque_sap,
 )
 
 task_definitions = {
@@ -180,7 +186,7 @@ task_definitions = {
     "811e8934-8227-4686-a030-df057c054f75": entrada_de_notas_16,
     "e19d48a4-850b-413e-81c3-808158711ea0": entrada_de_notas_7139,
     "a4154a69-a223-48c2-8ff6-535cd29ff2d4": playground,
-    "8d45aa6b-e24c-464d-afba-9a3147b3f506": gerar_nosso_numero,  # Banco do Brasil FIDC
+    "8d45aa6b-e24c-464d-afba-9a3147b3f506": gerar_nosso_numero,  # Banco do  Brasil FIDC
     "29338b70-4ae6-4560-8aef-5d0d7095a527": gerar_nosso_numero,  # Banco do Brasil S.A
     "0aa423c1-fc7f-4b7e-a2b2-a1012c09deae": remessa_cobranca_cnab240,
     "276d0c41-0b7c-4446-ae0b-dd5d782917cc": sped_fiscal,
@@ -260,9 +266,9 @@ task_definitions = {
     "98bc6679-2e6b-4757-9fdc-b27eebd98f54": entrada_de_notas_22,
     "2ebcc2e5-2fa1-4130-a92a-3af349a1920c": devolucao_produtos,
     "d7794924-0330-453c-b79b-74f3c8991562": geracao_balancetes_filial,
-    "75ba49a7-4ffa-44bb-9b47-9bad07ae9ede": inclusao_pedidos_vibra, # Pedidos Vibra
-    "2187af6d-6b34-439b-9a62-3e10d9a24f9c": inclusao_pedidos_ipiranga, # Pedidos Ipiranga
-    "dda9dace-7ead-4e6c-a78f-4cd7a5780c8d": inclusao_pedidos_raizen, # Pedidos Raizen
+    "75ba49a7-4ffa-44bb-9b47-9bad07ae9ede": inclusao_pedidos_vibra,  # Pedidos Vibra
+    "2187af6d-6b34-439b-9a62-3e10d9a24f9c": inclusao_pedidos_ipiranga,  # Pedidos Ipiranga
+    "dda9dace-7ead-4e6c-a78f-4cd7a5780c8d": inclusao_pedidos_raizen,  # Pedidos Raizen
     "153a7bf9-8cab-41fd-b6d3-63d881ac1cf9": importacao_extratos,
     "80345c74-29af-4a6a-8438-86061acf2531": importacao_extratos_748,
     "e8ca47cf-c49b-437c-9028-50bcfa5fe021": extracao_dados_nielsen,
@@ -272,6 +278,7 @@ task_definitions = {
     "f4dbc4ce-4741-4fe6-839d-9439d60b521a": sftp_equals_netunna,
     "f8cb70e5-1340-4e6c-8745-1e5af9fd4e3d": emissao_nf_frota,
     "f2136556-b27b-4b40-96d2-de3060bd2859": extracao_pedidos_compras_sap,
+    "e126fdae-3ce5-4dbe-839f-1bd39965c8af": extracao_movimento_estoque_sap,
 }
 
 

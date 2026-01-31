@@ -1,6 +1,6 @@
 [project]
 name = "kerykeion"
-version = "5.7.0"
+version = "5.7.1"
 authors = [
     { name = "Giacomo Battaglia", email = "kerykeion.astrology@gmail.com" }
 ]
@@ -133,6 +133,13 @@ test = "pytest"
 "test:cov" = "pytest --cov=kerykeion --cov-config=pyproject.toml --cov-report=html --cov-report=term --cov-report=xml"
 "test:cov-xml" = "pytest --cov=kerykeion --cov-report=xml"
 "test:nocharts" = "pytest --ignore-glob='*chart*.py'"
+"test:core" = "pytest tests/core/ -v"
+"test:aspects" = "pytest tests/aspects/ -v"
+"test:factories" = "pytest tests/factories/ -v"
+"test:charts" = "pytest tests/charts/ -v"
+"test:quick" = "pytest tests/core/ tests/aspects/ -v --ignore=tests/charts/"
+"test:fast" = "pytest -n auto"
+"test:fast:cov" = "pytest -n auto --cov=kerykeion --cov-config=pyproject.toml --cov-report=html --cov-report=term --cov-report=xml"
 
 # Code Quality
 lint = "ruff check"
@@ -187,9 +194,21 @@ help = "Regenerate synastry from test"
 cmd = "python scripts/regenerate_test_output.py"
 help = "Regenerate test output"
 
+[tool.poe.tasks."regenerate:positions"]
+cmd = "python scripts/regenerate_all.py --positions"
+help = "Regenerate expected positions from test matrix"
+
+[tool.poe.tasks."regenerate:matrix-aspects"]
+cmd = "python scripts/regenerate_all.py --aspects"
+help = "Regenerate expected aspects from test matrix"
+
 [tool.poe.tasks."regenerate:all"]
 sequence = ["regenerate:charts", "regenerate:aspects", "regenerate:subjects", "regenerate:synastry-aspects", "regenerate:synastry", "regenerate:output"]
 help = "Regenerate all test fixtures"
+
+[tool.poe.tasks."regenerate:unified"]
+cmd = "python scripts/regenerate_all.py --all"
+help = "Regenerate all test baselines using unified script"
 
 # Utilities
 [tool.poe.tasks.clean]
@@ -198,6 +217,31 @@ help = "Clean build artifacts and caches"
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
+# Enable pyflakes (F) and pycodestyle (E, W) rules
+select = [
+    "F",      # Pyflakes - logic errors, undefined names, unused imports
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+]
+
+# Ignore rules that conflict with project structure
+ignore = [
+    "E402",   # Module level import not at top of file (needed for some modules)
+    "E501",   # Line too long (handled by line-length setting)
+    "E731",   # Do not assign a lambda expression, use a def (stylistic choice)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Backward compatibility module uses import * intentionally
+"kerykeion/backword.py" = ["F405", "F403", "F401"]
+# Settings re-exports symbols intentionally
+"kerykeion/settings/__init__.py" = ["F401", "F403"]
+# Schemas re-exports for public API
+"kerykeion/schemas/__init__.py" = ["F401", "F403"]
+# Types re-exports for public API
+"kerykeion/kr_types/__init__.py" = ["F405", "F403", "F401"]
 
 # Pyright Static Type Checking
 [tool.pyright]
@@ -231,8 +275,10 @@ dev = [
     "mypy>=1.17.1",
     "pdoc>=15.0.4",
     "poethepoet>=0.36.0",
+    "pyright>=1.1.408",
     "pytest>=8.4.1",
     "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.5.0",
     "ruff>=0.12.9",
     "types-pytz>=2025.2.0.20250516",
     "types-requests>=2.32.4.20250611",

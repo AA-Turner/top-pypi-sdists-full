@@ -3,7 +3,9 @@ from adam.commands.devices.device import Device
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log2, wait_log
+from adam.utils import log2, wait_log
+from adam.utils_tabulize import tabulize
+from adam.utils_context import Context
 
 class DeviceExport(Command, Device):
     COMMAND = f'{ReplState.X}:'
@@ -34,11 +36,14 @@ class DeviceExport(Command, Device):
     def help(self, state: ReplState):
         return super().help(state, 'Export Database Operations device')
 
-    def ls(self, cmd: str, state: ReplState):
+    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
         if state.export_session:
-            tabulize(ExportDatabases.table_names(state.export_session), header='NAME', separator=',')
+            tabulize(ExportDatabases.table_names(state.export_session),
+                     header='NAME',
+                     separator=',',
+                     ctx=ctx.copy(show_out=True))
         else:
-            ExportDatabases.show_databases()
+            ExportDatabases.show_databases(ctx=ctx)
 
     def show_table_preview(self, state: ReplState, table: str, rows: int):
         if state.export_session:

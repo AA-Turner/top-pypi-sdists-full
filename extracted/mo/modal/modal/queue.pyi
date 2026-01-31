@@ -510,7 +510,17 @@ class _Queue(modal._object._Object):
         self, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
     ) -> list[typing.Any]: ...
     async def clear(self, *, partition: typing.Optional[str] = None, all: bool = False) -> None:
-        """Clear the contents of a single partition or all partitions."""
+        """Clear the contents of a single partition or all partitions.
+
+        Warning: this is a destructive operation and will irrevocably delete data.
+
+        **Examples:**
+
+        ```python
+        q = modal.Queue.from_name("my-queue", create_if_missing=True)
+        q.clear()
+        ```
+        """
         ...
 
     async def get(
@@ -840,11 +850,31 @@ class Queue(modal.object.Object):
 
     class __clear_spec(typing_extensions.Protocol):
         def __call__(self, /, *, partition: typing.Optional[str] = None, all: bool = False) -> None:
-            """Clear the contents of a single partition or all partitions."""
+            """Clear the contents of a single partition or all partitions.
+
+            Warning: this is a destructive operation and will irrevocably delete data.
+
+            **Examples:**
+
+            ```python
+            q = modal.Queue.from_name("my-queue", create_if_missing=True)
+            q.clear()
+            ```
+            """
             ...
 
         async def aio(self, /, *, partition: typing.Optional[str] = None, all: bool = False) -> None:
-            """Clear the contents of a single partition or all partitions."""
+            """Clear the contents of a single partition or all partitions.
+
+            Warning: this is a destructive operation and will irrevocably delete data.
+
+            **Examples:**
+
+            ```python
+            q = modal.Queue.from_name("my-queue", create_if_missing=True)
+            q.clear()
+            ```
+            """
             ...
 
     clear: __clear_spec

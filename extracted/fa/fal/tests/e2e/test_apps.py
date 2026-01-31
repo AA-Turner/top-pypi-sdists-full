@@ -25,6 +25,7 @@ import fal.api as api
 from fal import apps
 from fal.api.deploy import User, _get_user
 from fal.app import REQUEST_ID_KEY, AppClient, AppClientError, wrap_app
+from fal.auth import key_credentials
 from fal.container import ContainerImage
 from fal.exceptions import (
     AppException,
@@ -64,6 +65,14 @@ class Output(BaseModel):
 
 
 actual_python = active_python()
+
+
+def _auth_headers() -> dict[str, str]:
+    key_creds = key_credentials()
+    if not key_creds:
+        return {}
+    key_id, key_secret = key_creds
+    return {"Authorization": f"Key {key_id}:{key_secret}"}
 
 
 def git_revision_short_hash() -> str:
@@ -397,6 +406,14 @@ class RTOutputs(BaseModel):
     texts: List[str]
 
 
+def json_encode_message(message):
+    return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+
+def json_decode_message(message: bytes):
+    return json.loads(message.decode("utf-8"))
+
+
 class RealtimeApp(fal.App, keep_alive=300, max_concurrency=1):
     machine_type = "S"
 
@@ -413,6 +430,14 @@ class RealtimeApp(fal.App, keep_alive=300, max_concurrency=1):
 
     @fal.realtime("/realtime")
     def generate_rt(self, input: RTInput) -> RTOutput:
+        return RTOutput(text=input.prompt)
+
+    @fal.realtime(
+        "/realtime/json",
+        encode_message=json_encode_message,
+        decode_message=json_decode_message,
+    )
+    def generate_rt_json(self, input: RTInput) -> RTOutput:
         return RTOutput(text=input.prompt)
 
     @fal.realtime("/realtime/batched", buffering=10, max_batch_size=4)
@@ -884,7 +909,7 @@ def test_404_response(test_app: str, request: pytest.FixtureRequest):
 
 def test_404_billable_units(test_exception_app: AppClient):
     """Test that 404 responses include x-fal-billable-units: 0 header."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/non-existent-endpoint"
         response = httpx_client.post(
             url,
@@ -1093,6 +1118,17 @@ def test_realtime_connection(test_realtime_app):
         assert batch_sizes == [4, 4, 2]
 
 
+def test_realtime_connection_custom_codec(test_realtime_app):
+    with apps._connect(
+        test_realtime_app,
+        path="/realtime/json",
+        encode_message=json_encode_message,
+        decode_message=json_decode_message,
+    ) as connection:
+        response = connection.run({"prompt": "json cat"})
+        assert response["text"] == "json cat"
+
+
 @contextmanager
 def delete_workflow_on_exit(client: httpx.Client, workflow_url: str):
     try:
@@ -1183,7 +1219,7 @@ def test_app_exceptions(test_exception_app: AppClient):
 
 
 def test_pydantic_validation_billing(test_pydantic_validation_error: AppClient):
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_pydantic_validation_error.url + "/increment"
         response = httpx_client.post(
             url,
@@ -1196,7 +1232,7 @@ def test_pydantic_validation_billing(test_pydantic_validation_error: AppClient):
 
 
 def test_field_exception_billing(test_exception_app: AppClient):
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception"
         response = httpx_client.post(
             url,
@@ -1212,7 +1248,7 @@ def test_field_exception_billing(test_exception_app: AppClient):
 
 def test_field_exception_int_billable_units_formatting(test_exception_app: AppClient):
     """Test that int billable_units are formatted without decimal places."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception-units"
         response = httpx_client.post(
             url,
@@ -1226,7 +1262,7 @@ def test_field_exception_int_billable_units_formatting(test_exception_app: AppCl
 
 def test_field_exception_float_billable_units_formatting(test_exception_app: AppClient):
     """Test that float billable_units are formatted with 8 decimal places."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception-units"
         response = httpx_client.post(
             url,
@@ -1240,7 +1276,7 @@ def test_field_exception_float_billable_units_formatting(test_exception_app: App
 
 def test_field_exception_scientific_notation_small(test_exception_app: AppClient):
     """Test that small scientific notation values are properly formatted."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception-units"
         response = httpx_client.post(
             url,
@@ -1255,7 +1291,7 @@ def test_field_exception_scientific_notation_small(test_exception_app: AppClient
 
 def test_field_exception_scientific_notation_large(test_exception_app: AppClient):
     """Test that large scientific notation values are properly formatted."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception-units"
         response = httpx_client.post(
             url,
@@ -1270,7 +1306,7 @@ def test_field_exception_scientific_notation_large(test_exception_app: AppClient
 
 def test_field_exception_invalid_billable_units(test_exception_app: AppClient):
     """Test that invalid billable_units (non-numeric string) raises an error."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception-units"
         response = httpx_client.post(
             url,
@@ -1285,7 +1321,7 @@ def test_field_exception_invalid_billable_units(test_exception_app: AppClient):
 
 def test_field_exception_default_billable_units(test_exception_app: AppClient):
     """Test that when billable_units is not set (None), no header is included."""
-    with httpx.Client() as httpx_client:
+    with httpx.Client(headers=_auth_headers()) as httpx_client:
         url = test_exception_app.url + "/field-exception"
         response = httpx_client.post(
             url,
@@ -1524,7 +1560,7 @@ def test_hints_encoding():
     https://github.com/encode/starlette/blob/a766a58d14007f07c0b5782fa78cdc370b892796/starlette/datastructures.py#L568
     """
     with AppClient.connect(HintsApp) as client:
-        with httpx.Client() as httpx_client:
+        with httpx.Client(headers=_auth_headers()) as httpx_client:
             url = client.url + "/add"
             resp = httpx_client.post(
                 url,

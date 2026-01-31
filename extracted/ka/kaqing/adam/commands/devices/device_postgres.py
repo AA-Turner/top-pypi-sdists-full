@@ -4,7 +4,8 @@ from adam.commands.devices.device import Device
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_names, postgres
 from adam.repl_state import ReplState
-from adam.utils import tabulize, log2, wait_log
+from adam.utils import wait_log
+from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class DevicePostgres(Command, Device):
@@ -47,30 +48,38 @@ class DevicePostgres(Command, Device):
         _, container = PostgresDatabases.pod_and_container(state.namespace)
         return container
 
-    def ls(self, cmd: str, state: ReplState):
+    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
         if state.pod_targetted:
             self.bash(state, state, ['ls'])
             return
 
         with pg_path(state) as (host, database):
             if database:
-                tabulize(pg_table_names(state), header='NAME', separator=',')
+                tabulize(pg_table_names(state),
+                         header='NAME',
+                         separator=',',
+                         ctx=ctx.copy(show_out=True))
             elif host:
-                tabulize(pg_database_names(state), header='DATABASE', separator=',')
+                tabulize(pg_database_names(state),
+                         header='DATABASE',
+                         separator=',',
+                         ctx=ctx.copy(show_out=True))
             else:
-                self.show_pg_hosts(state)
+                self.show_pg_hosts(state, ctx=ctx)
 
-    def show_pg_hosts(self, state: ReplState):
+    def show_pg_hosts(self, state: ReplState, ctx: Context = Context.NULL):
         if state.namespace:
             tabulize(PostgresDatabases.hosts(state),
                      lambda p: f'{p.host},{p.endpoint()}:{p.port()},{p.username()},{p.password()}',
                      header='NAME,ENDPOINT,USERNAME,PASSWORD',
-                     separator=',')
+                     separator=',',
+                     ctx=ctx.copy(show_out=True))
         else:
             tabulize(PostgresDatabases.hosts(state),
                      lambda p: f'{p.host},{p.namespace},{p.endpoint()}:{p.port()},{p.username()},{p.password()}',
                      header='NAME,NAMESPACE,ENDPOINT,USERNAME,PASSWORD',
-                     separator=',')
+                     separator=',',
+                     ctx=ctx.copy(show_out=True))
 
     def cd(self, dir: str, state: ReplState):
         if dir == '':
@@ -134,8 +143,11 @@ class DevicePostgres(Command, Device):
     def enter(self, _: ReplState):
         wait_log('Inspecting postgres database instances...')
 
-    def show_tables(self, state: ReplState):
-        tabulize(PostgresDatabases.tables(state, default_schema=True), lambda d: d['name'], separator=',')
+    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
+        tabulize(PostgresDatabases.tables(state, default_schema=True),
+                 lambda d: d['name'],
+                 separator=',',
+                 ctx=ctx.copy(show_out=True))
 
     def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
         PostgresDatabases.run_sql(state, f'select * from {table} limit {rows}', ctx=ctx)

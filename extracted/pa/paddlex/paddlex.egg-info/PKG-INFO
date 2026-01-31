@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddlex
-Version: 3.4.0
+Version: 3.4.1
 Summary: Low-code development tool based on PaddlePaddle.
 Author: PaddlePaddle Authors
 Author-email: 
@@ -48,7 +48,6 @@ Requires-Dist: opencv-contrib-python==4.10.0.84; extra == "cv"
 Requires-Dist: pycocotools<=2.0.8; extra == "cv"
 Requires-Dist: pypdfium2>=4; extra == "cv"
 Requires-Dist: scikit-image; extra == "cv"
-Requires-Dist: scipy; extra == "cv"
 Provides-Extra: multimodal
 Requires-Dist: einops; extra == "multimodal"
 Requires-Dist: ftfy; extra == "multimodal"
@@ -189,7 +188,7 @@ Requires-Dist: transformers; extra == "genai-sglang-server"
 Provides-Extra: genai-vllm-server
 Requires-Dist: einops; extra == "genai-vllm-server"
 Requires-Dist: torch==2.8.0; extra == "genai-vllm-server"
-Requires-Dist: transformers; extra == "genai-vllm-server"
+Requires-Dist: transformers<5.0.0; extra == "genai-vllm-server"
 Requires-Dist: uvloop; extra == "genai-vllm-server"
 Requires-Dist: vllm==0.10.2; extra == "genai-vllm-server"
 Provides-Extra: paddle2onnx

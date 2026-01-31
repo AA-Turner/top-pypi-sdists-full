@@ -10,7 +10,12 @@ from ...core.unchecked_base_model import UncheckedBaseModel
 class ConversationAttributeUpdatedByAdminValue(UncheckedBaseModel):
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Value of the CDA updated
+    Current value of the CDA updated
+    """
+
+    previous: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Previous value of the CDA
     """
 
     if IS_PYDANTIC_V2:

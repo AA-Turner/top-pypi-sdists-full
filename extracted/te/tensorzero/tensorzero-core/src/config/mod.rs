@@ -514,6 +514,14 @@ impl MetricConfigType {
             MetricConfigType::Float => "FloatMetricFeedback",
         }
     }
+
+    /// Returns the Postgres table name for the given metric type.
+    pub fn postgres_table_name(&self) -> &'static str {
+        match self {
+            MetricConfigType::Boolean => "tensorzero.boolean_metric_feedback",
+            MetricConfigType::Float => "tensorzero.float_metric_feedback",
+        }
+    }
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
@@ -948,7 +956,15 @@ async fn process_config_input(
                 evaluations,
                 provider_types,
                 optimizers,
-            } = original_snapshot.config.clone().into();
+            } = original_snapshot
+                .config
+                .clone()
+                .try_into()
+                .map_err(|e: &'static str| {
+                    Error::new(ErrorDetails::Config {
+                        message: e.to_string(),
+                    })
+                })?;
 
             // Reconstruct with overlaid values for snapshot hash computation
             let overlaid_config = UninitializedConfig {
@@ -2266,6 +2282,16 @@ pub struct PostgresConfig {
     pub enabled: Option<bool>,
     #[serde(default = "default_connection_pool_size")]
     pub connection_pool_size: u32,
+    /// Retention period in days for inference tables (chat_inferences, json_inferences).
+    /// If set, old partitions beyond this age will be dropped by pg_cron.
+    /// If not set, partitions are retained indefinitely.
+    ///
+    /// TODO(#5764): Document clearly in user-facing docs:
+    /// - WARNING: When first set (or lowered), pg_cron will immediately start dropping
+    ///   partitions older than this value on its next daily run. This is irreversible.
+    /// - Clients are responsible for managing their own data backups before enabling retention.
+    /// - Recommend testing in non-production first and starting with a longer period.
+    pub inference_retention_days: Option<u32>,
 }
 
 fn default_connection_pool_size() -> u32 {
@@ -2277,6 +2303,7 @@ impl Default for PostgresConfig {
         Self {
             enabled: None,
             connection_pool_size: 20,
+            inference_retention_days: None,
         }
     }
 }

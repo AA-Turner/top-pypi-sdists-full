@@ -716,6 +716,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def WorkspaceDashboardUrlGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WorkspaceDashboardUrlRequest, modal_proto.api_pb2.WorkspaceDashboardUrlResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def WorkspaceNameLookup(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.WorkspaceNameLookupResponse]') -> None:
         pass
 
@@ -1764,6 +1768,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_STREAM,
                 modal_proto.api_pb2.WorkspaceBillingReportRequest,
                 modal_proto.api_pb2.WorkspaceBillingReportItem,
+            ),
+            '/modal.client.ModalClient/WorkspaceDashboardUrlGet': grpclib.const.Handler(
+                self.WorkspaceDashboardUrlGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
+                modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
             ),
             '/modal.client.ModalClient/WorkspaceNameLookup': grpclib.const.Handler(
                 self.WorkspaceNameLookup,
@@ -2820,6 +2830,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/WorkspaceBillingReport',
             modal_proto.api_pb2.WorkspaceBillingReportRequest,
             modal_proto.api_pb2.WorkspaceBillingReportItem,
+        )
+        self.WorkspaceDashboardUrlGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WorkspaceDashboardUrlGet',
+            modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
+            modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
         )
         self.WorkspaceNameLookup = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Scott Coughlin (2017-2021)
-#               Cardiff University (2021)
+# Copyright (c) 2017-2021 Scott Coughlin
+#               2021 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -17,21 +16,32 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Extend :mod:`astropy.table` with the `GravitySpyTable`
-"""
+"""Extend :mod:`astropy.table` with the `GravitySpyTable`."""
 
+from __future__ import annotations
+
+import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from json import JSONDecodeError
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import requests
 
-from ..utils import mp as mp_utils
 from .table import EventTable
 
-__author__ = 'Scott Coughlin <scott.coughlin@ligo.org>'
-__all__ = ['GravitySpyTable']
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Self
+
+    from astropy.table import Row
+
+__author__ = "Scott Coughlin <scott.coughlin@ligo.org>"
+__all__ = ["GravitySpyTable"]
+
+logger = logging.getLogger(__name__)
 
 JSON_CONTENT_TYPE = "application/json"
 
@@ -71,12 +81,13 @@ URL_COLUMN = re.compile(r"\Aurl[0-9]+\Z")
 
 
 def _image_download_target(
-    row,
-    outdir,
-    training_set=False,
-    labelled_samples=False,
-):
-    """Construct where to download a GravitySpy image
+    row: Row,
+    outdir: Path,
+    *,
+    training_set: bool = False,
+    labelled_samples: bool = False,
+) -> str:
+    """Construct where to download a GravitySpy image.
 
     This returns a `str.format`-style template that just needs
     the duration to form a complete target path.
@@ -89,18 +100,31 @@ def _image_download_target(
         outdir
         / label
         / stype
-        / "{}_{}_spectrogram_{{}}.png".format(ifo, id_)
+        / f"{ifo}_{id_}_spectrogram_{{}}.png",
     )
 
 
-def _download_image(bundle):
+def _download_image(
+    bundle: tuple[str, Path],
+    timeout: float | None = 30.0,
+    **kwargs,
+) -> None:
     url, target = bundle
-    return target.write_bytes(requests.get(url).content)
+    logger.debug("Downloading %s to %s", url, target)
+    resp = requests.get(
+        url,
+        timeout=timeout,
+        **kwargs,
+    )
+    resp.raise_for_status()
+    target.write_bytes(resp.content)
+    logger.debug("Wrote %s", target)
 
 
 class GravitySpyTable(EventTable):
-    """A container for a table of Gravity Spy Events (as well as
-    Events from the O1 Glitch Classification Paper whcih includes
+    """A container for a table of Gravity Spy Events.
+
+    As well as Events from the O1 Glitch Classification Paper which includes:
 
     - PCAT
     - PC-LIB
@@ -108,41 +132,43 @@ class GravitySpyTable(EventTable):
     - WDNN
     - Karoo GP
 
-    See also
+    See Also
     --------
     astropy.table.Table
         for details on parameters for creating a `GravitySpyTable`
     """
 
-    # -- i/o ------------------------------------
+    # -- i/o -------------------------
 
     def download(
         self,
-        download_path="download",
-        nproc=1,
-        download_durs=DURATIONS,
-        training_set=False,
-        labelled_samples=False,
-    ):
+        download_path: str | Path = "download",
+        parallel: int = 1,
+        download_durs: Sequence[float] = DURATIONS,
+        *,
+        training_set: bool = False,
+        labelled_samples: bool = False,
+    ) -> list[str]:
         """Download image files associated with entries in a `GravitySpyTable`.
 
         Parameters
         ----------
-        nproc : `int`, optional, default: 1
-            number of CPUs to use for parallel file reading
+        parallel : `int`, optional
+            Number of parallel threads to use for parallel file reading.
 
-        download_path : `str` optional, default: 'download'
-            Specify where the images end up.
+        download_path : `str` optional
+            Target directory for downloaded images.
 
-        download_durs : `list` optional, default: [0.5, 1.0, 2.0, 4.0]
-            Specify exactly which durations you want to download
-            default is to download all the avaialble GSpy durations.
+        download_durs : `list` optional
+            List of durations to download, must be a subset of
+            ``[0.5, 1.0, 2.0, 4.0]``.
+            Default is to download all the available GSpy durations.
 
         training_set : `bool`, optional
-            if `True` download training set data
+            If `True` download training set data.
 
         labelled_samples : `bool`, optional
-            if `True` download only labelled samples
+            If `True` download only labelled samples.
         """
         download_path = Path(download_path)
 
@@ -150,7 +176,7 @@ class GravitySpyTable(EventTable):
         url_columns = list(filter(URL_COLUMN.match, self.colnames))
 
         # construct a download target location for each requested image
-        urls = dict()
+        urls: dict[str, Path] = {}
         for row in self:
             if row["url1"] in {None, "", "?"}:  # skip rows without URLs
                 continue
@@ -176,11 +202,11 @@ class GravitySpyTable(EventTable):
             path.parent.mkdir(exist_ok=True, parents=True)
 
         # download the images
-        mp_utils.multiprocess_with_queues(
-            nproc,
-            _download_image,
-            urls.items(),
-        )
+        with ThreadPoolExecutor(max_workers=parallel) as executor:
+            executor.map(
+                _download_image,
+                list(urls.items()),
+            )
 
         # and return the list of new files we have
         return sorted(map(str, urls.values()))
@@ -188,46 +214,50 @@ class GravitySpyTable(EventTable):
     @classmethod
     def search(
         cls,
-        gravityspy_id,
-        howmany=10,
-        era="ALL",
-        ifos=("H1", "L1"),
-        database="similarity_index_o3",
-        host=DEFAULT_HOST,
+        gravityspy_id: str,
+        howmany: int = 10,
+        era: str = "ALL",
+        ifos: tuple[str, ...] | str = ("H1", "L1"),
+        database: str = "similarity_index_o3",
+        host: str = DEFAULT_HOST,
+        timeout: float | None = 30.0,
         **kwargs,
-    ):
+    ) -> Self:
         """Perform a GravitySpy 'Similarity Search' for the given ID.
 
         Parameters
         ----------
         gravityspy_id : `str`
-            the unique 10 character hash that identifies a Gravity Spy image
+            The unique 10 character hash that identifies a Gravity Spy image.
 
         howmany : `int`, optional
-            number of similar images you would like
+            The number of similar images you would like.
 
         era : `str`, optional
-            which era to search, see online for more information
+            Which era to search, see online for more information.
 
         ifos : `tuple`, str`, optional
-            the list of interferometers to include in the search
+            The list of interferometers to include in the search.
 
         database : `str`, optional
-            the database to query
+            The database to query.
 
         host : `str`, optional
-            the URL (scheme and FQDN) of the Gravity Spy host to query
+            The URL (scheme and FQDN) of the Gravity Spy host to query
+
+        timeout : `float`, optional
+            How long to wait for the server to respond before giving up.
 
         **kwargs
-            all other kwargs are passed to `requests.get` to perform
+            Other kwargs are passed to `requests.get` to perform
             the actual remote communication.
 
         Returns
         -------
         table : `GravitySpyTable`
-            a `GravitySpyTable` containing similar events based on
+            A `GravitySpyTable` containing similar events based on
             an evaluation of the Euclidean distance of the input image
-            to all other images in some Feature Space
+            to all other images in some Feature Space.
 
         Notes
         -----
@@ -235,32 +265,35 @@ class GravitySpyTable(EventTable):
 
         https://gravityspytools.ciera.northwestern.edu/search/
         """
-        base = host + SEARCH_PATH + SIMILARITY_SEARCH_PATH
-
         if isinstance(ifos, str):  # 'H1L1' -> ['H1', 'L1']
-            ifos = [ifos[i:i+2] for i in range(0, len(ifos), 2)]
+            ifo_list = [ifos[i:i+2] for i in range(0, len(ifos), 2)]
+        else:
+            ifo_list = list(ifos)
 
         query = urlencode({
-            'howmany': howmany,
-            'imageid': gravityspy_id,
-            'era': "event_time BETWEEN {} AND {}".format(*ERA[era]),
-            'ifo': ", ".join(map(repr, ifos)),
-            'database': database,
+            "howmany": howmany,
+            "imageid": gravityspy_id,
+            "era": "event_time BETWEEN {} AND {}".format(*ERA[era]),
+            "ifo": ", ".join(map(repr, ifo_list)),
+            "database": database,
         })
-        url = '{}/?{}'.format(base, query)
+        url = host + SEARCH_PATH + SIMILARITY_SEARCH_PATH + "/?" + query
 
-        response = requests.get(url, **kwargs)
+        logger.debug("Executing GravitySpy similarity search: %s", url)
+        response = requests.get(url, timeout=timeout, **kwargs)
+        logger.debug("Response: %s", response)
         response.raise_for_status()  # check the response
         try:
             return GravitySpyTable(response.json())
         except JSONDecodeError:  # that didn't work
             # if the response was actually HTML, something terrible happened
             if response.headers["Content-Type"] != JSON_CONTENT_TYPE:
-                raise requests.HTTPError(
-                    "response from {} was '200 OK' but the content is HTML, "
-                    "please check the request parameters".format(
-                        response.url,
-                    ),
-                    response=response,
+                msg = (
+                    f"response from {response.url} was '200 OK' but "
+                    "the content is HTML, please check the request parameters"
                 )
+                raise requests.HTTPError(
+                    msg,
+                    response=response,
+                ) from None
             raise

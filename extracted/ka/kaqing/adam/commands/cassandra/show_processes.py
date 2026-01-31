@@ -29,7 +29,7 @@ class ShowProcesses(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, backgrounded):
+            with extract_trailing_options(args, '&') as (args, background):
                 with extract_options(args, ['-s', '--show']) as (args, verbose):
                     with extract_sequence(args, ['with', 'recipe', '=', 'mpstat']) as (_, recipe_qing):
                         cols = Config().get('processes.columns', 'pod,cpu-metrics,mem')
@@ -39,7 +39,7 @@ class ShowProcesses(Command):
                             header = Config().get('processes-mpstat.header', 'POD_NAME,Q_CPU/TOTAL,MEM/LIMIT')
 
                         with cassandra(state) as pods:
-                            pods.display_table(cols, header, ctx=Context.new(cmd, backgrounded=backgrounded, show_verbose=verbose))
+                            pods.display_table(cols, header, ctx=Context.new(cmd, background=background, show_verbose=verbose))
 
                         return state
 

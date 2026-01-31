@@ -12,11 +12,12 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 import zarr
 from anndata import AnnData
+from annsel.core.typing import Predicates
 from dask.dataframe import DataFrame as DaskDataFrame
-from dask.dataframe import read_parquet
-from dask.delayed import Delayed
+from dask.dataframe import Scalar, read_parquet
 from geopandas import GeoDataFrame
 from shapely import MultiPolygon, Polygon
+from upath import UPath
 from xarray import DataArray, DataTree
 from zarr.errors import GroupNotFoundError
 
@@ -177,8 +178,6 @@ class SpatialData:
                     with collect_error(location=("tables", k)):
                         self.validate_table_in_spatialdata(v)
                         self.tables[k] = v
-
-        self._query = QueryManager(self)
 
     def validate_table_in_spatialdata(self, table: AnnData) -> None:
         """
@@ -496,7 +495,7 @@ class SpatialData:
         spatialdata.bounding_box_query
         spatialdata.polygon_query
         """
-        return self._query
+        return QueryManager(self)
 
     def aggregate(
         self,
@@ -702,7 +701,7 @@ class SpatialData:
 
                     assert element_names is not None
                     table = _filter_table_by_element_names(table, element_names)
-                    if len(table) != 0:
+                    if table is not None and len(table) != 0:
                         tables[table_name] = table
                 elif by == "elements":
                     from spatialdata._core.query.relational_query import (
@@ -711,7 +710,7 @@ class SpatialData:
 
                     assert elements_dict is not None
                     table = _filter_table_by_elements(table, elements_dict=elements_dict)
-                    if len(table) != 0:
+                    if table is not None and len(table) != 0:
                         tables[table_name] = table
         else:
             tables = self.tables
@@ -1112,6 +1111,7 @@ class SpatialData:
         consolidate_metadata: bool = True,
         update_sdata_path: bool = True,
         sdata_formats: SpatialDataFormatType | list[SpatialDataFormatType] | None = None,
+        shapes_geometry_encoding: Literal["WKB", "geoarrow"] | None = None,
     ) -> None:
         """
         Write the `SpatialData` object to a Zarr store.
@@ -1156,6 +1156,9 @@ class SpatialData:
             unspecified, the element formats will be set to the latest element format compatible with the specified
             SpatialData container format. All the formats and relationships between them are defined in
             `spatialdata._io.format.py`.
+        shapes_geometry_encoding
+            Whether to use the WKB or geoarrow encoding for GeoParquet. See :meth:`geopandas.GeoDataFrame.to_parquet`
+            for details. If None, uses the value from :attr:`spatialdata.settings.shapes_geometry_encoding`.
         """
         from spatialdata._io._utils import _resolve_zarr_store
         from spatialdata._io.format import _parse_formats
@@ -1181,6 +1184,7 @@ class SpatialData:
                 element_name=element_name,
                 overwrite=False,
                 parsed_formats=parsed,
+                shapes_geometry_encoding=shapes_geometry_encoding,
             )
 
         if self.path != file_path and update_sdata_path:
@@ -1197,6 +1201,7 @@ class SpatialData:
         element_name: str,
         overwrite: bool,
         parsed_formats: dict[str, SpatialDataFormatType] | None = None,
+        shapes_geometry_encoding: Literal["WKB", "geoarrow"] | None = None,
     ) -> None:
         from spatialdata._io.io_zarr import _get_groups_for_element
 
@@ -1249,6 +1254,7 @@ class SpatialData:
                 shapes=element,
                 group=element_group,
                 element_format=parsed_formats["shapes"],
+                geometry_encoding=shapes_geometry_encoding,
             )
         elif element_type == "tables":
             write_table(
@@ -1265,6 +1271,7 @@ class SpatialData:
         element_name: str | list[str],
         overwrite: bool = False,
         sdata_formats: SpatialDataFormatType | list[SpatialDataFormatType] | None = None,
+        shapes_geometry_encoding: Literal["WKB", "geoarrow"] | None = None,
     ) -> None:
         """
         Write a single element, or a list of elements, to the Zarr store used for backing.
@@ -1280,6 +1287,9 @@ class SpatialData:
         sdata_formats
             It is recommended to leave this parameter equal to `None`. See more details in the documentation of
              `SpatialData.write()`.
+        shapes_geometry_encoding
+            Whether to use the WKB or geoarrow encoding for GeoParquet. See :meth:`geopandas.GeoDataFrame.to_parquet`
+            for details. If None, uses the value from :attr:`spatialdata.settings.shapes_geometry_encoding`.
 
         Notes
         -----
@@ -1293,7 +1303,12 @@ class SpatialData:
         if isinstance(element_name, list):
             for name in element_name:
                 assert isinstance(name, str)
-                self.write_element(name, overwrite=overwrite, sdata_formats=sdata_formats)
+                self.write_element(
+                    name,
+                    overwrite=overwrite,
+                    sdata_formats=sdata_formats,
+                    shapes_geometry_encoding=shapes_geometry_encoding,
+                )
             return
 
         check_valid_name(element_name)
@@ -1327,6 +1342,7 @@ class SpatialData:
             element_name=element_name,
             overwrite=overwrite,
             parsed_formats=parsed_formats,
+            shapes_geometry_encoding=shapes_geometry_encoding,
         )
         # After every write, metadata should be consolidated, otherwise this can lead to IO problems like when deleting.
         if self.has_consolidated_metadata():
@@ -1811,7 +1827,9 @@ class SpatialData:
 
     @staticmethod
     def read(
-        file_path: Path | str, selection: tuple[str] | None = None, reconsolidate_metadata: bool = False
+        file_path: str | Path | UPath | zarr.Group,
+        selection: tuple[str] | None = None,
+        reconsolidate_metadata: bool = False,
     ) -> SpatialData:
         """
         Read a SpatialData object from a Zarr storage (on-disk or remote).
@@ -1819,7 +1837,7 @@ class SpatialData:
         Parameters
         ----------
         file_path
-            The path or URL to the Zarr storage.
+            The path, URL, or zarr.Group to the Zarr storage.
         selection
             The elements to read (images, labels, points, shapes, table). If None, all elements are read.
         reconsolidate_metadata
@@ -1985,9 +2003,7 @@ class SpatialData:
                     else:
                         shape_str = (
                             "("
-                            + ", ".join(
-                                [(str(dim) if not isinstance(dim, Delayed) else "<Delayed>") for dim in v.shape]
-                            )
+                            + ", ".join([(str(dim) if not isinstance(dim, Scalar) else "<Delayed>") for dim in v.shape])
                             + ")"
                         )
                     descr += f"{h(attr + 'level1.1')}{k!r}: {descr_class} with shape: {shape_str} {dim_string}"
@@ -2392,6 +2408,41 @@ class SpatialData:
             self._attrs = value
         else:
             self._attrs = dict(value)
+
+    def filter_by_table_query(
+        self,
+        table_name: str,
+        filter_tables: bool = True,
+        element_names: list[str] | None = None,
+        obs_expr: Predicates | None = None,
+        var_expr: Predicates | None = None,
+        x_expr: Predicates | None = None,
+        obs_names_expr: Predicates | None = None,
+        var_names_expr: Predicates | None = None,
+        layer: str | None = None,
+        how: Literal["left", "left_exclusive", "inner", "right", "right_exclusive"] = "right",
+    ) -> SpatialData:
+        """
+        Filter the SpatialData object based on a set of table queries.
+
+        Please see
+        :func:`query.relational_query.filter_by_table_query` for the complete docstring.
+        """
+        from spatialdata._core.query.relational_query import filter_by_table_query
+
+        return filter_by_table_query(
+            self,
+            table_name=table_name,
+            filter_tables=filter_tables,
+            element_names=element_names,
+            obs_expr=obs_expr,
+            var_expr=var_expr,
+            x_expr=x_expr,
+            obs_names_expr=obs_names_expr,
+            var_names_expr=var_names_expr,
+            layer=layer,
+            how=how,
+        )
 
 
 class QueryManager:

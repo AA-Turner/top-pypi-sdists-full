@@ -9,8 +9,8 @@ import sys
 from setuptools import find_packages, setup
 
 PROJECT_PATH = os.path.dirname(os.path.abspath(__file__))
-_jax_version_constraints = ">=0.4.25"
-_jaxlib_version_constraints = ">=0.4.25"
+_jax_version_constraints = ">=0.7.0"
+_jaxlib_version_constraints = ">=0.7.0"
 
 # Find version
 for line in open(os.path.join(PROJECT_PATH, "numpyro", "version.py")):
@@ -38,7 +38,6 @@ setup(
         "multipledispatch",
         "numpy",
         "tqdm",
-        "typing_extensions; python_version < '3.10'",
     ],
     extras_require={
         "doc": [
@@ -57,10 +56,10 @@ setup(
             "pyro-api>=0.1.1",
             "scikit-learn",
             "scipy>=1.9",
+            "ty>=0.0.4",
         ],
         "dev": [
-            "dm-haiku>=0.0.14; python_version >= '3.10'",
-            "dm-haiku<0.0.14; python_version < '3.10'",
+            "dm-haiku>=0.0.14",
             "equinox",
             "flax",
             "funsor>=0.4.1",
@@ -87,7 +86,8 @@ setup(
         # TPU and CUDA installations, currently require to add package repository URL, i.e.,
         # pip install 'numpyro[cuda]' -f https://storage.googleapis.com/jax-releases/jax_releases.html
         "tpu": f"jax[tpu]{_jax_version_constraints}",
-        "cuda": f"jax[cuda]{_jax_version_constraints}",
+        "cuda12": f"jax[cuda12]{_jax_version_constraints}",
+        "cuda13": f"jax[cuda13]{_jax_version_constraints}",
     },
     python_requires=">=3.9",
     long_description=long_description,
@@ -101,10 +101,9 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

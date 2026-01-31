@@ -20,6 +20,7 @@ from keeper_secrets_manager_core.utils import bytes_to_base64, base64_to_bytes
 from ....proto import pam_pb2
 
 from ....commands.base import FolderMixin
+from ....commands.pam.config_helper import configuration_controller_get
 from ....commands.pam.pam_dto import GatewayAction, GatewayActionWebRTCSession
 from ....commands.pam.router_helper import router_get_relay_access_creds, get_dag_leafs, \
     get_router_ws_url, router_send_action_to_gateway
@@ -217,8 +218,6 @@ class TunnelSession:
         # Optional attributes (set dynamically)
         # Note: signal_handler is set after TunnelSignalHandler is created
         self.signal_handler = None  # type: ignore[assignment]
-        # Note: gateway_ready_event is an optional threading.Event set if needed
-        self.gateway_ready_event = None  # type: ignore[assignment]
 
     def update_activity(self):
         """Update last activity timestamp"""
@@ -395,6 +394,29 @@ def _configure_rust_logger_levels(current_is_debug: bool, log_level: int):
         # Restore original logger class
         logging.setLoggerClass(original_logger_class)
 
+        # Suppress noisy webrtc dependency logs even in debug mode (set to WARNING)
+        webrtc_crates = [
+            'webrtc', 'webrtc_ice', 'webrtc_mdns', 'webrtc_dtls',
+            'webrtc_sctp', 'turn', 'stun', 'webrtc_ice.agent.agent_internal',
+            'webrtc_ice.agent.agent_gather', 'webrtc_ice.mdns',
+            'webrtc_mdns.conn', 'webrtc.peer_connection', 'turn.client'
+        ]
+        for crate_name in webrtc_crates:
+            crate_logger = logging.getLogger(crate_name)
+            crate_logger.setLevel(logging.WARNING)
+            crate_logger.propagate = False
+
+        # Suppress specific noisy keeper_pam_webrtc_rs sub-modules even in debug mode
+        # These log debug info at ERROR level, so we need to disable them entirely
+        noisy_keeper_loggers = [
+            'keeper_pam_webrtc_rs.channel.core',
+            'keeper_pam_webrtc_rs.python.utils'
+        ]
+        for logger_name in noisy_keeper_loggers:
+            noisy_logger = logging.getLogger(logger_name)
+            noisy_logger.setLevel(logging.CRITICAL + 1)  # Disable completely
+            noisy_logger.propagate = False
+
         logging.debug(f"Rust loggers enabled at DEBUG level")
         enabled_loggers = [name for name in logging.Logger.manager.loggerDict.keys()
                          if isinstance(name, str) and name.startswith('keeper_pam_webrtc_rs')]
@@ -409,6 +431,29 @@ def _configure_rust_logger_levels(current_is_debug: bool, log_level: int):
             if isinstance(logger_name, str) and logger_name.startswith('keeper_pam_webrtc_rs'):
                 logger = logging.getLogger(logger_name)
                 logger.setLevel(logging.ERROR)
+
+        # Completely suppress specific noisy keeper_pam_webrtc_rs sub-modules
+        # These log debug info at ERROR level, so we need to disable them entirely
+        suppress_completely = [
+            'keeper_pam_webrtc_rs.channel.core',
+            'keeper_pam_webrtc_rs.python.utils'
+        ]
+        for logger_name in suppress_completely:
+            suppress_logger = logging.getLogger(logger_name)
+            suppress_logger.setLevel(logging.CRITICAL + 1)  # Disable completely
+            suppress_logger.propagate = False
+
+        # Suppress noisy webrtc dependency logs when not debugging
+        webrtc_crates = [
+            'webrtc', 'webrtc_ice', 'webrtc_mdns', 'webrtc_dtls',
+            'webrtc_sctp', 'turn', 'stun', 'webrtc_ice.agent.agent_internal',
+            'webrtc_ice.agent.agent_gather', 'webrtc_ice.mdns',
+            'webrtc_mdns.conn', 'webrtc.peer_connection', 'turn.client'
+        ]
+        for crate_name in webrtc_crates:
+            crate_logger = logging.getLogger(crate_name)
+            crate_logger.setLevel(logging.ERROR)
+            crate_logger.propagate = False
 
 
 def get_or_create_tube_registry(params):
@@ -623,6 +668,12 @@ def get_config_uid_from_record(params, vault, record_uid):
 
 
 def get_gateway_uid_from_record(params, vault, record_uid):
+    """Resolve gateway UID for a PAM resource record (pamMachine, etc.).
+
+    Lookup flow: record_uid -> PAM_LINK DAG -> config_uid -> gateway (controller)
+    Gateway is read from config record's pamResources.controllerUid; if missing,
+    falls back to pam/get_configuration_controller API
+    """
     gateway_uid = ''
     pam_config_uid = get_config_uid_from_record(params, vault, record_uid)
     if pam_config_uid:
@@ -632,6 +683,16 @@ def get_gateway_uid_from_record(params, vault, record_uid):
             value = field.get_default_value(dict)
             if value:
                 gateway_uid = value.get('controllerUid', '') or ''
+
+        # Fallback: ask server for controller when config record has no local controllerUid
+        if not gateway_uid:
+            try:
+                config_uid_bytes = url_safe_str_to_bytes(pam_config_uid)
+                controller = configuration_controller_get(params, config_uid_bytes)
+                if controller and controller.controllerUid:
+                    gateway_uid = utils.base64_url_encode(controller.controllerUid)
+            except Exception as e:
+                logging.debug('get_gateway_uid_from_record: get_configuration_controller fallback failed: %s', e)
 
     return gateway_uid
 
@@ -803,7 +864,7 @@ async def connect_websocket_with_fallback(ws_endpoint, headers, ssl_context, tub
     }
 
     if WEBSOCKETS_VERSION == "asyncio":
-        # websockets 15.0.1+ uses additional_headers and ssl_context/ssl parameters
+        # websockets 15.0.1+ uses additional_headers and ssl parameters
         connect_kwargs = {
             **base_kwargs,
             "additional_headers": headers
@@ -1101,8 +1162,6 @@ def route_message_to_rust(response_item, tube_registry):
                                 # Send any buffered local ICE candidates now that we have the answer
                                 session = get_tunnel_session(tube_id)
                                 if session:
-                                    session.gateway_ready_event.set()
-
                                     # Send any buffered local ICE candidates now that we have the answer
                                     if session.buffered_ice_candidates:
                                         logging.debug(f"Sending {len(session.buffered_ice_candidates)} buffered ICE candidates after answer")
@@ -1360,10 +1419,13 @@ class TunnelSignalHandler:
         self.symmetric_key = symmetric_key
         self.base64_nonce = base64_nonce
         self.conversation_id = conversation_id
+        self.conversation_type = conversation_type
         self.tube_registry = tube_registry
         self.tube_id = tube_id
         self.trickle_ice = trickle_ice
         self.connection_success_shown = False  # Track if we've shown success messages
+        self.connection_connected = False  # Track if WebRTC connection is established
+        self.ice_sending_in_progress = False  # Serialize ICE candidate sending
         self.host = None  # Will be set later when the socket is ready
         self.port = None
         self.websocket_router = websocket_router  # For key cleanup
@@ -1421,23 +1483,23 @@ class TunnelSignalHandler:
 
                     # Get tunnel session for record details
                     if session:
-                        logging.debug(f"\n{bcolors.OKGREEN}Connection established successfully.{bcolors.ENDC}")
+                        logging.info(f"\n{bcolors.OKGREEN}Connection established successfully.{bcolors.ENDC}")
 
                         # Display record title if available
                         if session.record_title:
-                            logging.debug(f"{bcolors.OKBLUE}Record:{bcolors.ENDC} {session.record_title}")
+                            logging.info(f"{bcolors.OKBLUE}Record:{bcolors.ENDC} {session.record_title}")
 
                         # Display remote target
                         if session.target_host and session.target_port:
-                            logging.debug(f"{bcolors.OKBLUE}Remote:{bcolors.ENDC} {session.target_host}:{session.target_port}")
+                            logging.info(f"{bcolors.OKBLUE}Remote:{bcolors.ENDC} {session.target_host}:{session.target_port}")
 
                         # Display local listening address
                         if session.host and session.port:
-                            logging.debug(f"{bcolors.OKBLUE}Local:{bcolors.ENDC} {session.host}:{session.port}")
+                            logging.info(f"{bcolors.OKBLUE}Local:{bcolors.ENDC} {session.host}:{session.port}")
 
                         # Display conversation ID
                         if session.conversation_id:
-                            logging.debug(f"{bcolors.OKBLUE}Conversation ID:{bcolors.ENDC} {session.conversation_id}")
+                            logging.info(f"{bcolors.OKBLUE}Conversation ID:{bcolors.ENDC} {session.conversation_id}")
 
                     # Flush any buffered ICE candidates now that we're connected
                     if session and session.buffered_ice_candidates:
@@ -2088,7 +2150,7 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
                 # DEDICATED WebSocket: No mutex needed! Each tunnel has its own connection.
                 # Backend registration is independent - no contention, no delays needed.
                 # Just a small delay to ensure backend is ready (much shorter than before)
-                backend_registration_delay = float(os.getenv('WEBSOCKET_BACKEND_DELAY', '0.5'))
+                backend_registration_delay = float(os.getenv('WEBSOCKET_BACKEND_DELAY', '2.0'))
                 logging.debug(f"Dedicated WebSocket: Waiting {backend_registration_delay}s for backend to register conversation {conversation_id_original}...")
                 time.sleep(backend_registration_delay)
                 logging.debug("Backend conversation registration delay complete")

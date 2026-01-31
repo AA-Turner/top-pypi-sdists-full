@@ -32,7 +32,7 @@ class Cpu(Check):
                 details['limit'] = container.resources.limits["cpu"]
 
             idle = 'Unknown'
-            ctx_fg = ctx.copy(backgrounded=False, text_color=Color.gray)
+            ctx_fg = ctx.copy(background=False, text_color=Color.gray)
             result = CassandraNodes.exec(ctx.pod, ctx.namespace, "mpstat 5 2 | grep Average | awk '{print $NF}'", ctx=ctx_fg)
             lines = result.stdout.strip(' \r\n').split('\n')
             line = lines[len(lines) - 1].strip(' \r')

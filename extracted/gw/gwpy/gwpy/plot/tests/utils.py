@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2018-2020)
+# Copyright (c) 2018-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,29 +15,34 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utilities for testing `gwpy.plot`
-"""
+"""Utilities for testing `gwpy.plot`."""
+
+from __future__ import annotations
 
 from io import BytesIO
 
 import pytest
-
 from matplotlib import pyplot
+from matplotlib.axes import Axes
 
 from .. import Plot
 
 
 @pytest.mark.usefixtures("usetex")
-class _Base(object):
+class _Base:
+    """Base class for tests of `Plot` and `Axes`."""
+
     @staticmethod
-    def save(fig, format='png'):
+    def save(fig):
+        """Save a figure to a 'file' in memory."""
         out = BytesIO()
-        fig.savefig(out, format=format)
+        fig.savefig(out)
         return fig
 
     @classmethod
-    def save_and_close(cls, fig, format='png'):
-        cls.save(fig, format=format)
+    def save_and_close(cls, fig):
+        """Save a figure to a 'file' in memory and then close it."""
+        cls.save(fig)
         try:
             fig.close()
         except AttributeError:
@@ -47,23 +51,36 @@ class _Base(object):
 
 
 class FigureTestBase(_Base):
-    FIGURE_CLASS = Plot
+    """Base class for tests of `Plot`."""
+
+    FIGURE_CLASS: type[Plot] = Plot
 
     @pytest.fixture
-    def fig(self):
-        """Yield a new figure of type ``FIGURE_CLASS`` and check that
-        it saves as png after the test function finishes
+    @classmethod
+    def fig(cls):
+        """Yield a new instance of `.FIGURE_CLASS`.
+
+        This fixture checks that the figure can be rendered as a PNG (in memory)
+        before the test function finishes.
         """
-        fig = pyplot.figure(FigureClass=self.FIGURE_CLASS)
+        fig = pyplot.figure(FigureClass=cls.FIGURE_CLASS)
         yield fig
-        self.save_and_close(fig)
+        cls.save_and_close(fig)
 
 
 class AxesTestBase(_Base):
-    AXES_CLASS = Plot
+    """Base class for tests of `Axes`."""
+
+    AXES_CLASS: type[Axes] = Axes
 
     @pytest.fixture
-    def ax(self):
-        fig = pyplot.figure(FigureClass=getattr(self, 'FIGURE_CLASS', Plot))
-        yield fig.add_subplot(projection=self.AXES_CLASS.name)
-        self.save_and_close(fig)
+    @classmethod
+    def ax(cls):
+        """Yield a new instance of `.AXES_CLASS`.
+
+        This fixture checks that the figure can be rendered as a PNG (in memory)
+        before the test function finishes.
+        """
+        fig = pyplot.figure(FigureClass=getattr(cls, "FIGURE_CLASS", Plot))
+        yield fig.add_subplot(projection=cls.AXES_CLASS.name)
+        cls.save_and_close(fig)

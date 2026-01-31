@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2019-2020)
+# Copyright (c) 2019-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,8 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Test suite for all examples
-"""
+"""Test suite for all examples."""
 
 import os
 import re
@@ -27,27 +25,27 @@ from functools import wraps
 from pathlib import Path
 
 import pytest
-
 from matplotlib import use
 
 from gwpy.io.nds2 import NDSWarning
-from gwpy.testing.errors import pytest_skip_network_error
+from gwpy.testing.errors import pytest_skip_flaky_network
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
-use('agg')  # force non-interactive backend
+use("agg")  # force non-interactive backend
 
 # find all examples
 EXAMPLE_BASE = Path(__file__).parent
 EXAMPLE_DIRS = [exdir for exdir in EXAMPLE_BASE.iterdir() if exdir.is_dir()]
 EXAMPLES = sorted([
     pytest.param(expy, id=str(expy.relative_to(EXAMPLE_BASE))) for
-    exdir in EXAMPLE_DIRS for expy in exdir.glob('*.py')],
+    exdir in EXAMPLE_DIRS for expy in exdir.glob("*.py")],
 )
 
 
 @contextmanager
 def cwd(path):
+    """Context manager to change to a given directory and back again."""
     oldpwd = Path.cwd()
     os.chdir(str(path))
     try:
@@ -60,12 +58,13 @@ def cwd(path):
 
 @pytest.fixture(autouse=True)
 def close_figures():
+    """Fixture to close all matplotlib figures after each test."""
     from matplotlib import pyplot
     try:
         yield
     finally:
         # close all open figures regardless of test status
-        pyplot.close('all')
+        pyplot.close("all")
 
 
 # acceptable authentication failures
@@ -75,13 +74,15 @@ NDS2_AUTH_FAILURES = [
 ]
 NDS2_SKIP = re.compile(
     "({})".format("|".join(NDS2_AUTH_FAILURES)),
-    re.I,
+    re.IGNORECASE,
 )
+
+# stderr message for NDS2 data access failure
+NDS2_READ_ERROR_STDERR = re.compile(r"read_server_response: Wrong length read")
 
 
 def skip_nds_authentication_error(func):
-    """Ignore NDS2 authentication errors
-    """
+    """Ignore NDS2 authentication errors."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -103,32 +104,40 @@ def skip_nds_authentication_error(func):
 
 
 def skip_missing_optional_dependency(func):
-    """Ignore missing optional dependencies
-    """
+    """Ignore missing optional dependencies (mainly in `TimeSeries.get`)."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)  # run the test
-        except ImportError as exc:  # pragma: no-cover
+        except (
+            ImportError,  # direct import error
+            RuntimeError,  # chained error
+        ) as exc:
+            msg = str(exc)
+            cause = exc.__cause__
+            while cause:  # walk up the error chain
+                msg += f" caused by '{cause}'"
+                cause = cause.__cause__
             # needs an optional dependency
-            if "gwpy" in str(exc):
+            if not isinstance(exc, ImportError):
                 raise
-            pytest.skip(str(exc))
+            pytest.skip(msg)
 
     return wrapper
 
 
 # -- test -------------------
 
-@pytest.mark.parametrize('script', EXAMPLES)
+@pytest.mark.parametrize("script", EXAMPLES)
 @pytest.mark.filterwarnings(
     "ignore:Matplotlib is currently using agg",
     "ignore:.*Agg is non-interactive",
 )
-@pytest_skip_network_error  # if there are network errors, we don't care
+@pytest_skip_flaky_network  # if there are network errors, we don't care
 @skip_nds_authentication_error
 @skip_missing_optional_dependency
-def test_example(script):
+def test_example(capfd, script):
+    """Test an example script runs without error."""
     # read example code from file
     code = compile(
         script.read_text(),
@@ -137,5 +146,11 @@ def test_example(script):
     )
 
     # in the directory of the script, run it
-    with cwd(script.parent):
-        exec(code, globals())
+    try:
+        with cwd(script.parent):
+            exec(code, globals())
+    except* RuntimeError as exc:  # NDS2 failed
+        stderr = capfd.readouterr().err
+        if NDS2_READ_ERROR_STDERR.match(stderr):
+            pytest.skip(f"{exc} caused by '{NDS2_READ_ERROR_STDERR.pattern}'")
+        raise

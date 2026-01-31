@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) Duncan Macleod (2014-2020)
+# Copyright (c) 2014-2017 Louisiana State University
+#               2017-2025 Cardiff University
 #
 # This file is part of GWpy.
 #
@@ -16,68 +16,73 @@
 # You should have received a copy of the GNU General Public License
 # along with GWpy.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Unit tests for :mod:`gwpy.detector.units`
-"""
+"""Unit tests for :mod:`gwpy.detector.units`."""
 
 import pytest
-
 from astropy import units
 
 from ..units import parse_unit
 
-__author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
 
-@pytest.mark.parametrize('arg, unit', [
-    (None, None),
-    (units.m, units.m),
-    ('meter', units.m),
-    ('Volts', units.V),
-    ('Meters/Second', units.m / units.s),
-    ('Amp', units.ampere),
-    ('MPC', units.megaparsec),
-    ('degrees_C', units.Unit('Celsius')),
-    ('DegC', units.Unit('Celsius')),
-    ('degrees_F', units.Unit('Fahrenheit')),
-    ('time', units.second),  # LIGO default time 'unit'
-    ('Time (sec)', units.second),  # Virgo default time 'unit'
-    ('Seconds', units.second),  # GWOSC default time 'unit'
+@pytest.mark.parametrize(("arg", "unit"), [
+    pytest.param(None, None),
+    pytest.param(units.m, units.m),
+    pytest.param("meter", units.m),
+    pytest.param("Volts", units.V),
+    pytest.param("Meters/Second", units.m / units.s),
+    pytest.param("Amp", units.ampere),
+    pytest.param("MPC", units.megaparsec),
+    pytest.param("degrees_C", units.Unit("Celsius")),
+    pytest.param("DegC", units.Unit("Celsius")),
+    pytest.param("degrees_F", units.Unit("Fahrenheit")),
+    pytest.param("time", units.second),  # LIGO default time 'unit'
+    pytest.param("Time (sec)", units.second),  # Virgo default time 'unit'
+    pytest.param("Seconds", units.second),  # GWOSC default time 'unit'
 ])
 def test_parse_unit(arg, unit):
-    assert parse_unit(arg, parse_strict='silent') == unit
+    """Test `parse_unit()`."""
+    assert parse_unit(arg, parse_strict="silent") == unit
 
 
-def test_parse_unit_strict():
+def test_parse_unit_parse_strict_raise():
+    """Test that `parse_unit` raises exceptions appropriately."""
     # check that errors get raise appropriately
-    with pytest.raises(ValueError) as exc:
-        parse_unit('metre', parse_strict='raise')
+    with pytest.raises(
+        ValueError,
+        match=r"^'metre' did not parse as unit.* Did you mean meter?",
+    ):
+        parse_unit("metre", parse_strict="raise")
 
+
+def test_parse_unit_parse_strict_warn():
+    """Test that `parse_unit` emits warnings appropriately."""
     # check that warnings get posted, and a custom NamedUnit gets returned
     with pytest.warns(
         units.UnitsWarning,
-        match="'metre' did not parse as gwpy unit",
-    ) as exc:
-        u = parse_unit('metre', parse_strict='warn')
-    assert isinstance(u, units.IrreducibleUnit)
-    assert str(u) == 'metre'
+        match=r"^'metre' did not parse as gwpy unit.* Did you mean meter?",
+    ):
+        u = parse_unit("metre", parse_strict="warn")
+    assert isinstance(u, units.UnrecognizedUnit)
+    assert str(u) == "metre"
 
     # assert that a newly-created unit only gets created once
-    u2 = parse_unit('metre', parse_strict='silent')
+    u2 = parse_unit("metre", parse_strict="warn")
     assert u2 is u  # same object
-    assert u == u2  # compare as equal (just in case)
 
 
-@pytest.mark.parametrize('name', [
-    'NONE',
-    'undef',
-    'strain',
-    'coherence',
-    'sec',
-    'torr',
-    'cf',
-    'cfm',
-    'ptcls',
+@pytest.mark.parametrize("name", [
+    "NONE",
+    "undef",
+    "strain",
+    "coherence",
+    "sec",
+    "torr",
+    "cf",
+    "cfm",
+    "ptcls",
 ])
 def test_detector_units(name):
-    # just check that such a unit exists and doesn't evaluate to False
+    """Test that a bunch of custom units are registered."""
     assert units.Unit(name)

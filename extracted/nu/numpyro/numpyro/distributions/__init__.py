@@ -1,8 +1,14 @@
 # Copyright Contributors to the Pyro project.
 # SPDX-License-Identifier: Apache-2.0
 
+from numpyro.distributions.censored import (
+    IntervalCensoredDistribution,
+    LeftCensoredDistribution,
+    RightCensoredDistribution,
+)
 from numpyro.distributions.conjugate import (
     BetaBinomial,
+    BetaNegativeBinomial,
     DirichletMultinomial,
     GammaPoisson,
     NegativeBinomial2,
@@ -32,6 +38,8 @@ from numpyro.distributions.continuous import (
     HalfCauchy,
     HalfNormal,
     InverseGamma,
+    InverseWishart,
+    InverseWishartCholesky,
     Kumaraswamy,
     Laplace,
     Levy,
@@ -124,6 +132,7 @@ __all__ = [
     "BernoulliProbs",
     "Beta",
     "BetaBinomial",
+    "BetaNegativeBinomial",
     "BetaProportion",
     "Binomial",
     "BinomialLogits",
@@ -162,6 +171,8 @@ __all__ = [
     "ImproperUniform",
     "Independent",
     "InverseGamma",
+    "InverseWishart",
+    "InverseWishartCholesky",
     "Kumaraswamy",
     "Laplace",
     "LeftTruncatedDistribution",
@@ -194,6 +205,9 @@ __all__ = [
     "RelaxedBernoulli",
     "RelaxedBernoulliLogits",
     "RightTruncatedDistribution",
+    "LeftCensoredDistribution",
+    "RightCensoredDistribution",
+    "IntervalCensoredDistribution",
     "SineBivariateVonMises",
     "SineSkewed",
     "SoftLaplace",

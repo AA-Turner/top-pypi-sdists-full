@@ -24854,6 +24854,8 @@ class Client(OpenApiClient):
             query['StartTime'] = request.start_time
         if not DaraCore.is_null(request.task_action):
             query['TaskAction'] = request.task_action
+        if not DaraCore.is_null(request.task_group_id):
+            query['TaskGroupId'] = request.task_group_id
         if not DaraCore.is_null(request.task_ids):
             query['TaskIds'] = request.task_ids
         if not DaraCore.is_null(request.task_status):
@@ -24906,6 +24908,8 @@ class Client(OpenApiClient):
             query['StartTime'] = request.start_time
         if not DaraCore.is_null(request.task_action):
             query['TaskAction'] = request.task_action
+        if not DaraCore.is_null(request.task_group_id):
+            query['TaskGroupId'] = request.task_group_id
         if not DaraCore.is_null(request.task_ids):
             query['TaskIds'] = request.task_ids
         if not DaraCore.is_null(request.task_status):

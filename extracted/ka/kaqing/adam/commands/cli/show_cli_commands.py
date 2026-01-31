@@ -1,7 +1,7 @@
 from adam.commands.cli.cli_commands import CliCommands
 from adam.commands.command import Command
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import tabulize
+from adam.utils_tabulize import tabulize
 
 class ShowKubectlCommands(Command):
     COMMAND = 'show cli-commands'

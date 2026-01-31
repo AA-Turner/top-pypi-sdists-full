@@ -5,6 +5,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 import sys
 from os import environ, getcwd
@@ -455,8 +456,6 @@ def ch(ctx: Context, query: str, user: Optional[str], password: Optional[str], m
 
 
 def __patch_click_output():
-    import re
-
     CUSTOM_PATTERNS: List[str] = []
 
     _env_patterns = os.getenv("OBFUSCATE_REGEX_PATTERN", None)
@@ -534,6 +533,7 @@ def create_ctx_client(
         "diff",
         "fmt",
         "init",
+        "project",
     ]
     command = ctx.invoked_subcommand
     if not command or command in commands_without_ctx_client:

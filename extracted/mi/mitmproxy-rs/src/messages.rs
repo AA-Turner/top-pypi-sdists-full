@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::net::{IpAddr, SocketAddr};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use internet_packet::{InternetPacket, TransportProtocol};
 use smoltcp::wire::{IpProtocol, Ipv4Packet, Ipv6Packet};
 use tokio::sync::{mpsc, oneshot};
@@ -176,7 +176,7 @@ impl TryFrom<Vec<u8>> for SmolPacket {
         match value[0] >> 4 {
             4 => Ok(SmolPacket::V4(Ipv4Packet::new_checked(value)?)),
             6 => Ok(SmolPacket::V6(Ipv6Packet::new_checked(value)?)),
-            _ => Err(anyhow!("Not an IP packet: {:?}", value)),
+            _ => Err(anyhow!("Not an IP packet: {value:?}")),
         }
     }
 }
