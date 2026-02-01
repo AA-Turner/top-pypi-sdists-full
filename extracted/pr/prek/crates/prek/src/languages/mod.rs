@@ -23,6 +23,7 @@ mod docker;
 mod docker_image;
 mod fail;
 mod golang;
+mod haskell;
 mod lua;
 mod node;
 mod pygrep;
@@ -30,6 +31,7 @@ mod python;
 mod ruby;
 mod rust;
 mod script;
+mod swift;
 mod system;
 pub mod version;
 
@@ -38,6 +40,7 @@ static DOCKER: docker::Docker = docker::Docker;
 static DOCKER_IMAGE: docker_image::DockerImage = docker_image::DockerImage;
 static FAIL: fail::Fail = fail::Fail;
 static GOLANG: golang::Golang = golang::Golang;
+static HASKELL: haskell::Haskell = haskell::Haskell;
 static LUA: lua::Lua = lua::Lua;
 static NODE: node::Node = node::Node;
 static PYGREP: pygrep::Pygrep = pygrep::Pygrep;
@@ -45,6 +48,7 @@ static PYTHON: python::Python = python::Python;
 static RUBY: ruby::Ruby = ruby::Ruby;
 static RUST: rust::Rust = rust::Rust;
 static SCRIPT: script::Script = script::Script;
+static SWIFT: swift::Swift = swift::Swift;
 static SYSTEM: system::System = system::System;
 static UNIMPLEMENTED: Unimplemented = Unimplemented;
 
@@ -130,6 +134,7 @@ impl Language {
                 | Self::DockerImage
                 | Self::Fail
                 | Self::Golang
+                | Self::Haskell
                 | Self::Lua
                 | Self::Node
                 | Self::Pygrep
@@ -137,6 +142,7 @@ impl Language {
                 | Self::Ruby
                 | Self::Rust
                 | Self::Script
+                | Self::Swift
                 | Self::System
         )
     }
@@ -209,6 +215,7 @@ impl Language {
             Self::DockerImage => DOCKER_IMAGE.install(hook, store, reporter).await,
             Self::Fail => FAIL.install(hook, store, reporter).await,
             Self::Golang => GOLANG.install(hook, store, reporter).await,
+            Self::Haskell => HASKELL.install(hook, store, reporter).await,
             Self::Lua => LUA.install(hook, store, reporter).await,
             Self::Node => NODE.install(hook, store, reporter).await,
             Self::Pygrep => PYGREP.install(hook, store, reporter).await,
@@ -216,6 +223,7 @@ impl Language {
             Self::Ruby => RUBY.install(hook, store, reporter).await,
             Self::Rust => RUST.install(hook, store, reporter).await,
             Self::Script => SCRIPT.install(hook, store, reporter).await,
+            Self::Swift => SWIFT.install(hook, store, reporter).await,
             Self::System => SYSTEM.install(hook, store, reporter).await,
             _ => UNIMPLEMENTED.install(hook, store, reporter).await,
         }
@@ -228,6 +236,7 @@ impl Language {
             Self::DockerImage => DOCKER_IMAGE.check_health(info).await,
             Self::Fail => FAIL.check_health(info).await,
             Self::Golang => GOLANG.check_health(info).await,
+            Self::Haskell => HASKELL.check_health(info).await,
             Self::Lua => LUA.check_health(info).await,
             Self::Node => NODE.check_health(info).await,
             Self::Pygrep => PYGREP.check_health(info).await,
@@ -235,6 +244,7 @@ impl Language {
             Self::Ruby => RUBY.check_health(info).await,
             Self::Rust => RUST.check_health(info).await,
             Self::Script => SCRIPT.check_health(info).await,
+            Self::Swift => SWIFT.check_health(info).await,
             Self::System => SYSTEM.check_health(info).await,
             _ => UNIMPLEMENTED.check_health(info).await,
         }
@@ -252,19 +262,19 @@ impl Language {
             Repo::Meta { .. } => {
                 return hooks::MetaHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames)
+                    .run(store, hook, filenames, reporter)
                     .await;
             }
             Repo::Builtin { .. } => {
                 return hooks::BuiltinHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames)
+                    .run(store, hook, filenames, reporter)
                     .await;
             }
             Repo::Remote { .. } => {
                 // Fast path for hooks implemented in Rust
                 if hooks::check_fast_path(hook) {
-                    return hooks::run_fast_path(store, hook, filenames).await;
+                    return hooks::run_fast_path(store, hook, filenames, reporter).await;
                 }
             }
             Repo::Local { .. } => {}
@@ -276,6 +286,7 @@ impl Language {
             Self::DockerImage => DOCKER_IMAGE.run(hook, filenames, store, reporter).await,
             Self::Fail => FAIL.run(hook, filenames, store, reporter).await,
             Self::Golang => GOLANG.run(hook, filenames, store, reporter).await,
+            Self::Haskell => HASKELL.run(hook, filenames, store, reporter).await,
             Self::Lua => LUA.run(hook, filenames, store, reporter).await,
             Self::Node => NODE.run(hook, filenames, store, reporter).await,
             Self::Pygrep => PYGREP.run(hook, filenames, store, reporter).await,
@@ -283,6 +294,7 @@ impl Language {
             Self::Ruby => RUBY.run(hook, filenames, store, reporter).await,
             Self::Rust => RUST.run(hook, filenames, store, reporter).await,
             Self::Script => SCRIPT.run(hook, filenames, store, reporter).await,
+            Self::Swift => SWIFT.run(hook, filenames, store, reporter).await,
             Self::System => SYSTEM.run(hook, filenames, store, reporter).await,
             _ => UNIMPLEMENTED.run(hook, filenames, store, reporter).await,
         }

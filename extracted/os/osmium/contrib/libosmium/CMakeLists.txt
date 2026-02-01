@@ -6,8 +6,27 @@
 #
 #-----------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10)
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+
+#-----------------------------------------------------------------------------
+#
+#  Decide which C++ version to use (Minimum/default: C++14)
+#
+#-----------------------------------------------------------------------------
+
+if(NOT USE_CPP_VERSION)
+    set(USE_CPP_VERSION 14)
+endif()
+message(STATUS "Use C++ version: ${USE_CPP_VERSION}")
+
+set(CMAKE_CXX_STANDARD ${USE_CPP_VERSION})
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 #-----------------------------------------------------------------------------
@@ -36,14 +55,7 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel;Dev;Cover
 #
 #-----------------------------------------------------------------------------
 
-project(libosmium)
-
-set(LIBOSMIUM_VERSION_MAJOR 2)
-set(LIBOSMIUM_VERSION_MINOR 22)
-set(LIBOSMIUM_VERSION_PATCH 0)
-
-set(LIBOSMIUM_VERSION
-    "${LIBOSMIUM_VERSION_MAJOR}.${LIBOSMIUM_VERSION_MINOR}.${LIBOSMIUM_VERSION_PATCH}")
+project(libosmium VERSION 2.23.0 LANGUAGES CXX C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -152,7 +164,7 @@ endif()
 #
 #-----------------------------------------------------------------------------
 
-find_package(Boost 1.38)
+find_package(Boost CONFIG 1.38)
 mark_as_advanced(CLEAR BOOST_ROOT)
 
 if(Boost_FOUND)
@@ -177,27 +189,6 @@ list(REMOVE_AT OSMIUM_INCLUDE_DIRS ${_own_index})
 set(_own_index)
 
 include_directories(SYSTEM ${OSMIUM_INCLUDE_DIRS})
-
-
-#-----------------------------------------------------------------------------
-#
-#  Decide which C++ version to use (Minimum/default: C++14).
-#
-#-----------------------------------------------------------------------------
-if(NOT MSVC)
-    if(NOT USE_CPP_VERSION)
-        if(CYGWIN)
-            set(USE_CPP_VERSION gnu++14)
-        else()
-            set(USE_CPP_VERSION c++14)
-        endif()
-    endif()
-    message(STATUS "Use C++ version: ${USE_CPP_VERSION}")
-    # following only available from cmake 2.8.12:
-    #   add_compile_options(-std=${USE_CPP_VERSION})
-    # so using this instead:
-    add_definitions(-std=${USE_CPP_VERSION})
-endif()
 
 
 #-----------------------------------------------------------------------------
@@ -265,6 +256,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Dev")
 #    add_definitions(${OSMIUM_WARNING_OPTIONS} ${OSMIUM_DRACONIC_CLANG_OPTIONS} -Wno-documentation -Wno-format-nonliteral -Wno-deprecated -Wno-covered-switch-default -Wno-shadow)
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_definitions(-Wno-stringop-overread -Wno-dangling-reference)
+endif()
+
 # Force RelWithDebInfo build type if none was given
 if(CMAKE_BUILD_TYPE)
     set(build_type ${CMAKE_BUILD_TYPE})
@@ -322,7 +317,9 @@ if(CPPCHECK)
         --quiet
         -j4
         --inline-suppr
-        --enable=warning,style,performance,portability,information,missingInclude
+        --suppress=duplInheritedMember
+        --enable=warning,style,performance,portability,information
+        --check-level=exhaustive
         --force
         -Uassert -DPROTOZERO_STRICT_API -DPROTOZERO_USE_BUILTIN_BSWAP -UPROTOZERO_USE_VIEW)
 
@@ -349,7 +346,7 @@ if(CPPCHECK)
 
     add_custom_target(cppcheck
         ${CPPCHECK}
-        --std=c++14 ${CPPCHECK_OPTIONS}
+        --std=c++${USE_CPP_VERSION} ${CPPCHECK_OPTIONS}
         -I ${CMAKE_SOURCE_DIR}/include
         ${CPPCHECK_FILES}
     )
@@ -421,7 +418,7 @@ endif()
 #
 #-----------------------------------------------------------------------------
 message(STATUS "Looking for clang-tidy")
-find_program(CLANG_TIDY NAMES clang-tidy clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15 clang-tidy-14)
+find_program(CLANG_TIDY NAMES clang-tidy clang-tidy-22 clang-tidy-21 clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15)
 
 if(CLANG_TIDY)
     message(STATUS "Looking for clang-tidy - found ${CLANG_TIDY}")

@@ -1,13 +1,14 @@
 Metadata-Version: 2.4
 Name: cel-python
-Version: 0.4.0
+Version: 0.5.0
 Summary: Pure Python implementation of Google Common Expression Language
 Author-email: "S.Lott" <slott56@gmail.com>
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
-Requires-Python: >=3.9
-Requires-Dist: google-re2>=1.1.20240702; python_version != '3.13' or sys_platform != 'darwin' or platform_machine != 'arm64'
+Requires-Python: >=3.10
+Requires-Dist: google-re2>=1.1.20240702
+Requires-Dist: google-re2>=1.1.20250722; python_version == '3.13'
 Requires-Dist: jmespath>=1.0.1
 Requires-Dist: lark>=1.2.2
 Requires-Dist: pendulum>=3.1.0
@@ -61,17 +62,6 @@ re2
 CEL specifies that regular expressions use re2 syntax,
 https://github.com/google/re2/wiki/Syntax.
 As of the 0.4.0 release, the Google-RE2 module is part of the CEL distribution.
-
-.. warning:: Apple Silicon and Python 3.13
-
-    See https://github.com/google/re2/issues/453,
-    https://github.com/google/re2/issues/346,
-    https://github.com/google/re2/issues/516
-
-    Google-RE2 does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
-    Currently, there is no pre-built binary for Python 3.13.
-
-    The built-in ``re`` is used as a fall-back, and does work for all but a few edge cases.
 
 Command Line
 ============

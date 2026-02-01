@@ -1,8 +1,13 @@
-use common::array::{sort, sort_strings, transform};
-use common::create::{make_array, make_array_entry, make_comma, make_entry_of_string, make_newline};
+use common::array::{dedupe_strings, sort, sort_strings, transform};
+use common::create::{
+    make_array, make_array_entry, make_comma, make_entry_of_string, make_entry_with_array_of_inline_tables, make_key,
+    make_newline, make_table_array_with_entries,
+};
 use common::pep508::Requirement;
 use common::string::{load_text, update_content};
-use common::table::{collapse_sub_tables, for_entries, reorder_table_keys, Tables};
+use common::table::{
+    collapse_sub_table, collect_all_sub_tables, expand_sub_table, for_entries, reorder_table_keys, Tables,
+};
 use common::taplo::syntax::SyntaxKind::{
     ARRAY, BRACKET_END, BRACKET_START, COMMA, ENTRY, IDENT, INLINE_TABLE, KEY, NEWLINE, STRING, VALUE,
 };
@@ -15,14 +20,45 @@ use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::sync::LazyLock;
 
+use crate::TableFormatConfig;
+
 pub fn fix(
     tables: &mut Tables,
     keep_full_version: bool,
     max_supported_python: (u8, u8),
     min_supported_python: (u8, u8),
     generate_python_version_classifiers: bool,
+    table_config: &TableFormatConfig,
 ) {
-    collapse_sub_tables(tables, "project");
+    let key_order = &["name", "email"];
+
+    // Handle array of tables (authors/maintainers)
+    if table_config.should_collapse("project.authors") {
+        collapse_array_of_tables(tables, "project.authors", key_order);
+    } else {
+        expand_array_of_tables(tables, "project.authors", key_order);
+    }
+    if table_config.should_collapse("project.maintainers") {
+        collapse_array_of_tables(tables, "project.maintainers", key_order);
+    } else {
+        expand_array_of_tables(tables, "project.maintainers", key_order);
+    }
+
+    // Handle sub-tables (urls, scripts, gui-scripts, optional-dependencies, entry-points)
+    // Process nested sub-tables first (e.g., project.entry-points.tox before project.entry-points)
+    let mut all_sub_tables: Vec<String> = Vec::new();
+    collect_all_sub_tables(tables, "project", &mut all_sub_tables);
+    all_sub_tables.sort_by_key(|b| std::cmp::Reverse(count_unquoted_dots(b)));
+
+    for full_name in all_sub_tables {
+        if let Some((parent, sub)) = split_table_name(&full_name) {
+            if table_config.should_collapse(&full_name) {
+                collapse_sub_table(tables, parent, sub);
+            } else {
+                expand_sub_table(tables, parent, sub);
+            }
+        }
+    }
     let table_element = tables.get("project");
     if table_element.is_none() {
         return;
@@ -36,6 +72,14 @@ pub fn fix(
         }
         "version" | "readme" | "license-files" | "scripts" | "entry-points" | "gui-scripts" => {
             update_content(entry, |s| String::from(s));
+        }
+        "license" => {
+            static LICENSE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(and|or|with)\b").unwrap());
+            update_content(entry, |s| {
+                LICENSE_RE
+                    .replace_all(s, |caps: &regex::Captures| caps[1].to_uppercase())
+                    .to_string()
+            });
         }
         "description" => {
             update_content(entry, |s| {
@@ -83,8 +127,13 @@ pub fn fix(
                 },
             );
         }
-        "dynamic" | "keywords" => {
+        "dynamic" => {
             transform(entry, &|s| String::from(s));
+            sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
+        }
+        "keywords" => {
+            transform(entry, &|s| String::from(s));
+            dedupe_strings(entry, |s| s.to_lowercase());
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
         }
         "import-names" | "import-namespaces" => {
@@ -96,7 +145,58 @@ pub fn fix(
         }
         "classifiers" => {
             transform(entry, &|s| String::from(s));
+            dedupe_strings(entry, |s| s.to_lowercase());
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
+        }
+        "authors" | "maintainers" => {
+            sort::<(String, String), _, _>(
+                entry,
+                |node| {
+                    let mut name = String::new();
+                    let mut email = String::new();
+                    for child in node.children_with_tokens() {
+                        if child.kind() == INLINE_TABLE {
+                            for item in child.as_node().unwrap().children_with_tokens() {
+                                if item.kind() == ENTRY {
+                                    let mut current_key = String::new();
+                                    for e in item.as_node().unwrap().children_with_tokens() {
+                                        match e.kind() {
+                                            KEY => {
+                                                for k in e.as_node().unwrap().children_with_tokens() {
+                                                    if k.kind() == IDENT {
+                                                        current_key = k.as_token().unwrap().text().to_string();
+                                                    }
+                                                }
+                                            }
+                                            VALUE => {
+                                                for v in e.as_node().unwrap().children_with_tokens() {
+                                                    if v.kind() == STRING {
+                                                        let val = load_text(v.as_token().unwrap().text(), STRING);
+                                                        match current_key.as_str() {
+                                                            "name" => name = val.to_lowercase(),
+                                                            "email" => email = val.to_lowercase(),
+                                                            _ => {}
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Some((name, email))
+                },
+                &|lhs, rhs| {
+                    let mut res = natural_lexical_cmp(lhs.0.as_str(), rhs.0.as_str());
+                    if res == Ordering::Equal {
+                        res = natural_lexical_cmp(lhs.1.as_str(), rhs.1.as_str());
+                    }
+                    res
+                },
+            );
         }
         _ => {}
     });
@@ -110,9 +210,11 @@ pub fn fix(
 
     for_entries(table, &mut |key, entry| {
         if key.as_str() == "classifiers" {
+            dedupe_strings(entry, |s| s.to_lowercase());
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
         }
     });
+    normalize_extra_names(table);
     reorder_table_keys(
         table,
         &[
@@ -140,6 +242,32 @@ pub fn fix(
             "entry-points",
         ],
     );
+}
+
+fn count_unquoted_dots(s: &str) -> usize {
+    let mut count = 0;
+    let mut in_quotes = false;
+    for c in s.chars() {
+        match c {
+            '"' => in_quotes = !in_quotes,
+            '.' if !in_quotes => count += 1,
+            _ => {}
+        }
+    }
+    count
+}
+
+fn split_table_name(full_name: &str) -> Option<(&str, &str)> {
+    let mut last_unquoted_dot = None;
+    let mut in_quotes = false;
+    for (i, c) in full_name.char_indices() {
+        match c {
+            '"' => in_quotes = !in_quotes,
+            '.' if !in_quotes => last_unquoted_dot = Some(i),
+            _ => {}
+        }
+    }
+    last_unquoted_dot.map(|i| (&full_name[..i], &full_name[i + 1..]))
 }
 
 fn expand_entry_points_inline_tables(table: &mut RefMut<Vec<SyntaxElement>>) {
@@ -400,7 +528,7 @@ fn get_python_requires_with_classifier(
     for_entries(table, &mut |key, entry| {
         if key == "requires-python" {
             static RE: LazyLock<Regex> =
-                LazyLock::new(|| Regex::new(r"^(?<op><|<=|==|!=|>=|>)3[.](?<minor>\d+)").unwrap());
+                LazyLock::new(|| Regex::new(r"^(?<op><|<=|==|!=|>=|>|~=)3[.](?<minor>\d+)").unwrap());
             for child in entry.children_with_tokens() {
                 if child.kind() == STRING {
                     let found_str_value = load_text(child.as_token().unwrap().text(), STRING);
@@ -408,7 +536,8 @@ fn get_python_requires_with_classifier(
                         if let Some(caps) = RE.captures(part) {
                             let minor = caps["minor"].parse::<u8>().unwrap();
                             match &caps["op"] {
-                                "==" => {
+                                "==" | "~=" => {
+                                    // ~= is compatible release: ~=3.12.7 means >=3.12.7,<3.13
                                     mins.push(minor);
                                     maxs.push(minor);
                                 }
@@ -456,4 +585,267 @@ fn get_python_requires_with_classifier(
     let min_py = (3, *mins.iter().max().unwrap_or(&min_supported_python.1));
     let max_py = (3, *maxs.iter().min().unwrap_or(&max_supported_python.1));
     (min_py, max_py, omit, classifiers)
+}
+
+fn normalize_extra_names(table: &mut RefMut<Vec<SyntaxElement>>) {
+    static EXTRA_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[-_.]+").unwrap());
+    for element in table.iter() {
+        if element.kind() != ENTRY {
+            continue;
+        }
+        let entry_node = element.as_node().unwrap();
+        for child in entry_node.children_with_tokens() {
+            if child.kind() != KEY {
+                continue;
+            }
+            let key_node = child.as_node().unwrap();
+            let key_text = key_node.text().to_string().trim().to_string();
+            if !key_text.starts_with("optional-dependencies.") {
+                continue;
+            }
+            let extra_name = key_text.strip_prefix("optional-dependencies.").unwrap();
+            let normalized = EXTRA_RE.replace_all(&extra_name.to_lowercase(), "-").to_string();
+            if extra_name != normalized {
+                let new_key = make_key(&format!("optional-dependencies.{normalized}"));
+                let count = key_node.children_with_tokens().count();
+                key_node.splice_children(0..count, new_key.as_node().unwrap().children_with_tokens().collect());
+            }
+        }
+    }
+}
+
+fn collapse_array_of_tables(tables: &mut Tables, full_name: &str, key_order: &[&str]) {
+    let positions = match tables.header_to_pos.get(full_name) {
+        Some(p) if !p.is_empty() => p.clone(),
+        _ => return,
+    };
+
+    let parts: Vec<&str> = full_name.splitn(2, '.').collect();
+    if parts.len() != 2 {
+        return;
+    }
+    let parent_name = parts[0];
+    let field_name = parts[1];
+
+    let mut inline_tables = Vec::new();
+
+    for pos in &positions {
+        let table = tables.table_set[*pos].borrow();
+        let mut fields = Vec::new();
+
+        for element in table.iter() {
+            if element.kind() != ENTRY {
+                continue;
+            }
+            let entry_node = element.as_node().unwrap();
+            let mut key_name = String::new();
+            let mut value_str = String::new();
+
+            for child in entry_node.children_with_tokens() {
+                match child.kind() {
+                    KEY => {
+                        for k in child.as_node().unwrap().children_with_tokens() {
+                            if k.kind() == IDENT {
+                                key_name = k.as_token().unwrap().text().to_string();
+                            }
+                        }
+                    }
+                    VALUE => {
+                        for v in child.as_node().unwrap().children_with_tokens() {
+                            if v.kind() == STRING {
+                                value_str = v.as_token().unwrap().text().to_string();
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if !key_name.is_empty() && !value_str.is_empty() {
+                fields.push(format!("{key_name} = {value_str}"));
+            }
+        }
+
+        if !fields.is_empty() {
+            fields.sort_by(|a, b| {
+                let order = |s: &str| {
+                    for (i, key) in key_order.iter().enumerate() {
+                        if s.starts_with(&format!("{key} ")) {
+                            return i;
+                        }
+                    }
+                    key_order.len()
+                };
+                order(a).cmp(&order(b)).then_with(|| a.cmp(b))
+            });
+            inline_tables.push(format!("{{ {} }}", fields.join(", ")));
+        }
+    }
+
+    for pos in &positions {
+        tables.table_set[*pos].borrow_mut().clear();
+    }
+
+    if inline_tables.is_empty() {
+        return;
+    }
+
+    let parent_positions = match tables.header_to_pos.get(parent_name) {
+        Some(p) if !p.is_empty() => p.clone(),
+        _ => return,
+    };
+
+    let entry = make_entry_with_array_of_inline_tables(field_name, &inline_tables);
+    let mut parent = tables.table_set[parent_positions[0]].borrow_mut();
+    if parent.last().is_some_and(|e| e.kind() != NEWLINE) {
+        parent.push(make_newline());
+    }
+    parent.push(entry);
+}
+
+/// Expand inline table arrays to array of tables format.
+/// This is the reverse of `collapse_array_of_tables`.
+/// For example, `authors = [{ name = "John", email = "john@example.com" }]`
+/// becomes `[[project.authors]]` with `name = "John"` and `email = "john@example.com"`.
+fn expand_array_of_tables(tables: &mut Tables, full_name: &str, key_order: &[&str]) {
+    let parts: Vec<&str> = full_name.splitn(2, '.').collect();
+    if parts.len() != 2 {
+        return;
+    }
+    let parent_name = parts[0];
+    let field_name = parts[1];
+
+    // Check if we already have array of tables entries
+    if let Some(positions) = tables.header_to_pos.get(full_name) {
+        if !positions.is_empty() {
+            // Already expanded, nothing to do
+            return;
+        }
+    }
+
+    // Find the inline table array in the parent
+    let parent_positions = match tables.header_to_pos.get(parent_name) {
+        Some(p) if !p.is_empty() => p.clone(),
+        _ => return,
+    };
+
+    let mut inline_table_entries: Vec<Vec<(String, String)>> = Vec::new();
+    let mut entry_to_remove_index: Option<usize> = None;
+
+    {
+        let parent = tables.table_set[parent_positions[0]].borrow();
+        let mut entry_index = 0;
+
+        for element in parent.iter() {
+            if element.kind() != ENTRY {
+                continue;
+            }
+            let entry_node = element.as_node().unwrap();
+            let mut current_key = String::new();
+
+            for child in entry_node.children_with_tokens() {
+                if child.kind() == KEY {
+                    current_key = child.as_node().unwrap().text().to_string().trim().to_string();
+                } else if child.kind() == VALUE && current_key == field_name {
+                    // Found the array entry
+                    for value_child in child.as_node().unwrap().children_with_tokens() {
+                        if value_child.kind() == ARRAY {
+                            // Parse inline tables from the array
+                            for array_element in value_child.as_node().unwrap().children_with_tokens() {
+                                if array_element.kind() == VALUE {
+                                    for inner in array_element.as_node().unwrap().children_with_tokens() {
+                                        if inner.kind() == INLINE_TABLE {
+                                            let mut fields: Vec<(String, String)> = Vec::new();
+                                            for inline_entry in inner.as_node().unwrap().children_with_tokens() {
+                                                if inline_entry.kind() == ENTRY {
+                                                    let mut key_name = String::new();
+                                                    let mut value_str = String::new();
+                                                    for e in inline_entry.as_node().unwrap().children_with_tokens() {
+                                                        match e.kind() {
+                                                            KEY => {
+                                                                for k in e.as_node().unwrap().children_with_tokens() {
+                                                                    if k.kind() == IDENT {
+                                                                        key_name =
+                                                                            k.as_token().unwrap().text().to_string();
+                                                                    }
+                                                                }
+                                                            }
+                                                            VALUE => {
+                                                                for v in e.as_node().unwrap().children_with_tokens() {
+                                                                    if v.kind() == STRING {
+                                                                        value_str =
+                                                                            v.as_token().unwrap().text().to_string();
+                                                                    }
+                                                                }
+                                                            }
+                                                            _ => {}
+                                                        }
+                                                    }
+                                                    if !key_name.is_empty() && !value_str.is_empty() {
+                                                        fields.push((key_name, value_str));
+                                                    }
+                                                }
+                                            }
+                                            if !fields.is_empty() {
+                                                // Sort fields according to key_order
+                                                fields.sort_by(|a, b| {
+                                                    let order = |s: &str| {
+                                                        key_order
+                                                            .iter()
+                                                            .position(|&k| k == s)
+                                                            .unwrap_or(key_order.len())
+                                                    };
+                                                    order(&a.0).cmp(&order(&b.0)).then_with(|| a.0.cmp(&b.0))
+                                                });
+                                                inline_table_entries.push(fields);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            entry_to_remove_index = Some(entry_index);
+                        }
+                    }
+                }
+            }
+            entry_index += 1;
+        }
+    }
+
+    if inline_table_entries.is_empty() {
+        return;
+    }
+
+    // Remove the inline table array entry from the parent
+    if let Some(remove_idx) = entry_to_remove_index {
+        let mut parent = tables.table_set[parent_positions[0]].borrow_mut();
+        let mut new_elements = Vec::new();
+        let mut entry_index = 0;
+
+        for element in parent.iter() {
+            if element.kind() == ENTRY {
+                if entry_index != remove_idx {
+                    new_elements.push(element.clone());
+                }
+                entry_index += 1;
+            } else {
+                new_elements.push(element.clone());
+            }
+        }
+
+        let parent_len = parent.len();
+        parent.splice(0..parent_len, new_elements);
+    }
+
+    // Create new array of tables entries
+    for fields in inline_table_entries {
+        let new_table = make_table_array_with_entries(full_name, &fields);
+        let pos = tables.table_set.len();
+        tables.table_set.push(std::cell::RefCell::new(new_table));
+        tables
+            .header_to_pos
+            .entry(String::from(full_name))
+            .or_default()
+            .push(pos);
+    }
 }

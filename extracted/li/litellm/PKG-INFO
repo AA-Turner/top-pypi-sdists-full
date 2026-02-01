@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.81.5
+Version: 1.81.6
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -46,7 +46,7 @@ Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
 Requires-Dist: jsonschema (>=4.23.0,<5.0.0)
 Requires-Dist: litellm-enterprise (==0.1.27) ; extra == "proxy"
-Requires-Dist: litellm-proxy-extras (==0.4.27) ; extra == "proxy"
+Requires-Dist: litellm-proxy-extras (==0.4.29) ; extra == "proxy"
 Requires-Dist: mcp (>=1.25.0,<2.0.0) ; (python_version >= "3.10") and (extra == "proxy")
 Requires-Dist: mlflow (>3.1.4) ; (python_version >= "3.10") and (extra == "mlflow")
 Requires-Dist: numpydoc ; extra == "utils"
@@ -57,7 +57,7 @@ Requires-Dist: prisma (==0.11.0) ; extra == "extra-proxy"
 Requires-Dist: pydantic (>=2.5.0,<3.0.0)
 Requires-Dist: pynacl (>=1.5.0,<2.0.0) ; extra == "proxy"
 Requires-Dist: python-dotenv (>=0.2.0)
-Requires-Dist: python-multipart (>=0.0.22,<0.0.23) ; extra == "proxy"
+Requires-Dist: python-multipart (>=0.0.22,<0.0.23) ; (python_version >= "3.10") and (extra == "proxy")
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0) ; extra == "proxy"
 Requires-Dist: redisvl (>=0.4.1,<0.5.0) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "extra-proxy")
 Requires-Dist: resend (>=0.8.0) ; extra == "extra-proxy"
@@ -347,6 +347,7 @@ Support for more providers. Missing a provider or LLM Platform, raise a [feature
     <td><img height="60" alt="Greptile" src="https://github.com/user-attachments/assets/0be4bd8a-7cfa-48d3-9090-f415fe948280" /></td>
     <td><img height="60" alt="OpenHands" src="https://github.com/user-attachments/assets/a6150c4c-149e-4cae-888b-8b92be6e003f" /></td>
     <td><h2>Netflix</h2></td>
+    <td><img height="60" alt="OpenAI Agents SDK" src="https://github.com/user-attachments/assets/c02f7be0-8c2e-4d27-aea7-7c024bfaebc0" /></td>
   </tr>
 </table>
 

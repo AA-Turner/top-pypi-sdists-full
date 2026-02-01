@@ -12,6 +12,17 @@ use rustc_hash::FxHashSet;
 use prek_consts::CONFIG_FILE;
 use prek_consts::env_vars::EnvVars;
 
+pub fn git_cmd(dir: impl AsRef<Path>) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.current_dir(dir)
+        .args(["-c", "commit.gpgsign=false"])
+        .args(["-c", "tag.gpgsign=false"])
+        .args(["-c", "core.autocrlf=false"])
+        .args(["-c", "user.name=Prek Test"])
+        .args(["-c", "user.email=test@prek.dev"]);
+    cmd
+}
+
 pub struct TestContext {
     temp_dir: ChildPath,
     home_dir: ChildPath,
@@ -139,7 +150,7 @@ impl TestContext {
     }
 
     pub fn command(&self) -> Command {
-        if EnvVars::is_set(EnvVars::PREK_INTERNAL__RUN_ORIGINAL_PRE_COMMIT) {
+        let mut cmd = if EnvVars::is_set(EnvVars::PREK_INTERNAL__RUN_ORIGINAL_PRE_COMMIT) {
             // Run the original pre-commit to check compatibility.
             let mut cmd = Command::new("pre-commit");
             cmd.current_dir(self.work_dir());
@@ -156,7 +167,14 @@ impl TestContext {
             cmd.env(EnvVars::PREK_HOME, &**self.home_dir());
             cmd.env(EnvVars::PREK_INTERNAL__SORT_FILENAMES, "1");
             cmd
-        }
+        };
+
+        // Disable git autocrlf to avoid line ending issues in tests.
+        cmd.env("GIT_CONFIG_COUNT", "1")
+            .env("GIT_CONFIG_KEY_0", "core.autocrlf")
+            .env("GIT_CONFIG_VALUE_0", "false");
+
+        cmd
     }
 
     pub fn run(&self) -> Command {
@@ -242,95 +260,60 @@ impl TestContext {
 
     /// Initialize a sample project for prek.
     pub fn init_project(&self) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("-c")
             .arg("init.defaultBranch=master")
             .arg("init")
-            .current_dir(&self.temp_dir)
-            .assert()
-            .success();
-    }
-
-    /// Configure git user and email.
-    pub fn configure_git_author(&self) {
-        Command::new("git")
-            .arg("config")
-            .arg("user.name")
-            .arg("Prek Test")
-            .current_dir(&self.temp_dir)
-            .assert()
-            .success();
-        Command::new("git")
-            .arg("config")
-            .arg("user.email")
-            .arg("test@prek.dev")
-            .current_dir(&self.temp_dir)
-            .assert()
-            .success();
-    }
-
-    pub fn disable_auto_crlf(&self) {
-        // Disable autocrlf
-        Command::new("git")
-            .arg("config")
-            .arg("core.autocrlf")
-            .arg("false")
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Run `git add`.
     pub fn git_add(&self, path: impl AsRef<OsStr>) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("add")
             .arg(path)
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Run `git commit`.
     pub fn git_commit(&self, message: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("commit")
             .arg("-m")
             .arg(message)
             .env(EnvVars::PREK_HOME, &**self.home_dir())
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Run `git tag`.
     pub fn git_tag(&self, tag: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("tag")
             .arg(tag)
             .arg("-m")
             .arg(format!("Tag {tag}"))
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Run `git reset`.
     pub fn git_reset(&self, target: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("reset")
             .arg(target)
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Run `git rm`.
     pub fn git_rm(&self, path: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("rm")
             .arg("--cached")
             .arg(path)
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
         let file_path = self.temp_dir.child(path);
@@ -341,30 +324,27 @@ impl TestContext {
 
     /// Run `git clean`.
     pub fn git_clean(&self) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("clean")
             .arg("-fdx")
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Create a new git branch.
     pub fn git_branch(&self, branch_name: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("branch")
             .arg(branch_name)
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
 
     /// Switch to a git branch.
     pub fn git_checkout(&self, branch_name: &str) {
-        Command::new("git")
+        git_cmd(&self.temp_dir)
             .arg("checkout")
             .arg(branch_name)
-            .current_dir(&self.temp_dir)
             .assert()
             .success();
     }
@@ -441,9 +421,8 @@ macro_rules! cmd_snapshot {
 #[allow(unused_imports)]
 pub(crate) use cmd_snapshot;
 
-#[allow(clippy::disallowed_methods)]
 pub(crate) fn remove_bin_from_path(bin: &str, path: Option<OsString>) -> anyhow::Result<OsString> {
-    let path = path.unwrap_or(std::env::var_os("PATH").expect("PATH not set"));
+    let path = path.unwrap_or(EnvVars::var_os(EnvVars::PATH).expect("Path must be set"));
     let Ok(dirs) = which::which_all(bin) else {
         return Ok(path);
     };

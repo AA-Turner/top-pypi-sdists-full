@@ -229,14 +229,18 @@ class PrometheusLogger(CustomLogger):
             self.litellm_remaining_api_key_requests_for_model = self._gauge_factory(
                 "litellm_remaining_api_key_requests_for_model",
                 "Remaining Requests API Key can make for model (model based rpm limit on key)",
-                labelnames=["hashed_api_key", "api_key_alias", "model"],
+                labelnames=self.get_labels_for_metric(
+                    "litellm_remaining_api_key_requests_for_model"
+                ),
             )
 
             # Remaining MODEL TPM limit for API Key
             self.litellm_remaining_api_key_tokens_for_model = self._gauge_factory(
                 "litellm_remaining_api_key_tokens_for_model",
                 "Remaining Tokens API Key can make for model (model based tpm limit on key)",
-                labelnames=["hashed_api_key", "api_key_alias", "model"],
+                labelnames=self.get_labels_for_metric(
+                    "litellm_remaining_api_key_tokens_for_model"
+                ),
             )
 
             ########################################
@@ -385,15 +389,9 @@ class PrometheusLogger(CustomLogger):
             self.litellm_llm_api_failed_requests_metric = self._counter_factory(
                 name="litellm_llm_api_failed_requests_metric",
                 documentation="deprecated - use litellm_proxy_failed_requests_metric",
-                labelnames=[
-                    "end_user",
-                    "hashed_api_key",
-                    "api_key_alias",
-                    "model",
-                    "team",
-                    "team_alias",
-                    "user",
-                ],
+                labelnames=self.get_labels_for_metric(
+                    "litellm_llm_api_failed_requests_metric"
+                ),
             )
 
             self.litellm_requests_metric = self._counter_factory(
@@ -903,7 +901,7 @@ class PrometheusLogger(CustomLogger):
 
         model = kwargs.get("model", "")
         litellm_params = kwargs.get("litellm_params", {}) or {}
-        _metadata = litellm_params.get("metadata", {})
+        _metadata = litellm_params.get("metadata") or {}
         get_end_user_id_for_cost_tracking = _get_cached_end_user_id_for_cost_tracking()
 
         end_user_id = get_end_user_id_for_cost_tracking(
@@ -966,6 +964,8 @@ class PrometheusLogger(CustomLogger):
             route=standard_logging_payload["metadata"].get(
                 "user_api_key_request_route"
             ),
+            client_ip=standard_logging_payload["metadata"].get("requester_ip_address"),
+            user_agent=standard_logging_payload["metadata"].get("user_agent"),
         )
 
         if (
@@ -1023,6 +1023,7 @@ class PrometheusLogger(CustomLogger):
             user_api_key_alias=user_api_key_alias,
             kwargs=kwargs,
             metadata=_metadata,
+            model_id=enum_values.model_id,
         )
 
         # set latency metrics
@@ -1177,26 +1178,15 @@ class PrometheusLogger(CustomLogger):
         response_cost: float,
         user_id: Optional[str] = None,
     ):
-        _team_spend = litellm_params.get("metadata", {}).get(
-            "user_api_key_team_spend", None
-        )
-        _team_max_budget = litellm_params.get("metadata", {}).get(
-            "user_api_key_team_max_budget", None
-        )
+        _metadata = litellm_params.get("metadata") or {}
+        _team_spend = _metadata.get("user_api_key_team_spend", None)
+        _team_max_budget = _metadata.get("user_api_key_team_max_budget", None)
 
-        _api_key_spend = litellm_params.get("metadata", {}).get(
-            "user_api_key_spend", None
-        )
-        _api_key_max_budget = litellm_params.get("metadata", {}).get(
-            "user_api_key_max_budget", None
-        )
+        _api_key_spend = _metadata.get("user_api_key_spend", None)
+        _api_key_max_budget = _metadata.get("user_api_key_max_budget", None)
 
-        _user_spend = litellm_params.get("metadata", {}).get(
-            "user_api_key_user_spend", None
-        )
-        _user_max_budget = litellm_params.get("metadata", {}).get(
-            "user_api_key_user_max_budget", None
-        )
+        _user_spend = _metadata.get("user_api_key_user_spend", None)
+        _user_max_budget = _metadata.get("user_api_key_user_max_budget", None)
 
         await self._set_api_key_budget_metrics_after_api_request(
             user_api_key=user_api_key,
@@ -1257,6 +1247,7 @@ class PrometheusLogger(CustomLogger):
         user_api_key_alias: Optional[str],
         kwargs: dict,
         metadata: dict,
+        model_id: Optional[str] = None,
     ):
         from litellm.proxy.common_utils.callback_utils import (
             get_model_group_from_litellm_kwargs,
@@ -1278,11 +1269,11 @@ class PrometheusLogger(CustomLogger):
         )
 
         self.litellm_remaining_api_key_requests_for_model.labels(
-            user_api_key, user_api_key_alias, model_group
+            user_api_key, user_api_key_alias, model_group, model_id
         ).set(remaining_requests)
 
         self.litellm_remaining_api_key_tokens_for_model.labels(
-            user_api_key, user_api_key_alias, model_group
+            user_api_key, user_api_key_alias, model_group, model_id
         ).set(remaining_tokens)
 
     def _set_latency_metrics(
@@ -1308,12 +1299,14 @@ class PrometheusLogger(CustomLogger):
             time_to_first_token_seconds is not None
             and kwargs.get("stream", False) is True  # only emit for streaming requests
         ):
+            _ttft_labels = prometheus_label_factory(
+                supported_enum_labels=self.get_labels_for_metric(
+                    metric_name="litellm_llm_api_time_to_first_token_metric"
+                ),
+                enum_values=enum_values,
+            )
             self.litellm_llm_api_time_to_first_token_metric.labels(
-                model,
-                user_api_key,
-                user_api_key_alias,
-                user_api_team,
-                user_api_team_alias,
+                **_ttft_labels
             ).observe(time_to_first_token_seconds)
         else:
             verbose_logger.debug(
@@ -1353,7 +1346,7 @@ class PrometheusLogger(CustomLogger):
 
         # request queue time (time from arrival to processing start)
         _litellm_params = kwargs.get("litellm_params", {}) or {}
-        queue_time_seconds = _litellm_params.get("metadata", {}).get(
+        queue_time_seconds = (_litellm_params.get("metadata") or {}).get(
             "queue_time_seconds"
         )
         if queue_time_seconds is not None and queue_time_seconds >= 0:
@@ -1377,14 +1370,14 @@ class PrometheusLogger(CustomLogger):
         standard_logging_payload: StandardLoggingPayload = kwargs.get(
             "standard_logging_object", {}
         )
-        
+
         if self._should_skip_metrics_for_invalid_key(
             kwargs=kwargs, standard_logging_payload=standard_logging_payload
         ):
             return
-        
+
         model = kwargs.get("model", "")
-        
+
         litellm_params = kwargs.get("litellm_params", {}) or {}
         get_end_user_id_for_cost_tracking = _get_cached_end_user_id_for_cost_tracking()
 
@@ -1408,6 +1401,7 @@ class PrometheusLogger(CustomLogger):
                 user_api_team,
                 user_api_team_alias,
                 user_id,
+                standard_logging_payload.get("model_id", ""),
             ).inc()
             self.set_llm_deployment_failure_metrics(kwargs)
         except Exception as e:
@@ -1425,49 +1419,57 @@ class PrometheusLogger(CustomLogger):
     ) -> Optional[int]:
         """
         Extract HTTP status code from various input formats for validation.
-        
+
         This is a centralized helper to extract status code from different
         callback function signatures. Handles both ProxyException (uses 'code')
         and standard exceptions (uses 'status_code').
-        
+
         Args:
             kwargs: Dictionary potentially containing 'exception' key
             enum_values: Object with 'status_code' attribute
             exception: Exception object to extract status code from directly
-            
+
         Returns:
             Status code as integer if found, None otherwise
         """
         status_code = None
-        
+
         # Try from enum_values first (most common in our callbacks)
-        if enum_values and hasattr(enum_values, "status_code") and enum_values.status_code:
+        if (
+            enum_values
+            and hasattr(enum_values, "status_code")
+            and enum_values.status_code
+        ):
             try:
                 status_code = int(enum_values.status_code)
             except (ValueError, TypeError):
                 pass
-        
+
         if not status_code and exception:
             # ProxyException uses 'code' attribute, other exceptions may use 'status_code'
-            status_code = getattr(exception, "status_code", None) or getattr(exception, "code", None)
+            status_code = getattr(exception, "status_code", None) or getattr(
+                exception, "code", None
+            )
             if status_code is not None:
                 try:
                     status_code = int(status_code)
                 except (ValueError, TypeError):
                     status_code = None
-        
+
         if not status_code and kwargs:
             exception_in_kwargs = kwargs.get("exception")
             if exception_in_kwargs:
-                status_code = getattr(exception_in_kwargs, "status_code", None) or getattr(exception_in_kwargs, "code", None)
+                status_code = getattr(
+                    exception_in_kwargs, "status_code", None
+                ) or getattr(exception_in_kwargs, "code", None)
                 if status_code is not None:
                     try:
                         status_code = int(status_code)
                     except (ValueError, TypeError):
                         status_code = None
-        
+
         return status_code
-    
+
     def _is_invalid_api_key_request(
         self,
         status_code: Optional[int],
@@ -1475,23 +1477,23 @@ class PrometheusLogger(CustomLogger):
     ) -> bool:
         """
         Determine if a request has an invalid API key based on status code and exception.
-        
+
         This method prevents invalid authentication attempts from being recorded in
         Prometheus metrics. A 401 status code is the definitive indicator of authentication
         failure. Additionally, we check exception messages for authentication error patterns
         to catch cases where the exception hasn't been converted to a ProxyException yet.
-        
+
         Args:
             status_code: HTTP status code (401 indicates authentication error)
             exception: Exception object to check for auth-related error messages
-            
+
         Returns:
             True if the request has an invalid API key and metrics should be skipped,
             False otherwise
         """
         if status_code == 401:
             return True
-        
+
         # Handle cases where AssertionError is raised before conversion to ProxyException
         if exception is not None:
             exception_str = str(exception).lower()
@@ -1504,9 +1506,9 @@ class PrometheusLogger(CustomLogger):
             ]
             if any(pattern in exception_str for pattern in auth_error_patterns):
                 return True
-        
+
         return False
-    
+
     def _should_skip_metrics_for_invalid_key(
         self,
         kwargs: Optional[dict] = None,
@@ -1517,18 +1519,18 @@ class PrometheusLogger(CustomLogger):
     ) -> bool:
         """
         Determine if Prometheus metrics should be skipped for invalid API key requests.
-        
+
         This is a centralized validation method that extracts status code and exception
         information from various callback function signatures and determines if the request
         represents an invalid API key attempt that should be filtered from metrics.
-        
+
         Args:
             kwargs: Dictionary potentially containing exception and other data
             user_api_key_dict: User API key authentication object (currently unused)
             enum_values: Object with status_code attribute
             standard_logging_payload: Standard logging payload dictionary
             exception: Exception object to check directly
-            
+
         Returns:
             True if metrics should be skipped (invalid key detected), False otherwise
         """
@@ -1537,17 +1539,17 @@ class PrometheusLogger(CustomLogger):
             enum_values=enum_values,
             exception=exception,
         )
-        
+
         if exception is None and kwargs:
             exception = kwargs.get("exception")
-        
+
         if self._is_invalid_api_key_request(status_code, exception=exception):
             verbose_logger.debug(
                 "Skipping Prometheus metrics for invalid API key request: "
                 f"status_code={status_code}, exception={type(exception).__name__ if exception else None}"
             )
             return True
-        
+
         return False
 
     async def async_post_call_failure_hook(
@@ -1588,6 +1590,10 @@ class PrometheusLogger(CustomLogger):
                 litellm_params=request_data,
                 proxy_server_request=request_data.get("proxy_server_request", {}),
             )
+            _metadata = request_data.get("metadata", {}) or {}
+            model_id = _metadata.get("model_info", {}).get("id") or request_data.get(
+                "model_info", {}
+            ).get("id")
             enum_values = UserAPIKeyLabelValues(
                 end_user=user_api_key_dict.end_user_id,
                 user=user_api_key_dict.user_id,
@@ -1602,6 +1608,9 @@ class PrometheusLogger(CustomLogger):
                 exception_class=self._get_exception_class_name(original_exception),
                 tags=_tags,
                 route=user_api_key_dict.request_route,
+                client_ip=_metadata.get("requester_ip_address"),
+                user_agent=_metadata.get("user_agent"),
+                model_id=model_id,
             )
             _labels = prometheus_label_factory(
                 supported_enum_labels=self.get_labels_for_metric(
@@ -1641,6 +1650,7 @@ class PrometheusLogger(CustomLogger):
             ):
                 return
 
+            _metadata = data.get("metadata", {}) or {}
             enum_values = UserAPIKeyLabelValues(
                 end_user=user_api_key_dict.end_user_id,
                 hashed_api_key=user_api_key_dict.api_key,
@@ -1656,6 +1666,8 @@ class PrometheusLogger(CustomLogger):
                     litellm_params=data,
                     proxy_server_request=data.get("proxy_server_request", {}),
                 ),
+                client_ip=_metadata.get("requester_ip_address"),
+                user_agent=_metadata.get("user_agent"),
             )
             _labels = prometheus_label_factory(
                 supported_enum_labels=self.get_labels_for_metric(
@@ -1696,7 +1708,7 @@ class PrometheusLogger(CustomLogger):
             exception = request_kwargs.get("exception", None)
 
             llm_provider = _litellm_params.get("custom_llm_provider", None)
-            
+
             if self._should_skip_metrics_for_invalid_key(
                 kwargs=request_kwargs,
                 standard_logging_payload=standard_logging_payload,
@@ -1728,6 +1740,10 @@ class PrometheusLogger(CustomLogger):
                     "user_api_key_team_alias"
                 ],
                 tags=standard_logging_payload.get("request_tags", []),
+                client_ip=standard_logging_payload["metadata"].get(
+                    "requester_ip_address"
+                ),
+                user_agent=standard_logging_payload["metadata"].get("user_agent"),
             )
 
             """
@@ -2328,7 +2344,10 @@ class PrometheusLogger(CustomLogger):
 
         async def fetch_keys(
             page_size: int, page: int
-        ) -> Tuple[List[Union[str, UserAPIKeyAuth, LiteLLM_DeletedVerificationToken]], Optional[int]]:
+        ) -> Tuple[
+            List[Union[str, UserAPIKeyAuth, LiteLLM_DeletedVerificationToken]],
+            Optional[int],
+        ]:
             key_list_response = await _list_key_helper(
                 prisma_client=prisma_client,
                 page=page,
@@ -2444,12 +2463,16 @@ class PrometheusLogger(CustomLogger):
             # Get total user count
             total_users = await prisma_client.db.litellm_usertable.count()
             self.litellm_total_users_metric.set(total_users)
-            verbose_logger.debug(f"Prometheus: set litellm_total_users to {total_users}")
+            verbose_logger.debug(
+                f"Prometheus: set litellm_total_users to {total_users}"
+            )
 
             # Get total team count
             total_teams = await prisma_client.db.litellm_teamtable.count()
             self.litellm_teams_count_metric.set(total_teams)
-            verbose_logger.debug(f"Prometheus: set litellm_teams_count to {total_teams}")
+            verbose_logger.debug(
+                f"Prometheus: set litellm_teams_count to {total_teams}"
+            )
         except Exception as e:
             verbose_logger.exception(
                 f"Error initializing user/team count metrics: {str(e)}"
@@ -2477,8 +2500,8 @@ class PrometheusLogger(CustomLogger):
         self,
         user_api_team: Optional[str],
         user_api_team_alias: Optional[str],
-        team_spend: float,
-        team_max_budget: float,
+        team_spend: Optional[float],
+        team_max_budget: Optional[float],
         response_cost: float,
     ):
         """
@@ -2640,7 +2663,7 @@ class PrometheusLogger(CustomLogger):
         user_api_key: Optional[str],
         user_api_key_alias: Optional[str],
         response_cost: float,
-        key_max_budget: float,
+        key_max_budget: Optional[float],
         key_spend: Optional[float],
     ):
         if user_api_key:
@@ -2657,7 +2680,7 @@ class PrometheusLogger(CustomLogger):
         self,
         user_api_key: str,
         user_api_key_alias: str,
-        key_max_budget: float,
+        key_max_budget: Optional[float],
         key_spend: Optional[float],
         response_cost: float,
     ) -> UserAPIKeyAuth:

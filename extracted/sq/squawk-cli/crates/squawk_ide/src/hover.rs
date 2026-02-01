@@ -47,37 +47,25 @@ pub fn hover(file: &ast::SourceFile, offset: TextSize) -> Option<String> {
         match context {
             NameRefClass::CreateIndexColumn
             | NameRefClass::InsertColumn
-            | NameRefClass::DeleteWhereColumn
-            | NameRefClass::UpdateWhereColumn
-            | NameRefClass::UpdateSetColumn
-            | NameRefClass::UpdateReturningColumn
-            | NameRefClass::InsertReturningColumn
-            | NameRefClass::DeleteReturningColumn
-            | NameRefClass::MergeReturningColumn
-            | NameRefClass::MergeWhenColumn
-            | NameRefClass::MergeOnColumn
-            | NameRefClass::CheckConstraintColumn
-            | NameRefClass::GeneratedColumn
-            | NameRefClass::UniqueConstraintColumn
-            | NameRefClass::PrimaryKeyConstraintColumn
-            | NameRefClass::NotNullConstraintColumn
-            | NameRefClass::ExcludeConstraintColumn
-            | NameRefClass::PartitionByColumn
+            | NameRefClass::DeleteColumn
+            | NameRefClass::UpdateColumn
+            | NameRefClass::MergeColumn
+            | NameRefClass::ConstraintColumn
             | NameRefClass::JoinUsingColumn
             | NameRefClass::ForeignKeyColumn
-            | NameRefClass::ForeignKeyLocalColumn
-            | NameRefClass::SequenceOwnedByColumn
-            | NameRefClass::AlterTableColumn
-            | NameRefClass::AlterTableDropColumn => {
+            | NameRefClass::AlterColumn
+            | NameRefClass::QualifiedColumn => {
                 return hover_column(root, &name_ref, &binder);
             }
-            NameRefClass::TypeReference | NameRefClass::DropType | NameRefClass::DropDomain => {
+            NameRefClass::Type => {
                 return hover_type(root, &name_ref, &binder);
             }
             NameRefClass::CompositeTypeField => {
                 return hover_composite_type_field(root, &name_ref, &binder);
             }
-            NameRefClass::SelectColumn | NameRefClass::SelectQualifiedColumn => {
+            NameRefClass::SelectColumn
+            | NameRefClass::SelectQualifiedColumn
+            | NameRefClass::PolicyColumn => {
                 // Try hover as column first
                 if let Some(result) = hover_column(root, &name_ref, &binder) {
                     return Some(result);
@@ -89,82 +77,51 @@ pub fn hover(file: &ast::SourceFile, offset: TextSize) -> Option<String> {
                 // Finally try as table (handles case like `select t from t;` where t is the table)
                 return hover_table(root, &name_ref, &binder);
             }
-            NameRefClass::Table
-            | NameRefClass::DropTable
-            | NameRefClass::DropForeignTable
-            | NameRefClass::DropView
-            | NameRefClass::DropMaterializedView
-            | NameRefClass::CreateIndex
-            | NameRefClass::InsertTable
-            | NameRefClass::InsertQualifiedColumnTable
-            | NameRefClass::DeleteTable
-            | NameRefClass::DeleteQualifiedColumnTable
-            | NameRefClass::DeleteUsingTable
-            | NameRefClass::MergeUsingTable
-            | NameRefClass::UpdateTable
-            | NameRefClass::SelectFromTable
-            | NameRefClass::UpdateFromTable
-            | NameRefClass::SelectQualifiedColumnTable
-            | NameRefClass::UpdateSetQualifiedColumnTable
-            | NameRefClass::MergeQualifiedColumnTable
-            | NameRefClass::UpdateReturningQualifiedColumnTable
-            | NameRefClass::InsertReturningQualifiedColumnTable
-            | NameRefClass::DeleteReturningQualifiedColumnTable
-            | NameRefClass::MergeReturningQualifiedColumnTable
-            | NameRefClass::MergeTable
+            NameRefClass::DeleteQualifiedColumnTable
             | NameRefClass::ForeignKeyTable
+            | NameRefClass::FromTable
+            | NameRefClass::InsertQualifiedColumnTable
             | NameRefClass::LikeTable
-            | NameRefClass::InheritsTable
-            | NameRefClass::PartitionOfTable
-            | NameRefClass::TruncateTable
-            | NameRefClass::LockTable
-            | NameRefClass::VacuumTable
-            | NameRefClass::AlterTable
-            | NameRefClass::ReindexTable
-            | NameRefClass::RefreshMaterializedView
-            | NameRefClass::AttachPartition => {
+            | NameRefClass::MergeQualifiedColumnTable
+            | NameRefClass::PolicyQualifiedColumnTable
+            | NameRefClass::SelectQualifiedColumnTable
+            | NameRefClass::Table
+            | NameRefClass::UpdateQualifiedColumnTable
+            | NameRefClass::View => {
                 return hover_table(root, &name_ref, &binder);
             }
-            NameRefClass::DropSequence => return hover_sequence(root, &name_ref, &binder),
-            NameRefClass::DropTrigger => return hover_trigger(root, &name_ref, &binder),
-            NameRefClass::DropEventTrigger | NameRefClass::AlterEventTrigger => {
+            NameRefClass::Sequence => return hover_sequence(root, &name_ref, &binder),
+            NameRefClass::Trigger => return hover_trigger(root, &name_ref, &binder),
+            NameRefClass::Policy => {
+                return hover_policy(root, &name_ref, &binder);
+            }
+            NameRefClass::EventTrigger => {
                 return hover_event_trigger(root, &name_ref, &binder);
             }
-            NameRefClass::DropDatabase
-            | NameRefClass::ReindexDatabase
-            | NameRefClass::ReindexSystem => return hover_database(root, &name_ref, &binder),
-            NameRefClass::DropServer
-            | NameRefClass::AlterServer
-            | NameRefClass::CreateServer
-            | NameRefClass::ForeignTableServerName => {
+            NameRefClass::Database => {
+                return hover_database(root, &name_ref, &binder);
+            }
+            NameRefClass::Server => {
                 return hover_server(root, &name_ref, &binder);
             }
-            NameRefClass::DropExtension | NameRefClass::AlterExtension => {
+            NameRefClass::Extension => {
                 return hover_extension(root, &name_ref, &binder);
             }
-            NameRefClass::AlterRole
-            | NameRefClass::DropRole
-            | NameRefClass::SetRole
-            | NameRefClass::Role => {
+            NameRefClass::Role => {
                 return hover_role(root, &name_ref, &binder);
             }
             NameRefClass::Tablespace => return hover_tablespace(root, &name_ref, &binder),
-            NameRefClass::DropIndex | NameRefClass::ReindexIndex => {
+            NameRefClass::Index => {
                 return hover_index(root, &name_ref, &binder);
             }
-            NameRefClass::DropFunction
-            | NameRefClass::DefaultConstraintFunctionCall
-            | NameRefClass::TriggerFunctionCall
-            | NameRefClass::OperatorFunctionRef => {
+            NameRefClass::Function | NameRefClass::FunctionCall | NameRefClass::FunctionName => {
                 return hover_function(root, &name_ref, &binder);
             }
-            NameRefClass::DropAggregate => return hover_aggregate(root, &name_ref, &binder),
-            NameRefClass::DropProcedure
-            | NameRefClass::CallProcedure
-            | NameRefClass::TriggerProcedureCall => {
+            NameRefClass::Aggregate => return hover_aggregate(root, &name_ref, &binder),
+            NameRefClass::Procedure | NameRefClass::CallProcedure | NameRefClass::ProcedureCall => {
                 return hover_procedure(root, &name_ref, &binder);
             }
-            NameRefClass::DropRoutine => return hover_routine(root, &name_ref, &binder),
+            NameRefClass::Routine => return hover_routine(root, &name_ref, &binder),
             NameRefClass::SelectFunctionCall => {
                 // Try function first, but fall back to column if no function found
                 // (handles function-call-style column access like `select a(t)`)
@@ -173,9 +130,7 @@ pub fn hover(file: &ast::SourceFile, offset: TextSize) -> Option<String> {
                 }
                 return hover_column(root, &name_ref, &binder);
             }
-            NameRefClass::SchemaQualifier
-            | NameRefClass::DropSchema
-            | NameRefClass::ReindexSchema => {
+            NameRefClass::Schema => {
                 return hover_schema(root, &name_ref, &binder);
             }
             NameRefClass::NamedArgParameter => {
@@ -187,7 +142,7 @@ pub fn hover(file: &ast::SourceFile, offset: TextSize) -> Option<String> {
             NameRefClass::PreparedStatement => {
                 return hover_prepared_statement(root, &name_ref, &binder);
             }
-            NameRefClass::NotifyChannel | NameRefClass::UnlistenChannel => {
+            NameRefClass::Channel => {
                 return hover_channel(root, &name_ref, &binder);
             }
         }
@@ -378,6 +333,21 @@ fn format_hover_for_column_node(
                 ast::Name::cast(column_name_node.clone()).map(|name| Name::from_node(&name))
         {
             return format_view_column(&create_view, column_name, binder);
+        }
+
+        if let Some(create_table_as) = ast::CreateTableAs::cast(a.clone()) {
+            let column_name = if let Some(name) = ast::Name::cast(column_name_node.clone()) {
+                Name::from_node(&name)
+            } else {
+                continue;
+            };
+            let path = create_table_as.path()?;
+            let (schema, table_name) = resolve::resolve_table_info(binder, &path)?;
+            return Some(ColumnHover::schema_table_column(
+                &schema.to_string(),
+                &table_name,
+                &column_name.to_string(),
+            ));
         }
     }
 
@@ -815,6 +785,24 @@ fn hover_trigger(
     format_create_trigger(&create_trigger, binder)
 }
 
+fn hover_policy(
+    root: &SyntaxNode,
+    name_ref: &ast::NameRef,
+    binder: &binder::Binder,
+) -> Option<String> {
+    let policy_ptr = resolve::resolve_name_ref_ptrs(binder, root, name_ref)?
+        .into_iter()
+        .next()?;
+
+    let policy_name_node = policy_ptr.to_node(root);
+
+    let create_policy = policy_name_node
+        .ancestors()
+        .find_map(ast::CreatePolicy::cast)?;
+
+    format_create_policy(&create_policy, binder)
+}
+
 fn hover_event_trigger(
     root: &SyntaxNode,
     name_ref: &ast::NameRef,
@@ -1100,6 +1088,20 @@ fn format_create_trigger(
     Some(format!(
         "trigger {}.{} on {}.{}",
         schema, trigger_name, schema, table_name
+    ))
+}
+
+fn format_create_policy(
+    create_policy: &ast::CreatePolicy,
+    binder: &binder::Binder,
+) -> Option<String> {
+    let policy_name = create_policy.name()?.syntax().text().to_string();
+    let on_table_path = create_policy.on_table()?.path()?;
+
+    let (schema, table_name) = resolve::resolve_table_info(binder, &on_table_path)?;
+    Some(format!(
+        "policy {}.{} on {}.{}",
+        schema, policy_name, schema, table_name
     ))
 }
 
@@ -3572,6 +3574,19 @@ select a$0, b from v;
         hover: column public.v.a
           ╭▸ 
         3 │ select a, b from v;
+          ╰╴       ─ hover
+        ");
+    }
+
+    #[test]
+    fn hover_on_select_column_from_create_table_as() {
+        assert_snapshot!(check_hover("
+create table t as select 1 a;
+select a$0 from t;
+"), @r"
+        hover: column public.t.a
+          ╭▸ 
+        3 │ select a from t;
           ╰╴       ─ hover
         ");
     }

@@ -5864,6 +5864,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSHEALTH_IMAGING_SERVICE_ROLE_POLICY = "AWSHEALTH_IMAGING_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

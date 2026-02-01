@@ -227,6 +227,7 @@ class KeyManagementRoutes(str, enum.Enum):
     KEY_REGENERATE_WITH_PATH_PARAM = "/key/{key_id}/regenerate"
     KEY_BLOCK = "/key/block"
     KEY_UNBLOCK = "/key/unblock"
+    KEY_BULK_UPDATE = "/key/bulk_update"
 
     # info and health routes
     KEY_INFO = "/key/info"
@@ -293,6 +294,8 @@ class LiteLLMRoutes(enum.Enum):
         "/batches",
         "/v1/batches/{batch_id}",
         "/batches/{batch_id}",
+        "/v1/batches/{batch_id}/cancel",
+        "/batches/{batch_id}/cancel",
         # files
         "/v1/files",
         "/files",
@@ -353,6 +356,9 @@ class LiteLLMRoutes(enum.Enum):
         "/v1/vector_stores/{vector_store_id}/files/{file_id}",
         "/vector_stores/{vector_store_id}/files/{file_id}/content",
         "/v1/vector_stores/{vector_store_id}/files/{file_id}/content",
+        "/vector_store/list",
+        "/v1/vector_store/list",
+
         # search
         "/search",
         "/v1/search",
@@ -379,6 +385,7 @@ class LiteLLMRoutes(enum.Enum):
         "/azure",
         "/azure_ai",
         "/openai",
+        "/openai_passthrough",
         "/assemblyai",
         "/eu.assemblyai",
         "/vllm",
@@ -425,12 +432,12 @@ class LiteLLMRoutes(enum.Enum):
     ]
 
     google_routes = [
-        "/v1beta/models/{model_name}:countTokens",
-        "/v1beta/models/{model_name}:generateContent",
-        "/v1beta/models/{model_name}:streamGenerateContent",
-        "/models/{model_name}:countTokens",
-        "/models/{model_name}:generateContent",
-        "/models/{model_name}:streamGenerateContent",
+        "/v1beta/models/{model_name:path}:countTokens",
+        "/v1beta/models/{model_name:path}:generateContent",
+        "/v1beta/models/{model_name:path}:streamGenerateContent",
+        "/models/{model_name:path}:countTokens",
+        "/models/{model_name:path}:generateContent",
+        "/models/{model_name:path}:streamGenerateContent",
         # Google Interactions API
         "/interactions",
         "/v1beta/interactions",
@@ -494,6 +501,7 @@ class LiteLLMRoutes(enum.Enum):
         KeyManagementRoutes.KEY_LIST.value,
         KeyManagementRoutes.KEY_BLOCK.value,
         KeyManagementRoutes.KEY_UNBLOCK.value,
+        KeyManagementRoutes.KEY_BULK_UPDATE.value,
     ]
 
     management_routes = [
@@ -2073,6 +2081,14 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
         None,
         description="Controls how non-admin users interact with MCP servers in the dashboard. 'restricted' shows only accessible servers, 'view_all' lists every server in read-only mode.",
     )
+    store_prompts_in_spend_logs: Optional[bool] = Field(
+        None,
+        description="If True, stores request messages and responses in spend logs. Default is False.",
+    )
+    maximum_spend_logs_retention_period: Optional[str] = Field(
+        None,
+        description="Maximum retention period for spend logs (e.g., '7d' for 7 days). Logs older than this will be deleted.",
+    )
 
 
 class ConfigYAML(LiteLLMPydanticObjectBase):
@@ -2139,10 +2155,6 @@ class LiteLLM_VerificationToken(LiteLLMPydanticObjectBase):
     rotation_interval: Optional[str] = None  # How often to rotate (e.g., "30d", "90d")
     last_rotation_at: Optional[datetime] = None  # When this key was last rotated
     key_rotation_at: Optional[datetime] = None  # When this key should next be rotated
-    router_settings: Optional[
-        Dict
-    ] = None  # Router settings for this key (Key > Team > Global precedence)
-
     model_config = ConfigDict(protected_namespaces=())
 
 
@@ -3428,6 +3440,8 @@ class LitellmMetadataFromRequestHeaders(TypedDict, total=False):
     """
 
     spend_logs_metadata: Optional[dict]
+    agent_id: Optional[str]
+    trace_id: Optional[str]
 
 
 class JWTKeyItem(TypedDict, total=False):
@@ -3907,6 +3921,8 @@ class LiteLLM_ManagedVectorStoresTable(LiteLLMPydanticObjectBase):
     updated_at: Optional[datetime]
     litellm_credential_name: Optional[str]
     litellm_params: Optional[Dict[str, Any]]
+    team_id: Optional[str]
+    user_id: Optional[str]
 
 
 class ResponseLiteLLM_ManagedVectorStore(TypedDict, total=False):

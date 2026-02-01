@@ -11,6 +11,7 @@
 from .common import BaseExtractor, Message
 from .. import text, exception
 from ..cache import cache
+import binascii
 
 
 class XenforoExtractor(BaseExtractor):
@@ -23,7 +24,7 @@ class XenforoExtractor(BaseExtractor):
 
     def __init__(self, match):
         BaseExtractor.__init__(self, match)
-        self.cookies_domain = "." + self.root.split("/")[2]
+        self.cookies_domain = self.root.split("/")[2]
         self.cookies_names = self.config_instance("cookies") or ("xf_user",)
 
     def items(self):
@@ -46,7 +47,9 @@ class XenforoExtractor(BaseExtractor):
         for post in self.posts():
             urls = extract_urls(post["content"])
             if post["attachments"]:
-                urls.extend(extract_urls(post["attachments"]))
+                for att in text.extract_iter(
+                        post["attachments"], "<li", "</li>"):
+                    urls.append((None, att[att.find('href="')+6:], None, None))
 
             data = {"post": post}
             post["count"] = data["count"] = len(urls)
@@ -63,6 +66,9 @@ class XenforoExtractor(BaseExtractor):
                     if ext[0] == "/":
                         if ext[1] == "/":
                             ext = "https:" + ext
+                        elif ext.startswith("/goto/link-confirmation?"):
+                            params = text.parse_query(text.unescape(ext[24:]))
+                            ext = binascii.a2b_base64(params["url"]).decode()
                         else:
                             continue
                     data["num"] += 1
@@ -93,7 +99,8 @@ class XenforoExtractor(BaseExtractor):
                             continue
                         else:
                             id_last = id
-                    if alt := text.extr(inline, 'alt="', '"'):
+                    if alt := (text.extr(inline, 'alt="', '"') or
+                               text.extr(inline, 'title="', '"')):
                         text.nameext_from_name(alt, data)
                         if not data["extension"]:
                             data["extension"] = name.rpartition("-")[2]
@@ -154,7 +161,8 @@ class XenforoExtractor(BaseExtractor):
             raise
 
     def login(self):
-        if self.cookies_names and self.cookies_check(self.cookies_names):
+        if self.cookies_names and self.cookies_check(
+                self.cookies_names, subdomains=True):
             return
 
         username, password = self._get_auth_info()
@@ -178,7 +186,8 @@ class XenforoExtractor(BaseExtractor):
 
         if not response.history:
             err = self._extract_error(response.text)
-            raise exception.AuthenticationError(f'"{err}"')
+            err = f'"{err}"' if err else None
+            raise exception.AuthenticationError(err)
 
         return {
             cookie.name: cookie.value
@@ -237,8 +246,9 @@ class XenforoExtractor(BaseExtractor):
             page = self.request_page(url).text
 
     def _extract_error(self, html):
-        return text.unescape(text.extr(
-            html, "blockMessage--error", "</").rpartition(">")[2].strip())
+        if msg := (text.extr(html, "blockMessage--error", "</") or
+                   text.extr(html, '"blockMessage"', "</div>")):
+            return text.unescape(msg[msg.find(">")+1:].strip())
 
     def _parse_post(self, html):
         extr = text.extract_from(html)
@@ -394,6 +404,14 @@ BASE_PATTERN = XenforoExtractor.update({
     "celebforum": {
         "root": "https://celebforum.to",
         "pattern": r"(?:www\.)?celebforum\.to",
+    },
+    "titsintops": {
+        "root": "https://titsintops.com/phpBB2",
+        "pattern": r"(?:www\.)?titsintops\.com/phpBB2",
+    },
+    "socialmediagirlsforum": {
+        "root": "https://forums.socialmediagirls.com",
+        "pattern": r"forums\.socialmediagirls\.com",
     },
 })
 

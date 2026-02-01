@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import copy
 import hashlib
 import html
@@ -1722,7 +1721,7 @@ class MyPlexPinLogin:
 
                 from plexapi.myplex import MyPlexAccount, MyPlexPinLogin
 
-                pinlogin = MyPlexPinLogin()
+                pinlogin = MyPlexPinLogin(oauth=True)
                 pinlogin.run()
                 print(f'Login to Plex at the following url:\\n{pinlogin.oauthUrl()}')
                 pinlogin.waitForLogin()
@@ -1759,7 +1758,7 @@ class MyPlexPinLogin:
         """
         if self._oauth:
             raise BadRequest('Cannot use PIN for Plex OAuth login')
-        return self._code
+        return self._getCode()
 
     def oauthUrl(self, forwardUrl=None):
         """ Return the Plex OAuth url for login.
@@ -1779,7 +1778,7 @@ class MyPlexPinLogin:
             'context[device][platformVersion]': headers['X-Plex-Platform-Version'],
             'context[device][device]': headers['X-Plex-Device'],
             'context[device][deviceName]': headers['X-Plex-Device-Name'],
-            'code': self._code
+            'code': self._getCode()
         }
         if forwardUrl:
             params['forwardUrl'] = forwardUrl
@@ -1848,6 +1847,9 @@ class MyPlexPinLogin:
         return False
 
     def _getCode(self):
+        if self._code:
+            return self._code
+
         url = self.PINS
 
         if self._oauth:
@@ -2067,12 +2069,12 @@ class MyPlexJWTLogin:
 
         privateKey = ed25519.Ed25519PrivateKey.generate()
         publicKey = privateKey.public_key()
-        self._privateKey = privateKey.private_bytes(
+        _privateKey = privateKey.private_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PrivateFormat.Raw,
             encryption_algorithm=serialization.NoEncryption()
         )
-        self._publicKey = publicKey.public_bytes(
+        _publicKey = publicKey.public_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw
         )
@@ -2082,8 +2084,11 @@ class MyPlexJWTLogin:
                 raise FileExistsError('Keypair files already exist, set overwrite=True to overwrite them.')
 
             with open(keyfiles[0], 'wb') as privateFile, open(keyfiles[1], 'wb') as publicFile:
-                privateFile.write(self._privateKey)
-                publicFile.write(self._publicKey)
+                privateFile.write(_privateKey)
+                publicFile.write(_publicKey)
+
+        self._privateKey = _privateKey
+        self._publicKey = _publicKey
 
     @property
     def _clientIdentifier(self):
@@ -2143,23 +2148,45 @@ class MyPlexJWTLogin:
             headers=headers
         )
 
-    def _decodePlexJWT(self):
-        """ Returns the decoded and verified Plex JWT using the Plex public JWK. """
-        return jwt.decode(
-            self.jwtToken,
-            key=jwt.PyJWK.from_dict(self._getPlexPublicJWK()),
-            algorithms=['EdDSA'],
-            options={
-                'require': ['aud', 'iss', 'exp', 'iat', 'thumbprint']
-            },
-            audience=['plex.tv', self._clientIdentifier],
-            issuer='plex.tv',
-        )
+    def decodePlexJWT(self, verify_signature=True):
+        """ Returns the decoded Plex JWT with optional signature verification using the Plex public JWK.
+
+            Parameters:
+                verify_signature (bool): Whether to verify the JWT signature and required claims.
+                    Defaults to True. Set to False to skip signature verification and required-claim enforcement.
+        """
+        kwargs = {
+            'jwt': self.jwtToken,
+            'algorithms': ['EdDSA'],
+            'options': {'verify_signature': verify_signature},
+            'audience': ['plex.tv', self._clientIdentifier],
+            'issuer': 'plex.tv',
+        }
+
+        if not verify_signature:
+            return jwt.decode(**kwargs)
+
+        kwargs['options']['require'] = ['aud', 'iss', 'exp', 'iat', 'thumbprint']
+
+        for plexJWK in reversed(self._getPlexPublicJWK()):
+            try:
+                return jwt.decode(
+                    key=jwt.PyJWK.from_dict(plexJWK),
+                    **kwargs
+                )
+            except jwt.InvalidSignatureError:
+                continue
+            except jwt.InvalidTokenError as e:
+                log.warning('Invalid Plex JWT: %s', str(e))
+                raise
+
+        log.warning('Plex JWT signature could not be verified with any known Plex JWKs')
+        raise jwt.InvalidSignatureError
 
     @property
     def decodedJWT(self):
-        """ Returns the decoded Plex JWT. """
-        return self._decodePlexJWT()
+        """ Returns the decoded Plex JWT with signature verification and required-claim enforcement. """
+        return self.decodePlexJWT()
 
     def _registerPlexDevice(self):
         """ Registers the public JWK with Plex. """
@@ -2182,10 +2209,10 @@ class MyPlexJWTLogin:
         return data['auth_token']
 
     def _getPlexPublicJWK(self):
-        """ Gets the Plex public JWK. """
+        """ Gets the Plex public JWKs. """
         url = f'{self.AUTH}/keys'
         data = self._query(url, method=self._session.get)
-        return data['keys'][0]
+        return data['keys']
 
     def registerDevice(self):
         """ Registers the device with Plex using the provided token and private/public keypair.
@@ -2231,14 +2258,7 @@ class MyPlexJWTLogin:
         """
         try:
             decodedJWT = self.decodedJWT
-        except jwt.ExpiredSignatureError:
-            log.warning('Existing JWT has expired')
-            return False
-        except jwt.InvalidSignatureError:
-            log.warning('Existing JWT has invalid signature')
-            return False
-        except jwt.InvalidTokenError as e:
-            log.warning(f'Existing JWT is invalid: {e}')
+        except jwt.InvalidTokenError:
             return False
         else:
             if decodedJWT['thumbprint'] != self._keyID:
@@ -2426,7 +2446,7 @@ class MyPlexJWTLogin:
             codename = codes.get(response.status_code)[0]
             errtext = response.text.replace('\n', ' ')
             raise BadRequest(f'({response.status_code}) {codename} {response.url}; {errtext}')
-        if 'application/json' in response.headers.get('Content-Type', ''):
+        if 'application/json' in response.headers.get('Content-Type', '') and len(response.content):
             return response.json()
         return utils.parseXMLString(response.text)
 

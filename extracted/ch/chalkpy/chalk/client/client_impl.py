@@ -4446,7 +4446,7 @@ https://docs.chalk.ai/cli/apply
         explain: bool = False,
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
-        planner_options: Mapping[str, str | int | bool] | None = None,
+        planner_options: Mapping[str, Any] | None = None,
     ) -> PlanQueryResponse:
         encoded_inputs = encode_outputs(input).string_outputs
         outputs = encode_outputs(output).string_outputs

@@ -501,6 +501,206 @@ drop trigger tr$0 on t;
     }
 
     #[test]
+    fn goto_drop_policy() {
+        assert_snapshot!(goto("
+create table t(c int);
+create table u(c int);
+create policy p on t;
+create policy p on u;
+drop policy if exists p$0 on t;
+"), @r"
+          ╭▸ 
+        4 │ create policy p on t;
+          │               ─ 2. destination
+        5 │ create policy p on u;
+        6 │ drop policy if exists p on t;
+          ╰╴                      ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_policy() {
+        assert_snapshot!(goto("
+create table t(c int);
+create policy p on t;
+alter policy p$0 on t
+  with check (c > 1);
+"), @r"
+          ╭▸ 
+        3 │ create policy p on t;
+          │               ─ 2. destination
+        4 │ alter policy p on t
+          ╰╴             ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_policy_column() {
+        assert_snapshot!(goto("
+create table t(c int);
+create policy p on t;
+alter policy p on t
+  with check (c$0 > 1);
+"), @r"
+          ╭▸ 
+        3 │ create policy p on t;
+          │               ─ 2. destination
+        4 │ alter policy p on t
+        5 │   with check (c > 1);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_column() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+create policy p on t
+  with check (c$0 > d);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │                ─ 2. destination
+        3 │ create policy p on t
+        4 │   with check (c > d);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_using_column() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+create policy p on t
+  using (c$0 > d and 1 < 2);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │                ─ 2. destination
+        3 │ create policy p on t
+        4 │   using (c > d and 1 < 2);
+          ╰╴         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_qualified_column_table() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+create policy p on t
+  with check (t$0.c > d);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │              ─ 2. destination
+        3 │ create policy p on t
+        4 │   with check (t.c > d);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_qualified_column() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+create policy p on t
+  with check (t.c$0 > d);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │                ─ 2. destination
+        3 │ create policy p on t
+        4 │   with check (t.c > d);
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_field_style_function_call() {
+        assert_snapshot!(goto("
+create table t(c int);
+create function x(t) returns int8
+  as 'select 1'
+  language sql;
+create policy p on t
+  with check (t.c > 1 and t.x$0 > 0);
+"), @r"
+          ╭▸ 
+        3 │ create function x(t) returns int8
+          │                 ─ 2. destination
+          ‡
+        7 │   with check (t.c > 1 and t.x > 0);
+          ╰╴                            ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_policy_qualified_column_table() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+alter policy p on t
+  with check (t$0.c > d);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │              ─ 2. destination
+        3 │ alter policy p on t
+        4 │   with check (t.c > d);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_alter_policy_qualified_column() {
+        assert_snapshot!(goto("
+create table t(c int, d int);
+alter policy p on t
+  with check (t.c$0 > d);
+"), @r"
+          ╭▸ 
+        2 │ create table t(c int, d int);
+          │                ─ 2. destination
+        3 │ alter policy p on t
+        4 │   with check (t.c > d);
+          ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_schema_qualified_table() {
+        assert_snapshot!(goto("
+create schema foo;
+create table foo.t(c int);
+create policy p on foo.t
+  with check (foo.t$0.c > 1);
+"), @r"
+          ╭▸ 
+        3 │ create table foo.t(c int);
+          │                  ─ 2. destination
+        4 │ create policy p on foo.t
+        5 │   with check (foo.t.c > 1);
+          ╰╴                  ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_create_policy_unqualified_table_with_schema_on_table() {
+        assert_snapshot!(goto("
+create schema foo;
+create table foo.t(c int);
+create policy p on foo.t
+  with check (t$0.c > 1);
+"), @r"
+          ╭▸ 
+        3 │ create table foo.t(c int);
+          │                  ─ 2. destination
+        4 │ create policy p on foo.t
+        5 │   with check (t.c > 1);
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_drop_event_trigger() {
         assert_snapshot!(goto("
 create event trigger et on ddl_command_start execute function f();
@@ -2048,6 +2248,34 @@ select v.a$0 from v;
     }
 
     #[test]
+    fn goto_create_table_as_column() {
+        assert_snapshot!(goto("
+create table t as select 1 a;
+select a$0 from t;
+"), @r"
+          ╭▸ 
+        2 │ create table t as select 1 a;
+          │                            ─ 2. destination
+        3 │ select a from t;
+          ╰╴       ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_from_create_table_as() {
+        assert_snapshot!(goto("
+create table t as select 1 a;
+select a from t$0;
+"), @r"
+          ╭▸ 
+        2 │ create table t as select 1 a;
+          │              ─ 2. destination
+        3 │ select a from t;
+          ╰╴              ─ 1. source
+        ");
+    }
+
+    #[test]
     fn goto_view_with_explicit_column_list() {
         assert_snapshot!(goto("
 create view v(col1) as select 1;
@@ -3391,6 +3619,23 @@ create table t(a int, b int);
 select a$0(t, 1) from t;
 ",
         );
+    }
+
+    #[test]
+    fn goto_function_call_nested() {
+        assert_snapshot!(goto("
+create function f() returns int8
+  as 'select 1'
+  language sql;
+select format('foo%d', f$0());
+"), @r"
+          ╭▸ 
+        2 │ create function f() returns int8
+          │                 ─ 2. destination
+          ‡
+        5 │ select format('foo%d', f());
+          ╰╴                       ─ 1. source
+        ");
     }
 
     #[test]
@@ -6331,6 +6576,34 @@ alter table users$0 drop column email;
           │              ───── 2. destination
         3 │ alter table users drop column email;
           ╰╴                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_table() {
+        assert_snapshot!(goto("
+create table t(id int);
+comment on table t$0 is '';
+"), @r"
+          ╭▸ 
+        2 │ create table t(id int);
+          │              ─ 2. destination
+        3 │ comment on table t is '';
+          ╰╴                 ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_comment_on_column() {
+        assert_snapshot!(goto("
+create table t(id int);
+comment on column t.id$0 is '';
+"), @r"
+          ╭▸ 
+        2 │ create table t(id int);
+          │                ── 2. destination
+        3 │ comment on column t.id is '';
+          ╰╴                     ─ 1. source
         ");
     }
 

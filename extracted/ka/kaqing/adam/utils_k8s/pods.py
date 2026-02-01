@@ -47,7 +47,8 @@ class Pods:
         if not max_workers:
             max_workers = Config().action_workers(action, 0)
         if samples == sys.maxsize:
-            samples = Config().action_node_samples(action, sys.maxsize)
+            if not Config().action_node_always_parallelize(action, False):
+                samples = Config().action_node_samples(action, sys.maxsize)
 
         return ParallelMapHandler(collection, max_workers, samples = samples, msg = msg, name=action)
 

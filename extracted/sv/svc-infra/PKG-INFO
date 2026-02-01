@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: svc-infra
-Version: 1.9.0
+Version: 1.11.0
 Summary: Infrastructure for building and deploying prod-ready services
 License: MIT
 Keywords: fastapi,sqlalchemy,alembic,auth,infra,async,pydantic

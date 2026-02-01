@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash-pydantic-form
-Version: 0.18.2
+Version: 0.18.3
 Summary: Create Dash forms from pydantic objects
 Project-URL: Homepage, https://pydf-docs.onrender.com
 Project-URL: Source, https://github.com/RenaudLN/dash-pydantic-form

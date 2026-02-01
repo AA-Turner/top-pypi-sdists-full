@@ -34,6 +34,9 @@ class Config(ConfigReadable):
     def action_node_samples(self, action: str, default: T):
         return self.get(f'{action}.samples', default)
 
+    def action_node_always_parallelize(self, action: str, default: T):
+        return self.get(f'{action}.always-parallelize', default)
+
     def action_workers(self, action: str, default: T):
         return self.get(f'{action}.workers', default)
 

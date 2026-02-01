@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash-pydantic-utils
-Version: 0.18.2
+Version: 0.18.3
 Summary: Utils for dash-pydantic-form, allows to use the utils in other places without requiring Dash.
 Project-URL: Source, https://github.com/RenaudLN/dash-pydantic-form
 Author-email: Renaud Lainé <renaudlaine31@gmail.com>

@@ -74,7 +74,6 @@ fn builtin_hooks_unknown_hook() {
 fn end_of_file_fixer_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -148,7 +147,6 @@ fn end_of_file_fixer_hook() -> Result<()> {
 fn check_yaml_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -207,7 +205,6 @@ fn check_yaml_hook() -> Result<()> {
 fn check_yaml_multiple_document() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -254,7 +251,6 @@ fn check_yaml_multiple_document() -> Result<()> {
 fn check_json_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -313,8 +309,6 @@ fn check_json_hook() -> Result<()> {
 fn mixed_line_ending_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
-    context.disable_auto_crlf();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -471,7 +465,6 @@ fn mixed_line_ending_hook() -> Result<()> {
 fn check_added_large_files_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     // Create an initial commit
     let cwd = context.work_dir();
@@ -575,7 +568,6 @@ fn check_added_large_files_hook() -> Result<()> {
 fn tracked_file_exceeds_large_file_limit() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -613,8 +605,6 @@ fn tracked_file_exceeds_large_file_limit() -> Result<()> {
 fn builtin_hooks_workspace_mode() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
-    context.disable_auto_crlf();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -823,7 +813,6 @@ fn builtin_hooks_workspace_mode() -> Result<()> {
 fn fix_byte_order_marker_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -888,7 +877,6 @@ fn fix_byte_order_marker_hook() -> Result<()> {
 fn check_symlinks_hook_unix() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -953,7 +941,6 @@ fn check_symlinks_hook_unix() -> Result<()> {
 fn check_symlinks_hook_windows() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1023,7 +1010,6 @@ fn check_symlinks_hook_windows() -> Result<()> {
 fn detect_private_key_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1114,7 +1100,6 @@ fn detect_private_key_hook() -> Result<()> {
 fn check_merge_conflict_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1194,7 +1179,6 @@ fn check_merge_conflict_hook() -> Result<()> {
 fn check_merge_conflict_without_assume_flag() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     // Without --assume-in-merge, hook should pass even with conflict markers
     // if we're not actually in a merge state
@@ -1234,7 +1218,6 @@ fn check_merge_conflict_without_assume_flag() -> Result<()> {
 fn check_xml_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1334,7 +1317,6 @@ fn check_xml_hook() -> Result<()> {
 fn check_xml_with_features() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1392,7 +1374,6 @@ fn check_xml_with_features() -> Result<()> {
 fn no_commit_to_branch_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1466,7 +1447,6 @@ fn no_commit_to_branch_hook() -> Result<()> {
 fn no_commit_to_branch_hook_with_custom_branches() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1541,7 +1521,6 @@ fn no_commit_to_branch_hook_with_custom_branches() -> Result<()> {
 fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1674,7 +1653,6 @@ fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
 fn check_executables_have_shebangs_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1757,10 +1735,10 @@ fn check_executables_have_shebangs_hook() -> Result<()> {
 #[cfg(windows)]
 #[test]
 fn check_executables_have_shebangs_win() -> Result<()> {
-    use std::process::Command;
+    use crate::common::git_cmd;
+
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     let repo_path = context.work_dir();
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -1779,18 +1757,16 @@ fn check_executables_have_shebangs_win() -> Result<()> {
 
     context.git_add(".");
 
-    Command::new("git")
+    git_cmd(repo_path)
         .args(["update-index", "--chmod=+x", "win_script_with_shebang.sh"])
-        .current_dir(repo_path)
         .status()?;
 
-    Command::new("git")
+    git_cmd(repo_path)
         .args([
             "update-index",
             "--chmod=+x",
             "win_script_without_shebang.sh",
         ])
-        .current_dir(repo_path)
         .status()?;
 
     cmd_snapshot!(context.filters(), context.run(), @r#"
@@ -1817,7 +1793,6 @@ fn check_executables_have_shebangs_win() -> Result<()> {
 fn check_executables_have_shebangs_various_cases() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1910,10 +1885,10 @@ fn check_executables_have_shebangs_various_cases() -> Result<()> {
 #[cfg(windows)]
 #[test]
 fn check_executables_have_shebangs_various_cases_win() -> Result<()> {
-    use std::process::Command;
+    use crate::common::git_cmd;
+
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
           - repo: builtin
@@ -1943,9 +1918,8 @@ fn check_executables_have_shebangs_various_cases_win() -> Result<()> {
     ];
 
     for file in &executable_files {
-        Command::new("git")
+        git_cmd(cwd.path())
             .args(["update-index", "--chmod=+x", file])
-            .current_dir(cwd.path())
             .status()?;
     }
 
@@ -1990,7 +1964,6 @@ fn is_case_sensitive_filesystem(context: &TestContext) -> Result<bool> {
 fn check_case_conflict_hook() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     if !is_case_sensitive_filesystem(&context)? {
         // Skipping test on case-insensitive filesystem
@@ -2054,7 +2027,6 @@ fn check_case_conflict_hook() -> Result<()> {
 fn check_case_conflict_directory() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     if !is_case_sensitive_filesystem(&context)? {
         // Skipping test on case-insensitive filesystem
@@ -2099,7 +2071,6 @@ fn check_case_conflict_directory() -> Result<()> {
 fn check_case_conflict_among_new_files() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     if !is_case_sensitive_filesystem(&context)? {
         // Skipping test on case-insensitive filesystem
@@ -2146,7 +2117,6 @@ fn check_case_conflict_among_new_files() -> Result<()> {
 fn check_json5() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -2224,7 +2194,6 @@ fn check_json5() -> Result<()> {
 fn builtin_hooks_ignore_system_path_binaries() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     // Create a fake "trailing-whitespace-fixer" binary with a shebang in a temp dir.
     // This simulates `pip install pre-commit-hooks` which places such binaries in PATH.

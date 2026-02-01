@@ -1,10 +1,9 @@
 from adam.commands import extract_options, extract_trailing_options, validate_args
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_cassandra.cassandra import Cassandra
-from adam.utils_cassandra.node_restartable import NodeRestartable
-from adam.utils_cassandra.node_restarter import NodeRestarter
+from adam.utils_cassandra.cassandra_status import CassandraStatus
+from adam.utils_cassandra.node_restartability import NodeRestartability
+from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
 from adam.utils_context import Context
 from adam.utils_k8s.statefulsets import StatefulSets
 
@@ -37,7 +36,7 @@ class ShowNodeRestartable(Command):
                         pod = args[0]
 
                         ctx: Context = Context.new(cmd=cmd, show_out=True, show_verbose=verbose, background=background)
-                        node: NodeRestartable = Cassandra.restartable(state, pod, in_restartings=NodeRestarter.restartings(ctx=ctx), ctx=ctx)
+                        node: NodeRestartability = CassandraStatus.restartable(state, pod, in_restartings=NodeRestartScheduler.restartings(ctx=ctx), ctx=ctx)
 
                         node.log(ctx)
 

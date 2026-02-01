@@ -17,7 +17,6 @@ use crate::converter::inline::link::append_markdown_link;
 use crate::converter::main::walk_node;
 use crate::converter::utility::content::{
     collect_link_label_text, escape_link_label, get_text_content, normalize_link_label, normalized_tag_name,
-    truncate_at_char_boundary,
 };
 use crate::options::ConversionOptions;
 use crate::text;
@@ -48,8 +47,6 @@ pub fn handle_link(
     depth: usize,
     dom_ctx: &DomContext,
 ) {
-    const MAX_LINK_LABEL_LEN: usize = 512;
-
     let href_attr = tag
         .attributes()
         .get("href")
@@ -191,11 +188,6 @@ pub fn handle_link(
             label = href.clone();
         }
 
-        if label.len() > MAX_LINK_LABEL_LEN {
-            truncate_at_char_boundary(&mut label, MAX_LINK_LABEL_LEN);
-            label.push('…');
-        }
-
         let escaped_label = escape_link_label(&label);
 
         #[cfg(feature = "visitor")]
@@ -300,7 +292,7 @@ pub fn handle_link(
                 }
                 collector
                     .borrow_mut()
-                    .add_link(href.clone(), label.clone(), title.clone(), rel_attr, attributes_map);
+                    .add_link(href.clone(), label, title.clone(), rel_attr, attributes_map);
             }
         }
     } else {

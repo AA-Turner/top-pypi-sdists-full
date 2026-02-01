@@ -661,19 +661,8 @@ class ParallelMapHandler:
         else:
             log2(f'{" ".join(self.begin)} with {self.workers} workers...')
 
-# parallelizers: dict[str, ParallelMapHandler] = {}
-# parallelizer_lock = threading.Lock()
-
 def parallelize(collection: list, workers: int = 0, samples = sys.maxsize, msg: str = None, collect = True, name = None):
     return ParallelMapHandler(collection, workers, samples = samples, msg = msg, collect = collect, name = name)
-    # if not name:
-    #     return ParallelMapHandler(collection, workers, samples = samples, msg = msg, collect = collect)
-
-    # with parallelizer_lock:
-    #     if name not in parallelizers:
-    #         parallelizers[name] = ParallelMapHandler(collection, workers, samples = samples, msg = msg, collect = collect, name = name)
-
-    # return parallelizers[name]
 
 class OffloadService:
     def __init__(self, handler: 'OffloadHandler'):

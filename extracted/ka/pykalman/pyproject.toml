@@ -1,6 +1,6 @@
 [project]
 name = "pykalman"
-version = "0.11.1"
+version = "0.11.2"
 description = "An implementation of the Kalman Filter, Kalman Smoother, and EM algorithm in Python"
 maintainers = [
     {name = "pykalman developers", email = "info@gcos.ai"}
@@ -57,7 +57,7 @@ dev = [
 
 docs = [
     "jupyter",
-    "Sphinx<9.0.0",
+    "Sphinx<10.0.0",
     "numpydoc",
     "matplotlib"
 ]
@@ -65,7 +65,7 @@ docs = [
 all = [
     "jupyter",
     "pytest",
-    "Sphinx<9.0.0",
+    "Sphinx<10.0.0",
     "numpydoc",
     "twine",
     "pre-commit"

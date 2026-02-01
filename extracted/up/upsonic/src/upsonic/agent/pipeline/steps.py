@@ -61,8 +61,8 @@ class InitializationStep(Step):
             
             task.task_start(agent)
             
-            # Check print flag before calling agent_started
-            should_print = agent and hasattr(agent, 'print') and agent.print
+            # Check print flag from context (thread-safe, set per-run)
+            should_print = context.print_flag
             if should_print:
                 from upsonic.utils.printing import agent_started
                 agent_started(agent.get_agent_id())
@@ -850,17 +850,23 @@ class MessageBuildStep(Step):
                 getattr(agent._culture_manager.culture, 'add_system_prompt', False)
             )
             
+            # Set chat_history to historical messages FIRST and mark run start
+            # This ensures new_messages() captures both request and response
+            historical_messages = memory_manager.get_message_history()
+            context.chat_history = list(historical_messages)  # Copy to avoid mutation
+            
+            # Mark the start of this run for message tracking
+            # This records the current chat_history length (historical only) so new_messages()
+            # knows where new messages from this run begin
+            context.start_new_run()
+            
+            # Now build the full messages including the new request
             messages = await agent._build_model_request(
                 task,
                 memory_manager,
                 None,
             )
             context.chat_history = messages
-            
-            # Mark the start of this run for message tracking
-            # This records the current chat_history length so new_messages() 
-            # knows where new messages from this run begin
-            context.start_new_run()
             
             if agent.debug and agent.debug_level >= 2:
                 from upsonic.utils.printing import debug_log_level2
@@ -1010,7 +1016,7 @@ class ModelExecutionStep(Step):
                 model,
                 task,
                 debug=agent.debug,
-                print_output=agent.print if (agent and hasattr(agent, 'print')) else False,
+                print_output=context.print_flag,
                 show_tool_calls=agent.show_tool_calls
             )
             if pipeline_manager:
@@ -1594,7 +1600,7 @@ class CallManagementStep(Step):
                     tool_usage_result,
                     agent.debug,
                     getattr(task, 'price_id', None),
-                    print_output=agent.print if (agent and hasattr(agent, 'print')) else False
+                    print_output=context.print_flag
                 )
             
             step_result = StepResult(
@@ -2566,6 +2572,10 @@ class StreamModelExecutionStep(Step):
         final_response = stream.get()
         context.response = final_response
         
+        # Add the final response to chat_history for message tracking
+        # This ensures the response is included in session memory
+        context.chat_history.append(final_response)
+        
         # Update usage from streaming response
         if hasattr(final_response, 'usage') and final_response.usage:
             context.update_usage_from_response(final_response.usage)
@@ -2617,8 +2627,7 @@ class StreamModelExecutionStep(Step):
             
             # Check for tool limit reached
             if context.tool_limit_reached:
-                # Add tool calls and results to chat_history
-                context.chat_history.append(final_response)
+                # Add tool results to chat_history (response already added above)
                 context.chat_history.append(ModelRequest(parts=tool_results))
                 
                 # Add limit notification
@@ -2673,8 +2682,7 @@ class StreamModelExecutionStep(Step):
                 context.response = stop_response
                 return
             
-            # Add tool calls and results to chat_history
-            context.chat_history.append(final_response)
+            # Add tool results to chat_history (response already added above)
             context.chat_history.append(ModelRequest(parts=tool_results))
             
             # Reset accumulated_text for new streaming round
@@ -2707,80 +2715,136 @@ class StreamMemoryMessageTrackingStep(Step):
     
     async def execute(self, context: "AgentRunOutput", task: "Task", agent: "Agent", model: "Model", step_number: int = 0, pipeline_manager: Optional[Any] = None) -> StepResult:
         """Save session via Memory.save_session_async for completed streaming runs."""
+        from upsonic.run.cancel import raise_if_cancelled
+        from upsonic.exceptions import RunCancelledException
         
-        # Skip if cache hit or policy blocked
-        if hasattr(task, '_cached_result') and task._cached_result:
-            return StepResult(
-                status=StepStatus.COMPLETED,
-                message="Skipped due to cache hit",
-                execution_time=0.0
-            )
-        if hasattr(task, '_policy_blocked') and task._policy_blocked:
-            return StepResult(
-                status=StepStatus.COMPLETED,
-                message="Skipped due to policy block",
-                execution_time=0.0
-            )
+        start_time = time.time()
+        step_result: Optional[StepResult] = None
         
-        # Finalize run messages BEFORE marking completed and saving
-        # This extracts new messages from chat_history (using _run_boundaries)
-        # and sets them to context.messages
-        context.finalize_run_messages()
-        
-        # Stop usage timer and finalize run-level usage
-        context.stop_usage_timer()
-        
-        # Note: Session-level usage is updated in AgentSessionMemory.asave()
-        # when the session is saved to storage
-        
-        # Mark completed
-        context.mark_completed()
-        
-        # Skip if no memory configured
-        if not agent.memory:
-            messages_count = len(context.messages) if context.messages else 0
-            return StepResult(
-                status=StepStatus.COMPLETED,
-                message=f"No memory configured ({messages_count} messages finalized)",
-                execution_time=0.0
-            )
-        
-        # Final save (StreamFinalizationStep already called mark_completed())
-        # Save session to storage
         try:
-            await agent.memory.save_session_async(
-                output=context,
-                agent_id=agent.agent_id,
-            )
-            session_saved = True
-        except Exception as save_error:
+            if agent and hasattr(agent, 'run_id') and agent.run_id:
+                raise_if_cancelled(agent.run_id)
+            
+            # Skip if cache hit or policy blocked
+            if hasattr(task, '_cached_result') and task._cached_result:
+                step_result = StepResult(
+                    name=self.name,
+                    step_number=step_number,
+                    status=StepStatus.COMPLETED,
+                    message="Skipped due to cache hit",
+                    execution_time=time.time() - start_time
+                )
+                return step_result
+            
+            if hasattr(task, '_policy_blocked') and task._policy_blocked:
+                step_result = StepResult(
+                    name=self.name,
+                    step_number=step_number,
+                    status=StepStatus.COMPLETED,
+                    message="Skipped due to policy block",
+                    execution_time=time.time() - start_time
+                )
+                return step_result
+            
+            # Finalize run messages BEFORE marking completed and saving
+            # This extracts new messages from chat_history (using _run_boundaries)
+            # and sets them to context.messages
+            context.finalize_run_messages()
+            
+            # Stop usage timer and finalize run-level usage
+            context.stop_usage_timer()
+            
+            # Note: Session-level usage is updated in AgentSessionMemory.asave()
+            # when the session is saved to storage
+            
+            # Mark completed
+            context.mark_completed()
+            
+            # Handle memory save
             session_saved = False
-            if agent.debug:
-                from upsonic.utils.printing import warning_log
-                warning_log(f"Failed to save session: {save_error}", "StreamMemoryMessageTrackingStep")
-        
-        # Get memory type and emit event
-        memory_type = None
-        if getattr(agent.memory, 'full_session_memory_enabled', False):
-            memory_type = 'full_session'
-        else:
-            memory_type = 'session'
-        
-        if context.is_streaming:
-            from upsonic.utils.agent.events import ayield_memory_update_event
+            memory_type = None
             messages_count = len(context.messages) if context.messages else 0
-            async for event in ayield_memory_update_event(
-                run_id=context.run_id or "",
-                memory_type=memory_type,
-                messages_added=messages_count
-            ):
-                context.events.append(event)
-        
-        return StepResult(
-            status=StepStatus.COMPLETED,
-            message=f"Session saved" if session_saved else "Session save failed",
-            execution_time=0.0
-        )
+            
+            if not agent.memory:
+                # No memory configured - still emit event for visibility
+                if context.is_streaming:
+                    from upsonic.utils.agent.events import ayield_memory_update_event
+                    async for event in ayield_memory_update_event(
+                        run_id=context.run_id or "",
+                        memory_type=None,
+                        messages_added=messages_count
+                    ):
+                        context.events.append(event)
+                
+                step_result = StepResult(
+                    name=self.name,
+                    step_number=step_number,
+                    status=StepStatus.COMPLETED,
+                    message=f"No memory configured ({messages_count} messages finalized)",
+                    execution_time=time.time() - start_time
+                )
+                return step_result
+            
+            # Save session to storage
+            try:
+                await agent.memory.save_session_async(
+                    output=context,
+                    agent_id=agent.agent_id,
+                )
+                session_saved = True
+            except Exception as save_error:
+                session_saved = False
+                if agent.debug:
+                    from upsonic.utils.printing import warning_log
+                    warning_log(f"Failed to save session: {save_error}", "StreamMemoryMessageTrackingStep")
+            
+            # Get memory type and emit event
+            if getattr(agent.memory, 'full_session_memory_enabled', False):
+                memory_type = 'full_session'
+            else:
+                memory_type = 'session'
+            
+            if context.is_streaming:
+                from upsonic.utils.agent.events import ayield_memory_update_event
+                async for event in ayield_memory_update_event(
+                    run_id=context.run_id or "",
+                    memory_type=memory_type,
+                    messages_added=messages_count
+                ):
+                    context.events.append(event)
+            
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.COMPLETED,
+                message=f"Session saved" if session_saved else "Session save failed",
+                execution_time=time.time() - start_time
+            )
+            return step_result
+            
+        except RunCancelledException as e:
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.CANCELLED,
+                message=str(e)[:500],
+                execution_time=time.time() - start_time
+            )
+            raise
+            
+        except Exception as e:
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.ERROR,
+                message=str(e)[:500],
+                execution_time=time.time() - start_time
+            )
+            raise
+            
+        finally:
+            if step_result:
+                self._finalize_step_result(step_result, context)
 
 
 class StreamFinalizationStep(Step):
@@ -2796,42 +2860,78 @@ class StreamFinalizationStep(Step):
     
     async def execute(self, context: "AgentRunOutput", task: "Task", agent: "Agent", model: "Model", step_number: int = 0, pipeline_manager: Optional[Any] = None) -> StepResult:
         """Finalize streaming execution."""
+        from upsonic.run.cancel import raise_if_cancelled
+        from upsonic.exceptions import RunCancelledException
         from upsonic.run.events.events import ExecutionCompleteEvent
         
-        # Ensure final_output is set from task response if not already set
-        if context.output is None and task:
-            context.output = task.response
+        start_time = time.time()
+        step_result: Optional[StepResult] = None
         
-        # Determine output type
-        output_type = 'text'
-        if hasattr(task, '_cached_result') and task._cached_result:
-            output_type = 'cached'
-        elif hasattr(task, '_policy_blocked') and task._policy_blocked:
-            output_type = 'blocked'
-        elif context.output and not isinstance(context.output, str):
-            output_type = 'structured'
-        # End the task
-        task.task_end()
+        try:
+            if agent and hasattr(agent, 'run_id') and agent.run_id:
+                raise_if_cancelled(agent.run_id)
+            
+            # Ensure final_output is set from task response if not already set
+            if context.output is None and task:
+                context.output = task.response
+            
+            # Determine output type
+            output_type = 'text'
+            if hasattr(task, '_cached_result') and task._cached_result:
+                output_type = 'cached'
+            elif hasattr(task, '_policy_blocked') and task._policy_blocked:
+                output_type = 'blocked'
+            elif context.output and not isinstance(context.output, str):
+                output_type = 'structured'
+            # End the task
+            task.task_end()
 
-        if context.is_streaming:
-            output_preview = str(context.output)[:100] if context.output else None
-            from upsonic.utils.agent.events import ayield_execution_complete_event
-            async for event in ayield_execution_complete_event(
-                run_id=context.run_id or "",
-                output_type=output_type,
-                has_output=context.output is not None,
-                output_preview=output_preview,
-                total_tool_calls=context.tool_call_count,
-                total_duration=task.duration if task.duration else None
-            ):
-                context.events.append(event)
-            # RunCompletedEvent is emitted by manager after pipeline end
-        
-        return StepResult(
-            status=StepStatus.COMPLETED,
-            message="Streaming finalized",
-            execution_time=0.0
-        )
+            if context.is_streaming:
+                output_preview = str(context.output)[:100] if context.output else None
+                from upsonic.utils.agent.events import ayield_execution_complete_event
+                async for event in ayield_execution_complete_event(
+                    run_id=context.run_id or "",
+                    output_type=output_type,
+                    has_output=context.output is not None,
+                    output_preview=output_preview,
+                    total_tool_calls=context.tool_call_count,
+                    total_duration=task.duration if task.duration else None
+                ):
+                    context.events.append(event)
+                # RunCompletedEvent is emitted by manager after pipeline end
+            
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.COMPLETED,
+                message="Streaming finalized",
+                execution_time=time.time() - start_time
+            )
+            return step_result
+            
+        except RunCancelledException as e:
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.CANCELLED,
+                message=str(e)[:500],
+                execution_time=time.time() - start_time
+            )
+            raise
+            
+        except Exception as e:
+            step_result = StepResult(
+                name=self.name,
+                step_number=step_number,
+                status=StepStatus.ERROR,
+                message=str(e)[:500],
+                execution_time=time.time() - start_time
+            )
+            raise
+            
+        finally:
+            if step_result:
+                self._finalize_step_result(step_result, context)
 
 
 class FinalizationStep(Step):
@@ -2886,8 +2986,7 @@ class FinalizationStep(Step):
             if task and not task.not_main_task:
                 from upsonic.utils.printing import print_price_id_summary, price_id_summary
                 if task.price_id in price_id_summary:
-                    print_output = agent.print if agent and hasattr(agent, 'print') else False
-                    print_price_id_summary(task.price_id, task, print_output=print_output)
+                    print_price_id_summary(task.price_id, task, print_output=context.print_flag)
 
             try:
                 from upsonic.tools.mcp import MCPHandler, MultiMCPHandler

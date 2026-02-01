@@ -1,8 +1,8 @@
 from adam.commands import extract_options
 from adam.commands.command import Command
-from adam.utils_cassandra.cassandra import Cassandra
-from adam.utils_cassandra.node_restartable import NodeRestartable
-from adam.utils_cassandra.node_restarter import NodeRestarter
+from adam.utils_cassandra.cassandra_status import CassandraStatus
+from adam.utils_cassandra.node_restartability import NodeRestartability
+from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -41,7 +41,7 @@ class RestartCluster(Command):
                         ctx.log(f'[{pod_name}] Restarting...')
                     else:
                         ctx.log(f'[{pod_name}] Checking...')
-                        node: NodeRestartable = Cassandra.restartable(state, pod_name, in_restartings=NodeRestarter.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                        node: NodeRestartability = CassandraStatus.restartable(state, pod_name, in_restartings=NodeRestartScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                         if not node.restartable():
                             node.log(ctx=ctx.copy(text_color=Color.gray))
                             ctx.log2('Please add --force for restarting pod unsafely.')

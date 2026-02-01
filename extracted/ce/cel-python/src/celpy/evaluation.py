@@ -55,9 +55,9 @@ import logging
 import operator
 import os
 import re
-from string import Template
 import sys
 from functools import reduce, wraps
+from string import Template
 from textwrap import dedent
 from typing import (
     Any,
@@ -80,36 +80,10 @@ from typing import (
 
 import lark
 import lark.visitors
+import re2
 
 import celpy.celtypes
 from celpy.celparser import tree_dump
-
-try:
-    import re2
-
-    def function_matches(text: str, pattern: str) -> "Result":
-        """Implementation of the ``match()`` function using ``re2``"""
-        try:
-            m = re2.search(pattern, text)
-        except re2.error as ex:
-            return CELEvalError("match error", ex.__class__, ex.args)
-
-        return celpy.celtypes.BoolType(m is not None)
-
-except ImportError:  # pragma: no cover
-    # There is a build issue with python_version=='3.13' and sys_platform=='darwin'
-    # See https://github.com/google/re2/issues/516
-    # We fall back to using re, which passes the essential tests
-
-    def function_matches(text: str, pattern: str) -> "Result":
-        """Alternative implementation of the ``match()`` function for systems where ``re2`` can't be installed."""
-        try:
-            m = re.search(pattern, text)
-        except re.error as ex:
-            return CELEvalError("match error", ex.__class__, ex.args)
-
-        return celpy.celtypes.BoolType(m is not None)
-
 
 # An Annotation describes a union of types, functions, and function types.
 Annotation = Union[
@@ -317,6 +291,11 @@ def boolean(
     def bool_function(
         a: celpy.celtypes.Value, b: celpy.celtypes.Value
     ) -> celpy.celtypes.BoolType:
+        if isinstance(a, CELEvalError):
+            return a
+        if isinstance(b, CELEvalError):
+            return b
+
         result_value = function(a, b)
         if result_value == NotImplemented:
             return cast(celpy.celtypes.BoolType, result_value)
@@ -349,7 +328,9 @@ def operator_in(item: Result, container: Result) -> Result:
 
     -   True. There was a item found. Exceptions may or may not have been found.
     -   False. No item found AND no exceptions.
-    -   CELEvalError. No item found AND at least one exception.
+    -   CELEvalError. Either:
+        - No item found AND at least one exception or
+        - The input item or container itself was already an error
 
     To an extent this is a little like the ``exists()`` macro.
     We can think of ``container.contains(item)`` as ``container.exists(r, r == item)``.
@@ -359,6 +340,11 @@ def operator_in(item: Result, container: Result) -> Result:
 
         ``reduce(logical_or, (item == c for c in container), BoolType(False))``
     """
+    if isinstance(item, CELEvalError):
+        return item
+    if isinstance(container, CELEvalError):
+        return container
+
     result_value: Result = celpy.celtypes.BoolType(False)
     for c in cast(Iterable[Result], container):
         try:
@@ -418,6 +404,16 @@ def function_endsWith(
     string: celpy.celtypes.StringType, fragment: celpy.celtypes.StringType
 ) -> Result:
     return celpy.celtypes.BoolType(string.endswith(fragment))
+
+
+def function_matches(text: str, pattern: str) -> Result:
+    """Implementation of the ``match()`` function using ``re2``"""
+    try:
+        m = re2.search(pattern, text)
+    except re2.error as ex:
+        return CELEvalError("match error", ex.__class__, ex.args)
+
+    return celpy.celtypes.BoolType(m is not None)
 
 
 def function_getDate(
@@ -1563,6 +1559,9 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         try:
             list_exprlist = cast(List[Result], exprlist or [])
+            for expr in list_exprlist:
+                if isinstance(expr, CELEvalError):
+                    return expr
             return function(*list_exprlist)
         except ValueError as ex:
             value = CELEvalError(
@@ -3431,7 +3430,7 @@ class Phase1Transpiler(lark.visitors.Visitor_Recursive):
                 ).transpiled.split(".")
             else:
                 raise CELSyntaxError(  # pragma: no cover
-                    "no bind variable in {property_name_token.value} macro",
+                    f"no bind variable in {property_name_token.value} macro",
                     line=tree.meta.line,
                     column=tree.meta.column,
                 )

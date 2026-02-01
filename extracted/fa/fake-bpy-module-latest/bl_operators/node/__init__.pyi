@@ -531,11 +531,25 @@ class NODE_OT_swap_node(NodeSwapOperator, _bpy_types.Operator):
         """
 
     @staticmethod
+    def get_node_sockets(node) -> None:
+        """
+
+        :param node:
+        """
+
+    @staticmethod
     def get_zone_pair(tree, node) -> None:
         """
 
         :param tree:
         :param node:
+        """
+
+    def transfer_node_sockets(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
         """
 
 class NODE_OT_swap_zone(NodeSwapOperator, ZoneOperator, _bpy_types.Operator):

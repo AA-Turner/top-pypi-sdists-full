@@ -388,10 +388,15 @@ class StepContentValue(_message.Message):
     FORM_FIELD_NUMBER: _ClassVar[int]
     START_INGEST_FIELD_NUMBER: _ClassVar[int]
     SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
+    PASS_FIELD_NUMBER: _ClassVar[int]
     form: FormStepValue
     start_ingest: StartIngestStepValue
     select_or_create_asset: SelectOrCreateAssetStepValue
-    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStepValue, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStepValue, _Mapping]] = ...) -> None: ...
+    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStepValue, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStepValue, _Mapping]] = ..., **kwargs) -> None: ...
+
+class PassStepValue(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class FormStepValue(_message.Message):
     __slots__ = ("fields",)

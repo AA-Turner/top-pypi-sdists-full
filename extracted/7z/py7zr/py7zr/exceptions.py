@@ -22,15 +22,10 @@
 #
 
 
-from __future__ import annotations
-
-from typing import Any
-
-
 class ArchiveError(Exception):
     """Base class for exceptions."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
@@ -47,7 +42,7 @@ class CrcError(ArchiveError):
       filename -- filename that has CRC error
     """
 
-    def __init__(self, expected: Any, actual: Any, filename: Any) -> None:
+    def __init__(self, expected, actual, filename):
         super().__init__(expected, actual, filename)
         self.expected = expected
         self.actual = actual
@@ -62,7 +57,7 @@ class UnsupportedCompressionMethodError(ArchiveError):
       message -- explanation of error
     """
 
-    def __init__(self, data: Any, message: Any) -> None:
+    def __init__(self, data, message):
         super().__init__(data, message)
         self.data = data
         self.message = message
@@ -81,5 +76,5 @@ class PasswordRequired(Exception):
 
 
 class AbsolutePathError(Exception):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

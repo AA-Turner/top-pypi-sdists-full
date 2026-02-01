@@ -96,6 +96,9 @@ SUPPORTED_NUMBERS_VERSIONS = [
     "14.2",
     "14.3",
     "14.4",
+    "14.5",
+    # Numbers Creator Studio
+    "26.0",
 ]
 
 

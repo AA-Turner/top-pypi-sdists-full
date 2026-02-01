@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.3.0
+Version: 0.3.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -85,7 +85,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.0/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.1/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -95,7 +95,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.0/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.1/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -193,23 +193,23 @@ cargo install --locked prek
 
 <!-- --8<-- [start: npmjs-install] -->
 
-prek is published as a Node.js package, you can install it using `npm`, `pnpm`, or `npx`:
+prek is published as a [Node.js package](https://www.npmjs.com/package/@j178/prek)
+and can be installed with any npm-compatible package manager:
 
 ```bash
-# Using npm
+# As a dev dependency
 npm add -D @j178/prek
-
-# Using pnpm
 pnpm add -D @j178/prek
+bun add -D @j178/prek
 
-# Using npx
-npx @j178/prek --version
-
-# or install globally
+# Or install globally
 npm install -g @j178/prek
+pnpm add -g @j178/prek
+bun install -g @j178/prek
 
-# then use `prek` command
-prek --version
+# Or run directly without installing
+npx @j178/prek --version
+bunx @j178/prek --version
 ```
 
 <!-- --8<-- [end: npmjs-install] -->
@@ -397,6 +397,7 @@ prek is pretty new, but it is already being used or recommend by some projects a
 - [simple-icons/simple-icons](https://github.com/simple-icons/simple-icons/pull/14245)
 - [ast-grep/ast-grep](https://github.com/ast-grep/ast-grep.github.io/commit/e30818144b2967a7f9172c8cf2f4596bba219bf5)
 - [commitizen-tools/commitizen](https://github.com/commitizen-tools/commitizen)
+- [cocoindex-io/cocoindex](https://github.com/cocoindex-io/cocoindex/pull/1564)
 
 <!-- --8<-- [end: why] -->
 

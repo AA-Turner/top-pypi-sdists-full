@@ -11,7 +11,7 @@ line-length = 79
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.76.0"
+current_version = "0.77.0"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -55,10 +55,7 @@ ignore-words-list = "astroid"
 
 [tool.coverage.report]
 exclude_lines = [
-  "@_t.overload",
-  "from docsig import main",
-  "if __name__ == .__main__.:",
-  "import sys as _sys"
+  "pragma: no cover"
 ]
 fail_under = 100
 
@@ -124,7 +121,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 repository = "https://github.com/jshwi/docsig"
-version = "0.76.0"
+version = "0.77.0"
 
 [tool.poetry.dependencies]
 Sphinx = ">=7,<9"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.0.0
+Version: 4.2.3
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.0.0
+Requires-Dist: praisonaiagents>=1.2.3
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm>=1.81.0
 Requires-Dist: PyYAML>=6.0
@@ -58,7 +58,7 @@ Requires-Dist: crawl4ai>=0.7.0; extra == "realtime"
 Requires-Dist: websockets>=12.0; extra == "realtime"
 Requires-Dist: plotly>=5.24.0; extra == "realtime"
 Requires-Dist: yfinance>=0.2.44; extra == "realtime"
-Requires-Dist: duckduckgo_search>=6.3.0; extra == "realtime"
+Requires-Dist: ddgs>=8.0.0; extra == "realtime"
 Requires-Dist: sqlalchemy>=2.0.36; extra == "realtime"
 Provides-Extra: call
 Requires-Dist: twilio>=7.0.0; extra == "call"
@@ -85,6 +85,27 @@ Requires-Dist: crewai; extra == "autogen-v4"
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol>=0.7.0; extra == "acp"
 Provides-Extra: lite
+Provides-Extra: all
+Requires-Dist: chainlit<=2.9.4,>=2.8.5; extra == "all"
+Requires-Dist: sqlalchemy>=2.0.36; extra == "all"
+Requires-Dist: aiosqlite>=0.20.0; extra == "all"
+Requires-Dist: greenlet>=3.0.3; extra == "all"
+Requires-Dist: gradio>=4.26.0; extra == "all"
+Requires-Dist: flask>=3.0.0; extra == "all"
+Requires-Dist: fastapi>=0.115.0; extra == "all"
+Requires-Dist: uvicorn>=0.34.0; extra == "all"
+Requires-Dist: sse-starlette>=1.6.0; extra == "all"
+Requires-Dist: tavily-python==0.5.0; extra == "all"
+Requires-Dist: crawl4ai>=0.7.0; extra == "all"
+Requires-Dist: playwright>=1.47.0; extra == "all"
+Requires-Dist: websockets>=12.0; extra == "all"
+Requires-Dist: plotly>=5.24.0; extra == "all"
+Requires-Dist: yfinance>=0.2.44; extra == "all"
+Requires-Dist: ddgs>=8.0.0; extra == "all"
+Provides-Extra: bot
+Requires-Dist: python-telegram-bot>=20.0; extra == "bot"
+Requires-Dist: discord.py>=2.0.0; extra == "bot"
+Requires-Dist: slack_sdk>=3.0.0; extra == "bot"
 Provides-Extra: dev
 Requires-Dist: textual-dev>=1.0.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"

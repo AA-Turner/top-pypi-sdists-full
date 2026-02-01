@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin == 1.10.2"]
+requires = ["maturin == 1.11.5"]
 build-backend = "maturin"
 
 [tool.maturin]
@@ -37,19 +37,22 @@ classifiers = [
 ]
 
 [dependency-groups]
-typos = ["typos == 1.40.1"]
-zizmor = ["zizmor == 1.19.0"]
+typos = ["typos == 1.42.1"]
+zizmor = ["zizmor == 1.22.0"]
 ci = [
-    "ruff == 0.14.10",
-    "maturin == 1.10.2",
+    "ty == 0.0.14",
+    "ruff == 0.14.14",
+    "maturin == 1.11.5",
     "pytest == 9.0.2",
-    "rumdl == 0.0.198",
-    "tomli ; python_version<'3.11'",
+    "rumdl == 0.1.8",
+    # last `tomli` version which support TOML 1.0
+    # need to check compatibility
+    "tomli == 2.3.0 ; python_version<'3.11'",
 ]
 dev = [
-    {include-group = "ci"},
-    {include-group = "typos"},
-    {include-group = "zizmor"},
+    { include-group = "ci" },
+    { include-group = "typos" },
+    { include-group = "zizmor" },
 ]
 bench = [
     "pytomlpp",
@@ -58,9 +61,9 @@ bench = [
     "qtoml",
     "rtoml",
     "tomli ; python_version<'3.11'",
-    "polars == 1.36.1",
+    "polars == 1.37.1",
     "altair == 6.0.0",
-    "vl-convert-python == 1.8.0",
+    "vl-convert-python == 1.9.0",
     "py-cpuinfo == 9.0.0",
 ]
 

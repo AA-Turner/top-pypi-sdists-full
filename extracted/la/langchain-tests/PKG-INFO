@@ -1,18 +1,18 @@
 Metadata-Version: 2.4
 Name: langchain-tests
-Version: 1.1.2
+Version: 1.1.3
 Summary: Standard tests for LangChain implementations
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
 Project-URL: Source, https://github.com/langchain-ai/langchain/tree/master/libs/standard-tests
 Project-URL: Changelog, https://github.com/langchain-ai/langchain/releases?q=%22langchain-tests%3D%3D1%22
-Project-URL: Twitter, https://x.com/LangChainAI
+Project-URL: Twitter, https://x.com/LangChain
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>=1.2.2
+Requires-Dist: langchain-core<2.0.0,>=1.2.7
 Requires-Dist: numpy>=1.26.2; python_version < '3.13'
 Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
 Requires-Dist: pytest-asyncio<2.0.0,>=0.20.0
@@ -22,7 +22,7 @@ Requires-Dist: pytest-recording
 Requires-Dist: pytest-socket<1.0.0,>=0.7.0
 Requires-Dist: pytest<9.0.0,>=7.0.0
 Requires-Dist: syrupy<5.0.0,>=4.0.0
-Requires-Dist: vcrpy<8.0.0,>=7.0.0
+Requires-Dist: vcrpy<9.0.0,>=8.0.0
 Description-Content-Type: text/markdown
 
 # 🦜️🔗 langchain-tests
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://img.shields.io/pypi/v/langchain-tests?label=%20)](https://pypi.org/project/langchain-tests/#history)
 [![PyPI - License](https://img.shields.io/pypi/l/langchain-tests)](https://opensource.org/licenses/MIT)
 [![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-tests)](https://pypistats.org/packages/langchain-tests)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchainai.svg?style=social&label=Follow%20%40LangChainAI)](https://twitter.com/langchainai)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain)
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 

@@ -1135,12 +1135,10 @@ def retiming_segment_speed_set(
     /,
     *,
     speed: float | None = 100.0,
-    keep_retiming: bool | None = True,
 ) -> None:
     """Set speed of retimed segment
 
     :param speed: Speed, New speed of retimed segment
-    :param keep_retiming: Preserve Current Retiming, Keep speed of other segments unchanged, change strip length instead
     """
 
 def retiming_show(

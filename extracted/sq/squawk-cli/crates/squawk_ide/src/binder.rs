@@ -249,6 +249,7 @@ fn bind_file(b: &mut Binder, file: &ast::SourceFile) {
 fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
     match stmt {
         ast::Stmt::CreateTable(create_table) => bind_create_table(b, create_table),
+        ast::Stmt::CreateTableAs(create_table_as) => bind_create_table_as(b, create_table_as),
         ast::Stmt::CreateForeignTable(create_foreign_table) => {
             bind_create_table(b, create_foreign_table)
         }
@@ -279,6 +280,7 @@ fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
         ast::Stmt::Prepare(prepare) => bind_prepare(b, prepare),
         ast::Stmt::Listen(listen) => bind_listen(b, listen),
         ast::Stmt::Set(set) => bind_set(b, set),
+        ast::Stmt::CreatePolicy(create_policy) => bind_create_policy(b, create_policy),
         _ => {}
     }
 }
@@ -292,6 +294,41 @@ fn bind_create_table(b: &mut Binder, create_table: impl ast::HasCreateTable) {
     };
     let name_ptr = path_to_ptr(&path);
     let is_temp = create_table.temp_token().is_some() || create_table.temporary_token().is_some();
+    let Some(schema) = schema_name(b, &path, is_temp) else {
+        return;
+    };
+
+    let table_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Table,
+        ptr: name_ptr,
+        schema: Some(schema.clone()),
+        params: None,
+        table: None,
+    });
+
+    let type_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Type,
+        ptr: name_ptr,
+        schema: Some(schema),
+        params: None,
+        table: None,
+    });
+
+    let root = b.root_scope();
+    b.scopes[root].insert(table_name.clone(), table_id);
+    b.scopes[root].insert(table_name, type_id);
+}
+
+fn bind_create_table_as(b: &mut Binder, create_table_as: ast::CreateTableAs) {
+    let Some(path) = create_table_as.path() else {
+        return;
+    };
+    let Some(table_name) = item_name(&path) else {
+        return;
+    };
+    let name_ptr = path_to_ptr(&path);
+    let is_temp =
+        create_table_as.temp_token().is_some() || create_table_as.temporary_token().is_some();
     let Some(schema) = schema_name(b, &path, is_temp) else {
         return;
     };
@@ -694,6 +731,38 @@ fn bind_create_trigger(b: &mut Binder, create_trigger: ast::CreateTrigger) {
 
     let root = b.root_scope();
     b.scopes[root].insert(trigger_name, trigger_id);
+}
+
+fn bind_create_policy(b: &mut Binder, create_policy: ast::CreatePolicy) {
+    let Some(name) = create_policy.name() else {
+        return;
+    };
+
+    let policy_name = Name::from_node(&name);
+    let name_ptr = SyntaxNodePtr::new(name.syntax());
+
+    let Some(table_path) = create_policy.on_table().and_then(|on| on.path()) else {
+        return;
+    };
+
+    let Some(table_name) = item_name(&table_path) else {
+        return;
+    };
+
+    let Some(schema) = schema_name(b, &table_path, false) else {
+        return;
+    };
+
+    let policy_id = b.symbols.alloc(Symbol {
+        kind: SymbolKind::Policy,
+        ptr: name_ptr,
+        schema: Some(schema),
+        params: None,
+        table: Some(table_name),
+    });
+
+    let root = b.root_scope();
+    b.scopes[root].insert(policy_name, policy_id);
 }
 
 fn bind_create_event_trigger(b: &mut Binder, create_event_trigger: ast::CreateEventTrigger) {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flask-openapi3-scalar
-Version: 1.44.4
+Version: 1.44.6
 Summary: Provide Scalar UI for flask-openapi3.
 Project-URL: Homepage, https://github.com/luolingchun/flask-openapi3-plugins/tree/master/flask-openapi3-scalar
 Project-URL: Documentation, https://luolingchun.github.io/flask-openapi3/latest/Usage/UI_Templates/

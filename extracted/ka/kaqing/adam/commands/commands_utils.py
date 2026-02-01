@@ -73,7 +73,6 @@ def show_table(state: ReplState, pods: list[str], cols: str, header: str, ctx: C
              lambda p: ','.join([c.pod_value(results, p) for c in columns]),
              header=header,
              separator=',',
-             log_file=ctx.log_file,
              sorted=SORT,
              ctx=ctx.copy(show_out=True))
     IssuesUtils.show(results, state.in_repl, ctx=ctx)

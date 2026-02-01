@@ -5,7 +5,6 @@
 //! - Autolinks for simple URLs like `<https://example.com>`
 //! - Link label escaping for special Markdown characters
 //! - Heading-in-link special handling (wraps link around heading)
-//! - 512-character label truncation with ellipsis
 //! - Visitor callbacks for custom link processing
 //! - Metadata collection for links (links, URLs, titles, rel attributes)
 //! - Block-level content within links (via inline context)
@@ -20,9 +19,6 @@ use tl::{NodeHandle, Parser};
 // These are imported from converter.rs and should be made accessible
 type Context = crate::converter::Context;
 type DomContext = crate::converter::DomContext;
-
-/// Maximum length for link label before truncation
-const MAX_LINK_LABEL_LEN: usize = 512;
 
 /// Handler for anchor/link elements: `<a>`.
 ///
@@ -57,7 +53,7 @@ pub(crate) fn handle(
 ) {
     // Import helper functions from parent converter module
     use crate::converter::block::heading::{heading_allows_inline_images, push_heading};
-    use crate::converter::utility::content::{normalized_tag_name, truncate_at_char_boundary};
+    use crate::converter::utility::content::normalized_tag_name;
     #[allow(unused_imports)]
     use crate::converter::utility::serialization::serialize_node;
     use crate::converter::{find_single_heading_child, get_text_content, walk_node};
@@ -227,11 +223,6 @@ pub(crate) fn handle(
         }
 
         // Truncate label if it exceeds maximum length
-        if label.len() > MAX_LINK_LABEL_LEN {
-            truncate_at_char_boundary(&mut label, MAX_LINK_LABEL_LEN);
-            label.push('…');
-        }
-
         let escaped_label = escape_link_label(&label);
 
         // Handle visitor callbacks if feature is enabled
@@ -338,7 +329,7 @@ pub(crate) fn handle(
                 }
                 collector
                     .borrow_mut()
-                    .add_link(href.clone(), label.clone(), title.clone(), rel_attr, attributes_map);
+                    .add_link(href.clone(), label, title.clone(), rel_attr, attributes_map);
             }
         }
     } else {

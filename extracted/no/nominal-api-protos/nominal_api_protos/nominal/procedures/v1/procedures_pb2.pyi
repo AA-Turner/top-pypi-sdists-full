@@ -183,6 +183,7 @@ class NestedProcedureNode(_message.Message):
         FORM_FIELD_NUMBER: _ClassVar[int]
         START_INGEST_FIELD_NUMBER: _ClassVar[int]
         SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
+        PASS_FIELD_NUMBER: _ClassVar[int]
         ATTACHMENTS_FIELD_NUMBER: _ClassVar[int]
         is_required: bool
         auto_start: AutoStartConfig
@@ -193,7 +194,7 @@ class NestedProcedureNode(_message.Message):
         start_ingest: StartIngestStep
         select_or_create_asset: SelectOrCreateAssetStep
         attachments: _containers.RepeatedScalarFieldContainer[str]
-        def __init__(self, is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ..., attachments: _Optional[_Iterable[str]] = ...) -> None: ...
+        def __init__(self, is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ..., attachments: _Optional[_Iterable[str]] = ..., **kwargs) -> None: ...
     ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -414,10 +415,15 @@ class ProcedureStepContent(_message.Message):
     FORM_FIELD_NUMBER: _ClassVar[int]
     START_INGEST_FIELD_NUMBER: _ClassVar[int]
     SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
+    PASS_FIELD_NUMBER: _ClassVar[int]
     form: FormStep
     start_ingest: StartIngestStep
     select_or_create_asset: SelectOrCreateAssetStep
-    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ...) -> None: ...
+    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ..., **kwargs) -> None: ...
+
+class PassStep(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class FormStep(_message.Message):
     __slots__ = ("fields",)

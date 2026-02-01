@@ -67,10 +67,20 @@ pub(crate) fn handle_dl(
             };
             crate::converter::walk_node(child_handle, parser, &mut content, options, &child_ctx, depth, dom_ctx);
 
-            if is_definition_term {
-                in_dt_group = true;
-            } else if !is_definition_description {
-                in_dt_group = false;
+            match child_handle.get(parser) {
+                Some(tl::Node::Tag(_)) => {
+                    if is_definition_term {
+                        in_dt_group = true;
+                    } else if !is_definition_description {
+                        in_dt_group = false;
+                    }
+                }
+                Some(tl::Node::Raw(raw)) => {
+                    if !raw.as_utf8_str().trim().is_empty() {
+                        in_dt_group = false;
+                    }
+                }
+                Some(tl::Node::Comment(_)) | None => {}
             }
         }
     }
@@ -156,9 +166,22 @@ pub(crate) fn handle_dd(
         if trimmed.is_empty() {
             output.push_str(":   \n\n");
         } else {
-            output.push_str(":   ");
-            output.push_str(trimmed);
-            output.push_str("\n\n");
+            let mut lines = trimmed.lines();
+            if let Some(first) = lines.next() {
+                output.push_str(":   ");
+                output.push_str(first);
+                output.push('\n');
+            }
+            for line in lines {
+                if line.is_empty() {
+                    output.push('\n');
+                } else {
+                    output.push_str("    ");
+                    output.push_str(line);
+                    output.push('\n');
+                }
+            }
+            output.push('\n');
         }
     } else if !trimmed.is_empty() {
         output.push_str(trimmed);

@@ -15,9 +15,14 @@ class CassandraClusters:
              max_workers=0,
              on_any = False,
              shell = '/bin/sh',
+             pods: list[str] = None,
+            #  samples = sys.maxsize,
              ctx: Context = Context.NULL) -> list[PodExecResult]:
 
-        pods = StatefulSets.pod_names(sts, namespace)
+        if not pods:
+            pods = StatefulSets.pod_names(sts, namespace)
+        # if on_any:
+        #     samples = 1
         samples = 1 if on_any else sys.maxsize
 
         msg = 'd`Running|Ran ' + action + ' command onto {size} pods'

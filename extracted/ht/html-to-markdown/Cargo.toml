@@ -8,7 +8,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "2.24.1"
+version = "2.24.3"
 edition = "2024"
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 license = "MIT"
@@ -19,7 +19,7 @@ readme = "README.md"
 rust-version = "1.85"
 
 [workspace.dependencies]
-html-to-markdown-rs = { version = "2.24.1", path = "crates/html-to-markdown" }
+html-to-markdown-rs = { version = "2.24.3", path = "crates/html-to-markdown" }
 
 tl = { package = "astral-tl", version = "0.7.11" }
 html5ever = "0.36"
@@ -39,7 +39,7 @@ clap_mangen = "0.2"
 
 pyo3 = { version = "0.27.2", features = ["abi3-py310"] }
 
-ext-php-rs = "0.15.4"
+ext-php-rs = "=0.15.4"
 
 async-trait = "0.1"
 

@@ -1,6 +1,6 @@
 import re
 import warnings
-from typing import Literal, cast, overload
+from typing import Any, Literal, overload
 
 from ytmusicapi.continuations import (
     get_continuations,
@@ -177,6 +177,7 @@ class BrowsingMixin(MixinProtocol):
                 "shuffleId": "RDAOkjHYJjL1a3xspEyVkhHAsg",
                 "radioId": "RDEMkjHYJjL1a3xspEyVkhHAsg",
                 "subscribers": "3.86M",
+                "monthlyListeners": "29.1M",
                 "subscribed": false,
                 "thumbnails": [...],
                 "songs": {
@@ -267,6 +268,12 @@ class BrowsingMixin(MixinProtocol):
         artist["shuffleId"] = nav(header, ["playButton", "buttonRenderer", *NAVIGATION_PLAYLIST_ID], True)
         artist["radioId"] = nav(header, ["startRadioButton", "buttonRenderer", *NAVIGATION_PLAYLIST_ID], True)
         artist["subscribers"] = nav(subscription_button, ["subscriberCountText", "runs", 0, "text"], True)
+        artist["monthlyListeners"] = nav(header, ["monthlyListenerCount", "runs", 0, "text"], True)
+        artist["monthlyListeners"] = (
+            artist["monthlyListeners"].replace(" monthly audience", "")
+            if artist["monthlyListeners"]
+            else None
+        )
         artist["subscribed"] = subscription_button["subscribed"]
         artist["thumbnails"] = nav(header, THUMBNAILS, True)
         artist["songs"] = {"browseId": None}
@@ -344,7 +351,7 @@ class BrowsingMixin(MixinProtocol):
                     {"continuations": [continuation["continuation"]]}
                 )
                 response = request_func(additionalParams)
-                results = nav(response, SECTION_LIST_CONTINUATION + CONTENT)
+                results: dict[str, Any] = nav(response, SECTION_LIST_CONTINUATION + CONTENT)
             else:
                 raise ValueError(f"Invalid order parameter {order}")
 
@@ -355,7 +362,7 @@ class BrowsingMixin(MixinProtocol):
         contents = nav(results, GRID_ITEMS, True) or nav(results, CAROUSEL_CONTENTS)
         albums = parse_albums(contents)
 
-        results = nav(results, GRID, True)
+        results = nav(results, GRID, True)  # type: ignore[assignment]
         if "continuations" in results:
             remaining_limit = None if limit is None else (limit - len(albums))
             albums.extend(
@@ -944,7 +951,7 @@ class BrowsingMixin(MixinProtocol):
                 hasTimestamps=False,
             )
 
-        return cast(Lyrics | TimedLyrics, lyrics)
+        return lyrics
 
     def get_basejs_url(self) -> str:
         """

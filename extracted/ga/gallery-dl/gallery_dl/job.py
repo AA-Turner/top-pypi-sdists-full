@@ -440,14 +440,15 @@ class DownloadJob(Job):
             job = self.__class__(extr, self)
             pfmt = self.pathfmt
             pextr = self.extractor
+            parent = pextr.config("parent", pextr.parent)
 
-            if pfmt and pextr.config("parent-directory"):
+            if pfmt and pextr.config("parent-directory", parent):
                 extr._parentdir = pfmt.directory
             else:
                 extr._parentdir = pextr._parentdir
 
             if pmeta := pextr.config2(
-                    "parent-metadata", "metadata-parent", pextr.parent):
+                    "parent-metadata", "metadata-parent", parent):
                 if isinstance(pmeta, str):
                     data = self.kwdict.copy()
                     if kwdict:
@@ -459,12 +460,12 @@ class DownloadJob(Job):
                     if kwdict:
                         job.kwdict.update(kwdict)
 
-            if pextr.config("parent-session", pextr.parent):
+            if pextr.config("parent-session", parent):
                 extr.session = pextr.session
 
             while True:
                 try:
-                    if pextr.config("parent-skip"):
+                    if pextr.config("parent-skip", parent):
                         job._skipcnt = self._skipcnt
                         status = job.run()
                         self._skipcnt = job._skipcnt
@@ -946,6 +947,7 @@ class DataJob(Job):
         self.data_meta = []
         self.exception = None
         self.ascii = config.get(("output",), "ascii", ensure_ascii)
+        self.jsonl = config.get(("output",), "jsonl", False)
         self.resolve = 128 if resolve is True else (resolve or self.resolve)
 
         private = config.get(("output",), "private")
@@ -953,6 +955,8 @@ class DataJob(Job):
 
         if self.resolve > 0:
             self.handle_queue = self.handle_queue_resolve
+        if not self.jsonl:
+            self.out = util.noop
 
     def run(self):
         self._init()
@@ -982,7 +986,7 @@ class DataJob(Job):
             for msg in self.data:
                 util.transform_dict(msg[-1], util.number_to_string)
 
-        if self.file:
+        if self.file and not self.jsonl:
             # dump to 'file'
             try:
                 util.dump_json(self.data, self.file, self.ascii, 2)
@@ -992,22 +996,30 @@ class DataJob(Job):
 
         return 0
 
+    def out(self, msg):
+        self.file.write(util.json_dumps(msg))
+        self.file.write("\n")
+        self.file.flush()
+
     def handle_url(self, url, kwdict):
         kwdict = self.filter(kwdict)
+        self.out(msg := (Message.Url, url, kwdict))
         self.data_urls.append(url)
         self.data_meta.append(kwdict)
-        self.data.append((Message.Url, url, kwdict))
+        self.data.append(msg)
 
     def handle_directory(self, kwdict):
         kwdict = self.filter(kwdict)
+        self.out(msg := (Message.Directory, kwdict))
         self.data_post.append(kwdict)
-        self.data.append((Message.Directory, kwdict))
+        self.data.append(msg)
 
     def handle_queue(self, url, kwdict):
         kwdict = self.filter(kwdict)
+        self.out(msg := (Message.Queue, url, kwdict))
         self.data_urls.append(url)
         self.data_meta.append(kwdict)
-        self.data.append((Message.Queue, url, kwdict))
+        self.data.append(msg)
 
     def handle_queue_resolve(self, url, kwdict):
         if cls := kwdict.get("_extractor"):
@@ -1017,9 +1029,10 @@ class DataJob(Job):
 
         if not extr:
             kwdict = self.filter(kwdict)
+            self.out(msg := (Message.Queue, url, kwdict))
             self.data_urls.append(url)
             self.data_meta.append(kwdict)
-            return self.data.append((Message.Queue, url, kwdict))
+            return self.data.append(msg)
 
         job = self.__class__(extr, self, None, self.ascii, self.resolve-1)
         job.data = self.data

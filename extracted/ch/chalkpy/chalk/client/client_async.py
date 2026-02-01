@@ -487,7 +487,7 @@ class AsyncChalkClient:
         explain: bool = False,
         num_input_rows: Optional[int] = None,
         headers: Mapping[str, str] | None = None,
-        planner_options: Mapping[str, str | int | bool] | None = None,
+        planner_options: Mapping[str, Any] | None = None,
     ) -> PlanQueryResponse:
         """Plan a query without executing it.
 

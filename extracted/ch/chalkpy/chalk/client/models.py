@@ -1696,7 +1696,7 @@ class PlanQueryRequest(BaseModel):
     explain: bool = False
     store_plan_stages: bool = False
     encoding_options: FeatureEncodingOptions = FeatureEncodingOptions()
-    planner_options: Mapping[str, str | int | bool | float] | None = None
+    planner_options: Mapping[str, Any] | None = None
 
 
 class FeatureSchema(BaseModel):

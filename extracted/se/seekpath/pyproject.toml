@@ -35,8 +35,8 @@ dependencies = [
 license = {text = "The MIT license"}
 
 [project.urls]
-Homepage = "http://github.com/giovannipizzi/seekpath"
-Downloads = "https://github.com/giovannipizzi/seekpath/archive/v2.2.0.tar.gz"
+Homepage = "https://github.com/materialscloud-org/seekpath"
+Downloads = "https://github.com/materialscloud-org/seekpath/archive/v2.2.1.tar.gz"
 
 [project.optional-dependencies]
 bz = [
@@ -47,6 +47,9 @@ dev = [
     "pre-commit~=3.5",
     "prospector==1.11.0",
     "pytest==7.3.1",
+]
+docs = [
+    "sphinx~=7.1.0",
 ]
 
 [tool.ruff.format]

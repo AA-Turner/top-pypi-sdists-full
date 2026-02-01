@@ -1,5 +1,6 @@
 import functools
 import re
+import sys
 from typing import Union
 
 from adam.commands.command import Command
@@ -310,7 +311,7 @@ class CassandraPodService:
             pod_names = [pod.metadata.name for pod in StatefulSets.pods(state.sts, state.namespace)]
             show_table(state, pod_names, cols, header, ctx)
 
-    def nodetool(self, args: str, status = False, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+    def nodetool(self, args: str, status = False, pods: list[str] = None, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
         pod = self.handler.pod
 
@@ -320,7 +321,17 @@ class CassandraPodService:
         if pod:
             return CassandraNodes.exec(pod, state.namespace, command, ctx=ctx)
         else:
-            return CassandraClusters.exec(state.sts, state.namespace, command, action='nodetool.status' if status else 'nodetool', ctx=ctx)
+            return CassandraClusters.exec(state.sts,
+                                          state.namespace,
+                                          command,
+                                          action='nodetool.status' if status else 'nodetool',
+                                          pods=pods,
+                                        #   samples=samples,
+                                          ctx=ctx)
+    def pod_names(self):
+        state = self.handler.state
+
+        return StatefulSets.pod_names(state.sts, state.namespace)
 
 class CassandraExecHandler:
     def __init__(self, state: ReplState, pod: str = None):

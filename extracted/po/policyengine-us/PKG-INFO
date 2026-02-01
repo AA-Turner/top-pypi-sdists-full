@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.534.2
+Version: 1.534.5
 Summary: Add your description here.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
@@ -19,6 +19,7 @@ Requires-Dist: pandas>=2.0
 Requires-Dist: policyengine-core>=3.23.5
 Requires-Dist: tqdm>=4.67.1
 Provides-Extra: dev
+Requires-Dist: black==26.1.0; extra == 'dev'
 Requires-Dist: build>=1.2.2.post1; extra == 'dev'
 Requires-Dist: coverage>=7.9.2; extra == 'dev'
 Requires-Dist: furo>=2024.8.6; extra == 'dev'

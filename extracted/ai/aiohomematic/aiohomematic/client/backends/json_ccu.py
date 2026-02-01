@@ -25,6 +25,7 @@ from aiohomematic.const import (
     CircuitState,
     CommandRxMode,
     DeviceDescription,
+    DeviceDetail,
     Interface,
     ParameterData,
     ParameterType,
@@ -106,6 +107,10 @@ class JsonCcuBackend(BaseBackend):
     async def deinit_proxy(self, *, init_url: str) -> None:
         """No proxy de-initialization needed."""
 
+    async def get_all_device_data(self, *, interface: Interface) -> dict[str, Any] | None:
+        """Return all device data via JSON-RPC."""
+        return dict(await self._json_rpc.get_all_device_data(interface=interface))
+
     async def get_device_description(self, *, address: str) -> DeviceDescription | None:
         """Return device description via JSON-RPC."""
         try:
@@ -117,6 +122,15 @@ class JsonCcuBackend(BaseBackend):
                 extract_exc_args(exc=bhexc),
             )
             return None
+
+    async def get_device_details(self, *, addresses: tuple[str, ...] | None = None) -> list[DeviceDetail] | None:
+        """
+        Return device names, interfaces, and rega IDs via JSON-RPC.
+
+        Note: The addresses parameter is ignored as JSON-RPC returns all device
+        details in a single call via Device.listAllDetail.
+        """
+        return list(await self._json_rpc.get_device_details())
 
     async def get_paramset(self, *, channel_address: str, paramset_key: ParamsetKey | str) -> dict[str, Any]:
         """Return a paramset via JSON-RPC."""

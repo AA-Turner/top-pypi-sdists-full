@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.100
+Version: 0.0.101
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://pipecat.ai
@@ -36,7 +36,7 @@ Requires-Dist: openai<3,>=1.74.0
 Requires-Dist: numba==0.61.2
 Requires-Dist: wait_for2>=0.4.1; python_version < "3.12"
 Provides-Extra: aic
-Requires-Dist: aic-sdk~=1.2.0; extra == "aic"
+Requires-Dist: aic-sdk~=2.0.1; extra == "aic"
 Provides-Extra: anthropic
 Requires-Dist: anthropic~=0.49.0; extra == "anthropic"
 Provides-Extra: assemblyai
@@ -49,7 +49,7 @@ Requires-Dist: pipecat-ai[websockets-base]; extra == "aws"
 Provides-Extra: aws-nova-sonic
 Requires-Dist: aws_sdk_bedrock_runtime~=0.2.0; python_version >= "3.12" and extra == "aws-nova-sonic"
 Provides-Extra: azure
-Requires-Dist: azure-cognitiveservices-speech~=1.44.0; extra == "azure"
+Requires-Dist: azure-cognitiveservices-speech~=1.47.0; extra == "azure"
 Provides-Extra: cartesia
 Requires-Dist: cartesia~=2.0.3; extra == "cartesia"
 Requires-Dist: pipecat-ai[websockets-base]; extra == "cartesia"
@@ -92,6 +92,9 @@ Requires-Dist: hume>=0.11.2; extra == "hume"
 Provides-Extra: inworld
 Provides-Extra: koala
 Requires-Dist: pvkoala~=2.0.3; extra == "koala"
+Provides-Extra: kokoro
+Requires-Dist: kokoro<1,>=0.9.4; extra == "kokoro"
+Requires-Dist: requests<3,>=2.32.5; extra == "kokoro"
 Provides-Extra: krisp
 Requires-Dist: pipecat-ai-krisp~=0.4.0; extra == "krisp"
 Provides-Extra: langchain
@@ -142,6 +145,9 @@ Provides-Extra: openpipe
 Requires-Dist: openpipe<6,>=4.50.0; extra == "openpipe"
 Provides-Extra: openrouter
 Provides-Extra: perplexity
+Provides-Extra: piper
+Requires-Dist: piper-tts<2,>=1.3.0; extra == "piper"
+Requires-Dist: requests<3,>=2.32.5; extra == "piper"
 Provides-Extra: playht
 Requires-Dist: pipecat-ai[websockets-base]; extra == "playht"
 Provides-Extra: qwen
@@ -172,7 +178,7 @@ Requires-Dist: pipecat-ai[websockets-base]; extra == "soniox"
 Provides-Extra: soundfile
 Requires-Dist: soundfile~=0.13.1; extra == "soundfile"
 Provides-Extra: speechmatics
-Requires-Dist: speechmatics-voice[smart]>=0.2.6; extra == "speechmatics"
+Requires-Dist: speechmatics-voice[smart]>=0.2.8; extra == "speechmatics"
 Provides-Extra: strands
 Requires-Dist: strands-agents<2,>=1.9.1; extra == "strands"
 Provides-Extra: tavus
@@ -278,7 +284,7 @@ Catch new features, interviews, and how-tos on our [Pipecat TV](https://www.yout
 | Serializers         | [Exotel](https://docs.pipecat.ai/server/utilities/serializers/exotel), [Plivo](https://docs.pipecat.ai/server/utilities/serializers/plivo), [Twilio](https://docs.pipecat.ai/server/utilities/serializers/twilio), [Telnyx](https://docs.pipecat.ai/server/utilities/serializers/telnyx), [Vonage](https://docs.pipecat.ai/server/utilities/serializers/vonage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Video               | [HeyGen](https://docs.pipecat.ai/server/services/video/heygen), [Tavus](https://docs.pipecat.ai/server/services/video/tavus), [Simli](https://docs.pipecat.ai/server/services/video/simli)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Memory              | [mem0](https://docs.pipecat.ai/server/services/memory/mem0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Vision & Image      | [fal](https://docs.pipecat.ai/server/services/image-generation/fal), [Google Imagen](https://docs.pipecat.ai/server/services/image-generation/fal), [Moondream](https://docs.pipecat.ai/server/services/vision/moondream)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Vision & Image      | [fal](https://docs.pipecat.ai/server/services/image-generation/fal), [Google Imagen](https://docs.pipecat.ai/server/services/image-generation/google-imagen), [Moondream](https://docs.pipecat.ai/server/services/vision/moondream)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Audio Processing    | [Silero VAD](https://docs.pipecat.ai/server/utilities/audio/silero-vad-analyzer), [Krisp](https://docs.pipecat.ai/server/utilities/audio/krisp-filter), [Koala](https://docs.pipecat.ai/server/utilities/audio/koala-filter), [ai-coustics](https://docs.pipecat.ai/server/utilities/audio/aic-filter)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Analytics & Metrics | [OpenTelemetry](https://docs.pipecat.ai/server/utilities/opentelemetry), [Sentry](https://docs.pipecat.ai/server/services/analytics/sentry)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 

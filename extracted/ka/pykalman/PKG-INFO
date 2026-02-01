@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pykalman
-Version: 0.11.1
+Version: 0.11.2
 Summary: An implementation of the Kalman Filter, Kalman Smoother, and EM algorithm in Python
 Author: Daniel Duckworth
 Author-email: Maksym Balatsko <mbalatsko@gmail.com>, pykalman developers <info@gcos.ai>
@@ -71,9 +71,9 @@ License: All code contained except that in pykalman/utils.py is released under t
         
         Such a license shall include, at minimum:
         
-        An initial annual distribution fee of USD $10,000, granting the right to distribute the software for a period of one (1) calendar year; and
+        An initial annual distribution fee of USD 10,000, granting the right to distribute the software for a period of one (1) calendar year; and
         
-        A per-download fee of USD $0.01 per end-user download obtained through the above distribution channels during the licensed term.
+        A per-download fee of USD 1 per end-user download obtained through the above distribution channels during the licensed term.
         
         Fees shall be reported and remitted on a mutually agreed reporting schedule.
         
@@ -107,6 +107,10 @@ License: All code contained except that in pykalman/utils.py is released under t
         
         The copyright holder may, at its sole discretion, offer the distributing party an opportunity to cure unauthorized distribution by entering into a commercial distribution license retroactively. Nothing in this section shall be construed as a waiver of rights.
         
+        2.10 Jurisdiction
+        
+        Any disputes arising out of or in connection with this agreement shall be governed solely by German law, with the exclusion of the UN Convention on Contracts for the International Sale of Goods (CISG). The Munich Regional Court (Landgericht München I) shall have exclusive jurisdiction in respect of any and all disputes arising out of or in connection with this agreement.
+        
 Project-URL: Homepage, https://github.com/pykalman/pykalman
 Project-URL: Repository, https://github.com/pykalman/pykalman
 Project-URL: Documentation, https://pykalman.readthedocs.io/en/latest/
@@ -138,13 +142,13 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: jupyter; extra == "docs"
-Requires-Dist: Sphinx<9.0.0; extra == "docs"
+Requires-Dist: Sphinx<10.0.0; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Provides-Extra: all
 Requires-Dist: jupyter; extra == "all"
 Requires-Dist: pytest; extra == "all"
-Requires-Dist: Sphinx<9.0.0; extra == "all"
+Requires-Dist: Sphinx<10.0.0; extra == "all"
 Requires-Dist: numpydoc; extra == "all"
 Requires-Dist: twine; extra == "all"
 Requires-Dist: pre-commit; extra == "all"
@@ -162,7 +166,7 @@ Dynamic: license-file
 
 Originally created by Daniel Duckworth (@duckworthd).
 
-:rocket: **Version 0.11.1 out now!** [Check out the release notes here](https://github.com/pykalman/pykalman/blob/main/CHANGELOG.md).
+:rocket: **Version 0.11.2 out now!** [Check out the release notes here](https://github.com/pykalman/pykalman/blob/main/CHANGELOG.md).
 
 |  | **[Documentation](https://pykalman.readthedocs.io/en/latest/)** · **[Tutorials](https://github.com/pykalman/pykalman/tree/main/examples)** |
 |---|---|

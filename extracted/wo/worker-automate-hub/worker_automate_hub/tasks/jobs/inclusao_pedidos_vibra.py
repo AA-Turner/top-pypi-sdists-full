@@ -17,6 +17,10 @@ from worker_automate_hub.utils.util import capture_and_send_screenshot, ensure_b
 
 logger = Console()
 
+MESES_MAP = {
+    1: "JAN.", 2: "FEV.", 3: "MAR.", 4: "ABR.", 5: "MAI.", 6: "JUN.",
+    7: "JUL.", 8: "AGO.", 9: "SET.", 10: "OUT.", 11: "NOV.", 12: "DEZ."
+}
 
 async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
     try:
@@ -274,11 +278,19 @@ async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
             date = config_entrada['dataRetirada']
             date = datetime.fromisoformat(date)
             date_day = str(date.day)
-            today = datetime.now()
-            if date.month > today.month:
-                #change month
-                await page.get_by_label("Next month").click()
-                await asyncio.sleep(1)
+
+            target_header = f"{MESES_MAP[date.month]} DE {date.year}" # Ex: "FEV. DE 2026"
+            # 2. Loop para encontrar o mês correto
+            for _ in range(12):
+                # Localiza o texto do cabeçalho atual
+                current_header = await page.locator("#mat-calendar-button-0").inner_text()
+
+                if target_header in current_header:
+                    break
+            # Se não for o mês certo, clica no botão "Next month"
+                await page.locator(".mat-calendar-next-button").click()
+                await asyncio.sleep(0.5)
+                
             await page.locator(f".mat-calendar-body-cell-content:text-is('{date_day}')").click()
             await page.keyboard.press("Escape")
             await asyncio.sleep(5)

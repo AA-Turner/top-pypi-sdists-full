@@ -29,6 +29,7 @@ pub fn reorder_tables(root_ast: &SyntaxNode<Lang>, tables: &Tables) {
             "tool.uv",
             // Builders
             "tool.cibuildwheel",
+            "tool.nuitka",
             // Formatters and linters
             "tool.autopep8",
             "tool.black",
@@ -48,6 +49,7 @@ pub fn reorder_tables(root_ast: &SyntaxNode<Lang>, tables: &Tables) {
             "tool.check-wheel-contents",
             "tool.deptry",
             "tool.pyproject-fmt",
+            "tool.typos",
             // Testing
             "tool.pytest",
             "tool.pytest_env",
@@ -70,5 +72,6 @@ pub fn reorder_tables(root_ast: &SyntaxNode<Lang>, tables: &Tables) {
             "tool.ty",
             "tool.django-stubs",
         ],
+        &["tool"], // Treat tool.* as distinct base keys (e.g., tool.black != tool.ruff)
     );
 }

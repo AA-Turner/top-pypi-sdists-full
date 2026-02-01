@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::process::Command;
 
 use anyhow::Result;
 use assert_cmd::assert::OutputAssertExt;
@@ -9,7 +8,7 @@ use predicates::prelude::predicate;
 use prek_consts::env_vars::EnvVars;
 use prek_consts::{ALT_CONFIG_FILE, CONFIG_FILE};
 
-use crate::common::{TestContext, cmd_snapshot};
+use crate::common::{TestContext, cmd_snapshot, git_cmd};
 
 mod common;
 
@@ -613,11 +612,7 @@ fn config_outside_repo() -> Result<()> {
     // Initialize a git repository in ./work.
     let root = context.work_dir().child("work");
     root.create_dir_all()?;
-    Command::new("git")
-        .arg("init")
-        .current_dir(&root)
-        .assert()
-        .success();
+    git_cmd(&root).arg("init").assert().success();
 
     // Create a configuration file in . (outside the repository).
     context
@@ -1388,24 +1383,21 @@ fn merge_conflicts() -> Result<()> {
     let cwd = context.work_dir();
     cwd.child("file.txt").write_str("Hello, world!")?;
     context.git_add(".");
-    context.configure_git_author();
     context.git_commit("Initial commit");
 
-    Command::new("git")
+    git_cmd(cwd)
         .arg("checkout")
         .arg("-b")
         .arg("feature")
-        .current_dir(cwd)
         .assert()
         .success();
     cwd.child("file.txt").write_str("Hello, world again!")?;
     context.git_add(".");
     context.git_commit("Feature commit");
 
-    Command::new("git")
+    git_cmd(cwd)
         .arg("checkout")
         .arg("master")
-        .current_dir(cwd)
         .assert()
         .success();
     cwd.child("file.txt")
@@ -1413,12 +1405,7 @@ fn merge_conflicts() -> Result<()> {
     context.git_add(".");
     context.git_commit("Master commit");
 
-    Command::new("git")
-        .arg("merge")
-        .arg("feature")
-        .current_dir(cwd)
-        .assert()
-        .code(1);
+    git_cmd(cwd).arg("merge").arg("feature").assert().code(1);
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -1631,7 +1618,6 @@ fn types_directory() -> Result<()> {
 fn run_last_commit() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     let cwd = context.work_dir();
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -2056,8 +2042,6 @@ fn shebang_script() -> Result<()> {
 fn git_commit_a() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
-    context.disable_auto_crlf();
 
     context.write_pre_commit_config(indoc::indoc! {r"
         repos:
@@ -2090,14 +2074,13 @@ fn git_commit_a() -> Result<()> {
     // Edit the file
     file.write_str("Hello, world again!\n")?;
 
-    let mut commit = Command::new("git");
+    let mut commit = git_cmd(cwd);
     commit
         .arg("commit")
         .arg("-a")
         .arg("-m")
         .arg("Update file")
-        .env(EnvVars::PREK_HOME, &**context.home_dir())
-        .current_dir(cwd);
+        .env(EnvVars::PREK_HOME, &**context.home_dir());
 
     let filters = context
         .filters()
@@ -2466,7 +2449,6 @@ fn alternate_config_file() -> Result<()> {
 fn show_diff_on_failure() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.disable_auto_crlf();
 
     let config = indoc::indoc! {r#"
         repos:
@@ -2498,7 +2480,7 @@ fn show_diff_on_failure() -> Result<()> {
     - duration: [TIME]
     - files were modified by this hook
 
-    Hint: Some hooks made changes to the files.
+    hint: Some hooks made changes to the files.
     If you are seeing this message in CI, reproduce locally with: `prek run --all-files`
     To run prek as part of git workflow, use `prek install` to set up git hooks.
 
@@ -2546,12 +2528,7 @@ fn show_diff_on_failure() -> Result<()> {
     app.child("file.txt").write_str("Original line\n")?;
     app.child(CONFIG_FILE).write_str(config)?;
 
-    Command::new("git")
-        .arg("add")
-        .arg(".")
-        .current_dir(&app)
-        .assert()
-        .success();
+    git_cmd(&app).arg("add").arg(".").assert().success();
 
     cmd_snapshot!(filters.clone(), context.run().env_remove(EnvVars::CI).current_dir(&app).arg("--show-diff-on-failure"), @r"
     success: false
@@ -2801,18 +2778,6 @@ fn system_language_version() {
       caused by: Failed to install bun
       caused by: No suitable system Bun version found and downloads are disabled
     ");
-
-    // When binaries are available, hooks pass.
-    cmd_snapshot!(context.filters(), context.run(), @r"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    system-node..............................................................Passed
-    system-go................................................................Passed
-    system-bun...............................................................Passed
-
-    ----- stderr -----
-    ");
 }
 
 /// Tests that empty `entry` field.
@@ -2893,6 +2858,10 @@ fn run_with_stdin_closed() {
 /// Test `prek --version` outputs version info.
 #[test]
 fn version_info() {
+    // skip if not built in the git repository
+    if option_env!("PREK_COMMIT_HASH").is_none() {
+        return;
+    }
     let context = TestContext::new();
     let filters = context
         .filters()
@@ -2963,7 +2932,6 @@ fn expands_tilde_in_prek_home() -> Result<()> {
 fn run_with_tree_object_as_ref() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
-    context.configure_git_author();
 
     let cwd = context.work_dir();
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -2987,9 +2955,8 @@ fn run_with_tree_object_as_ref() -> Result<()> {
     context.git_add("file2.txt");
 
     // Get the tree object from the staged changes
-    let tree_output = Command::new("git")
+    let tree_output = git_cmd(cwd)
         .arg("write-tree")
-        .current_dir(cwd)
         .output()
         .expect("Failed to run git write-tree");
     let tree_sha = String::from_utf8_lossy(&tree_output.stdout)
