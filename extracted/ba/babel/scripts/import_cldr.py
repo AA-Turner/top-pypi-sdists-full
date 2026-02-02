@@ -206,6 +206,19 @@ def process_data(srcdir, destdir, force=False, dump_json=False):
 
 def parse_global(srcdir, sup):
     global_data = {}
+
+    with open(os.path.join(srcdir, 'dtd', 'ldml.dtd')) as dtd_file:
+        cldr_version_match = re.search(
+            r'<!ATTLIST version cldrVersion CDATA #FIXED "(.+?)"',
+            dtd_file.read(),
+        )
+        if not cldr_version_match:
+            raise ValueError("Could not find CLDR version in DTD file")
+        cldr_version = cldr_version_match.group(1)
+        global_data.setdefault('cldr', {})['version'] = cldr_version
+
+    log.info('Processing CLDR version %s from %s', cldr_version, srcdir)
+
     sup_dir = os.path.join(srcdir, 'supplemental')
     territory_zones = global_data.setdefault('territory_zones', {})
     zone_aliases = global_data.setdefault('zone_aliases', {})
@@ -238,13 +251,22 @@ def parse_global(srcdir, sup):
     for key_elem in bcp47_timezone.findall('.//keyword/key'):
         if key_elem.attrib['name'] == 'tz':
             for elem in key_elem.findall('type'):
-                if 'deprecated' not in elem.attrib:
-                    aliases = str(elem.attrib['alias']).split()
-                    tzid = aliases.pop(0)
-                    territory = _zone_territory_map.get(tzid, '001')
-                    territory_zones.setdefault(territory, []).append(tzid)
-                    zone_territories[tzid] = territory
-                    for alias in aliases:
+                if 'deprecated' in elem.attrib:
+                    continue
+                aliases = str(elem.attrib['alias']).split()
+                iana = elem.attrib.get('iana')
+                tzid = iana or aliases[0]  # Use the IANA ID if available, otherwise the first alias
+                territory = '001'
+                # The windowsZones map might use an alias to refer to a timezone,
+                # so can't just do a simple dict lookup.
+                for cand in (tzid, *aliases):
+                    if cand in _zone_territory_map:
+                        territory = _zone_territory_map[cand]
+                        break
+                territory_zones.setdefault(territory, []).append(tzid)
+                zone_territories[tzid] = territory
+                for alias in aliases:
+                    if alias != tzid:
                         zone_aliases[alias] = tzid
             break
 

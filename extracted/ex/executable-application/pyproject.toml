@@ -1,0 +1,17 @@
+[project]
+name = "executable-application"
+version = "0.3.0"
+description = "An example of an executable application."
+readme = "README.md"
+authors = [
+    { name = "Charlie Marsh", email = "hey@astral.sh" }
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+app = "executable_application:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,97 @@
+# Configuration file for the GOAD simulation.
+# This file contains the default values for all config options.
+# The user should not modify this config, but may make a local copy of it
+#   in this directory called `local.toml`.
+# If `local.toml` exists, GOAD will use the values specified in that file.
+# Environment variables can be set to override values in this file.
+#   eg. `export GOAD_WAVELENGTH=632.8`
+# Configuration options specified on the command line will override values given
+#   in this file, as well as those set by environment variables.
+
+wavelength = 0.532 # wavelength in dimension of the geometry file
+medium_refr_index = [
+    1.0,
+    0.0,
+] # refractive index of the medium [real, imaginary]
+particle_refr_index = [
+    [
+        1.31,
+        0.0,
+    ],
+] # Refractive index of the particle/s (real and imaginary parts)
+# For files containing multiple shapes, use a nested list for different values
+# for each shape, eg. [[1.31,0.0],[1.5,0.001]]
+geom_name = "examples/data/hex.obj" # Geometry file name for the particle
+beam_power_threshold = 0.0001          # Threshold for truncation by beam power
+beam_area_threshold_fac = 0.0001      # Factor for truncating beams by area
+cutoff = 0.99999                        # Total power cutoff fraction
+max_rec = 10                         # Maximum number of recursions
+max_tir = 10                         # Maximum number of total internal reflections
+distortion = 0.0                    # Distortion factor for the geometry
+directory = "goad_run"              # Directory for output files
+# seed = 6                            # Seed (comment out for no seed)
+geom_scale = [1,1,1]        # Scale factor for the geometry
+# fov_factor = 1.0 # Field of view factor for diffraction (comment out for no truncation)
+mapping = "ApertureDiffraction" # ApertureDiffraction / GeometricOptics
+coherence = true # Enable coherence for near to far field mapping
+
+# ===================================
+# ZONES CONFIGURATION
+# ===================================
+# Zones define angular regions for scattering calculations.
+# Each zone has its own binning scheme and computed parameters.
+# Zone type is inferred: 0-180 theta = Full, otherwise = Custom.
+# Forward and Backward zones are added automatically.
+
+[[zones]]
+label = "main"
+[zones.scheme.Interval]
+thetas = [0, 180]
+theta_spacings = [2]
+phis = [0, 360]
+phi_spacings = [4]
+
+# Example: Add a high-resolution forward zone
+# [[zones]]
+# label = "forward_hires"
+# [zones.scheme.Interval]
+# thetas = [0, 10]
+# theta_spacings = [0.5]
+# phis = [0, 360]
+# phi_spacings = [4]
+
+# Example: Simple binning zone
+# [[zones]]
+# label = "simple_zone"
+# [zones.scheme.Simple]
+# num_theta = 90
+# num_phi = 48
+
+
+[orientation] # Orientation configuration
+euler_convention = "ZYZ" # Euler angle convention
+
+[orientation.scheme] # Uncomment the desired orientation scheme below
+
+[orientation.scheme.Discrete] # Discrete orientation with specified Euler angles
+eulers = [[30,30,0]]
+
+# [orientation.scheme.Uniform] # Random uniform distribution
+# num_orients = 100 # Number of orientations to generate
+
+# ===================================
+# OUTPUT CONFIGURATION
+# ===================================
+[output]
+# JSON files for structured data access
+settings_json = true   # Enable to dump settings.json (entire config)
+
+# Mueller matrix files (custom format) - DEFAULT: true
+mueller_2d = true       # Enable 2D Mueller matrix files
+mueller_1d = true       # Enable 1D integrated Mueller matrix files
+
+# Control which Mueller components are written - DEFAULT: all true
+[output.mueller_components]
+total = true           # Total scattering (mueller_scatgrid)
+beam = true            # Beam component (mueller_scatgrid_beam)
+external = true        # External diffraction (mueller_scatgrid_ext)

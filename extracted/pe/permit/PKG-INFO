@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: permit
+Version: 2.8.3
+Summary: Permit.io python sdk
+Author: Asaf Cohen
+Author-email: asaf@permit.io
+License: Apache 2.0
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+![Python.png](imgs/Python.png)
+# Permit.io Python SDK
+
+Python SDK for interacting with the Permit.io full-stack permissions platform.
+
+## Installation
+
+```py
+pip install permit
+```
+
+## Documentation
+
+[Read the documentation at Permit.io website](https://docs.permit.io/sdk/python/quickstart-python)

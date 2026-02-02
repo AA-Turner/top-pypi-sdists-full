@@ -319,6 +319,28 @@ fn test_subscript() {
 }
 
 #[test]
+fn test_subscript_trailing_whitespace() {
+    let html = "<p><sub>hello </sub>world</p>";
+    let opts = ConversionOptions {
+        sub_symbol: "~".to_string(),
+        ..Default::default()
+    };
+    let result = convert(html, Some(opts)).unwrap();
+    assert_eq!(result, "~hello~ world\n");
+}
+
+#[test]
+fn test_subscript_leading_whitespace() {
+    let html = "<p>hello<sub> world</sub></p>";
+    let opts = ConversionOptions {
+        sub_symbol: "~".to_string(),
+        ..Default::default()
+    };
+    let result = convert(html, Some(opts)).unwrap();
+    assert_eq!(result, "hello ~world~\n");
+}
+
+#[test]
 fn test_superscript() {
     let html = "<p>x<sup>2</sup></p>";
     let opts = ConversionOptions {
@@ -327,6 +349,28 @@ fn test_superscript() {
     };
     let result = convert(html, Some(opts)).unwrap();
     assert_eq!(result, "x^2^\n");
+}
+
+#[test]
+fn test_superscript_trailing_whitespace() {
+    let html = "<p><sup>hello </sup>world</p>";
+    let opts = ConversionOptions {
+        sup_symbol: "^".to_string(),
+        ..Default::default()
+    };
+    let result = convert(html, Some(opts)).unwrap();
+    assert_eq!(result, "^hello^ world\n");
+}
+
+#[test]
+fn test_superscript_leading_whitespace() {
+    let html = "<p>hello<sup> world</sup></p>";
+    let opts = ConversionOptions {
+        sup_symbol: "^".to_string(),
+        ..Default::default()
+    };
+    let result = convert(html, Some(opts)).unwrap();
+    assert_eq!(result, "hello ^world^\n");
 }
 
 #[test]

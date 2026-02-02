@@ -1,0 +1,46 @@
+"""
+PRIDE_get_project
+
+Get comprehensive details for a specific PRIDE Archive project by its accession ID. Returns compl...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def PRIDE_get_project(
+    accession: str,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> dict[str, Any]:
+    """
+    Get comprehensive details for a specific PRIDE Archive project by its accession ID. Returns compl...
+
+    Parameters
+    ----------
+    accession : str
+        PRIDE project accession identifier in format PXD###### (e.g., 'PXD000001', 'P...
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    dict[str, Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {"name": "PRIDE_get_project", "arguments": {"accession": accession}},
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["PRIDE_get_project"]

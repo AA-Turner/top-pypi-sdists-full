@@ -847,6 +847,23 @@ class Address:
             return False
         return self._address in Address._registry
 
+    def set(self, value: any) -> 'Address':
+        """Set the value at this address.
+
+        Replaces the object stored at this address in the registry.
+
+        Returns:
+            This Address (for chaining).
+
+        Example:
+            int x = 5;
+            address addr = address(x);
+            addr.set(10);
+            printl(addr.reflect());  // 10
+        """
+        Address._registry[self._address] = value
+        return self
+
     def copy(self) -> 'Address':
         """Create a copy of this address."""
         addr = Address(self._address)
@@ -6315,8 +6332,16 @@ class AsyncModule:
         return False
 
     @classmethod
-    def wait(cls, future: CSSLFuture, timeout: float = None) -> Any:
-        """Wait for a future to complete."""
+    def wait(cls, future, timeout: float = None) -> Any:
+        """Wait for a future to complete, or sleep for a duration (seconds).
+
+        If a number is passed instead of a Future, sleeps for that many seconds.
+        """
+        if isinstance(future, (int, float)):
+            # Treat as sleep duration in seconds
+            import time
+            time.sleep(float(future))
+            return future
         return future.result(timeout)
 
     @classmethod

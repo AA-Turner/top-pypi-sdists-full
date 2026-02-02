@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyDbLite3"
+version = "3.1.1"
+description = "A lightweight database engine in Python"
+readme = "docs/long_description.rst"
+requires-python = ">=3.9"
+keywords = ["Python", "database", "engine", "SQLite"]
+license = {text = "BSD"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.11"
+]
+authors = [
+    {name = "Pierre Quentel", email = "pierre.quentel@gmail.com"},
+    {name = "Bendik Rønning Opstad"}
+]
+urls = { "Homepage" = "https://github.com/sdh-global/PyDbLite" }
+
+dependencies = []  # Add runtime dependencies here
+
+[project.optional-dependencies]
+dev = ["pytest", "tox"]  # Development and testing dependencies
+
+[tool.setuptools]
+packages = ["pydblite"]  # Replace with find_packages() if required
+include-package-data = true  # This is the correct form for this option
+
+[tool.setuptools.package-data]
+"pydblite" = ["*.rst", "*.txt"]  # Include extra files
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--strict-markers"
+testpaths = ["tests"]
+
+[tool.tox]
+minversion = "3.20"
+envlist = "py39, py310, py311"
+
+[testenv]
+deps = ["pytest"]
+commands = ["pytest"]

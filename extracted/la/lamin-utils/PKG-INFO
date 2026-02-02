@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: lamin_utils
+Version: 0.16.3
+Summary: Lamin Utils.
+Author-email: Lamin Labs <laminlabs@gmail.com>
+Description-Content-Type: text/markdown
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE
+Requires-Dist: pandas ; extra == "dev"
+Requires-Dist: pre-commit ; extra == "dev"
+Requires-Dist: nox ; extra == "dev"
+Requires-Dist: pytest>=6.0 ; extra == "dev"
+Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: nbproject_test ; extra == "dev"
+Project-URL: Home, https://github.com/laminlabs/lamin-utils
+Provides-Extra: dev
+
+[![pypi](https://img.shields.io/pypi/v/lamin-utils?color=%2334D058&label=pypi%20package)](https://pypi.org/project/lamin-utils)
+
+# Lamin Utils
+
+Utils for LaminDB and Bionty.
+

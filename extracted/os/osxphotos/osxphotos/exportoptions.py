@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from ._constants import DEFAULT_PREVIEW_SUFFIX
 from .export_db import ExportDB
 from .fileutil import FileUtil
 from .phototemplate import RenderOptions
+
+if TYPE_CHECKING:
+    from .stat_cache import DirectoryStatCache
 
 # These two classes are in a separate file as classes other than PhotoExporter need to use them
 
@@ -49,6 +52,7 @@ class ExportOptions:
         preview_suffix (str): Optional string to append to end of filename for preview images
         preview (bool): if True, also exports preview image
         raw_photo (bool, default=False): if True, will also export the associated RAW photo
+        skip_raw_jpeg (bool, default=False): if True, will skip the JPEG component of a RAW+JPEG pair; only the RAW photo will be exported
         render_options (RenderOptions): Optional osxphotos.phototemplate.RenderOptions instance to specify options for rendering templates
         replace_keywords (bool): if True, keyword_template replaces any keywords, otherwise it's additive
         rich (bool): if True, will use rich markup with verbose output
@@ -105,6 +109,7 @@ class ExportOptions:
     preview_suffix: str = DEFAULT_PREVIEW_SUFFIX
     preview: bool = False
     raw_photo: bool = False
+    skip_raw_jpeg: bool = False
     render_options: Optional[RenderOptions] = None
     replace_keywords: bool = False
     rich: bool = False
@@ -125,6 +130,8 @@ class ExportOptions:
     favorite_rating: bool = False
     fix_orientation: bool = False
     sidecar_template: Optional[tuple[tuple[str, str, tuple[str, ...]], ...]] = None
+    stat_cache: Optional["DirectoryStatCache"] = None
+    same_filesystem: Optional[bool] = None
 
     def asdict(self):
         return dataclasses.asdict(self)

@@ -28,28 +28,29 @@ pub fn dedent_code_block(content: &str) -> String {
         .min()
         .unwrap_or(0);
 
-    lines
-        .iter()
-        .map(|line| {
-            if line.trim().is_empty() {
-                *line
-            } else {
-                let mut remaining = min_indent;
-                let mut cut = 0;
-                for (idx, ch) in line.char_indices() {
-                    if remaining == 0 {
-                        break;
-                    }
-                    if ch.is_whitespace() {
-                        remaining -= 1;
-                        cut = idx + ch.len_utf8();
-                    } else {
-                        break;
-                    }
+    lines.iter().fold(String::new(), |mut acc, line| {
+        if !acc.is_empty() {
+            acc.push('\n');
+        }
+        let processed = if line.trim().is_empty() {
+            *line
+        } else {
+            let mut remaining = min_indent;
+            let mut cut = 0;
+            for (idx, ch) in line.char_indices() {
+                if remaining == 0 {
+                    break;
                 }
-                &line[cut..]
+                if ch.is_whitespace() {
+                    remaining -= 1;
+                    cut = idx + ch.len_utf8();
+                } else {
+                    break;
+                }
             }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+            &line[cut..]
+        };
+        acc.push_str(processed);
+        acc
+    })
 }

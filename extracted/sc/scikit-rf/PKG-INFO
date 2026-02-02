@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-rf
-Version: 1.9.0
+Version: 1.10.0
 Summary: Object Oriented Microwave Engineering
 Author-email: Alex Arsenovic <alexanderarsenovic@gmail.com>
 License: LICENSE.txt
@@ -17,14 +17,12 @@ Classifier: Topic :: Communications :: Ham Radio
 Classifier: Topic :: Scientific/Engineering
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.21
 Requires-Dist: scipy>=1.7
@@ -32,7 +30,7 @@ Requires-Dist: pandas>=1.1
 Requires-Dist: typing-extensions
 Requires-Dist: pre-commit>=3.5.0
 Provides-Extra: test
-Requires-Dist: pytest>=7.0; extra == "test"
+Requires-Dist: pytest<9.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10; extra == "test"
 Requires-Dist: pytest-xdist>=3.5.0; extra == "test"
 Requires-Dist: coverage>=6.0; extra == "test"
@@ -59,6 +57,7 @@ Requires-Dist: sphinx-rtd-theme>=1.0; extra == "docs"
 Requires-Dist: sphinx>=4; extra == "docs"
 Requires-Dist: nbsphinx>=0.8.9; extra == "docs"
 Requires-Dist: openpyxl>=3; extra == "docs"
+Requires-Dist: typing-extensions>=4.15.0; extra == "docs"
 
 [![Code Testing](https://github.com/scikit-rf/scikit-rf/workflows/Code%20linting%20and%20testing/badge.svg)](https://github.com/scikit-rf/scikit-rf/actions?query=workflow%3A%22Code+linting+and+testing%22)
 [![Documentation Status](https://readthedocs.org/projects/scikit-rf/badge/?version=latest)](https://readthedocs.org/projects/scikit-rf/?badge=latest)
@@ -106,7 +105,6 @@ multiline-trl # Run the multiline-trl application
 
 ## Questions or comments? Ask the Community
 
-[![Slack](https://img.shields.io/badge/Slack-join%20chat-blueviolet?style=flat&logo=slack)](https://join.slack.com/t/scikit-rf/shared_invite/zt-d82b62wg-0bdSJjZVhHBKf6687V80Jg)
 [![Matrix](https://img.shields.io/badge/Matrix-join%20chat-blueviolet?style=flat&logo=matrix)](https://app.element.io/#/room/#scikit-rf:matrix.org)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn_scikit_rf_group-orange?style=flat)](https://www.linkedin.com/groups/12462155/)
 

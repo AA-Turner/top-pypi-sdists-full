@@ -49,6 +49,7 @@ class BumpArgs(Settings, total=False):
     dry_run: bool
     file_name: str
     files_only: bool | None
+    version_files_only: bool | None
     get_next: bool  # TODO: maybe rename to `next_version_to_stdout`
     git_output_to_stderr: bool
     increment_mode: str
@@ -306,6 +307,7 @@ class Bump:
             )
 
         updated_files: list[str] = []
+        changelog_file_name = None
         dry_run = self.arguments["dry_run"]
         if self.changelog_flag:
             changelog_args = {
@@ -318,12 +320,11 @@ class Bump:
                 "during_version_bump": self.arguments["prerelease"] is None,
             }
             if self.changelog_to_stdout:
-                changelog_cmd = Changelog(
-                    self.config,
-                    {**changelog_args, "dry_run": True},  # type: ignore[typeddict-item]
-                )
                 try:
-                    changelog_cmd()
+                    Changelog(
+                        self.config,
+                        {**changelog_args, "dry_run": True},  # type: ignore[typeddict-item]
+                    )()
                 except DryRunExit:
                     pass
 
@@ -332,7 +333,8 @@ class Bump:
                 {**changelog_args, "file_name": self.file_name},  # type: ignore[typeddict-item]
             )
             changelog_cmd()
-            updated_files.append(changelog_cmd.file_name)
+            changelog_file_name = changelog_cmd.file_name
+            updated_files.append(changelog_file_name)
 
         # Do not perform operations over files or git.
         if dry_run:
@@ -361,12 +363,17 @@ class Bump:
                 new_tag_version=new_tag_version,
                 message=message,
                 increment=increment,
-                changelog_file_name=changelog_cmd.file_name
-                if self.changelog_flag
-                else None,
+                changelog_file_name=changelog_file_name,
             )
 
-        if self.arguments["files_only"]:
+        if self.arguments.get("files_only"):
+            warnings.warn(
+                "--files-only is deprecated and will be removed in v5. Use --version-files-only instead.",
+                DeprecationWarning,
+            )
+            raise ExpectedExit()
+
+        if self.arguments.get("version_files_only"):
             raise ExpectedExit()
 
         # FIXME: check if any changes have been staged
@@ -419,9 +426,7 @@ class Bump:
                 current_tag_version=new_tag_version,
                 message=message,
                 increment=increment,
-                changelog_file_name=changelog_cmd.file_name
-                if self.changelog_flag
-                else None,
+                changelog_file_name=changelog_file_name,
             )
 
         # TODO: For v3 output this only as diagnostic and remove this if

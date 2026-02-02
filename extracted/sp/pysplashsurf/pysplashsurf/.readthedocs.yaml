@@ -1,0 +1,23 @@
+# Read the Docs configuration file for Sphinx projects
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "mambaforge-23.11"
+  jobs:
+    pre_build:
+      - asdf install rust 1.89.0
+      - asdf global rust 1.89.0
+      - py=$(which python) && base="${py%python}" && export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${base}../lib" && cd pysplashsurf && cargo run --bin stub_gen --no-default-features
+      - cd pysplashsurf && maturin build
+      - pip install target/wheels/*.whl
+
+sphinx:
+  configuration: pysplashsurf/pysplashsurf/docs/source/conf.py
+
+conda:
+  environment: pysplashsurf/python_environment.yaml

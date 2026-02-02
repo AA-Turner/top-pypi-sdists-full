@@ -1,0 +1,42 @@
+Metadata-Version: 2.4
+Name: coze-coding-utils
+Version: 0.2.2
+Summary: Utilities for Coze coding client runtime context and helpers.
+Project-URL: Homepage, https://code.byted.org/stone/coze-coding-client
+Author: Bytedance Stone Team
+License: MIT
+License-File: LICENSE
+Keywords: context,coze,utils
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# coze-coding-utils
+
+Python utilities for the Coze coding client. Provides a simple runtime `Context` object.
+
+## Installation
+
+```bash
+pip install coze-coding-utils
+```
+
+## Usage
+
+```python
+from coze_coding_utils.runtime_ctx.context import Context
+
+ctx = Context(run_id="r", space_id="s", project_id="p", method="fetchData")
+print(ctx.run_id, ctx.method)
+```
+
+## Python Version
+
+Requires Python 3.10+.
+
+## License
+
+MIT

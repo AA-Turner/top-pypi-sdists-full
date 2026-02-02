@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: pytest-taskgraph
+Version: 0.2.0
+Summary: Add your description here
+Author-email: Andrew Halberstadt <ahal@mozilla.com>
+Requires-Python: >=3.8
+Requires-Dist: pytest
+Requires-Dist: taskcluster-taskgraph>=12.1.0

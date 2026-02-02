@@ -33,7 +33,9 @@ pub(crate) fn indent_table_for_list(
     if matches!(options.list_indent_type, ListIndentType::Spaces) {
         let space_count = indent.chars().filter(|c| *c == ' ').count();
         if space_count < 4 {
-            indent.push_str(&" ".repeat(4 - space_count));
+            for _ in 0..(4 - space_count) {
+                indent.push(' ');
+            }
         }
     }
 

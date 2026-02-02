@@ -1,11 +1,12 @@
 Metadata-Version: 2.3
 Name: lamindb_setup
-Version: 1.18.2
+Version: 1.19.0
 Summary: Setup & configure LaminDB.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: lamin_utils>=0.3.3
+Requires-Dist: python-dotenv
 Requires-Dist: django>=5.2,<5.3
 Requires-Dist: dj_database_url>=1.3.0,<3.0.0
 Requires-Dist: django-pgtrigger

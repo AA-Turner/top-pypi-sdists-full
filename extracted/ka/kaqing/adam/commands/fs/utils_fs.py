@@ -155,9 +155,11 @@ def show_last_results_for_background_jobs(state: ReplState, cmd: CommandInfo, ct
                  ctx=ctx)
         ctx.log2()
         if any(d.startswith('DN: ') for d in waiting_ons.values()):
-            ctx.log2('  *DN  node is down or marked as in_restart')
+            ctx.log2('  *DN  node is down')
         if any(d.startswith('MC: ') for d in waiting_ons.values()):
             ctx.log2('  *MC  node has more than one copy of some token ranges; cannot be restarted until the copies are relocated to other nodes')
+        if any(d.startswith('GP: ') for d in waiting_ons.values()):
+            ctx.log2('  *GP  node is in grace period after restart')
 
 def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, cmd: CommandInfo, remote: bool, ctx: Context = Context.NULL):
     ctx = ctx.copy(show_out=True, text_color=Color.gray)

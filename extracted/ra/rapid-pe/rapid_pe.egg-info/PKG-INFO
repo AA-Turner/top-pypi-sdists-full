@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: rapid-pe
+Version: 0.1.1
+Summary: RapidPE: The original low-latency gravitational wave parameter estimation code.
+Home-page: https://git.ligo.org/rapidpe-rift/rapidpe/
+License: GPL-2+
+Project-URL: Bug Tracker, https://git.ligo.org/rapidpe-rift/rapidpe/-/issues/
+Project-URL: Source Code, https://git.ligo.org/rapidpe-rift/rapidpe/
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Scientific/Engineering :: Physics
+License-File: COPYING
+Requires-Dist: bilby
+Requires-Dist: h5py
+Requires-Dist: healpy
+Requires-Dist: lalsuite
+Requires-Dist: ligo.skymap
+Requires-Dist: lscsoft-glue
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: python-ligo-lw<1.9,>=1.8.1
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
+Requires-Dist: six
+
+RapidPE was the first piece of software written for rapidly measuring the
+parameters of compact binary mergers observed via gravitational waves.  It
+leverages properties of general relativity in order to minimize the number of
+simulations needed, thereby reducing the dominant cost of parameter estimation.
+
+To install, run::
+
+    $ pip install rapid-pe

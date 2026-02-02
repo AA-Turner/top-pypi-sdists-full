@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: pylint-actions
+Version: 0.6.0
+Summary: Pylint plugin for GitHub Actions
+Author-email: skhomuti <skhomuti@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: actions,github,linter,pylint,python,static code analysis
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.9
+Requires-Dist: pylint<4,>=3.0.3
+Provides-Extra: dev
+Requires-Dist: pylint<4,>=3.0.3; extra == 'dev'
+Description-Content-Type: text/markdown
+
+![](https://img.shields.io/pypi/v/pylint-actions)
+![](https://img.shields.io/pypi/dm/pylint-actions)
+![](https://img.shields.io/pypi/pyversions/pylint-actions)
+# Pylint plugin for GitHub Actions annotations
+This is a plugin for [Pylint](https://www.pylint.org/) that allows it to output annotations 
+in the format that GitHub Actions understands. 
+See annotations from [examples](https://github.com/skhomuti/pylint-actions/actions/workflows/example.yml) workflows.
+Also these annotations will be displayed in your pull requests changes
+
+# Installation
+So simple:
+```bash
+pip install pylint-actions
+```
+
+# Usage
+Add the following to your `pyproject.toml` file:
+```toml
+[tool.pylint.main]
+load-plugins = "pylint_actions"
+```
+Or load the plugin with any available pylint configuration variants except command line arguments.
+
+Next, run pylint with the `--output-format=actions` option, or shorted `-f actions`.
+
+In your GitHub Actions workflow, use it like this:
+```yaml
+- name: Run pylint
+  run: uv pip install pylint pylint-actions && pylint -f actions src
+```

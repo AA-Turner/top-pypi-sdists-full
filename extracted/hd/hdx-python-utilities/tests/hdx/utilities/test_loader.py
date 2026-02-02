@@ -1,0 +1,187 @@
+"""Loader Tests"""
+
+from collections import OrderedDict
+
+import pytest
+
+from hdx.utilities.loader import (
+    LoadError,
+    load_and_merge_json,
+    load_and_merge_yaml,
+    load_json,
+    load_json_into_existing_dict,
+    load_text,
+    load_yaml,
+    load_yaml_into_existing_dict,
+)
+from hdx.utilities.path import temp_dir
+from hdx.utilities.saver import save_text
+
+
+class TestLoader:
+    expected_yaml = OrderedDict(
+        [
+            (
+                "hdx_prod_site",
+                OrderedDict(
+                    [
+                        ("url", "https://data.humdata.org/"),
+                        ("username", None),
+                        ("password", None),
+                    ]
+                ),
+            ),
+            (
+                "hdx_test_site",
+                OrderedDict(
+                    [
+                        ("url", "https://test-data.humdata.org/"),
+                        ("username", "lala"),
+                        ("password", "lalala"),
+                    ]
+                ),
+            ),
+            (
+                "dataset",
+                OrderedDict([("required_fields", ["name", "title", "dataset_date"])]),
+            ),
+            (
+                "resource",
+                OrderedDict(
+                    [
+                        (
+                            "required_fields",
+                            ["package_id", "name", "description"],
+                        )
+                    ]
+                ),
+            ),
+            (
+                "showcase",
+                OrderedDict([("required_fields", ["name", "title"])]),
+            ),
+            ("param_1", "ABC"),
+        ]
+    )
+
+    expected_json = OrderedDict(
+        [
+            (
+                "hdx_prod_site",
+                OrderedDict(
+                    [
+                        ("url", "https://data.humdata.org/"),
+                        ("username", None),
+                        ("password", None),
+                    ]
+                ),
+            ),
+            (
+                "hdx_test_site",
+                OrderedDict(
+                    [
+                        ("url", "https://test-data.humdata.org/"),
+                        ("username", "tumteetum"),
+                        ("password", "tumteetumteetum"),
+                    ]
+                ),
+            ),
+            (
+                "dataset",
+                OrderedDict([("required_fields", ["name", "dataset_date"])]),
+            ),
+            (
+                "resource",
+                OrderedDict([("required_fields", ["name", "description"])]),
+            ),
+            ("showcase", OrderedDict([("required_fields", ["name"])])),
+            ("my_param", "abc"),
+        ]
+    )
+    text = """  hello
+this
+is
+a
+test  
+
+"""  # noqa: W291
+    expected_text_strip = """hello
+this
+is
+a
+test"""
+    expected_text_newlines_to_spaces = """  hello this is a test    """
+
+    @pytest.fixture(scope="class")
+    def loaderfolder(self, fixturesfolder):
+        return fixturesfolder / "loader"
+
+    @pytest.fixture(scope="class")
+    def empty_yaml(self, loaderfolder):
+        return loaderfolder / "empty.yaml"
+
+    @pytest.fixture(scope="class")
+    def empty_json(self, loaderfolder):
+        return loaderfolder / "empty.json"
+
+    @pytest.fixture(scope="class")
+    def empty_list(self, loaderfolder):
+        return loaderfolder / "empty_list.json"
+
+    def test_load_empty(self, empty_yaml, empty_json, empty_list):
+        with pytest.raises(LoadError):
+            load_text(empty_yaml)
+        load_text(empty_yaml, loaderror_if_empty=False) == ""
+        with pytest.raises(LoadError):
+            load_yaml(empty_yaml)
+        load_yaml(empty_yaml, loaderror_if_empty=False) is None
+        with pytest.raises(LoadError):
+            load_json(empty_json)
+        load_json(empty_json, loaderror_if_empty=False) is None
+        load_json(empty_list)
+
+    def test_load_and_merge_yaml(self, configfolder):
+        result = load_and_merge_yaml(
+            [
+                configfolder / "hdx_config.yaml",
+                configfolder / "project_configuration.yaml",
+            ]
+        )
+        assert list(result.items()) == list(TestLoader.expected_yaml.items())
+
+    def test_load_and_merge_json(self, configfolder):
+        result = load_and_merge_json(
+            [
+                configfolder / "hdx_config.json",
+                configfolder / "project_configuration.json",
+            ]
+        )
+        assert list(result.items()) == list(TestLoader.expected_json.items())
+
+    def test_load_yaml_into_existing_dict(self, configfolder):
+        existing_dict = load_yaml(configfolder / "hdx_config.yaml")
+        result = load_yaml_into_existing_dict(
+            existing_dict, configfolder / "project_configuration.yaml"
+        )
+        assert list(result.items()) == list(TestLoader.expected_yaml.items())
+
+    def test_load_json_into_existing_dict(self, configfolder):
+        existing_dict = load_json(configfolder / "hdx_config.json")
+        result = load_json_into_existing_dict(
+            existing_dict, configfolder / "project_configuration.json"
+        )
+        assert list(result.items()) == list(TestLoader.expected_json.items())
+
+    def test_load_file_to_str(self):
+        with temp_dir(folder="test_text") as tmp_path:
+            text_file = tmp_path / "text_file.txt"
+            save_text(TestLoader.text, text_file)
+            result = load_text(text_file)
+            assert result == TestLoader.text
+            result = load_text(str(text_file), strip=True)
+            save_text(TestLoader.text, str(text_file))
+            assert result == TestLoader.expected_text_strip
+            result = load_text(text_file, replace_line_separators=" ")
+            assert result == TestLoader.expected_text_newlines_to_spaces
+            with pytest.raises(IOError):
+                load_text(tmp_path / "NOTEXIST.txt")

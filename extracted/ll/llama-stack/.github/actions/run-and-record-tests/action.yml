@@ -1,0 +1,137 @@
+name: 'Run and Record Tests'
+description: 'Run integration tests and handle recording/artifact upload'
+
+inputs:
+  stack-config:
+    description: 'Stack configuration to use'
+    required: true
+  setup:
+    description: 'Setup to use for tests (e.g., ollama, gpt, vllm)'
+    required: false
+    default: ''
+  inference-mode:
+    description: 'Inference mode (record or replay)'
+    required: true
+  suite:
+    description: 'Test suite to use: base, responses, vision, etc.'
+    required: false
+    default: ''
+  subdirs:
+    description: 'Comma-separated list of test subdirectories to run; overrides suite'
+    required: false
+    default: ''
+  pattern:
+    description: 'Regex pattern to pass to pytest -k'
+    required: false
+    default: ''
+  target-branch:
+    description: 'Target branch for recording commits (for PRs, use the PR head branch)'
+    required: false
+    default: ''
+  is-fork-pr:
+    description: 'Whether this is a fork PR (recordings cannot be pushed to forks)'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check Storage and Memory Available Before Tests
+      if: ${{ always() }}
+      shell: bash
+      run: |
+        free -h
+        df -h
+
+    - name: Run Integration Tests
+      shell: bash
+      run: |
+        SCRIPT_ARGS="--stack-config ${{ inputs.stack-config }} --inference-mode ${{ inputs.inference-mode }}"
+
+        # Add optional arguments only if they are provided
+        if [ -n '${{ inputs.setup }}' ]; then
+          SCRIPT_ARGS="$SCRIPT_ARGS --setup ${{ inputs.setup }}"
+        fi
+        if [ -n '${{ inputs.suite }}' ]; then
+          SCRIPT_ARGS="$SCRIPT_ARGS --suite ${{ inputs.suite }}"
+        fi
+        if [ -n '${{ inputs.subdirs }}' ]; then
+          SCRIPT_ARGS="$SCRIPT_ARGS --subdirs ${{ inputs.subdirs }}"
+        fi
+        if [ -n '${{ inputs.pattern }}' ]; then
+          SCRIPT_ARGS="$SCRIPT_ARGS --pattern ${{ inputs.pattern }}"
+        fi
+
+        echo "=== Running command ==="
+        echo "uv run --no-sync ./scripts/integration-tests.sh $SCRIPT_ARGS"
+        echo ""
+
+        uv run --no-sync ./scripts/integration-tests.sh $SCRIPT_ARGS | tee pytest-${{ inputs.inference-mode }}.log
+
+
+    - name: Commit and push recordings
+      if: ${{ inputs.inference-mode == 'record' ||  inputs.inference-mode == 'record-if-missing' }}
+      shell: bash
+      run: |
+        echo "Checking for recording changes"
+        git status --porcelain tests/integration/recordings/ tests/integration/*/recordings/
+
+        if [[ -n $(git status --porcelain tests/integration/recordings/ tests/integration/*/recordings/) ]]; then
+          echo "New recordings detected"
+
+          # Determine target branch: use target-branch input if provided, otherwise use current branch
+          TARGET_BRANCH="${{ inputs.target-branch }}"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          echo "Target branch: $TARGET_BRANCH"
+
+          # Check if this is a fork PR
+          if [ "${{ inputs.is-fork-pr }}" = "true" ]; then
+            echo "::warning::This is a fork PR. Recordings were updated locally but cannot be pushed to the fork."
+            echo "::warning::Please download the workflow artifacts and commit the recordings manually."
+          else
+            echo "Committing and pushing recordings to branch: $TARGET_BRANCH"
+            git add tests/integration/recordings/ tests/integration/*/recordings/
+
+            git commit -m "Recordings update from CI (setup: ${{ inputs.setup }}, suite: ${{ inputs.suite }})"
+
+            git fetch origin "$TARGET_BRANCH"
+            git rebase "origin/$TARGET_BRANCH"
+            echo "Rebased successfully"
+            git push origin "HEAD:$TARGET_BRANCH"
+            echo "Pushed successfully to $TARGET_BRANCH"
+          fi
+        else
+          echo "No recording changes"
+        fi
+
+    - name: Upload recordings (for fork PRs)
+      if: ${{ inputs.is-fork-pr == 'true' && (inputs.inference-mode == 'record' || inputs.inference-mode == 'record-if-missing') }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: recordings-${{ github.run_id }}-${{ github.run_attempt || '1' }}-${{ strategy.job-index || github.job }}
+        path: |
+          tests/integration/recordings/
+          tests/integration/*/recordings/
+        retention-days: 7
+        if-no-files-found: ignore
+
+    - name: Write docker logs to file
+      if: ${{ always() }}
+      shell: bash
+      run: |
+        # Ollama logs (if ollama container exists)
+        sudo docker logs ollama > ollama-${{ inputs.inference-mode }}.log 2>&1 || true
+        # vllm logs (if vllm container exists)
+        sudo docker logs vllm > vllm-${{ inputs.inference-mode }}.log 2>&1 || true
+        # Note: distro container logs are now dumped in integration-tests.sh before container is removed
+
+    - name: Upload logs
+      if: ${{ always() }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: logs-${{ github.run_id }}-${{ github.run_attempt || '1' }}-${{ strategy.job-index || github.job }}-${{ github.action }}
+        path: |
+          *.log
+        retention-days: 1

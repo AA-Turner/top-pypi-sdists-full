@@ -1,3 +1,0 @@
-parameters:
-  - persistent-bool:
-      name: FOO

@@ -1,0 +1,104 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "code-puppy"
+version = "0.0.384"
+description = "Code generation agent"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "pydantic-ai-slim[openai,anthropic,mcp]==1.26.0",
+    "typer>=0.12.0",
+    "mcp>=1.9.4",    
+    "httpx[http2]>=0.24.1",
+    "requests>=2.28.0",
+    "rich>=13.4.2",
+    "pydantic>=2.4.0",
+    "python-dotenv>=1.0.0",
+    "prompt-toolkit>=3.0.52",
+    "rapidfuzz>=3.13.0",
+    "json-repair>=0.46.2",
+    "pyfiglet>=0.8.post1",
+    "openai>=1.99.1",
+    "ripgrep==14.1.0",
+    "tenacity>=8.2.0",
+    "playwright>=1.40.0",
+    "dbos>=2.5.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
+    "termflow-md>=0.1.8",
+    "Pillow>=10.0.0",
+]
+dev-dependencies = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.1.1",
+    "pytest-asyncio>=0.23.1",
+    "ruff>=0.11.11",
+    "pexpect>=4.9.0",
+]
+authors = [
+    {name = "Michael Pfaffenberger"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Code Generators",
+]
+
+[project.urls]
+repository = "https://github.com/mpfaffenberger/code_puppy"
+HomePage = "https://github.com/mpfaffenberger/code_puppy"
+
+
+[project.scripts]
+code-puppy = "code_puppy.main:main_entry"
+pup = "code_puppy.main:main_entry"
+
+[tool.logfire]
+ignore_no_config = true
+
+[tool.hatch.build]
+packages = ["code_puppy"]
+build_data = true
+
+[tool.hatch.build.targets.wheel.shared-data]
+"code_puppy/models.json" = "code_puppy/models.json"
+"code_puppy/models_dev_api.json" = "code_puppy/models_dev_api.json"
+
+[[tool.hatch.build.targets.sdist.include]]
+path = "code_puppy/models.json"
+
+[[tool.hatch.build.targets.sdist.include]]
+path = "code_puppy/models_dev_api.json"
+[tool.ruff.lint.per-file-ignores]
+"code_puppy/main.py" = ["E402"]
+"code_puppy/cli_runner.py" = ["E402"]
+"code_puppy/messaging/__init__.py" = ["E402"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=code_puppy --cov-report=term-missing"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+omit = ["code_puppy/main.py"]
+
+[tool.uv]
+python-preference = "only-managed"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.1.1",
+    "pytest-asyncio>=0.23.1",
+    "ruff>=0.11.11",
+    "pexpect>=4.9.0",
+]

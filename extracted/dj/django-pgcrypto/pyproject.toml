@@ -1,0 +1,35 @@
+[project]
+name = "django-pgcrypto"
+version = "3.1.0"
+authors = [
+    {name = "Dan Watson", email = "dcwatson@gmail.com"},
+]
+description = "Python and Django utilities for encrypted fields using pgcrypto."
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.8"
+license = {text = "BSD-2-Clause"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+]
+dependencies = [
+    "cryptography",
+]
+
+[project.urls]
+Repository = "https://github.com/dcwatson/django-pgcrypto"
+
+[dependency-groups]
+dev = [
+    "django",
+    "psycopg[binary]",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.2,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "pgcrypto"

@@ -1,0 +1,43 @@
+name: Verify type-completeness
+
+concurrency:
+  {% raw %}group: ${{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: "0 12 * * 6"
+  workflow_dispatch:
+
+jobs:
+  verify-types:
+    runs-on: ubuntu-latest
+
+    steps:{% if REQUIRES_RUST %}
+      - uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        with:
+            toolchain: nightly
+            override: true
+{% endif %}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Set up Python {{ DEFAULT_PY_VER }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: "{{ DEFAULT_PY_VER }}"
+
+      - name: install prerequisites
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r {{ NOX_DEP_PATH }}
+
+      - name: Run verify types
+        run: python -m nox -s verify-types

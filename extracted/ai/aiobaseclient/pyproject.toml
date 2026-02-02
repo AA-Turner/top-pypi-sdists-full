@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "aiobaseclient"
+version = "0.4.31"
+description = ""
+authors = ["Pasha Podolsky <ppodolsky@me.com>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.8"
+aiohttp = { version = "^3.11.13", extras = ["speedups"] }
+orjson = "^3.10.15"
+aiokit = "^1.3.9"
+izihawa-loglib = "^1.1.21"
+izihawa-utils = "^1.2.3"
+multidict = "^6.1.0"
+python-socks = "^2.5.3"
+tenacity = "~9.0.0"
+aiohttp-socks = "^0.9.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

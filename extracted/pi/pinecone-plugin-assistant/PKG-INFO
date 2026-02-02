@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: pinecone-plugin-assistant
-Version: 3.0.1
+Version: 3.0.2
 Summary: Assistant plugin for Pinecone SDK
 License: Apache-2.0
 License-File: LICENSE.txt
 Author: Pinecone Systems, Inc.
 Author-email: support@pinecone.io
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

@@ -1,8 +1,0 @@
-publishers:
-  - trigger:
-      project: project-1,project-2
-      threshold: failure
-  - join-trigger:
-      projects:
-        - cleanup
-      threshold: failure

@@ -13,65 +13,14 @@ from lsprotocol.types import (
 )
 
 from .document_manager import DocumentAnalysis
-from .semantic_analyzer import (
-    SemanticAnalyzer, CSSL_KEYWORDS, CSSL_TYPES, CSSL_BUILTINS, CSSL_MODIFIERS
-)
+from .semantic_analyzer import SemanticAnalyzer
+from ..utils.cssl_registry import get_registry
 from ..utils.symbol_table import SymbolKind
 
 
-# Known namespaces and their members
-# Note: User-defined namespaces from include() are dynamically allowed
-KNOWN_NAMESPACES = {
-    'json': ['read', 'write', 'parse', 'stringify', 'pretty', 'keys', 'values', 'get', 'set', 'has', 'merge', 'key', 'value'],
-    'instance': ['getMethods', 'getClasses', 'getVars', 'getAll', 'call', 'has', 'type', 'exists', 'delete'],
-    'python': ['pythonize', 'wrap', 'export', 'csslize', 'import', 'parameter_get', 'parameter_return', 'param_get', 'param_return'],
-    'string': ['where', 'contains', 'not', 'startsWith', 'endsWith', 'length', 'lenght', 'cut', 'cutAfter', 'value'],
-    'sql': ['connect', 'load', 'save', 'update', 'sync', 'Structured', 'table', 'data', 'data__list', 'db'],
-    'filter': ['register', 'unregister', 'list', 'exists'],
-    'combo': ['filterdb', 'blocked', 'like'],
-    'async': ['run', 'wait', 'cancel', 'parallel'],
-    'watcher': ['get', 'set', 'list', 'exists', 'refresh'],
-    # Standard library namespaces
-    'fmt': ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'white', 'black', 'bold', 'italic', 'underline', 'reset', 'color', 'bg', 'bright'],
-    'std': [],  # Standard library - allow any member (checked dynamically)
-    'math': ['sin', 'cos', 'tan', 'sqrt', 'pow', 'abs', 'ceil', 'floor', 'round', 'log', 'exp', 'pi', 'e', 'random', 'randint'],
-    'io': ['read', 'write', 'open', 'close', 'readline', 'writeline', 'flush', 'seek', 'tell', 'eof'],
-    'sys': ['exit', 'args', 'env', 'platform', 'version', 'path'],
-    'os': ['getcwd', 'chdir', 'listdir', 'mkdir', 'rmdir', 'remove', 'rename', 'exists', 'isfile', 'isdir'],
-    'time': ['now', 'sleep', 'timestamp', 'format', 'parse', 'delta'],
-    'net': ['get', 'post', 'request', 'socket', 'connect', 'listen', 'accept', 'send', 'recv'],
-    # Reflection/Introspection namespaces
-    'reflect': ['getMethods', 'getProperties', 'getType', 'getParent', 'getModifiers', 'getAnnotations',
-                'invoke', 'create', 'getField', 'setField', 'getConstructors', 'isInstance',
-                'getInterfaces', 'getSource', 'getSignature'],
-    'resolve': ['byName', 'byPath', 'inScope', 'lazy', 'tryResolve', 'exists', 'type', 'function', 'class'],
-}
-
-# Type methods - all methods available on built-in types
-TYPE_METHODS = {
-    'datastruct': ['add', 'push', 'pop', 'get', 'set', 'remove', 'clear', 'content', 'len', 'at', 'filter', 'map', 'size', 'isEmpty', 'contains', 'begin', 'end'],
-    'vector': ['push', 'push_back', 'pop', 'pop_back', 'at', 'set', 'size', 'empty', 'clear', 'insert', 'erase', 'front', 'back', 'contains', 'indexOf'],
-    'stack': ['push', 'pop', 'peek', 'size', 'empty', 'clear', 'isEmpty', 'contains'],
-    'queue': ['push', 'pop', 'peek', 'front', 'back', 'size', 'empty', 'clear', 'isEmpty', 'isFull'],
-    'string': ['length', 'len', 'upper', 'lower', 'trim', 'split', 'replace', 'contains', 'startswith', 'endswith', 'substr', 'at', 'indexOf', 'charAt', 'concat', 'format'],
-    'list': ['append', 'extend', 'insert', 'remove', 'pop', 'clear', 'index', 'count', 'sort', 'reverse', 'push', 'len', 'size'],
-    'dict': ['keys', 'values', 'items', 'get', 'set', 'has', 'remove', 'clear', 'update', 'pop'],
-    'map': ['insert', 'find', 'erase', 'contains', 'count', 'size', 'empty', 'at', 'keys', 'values', 'items', 'get', 'clear'],
-    'array': ['push', 'pop', 'at', 'set', 'size', 'len', 'slice', 'concat', 'join', 'map', 'filter', 'reduce', 'sort', 'reverse', 'indexOf'],
-    'iterator': ['next', 'has_next', 'reset', 'current', 'to_list'],
-    'shuffled': ['add', 'get', 'at', 'size', 'isEmpty', 'clear'],
-    # Pointer/memory types
-    'ptr': ['get_address', 'set_address', 'get_value', 'set_value', 'deref', 'ref', 'is_null', 'is_valid', 'offset', 'copy', 'free'],
-    'pointer': ['get_address', 'set_address', 'get_value', 'set_value', 'deref', 'ref', 'is_null', 'is_valid', 'offset', 'copy', 'free'],
-    'address': ['get', 'set', 'offset', 'to_ptr', 'to_int', 'is_valid', 'copy'],
-    # Numeric types
-    'byte': ['to_int', 'to_bits', 'to_hex', 'to_string', 'set', 'get', 'flip', 'and', 'or', 'xor', 'not'],
-    'bit': ['set', 'get', 'flip', 'to_int', 'to_bool', 'and', 'or', 'xor', 'not'],
-    'int': ['to_string', 'to_float', 'to_hex', 'to_bin', 'abs', 'sign'],
-    'float': ['to_string', 'to_int', 'round', 'ceil', 'floor', 'abs', 'sign'],
-    # JSON type
-    'json': ['parse', 'stringify', 'pretty', 'keys', 'values', 'get', 'set', 'has', 'remove', 'merge', 'clone'],
-}
+def _safe_pos(line: int, character: int) -> Position:
+    """Create a Position with clamped non-negative values."""
+    return Position(line=max(0, line), character=max(0, character))
 
 
 class DiagnosticProvider:
@@ -179,8 +128,8 @@ class DiagnosticProvider:
 
             diagnostics.append(Diagnostic(
                 range=Range(
-                    start=Position(line=line, character=col),
-                    end=Position(line=line, character=col + token_len)
+                    start=_safe_pos(line, col),
+                    end=_safe_pos(line, col + token_len)
                 ),
                 message=error.message,
                 severity=DiagnosticSeverity.Error,
@@ -251,14 +200,22 @@ class DiagnosticProvider:
                 if self._is_constructor_name(tokens, i):
                     continue
 
+                # Skip if this is a named parameter (followed by = but not ==)
+                if self._is_named_parameter(tokens, i):
+                    continue
+
+                # Skip if this is a namespace prefix (followed by ::)
+                if self._is_namespace_prefix(tokens, i):
+                    continue
+
                 seen_warnings.add(name)
                 line = token.line - 1
                 col = token.column - 1
 
                 diagnostics.append(Diagnostic(
                     range=Range(
-                        start=Position(line=line, character=col),
-                        end=Position(line=line, character=col + len(name))
+                        start=_safe_pos(line, col),
+                        end=_safe_pos(line, col + len(name))
                     ),
                     message=f"Variable '{name}' is not defined",
                     severity=DiagnosticSeverity.Warning,
@@ -269,7 +226,8 @@ class DiagnosticProvider:
         return diagnostics
 
     def _collect_names_from_tokens(self, tokens: List[Any]) -> Set[str]:
-        """Collect variable names from typed declarations and include statements in tokens."""
+        """Collect variable names from typed declarations, global/instance declarations, and include statements."""
+        registry = get_registry()
         names = set()
 
         for i, token in enumerate(tokens):
@@ -292,25 +250,148 @@ class DiagnosticProvider:
                             names.add(str_val)
                             break
 
+            # Check for payload("path", "name") - the second string arg is a namespace variable
+            if type_name == 'IDENTIFIER' and value == 'payload':
+                string_args = []
+                for j in range(i + 1, min(i + 12, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    if nt_type == 'STRING':
+                        string_args.append(str(nt.value).strip('"\''))
+                    elif nt_type in ('SEMICOLON', 'NEWLINE') or str(nt.value) == ')':
+                        break
+                # Second string argument is the namespace name
+                if len(string_args) >= 2:
+                    names.add(string_args[1])
+
+            # Check for class/constr parameter lists: class Name(paramA, type paramB, ...) / constr Name(paramA, ...)
+            # All identifiers inside these parens are parameter names
+            if type_name in ('IDENTIFIER', 'KEYWORD') and value.lower() in ('class', 'constr'):
+                # Find opening paren after class/constr name
+                paren_depth = 0
+                found_paren = False
+                for j in range(i + 1, min(i + 50, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    nt_value = str(nt.value) if hasattr(nt, 'value') else ''
+                    if nt_type == 'PAREN_START' or nt_value == '(':
+                        paren_depth += 1
+                        found_paren = True
+                    elif nt_type == 'PAREN_END' or nt_value == ')':
+                        paren_depth -= 1
+                        if paren_depth <= 0:
+                            break
+                    elif found_paren and paren_depth > 0 and nt_type == 'IDENTIFIER':
+                        names.add(str(nt.value))
+                    elif nt_type in ('BRACE_START', 'SEMICOLON', 'NEWLINE') and not found_paren:
+                        break  # No parens found before body
+
+            # Check for ptr/instance parameter declarations: ptr VarName, instance VarName (in class/constr signatures)
+            if type_name in ('IDENTIFIER', 'KEYWORD') and value.lower() in ('ptr', 'instance'):
+                for j in range(i + 1, min(i + 4, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type') or not hasattr(nt, 'value'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    if nt_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
+                        continue
+                    if nt_type == 'IDENTIFIER':
+                        names.add(str(nt.value))
+                    break
+
+            # Check for global/instance/shared declarations: global VarName = ...
+            if type_name in ('IDENTIFIER', 'KEYWORD') and value.lower() in ('global', 'instance', 'shared', 'const'):
+                # Find the next IDENTIFIER token (skip whitespace, type annotations, etc.)
+                for j in range(i + 1, min(i + 8, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type') or not hasattr(nt, 'value'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    nt_value = str(nt.value)
+                    if nt_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
+                        continue
+                    if nt_type == 'IDENTIFIER':
+                        # Skip if this is a type name (e.g., global vector<dynamic> name)
+                        if nt_value.lower() in registry.all_type_names:
+                            continue
+                        names.add(nt_value)
+                        break
+                    # Skip type tokens and angle brackets for generics
+                    if nt_type in ('TYPE', 'BUILTIN_TYPE', 'LT', 'GT', 'LESS_THAN', 'GREATER_THAN',
+                                   'COMMA', 'ANGLE_OPEN', 'ANGLE_CLOSE'):
+                        continue
+                    break
+
             # Check for typed declarations: TYPE NAME = ...
-            # Look for pattern: type identifier (where type is in CSSL_TYPES)
-            if type_name == 'IDENTIFIER' and value.lower() in {t.lower() for t in CSSL_TYPES}:
-                # Check if next token is an identifier (the variable name)
-                if i + 1 < len(tokens):
-                    next_token = tokens[i + 1]
-                    if hasattr(next_token, 'type'):
-                        next_type = next_token.type.name if hasattr(next_token.type, 'name') else ''
-                        if next_type == 'IDENTIFIER':
-                            names.add(str(next_token.value))
+            # Look for pattern: type identifier (where type is a known CSSL type)
+            if type_name == 'IDENTIFIER' and value.lower() in registry.all_type_names:
+                # Find the next IDENTIFIER after the type (skip angle brackets for generics like vector<int>)
+                for j in range(i + 1, min(i + 10, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type') or not hasattr(nt, 'value'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    nt_value = str(nt.value)
+                    if nt_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
+                        continue
+                    if nt_type == 'IDENTIFIER':
+                        # Make sure it's not another type name
+                        if nt_value.lower() not in registry.all_type_names:
+                            names.add(nt_value)
+                        break
+                    # Skip angle brackets and their contents for generics like vector<dynamic>
+                    if nt_type in ('LT', 'GT', 'LESS_THAN', 'GREATER_THAN', 'COMMA',
+                                   'ANGLE_OPEN', 'ANGLE_CLOSE', 'TYPE', 'BUILTIN_TYPE'):
+                        continue
+                    # Also skip identifier inside angle brackets (it's the generic type param)
+                    if nt_value in ('<', '>', ','):
+                        continue
+                    break
 
             # Also check for TYPE keyword tokens
-            if type_name in ('TYPE', 'BUILTIN_TYPE', 'KEYWORD') and value.lower() in {t.lower() for t in CSSL_TYPES}:
-                if i + 1 < len(tokens):
-                    next_token = tokens[i + 1]
-                    if hasattr(next_token, 'type'):
-                        next_type = next_token.type.name if hasattr(next_token.type, 'name') else ''
-                        if next_type == 'IDENTIFIER':
-                            names.add(str(next_token.value))
+            if type_name in ('TYPE', 'BUILTIN_TYPE', 'KEYWORD') and value.lower() in registry.all_type_names:
+                for j in range(i + 1, min(i + 10, len(tokens))):
+                    nt = tokens[j]
+                    if not hasattr(nt, 'type') or not hasattr(nt, 'value'):
+                        continue
+                    nt_type = nt.type.name if hasattr(nt.type, 'name') else ''
+                    nt_value = str(nt.value)
+                    if nt_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
+                        continue
+                    if nt_type == 'IDENTIFIER':
+                        if nt_value.lower() not in registry.all_type_names:
+                            names.add(nt_value)
+                        break
+                    if nt_type in ('LT', 'GT', 'LESS_THAN', 'GREATER_THAN', 'COMMA',
+                                   'ANGLE_OPEN', 'ANGLE_CLOSE', 'TYPE', 'BUILTIN_TYPE'):
+                        continue
+                    if nt_value in ('<', '>', ','):
+                        continue
+                    break
+
+            # Check for receive operator targets: ... ==> identifier
+            # e.g. MeinSpeicher -==> "CNotes" ==> s;
+            # The ==> operator creates/assigns to the target variable
+            if type_name == 'IDENTIFIER' and i >= 2:
+                for j in range(i - 1, max(0, i - 4), -1):
+                    pt = tokens[j]
+                    if not hasattr(pt, 'type') or not hasattr(pt, 'value'):
+                        continue
+                    pt_type = pt.type.name if hasattr(pt.type, 'name') else ''
+                    pt_value = str(pt.value)
+                    if pt_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
+                        continue
+                    # Found ==> or ==>+ or -==> before this identifier
+                    if pt_value in ('==>', '==>+', '-==>') or pt_type in (
+                        'RECEIVE', 'RECEIVE_COPY', 'MOVE_RECEIVE',
+                        'EXTRACT', 'EXTRACT_COPY', 'MOVE_EXTRACT'
+                    ):
+                        names.add(value)
+                    break
 
         return names
 
@@ -339,6 +420,7 @@ class DiagnosticProvider:
 
     def _is_definition_name(self, tokens: List[Any], index: int) -> bool:
         """Check if token is a function/class definition name."""
+        registry = get_registry()
         if index < 1:
             return False
 
@@ -356,7 +438,7 @@ class DiagnosticProvider:
                 # Skip whitespace/modifiers
                 if prev_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
                     continue
-                if prev_value in CSSL_MODIFIERS:
+                if prev_value in registry.modifiers:
                     continue
                 break
 
@@ -364,6 +446,7 @@ class DiagnosticProvider:
 
     def _is_type_annotation(self, tokens: List[Any], index: int) -> bool:
         """Check if token looks like a type being used as annotation."""
+        registry = get_registry()
         if index + 1 >= len(tokens):
             return False
 
@@ -380,7 +463,7 @@ class DiagnosticProvider:
         # If this looks like a type followed by an identifier, it's probably a declaration
         if next_type == 'IDENTIFIER':
             # Check if it could be a type (starts with capital or is known type-like)
-            if value[0].isupper() or value in {t.lower() for t in CSSL_TYPES}:
+            if value[0].isupper() or value in registry.all_type_names:
                 return True
 
         return False
@@ -505,24 +588,87 @@ class DiagnosticProvider:
         return False
 
     def _is_constructor_name(self, tokens: List[Any], index: int) -> bool:
-        """Check if token is a constructor name (preceded by constr keyword)."""
+        """Check if token is a constructor/destructor name.
+
+        Handles:
+        - constr init()          — constructor
+        - constr ~init()         — destructor (cleanup)
+        - ~init()                — destructor shorthand
+        - cleanup init()         — cleanup/destructor
+        """
+        registry = get_registry()
         if index < 1:
             return False
 
-        # Check previous tokens for 'constr' keyword
-        for i in range(index - 1, max(0, index - 3), -1):
+        # Check previous tokens for 'constr', '~', or 'cleanup' keyword
+        for i in range(index - 1, max(0, index - 5), -1):
             prev_token = tokens[i]
             if hasattr(prev_token, 'type') and hasattr(prev_token, 'value'):
                 prev_type = prev_token.type.name if hasattr(prev_token.type, 'name') else ''
-                prev_value = str(prev_token.value).lower()
+                prev_value = str(prev_token.value)
+                prev_value_lower = prev_value.lower()
 
-                # Found constr keyword
-                if prev_value == 'constr':
+                # Found constr or cleanup keyword
+                if prev_value_lower in ('constr', 'cleanup'):
+                    return True
+                # Found ~ (tilde) for destructor syntax
+                if prev_value == '~' or prev_type in ('TILDE', 'BITWISE_NOT', 'DESTRUCTOR'):
                     return True
                 # Skip whitespace and modifiers
                 if prev_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
                     continue
-                if prev_value in CSSL_MODIFIERS:
+                if prev_value_lower in registry.modifiers:
+                    continue
+                # Found something else, stop
+                break
+
+        return False
+
+    def _is_named_parameter(self, tokens: List[Any], index: int) -> bool:
+        """Check if token is a named parameter (followed by = but not ==)."""
+        if index + 1 >= len(tokens):
+            return False
+
+        next_token = tokens[index + 1]
+        if not hasattr(next_token, 'value'):
+            return False
+
+        next_value = str(next_token.value)
+
+        # Check for = but not ==
+        if next_value == '=':
+            # Make sure it's not == (check the token after)
+            if index + 2 < len(tokens):
+                next_next = tokens[index + 2]
+                if hasattr(next_next, 'value') and str(next_next.value) == '=':
+                    return False  # This is == comparison, not named param
+            return True
+
+        # Also handle ASSIGN token types
+        if hasattr(next_token, 'type'):
+            next_type = next_token.type.name if hasattr(next_token.type, 'name') else ''
+            if next_type in ('ASSIGN', 'EQUALS') and next_value != '==':
+                return True
+
+        return False
+
+    def _is_namespace_prefix(self, tokens: List[Any], index: int) -> bool:
+        """Check if token is a namespace prefix (followed by ::)."""
+        if index + 1 >= len(tokens):
+            return False
+
+        # Check next tokens for :: pattern
+        for i in range(index + 1, min(index + 3, len(tokens))):
+            next_token = tokens[i]
+            if hasattr(next_token, 'type'):
+                next_type = next_token.type.name if hasattr(next_token.type, 'name') else ''
+                next_value = str(next_token.value) if hasattr(next_token, 'value') else ''
+
+                # Found :: operator
+                if next_type in ('DOUBLE_COLON', 'COLON_COLON', 'NAMESPACE_SEP') or next_value == '::':
+                    return True
+                # Skip whitespace
+                if next_type in ('WHITESPACE', 'NEWLINE', 'INDENT'):
                     continue
                 # Found something else, stop
                 break
@@ -550,8 +696,8 @@ class DiagnosticProvider:
 
                     diagnostics.append(Diagnostic(
                         range=Range(
-                            start=Position(line=line, character=col),
-                            end=Position(line=line, character=col + len(value))
+                            start=_safe_pos(line, col),
+                            end=_safe_pos(line, col + len(value))
                         ),
                         message=f"Pointer reference '?{var_name}' targets undefined variable '{var_name}'",
                         severity=DiagnosticSeverity.Warning,
@@ -585,8 +731,8 @@ class DiagnosticProvider:
 
                     diagnostics.append(Diagnostic(
                         range=Range(
-                            start=Position(line=line, character=col),
-                            end=Position(line=line, character=col + len(value))
+                            start=_safe_pos(line, col),
+                            end=_safe_pos(line, col + len(value))
                         ),
                         message=f"Global reference '@{var_name}' targets undefined global '{var_name}'",
                         severity=DiagnosticSeverity.Warning,
@@ -616,8 +762,8 @@ class DiagnosticProvider:
 
                     diagnostics.append(Diagnostic(
                         range=Range(
-                            start=Position(line=line, character=col),
-                            end=Position(line=line, character=col + len(value))
+                            start=_safe_pos(line, col),
+                            end=_safe_pos(line, col + len(value))
                         ),
                         message=f"Shared reference '${var_name}' targets undefined shared variable",
                         severity=DiagnosticSeverity.Warning,
@@ -647,8 +793,8 @@ class DiagnosticProvider:
 
                     diagnostics.append(Diagnostic(
                         range=Range(
-                            start=Position(line=line, character=col),
-                            end=Position(line=line, character=col + len(value))
+                            start=_safe_pos(line, col),
+                            end=_safe_pos(line, col + len(value))
                         ),
                         message=f"Snapshot '%{var_name}' was never created with snapshot()",
                         severity=DiagnosticSeverity.Warning,
@@ -680,8 +826,8 @@ class DiagnosticProvider:
 
                         diagnostics.append(Diagnostic(
                             range=Range(
-                                start=Position(line=line, character=col),
-                                end=Position(line=line, character=col + len(name))
+                                start=_safe_pos(line, col),
+                                end=_safe_pos(line, col + len(name))
                             ),
                             message=f"Function '{name}' called before definition (defined at line {function_defs[name]})",
                             severity=DiagnosticSeverity.Warning,
@@ -702,18 +848,32 @@ class DiagnosticProvider:
                 if isinstance(info, dict):
                     expected_type = info.get('type')
                     value = info.get('value')
+                    var_name = info.get('name', '')
 
                     if expected_type and value:
                         actual_type = self._infer_type(value)
 
                         if actual_type and not self._types_compatible(expected_type, actual_type):
-                            line = getattr(node, 'line', 1) - 1
-                            col = getattr(node, 'column', 1) - 1
+                            line = getattr(node, 'line', 0) - 1
+                            col = getattr(node, 'column', 0) - 1
+
+                            # Skip if line info is missing/default (would show on wrong line)
+                            if line < 0:
+                                continue
+
+                            # Try to find exact position from tokens for better accuracy
+                            if var_name and document.tokens:
+                                for tok in document.tokens:
+                                    if (hasattr(tok, 'value') and str(tok.value) == var_name
+                                            and hasattr(tok, 'line') and tok.line > 0):
+                                        line = tok.line - 1
+                                        col = tok.column - 1 if hasattr(tok, 'column') else 0
+                                        break
 
                             diagnostics.append(Diagnostic(
                                 range=Range(
-                                    start=Position(line=line, character=col),
-                                    end=Position(line=line, character=col + 20)
+                                    start=_safe_pos(line, col),
+                                    end=_safe_pos(line, col + 20)
                                 ),
                                 message=f"Type mismatch: expected '{expected_type}', got '{actual_type}'",
                                 severity=DiagnosticSeverity.Error,
@@ -746,8 +906,8 @@ class DiagnosticProvider:
 
                             diagnostics.append(Diagnostic(
                                 range=Range(
-                                    start=Position(line=line, character=col),
-                                    end=Position(line=line, character=col + 15)
+                                    start=_safe_pos(line, col),
+                                    end=_safe_pos(line, col + 15)
                                 ),
                                 message=f"Cannot concatenate string with {right_type} - use str() conversion",
                                 severity=DiagnosticSeverity.Error,
@@ -771,8 +931,8 @@ class DiagnosticProvider:
 
                             diagnostics.append(Diagnostic(
                                 range=Range(
-                                    start=Position(line=line, character=col),
-                                    end=Position(line=line, character=col + len(method) + 5)
+                                    start=_safe_pos(line, col),
+                                    end=_safe_pos(line, col + len(method) + 5)
                                 ),
                                 message=f"Type '{obj_type}' has no method '{method}'",
                                 severity=DiagnosticSeverity.Error,
@@ -805,8 +965,8 @@ class DiagnosticProvider:
 
                                 diagnostics.append(Diagnostic(
                                     range=Range(
-                                        start=Position(line=line, character=col),
-                                        end=Position(line=line, character=col + 10)
+                                        start=_safe_pos(line, col),
+                                        end=_safe_pos(line, col + 10)
                                     ),
                                     message="Division by zero",
                                     severity=DiagnosticSeverity.Error,
@@ -818,6 +978,7 @@ class DiagnosticProvider:
 
     def _invalid_namespace_access_diagnostics(self, document: DocumentAnalysis) -> List[Diagnostic]:
         """E006: Invalid namespace member access."""
+        registry = get_registry()
         diagnostics = []
 
         # Look for namespace::member patterns in tokens
@@ -842,15 +1003,17 @@ class DiagnosticProvider:
                         ns = prev_prev_token.value.lower()
                         member = token.value
 
-                        if ns in KNOWN_NAMESPACES:
-                            if member not in KNOWN_NAMESPACES[ns]:
+                        ns_methods = registry.get_namespace_methods(ns)
+                        if ns_methods:
+                            method_names = {m.name for m in ns_methods}
+                            if member not in method_names:
                                 line = token.line - 1
                                 col = prev_prev_token.column - 1
 
                                 diagnostics.append(Diagnostic(
                                     range=Range(
-                                        start=Position(line=line, character=col),
-                                        end=Position(line=line, character=col + len(ns) + 2 + len(member))
+                                        start=_safe_pos(line, col),
+                                        end=_safe_pos(line, col + len(ns) + 2 + len(member))
                                     ),
                                     message=f"Namespace '{ns}' has no member '{member}'",
                                     severity=DiagnosticSeverity.Error,
@@ -885,8 +1048,8 @@ class DiagnosticProvider:
 
                         diagnostics.append(Diagnostic(
                             range=Range(
-                                start=Position(line=line, character=col),
-                                end=Position(line=line, character=col + len(name) + 7)
+                                start=_safe_pos(line, col),
+                                end=_safe_pos(line, col + len(name) + 7)
                             ),
                             message=f"Function '{name}' already defined at line {seen_functions[name]}",
                             severity=DiagnosticSeverity.Error,
@@ -907,8 +1070,8 @@ class DiagnosticProvider:
 
                         diagnostics.append(Diagnostic(
                             range=Range(
-                                start=Position(line=line, character=col),
-                                end=Position(line=line, character=col + len(name) + 6)
+                                start=_safe_pos(line, col),
+                                end=_safe_pos(line, col + len(name) + 6)
                             ),
                             message=f"Class '{name}' already defined at line {seen_classes[name]}",
                             severity=DiagnosticSeverity.Error,
@@ -930,8 +1093,8 @@ class DiagnosticProvider:
             if symbol.line > 0:
                 diagnostics.append(Diagnostic(
                     range=Range(
-                        start=Position(line=symbol.line - 1, character=symbol.column - 1),
-                        end=Position(line=symbol.line - 1, character=symbol.column - 1 + len(symbol.name))
+                        start=_safe_pos(symbol.line - 1, symbol.column - 1),
+                        end=_safe_pos(symbol.line - 1, symbol.column - 1 + len(symbol.name))
                     ),
                     message=f"Variable '{symbol.name}' is declared but never used",
                     severity=DiagnosticSeverity.Information,
@@ -957,8 +1120,8 @@ class DiagnosticProvider:
 
                             diagnostics.append(Diagnostic(
                                 range=Range(
-                                    start=Position(line=line, character=col),
-                                    end=Position(line=line, character=col + 10)
+                                    start=_safe_pos(line, col),
+                                    end=_safe_pos(line, col + 10)
                                 ),
                                 message="Unreachable code after return/break/continue",
                                 severity=DiagnosticSeverity.Information,
@@ -976,18 +1139,44 @@ class DiagnosticProvider:
 
     def _collect_defined_names(self, document: DocumentAnalysis) -> Set[str]:
         """Collect all defined names from the document."""
-        names = set(CSSL_KEYWORDS)
-        names.update(CSSL_TYPES)
-        names.update(CSSL_BUILTINS)
-        names.update(CSSL_MODIFIERS)
+        import re
+        registry = get_registry()
+        names = registry.get_all_known_names()
+
+        # Add all known namespace names (fmt, std, json, math, etc.)
+        names.update(registry.namespaces.keys())
+        names.update(registry.module_methods.keys())
 
         for symbol in document.symbol_table.get_all_symbols_flat():
             names.add(symbol.name)
+
+        # Text-based fallback: scan for common declaration patterns
+        # the parser/symbol table may have missed (e.g., when parser times out)
+        text = document.source if hasattr(document, 'source') else ''
+        if text:
+            # global/instance/shared/const declarations
+            for m in re.finditer(r'\b(?:global|instance|shared|const)\s+(\w+)', text):
+                names.add(m.group(1))
+            # Typed declarations: type<generic> varName (handles vector<dynamic> name)
+            for m in re.finditer(
+                r'\b(?:int|string|float|double|bool|dynamic|dict|json|list|array|'
+                r'vector|queue|stack|map|set|tuple|iterator)\s*(?:<[^>]*>)?\s+(\w+)', text):
+                names.add(m.group(1))
+            # define funcName
+            for m in re.finditer(r'\bdefine\s+(\w+)', text):
+                names.add(m.group(1))
+            # class ClassName
+            for m in re.finditer(r'\bclass\s+(\w+)', text):
+                names.add(m.group(1))
+            # Receive operator targets: ==> varName or ==>+ varName
+            for m in re.finditer(r'={2,3}>[\+]?\s+(\w+)', text):
+                names.add(m.group(1))
 
         return names
 
     def _collect_global_names(self, document: DocumentAnalysis) -> Set[str]:
         """Collect global variable names."""
+        import re
         names = set()
 
         for symbol in document.symbol_table.get_globals():
@@ -1001,6 +1190,12 @@ class DiagnosticProvider:
                     name = info.get('name', '') if isinstance(info, dict) else str(info)
                     if name:
                         names.add(name)
+
+        # Text-based fallback for when parser times out
+        text = document.source if hasattr(document, 'source') else ''
+        if text:
+            for m in re.finditer(r'\bglobal\s+(\w+)', text):
+                names.add(m.group(1))
 
         return names
 
@@ -1051,12 +1246,8 @@ class DiagnosticProvider:
 
     def _is_builtin_or_keyword(self, name: str) -> bool:
         """Check if a name is a builtin or keyword."""
-        return (
-            name in CSSL_KEYWORDS or
-            name in CSSL_TYPES or
-            name in CSSL_BUILTINS or
-            name in CSSL_MODIFIERS
-        )
+        registry = get_registry()
+        return registry.is_known_name(name)
 
     def _walk_ast(self, node: Any) -> List[Any]:
         """Walk AST and yield all nodes."""
@@ -1122,14 +1313,16 @@ class DiagnosticProvider:
 
     def _type_has_method(self, type_name: str, method: str) -> bool:
         """Check if a type has a specific method."""
+        registry = get_registry()
         type_lower = type_name.lower()
 
         # Strip generic parameters
         if '<' in type_lower:
             type_lower = type_lower.split('<')[0]
 
-        if type_lower in TYPE_METHODS:
-            return method in TYPE_METHODS[type_lower]
+        methods = registry.get_type_methods_list(type_lower)
+        if methods:
+            return any(m.name == method for m in methods)
 
         # Default: allow any method on unknown types
         return True

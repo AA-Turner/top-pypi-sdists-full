@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: cs-models
+Version: 0.0.864
+Summary: MySQL db models
+Home-page: https://github.com/mindgram/cs-models
+Author: Shrey Verma
+Author-email: sverma@mindgram.ai
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8

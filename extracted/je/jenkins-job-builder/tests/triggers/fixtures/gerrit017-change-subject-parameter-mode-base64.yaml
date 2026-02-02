@@ -1,3 +1,0 @@
-triggers:
-  - gerrit:
-      change-subject-parameter-mode: BASE64

@@ -1,0 +1,192 @@
+Metadata-Version: 2.1
+Name: pytest-shell-utilities
+Version: 1.9.7
+Summary: Pytest plugin to simplify running shell commands against the system
+Home-page: https://github.com/saltstack/pytest-shell-utilities
+Author: Pedro Algarvio
+Author-email: pedro@algarvio.me
+License: Apache Software License 2.0
+Project-URL: Source, https://github.com/saltstack/pytest-shell-utilities
+Project-URL: Tracker, https://github.com/saltstack/pytest-shell-utilities/issues
+Project-URL: Documentation, https://pytest-shell-utilities.readthedocs.io
+Platform: unix
+Platform: linux
+Platform: osx
+Platform: cygwin
+Platform: win32
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: pytest>=7.4.0
+Requires-Dist: attrs>=22.1.0
+Requires-Dist: psutil>=5.0.0
+Requires-Dist: pytest-helpers-namespace
+Requires-Dist: pytest-skip-markers
+Provides-Extra: docs
+Requires-Dist: towncrier<=23.11.0; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-prompt; extra == "docs"
+Requires-Dist: sphinxcontrib-spelling; extra == "docs"
+Requires-Dist: sphinxcontrib-towncrier>=0.2.1a0; extra == "docs"
+Provides-Extra: lint
+Requires-Dist: pylint==2.12.2; extra == "lint"
+Requires-Dist: pyenchant; extra == "lint"
+Requires-Dist: black; python_version >= "3.7" and extra == "lint"
+Requires-Dist: reorder-python-imports; python_version >= "3.7" and extra == "lint"
+Requires-Dist: flake8>=4.0.1; extra == "lint"
+Requires-Dist: flake8-mypy-fork; extra == "lint"
+Requires-Dist: flake8-docstrings; extra == "lint"
+Requires-Dist: flake8-typing-imports; extra == "lint"
+Provides-Extra: tests
+Requires-Dist: pytest-subtests; extra == "tests"
+Requires-Dist: pytest-skip-markers; extra == "tests"
+Provides-Extra: changelog
+Requires-Dist: towncrier==21.9.0rc1; extra == "changelog"
+
+.. image:: https://img.shields.io/github/actions/workflow/status/saltstack/pytest-shell-utilities/testing.yml?style=plastic&branch=main
+   :target: https://github.com/saltstack/pytest-shell-utilities/actions/workflows/testing.yml
+   :alt: CI
+
+.. image:: https://readthedocs.org/projects/pytest-shell-utilities/badge/?style=plastic
+   :target: https://pytest-shell-utilities.readthedocs.io
+   :alt: Docs
+
+
+.. image:: https://img.shields.io/codecov/c/github/saltstack/pytest-shell-utilities?style=plastic&token=ctdrjPj4mc
+   :target: https://codecov.io/gh/saltstack/pytest-shell-utilities
+   :alt: Codecov
+
+
+.. image:: https://img.shields.io/pypi/pyversions/pytest-shell-utilities?style=plastic
+   :target: https://pypi.org/project/pytest-shell-utilities
+   :alt: Python Versions
+
+
+.. image:: https://img.shields.io/pypi/wheel/pytest-shell-utilities?style=plastic
+   :target: https://pypi.org/project/pytest-shell-utilities
+   :alt: Python Wheel
+
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg?style=plastic
+   :target: https://github.com/psf/black
+   :alt: Code Style: black
+
+
+.. image:: https://img.shields.io/pypi/l/pytest-shell-utilities?style=plastic
+   :alt: PyPI - License
+
+
+..
+   include-starts-here
+
+==============================
+What is Pytest Shell Utilities
+==============================
+
+   "When in doubt, shell out"
+
+   -- Thomas S. Hatch
+
+
+This pytest plugin was extracted from `pytest-salt-factories`_.
+If provides a basic fixture ``shell`` which basically uses ``subprocess.Popen``
+to run commands against the running system on a shell while providing a nice
+assert'able return class.
+
+.. _pytest-salt-factories: https://github.com/saltstack/pytest-salt-factories
+
+
+Install
+=======
+
+Installing ``pytest-shell-utilities`` is as simple as:
+
+.. code-block:: bash
+
+   python -m pip install pytest-shell-utilities
+
+
+And, that's honestly it.
+
+
+Usage
+=====
+
+Once installed, you can now use the ``shell`` fixture to run some commands and assert against the
+outcome.
+
+.. code-block:: python
+
+   def test_assert_good_exitcode(shell):
+
+       ret = shell.run("exit", "0")
+       assert ret.returncode == 0
+
+
+   def test_assert_bad_exitcode(shell):
+
+       ret = shell.run("exit", "1")
+       assert ret.returncode == 1
+
+
+
+If the command outputs parseable JSON, the ``shell`` fixture can attempt loading that output as
+JSON which allows for asserting against the JSON loaded object.
+
+
+.. code-block:: python
+
+   def test_against_json_output(shell):
+       d = {"a": "a", "b": "b"}
+       ret = shell.run("echo", json.dumps(d))
+       assert ret.data == d
+
+
+Additionally, the return object's ``.stdout`` and ``.stderr`` can be line matched using
+`pytest.pytester.LineMatcher`_:
+
+.. code-block:: python
+
+   MARY_HAD_A_LITTLE_LAMB = """\
+   Mary had a little lamb,
+   Its fleece was white as snow;
+   And everywhere that Mary went
+   The lamb was sure to go.
+   """
+
+
+   def test_matcher_attribute(shell):
+       ret = shell.run("echo", MARY_HAD_A_LITTLE_LAMB)
+       ret.stdout.matcher.fnmatch_lines_random(
+           [
+               "*had a little*",
+               "Its fleece was white*",
+               "*Mary went",
+               "The lamb was sure to go.",
+           ]
+       )
+
+
+.. _pytest.pytester.LineMatcher: https://docs.pytest.org/en/stable/reference.html#pytest.pytester.LineMatcher
+
+..
+   include-ends-here
+
+Documentation
+=============
+
+The full documentation can be seen `here <https://pytest-shell-utilities.readthedocs.io>`_.

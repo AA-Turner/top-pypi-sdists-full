@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nemo_evaluator", "nemo_evaluator.*"]
+
+[tool.setuptools.package-data]
+nemo_evaluator = ["resources/**/*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "nemo_evaluator.package_info.__version__" }
+
+
+[project]
+name = "nemo-evaluator"
+dynamic = ["version"]
+dependencies = [
+    "flask",
+    "jinja2",
+    "psutil",
+    "pydantic",
+    "pydantic-core>=2.17",
+    "requests",
+    "structlog",
+    "typing-extensions>=4.0.0",
+    "pyyaml",
+    "werkzeug",
+    "yq",
+]
+requires-python = ">=3.10,<3.14"
+readme = "README.md"
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+# BEGIN(if-changed): check package_info.py, too
+description = "Common utilities for NVIDIA evaluation frameworks"
+authors = [{ name = "NVIDIA" }, { email = "nemo-toolkit@nvidia.com" }]
+maintainers = [{ name = "NVIDIA" }, { email = "nemo-toolkit@nvidia.com" }]
+license = { file = "LICENSE" }
+keywords = [
+    "deep learning",
+    "evaluations",
+    "machine learning",
+    "gpu",
+    "NLP",
+    "pytorch",
+    "torch",
+]
+# END(if-changed)
+
+[project.urls]
+# BEGIN(if-changed): check package_info.py
+homepage = "https://github.com/NVIDIA-NeMo/Evaluator"
+repository = "https://github.com/NVIDIA-NeMo/Evaluator/packages/nemo-evaluator"
+# END(if-changed)
+
+[dependency-groups]
+test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-subtests", "pytest-httpserver", "nvidia-simple-evals"]
+
+[project.scripts]
+nemo_evaluator_example = "nemo_evaluator.cli.example:main"
+nemo-evaluator-example = "nemo_evaluator.cli.example:main"
+eval-factory = "nemo_evaluator.core.entrypoint:run_eval"
+nemo-evaluator = "nemo_evaluator.core.entrypoint:run_eval"
+ne = "nemo_evaluator.core.entrypoint:run_eval"
+
+[tool.coverage.run]
+concurrency = ["thread", "multiprocessing"]
+omit = [
+    "/tmp/*",
+    "/workspace/packages/nemo-evaluator/tests/*",
+    "/workspace/packages/nemo-evaluator/*.py",
+    "*_ray.py",
+    "*package_info.py",
+]
+parallel = true
+sigterm = true
+
+[tool.coverage.paths]
+source = [
+    ".",
+    "/workspace/packages/nemo-evaluator/",
+    "/home/runner/work/Eval/Eval/packages/nemo-evaluator/",
+]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["nemo_evaluator"]

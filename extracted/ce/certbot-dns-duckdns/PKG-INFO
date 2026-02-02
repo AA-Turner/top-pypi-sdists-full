@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot_dns_duckdns
-Version: 1.7.1
+Version: 1.8.0
 Summary: Obtain certificates using a DNS TXT record for DuckDNS domains
 Home-page: https://github.com/infinityofspace/certbot_dns_duckdns
 Author: infinityofspace

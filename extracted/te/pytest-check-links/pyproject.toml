@@ -1,0 +1,203 @@
+[build-system]
+requires = ["hatchling>=1.5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest_check_links"
+dynamic = ["version"]
+description = "Check links in files"
+license = { file = "LICENSE" }
+classifiers = [
+  "Framework :: Jupyter",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Documentation",
+  "Topic :: Documentation :: Sphinx",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Typing :: Typed"
+]
+keywords = ["testing", "documentation", "links", "html"]
+requires-python = ">=3.8"
+dependencies = [
+  "docutils>=0.20.1",
+  "html5lib>=1.1",
+  "nbconvert>=7.1",
+  "nbformat>=5.1",
+  "pytest >=7.0,<9",
+  "requests >=2.22",
+]
+
+[[project.authors]]
+name = "Jupyter Development Team"
+email = "jupyter@googlegroups.com"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/jupyterlab/pytest-check-links"
+
+[project.optional-dependencies]
+cache = ["requests-cache>=0.9.7"]
+test = ["requests-cache>=0.9.7", "pre-commit", "flaky"]
+
+[project.scripts]
+pytest-check-links = "pytest_check_links.__main__:main"
+
+[project.entry-points."pytest11"]
+check-links = "pytest_check_links.plugin"
+
+[tool.hatch.version]
+path = "pytest_check_links/_version.py"
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.cov]
+features = ["test"]
+dependencies = ["coverage[toml]"]
+[tool.hatch.envs.cov.scripts]
+test = "coverage run -m pytest {args}"
+nowarn = "test -W default {args}"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["pre-commit"]
+[tool.hatch.envs.lint.scripts]
+build = [
+  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-format"
+]
+
+[tool.hatch.envs.typing]
+dependencies = [ "pre-commit"]
+detached = true
+[tool.hatch.envs.typing.scripts]
+test = "pre-commit run --all-files --hook-stage manual mypy"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-ra", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
+]
+filterwarnings = [
+  "error",
+]
+testpaths = ["test"]
+pytester_example_dir = "examples"
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\bProtocol\\):",
+"@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.run]
+relative_files = true
+source = ["pytest_check_links"]
+omit = [
+  "pytest_check_links/__main__.py"
+]
+
+[tool.mypy]
+files = "pytest_check_links"
+python_version = "3.8"
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PTH",         # flake8-use-pathlib
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+  "S",           # flake8-bandit
+]
+ignore = [
+  "PLR",      # Design related pylint codes
+  "E501",     # Line too long (158 > 100 characters)
+  "SIM105",   # Use `contextlib.suppress(...)`
+  "S101",     # Use of `assert` detected
+  "RET503",   # Missing explicit `return`
+]
+unfixable = [
+  # Don't touch print statements
+  "T201",
+  # Don't touch noqa lines
+  "RUF100",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# B011 Do not call assert False since python -O removes these calls
+# F841 local variable 'foo' is assigned to but never used
+# C408 Unnecessary `dict` call
+# E402 Module level import not at top of file
+# T201 `print` found
+# B007 Loop control variable `i` not used within the loop body.
+# N802 Function name `assertIn` should be lowercase
+
+"test/*" = ["B011", "F841", "C408", "E402", "T201", "B007", "N802","PTH"]
+# T201 `print` found
+"*.ipynb" = ["T201"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.interrogate]
+ignore-init-module=true
+ignore-private=true
+ignore-semiprivate=true
+ignore-property-decorators=true
+ignore-nested-functions=true
+ignore-nested-classes=true
+fail-under=100
+exclude = ["test", "docs"]
+
+[tool.repo-review]
+ignore = ["PY004", "GH102", "RTD100"]

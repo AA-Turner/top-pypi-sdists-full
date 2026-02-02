@@ -36,13 +36,13 @@ pub fn escape(
     escape_asterisks: bool,
     escape_underscores: bool,
     escape_ascii: bool,
-) -> String {
+) -> Cow<'_, str> {
     if text.is_empty() {
-        return String::new();
+        return Cow::Borrowed("");
     }
 
     if !escape_misc && !escape_asterisks && !escape_underscores && !escape_ascii {
-        return text.to_string();
+        return Cow::Borrowed(text);
     }
 
     if escape_ascii
@@ -83,7 +83,7 @@ pub fn escape(
             )
         })
     {
-        return text.to_string();
+        return Cow::Borrowed(text);
     }
 
     if !escape_ascii && escape_misc && !escape_asterisks && !escape_underscores {
@@ -95,7 +95,7 @@ pub fn escape(
         });
         let needs_numbered = text.as_bytes().iter().any(|b| matches!(b, b'.' | b')'));
         if !needs_misc && !needs_numbered {
-            return text.to_string();
+            return Cow::Borrowed(text);
         }
     }
 
@@ -103,7 +103,7 @@ pub fn escape(
 
     if escape_ascii {
         result = ESCAPE_ASCII_RE.replace_all(&result, r"\$1").to_string();
-        return result;
+        return Cow::Owned(result);
     }
 
     if escape_misc {
@@ -120,7 +120,7 @@ pub fn escape(
         result = result.replace('_', r"\_");
     }
 
-    result
+    Cow::Owned(result)
 }
 
 /// Extract boundary whitespace from text (chomp).

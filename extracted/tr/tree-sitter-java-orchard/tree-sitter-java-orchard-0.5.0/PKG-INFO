@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: tree-sitter-java-orchard
+Version: 0.5.0
+Summary: Java grammar for tree-sitter
+Author-email: Ayman Nadeem <aymannadeem@github.com>
+License: MIT
+Project-URL: Homepage, https://codeberg.org/grammar-orchard/tree-sitter-java-orchard
+Keywords: incremental,parsing,tree-sitter,java-orchard
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: core
+License-File: LICENSE
+
+# tree-sitter-java-orchard
+
+[![crates][crates]](https://crates.io/crates/tree-sitter-java-orchard)
+[![pypi][pypi]](https://pypi.org/project/tree-sitter-java-orchard)
+
+Java grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
+Forked from https://github.com/tree-sitter/tree-sitter-java to integrate valuable unreviewed PRs.
+
+Contributions are welcome, so are co-maintainers.
+
+[crates]: https://img.shields.io/crates/v/tree-sitter-java-orchard?logo=rust
+[pypi]: https://img.shields.io/pypi/v/tree-sitter-java-orchard?logo=pypi&logoColor=ffd242

@@ -22,169 +22,11 @@ from lsprotocol.types import (
 )
 
 from ..analysis.document_manager import DocumentAnalysis
-from ..analysis.semantic_analyzer import CSSL_KEYWORDS, CSSL_TYPES, CSSL_BUILTINS, CSSL_MODIFIERS
 from ..utils.symbol_table import SymbolKind
 from ..utils.position_utils import get_context_before, get_word_at_position, get_line_text
+from ..utils.cssl_registry import get_registry
 
 
-# Namespace members for :: completions
-NAMESPACE_MEMBERS: Dict[str, List[Dict[str, str]]] = {
-    'json': [
-        {'name': 'read', 'detail': 'Read JSON from file', 'snippet': 'read(${1:filename})'},
-        {'name': 'write', 'detail': 'Write JSON to file', 'snippet': 'write(${1:filename}, ${2:data})'},
-        {'name': 'parse', 'detail': 'Parse JSON string', 'snippet': 'parse(${1:jsonString})'},
-        {'name': 'stringify', 'detail': 'Convert to JSON string', 'snippet': 'stringify(${1:data})'},
-        {'name': 'pretty', 'detail': 'Pretty print JSON', 'snippet': 'pretty(${1:data})'},
-        {'name': 'keys', 'detail': 'Get keys from JSON object', 'snippet': 'keys(${1:obj})'},
-        {'name': 'values', 'detail': 'Get values from JSON object', 'snippet': 'values(${1:obj})'},
-        {'name': 'get', 'detail': 'Get value by key path', 'snippet': 'get(${1:obj}, ${2:path})'},
-        {'name': 'set', 'detail': 'Set value at key path', 'snippet': 'set(${1:obj}, ${2:path}, ${3:value})'},
-        {'name': 'has', 'detail': 'Check if key exists', 'snippet': 'has(${1:obj}, ${2:key})'},
-        {'name': 'merge', 'detail': 'Merge JSON objects', 'snippet': 'merge(${1:obj1}, ${2:obj2})'},
-    ],
-    'instance': [
-        {'name': 'getMethods', 'detail': 'Get all instance methods', 'snippet': 'getMethods()'},
-        {'name': 'getClasses', 'detail': 'Get all defined classes', 'snippet': 'getClasses()'},
-        {'name': 'getVars', 'detail': 'Get all variables', 'snippet': 'getVars()'},
-        {'name': 'getAll', 'detail': 'Get all symbols', 'snippet': 'getAll()'},
-        {'name': 'call', 'detail': 'Call method by name', 'snippet': 'call(${1:methodName}, ${2:args})'},
-        {'name': 'has', 'detail': 'Check if symbol exists', 'snippet': 'has(${1:name})'},
-        {'name': 'type', 'detail': 'Get type of symbol', 'snippet': 'type(${1:name})'},
-        {'name': 'exists', 'detail': 'Check if instance exists', 'snippet': 'exists(${1:name})'},
-        {'name': 'delete', 'detail': 'Delete instance', 'snippet': 'delete(${1:name})'},
-    ],
-    'python': [
-        {'name': 'pythonize', 'detail': 'Convert CSSL to Python object', 'snippet': 'pythonize(${1:value})'},
-        {'name': 'wrap', 'detail': 'Wrap Python object for CSSL', 'snippet': 'wrap(${1:pyobj})'},
-        {'name': 'export', 'detail': 'Export to Python module', 'snippet': 'export(${1:name}, ${2:value})'},
-        {'name': 'csslize', 'detail': 'Convert Python to CSSL', 'snippet': 'csslize(${1:pyobj})'},
-        {'name': 'import', 'detail': 'Import Python module', 'snippet': 'import(${1:module})'},
-        {'name': 'parameter_get', 'detail': 'Get Python parameter', 'snippet': 'parameter_get(${1:name})'},
-        {'name': 'parameter_return', 'detail': 'Return parameter to Python', 'snippet': 'parameter_return(${1:name}, ${2:value})'},
-    ],
-    'string': [
-        {'name': 'where', 'detail': 'Find position of substring', 'snippet': 'where(${1:str}, ${2:substr})'},
-        {'name': 'contains', 'detail': 'Check if contains substring', 'snippet': 'contains(${1:str}, ${2:substr})'},
-        {'name': 'not', 'detail': 'Negate string check', 'snippet': 'not(${1:str}, ${2:condition})'},
-        {'name': 'startsWith', 'detail': 'Check if starts with', 'snippet': 'startsWith(${1:str}, ${2:prefix})'},
-        {'name': 'endsWith', 'detail': 'Check if ends with', 'snippet': 'endsWith(${1:str}, ${2:suffix})'},
-        {'name': 'length', 'detail': 'Get string length', 'snippet': 'length(${1:str})'},
-        {'name': 'cut', 'detail': 'Cut string before position', 'snippet': 'cut(${1:str}, ${2:pos})'},
-        {'name': 'cutAfter', 'detail': 'Cut string after position', 'snippet': 'cutAfter(${1:str}, ${2:pos})'},
-        {'name': 'value', 'detail': 'Get string value', 'snippet': 'value(${1:str})'},
-    ],
-    'sql': [
-        {'name': 'connect', 'detail': 'Connect to database', 'snippet': 'connect(${1:connString})'},
-        {'name': 'load', 'detail': 'Load data from table', 'snippet': 'load(${1:table})'},
-        {'name': 'save', 'detail': 'Save data to table', 'snippet': 'save(${1:table}, ${2:data})'},
-        {'name': 'update', 'detail': 'Update table data', 'snippet': 'update(${1:table}, ${2:data}, ${3:where})'},
-        {'name': 'sync', 'detail': 'Synchronize with database', 'snippet': 'sync(${1:table})'},
-        {'name': 'Structured', 'detail': 'Create structured query', 'snippet': 'Structured(${1:query})'},
-        {'name': 'table', 'detail': 'Get table reference', 'snippet': 'table(${1:name})'},
-        {'name': 'data', 'detail': 'Access table data', 'snippet': 'data(${1:table})'},
-    ],
-    'filter': [
-        {'name': 'register', 'detail': 'Register a filter', 'snippet': 'register(${1:name}, ${2:func})'},
-        {'name': 'unregister', 'detail': 'Unregister a filter', 'snippet': 'unregister(${1:name})'},
-        {'name': 'list', 'detail': 'List all filters', 'snippet': 'list()'},
-        {'name': 'exists', 'detail': 'Check if filter exists', 'snippet': 'exists(${1:name})'},
-    ],
-    'combo': [
-        {'name': 'filterdb', 'detail': 'Filter database combo', 'snippet': 'filterdb(${1:filter})'},
-        {'name': 'blocked', 'detail': 'Get blocked items', 'snippet': 'blocked()'},
-        {'name': 'like', 'detail': 'Pattern match combo', 'snippet': 'like(${1:pattern})'},
-    ],
-    'async': [
-        {'name': 'run', 'detail': 'Run async task', 'snippet': 'run(${1:func})'},
-        {'name': 'wait', 'detail': 'Wait for async result', 'snippet': 'wait(${1:task})'},
-        {'name': 'cancel', 'detail': 'Cancel async task', 'snippet': 'cancel(${1:task})'},
-        {'name': 'parallel', 'detail': 'Run tasks in parallel', 'snippet': 'parallel([${1:tasks}])'},
-    ],
-    'math': [
-        {'name': 'abs', 'detail': 'Absolute value', 'snippet': 'abs(${1:x})'},
-        {'name': 'floor', 'detail': 'Floor value', 'snippet': 'floor(${1:x})'},
-        {'name': 'ceil', 'detail': 'Ceiling value', 'snippet': 'ceil(${1:x})'},
-        {'name': 'round', 'detail': 'Round value', 'snippet': 'round(${1:x})'},
-        {'name': 'sqrt', 'detail': 'Square root', 'snippet': 'sqrt(${1:x})'},
-        {'name': 'pow', 'detail': 'Power function', 'snippet': 'pow(${1:base}, ${2:exp})'},
-        {'name': 'sin', 'detail': 'Sine function', 'snippet': 'sin(${1:x})'},
-        {'name': 'cos', 'detail': 'Cosine function', 'snippet': 'cos(${1:x})'},
-        {'name': 'tan', 'detail': 'Tangent function', 'snippet': 'tan(${1:x})'},
-        {'name': 'log', 'detail': 'Natural logarithm', 'snippet': 'log(${1:x})'},
-        {'name': 'exp', 'detail': 'Exponential function', 'snippet': 'exp(${1:x})'},
-        {'name': 'random', 'detail': 'Random float 0-1', 'snippet': 'random()'},
-        {'name': 'randint', 'detail': 'Random integer', 'snippet': 'randint(${1:min}, ${2:max})'},
-    ],
-    'file': [
-        {'name': 'read', 'detail': 'Read file contents', 'snippet': 'read(${1:path})'},
-        {'name': 'write', 'detail': 'Write to file', 'snippet': 'write(${1:path}, ${2:content})'},
-        {'name': 'append', 'detail': 'Append to file', 'snippet': 'append(${1:path}, ${2:content})'},
-        {'name': 'exists', 'detail': 'Check if file exists', 'snippet': 'exists(${1:path})'},
-        {'name': 'delete', 'detail': 'Delete file', 'snippet': 'delete(${1:path})'},
-        {'name': 'copy', 'detail': 'Copy file', 'snippet': 'copy(${1:src}, ${2:dest})'},
-        {'name': 'move', 'detail': 'Move file', 'snippet': 'move(${1:src}, ${2:dest})'},
-        {'name': 'list', 'detail': 'List directory contents', 'snippet': 'list(${1:dir})'},
-    ],
-    'fmt': [
-        {'name': 'red', 'detail': 'Red colored text', 'snippet': 'red(${1:text})'},
-        {'name': 'green', 'detail': 'Green colored text', 'snippet': 'green(${1:text})'},
-        {'name': 'blue', 'detail': 'Blue colored text', 'snippet': 'blue(${1:text})'},
-        {'name': 'yellow', 'detail': 'Yellow colored text', 'snippet': 'yellow(${1:text})'},
-        {'name': 'cyan', 'detail': 'Cyan colored text', 'snippet': 'cyan(${1:text})'},
-        {'name': 'magenta', 'detail': 'Magenta colored text', 'snippet': 'magenta(${1:text})'},
-        {'name': 'white', 'detail': 'White colored text', 'snippet': 'white(${1:text})'},
-        {'name': 'black', 'detail': 'Black colored text', 'snippet': 'black(${1:text})'},
-        {'name': 'bold', 'detail': 'Bold text', 'snippet': 'bold(${1:text})'},
-        {'name': 'italic', 'detail': 'Italic text', 'snippet': 'italic(${1:text})'},
-        {'name': 'underline', 'detail': 'Underlined text', 'snippet': 'underline(${1:text})'},
-        {'name': 'reset', 'detail': 'Reset formatting', 'snippet': 'reset()'},
-        {'name': 'color', 'detail': 'Custom color', 'snippet': 'color(${1:text}, ${2:colorCode})'},
-        {'name': 'bg', 'detail': 'Background color', 'snippet': 'bg(${1:text}, ${2:colorCode})'},
-        {'name': 'bright', 'detail': 'Bright/bold color', 'snippet': 'bright(${1:text})'},
-    ],
-    'std': [
-        {'name': 'InitializeSTD', 'detail': 'Initialize standard library', 'snippet': 'InitializeSTD()'},
-        {'name': 'MakeTest', 'detail': 'Create test function', 'snippet': 'MakeTest()'},
-        {'name': 'Version', 'detail': 'Get std library version', 'snippet': 'Version()'},
-        {'name': 'Help', 'detail': 'Show help', 'snippet': 'Help(${1:topic})'},
-        {'name': 'Debug', 'detail': 'Debug mode', 'snippet': 'Debug(${1:enabled})'},
-    ],
-    'watcher': [
-        {'name': 'get', 'detail': 'Get watcher value', 'snippet': 'get(${1:name})'},
-        {'name': 'set', 'detail': 'Set watcher value', 'snippet': 'set(${1:name}, ${2:value})'},
-        {'name': 'list', 'detail': 'List all watchers', 'snippet': 'list()'},
-        {'name': 'exists', 'detail': 'Check if watcher exists', 'snippet': 'exists(${1:name})'},
-        {'name': 'refresh', 'detail': 'Refresh watcher', 'snippet': 'refresh(${1:name})'},
-    ],
-    'reflect': [
-        {'name': 'getMethods', 'detail': 'Get all methods of object', 'snippet': 'getMethods(${1:obj})'},
-        {'name': 'getProperties', 'detail': 'Get all properties of object', 'snippet': 'getProperties(${1:obj})'},
-        {'name': 'getType', 'detail': 'Get type information', 'snippet': 'getType(${1:obj})'},
-        {'name': 'getParent', 'detail': 'Get parent class', 'snippet': 'getParent(${1:obj})'},
-        {'name': 'getModifiers', 'detail': 'Get access modifiers', 'snippet': 'getModifiers(${1:obj})'},
-        {'name': 'getAnnotations', 'detail': 'Get annotations/decorators', 'snippet': 'getAnnotations(${1:obj})'},
-        {'name': 'invoke', 'detail': 'Invoke method by name', 'snippet': 'invoke(${1:obj}, ${2:methodName}, ${3:args})'},
-        {'name': 'create', 'detail': 'Create instance by type name', 'snippet': 'create(${1:typeName}, ${2:args})'},
-        {'name': 'getField', 'detail': 'Get field value by name', 'snippet': 'getField(${1:obj}, ${2:fieldName})'},
-        {'name': 'setField', 'detail': 'Set field value by name', 'snippet': 'setField(${1:obj}, ${2:fieldName}, ${3:value})'},
-        {'name': 'getConstructors', 'detail': 'Get constructors of class', 'snippet': 'getConstructors(${1:cls})'},
-        {'name': 'isInstance', 'detail': 'Check if object is instance of type', 'snippet': 'isInstance(${1:obj}, ${2:type})'},
-        {'name': 'getInterfaces', 'detail': 'Get implemented interfaces', 'snippet': 'getInterfaces(${1:obj})'},
-        {'name': 'getSource', 'detail': 'Get source code of function', 'snippet': 'getSource(${1:func})'},
-        {'name': 'getSignature', 'detail': 'Get function signature', 'snippet': 'getSignature(${1:func})'},
-    ],
-    'resolve': [
-        {'name': 'byName', 'detail': 'Resolve symbol by name', 'snippet': 'byName(${1:name})'},
-        {'name': 'byPath', 'detail': 'Resolve by dot-separated path', 'snippet': 'byPath(${1:path})'},
-        {'name': 'inScope', 'detail': 'Resolve in specific scope', 'snippet': 'inScope(${1:name}, ${2:scope})'},
-        {'name': 'lazy', 'detail': 'Create lazy resolver', 'snippet': 'lazy(${1:name})'},
-        {'name': 'tryResolve', 'detail': 'Try to resolve, return null if not found', 'snippet': 'tryResolve(${1:name})'},
-        {'name': 'exists', 'detail': 'Check if symbol can be resolved', 'snippet': 'exists(${1:name})'},
-        {'name': 'type', 'detail': 'Resolve type by name', 'snippet': 'type(${1:typeName})'},
-        {'name': 'function', 'detail': 'Resolve function by name', 'snippet': 'function(${1:funcName})'},
-        {'name': 'class', 'detail': 'Resolve class by name', 'snippet': 'class(${1:className})'},
-    ],
-}
 
 # Filter operators for [type::operator=value] syntax
 FILTER_OPERATORS: List[Dict[str, str]] = [
@@ -214,499 +56,194 @@ FILTER_TYPES: List[str] = [
     'date', 'datetime', 'time', 'array', 'list', 'object', 'json', 'any'
 ]
 
-# Type methods for . completions
-TYPE_METHODS: Dict[str, List[Dict[str, str]]] = {
+# BruteInjector filter types for injection [type::helper=value] syntax
+INJECTION_FILTER_TYPES: Dict[str, List[Dict[str, str]]] = {
     'string': [
-        {'name': 'length', 'detail': 'Get string length', 'snippet': 'length()'},
-        {'name': 'upper', 'detail': 'Convert to uppercase', 'snippet': 'upper()'},
-        {'name': 'lower', 'detail': 'Convert to lowercase', 'snippet': 'lower()'},
-        {'name': 'trim', 'detail': 'Trim whitespace', 'snippet': 'trim()'},
-        {'name': 'split', 'detail': 'Split string', 'snippet': 'split(${1:delimiter})'},
-        {'name': 'replace', 'detail': 'Replace substring', 'snippet': 'replace(${1:old}, ${2:new})'},
-        {'name': 'contains', 'detail': 'Check contains', 'snippet': 'contains(${1:substr})'},
-        {'name': 'startswith', 'detail': 'Check starts with', 'snippet': 'startswith(${1:prefix})'},
-        {'name': 'endswith', 'detail': 'Check ends with', 'snippet': 'endswith(${1:suffix})'},
-        {'name': 'substr', 'detail': 'Get substring', 'snippet': 'substr(${1:start}, ${2:end})'},
-        {'name': 'indexOf', 'detail': 'Find index of substring', 'snippet': 'indexOf(${1:substr})'},
-        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt()'},
-        {'name': 'toFloat', 'detail': 'Convert to float', 'snippet': 'toFloat()'},
-        {'name': 'format', 'detail': 'Format string', 'snippet': 'format(${1:args})'},
+        {'name': 'where', 'detail': 'Exact match filter', 'snippet': 'where="${1:text}"'},
+        {'name': 'contains', 'detail': 'Filter strings containing substring', 'snippet': 'contains="${1:text}"'},
+        {'name': 'find', 'detail': 'Find substring (non-exact match)', 'snippet': 'find="${1:text}"'},
+        {'name': 'findIndex', 'detail': 'Get position of substring (-1 if not found)', 'snippet': 'findIndex="${1:text}"'},
+        {'name': 'not', 'detail': 'Exclude matching strings', 'snippet': 'not="${1:text}"'},
+        {'name': 'startsWith', 'detail': 'Filter strings starting with prefix', 'snippet': 'startsWith="${1:prefix}"'},
+        {'name': 'endsWith', 'detail': 'Filter strings ending with suffix', 'snippet': 'endsWith="${1:suffix}"'},
+        {'name': 'length', 'detail': 'Filter strings of specific length', 'snippet': 'length=${1:n}'},
+        {'name': 'cut', 'detail': 'Get part before index/substring', 'snippet': 'cut=${1:2}'},
+        {'name': 'cutAfter', 'detail': 'Get part after index/substring', 'snippet': 'cutAfter=${1:2}'},
+        {'name': 'slice', 'detail': 'Slice string with start:end', 'snippet': 'slice="${1:0}:${2:5}"'},
+        {'name': 'split', 'detail': 'Split string by delimiter', 'snippet': 'split="${1:,}"'},
+        {'name': 'replace', 'detail': 'Replace old:new in string', 'snippet': 'replace="${1:old}:${2:new}"'},
+        {'name': 'upper', 'detail': 'Convert to uppercase', 'snippet': 'upper'},
+        {'name': 'lower', 'detail': 'Convert to lowercase', 'snippet': 'lower'},
+        {'name': 'trim', 'detail': 'Trim whitespace', 'snippet': 'trim'},
     ],
-    'array': [
-        {'name': 'length', 'detail': 'Get array length', 'snippet': 'length()'},
-        {'name': 'push', 'detail': 'Add element to end', 'snippet': 'push(${1:item})'},
-        {'name': 'pop', 'detail': 'Remove last element', 'snippet': 'pop()'},
-        {'name': 'shift', 'detail': 'Remove first element', 'snippet': 'shift()'},
-        {'name': 'unshift', 'detail': 'Add to beginning', 'snippet': 'unshift(${1:item})'},
-        {'name': 'slice', 'detail': 'Get array slice', 'snippet': 'slice(${1:start}, ${2:end})'},
-        {'name': 'join', 'detail': 'Join elements', 'snippet': 'join(${1:delimiter})'},
-        {'name': 'sort', 'detail': 'Sort array', 'snippet': 'sort()'},
-        {'name': 'rsort', 'detail': 'Reverse sort', 'snippet': 'rsort()'},
-        {'name': 'reverse', 'detail': 'Reverse array', 'snippet': 'reverse()'},
-        {'name': 'contains', 'detail': 'Check if contains', 'snippet': 'contains(${1:item})'},
-        {'name': 'indexOf', 'detail': 'Find index of item', 'snippet': 'indexOf(${1:item})'},
-        {'name': 'filter', 'detail': 'Filter elements', 'snippet': 'filter(${1:predicate})'},
-        {'name': 'map', 'detail': 'Map elements', 'snippet': 'map(${1:func})'},
-        {'name': 'reduce', 'detail': 'Reduce array', 'snippet': 'reduce(${1:func}, ${2:initial})'},
-        {'name': 'find', 'detail': 'Find element', 'snippet': 'find(${1:predicate})'},
-        {'name': 'every', 'detail': 'Check all match', 'snippet': 'every(${1:predicate})'},
-        {'name': 'some', 'detail': 'Check any match', 'snippet': 'some(${1:predicate})'},
-        {'name': 'flatten', 'detail': 'Flatten nested arrays', 'snippet': 'flatten()'},
-        {'name': 'unique', 'detail': 'Get unique elements', 'snippet': 'unique()'},
-    ],
-    'list': [
-        {'name': 'length', 'detail': 'Get list length', 'snippet': 'length()'},
-        {'name': 'add', 'detail': 'Add element', 'snippet': 'add(${1:item})'},
-        {'name': 'remove', 'detail': 'Remove element', 'snippet': 'remove(${1:item})'},
-        {'name': 'get', 'detail': 'Get element at index', 'snippet': 'get(${1:index})'},
-        {'name': 'set', 'detail': 'Set element at index', 'snippet': 'set(${1:index}, ${2:value})'},
-        {'name': 'clear', 'detail': 'Clear all elements', 'snippet': 'clear()'},
-        {'name': 'contains', 'detail': 'Check if contains', 'snippet': 'contains(${1:item})'},
-        {'name': 'toArray', 'detail': 'Convert to array', 'snippet': 'toArray()'},
-    ],
-    'dict': [
-        {'name': 'keys', 'detail': 'Get all keys', 'snippet': 'keys()'},
-        {'name': 'values', 'detail': 'Get all values', 'snippet': 'values()'},
-        {'name': 'items', 'detail': 'Get key-value pairs', 'snippet': 'items()'},
-        {'name': 'get', 'detail': 'Get value by key', 'snippet': 'get(${1:key})'},
-        {'name': 'set', 'detail': 'Set key-value pair', 'snippet': 'set(${1:key}, ${2:value})'},
-        {'name': 'has', 'detail': 'Check if key exists', 'snippet': 'has(${1:key})'},
-        {'name': 'delete', 'detail': 'Delete key', 'snippet': 'delete(${1:key})'},
-        {'name': 'clear', 'detail': 'Clear all pairs', 'snippet': 'clear()'},
-        {'name': 'merge', 'detail': 'Merge with another dict', 'snippet': 'merge(${1:other})'},
-        {'name': 'length', 'detail': 'Get number of keys', 'snippet': 'length()'},
-    ],
-    'dictionary': [
-        {'name': 'keys', 'detail': 'Get all keys', 'snippet': 'keys()'},
-        {'name': 'values', 'detail': 'Get all values', 'snippet': 'values()'},
-        {'name': 'items', 'detail': 'Get key-value pairs', 'snippet': 'items()'},
-        {'name': 'get', 'detail': 'Get value by key', 'snippet': 'get(${1:key})'},
-        {'name': 'set', 'detail': 'Set key-value pair', 'snippet': 'set(${1:key}, ${2:value})'},
-        {'name': 'has', 'detail': 'Check if key exists', 'snippet': 'has(${1:key})'},
-        {'name': 'delete', 'detail': 'Delete key', 'snippet': 'delete(${1:key})'},
+    'integer': [
+        {'name': 'where', 'detail': 'Filter integers matching value', 'snippet': 'where=${1:value}'},
+        {'name': 'gt', 'detail': 'Greater than', 'snippet': 'gt=${1:value}'},
+        {'name': 'lt', 'detail': 'Less than', 'snippet': 'lt=${1:value}'},
+        {'name': 'gte', 'detail': 'Greater than or equal', 'snippet': 'gte=${1:value}'},
+        {'name': 'lte', 'detail': 'Less than or equal', 'snippet': 'lte=${1:value}'},
+        {'name': 'not', 'detail': 'Not equal', 'snippet': 'not=${1:value}'},
+        {'name': 'range', 'detail': 'Filter integers in range [min, max]', 'snippet': 'range=[${1:0}, ${2:100}]'},
     ],
     'json': [
-        {'name': 'stringify', 'detail': 'Convert to JSON string', 'snippet': 'stringify()'},
-        {'name': 'keys', 'detail': 'Get all keys', 'snippet': 'keys()'},
-        {'name': 'values', 'detail': 'Get all values', 'snippet': 'values()'},
-        {'name': 'get', 'detail': 'Get value by path', 'snippet': 'get(${1:path})'},
-        {'name': 'set', 'detail': 'Set value at path', 'snippet': 'set(${1:path}, ${2:value})'},
-        {'name': 'has', 'detail': 'Check path exists', 'snippet': 'has(${1:path})'},
+        {'name': 'key', 'detail': 'Extract values with specific key', 'snippet': 'key="${1:key}"'},
+        {'name': 'value', 'detail': 'Filter by value in JSON/dict', 'snippet': 'value="${1:val}"'},
     ],
-    'iterator': [
-        {'name': 'next', 'detail': 'Get next element', 'snippet': 'next()'},
-        {'name': 'hasNext', 'detail': 'Check if has next', 'snippet': 'hasNext()'},
-        {'name': 'reset', 'detail': 'Reset iterator', 'snippet': 'reset()'},
-        {'name': 'current', 'detail': 'Get current element', 'snippet': 'current()'},
-        {'name': 'toArray', 'detail': 'Convert to array', 'snippet': 'toArray()'},
-    ],
-    'generator': [
-        {'name': 'next', 'detail': 'Get next yielded value', 'snippet': 'next()'},
-        {'name': 'send', 'detail': 'Send value to generator', 'snippet': 'send(${1:value})'},
-        {'name': 'hasNext', 'detail': 'Check if has more', 'snippet': 'hasNext()'},
-        {'name': 'toArray', 'detail': 'Collect all values', 'snippet': 'toArray()'},
-        {'name': 'close', 'detail': 'Close generator', 'snippet': 'close()'},
-    ],
-    'future': [
-        {'name': 'get', 'detail': 'Get result (blocking)', 'snippet': 'get()'},
-        {'name': 'isDone', 'detail': 'Check if complete', 'snippet': 'isDone()'},
-        {'name': 'cancel', 'detail': 'Cancel execution', 'snippet': 'cancel()'},
-        {'name': 'then', 'detail': 'Chain callback', 'snippet': 'then(${1:callback})'},
-        {'name': 'catch', 'detail': 'Handle error', 'snippet': 'catch(${1:handler})'},
-    ],
-    'stack': [
-        {'name': 'push', 'detail': 'Push element', 'snippet': 'push(${1:item})'},
-        {'name': 'pop', 'detail': 'Pop element', 'snippet': 'pop()'},
-        {'name': 'peek', 'detail': 'Peek top element', 'snippet': 'peek()'},
-        {'name': 'isEmpty', 'detail': 'Check if empty', 'snippet': 'isEmpty()'},
-        {'name': 'size', 'detail': 'Get stack size', 'snippet': 'size()'},
-        {'name': 'clear', 'detail': 'Clear stack', 'snippet': 'clear()'},
-    ],
-    'queue': [
-        {'name': 'enqueue', 'detail': 'Add to queue', 'snippet': 'enqueue(${1:item})'},
-        {'name': 'dequeue', 'detail': 'Remove from queue', 'snippet': 'dequeue()'},
-        {'name': 'peek', 'detail': 'Peek front element', 'snippet': 'peek()'},
-        {'name': 'isEmpty', 'detail': 'Check if empty', 'snippet': 'isEmpty()'},
-        {'name': 'size', 'detail': 'Get queue size', 'snippet': 'size()'},
-        {'name': 'clear', 'detail': 'Clear queue', 'snippet': 'clear()'},
-    ],
-    'set': [
-        {'name': 'add', 'detail': 'Add element', 'snippet': 'add(${1:item})'},
-        {'name': 'remove', 'detail': 'Remove element', 'snippet': 'remove(${1:item})'},
-        {'name': 'has', 'detail': 'Check if contains', 'snippet': 'has(${1:item})'},
-        {'name': 'size', 'detail': 'Get set size', 'snippet': 'size()'},
-        {'name': 'clear', 'detail': 'Clear set', 'snippet': 'clear()'},
-        {'name': 'union', 'detail': 'Union with another set', 'snippet': 'union(${1:other})'},
-        {'name': 'intersection', 'detail': 'Intersection with set', 'snippet': 'intersection(${1:other})'},
-        {'name': 'difference', 'detail': 'Difference from set', 'snippet': 'difference(${1:other})'},
-        {'name': 'toArray', 'detail': 'Convert to array', 'snippet': 'toArray()'},
-    ],
-    'tuple': [
-        {'name': 'get', 'detail': 'Get element at index', 'snippet': 'get(${1:index})'},
-        {'name': 'length', 'detail': 'Get tuple length', 'snippet': 'length()'},
-        {'name': 'toArray', 'detail': 'Convert to array', 'snippet': 'toArray()'},
-    ],
-    'int': [
-        {'name': 'toString', 'detail': 'Convert to string', 'snippet': 'toString()'},
-        {'name': 'toFloat', 'detail': 'Convert to float', 'snippet': 'toFloat()'},
-        {'name': 'abs', 'detail': 'Absolute value', 'snippet': 'abs()'},
-    ],
-    'float': [
-        {'name': 'toString', 'detail': 'Convert to string', 'snippet': 'toString()'},
-        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt()'},
-        {'name': 'round', 'detail': 'Round value', 'snippet': 'round()'},
-        {'name': 'floor', 'detail': 'Floor value', 'snippet': 'floor()'},
-        {'name': 'ceil', 'detail': 'Ceiling value', 'snippet': 'ceil()'},
-        {'name': 'abs', 'detail': 'Absolute value', 'snippet': 'abs()'},
-    ],
-    'datastruct': [
-        {'name': 'add', 'detail': 'Add element', 'snippet': 'add(${1:item})'},
-        {'name': 'push', 'detail': 'Push element', 'snippet': 'push(${1:item})'},
-        {'name': 'pop', 'detail': 'Pop element', 'snippet': 'pop()'},
-        {'name': 'get', 'detail': 'Get element', 'snippet': 'get(${1:index})'},
-        {'name': 'set', 'detail': 'Set element', 'snippet': 'set(${1:index}, ${2:value})'},
-        {'name': 'remove', 'detail': 'Remove element', 'snippet': 'remove(${1:index})'},
-        {'name': 'clear', 'detail': 'Clear all elements', 'snippet': 'clear()'},
-        {'name': 'content', 'detail': 'Get all content', 'snippet': 'content()'},
-        {'name': 'len', 'detail': 'Get length', 'snippet': 'len()'},
-        {'name': 'size', 'detail': 'Get size', 'snippet': 'size()'},
-        {'name': 'at', 'detail': 'Get element at index', 'snippet': 'at(${1:index})'},
-        {'name': 'filter', 'detail': 'Filter elements', 'snippet': 'filter(${1:predicate})'},
-        {'name': 'map', 'detail': 'Map elements', 'snippet': 'map(${1:func})'},
-        {'name': 'isEmpty', 'detail': 'Check if empty', 'snippet': 'isEmpty()'},
-        {'name': 'contains', 'detail': 'Check if contains', 'snippet': 'contains(${1:item})'},
-        {'name': 'begin', 'detail': 'Get begin iterator', 'snippet': 'begin()'},
-        {'name': 'end', 'detail': 'Get end iterator', 'snippet': 'end()'},
+    'array': [
+        {'name': 'index', 'detail': 'Get specific index', 'snippet': 'index=${1:0}'},
+        {'name': 'length', 'detail': 'Filter arrays of specific length', 'snippet': 'length=${1:n}'},
+        {'name': 'where', 'detail': 'Filter elements matching value', 'snippet': 'where=${1:value}'},
     ],
     'vector': [
-        {'name': 'push', 'detail': 'Push element', 'snippet': 'push(${1:item})'},
-        {'name': 'push_back', 'detail': 'Push to back', 'snippet': 'push_back(${1:item})'},
-        {'name': 'pop', 'detail': 'Pop element', 'snippet': 'pop()'},
-        {'name': 'pop_back', 'detail': 'Pop from back', 'snippet': 'pop_back()'},
-        {'name': 'at', 'detail': 'Get element at index', 'snippet': 'at(${1:index})'},
-        {'name': 'set', 'detail': 'Set element', 'snippet': 'set(${1:index}, ${2:value})'},
-        {'name': 'size', 'detail': 'Get size', 'snippet': 'size()'},
-        {'name': 'empty', 'detail': 'Check if empty', 'snippet': 'empty()'},
-        {'name': 'clear', 'detail': 'Clear all elements', 'snippet': 'clear()'},
-        {'name': 'insert', 'detail': 'Insert at position', 'snippet': 'insert(${1:pos}, ${2:item})'},
-        {'name': 'erase', 'detail': 'Erase at position', 'snippet': 'erase(${1:pos})'},
-        {'name': 'front', 'detail': 'Get first element', 'snippet': 'front()'},
-        {'name': 'back', 'detail': 'Get last element', 'snippet': 'back()'},
-        {'name': 'contains', 'detail': 'Check if contains', 'snippet': 'contains(${1:item})'},
-        {'name': 'indexOf', 'detail': 'Find index of item', 'snippet': 'indexOf(${1:item})'},
+        {'name': 'where', 'detail': 'Filter elements matching value', 'snippet': 'where=${1:value}'},
+        {'name': 'index', 'detail': 'Get specific index', 'snippet': 'index=${1:0}'},
+        {'name': 'length', 'detail': 'Filter vectors of specific length', 'snippet': 'length=${1:n}'},
     ],
-    'byte': [
-        {'name': 'switch', 'detail': 'Toggle byte value', 'snippet': 'switch(${1:bitPosition})'},
-        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt()'},
-        {'name': 'toString', 'detail': 'Convert to string', 'snippet': 'toString()'},
-        {'name': 'toBinary', 'detail': 'Convert to binary string', 'snippet': 'toBinary()'},
-        {'name': 'toHex', 'detail': 'Convert to hex string', 'snippet': 'toHex()'},
+    'datastruct': [
+        {'name': 'at', 'detail': 'Get element at index', 'snippet': 'at=${1:0}'},
+        {'name': 'first', 'detail': 'Get first N elements', 'snippet': 'first=${1:1}'},
+        {'name': 'last', 'detail': 'Get last N elements', 'snippet': 'last=${1:1}'},
+        {'name': 'size', 'detail': 'Get number of elements', 'snippet': 'size'},
+        {'name': 'empty', 'detail': 'Pass only if empty', 'snippet': 'empty'},
+        {'name': 'notEmpty', 'detail': 'Pass only if not empty', 'snippet': 'notEmpty'},
+        {'name': 'contains', 'detail': 'Pass only if contains value', 'snippet': 'contains="${1:value}"'},
+        {'name': 'where', 'detail': 'Filter elements matching value', 'snippet': 'where="${1:value}"'},
+        {'name': 'not', 'detail': 'Exclude elements matching value', 'snippet': 'not="${1:value}"'},
+        {'name': 'slice', 'detail': 'Slice with start:end', 'snippet': 'slice="${1:0}:${2:5}"'},
+        {'name': 'reversed', 'detail': 'Reverse element order', 'snippet': 'reversed'},
+        {'name': 'sorted', 'detail': 'Sort elements (asc/desc)', 'snippet': 'sorted="${1:asc}"'},
+        {'name': 'unique', 'detail': 'Remove duplicate elements', 'snippet': 'unique'},
+        {'name': 'flatten', 'detail': 'Flatten nested lists', 'snippet': 'flatten'},
+        {'name': 'count', 'detail': 'Count occurrences of value', 'snippet': 'count="${1:value}"'},
+        {'name': 'min', 'detail': 'Get minimum value', 'snippet': 'min'},
+        {'name': 'max', 'detail': 'Get maximum value', 'snippet': 'max'},
+        {'name': 'sum', 'detail': 'Sum all numeric elements', 'snippet': 'sum'},
+        {'name': 'avg', 'detail': 'Average of numeric elements', 'snippet': 'avg'},
+        {'name': 'join', 'detail': 'Join elements with separator', 'snippet': 'join="${1:,}"'},
+        {'name': 'type', 'detail': 'Filter elements by type name', 'snippet': 'type="${1:int}"'},
+        {'name': 'gt', 'detail': 'Filter elements greater than value', 'snippet': 'gt=${1:value}'},
+        {'name': 'lt', 'detail': 'Filter elements less than value', 'snippet': 'lt=${1:value}'},
+        {'name': 'range', 'detail': 'Filter numeric elements in range', 'snippet': 'range="${1:0}:${2:100}"'},
+        {'name': 'map', 'detail': 'Convert all elements to strings', 'snippet': 'map'},
     ],
-    'bit': [
-        {'name': 'switch', 'detail': 'Toggle bit value', 'snippet': 'switch(${1:position})'},
-        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt()'},
-        {'name': 'toString', 'detail': 'Convert to string', 'snippet': 'toString()'},
-        {'name': 'set', 'detail': 'Set bit to 1', 'snippet': 'set()'},
-        {'name': 'clear', 'detail': 'Set bit to 0', 'snippet': 'clear()'},
-        {'name': 'flip', 'detail': 'Flip bit value', 'snippet': 'flip()'},
+    'stack': [
+        {'name': 'peek', 'detail': 'View top element without removing', 'snippet': 'peek'},
+        {'name': 'size', 'detail': 'Get number of elements', 'snippet': 'size'},
+        {'name': 'empty', 'detail': 'Pass only if empty', 'snippet': 'empty'},
+        {'name': 'notEmpty', 'detail': 'Pass only if not empty', 'snippet': 'notEmpty'},
+        {'name': 'contains', 'detail': 'Pass only if contains value', 'snippet': 'contains="${1:value}"'},
+        {'name': 'toList', 'detail': 'Convert stack to list', 'snippet': 'toList'},
     ],
-    'ptr': [
-        {'name': 'get_address', 'detail': 'Get memory address of pointer target', 'snippet': 'get_address()'},
-        {'name': 'set_address', 'detail': 'Set pointer to address', 'snippet': 'set_address(${1:addr})'},
-        {'name': 'get_value', 'detail': 'Get value at pointer', 'snippet': 'get_value()'},
-        {'name': 'set_value', 'detail': 'Set value at pointer', 'snippet': 'set_value(${1:value})'},
-        {'name': 'deref', 'detail': 'Dereference pointer', 'snippet': 'deref()'},
-        {'name': 'ref', 'detail': 'Get reference', 'snippet': 'ref()'},
-        {'name': 'isNull', 'detail': 'Check if null pointer', 'snippet': 'isNull()'},
-        {'name': 'is_null', 'detail': 'Check if null pointer', 'snippet': 'is_null()'},
-        {'name': 'is_valid', 'detail': 'Check if pointer is valid', 'snippet': 'is_valid()'},
-        {'name': 'is_address', 'detail': 'Check if pointer holds a valid address', 'snippet': 'is_address()'},
-        {'name': 'offset', 'detail': 'Add offset to pointer', 'snippet': 'offset(${1:bytes})'},
-        {'name': 'copy', 'detail': 'Copy pointer', 'snippet': 'copy()'},
-        {'name': 'free', 'detail': 'Free memory at pointer', 'snippet': 'free()'},
-        {'name': 'address', 'detail': 'Get address', 'snippet': 'address()'},
-        {'name': 'set', 'detail': 'Set pointer target', 'snippet': 'set(${1:target})'},
+    'queue': [
+        {'name': 'front', 'detail': 'View front element', 'snippet': 'front'},
+        {'name': 'back', 'detail': 'View back element', 'snippet': 'back'},
+        {'name': 'size', 'detail': 'Get number of elements', 'snippet': 'size'},
+        {'name': 'empty', 'detail': 'Pass only if empty', 'snippet': 'empty'},
+        {'name': 'notEmpty', 'detail': 'Pass only if not empty', 'snippet': 'notEmpty'},
+        {'name': 'contains', 'detail': 'Pass only if contains value', 'snippet': 'contains="${1:value}"'},
+        {'name': 'toList', 'detail': 'Convert queue to list', 'snippet': 'toList'},
     ],
-    'pointer': [
-        {'name': 'get_address', 'detail': 'Get memory address of pointer target', 'snippet': 'get_address()'},
-        {'name': 'set_address', 'detail': 'Set pointer to address', 'snippet': 'set_address(${1:addr})'},
-        {'name': 'get_value', 'detail': 'Get value at pointer', 'snippet': 'get_value()'},
-        {'name': 'set_value', 'detail': 'Set value at pointer', 'snippet': 'set_value(${1:value})'},
-        {'name': 'deref', 'detail': 'Dereference pointer', 'snippet': 'deref()'},
-        {'name': 'ref', 'detail': 'Get reference', 'snippet': 'ref()'},
-        {'name': 'isNull', 'detail': 'Check if null pointer', 'snippet': 'isNull()'},
-        {'name': 'is_null', 'detail': 'Check if null pointer', 'snippet': 'is_null()'},
-        {'name': 'is_valid', 'detail': 'Check if pointer is valid', 'snippet': 'is_valid()'},
-        {'name': 'is_address', 'detail': 'Check if pointer holds a valid address', 'snippet': 'is_address()'},
-        {'name': 'offset', 'detail': 'Add offset to pointer', 'snippet': 'offset(${1:bytes})'},
-        {'name': 'copy', 'detail': 'Copy pointer', 'snippet': 'copy()'},
-        {'name': 'free', 'detail': 'Free memory at pointer', 'snippet': 'free()'},
+    'map': [
+        {'name': 'key', 'detail': 'Get value by key', 'snippet': 'key="${1:key}"'},
+        {'name': 'keys', 'detail': 'Get all keys as list', 'snippet': 'keys'},
+        {'name': 'values', 'detail': 'Get all values as list', 'snippet': 'values'},
+        {'name': 'items', 'detail': 'Get all key-value pairs', 'snippet': 'items'},
+        {'name': 'size', 'detail': 'Get number of entries', 'snippet': 'size'},
+        {'name': 'hasKey', 'detail': 'Pass only if key exists', 'snippet': 'hasKey="${1:key}"'},
+        {'name': 'hasValue', 'detail': 'Pass only if value exists', 'snippet': 'hasValue="${1:val}"'},
+        {'name': 'where', 'detail': 'Filter entries by value', 'snippet': 'where="${1:value}"'},
+        {'name': 'not', 'detail': 'Exclude entries by value', 'snippet': 'not="${1:value}"'},
+        {'name': 'empty', 'detail': 'Pass only if empty', 'snippet': 'empty'},
+        {'name': 'notEmpty', 'detail': 'Pass only if not empty', 'snippet': 'notEmpty'},
+        {'name': 'merge', 'detail': 'Merge with another dict', 'snippet': 'merge'},
+        {'name': 'sorted', 'detail': 'Sort by keys (asc/desc)', 'snippet': 'sorted="${1:asc}"'},
+        {'name': 'keyType', 'detail': 'Filter entries by key type', 'snippet': 'keyType="${1:string}"'},
+        {'name': 'valueType', 'detail': 'Filter entries by value type', 'snippet': 'valueType="${1:int}"'},
     ],
-    'address': [
-        {'name': 'get', 'detail': 'Get value at address', 'snippet': 'get()'},
-        {'name': 'set', 'detail': 'Set value at address', 'snippet': 'set(${1:value})'},
-        {'name': 'deref', 'detail': 'Dereference address', 'snippet': 'deref()'},
-        {'name': 'offset', 'detail': 'Add offset to address', 'snippet': 'offset(${1:bytes})'},
-        {'name': 'to_ptr', 'detail': 'Convert to pointer', 'snippet': 'to_ptr()'},
-        {'name': 'isNull', 'detail': 'Check if null', 'snippet': 'isNull()'},
-        {'name': 'is_valid', 'detail': 'Check if address is valid', 'snippet': 'is_valid()'},
-        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt()'},
-        {'name': 'toString', 'detail': 'Convert to hex string', 'snippet': 'toString()'},
-        {'name': 'copy', 'detail': 'Copy address', 'snippet': 'copy()'},
+    'dictionary': [
+        {'name': 'key', 'detail': 'Get value by key', 'snippet': 'key="${1:key}"'},
+        {'name': 'keys', 'detail': 'Get all keys', 'snippet': 'keys'},
+        {'name': 'values', 'detail': 'Get all values', 'snippet': 'values'},
+        {'name': 'size', 'detail': 'Get number of entries', 'snippet': 'size'},
+        {'name': 'hasKey', 'detail': 'Pass only if key exists', 'snippet': 'hasKey="${1:key}"'},
+        {'name': 'where', 'detail': 'Filter entries by value', 'snippet': 'where="${1:value}"'},
+    ],
+    'set': [
+        {'name': 'contains', 'detail': 'Pass only if contains value', 'snippet': 'contains="${1:value}"'},
+        {'name': 'size', 'detail': 'Get number of elements', 'snippet': 'size'},
+        {'name': 'empty', 'detail': 'Pass only if empty', 'snippet': 'empty'},
+        {'name': 'toList', 'detail': 'Convert set to list', 'snippet': 'toList'},
+        {'name': 'union', 'detail': 'Union with another set', 'snippet': 'union'},
+        {'name': 'intersect', 'detail': 'Intersection with another set', 'snippet': 'intersect'},
+        {'name': 'diff', 'detail': 'Difference with another set', 'snippet': 'diff'},
+    ],
+    'tuple': [
+        {'name': 'at', 'detail': 'Get element at index', 'snippet': 'at=${1:0}'},
+        {'name': 'first', 'detail': 'Get first element', 'snippet': 'first'},
+        {'name': 'last', 'detail': 'Get last element', 'snippet': 'last'},
+        {'name': 'size', 'detail': 'Get number of elements', 'snippet': 'size'},
+        {'name': 'contains', 'detail': 'Pass only if contains value', 'snippet': 'contains="${1:value}"'},
+        {'name': 'toList', 'detail': 'Convert tuple to list', 'snippet': 'toList'},
+    ],
+    'float': [
+        {'name': 'round', 'detail': 'Round to N decimal places', 'snippet': 'round=${1:2}'},
+        {'name': 'floor', 'detail': 'Round down to integer', 'snippet': 'floor'},
+        {'name': 'ceil', 'detail': 'Round up to integer', 'snippet': 'ceil'},
+        {'name': 'abs', 'detail': 'Absolute value', 'snippet': 'abs'},
+        {'name': 'toInt', 'detail': 'Convert to integer', 'snippet': 'toInt'},
+        {'name': 'gt', 'detail': 'Greater than', 'snippet': 'gt=${1:value}'},
+        {'name': 'lt', 'detail': 'Less than', 'snippet': 'lt=${1:value}'},
+        {'name': 'between', 'detail': 'Between min and max', 'snippet': 'between="${1:0.0}:${2:1.0}"'},
+        {'name': 'positive', 'detail': 'Pass only if positive', 'snippet': 'positive'},
+        {'name': 'negative', 'detail': 'Pass only if negative', 'snippet': 'negative'},
+    ],
+    'bool': [
+        {'name': 'isTrue', 'detail': 'Pass only if true', 'snippet': 'isTrue'},
+        {'name': 'isFalse', 'detail': 'Pass only if false', 'snippet': 'isFalse'},
+        {'name': 'flip', 'detail': 'Negate the boolean', 'snippet': 'flip'},
+        {'name': 'toInt', 'detail': 'Convert to 0 or 1', 'snippet': 'toInt'},
+    ],
+    'combo': [
+        {'name': 'filterdb', 'detail': 'Get filter database from combo', 'snippet': 'filterdb'},
+        {'name': 'blocked', 'detail': 'Get blocked items from combo', 'snippet': 'blocked'},
+    ],
+    'dynamic': [
+        {'name': 'content', 'detail': 'Filter by content value', 'snippet': 'content=${1:value}'},
+        {'name': 'not', 'detail': 'Exclude elements matching value', 'snippet': 'not=${1:value}'},
+        {'name': 'gt', 'detail': 'Greater than', 'snippet': 'gt=${1:value}'},
+        {'name': 'lt', 'detail': 'Less than', 'snippet': 'lt=${1:value}'},
+        {'name': 'gte', 'detail': 'Greater than or equal', 'snippet': 'gte=${1:value}'},
+        {'name': 'lte', 'detail': 'Less than or equal', 'snippet': 'lte=${1:value}'},
+        {'name': 'mod', 'detail': 'Modulo filter (item % N == 0)', 'snippet': 'mod=${1:2}'},
+        {'name': 'range', 'detail': 'Filter values in min:max range', 'snippet': 'range="${1:0}:${2:100}"'},
+        {'name': 'even', 'detail': 'Filter even numbers', 'snippet': 'even'},
+        {'name': 'odd', 'detail': 'Filter odd numbers', 'snippet': 'odd'},
+        {'name': 'VarName', 'detail': 'Filter by variable value', 'snippet': '${1:VarName}=${2:value}'},
+    ],
+    'sql': [
+        {'name': 'data', 'detail': 'Return only SQL-compatible data', 'snippet': 'data'},
+    ],
+    'instance': [
+        {'name': 'class', 'detail': 'Get classes from object', 'snippet': 'class'},
+        {'name': 'method', 'detail': 'Get methods from object', 'snippet': 'method'},
+        {'name': 'var', 'detail': 'Get variables from object', 'snippet': 'var'},
+        {'name': 'all', 'detail': 'Get all categorized members', 'snippet': 'all'},
+        {'name': '"ClassName"', 'detail': 'Get specific class by name', 'snippet': '"${1:ClassName}"'},
+    ],
+    'name': [
+        {'name': '"Name"', 'detail': 'Filter by name (class, dict key, attribute)', 'snippet': '"${1:Name}"'},
+    ],
+    'iterator': [
+        {'name': 'toList', 'detail': 'Convert iterator to list', 'snippet': 'toList'},
+        {'name': 'count', 'detail': 'Count elements in iterator', 'snippet': 'count'},
+        {'name': 'first', 'detail': 'Get first element', 'snippet': 'first'},
+    ],
+    'position': [
+        {'name': 'begin', 'detail': 'Insert at beginning of container', 'snippet': 'begin'},
+        {'name': 'end', 'detail': 'Insert at end of container (default)', 'snippet': 'end'},
+        {'name': 'at', 'detail': 'Insert at specific index', 'snippet': 'at=${1:0}'},
     ],
 }
-
-# Builtin function documentation
-BUILTIN_DOCS: Dict[str, Dict[str, str]] = {
-    'print': {'signature': 'print(value, ...)', 'doc': 'Print values to stdout without newline'},
-    'printl': {'signature': 'printl(value, ...)', 'doc': 'Print values to stdout with newline'},
-    'println': {'signature': 'println(value, ...)', 'doc': 'Print values to stdout with newline'},
-    'input': {'signature': 'input(prompt?)', 'doc': 'Read line from stdin'},
-    'read': {'signature': 'read()', 'doc': 'Read input'},
-    'readline': {'signature': 'readline()', 'doc': 'Read a line from stdin'},
-    'write': {'signature': 'write(value)', 'doc': 'Write value to output'},
-    'writeline': {'signature': 'writeline(value)', 'doc': 'Write value with newline'},
-    'len': {'signature': 'len(collection)', 'doc': 'Get length of collection'},
-    'type': {'signature': 'type(value)', 'doc': 'Get type name of value'},
-    'toInt': {'signature': 'toInt(value)', 'doc': 'Convert value to integer'},
-    'toFloat': {'signature': 'toFloat(value)', 'doc': 'Convert value to float'},
-    'toString': {'signature': 'toString(value)', 'doc': 'Convert value to string'},
-    'toBool': {'signature': 'toBool(value)', 'doc': 'Convert value to boolean'},
-    'typeof': {'signature': 'typeof(value)', 'doc': 'Get type of value'},
-    'memory': {'signature': 'memory()', 'doc': 'Get memory usage info'},
-    'address': {'signature': 'address(var)', 'doc': 'Get memory address of variable'},
-    'reflect': {'signature': 'reflect(obj)', 'doc': 'Get comprehensive reflection info (methods, properties, type, metadata)'},
-    'resolve': {'signature': 'resolve(name, context?)', 'doc': 'Resolve symbol by name at runtime'},
-    'getattr': {'signature': 'getattr(obj, name, default?)', 'doc': 'Get attribute from object by name'},
-    'setattr': {'signature': 'setattr(obj, name, value)', 'doc': 'Set attribute on object by name'},
-    'hasattr': {'signature': 'hasattr(obj, name)', 'doc': 'Check if object has attribute'},
-    'delattr': {'signature': 'delattr(obj, name)', 'doc': 'Delete attribute from object'},
-    'dir': {'signature': 'dir(obj?)', 'doc': 'List all attributes/methods of object'},
-    'vars': {'signature': 'vars(obj?)', 'doc': 'Get variables dict from object/scope'},
-    'locals': {'signature': 'locals()', 'doc': 'Get dict of local variables'},
-    'globals': {'signature': 'globals()', 'doc': 'Get dict of global variables'},
-    'callable': {'signature': 'callable(obj)', 'doc': 'Check if object is callable'},
-    'classof': {'signature': 'classof(obj)', 'doc': 'Get class/type of object'},
-    'nameof': {'signature': 'nameof(symbol)', 'doc': 'Get name of symbol as string'},
-    'sizeof': {'signature': 'sizeof(obj)', 'doc': 'Get size in bytes of object/type'},
-    'alignof': {'signature': 'alignof(type)', 'doc': 'Get alignment requirement of type'},
-    'destroy': {'signature': 'destroy(var)', 'doc': 'Destroy variable and free memory'},
-    'exit': {'signature': 'exit(code?)', 'doc': 'Exit program with optional code'},
-    'sleep': {'signature': 'sleep(ms)', 'doc': 'Sleep for milliseconds'},
-    'range': {'signature': 'range(start, end, step?)', 'doc': 'Generate range of numbers'},
-    'isavailable': {'signature': 'isavailable(name)', 'doc': 'Check if name is available'},
-    'OpenFind': {'signature': 'OpenFind(pattern)', 'doc': 'Open find dialog'},
-    'cast': {'signature': 'cast(value, type)', 'doc': 'Cast value to type'},
-    'share': {'signature': 'share(name, value)', 'doc': 'Share variable across modules'},
-    'shared': {'signature': 'shared(name)', 'doc': 'Access shared variable'},
-    'include': {'signature': 'include(path)', 'doc': 'Include CSSL file'},
-    'includecpp': {'signature': 'includecpp(path)', 'doc': 'Include C++ file'},
-    'snapshot': {'signature': 'snapshot(name)', 'doc': 'Create snapshot of variable'},
-    'get_snapshot': {'signature': 'get_snapshot(name)', 'doc': 'Get snapshot value'},
-    'has_snapshot': {'signature': 'has_snapshot(name)', 'doc': 'Check if snapshot exists'},
-    'clear_snapshot': {'signature': 'clear_snapshot(name)', 'doc': 'Clear single snapshot'},
-    'clear_snapshots': {'signature': 'clear_snapshots()', 'doc': 'Clear all snapshots'},
-    'list_snapshots': {'signature': 'list_snapshots()', 'doc': 'List all snapshot names'},
-    'restore_snapshot': {'signature': 'restore_snapshot(name)', 'doc': 'Restore variable from snapshot'},
-    'random': {'signature': 'random()', 'doc': 'Generate random float 0-1'},
-    'randint': {'signature': 'randint(min, max)', 'doc': 'Generate random integer'},
-    'round': {'signature': 'round(value, decimals?)', 'doc': 'Round to decimals'},
-    'abs': {'signature': 'abs(value)', 'doc': 'Absolute value'},
-    'ceil': {'signature': 'ceil(value)', 'doc': 'Ceiling function'},
-    'floor': {'signature': 'floor(value)', 'doc': 'Floor function'},
-    'sqrt': {'signature': 'sqrt(value)', 'doc': 'Square root'},
-    'pow': {'signature': 'pow(base, exp)', 'doc': 'Power function'},
-    'min': {'signature': 'min(a, b, ...)', 'doc': 'Minimum value'},
-    'max': {'signature': 'max(a, b, ...)', 'doc': 'Maximum value'},
-    'sum': {'signature': 'sum(collection)', 'doc': 'Sum of collection'},
-    'sin': {'signature': 'sin(x)', 'doc': 'Sine function'},
-    'cos': {'signature': 'cos(x)', 'doc': 'Cosine function'},
-    'tan': {'signature': 'tan(x)', 'doc': 'Tangent function'},
-    'asin': {'signature': 'asin(x)', 'doc': 'Arc sine'},
-    'acos': {'signature': 'acos(x)', 'doc': 'Arc cosine'},
-    'atan': {'signature': 'atan(x)', 'doc': 'Arc tangent'},
-    'log': {'signature': 'log(x)', 'doc': 'Natural logarithm'},
-    'exp': {'signature': 'exp(x)', 'doc': 'Exponential function'},
-    'upper': {'signature': 'upper(str)', 'doc': 'Convert to uppercase'},
-    'lower': {'signature': 'lower(str)', 'doc': 'Convert to lowercase'},
-    'trim': {'signature': 'trim(str)', 'doc': 'Trim whitespace'},
-    'split': {'signature': 'split(str, delimiter)', 'doc': 'Split string'},
-    'join': {'signature': 'join(arr, delimiter)', 'doc': 'Join array elements'},
-    'replace': {'signature': 'replace(str, old, new)', 'doc': 'Replace substring'},
-    'substr': {'signature': 'substr(str, start, len?)', 'doc': 'Get substring'},
-    'contains': {'signature': 'contains(collection, item)', 'doc': 'Check if contains'},
-    'startswith': {'signature': 'startswith(str, prefix)', 'doc': 'Check starts with'},
-    'endswith': {'signature': 'endswith(str, suffix)', 'doc': 'Check ends with'},
-    'format': {'signature': 'format(template, ...args)', 'doc': 'Format string'},
-    'concat': {'signature': 'concat(a, b, ...)', 'doc': 'Concatenate values'},
-    'push': {'signature': 'push(arr, item)', 'doc': 'Add item to array'},
-    'pop': {'signature': 'pop(arr)', 'doc': 'Remove last item'},
-    'shift': {'signature': 'shift(arr)', 'doc': 'Remove first item'},
-    'unshift': {'signature': 'unshift(arr, item)', 'doc': 'Add to beginning'},
-    'slice': {'signature': 'slice(arr, start, end?)', 'doc': 'Get array slice'},
-    'sort': {'signature': 'sort(arr)', 'doc': 'Sort array ascending'},
-    'rsort': {'signature': 'rsort(arr)', 'doc': 'Sort array descending'},
-    'unique': {'signature': 'unique(arr)', 'doc': 'Get unique elements'},
-    'flatten': {'signature': 'flatten(arr)', 'doc': 'Flatten nested arrays'},
-    'filter': {'signature': 'filter(arr, predicate)', 'doc': 'Filter elements'},
-    'map': {'signature': 'map(arr, func)', 'doc': 'Map elements'},
-    'reduce': {'signature': 'reduce(arr, func, initial)', 'doc': 'Reduce array'},
-    'find': {'signature': 'find(arr, predicate)', 'doc': 'Find element'},
-    'findindex': {'signature': 'findindex(arr, predicate)', 'doc': 'Find element index'},
-    'every': {'signature': 'every(arr, predicate)', 'doc': 'Check all match'},
-    'some': {'signature': 'some(arr, predicate)', 'doc': 'Check any match'},
-    'keys': {'signature': 'keys(obj)', 'doc': 'Get object keys'},
-    'values': {'signature': 'values(obj)', 'doc': 'Get object values'},
-    'items': {'signature': 'items(obj)', 'doc': 'Get key-value pairs'},
-    'haskey': {'signature': 'haskey(obj, key)', 'doc': 'Check if key exists'},
-    'getkey': {'signature': 'getkey(obj, key)', 'doc': 'Get value by key'},
-    'setkey': {'signature': 'setkey(obj, key, value)', 'doc': 'Set key-value pair'},
-    'delkey': {'signature': 'delkey(obj, key)', 'doc': 'Delete key'},
-    'merge': {'signature': 'merge(obj1, obj2)', 'doc': 'Merge objects'},
-    'now': {'signature': 'now()', 'doc': 'Get current timestamp'},
-    'timestamp': {'signature': 'timestamp()', 'doc': 'Get Unix timestamp'},
-    'date': {'signature': 'date(format?)', 'doc': 'Get formatted date'},
-    'time': {'signature': 'time(format?)', 'doc': 'Get formatted time'},
-    'datetime': {'signature': 'datetime(format?)', 'doc': 'Get formatted datetime'},
-    'strftime': {'signature': 'strftime(format, timestamp?)', 'doc': 'Format timestamp'},
-    'tojson': {'signature': 'tojson(value)', 'doc': 'Convert to JSON string'},
-    'fromjson': {'signature': 'fromjson(str)', 'doc': 'Parse JSON string'},
-    'debug': {'signature': 'debug(msg)', 'doc': 'Log debug message'},
-    'error': {'signature': 'error(msg)', 'doc': 'Log error message'},
-    'warn': {'signature': 'warn(msg)', 'doc': 'Log warning message'},
-    'readfile': {'signature': 'readfile(path)', 'doc': 'Read entire file'},
-    'writefile': {'signature': 'writefile(path, content)', 'doc': 'Write to file'},
-    'appendfile': {'signature': 'appendfile(path, content)', 'doc': 'Append to file'},
-    'readlines': {'signature': 'readlines(path)', 'doc': 'Read file lines'},
-    'listdir': {'signature': 'listdir(path)', 'doc': 'List directory contents'},
-    'makedirs': {'signature': 'makedirs(path)', 'doc': 'Create directories'},
-    'removefile': {'signature': 'removefile(path)', 'doc': 'Remove file'},
-    'removedir': {'signature': 'removedir(path)', 'doc': 'Remove directory'},
-    'copyfile': {'signature': 'copyfile(src, dest)', 'doc': 'Copy file'},
-    'movefile': {'signature': 'movefile(src, dest)', 'doc': 'Move file'},
-    'filesize': {'signature': 'filesize(path)', 'doc': 'Get file size'},
-    'pathexists': {'signature': 'pathexists(path)', 'doc': 'Check path exists'},
-    'isfile': {'signature': 'isfile(path)', 'doc': 'Check if is file'},
-    'isdir': {'signature': 'isdir(path)', 'doc': 'Check if is directory'},
-    'basename': {'signature': 'basename(path)', 'doc': 'Get base name'},
-    'dirname': {'signature': 'dirname(path)', 'doc': 'Get directory name'},
-    'joinpath': {'signature': 'joinpath(a, b, ...)', 'doc': 'Join path parts'},
-    'splitpath': {'signature': 'splitpath(path)', 'doc': 'Split path'},
-    'abspath': {'signature': 'abspath(path)', 'doc': 'Get absolute path'},
-    'isinstance': {'signature': 'isinstance(obj, type)', 'doc': 'Check instance type'},
-    'isint': {'signature': 'isint(value)', 'doc': 'Check if integer'},
-    'isfloat': {'signature': 'isfloat(value)', 'doc': 'Check if float'},
-    'isstr': {'signature': 'isstr(value)', 'doc': 'Check if string'},
-    'isbool': {'signature': 'isbool(value)', 'doc': 'Check if boolean'},
-    'islist': {'signature': 'islist(value)', 'doc': 'Check if list'},
-    'isdict': {'signature': 'isdict(value)', 'doc': 'Check if dictionary'},
-    'isnull': {'signature': 'isnull(value)', 'doc': 'Check if null'},
-    'copy': {'signature': 'copy(value)', 'doc': 'Shallow copy'},
-    'deepcopy': {'signature': 'deepcopy(value)', 'doc': 'Deep copy'},
-    'pyimport': {'signature': 'pyimport(module)', 'doc': 'Import Python module'},
-}
-
-# Keyword documentation
-KEYWORD_DOCS: Dict[str, str] = {
-    'if': 'Conditional execution',
-    'else': 'Alternative branch for if',
-    'elif': 'Else-if branch',
-    'while': 'While loop - repeats while condition is true',
-    'for': 'For loop - classic C-style loop',
-    'foreach': 'Foreach loop - iterate over collection',
-    'in': 'Membership test or iteration keyword',
-    'range': 'Generate numeric range',
-    'switch': 'Switch statement for multiple conditions',
-    'case': 'Case label in switch',
-    'default': 'Default case in switch',
-    'break': 'Exit loop or switch',
-    'continue': 'Skip to next iteration',
-    'return': 'Return from function',
-    'try': 'Begin try-catch block',
-    'catch': 'Handle exception',
-    'finally': 'Always execute block',
-    'throw': 'Throw exception',
-    'except': 'Exception handler',
-    'always': 'Always execute (like finally)',
-    'class': 'Define a class',
-    'struct': 'Define a struct',
-    'enum': 'Define an enumeration',
-    'interface': 'Define an interface',
-    'namespace': 'Define a namespace',
-    'define': 'Define a function',
-    'void': 'No return value',
-    'constr': 'Constructor function',
-    'new': 'Create new instance',
-    'this': 'Reference to current instance',
-    'super': 'Reference to parent class',
-    'extends': 'Inherit from class',
-    'overwrites': 'Override parent method',
-    'service-init': 'Service initialization block',
-    'service-run': 'Service run block',
-    'service-include': 'Include in service',
-    'main': 'Main function entry point',
-    'package': 'Package declaration',
-    'exec': 'Execute code',
-    'as': 'Type alias or import alias',
-    'global': 'Global variable declaration',
-    'include': 'Include CSSL file',
-    'get': 'Property getter',
-    'payload': 'Data payload',
-    'convert': 'Type conversion',
-    'and': 'Logical AND',
-    'or': 'Logical OR',
-    'not': 'Logical NOT',
-    'start': 'Start service/process',
-    'stop': 'Stop service/process',
-    'wait_for': 'Wait for condition',
-    'on_event': 'Event handler',
-    'emit_event': 'Emit event',
-    'await': 'Await async operation',
-    'async': 'Async function modifier',
-    'yield': 'Yield from generator',
-    'generator': 'Generator function',
-    'future': 'Future/promise type',
-    'true': 'Boolean true',
-    'false': 'Boolean false',
-    'null': 'Null value',
-}
-
-# Type documentation
-TYPE_DOCS: Dict[str, str] = {
-    'int': 'Integer number type',
-    'string': 'String type for text',
-    'float': 'Floating-point number',
-    'bool': 'Boolean (true/false)',
-    'void': 'No value type',
-    'json': 'JSON data structure',
-    'dynamic': 'Dynamic type (any)',
-    'auto': 'Auto-inferred type',
-    'long': 'Long integer',
-    'double': 'Double precision float',
-    'bit': 'Single bit',
-    'byte': 'Single byte',
-    'address': 'Memory address',
-    'ptr': 'Pointer type',
-    'pointer': 'Pointer type',
-    'array': 'Array collection',
-    'vector': 'Dynamic array',
-    'stack': 'LIFO stack',
-    'list': 'Linked list',
-    'dictionary': 'Key-value dictionary',
-    'dict': 'Key-value dictionary',
-    'map': 'Key-value map',
-    'datastruct': 'Custom data structure',
-    'dataspace': 'Data space container',
-    'shuffled': 'Shuffled collection',
-    'iterator': 'Iterator type',
-    'combo': 'Combination type',
-    'openquote': 'Open quote type',
-    'tuple': 'Immutable tuple',
-    'set': 'Unique element set',
-    'queue': 'FIFO queue',
-    'instance': 'Object instance',
-}
-
 
 class CompletionProvider:
     """
@@ -725,67 +262,128 @@ class CompletionProvider:
         self._keyword_completions: List[CompletionItem] = []
         self._type_completions: List[CompletionItem] = []
         self._modifier_completions: List[CompletionItem] = []
+        self._injection_completions: List[CompletionItem] = []
+        self._document_manager = None
         self._build_static_completions()
 
+    def set_document_manager(self, dm):
+        """Set reference to the document manager for cross-document lookups."""
+        self._document_manager = dm
+
     def _build_static_completions(self) -> None:
-        """Build completion items for static entries (builtins, keywords, etc.)."""
-        # Builtin functions
-        for name in sorted(CSSL_BUILTINS):
-            doc_info = BUILTIN_DOCS.get(name, {})
-            signature = doc_info.get('signature', f'{name}()')
-            doc = doc_info.get('doc', f'Built-in function: {name}')
+        """Build completion items from the dynamic CSSLRegistry."""
+        registry = get_registry()
+
+        # Builtin functions (dynamically extracted from CSSLBuiltins)
+        for name, info in sorted(registry.builtin_functions.items()):
+            sig = info.signature or f'{name}()'
+            doc = info.doc or f'Built-in function: {name}'
 
             self._builtin_completions.append(CompletionItem(
                 label=name,
                 kind=CompletionItemKind.Function,
-                detail=signature,
+                detail=sig,
                 documentation=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value=f"**{signature}**\n\n{doc}"
+                    value=f"**{sig}**\n\n{doc}"
                 ),
                 insert_text=f"{name}($1)",
                 insert_text_format=InsertTextFormat.Snippet,
-                sort_text=f"1_{name}"  # Higher priority
+                sort_text=f"1_{name}"
             ))
 
         # Keywords
-        for name in sorted(CSSL_KEYWORDS):
-            doc = KEYWORD_DOCS.get(name, f'CSSL keyword: {name}')
-
+        for name in sorted(registry.keywords):
             self._keyword_completions.append(CompletionItem(
                 label=name,
                 kind=CompletionItemKind.Keyword,
                 detail='keyword',
-                documentation=MarkupContent(
-                    kind=MarkupKind.Markdown,
-                    value=f"**{name}**\n\n{doc}"
-                ),
+                documentation=f"CSSL keyword: {name}",
                 sort_text=f"2_{name}"
             ))
 
-        # Types
-        for name in sorted(CSSL_TYPES):
-            doc = TYPE_DOCS.get(name, f'CSSL type: {name}')
+        # Types (with generic syntax hints)
+        for name, info in sorted(registry.builtin_types.items()):
+            generic = info.generic_syntax  # e.g. "<T>", "<K, V>"
+            display = f"{name}{generic}" if generic else name
+            doc = info.doc or f'CSSL type: {display}'
+
+            # Build snippet for generic types
+            if generic == '<T>':
+                snippet = f"{name}<${{1:int}}>"
+            elif generic == '<K, V>':
+                snippet = f"{name}<${{1:string}}, ${{2:dynamic}}>"
+            elif generic == '<T, size>':
+                snippet = f"{name}<${{1:int}}, ${{2:dynamic}}>"
+            elif generic == '<"name">':
+                snippet = f'{name}<"${{1:name}}">'
+            else:
+                snippet = name
 
             self._type_completions.append(CompletionItem(
-                label=name,
+                label=display,
                 kind=CompletionItemKind.Class,
                 detail='type',
                 documentation=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value=f"**{name}**\n\n{doc}"
+                    value=f"**{display}**\n\n{doc}"
                 ),
-                sort_text=f"1_{name}"  # Same priority as builtins
+                insert_text=snippet,
+                insert_text_format=InsertTextFormat.Snippet,
+                sort_text=f"1_{name}"
             ))
 
         # Modifiers
-        for name in sorted(CSSL_MODIFIERS):
+        for name in sorted(registry.modifiers):
             self._modifier_completions.append(CompletionItem(
                 label=name,
                 kind=CompletionItemKind.Keyword,
                 detail='modifier',
                 documentation=f"Function modifier: {name}",
                 sort_text=f"3_{name}"
+            ))
+
+        # GUI classes (from cssl-gui)
+        for cssl_name, cls_info in sorted(registry.gui_classes.items()):
+            # Only show Cssl-prefixed names (not short aliases) to avoid duplicates
+            if not cssl_name.startswith('Cssl'):
+                continue
+            self._builtin_completions.append(CompletionItem(
+                label=cssl_name,
+                kind=CompletionItemKind.Class,
+                detail=f'GUI widget',
+                documentation=MarkupContent(
+                    kind=MarkupKind.Markdown,
+                    value=f"**{cssl_name}**\n\n{cls_info.doc or 'CSSL GUI widget class'}"
+                ),
+                insert_text=f"{cssl_name}($1)",
+                insert_text_format=InsertTextFormat.Snippet,
+                sort_text=f"1_{cssl_name}"
+            ))
+
+        # Injection operators
+        injection_ops = [
+            {'label': '<==', 'detail': 'Injection: overwrite target', 'doc': 'Replace target with source.\n\n`target <== source;`\n- Container: overwrites all elements\n- `target[i] <== value` overwrites index i'},
+            {'+<==': '+<==', 'label': '+<==', 'detail': 'Injection: add to target', 'doc': 'Copy & add source to target.\n\n`target +<== source;`\n- Container: appends element\n- `target[i] +<== value` merges into index i'},
+            {'label': '-<==', 'detail': 'Injection: remove from target', 'doc': 'Remove matching items from target.\n\n`target -<== source;`\n- Removes elements matching source\n- `target[i] -<== value` removes from index i'},
+            {'label': '==>', 'detail': 'Receive: move to target', 'doc': 'Move source to target.\n\n`source ==> target;`\n- `source ==> target[i]` sets index i'},
+            {'label': '==>+', 'detail': 'Receive: copy to target', 'doc': 'Copy source and add to target.\n\n`source ==>+ target;`'},
+            {'label': '-==>', 'detail': 'Receive: move & clear source', 'doc': 'Move source to target and clear source.\n\n`source -==> target;`'},
+            {'label': '<<=', 'detail': 'Infuse: inject code into function', 'doc': 'Replace function body with code block.\n\n`funcName <<= { code };`'},
+            {'label': '+<<=', 'detail': 'Infuse: add code to function', 'doc': 'Add code block to function.\n\n`funcName +<<= { code };`'},
+            {'label': '-<<=', 'detail': 'Infuse: remove code from function', 'doc': 'Remove injected code from function.\n\n`funcName -<<= { code };`'},
+        ]
+        for op in injection_ops:
+            self._injection_completions.append(CompletionItem(
+                label=op['label'],
+                kind=CompletionItemKind.Operator,
+                detail=op['detail'],
+                documentation=MarkupContent(
+                    kind=MarkupKind.Markdown,
+                    value=op['doc']
+                ),
+                insert_text=f"{op['label']} ",
+                sort_text=f"4_{op['label']}"
             ))
 
     def get_completions(
@@ -835,6 +433,10 @@ class CompletionProvider:
             # Member access completion
             items.extend(self._get_member_completions(document, context_base, position))
 
+        elif context_trigger == '->' or trigger_character == '>':
+            # Arrow member access (this->prop, instance->method)
+            items.extend(self._get_arrow_completions(document, context_base, position))
+
         elif context_trigger == '?' or trigger_character == '?':
             # Pointer reference - show defined variables
             items.extend(self._get_pointer_completions(document))
@@ -857,20 +459,28 @@ class CompletionProvider:
             items.extend(self._keyword_completions)
             items.extend(self._type_completions)
             items.extend(self._modifier_completions)
+            items.extend(self._injection_completions)
             items.extend(self._get_local_variable_completions(document, position))
             items.extend(self._get_user_function_completions(document))
             items.extend(self._get_user_class_completions(document))
             items.extend(self._get_namespace_triggers())
+            # Text-based fallback: extract symbols the semantic analyzer may have missed
+            items.extend(self._get_text_based_completions(document))
 
-        return CompletionList(is_incomplete=False, items=items)
+        # Mark triggered completions as incomplete so VS Code re-requests
+        # when context changes (e.g., user deletes the '.' trigger)
+        is_triggered = context_trigger is not None or trigger_character is not None
+        return CompletionList(is_incomplete=is_triggered, items=items)
 
     def _get_namespace_completions(self, namespace: Optional[str]) -> List[CompletionItem]:
-        """Get completions for namespace members."""
+        """Get completions for namespace members (dynamically from registry)."""
         items: List[CompletionItem] = []
+        registry = get_registry()
 
         if not namespace:
             # Show all known namespaces
-            for ns_name in sorted(NAMESPACE_MEMBERS.keys()):
+            all_ns = set(registry.namespaces.keys()) | set(registry.module_methods.keys())
+            for ns_name in sorted(all_ns):
                 items.append(CompletionItem(
                     label=ns_name,
                     kind=CompletionItemKind.Module,
@@ -881,22 +491,25 @@ class CompletionProvider:
                 ))
             return items
 
-        # Find matching namespace (case-insensitive)
-        ns_lower = namespace.lower()
-        members = NAMESPACE_MEMBERS.get(ns_lower, [])
+        # Find matching namespace/module methods
+        methods = registry.get_namespace_methods(namespace)
+        if not methods:
+            methods = registry.get_module_methods(namespace)
 
-        for member in members:
+        for method in methods:
+            sig = method.signature or f"{method.name}()"
+            doc = method.doc or ''
             items.append(CompletionItem(
-                label=member['name'],
+                label=method.name,
                 kind=CompletionItemKind.Method,
-                detail=member.get('detail', ''),
+                detail=sig,
                 documentation=MarkupContent(
                     kind=MarkupKind.Markdown,
-                    value=f"**{namespace}::{member['name']}**\n\n{member.get('detail', '')}"
+                    value=f"**{namespace}::{sig}**\n\n{doc}"
                 ),
-                insert_text=member.get('snippet', member['name']),
+                insert_text=f"{method.name}($1)",
                 insert_text_format=InsertTextFormat.Snippet,
-                sort_text=f"0_{member['name']}"
+                sort_text=f"0_{method.name}"
             ))
 
         return items
@@ -993,63 +606,302 @@ class CompletionProvider:
                         sort_text=f"0_{name}"
                     ))
 
-        # If it's a built-in type, show type methods
+        # If no type found yet from symbol table, try text-based inference
+        registry = get_registry()
+        if not inferred_type:
+            inferred_type = self._infer_type_from_text(document.text, var_name)
+
         if inferred_type:
             type_lower = inferred_type.lower().split('<')[0].strip()
-            methods = TYPE_METHODS.get(type_lower, [])
+            methods = registry.get_type_methods_list(type_lower)
+            # Also try exact case (for GUI classes like CsslButton)
+            if not methods:
+                methods = registry.get_type_methods_list(inferred_type.split('<')[0].strip())
+            # Also try GUI class info lookup
+            if not methods:
+                gui_info = registry.get_gui_class_info(inferred_type)
+                if gui_info:
+                    methods = gui_info.methods
 
             for method in methods:
                 # Don't add duplicates from class methods
-                if not any(item.label == method['name'] for item in items):
+                if not any(item.label == method.name for item in items):
+                    sig = method.signature or f"{method.name}()"
+                    doc = method.doc or ''
+                    # Build snippet from params
+                    if method.params:
+                        param_snippets = [f"${{{i+1}:{p.name}}}" for i, p in enumerate(method.params)]
+                        snippet = f"{method.name}({', '.join(param_snippets)})"
+                    else:
+                        snippet = f"{method.name}()"
                     items.append(CompletionItem(
-                        label=method['name'],
+                        label=method.name,
                         kind=CompletionItemKind.Method,
-                        detail=method.get('detail', ''),
+                        detail=sig,
                         documentation=MarkupContent(
                             kind=MarkupKind.Markdown,
-                            value=f"**{method['name']}**\n\n{method.get('detail', '')}"
+                            value=f"**{sig}**\n\n{doc}"
                         ),
-                        insert_text=method.get('snippet', method['name']),
+                        insert_text=snippet,
                         insert_text_format=InsertTextFormat.Snippet,
-                        sort_text=f"1_{method['name']}"  # Lower priority than class methods
+                        sort_text=f"1_{method.name}"
                     ))
 
-        # If still no items, try to infer type from expression pattern
+        # If still no items, try to infer type from expression pattern or text scan
         if not items:
             inferred_type = self._infer_expression_type(document, base_expression)
+            # If expression inference failed, scan document text for assignment patterns
+            if not inferred_type:
+                inferred_type = self._infer_type_from_text(document.text, var_name)
             if inferred_type:
                 type_lower = inferred_type.lower()
-                methods = TYPE_METHODS.get(type_lower, [])
+                methods = registry.get_type_methods_list(type_lower)
+                if not methods:
+                    methods = registry.get_type_methods_list(inferred_type)
+                # Also try GUI class lookup by exact name
+                if not methods:
+                    gui_info = registry.get_gui_class_info(inferred_type)
+                    if gui_info:
+                        methods = gui_info.methods
                 for method in methods:
+                    sig = method.signature or f"{method.name}()"
+                    if method.params:
+                        param_snippets = [f"${{{i+1}:{p.name}}}" for i, p in enumerate(method.params)]
+                        snippet = f"{method.name}({', '.join(param_snippets)})"
+                    else:
+                        snippet = f"{method.name}()"
                     items.append(CompletionItem(
-                        label=method['name'],
+                        label=method.name,
                         kind=CompletionItemKind.Method,
-                        detail=method.get('detail', ''),
-                        insert_text=method.get('snippet', method['name']),
+                        detail=sig,
+                        insert_text=snippet,
                         insert_text_format=InsertTextFormat.Snippet,
-                        sort_text=f"0_{method['name']}"
+                        sort_text=f"0_{method.name}"
                     ))
 
-        # If STILL no items, show generic methods
+        # If still no items, search all open documents for user-defined class
+        if not items and inferred_type:
+            items = self._get_user_class_member_completions(inferred_type, document)
+
+        # If STILL no items, show generic methods as last resort
         if not items:
-            common_methods = [
-                {'name': 'length', 'detail': 'Get length/size'},
-                {'name': 'toString', 'detail': 'Convert to string'},
-                {'name': 'toInt', 'detail': 'Convert to integer'},
-                {'name': 'toFloat', 'detail': 'Convert to float'},
-                {'name': 'contains', 'detail': 'Check if contains value'},
-                {'name': 'get', 'detail': 'Get value'},
-                {'name': 'set', 'detail': 'Set value'},
-                {'name': 'keys', 'detail': 'Get keys'},
-                {'name': 'values', 'detail': 'Get values'},
-            ]
-            for method in common_methods:
-                items.append(CompletionItem(
-                    label=method['name'],
-                    kind=CompletionItemKind.Method,
-                    detail=method.get('detail', ''),
-                    sort_text=f"1_{method['name']}"
-                ))
+            items = self._get_generic_member_completions()
+
+        return items
+
+    def _get_arrow_completions(
+        self,
+        document: DocumentAnalysis,
+        base_expression: Optional[str],
+        position: Position
+    ) -> List[CompletionItem]:
+        """Get completions for arrow access (->) - class properties and methods.
+
+        Handles:
+        - this->propName  (current class properties/methods)
+        - instance->member (instance member access, same as dot)
+        """
+        items: List[CompletionItem] = []
+
+        if base_expression == 'this' or not base_expression:
+            # this-> : show all properties and methods of the enclosing class
+            # Find the class we're inside by scanning for class definition above cursor
+            import re
+            text = document.text
+            lines = text.splitlines()
+            # Walk backwards from current line to find the enclosing class
+            class_name = None
+            brace_depth = 0
+            for i in range(position.line, -1, -1):
+                line_text = lines[i] if i < len(lines) else ''
+                # Count braces on this line (simplified)
+                for ch in reversed(line_text):
+                    if ch == '}':
+                        brace_depth += 1
+                    elif ch == '{':
+                        brace_depth -= 1
+                # If brace_depth goes negative, we found an opening brace
+                if brace_depth < 0:
+                    # Check if this line or previous has a class definition
+                    for j in range(i, max(i - 3, -1), -1):
+                        if j >= 0 and j < len(lines):
+                            m = re.search(r'\bclass\s+(\w+)', lines[j])
+                            if m:
+                                class_name = m.group(1)
+                                break
+                    break
+
+            if class_name:
+                # Show class members via member completion
+                items = self._get_member_completions(document, class_name, position)
+                if not items:
+                    # Try text-based extraction
+                    items = self._get_user_class_member_completions(class_name, document)
+
+            if not items:
+                # Fallback: show all this-> properties found in document text
+                seen = set()
+                for m in re.finditer(r'this->(\w+)', text):
+                    name = m.group(1)
+                    if name not in seen:
+                        seen.add(name)
+                        items.append(CompletionItem(
+                            label=name,
+                            kind=CompletionItemKind.Property,
+                            detail='property',
+                            sort_text=f"0_{name}"
+                        ))
+                # Also show all methods defined in enclosing class
+                for m in re.finditer(r'\bdefine\s+(\w+)\s*\(', text):
+                    name = m.group(1)
+                    if name not in seen:
+                        seen.add(name)
+                        items.append(CompletionItem(
+                            label=name,
+                            kind=CompletionItemKind.Method,
+                            detail='method',
+                            insert_text=f"{name}($1)",
+                            insert_text_format=InsertTextFormat.Snippet,
+                            sort_text=f"0_{name}"
+                        ))
+        else:
+            # instance->member : treat same as dot access
+            items = self._get_member_completions(document, base_expression, position)
+
+        return items
+
+    def _get_user_class_member_completions(
+        self,
+        class_name: str,
+        current_doc: DocumentAnalysis
+    ) -> List[CompletionItem]:
+        """Search all open documents for a user-defined class and extract its members.
+
+        Uses text-based scanning to find class definitions and their methods/properties.
+        Works across files (e.g., class defined in gui.cssl, used in main.cssl).
+        """
+        import re
+        items: List[CompletionItem] = []
+        seen_names: set = set()
+
+        # Strip namespace prefix (e.g., cnotes_gui::CNotesGUI -> CNotesGUI)
+        base_name = class_name.split('::')[-1].split('<')[0].strip()
+
+        # Collect all document texts to search
+        docs_to_search = [current_doc]
+        if self._document_manager:
+            for doc in self._document_manager.get_all_documents():
+                if doc.uri != current_doc.uri:
+                    docs_to_search.append(doc)
+
+        for doc in docs_to_search:
+            text = doc.text
+            if not text:
+                continue
+
+            # First try symbol table (faster, more accurate)
+            if doc.symbol_table:
+                for cls in doc.symbol_table.get_classes():
+                    if cls.name == base_name and cls.children:
+                        for name, child in cls.children.items():
+                            if name in seen_names:
+                                continue
+                            seen_names.add(name)
+
+                            if child.kind in (SymbolKind.METHOD, SymbolKind.FUNCTION):
+                                params = []
+                                for p in (child.parameters or []):
+                                    p_type = p.type_info or ''
+                                    params.append(f"{p_type} {p.name}" if p_type else p.name)
+                                param_str = ', '.join(params)
+                                items.append(CompletionItem(
+                                    label=name,
+                                    kind=CompletionItemKind.Method,
+                                    detail=f"({param_str}) -> {child.return_type or 'void'}",
+                                    documentation=MarkupContent(
+                                        kind=MarkupKind.Markdown,
+                                        value=f"**{name}**({param_str})\n\nMethod of `{base_name}`"
+                                    ),
+                                    insert_text=f"{name}($1)",
+                                    insert_text_format=InsertTextFormat.Snippet,
+                                    sort_text=f"0_{name}"
+                                ))
+                            elif child.kind in (SymbolKind.PROPERTY, SymbolKind.VARIABLE):
+                                items.append(CompletionItem(
+                                    label=name,
+                                    kind=CompletionItemKind.Property,
+                                    detail=child.type_info or 'dynamic',
+                                    documentation=f"Property of `{base_name}`",
+                                    sort_text=f"0_{name}"
+                                ))
+
+                if items:
+                    return items  # Found in symbol table, done
+
+            # Fallback: text-based class member extraction
+            # Find class block: class ClassName ... { ... }
+            class_pattern = re.compile(
+                r'\bclass\s+' + re.escape(base_name) + r'\b[^{]*\{',
+                re.DOTALL
+            )
+            match = class_pattern.search(text)
+            if not match:
+                continue
+
+            # Find the matching closing brace
+            start = match.end()
+            brace_depth = 1
+            pos = start
+            while pos < len(text) and brace_depth > 0:
+                if text[pos] == '{':
+                    brace_depth += 1
+                elif text[pos] == '}':
+                    brace_depth -= 1
+                pos += 1
+            class_body = text[start:pos - 1] if brace_depth == 0 else text[start:]
+
+            # Extract methods: define methodName(...)
+            for m in re.finditer(r'\bdefine\s+(\w+)\s*\(([^)]*)\)', class_body):
+                name = m.group(1)
+                params = m.group(2).strip()
+                if name not in seen_names:
+                    seen_names.add(name)
+                    items.append(CompletionItem(
+                        label=name,
+                        kind=CompletionItemKind.Method,
+                        detail=f"({params})" if params else "()",
+                        documentation=MarkupContent(
+                            kind=MarkupKind.Markdown,
+                            value=f"**{name}**({params})\n\nMethod of `{base_name}`"
+                        ),
+                        insert_text=f"{name}($1)",
+                        insert_text_format=InsertTextFormat.Snippet,
+                        sort_text=f"0_{name}"
+                    ))
+
+            # Extract properties: this->propName
+            for m in re.finditer(r'this->(\w+)', class_body):
+                name = m.group(1)
+                if name not in seen_names:
+                    seen_names.add(name)
+                    # Try to infer property type from assignment
+                    prop_type = 'dynamic'
+                    type_match = re.search(
+                        r'this->' + re.escape(name) + r'\s*=\s*new\s+(?:\w+::)?(\w+)',
+                        class_body
+                    )
+                    if type_match:
+                        prop_type = type_match.group(1)
+                    items.append(CompletionItem(
+                        label=name,
+                        kind=CompletionItemKind.Property,
+                        detail=prop_type,
+                        documentation=f"Property of `{base_name}`",
+                        sort_text=f"0_{name}"
+                    ))
+
+            if items:
+                return items
 
         return items
 
@@ -1090,6 +942,7 @@ class CompletionProvider:
 
         # First show filter types if no type specified
         if not filter_type:
+            # Standard query filter types
             for type_name in FILTER_TYPES:
                 items.append(CompletionItem(
                     label=type_name,
@@ -1099,9 +952,36 @@ class CompletionProvider:
                     insert_text=f"{type_name}::",
                     sort_text=f"0_{type_name}"
                 ))
+            # Injection-specific BruteInjector filter types
+            for inj_type in sorted(INJECTION_FILTER_TYPES.keys()):
+                if inj_type not in FILTER_TYPES:
+                    items.append(CompletionItem(
+                        label=inj_type,
+                        kind=CompletionItemKind.TypeParameter,
+                        detail='injection filter',
+                        documentation=f"BruteInjector filter: {inj_type}",
+                        insert_text=f"{inj_type}::",
+                        sort_text=f"0_{inj_type}"
+                    ))
             return items
 
-        # Show filter operators for the type
+        # Show BruteInjector-specific helpers for this type first
+        inj_helpers = INJECTION_FILTER_TYPES.get(filter_type, [])
+        for helper in inj_helpers:
+            items.append(CompletionItem(
+                label=helper['name'],
+                kind=CompletionItemKind.Method,
+                detail=helper.get('detail', ''),
+                documentation=MarkupContent(
+                    kind=MarkupKind.Markdown,
+                    value=f"**{filter_type}::{helper['name']}**\n\n{helper.get('detail', '')}\n\nUsage: `[{filter_type}::{helper['name']}]`"
+                ),
+                insert_text=helper.get('snippet', helper['name']),
+                insert_text_format=InsertTextFormat.Snippet,
+                sort_text=f"0_{helper['name']}"
+            ))
+
+        # Show generic filter operators
         for op in FILTER_OPERATORS:
             items.append(CompletionItem(
                 label=op['name'],
@@ -1113,7 +993,7 @@ class CompletionProvider:
                 ),
                 insert_text=op.get('snippet', op['name']),
                 insert_text_format=InsertTextFormat.Snippet,
-                sort_text=f"0_{op['name']}"
+                sort_text=f"1_{op['name']}"
             ))
 
         return items
@@ -1277,8 +1157,10 @@ class CompletionProvider:
     def _get_namespace_triggers(self) -> List[CompletionItem]:
         """Get namespace completion triggers (ns::)."""
         items: List[CompletionItem] = []
+        registry = get_registry()
 
-        for ns_name in sorted(NAMESPACE_MEMBERS.keys()):
+        all_ns = set(registry.namespaces.keys()) | set(registry.module_methods.keys())
+        for ns_name in sorted(all_ns):
             items.append(CompletionItem(
                 label=f"{ns_name}::",
                 kind=CompletionItemKind.Module,
@@ -1287,6 +1169,83 @@ class CompletionProvider:
                 insert_text=f"{ns_name}::",
                 sort_text=f"1_{ns_name}"
             ))
+
+        return items
+
+    def _get_text_based_completions(self, document: DocumentAnalysis) -> List[CompletionItem]:
+        """Extract symbols from document text that the semantic analyzer may have missed.
+
+        Scans for:
+        - define funcName() patterns (user-defined functions/methods)
+        - this->propName = ... patterns (class properties/instances)
+        - varName = new ClassName() patterns (local instances)
+        """
+        import re
+        items: List[CompletionItem] = []
+        existing_labels: set = set()
+
+        text = document.text
+        if not text:
+            return items
+
+        # Collect labels already in symbol table to avoid duplicates
+        if document.symbol_table:
+            for s in document.symbol_table.get_all_symbols_flat():
+                existing_labels.add(s.name)
+
+        # Pattern 1: define funcName(...) — user-defined functions/methods
+        for match in re.finditer(r'\bdefine\s+(\w+)\s*\(', text):
+            name = match.group(1)
+            if name not in existing_labels:
+                existing_labels.add(name)
+                items.append(CompletionItem(
+                    label=name,
+                    kind=CompletionItemKind.Function,
+                    detail='user function',
+                    insert_text=f"{name}($1)",
+                    insert_text_format=InsertTextFormat.Snippet,
+                    sort_text=f"0_{name}"
+                ))
+
+        # Pattern 2: this->propName = new ClassName(...) — class properties
+        for match in re.finditer(r'this->(\w+)\s*=\s*new\s+(\w+)', text):
+            name = match.group(1)
+            type_name = match.group(2)
+            if name not in existing_labels:
+                existing_labels.add(name)
+                items.append(CompletionItem(
+                    label=name,
+                    kind=CompletionItemKind.Property,
+                    detail=type_name,
+                    documentation=f"Instance of {type_name}",
+                    sort_text=f"0_{name}"
+                ))
+
+        # Pattern 3: this->propName = ... (non-new assignments)
+        for match in re.finditer(r'this->(\w+)\s*=\s*(?!new\b)', text):
+            name = match.group(1)
+            if name not in existing_labels:
+                existing_labels.add(name)
+                items.append(CompletionItem(
+                    label=name,
+                    kind=CompletionItemKind.Property,
+                    detail='property',
+                    sort_text=f"0_{name}"
+                ))
+
+        # Pattern 4: varName = new ClassName(...) — local instances
+        for match in re.finditer(r'\b(\w+)\s*=\s*new\s+(\w+)', text):
+            name = match.group(1)
+            type_name = match.group(2)
+            if name not in existing_labels and name != 'this':
+                existing_labels.add(name)
+                items.append(CompletionItem(
+                    label=name,
+                    kind=CompletionItemKind.Variable,
+                    detail=type_name,
+                    documentation=f"Instance of {type_name}",
+                    sort_text=f"0_{name}"
+                ))
 
         return items
 
@@ -1299,6 +1258,8 @@ class CompletionProvider:
         if not expression:
             return None
 
+        registry = get_registry()
+
         # Check if it's a direct variable reference
         if document.symbol_table:
             symbol = document.symbol_table.get_symbol(expression)
@@ -1306,8 +1267,12 @@ class CompletionProvider:
                 return symbol.type_info
 
         # Check if expression matches known type names
-        if expression.lower() in CSSL_TYPES:
+        if expression.lower() in registry.all_type_names:
             return expression.lower()
+
+        # Check if it's a GUI class name
+        if expression in registry.all_gui_class_names:
+            return expression
 
         # Check for constructor calls: new ClassName()
         if expression.startswith('new '):
@@ -1318,9 +1283,120 @@ class CompletionProvider:
         if '::' in expression:
             ns, _ = expression.rsplit('::', 1)
             ns_lower = ns.lower()
-            if ns_lower in NAMESPACE_MEMBERS:
-                # Return the namespace name as type hint
+            if ns_lower in registry.namespaces:
                 return ns_lower
+
+        return None
+
+    def _infer_type_from_text(self, text: str, var_name: str) -> Optional[str]:
+        """Infer a variable's type by scanning the document text for assignment patterns.
+
+        Handles patterns like:
+        - this->VarName = new CsslToolbar(...)
+        - VarName = new CsslButton(...)
+        - vector<int> VarName
+        - instance VarName = new ns::ClassName()
+        - this->VarName = this->Other.addMenu(...)  (method return type)
+        """
+        import re
+
+        if not text or not var_name:
+            return None
+
+        registry = get_registry()
+
+        # Pattern 1: this->VarName = new [ns::/ns.]ClassName(...)
+        # Pattern 2: VarName = new [ns::/ns.]ClassName(...)
+        pattern_new = re.compile(
+            r'(?:this->)?' + re.escape(var_name) + r'\s*=\s*new\s+(?:\w+(?:::|\.))?\s*(\w+)',
+            re.MULTILINE
+        )
+        match = pattern_new.search(text)
+        if match:
+            return match.group(1)
+
+        # Pattern 3: instance VarName = new ns::/ns.ClassName(...)
+        pattern_instance = re.compile(
+            r'instance\s+' + re.escape(var_name) + r'\s*=\s*new\s+(?:\w+(?:::|\.))?\s*(\w+)',
+            re.MULTILINE
+        )
+        match = pattern_instance.search(text)
+        if match:
+            return match.group(1)
+
+        # Pattern 4: VarName = something.methodName(...)  (method return type inference)
+        # Matches: this->Var = this->Other.method(...) or Var = obj.method(...)
+        pattern_method_call = re.compile(
+            r'(?:this->)?' + re.escape(var_name) + r'\s*=\s*(?:this->)?(\w+)\.(\w+)\s*\(',
+            re.MULTILINE
+        )
+        match = pattern_method_call.search(text)
+        if match:
+            obj_name = match.group(1)
+            method_name = match.group(2)
+            # Infer the type of the object first (recursive, but limited depth)
+            obj_type = self._infer_type_from_text(text, obj_name) if obj_name != var_name else None
+            if obj_type:
+                # Look up the method's return type from the registry
+                ret_type = self._get_method_return_type(obj_type, method_name)
+                if ret_type:
+                    return ret_type
+
+        # Pattern 5: VarName = ns::methodName(...)  (namespace method return type)
+        pattern_ns_call = re.compile(
+            r'(?:this->)?' + re.escape(var_name) + r'\s*=\s*(\w+)::(\w+)\s*\(',
+            re.MULTILINE
+        )
+        match = pattern_ns_call.search(text)
+        if match:
+            ns_name = match.group(1)
+            method_name = match.group(2)
+            ns_methods = registry.get_namespace_methods(ns_name) or registry.get_module_methods(ns_name)
+            for m in ns_methods:
+                if m.name == method_name and m.return_type:
+                    return m.return_type
+
+        # Pattern 6: TypeName VarName  (typed declaration)
+        pattern_typed = re.compile(
+            r'(\w+(?:<[^>]+>)?)\s+' + re.escape(var_name) + r'\b',
+            re.MULTILINE
+        )
+        match = pattern_typed.search(text)
+        if match:
+            type_name = match.group(1)
+            # Make sure it's actually a type, not a random word
+            base_type = type_name.split('<')[0].lower()
+            if base_type in registry.all_type_names or type_name in registry.all_gui_class_names:
+                return type_name
+
+        return None
+
+    def _get_method_return_type(self, type_name: str, method_name: str) -> Optional[str]:
+        """Look up the return type of a method on a given type."""
+        registry = get_registry()
+
+        # Check type methods (builtin types like vector, queue, etc.)
+        type_lower = type_name.lower().split('<')[0].strip()
+        methods = registry.get_type_methods_list(type_lower)
+        if not methods:
+            methods = registry.get_type_methods_list(type_name.split('<')[0].strip())
+
+        # Check GUI class methods
+        if not methods:
+            gui_info = registry.get_gui_class_info(type_name)
+            if gui_info:
+                methods = gui_info.methods
+
+        if methods:
+            for m in methods:
+                if m.name == method_name and m.return_type:
+                    ret = m.return_type
+                    # Clean up Python return type annotations
+                    ret = ret.strip("'\"")
+                    # Remove module prefix if present
+                    if '.' in ret:
+                        ret = ret.rsplit('.', 1)[-1]
+                    return ret
 
         return None
 

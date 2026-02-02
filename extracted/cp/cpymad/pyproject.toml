@@ -1,0 +1,94 @@
+[project]
+name = "cpymad"
+description = "Cython binding to MAD-X"
+dynamic = ["version"]
+
+authors = [
+    {name = "Thomas Gläßle", email = "t_glaessle@gmx.de"},
+    {name = "Yngve Inntjore Levinsen"},
+    {name = "Kajetan Fuchsberger"},
+]
+maintainers = [
+    {name = "Thomas Gläßle", email = "t_glaessle@gmx.de"},
+    {name = "Riccardo De Maria", email = "riccardodemaria@gmail.com"},
+]
+
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = "GPL-3.0-or-later AND Apache-2.0 AND LicenseRef-CERN-MADX-Proprietary"
+license-files = ["COPYING.rst", "LICENSE/*"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+urls.Github = "https://github.com/hibtc/cpymad"
+urls.Issues = "https://github.com/hibtc/cpymad/issues"
+urls.Documentation = "http://hibtc.github.io/cpymad/"
+urls.Changelog = "https://github.com/hibtc/cpymad/blob/master/CHANGES.rst"
+
+# Our own code is still compatible with older python versions, but it has
+# become too finicky to continue building releases for older versions due
+# to updated dependencies and build system.
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "minrpc>=0.1.0",
+]
+optional-dependencies.doc = [
+    "sphinx<9",                         # until compatibility with sphinx_rtd_theme is worked out
+    "sphinx_rtd_theme>=3",
+    "sphinx_substitution_extensions",
+    "sphinx_automodapi",
+    "sphinx_autodoc_typehints",
+    "pandas",
+]
+optional-dependencies.dev = [
+    "cython",
+    "ruff",
+    "pytest",
+]
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools[core]>=77.0",                       # For SPDX style project.license/license_files fields
+    "cython>=3.1.0a1 ; python_version >= '3.13'",   # Cython3.1 needed for free-threaded python
+    "cython<3        ; python_version  < '3.8'",    # Cython3.1 dropped support for python<3.8
+    "cython          ; python_version >= '3.8' and python_version < '3.13'", # no particular requirements
+]
+
+[tool.setuptools]
+dynamic.version.attr = "cpymad.__version__"
+packages = ["cpymad", "cpymad.COPYING"]
+package-dir = {"" = "src"}
+package-data = {"cpymad.COPYING" = ["*.rst"]}
+include-package-data = true
+
+[tool.coverage]
+# when running `coverage combine`, replace these paths by `src/cpymad`, see:
+# https://coverage.readthedocs.io/en/latest/config.html#paths
+paths.source = [
+    "src/cpymad/",
+    "*/site-packages/cpymad-*.egg/cpymad",
+    "*/site-packages/cpymad/",
+]
+
+[tool.ruff]
+line-length = 84
+lint.per-file-ignores = {"src/cpymad/util.py" = ["E701"]}
+exclude = [
+    ".git",
+    "__pycache__",
+    "doc/conf.py",
+    "build",
+    "dist",
+    ".eggs",
+    "src/MAD-X",
+]

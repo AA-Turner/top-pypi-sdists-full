@@ -1,0 +1,40 @@
+[package]
+name = "hugr-passes"
+version = "0.25.4"
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+readme = "README.md"
+documentation = "https://docs.rs/hugr-passes/"
+homepage = { workspace = true }
+repository = { workspace = true }
+description = "Compiler passes for Quantinuum's HUGR"
+keywords = ["Quantum", "Quantinuum"]
+categories = ["compilers"]
+
+[lints]
+workspace = true
+
+[lib]
+bench = false
+
+[dependencies]
+hugr-core = { path = "../hugr-core", version = "0.25.4" }
+portgraph = { workspace = true }
+ascent = { version = "0.8.0" }
+derive_more = { workspace = true, features = [
+    "add_assign",
+    "display",
+    "error",
+    "from",
+] }
+itertools = { workspace = true }
+pastey = { workspace = true }
+thiserror = { workspace = true }
+petgraph = { workspace = true }
+strum = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
+proptest = { workspace = true }
+proptest-recurse = { version = "0.5.0" }

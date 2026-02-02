@@ -1,0 +1,232 @@
+Metadata-Version: 2.4
+Name: fatfs-ng
+Version: 0.1.15
+Summary: Enhanced Python wrapper around ChaN's FatFS library - Fork of fatfs-python with extended features.
+Home-page: https://github.com/Jason2866/pyfatfs
+Author: Johann Obermeier
+Author-email: obermeier.johann@googlemail.com
+Project-URL: Original Project, https://github.com/krakonos/fatfs-python
+Project-URL: Bug Tracker, https://github.com/Jason2866/pyfatfs/issues
+Project-URL: Documentation, https://github.com/Jason2866/pyfatfs
+Keywords: fatfs fat filesystem embedded esp32 platformio
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Cython
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Filesystems
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
+
+# fatfs-ng - Enhanced FatFS Python Wrapper
+
+Enhanced Python wrapper around [ChaN's FatFS](http://elm-chan.org/fsw/ff/00index_e.html) library with extended features and ESP32 support.
+
+This is a fork of [fatfs-python](https://github.com/krakonos/fatfs-python) by Ladislav Laska, with significant improvements and extended functionality.
+
+## What's New in fatfs-ng
+
+### Extended Features
+- ✅ **Complete Directory Traversal**: `walk()`, `listdir()`, `stat()`
+- ✅ **Path Operations**: `exists()`, `isfile()`, `isdir()`
+- ✅ **File Operations**: `remove()`, `rmdir()`, `rename()`
+- ✅ **Convenience Methods**: `makedirs()`, `read_file()`, `write_file()`
+- ✅ **Bulk Operations**: `copy_tree_from()`, `copy_tree_to()`
+- ✅ **ESP32 Wear Leveling**: Full support for ESP32 FAT filesystem images
+
+### Improvements
+- ✅ **Fixed SyntaxWarnings** in Python 3.13+
+- ✅ **Abstract Base Class** for Disk with proper type hints
+- ✅ **Better Error Messages** with descriptive exceptions
+- ✅ **Comprehensive Documentation** with examples
+- ✅ **Production Ready** for build and upload operations
+
+## Installation
+
+```bash
+pip install fatfs-ng
+```
+
+## Quick Start
+
+```python
+from fatfs import RamDisk, create_extended_partition
+
+# Create and format filesystem
+storage = bytearray(1024 * 1024)  # 1MB
+disk = RamDisk(storage, sector_size=512)
+partition = create_extended_partition(disk)
+partition.mkfs()
+partition.mount()
+
+# Use extended features
+partition.makedirs("/test/dir", exist_ok=True)
+partition.write_file("/test/file.txt", b"Hello fatfs-ng!")
+
+# Walk directory tree
+for root, dirs, files in partition.walk("/"):
+    print(f"{root}: {files}")
+
+# Copy entire tree
+from pathlib import Path
+partition.copy_tree_to("/", Path("./extracted"))
+
+partition.unmount()
+```
+
+## ESP32 Wear Leveling Support
+
+Create FAT filesystem images compatible with ESP32 Arduino Core's FFat library:
+
+```python
+from fatfs import (
+    RamDisk, 
+    Partition, 
+    create_esp32_wl_image,
+    calculate_esp32_wl_overhead
+)
+
+# Calculate overhead
+partition_size = 1536 * 1024  # 1.5 MB
+wl_info = calculate_esp32_wl_overhead(partition_size)
+print(f"FAT data size: {wl_info['fat_size']} bytes")
+print(f"WL overhead: {wl_info['wl_overhead_size']} bytes")
+
+# Create FAT filesystem
+storage = bytearray(wl_info['fat_size'])
+disk = RamDisk(storage, sector_size=4096)
+partition = Partition(disk)
+partition.mkfs()
+partition.mount()
+
+# Add files
+with partition.open("/test.txt", "w") as f:
+    f.write(b"Hello ESP32!")
+
+partition.unmount()
+
+# Wrap with ESP32 wear leveling layer
+wl_image = create_esp32_wl_image(storage, partition_size)
+
+# Write to file for ESP32
+with open("fatfs.bin", "wb") as f:
+    f.write(wl_image)
+```
+
+Extract from ESP32 wear-leveling image:
+
+```python
+from fatfs import extract_fat_from_esp32_wl, is_esp32_wl_image
+
+# Read image from ESP32
+with open("downloaded.bin", "rb") as f:
+    wl_image = f.read()
+
+# Check if it's a WL image
+if is_esp32_wl_image(wl_image):
+    # Extract FAT data
+    fat_data = extract_fat_from_esp32_wl(wl_image)
+    
+    # Mount and read
+    disk = RamDisk(bytearray(fat_data), sector_size=4096)
+    partition = Partition(disk)
+    partition.mount()
+    # ... read files ...
+    partition.unmount()
+```
+
+## Features
+
+### Basic Operations (from original fatfs-python)
+- Mount/unmount FAT filesystems
+- Create FAT filesystems (mkfs)
+- Open, read, write files
+- Create directories
+
+### Extended Operations (new in fatfs-ng)
+- Complete directory traversal with `walk()`
+- List directory contents with `listdir()`
+- Get file information with `stat()`
+- Check path existence and type
+- Delete files and directories
+- Rename/move files
+- Bulk copy operations
+
+## Use Cases
+
+### ESP32 Development with PlatformIO
+Perfect for creating and extracting filesystem images for ESP32:
+
+```python
+# Build filesystem image
+partition.copy_tree_from(Path("./data"), "/")
+
+# Extract filesystem from device
+partition.copy_tree_to("/", Path("./extracted"))
+```
+
+### Testing
+Great for testing filesystem operations without real hardware:
+
+```python
+# Create in-memory filesystem for testing
+storage = bytearray(1024 * 1024)
+disk = RamDisk(storage)
+partition = create_extended_partition(disk)
+# ... run tests ...
+```
+
+## Documentation
+
+- [Extended Features Guide](EXTENDED_FEATURES.md)
+- [Original fatfs-python](https://github.com/krakonos/fatfs-python)
+
+## Differences from Original
+
+| Feature | fatfs-python | fatfs-ng |
+|---------|--------------|----------|
+| Directory Traversal | ❌ Limited | ✅ Complete |
+| walk() function | ❌ No | ✅ Yes |
+| Type Hints | ❌ Partial | ✅ Complete |
+| Error Messages | ⚠️ Basic | ✅ Descriptive |
+| Python 3.13+ | ⚠️ Warnings | ✅ Clean |
+| Status | Alpha | Beta |
+
+## Credits
+
+- **Original Author**: Ladislav Laska ([fatfs-python](https://github.com/krakonos/fatfs-python))
+- **Fork Maintainer**: Johann Obermeier ([fatfs-ng](https://github.com/Jason2866/pyfatfs))
+- **FatFS Library**: ChaN ([elm-chan.org](http://elm-chan.org/fsw/ff/00index_e.html))
+
+## License
+
+MIT License (same as original fatfs-python)
+
+## Contributing
+
+Issues and pull requests welcome at [https://github.com/Jason2866/pyfatfs](https://github.com/Jason2866/pyfatfs)!
+
+**Note**: Package name on PyPI is `fatfs-ng`, but import remains `from fatfs import ...`

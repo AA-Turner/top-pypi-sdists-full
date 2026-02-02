@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=61.0,<75.0", "wheel", "Cython>=3.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adryserage-aetheris"
+version = "3.0.0"
+description = "Aetheris - Multi-agent AI code analysis system with PR review, multi-provider consensus (Gemini/Claude/OpenAI), security analysis, and automatic bug fixing via Claude Code"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Adryan Serage", email = "adryan@allowebs.com"}
+]
+maintainers = [
+    {name = "Adryan Serage", email = "adryan@allowebs.com"}
+]
+keywords = [
+    "code-analysis", "code-review", "static-analysis", "security", "quality-assurance",
+    "pr-review", "pull-request", "github", "multi-provider", "consensus",
+    "gemini", "claude", "openai", "ai-code-review", "ai", "llm", "automated-review",
+    "vulnerability-scanner", "code-quality", "devops", "ci-cd"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Environment :: Console",
+    "Framework :: Pydantic :: 2",
+    "Natural Language :: English",
+    "Natural Language :: French",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "google-genai>=1.0.0",
+    "pydantic>=2.0.0",
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "pathspec>=0.12.0",
+    "requests>=2.32.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+    "ddgs>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+aetheris = "src.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/adryserage/aetheris"
+Repository = "https://github.com/adryserage/aetheris"
+Issues = "https://github.com/adryserage/aetheris/issues"
+"📣 Vote: Open Source?" = "https://adryanserage.ca/poll/aetheris"
+
+[tool.setuptools]
+packages = ["src", "src.agents", "src.core", "src.models", "src.services", "src.i18n", "src.locales", "src.runner", "src.schemas"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt", "*.yaml", "*.yml", "*.json"]
+
+[tool.cibuildwheel]
+# Skip 32-bit builds, musllinux, and PyPy
+# Python version selection is automatic based on requires-python (>=3.9)
+# cibuildwheel will build for all supported Python versions >= 3.9
+skip = "*-win32 *-manylinux_i686 *musllinux* pp*"
+
+# Test command to verify compiled package works
+test-command = "aetheris --help"
+
+# Ensure dependencies are installed for testing
+test-requires = ["pydantic>=2.0.0"]
+
+[tool.cibuildwheel.linux]
+# Use manylinux2014 for broader compatibility
+manylinux-x86_64-image = "manylinux2014"
+
+[tool.cibuildwheel.macos]
+# Build for both Intel and Apple Silicon
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+# Only build for 64-bit Windows
+archs = ["AMD64"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | __pycache__
+)/
+'''
+

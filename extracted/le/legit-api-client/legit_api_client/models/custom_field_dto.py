@@ -33,7 +33,8 @@ class CustomFieldDto(BaseModel):
     type: Optional[CustomFieldType] = None
     entity: Optional[CustomFieldEntity] = None
     allowed_values: Optional[List[StrictStr]] = Field(default=None, alias="allowedValues")
-    __properties: ClassVar[List[str]] = ["id", "name", "type", "entity", "allowedValues"]
+    framework_id: Optional[StrictStr] = Field(default=None, alias="frameworkId")
+    __properties: ClassVar[List[str]] = ["id", "name", "type", "entity", "allowedValues", "frameworkId"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +80,11 @@ class CustomFieldDto(BaseModel):
         if self.allowed_values is None and "allowed_values" in self.model_fields_set:
             _dict['allowedValues'] = None
 
+        # set to None if framework_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.framework_id is None and "framework_id" in self.model_fields_set:
+            _dict['frameworkId'] = None
+
         return _dict
 
     @classmethod
@@ -95,7 +101,8 @@ class CustomFieldDto(BaseModel):
             "name": obj.get("name"),
             "type": obj.get("type"),
             "entity": obj.get("entity"),
-            "allowedValues": obj.get("allowedValues")
+            "allowedValues": obj.get("allowedValues"),
+            "frameworkId": obj.get("frameworkId")
         })
         return _obj
 

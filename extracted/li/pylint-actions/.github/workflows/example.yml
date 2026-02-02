@@ -1,0 +1,15 @@
+on: pull_request
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      
+      - run: uv sync --locked
+      - run: uv pip install .
+      - run: uv run pylint examples -f actions
+        continue-on-error: true

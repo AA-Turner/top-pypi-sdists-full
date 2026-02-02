@@ -1,0 +1,166 @@
+[project]
+name = "pyreqwest"
+description = "Powerful and fast Rust based HTTP client"
+authors = [{ name = "Markus Sintonen", email = "pyreqwest@gmail.com" }]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Implementation :: GraalPy",
+    "Programming Language :: Rust",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Typing :: Typed",
+]
+dependencies = [] # Pure Rust project, no Python dependencies
+dynamic = ["version"] # Version is provided by Cargo.toml
+
+[project.urls]
+Homepage = "https://github.com/MarkusSintonen/pyreqwest"
+Source = "https://github.com/MarkusSintonen/pyreqwest"
+
+[project.entry-points.pytest11]
+pyreqwest = "pyreqwest.pytest_plugin.internal.plugin"
+
+[dependency-groups]
+dev = [
+    "maturin==1.11.5",
+    "pytest==9.0.2",
+    "pytest-asyncio==1.3.0",
+    "granian==2.6.1",
+    "asgi-types==0.1.0",
+    "trustme==1.2.1",
+    "requests-toolbelt==1.0.0",
+    "syrupy==5.0.0",
+    "ruff==0.14.13",
+    "mypy==1.19.1",
+    "packaging==25.0",
+    "pydantic==2.12.5",
+    # Compatibility checks with other libraries
+    "dirty-equals==0.11",
+    "yarl==1.22.0",
+    "multidict==6.7.0",
+    "starlette==0.50.0",
+    "httpx==0.28.1",
+    # Examples
+    "docker==7.1.0", # For go-httpbin (python httpbin is not great)
+    "types-docker==7.1.0.20251202",
+    # Documentation
+    "pdoc==16.0.0",
+]
+bench = [
+    "aiohttp==3.13.3",
+    "urllib3==2.6.3",
+    "rnet==2.4.2",
+    "ry==0.0.78",
+    "niquests==3.17.0",
+    "matplotlib==3.10.8",
+]
+
+[tool.uv]
+# this ensures that `uv run` doesn't actually build the package; "maturin develop" is needed
+package = false
+required-version = ">=0.9.18"
+default-groups = ["dev", "bench"]
+
+[tool.maturin]
+module-name = "pyreqwest._pyreqwest"
+python-source = "python"
+python-packages = ["pyreqwest"]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--snapshot-warn-unused --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+exclude = [".venv", "venv", "target", "coverage"]
+target-version = "py311"
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "FBT",
+    "TC003",
+    "PYI002",  # Not compatible with pdoc
+    "PYI020",  # Not compatible with pdoc
+    "PYI021",
+    "UP037",  # Not compatible with pdoc
+    "ANN401",
+    "PLC0414",
+    "S101",
+    "PT018",
+    "D203",
+    "D205",
+    "D213",
+    "D415",
+    "D418",
+    "COM812",  # Formatter conflict
+    "TRY300",
+    "RUF022",  # Explicit ordering for docs
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+[tool.ruff.lint.pylint]
+max-args = 8
+
+[tool.ruff.lint.per-file-ignores]
+"./python/pyreqwest/pytest_plugin/*" = ["SLF001", "PLC0415"]
+"./python/pyreqwest/pytest_plugin/internal/*" = ["D"]
+"./tests/*" = [
+    "ARG001",
+    "D",
+    "B011",
+    "S101",
+    "S105",
+    "S311",
+    "ANN201",
+    "ANN401",
+    "PT018",
+    "SIM201",
+    "SIM202",
+    "PLR2004",
+    "EM101",
+    "TRY003",
+    "TRY002",
+    "C414",
+    "C901",
+    "TC002",
+    "BLE001",
+    "T201",
+    "SLF001",
+    "PLC0415",
+]
+"./tests/bench/*" = ["T201", "EM102", "PLC0415", "TC002"]
+"./examples/*" = ["D104", "T201", "TRY003", "EM101", "PLR2004", "PT017", "PLC0415"]
+"./scripts/*" = ["INP001", "D100", "S607", "S603", "T201"]
+
+[tool.mypy]
+strict = true
+exclude = [".venv", "venv", "target", "coverage"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = "no-untyped-def"

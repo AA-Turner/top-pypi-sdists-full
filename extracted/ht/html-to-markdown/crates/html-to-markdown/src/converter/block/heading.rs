@@ -216,28 +216,40 @@ pub(crate) fn push_heading(output: &mut String, ctx: &Context, options: &Convers
             if level == 1 {
                 output.push_str(text);
                 output.push('\n');
-                output.push_str(&"=".repeat(text.len()));
+                for _ in 0..text.len() {
+                    output.push('=');
+                }
             } else if level == 2 {
                 output.push_str(text);
                 output.push('\n');
-                output.push_str(&"-".repeat(text.len()));
+                for _ in 0..text.len() {
+                    output.push('-');
+                }
             } else {
-                output.push_str(&"#".repeat(level));
+                for _ in 0..level {
+                    output.push('#');
+                }
                 output.push(' ');
                 output.push_str(text);
             }
         }
         HeadingStyle::Atx => {
-            output.push_str(&"#".repeat(level));
+            for _ in 0..level {
+                output.push('#');
+            }
             output.push(' ');
             output.push_str(text);
         }
         HeadingStyle::AtxClosed => {
-            output.push_str(&"#".repeat(level));
+            for _ in 0..level {
+                output.push('#');
+            }
             output.push(' ');
             output.push_str(text);
             output.push(' ');
-            output.push_str(&"#".repeat(level));
+            for _ in 0..level {
+                output.push('#');
+            }
         }
     }
     output.push_str(heading_suffix);
@@ -248,7 +260,11 @@ fn continuation_indent_string(list_depth: usize, _options: &ConversionOptions) -
     if list_depth == 0 {
         return None;
     }
-    Some(" ".repeat(4 * list_depth))
+    let mut indent = String::new();
+    for _ in 0..(4 * list_depth) {
+        indent.push(' ');
+    }
+    Some(indent)
 }
 
 /// Process heading with visitor callback if available.

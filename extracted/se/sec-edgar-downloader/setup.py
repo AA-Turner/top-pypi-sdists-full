@@ -10,14 +10,14 @@ package_data = \
 {'': ['*']}
 
 install_requires = \
-['requests', 'pyrate-limiter>=3.6.0']
+['requests', 'pyrate-limiter>=4.0.0']
 
 extras_require = \
 {'doc': ['doc8', 'sphinx', 'sphinx-autobuild', 'sphinx-autodoc-typehints'],
  'test': ['pre-commit', 'pytest', 'pytest-cov']}
 
 setup(name='sec-edgar-downloader',
-      version='5.0.3',
+      version='5.1.0',
       description='Download SEC filings from the EDGAR database using Python',
       author=None,
       author_email='Jad Chaar <jad.chaar@gmail.com>',
@@ -26,5 +26,5 @@ setup(name='sec-edgar-downloader',
       package_data=package_data,
       install_requires=install_requires,
       extras_require=extras_require,
-      python_requires='>=3.8',
+      python_requires='>=3.10',
      )

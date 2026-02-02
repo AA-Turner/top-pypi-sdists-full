@@ -1,0 +1,58 @@
+[project]
+name = "data-designer"
+dynamic = ["version"]
+description = "General framework for synthetic data generation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "data-designer-config",
+    "data-designer-engine",
+    "prompt-toolkit>=3.0.0,<4",
+    "typer>=0.12.0,<1",
+]
+
+[project.scripts]
+data-designer = "data_designer.cli:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.1.0.dev0"
+raw-options = { root = "../.." }
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/data_designer/interface/_version.py"
+
+[tool.hatch.metadata.hooks.custom]
+path = "dev-tools/hatch_build.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_designer"]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+data-designer-config = { workspace = true }
+data-designer-engine = { workspace = true }

@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import click
+
+from .base import (
+    IntColonInt,
+    devel_debug_option,
+    devel_option,
+    instance_option,
+    map_to_click_exceptions,
+)
+from ..upload import UploadExisting, UploadValidation
+
+
+@click.command()
+@click.option(
+    "-e",
+    "--existing",
+    type=click.Choice(list(UploadExisting)),
+    help="What to do if a file found existing on the server. 'skip' would skip"
+    "the file, 'force' - force reupload, 'overwrite' - force upload if "
+    "either size or modification time differs; 'refresh' - upload only if "
+    "local modification time is ahead of the remote.",
+    default="refresh",
+    show_default=True,
+)
+@click.option(
+    "-J",
+    "--jobs",
+    "jobs_pair",
+    type=IntColonInt(),
+    help=(
+        "Number of assets to upload in parallel and, optionally, number of"
+        " upload threads per asset  [default: 5:5]"
+    ),
+)
+@click.option(
+    "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
+)
+@click.option(
+    "--validation",
+    help="Controls validation requirements before upload. (Setting this option to a "
+    "value other than 'require' is highly discouraged.) "
+    "'require' - data must pass validation before upload; "
+    "'skip' - no validation is performed on data before upload; "
+    "'ignore' - data is validated but upload proceeds regardless of validation results.",
+    type=click.Choice(list(UploadValidation)),
+    default="require",
+    show_default=True,
+)
+@click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
+# &
+# Development options:  Set DANDI_DEVEL for them to become available
+#
+# TODO: should always go to dandi for now
+@instance_option()
+@devel_option(
+    "--allow-any-path",
+    help="For development: allow DANDI 'unsupported' file types/paths",
+    default=False,
+    is_flag=True,
+)
+@devel_option(
+    "--upload-dandiset-metadata",
+    help="For development: do upload dandiset metadata",
+    default=False,
+    is_flag=True,
+)
+@devel_debug_option()
+@map_to_click_exceptions
+def upload(
+    paths: tuple[str, ...],
+    jobs_pair: tuple[int, int] | None,
+    sync: bool,
+    dandi_instance: str,
+    existing: UploadExisting,
+    validation: UploadValidation,
+    # Development options should come as kwargs
+    allow_any_path: bool = False,
+    upload_dandiset_metadata: bool = False,
+    devel_debug: bool = False,
+) -> None:
+    """
+    Upload Dandiset files to DANDI Archive.
+
+    The target Dandiset to upload to must already be registered in the archive,
+    and a `dandiset.yaml` file must exist in the common ancestor of the given
+    paths (or the current directory, if no paths are specified) or a parent
+    directory thereof.
+
+    Local Dandiset should pass validation.  For that, the assets should first
+    be organized using the `dandi organize` command.
+
+    By default all .nwb, .zarr, and .ngff assets in the Dandiset (ignoring
+    directories starting with a period) will be considered for the upload.  You
+    can point to specific files you would like to validate and have uploaded.
+    """
+    # Avoid heavy imports by importing with function:
+    from ..upload import upload
+
+    if jobs_pair is None:
+        jobs = None
+        jobs_per_file = None
+    else:
+        jobs, jobs_per_file = jobs_pair
+
+    upload(
+        paths,
+        existing=existing,
+        validation=validation,
+        dandi_instance=dandi_instance,
+        allow_any_path=allow_any_path,
+        upload_dandiset_metadata=upload_dandiset_metadata,
+        devel_debug=devel_debug,
+        jobs=jobs,
+        jobs_per_file=jobs_per_file,
+        sync=sync,
+    )

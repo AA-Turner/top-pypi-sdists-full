@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "the-retry"
+version = "0.1.1"
+description = "Retry decorator for both synchronous and asynchronous functions."
+authors = ["Ramil Minnigaliev <minnigaliev-r@yandex.ru>"]
+readme = "README.md"
+packages = [{include = "the_retry"}]
+license = "MIT"
+repository = "https://gitlab.com/ramil.minnigaliev/the-retry"
+homepage = "https://gitlab.com/ramil.minnigaliev/the-retry"
+keywords = ["decorator", "retry", "async-retry"]
+
+
+[tool.poetry.dependencies]
+python = "^3.6"
+
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.2.0"
+pytest-asyncio = "^0.20.3"
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

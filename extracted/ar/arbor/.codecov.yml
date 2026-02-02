@@ -1,3 +1,0 @@
--# Remove the `/arbor-source` prefix such that codecov.io can map the files
--fixes:
--  - "/arbor-source/::"

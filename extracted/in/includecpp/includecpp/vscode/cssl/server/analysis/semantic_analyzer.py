@@ -8,6 +8,7 @@ from CSSL AST nodes.
 from typing import Dict, List, Any, Optional, Set
 
 from ..utils.symbol_table import SymbolTable, Symbol, SymbolKind
+from ..utils.cssl_registry import get_registry
 
 # CSSL Keywords that should not be flagged as undefined
 CSSL_KEYWORDS = {
@@ -15,7 +16,7 @@ CSSL_KEYWORDS = {
     'switch', 'case', 'default', 'break', 'continue', 'return',
     'try', 'catch', 'finally', 'throw', 'except', 'always',
     'class', 'struct', 'enum', 'interface', 'namespace',
-    'define', 'void', 'constr', 'new', 'this', 'super',
+    'define', 'void', 'constr', 'cleanup', 'new', 'this', 'super', 'init',
     'extends', 'overwrites', 'service-init', 'service-run',
     'service-include', 'main', 'package', 'exec', 'as', 'global',
     'include', 'get', 'payload', 'convert', 'and', 'or', 'not',
@@ -87,21 +88,52 @@ class SemanticAnalyzer:
 
     def _load_builtins(self):
         """Load builtin functions and types into the root symbol table."""
-        # Add builtin functions
-        for name in CSSL_BUILTINS:
+        registry = get_registry()
+
+        # Add builtin functions with real signatures from the runtime
+        for name, info in registry.builtin_functions.items():
             self.symbol_table.add_symbol(Symbol(
                 name=name,
                 kind=SymbolKind.BUILTIN_FUNCTION,
-                documentation=f"Built-in function: {name}()"
+                documentation=info.doc or f"Built-in function: {name}()",
+                return_type=info.return_type or '',
             ))
 
         # Add builtin types
-        for name in CSSL_TYPES:
+        for name, info in registry.builtin_types.items():
+            generic = info.generic_syntax
+            display = f"{name}{generic}" if generic else name
             self.symbol_table.add_symbol(Symbol(
                 name=name,
                 kind=SymbolKind.BUILTIN_TYPE,
-                documentation=f"CSSL type: {name}"
+                documentation=info.doc or f"Built-in type: {display}"
             ))
+
+        # Add GUI class names (so they're recognized as valid identifiers)
+        for cssl_name, cls_info in registry.gui_classes.items():
+            if cssl_name.startswith('Cssl'):
+                self.symbol_table.add_symbol(Symbol(
+                    name=cssl_name,
+                    kind=SymbolKind.BUILTIN_TYPE,
+                    documentation=cls_info.doc or f"GUI widget: {cssl_name}"
+                ))
+
+        # Fallback: ensure all names from static sets are present
+        # (in case registry failed to load some)
+        for name in CSSL_BUILTINS:
+            if not self.symbol_table.get_symbol(name):
+                self.symbol_table.add_symbol(Symbol(
+                    name=name,
+                    kind=SymbolKind.BUILTIN_FUNCTION,
+                    documentation=f"Built-in function: {name}()"
+                ))
+        for name in CSSL_TYPES:
+            if not self.symbol_table.get_symbol(name):
+                self.symbol_table.add_symbol(Symbol(
+                    name=name,
+                    kind=SymbolKind.BUILTIN_TYPE,
+                    documentation=f"Built-in type: {name}"
+                ))
 
     def analyze(self, ast: Any, tokens: List[Any] = None) -> SymbolTable:
         """
@@ -193,8 +225,8 @@ class SemanticAnalyzer:
         func_symbol = Symbol(
             name=name,
             kind=SymbolKind.FUNCTION,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0),
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1),
             return_type=return_type,
             parameters=param_symbols,
             modifiers=modifiers if isinstance(modifiers, list) else [modifiers]
@@ -215,6 +247,46 @@ class SemanticAnalyzer:
 
         self.current_scope = old_scope
 
+    def _visit_constructor(self, node: Any) -> None:
+        """Extract constructor/destructor definition."""
+        info = node.value if hasattr(node, 'value') else {}
+
+        if isinstance(info, dict):
+            name = info.get('name', '')
+            params = info.get('params', [])
+            is_destructor = info.get('is_destructor', False)
+        else:
+            name = str(info)
+            params = []
+            is_destructor = False
+
+        display_name = f"~{name}" if is_destructor else name
+
+        param_symbols = []
+        for p in params:
+            if isinstance(p, dict):
+                param_symbols.append(Symbol(
+                    name=p.get('name', ''),
+                    kind=SymbolKind.PARAMETER,
+                    type_info=p.get('type'),
+                ))
+            elif isinstance(p, str):
+                param_symbols.append(Symbol(
+                    name=p,
+                    kind=SymbolKind.PARAMETER,
+                ))
+
+        constr_symbol = Symbol(
+            name=display_name,
+            kind=SymbolKind.METHOD,
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1),
+            parameters=param_symbols,
+            return_type=None,
+        )
+        self.current_scope.add_symbol(constr_symbol)
+        self._visit_children(node)
+
     def _visit_class(self, node: Any) -> None:
         """Extract class definition."""
         info = node.value if hasattr(node, 'value') else {}
@@ -227,8 +299,8 @@ class SemanticAnalyzer:
         class_symbol = Symbol(
             name=name,
             kind=SymbolKind.CLASS,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0)
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1)
         )
         self.current_scope.add_symbol(class_symbol)
 
@@ -251,8 +323,8 @@ class SemanticAnalyzer:
         struct_symbol = Symbol(
             name=name,
             kind=SymbolKind.STRUCT,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0)
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1)
         )
         self.current_scope.add_symbol(struct_symbol)
         self._visit_children(node)
@@ -265,8 +337,8 @@ class SemanticAnalyzer:
         ns_symbol = Symbol(
             name=name,
             kind=SymbolKind.NAMESPACE,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0)
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1)
         )
         self.current_scope.add_symbol(ns_symbol)
 
@@ -287,8 +359,8 @@ class SemanticAnalyzer:
         enum_symbol = Symbol(
             name=name,
             kind=SymbolKind.ENUM,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0)
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1)
         )
         self.current_scope.add_symbol(enum_symbol)
 
@@ -309,8 +381,8 @@ class SemanticAnalyzer:
                 name=name,
                 kind=SymbolKind.VARIABLE,
                 type_info=full_type,
-                line=getattr(node, 'line', 0),
-                column=getattr(node, 'column', 0)
+                line=getattr(node, 'line', 1),
+                column=getattr(node, 'column', 1)
             )
             self.current_scope.add_symbol(var_symbol)
 
@@ -337,8 +409,8 @@ class SemanticAnalyzer:
                         name=name,
                         kind=SymbolKind.VARIABLE,
                         type_info='dynamic',
-                        line=getattr(node, 'line', 0),
-                        column=getattr(node, 'column', 0)
+                        line=getattr(node, 'line', 1),
+                        column=getattr(node, 'column', 1)
                     )
                     self.current_scope.add_symbol(var_symbol)
 
@@ -352,8 +424,8 @@ class SemanticAnalyzer:
         global_symbol = Symbol(
             name=name,
             kind=SymbolKind.GLOBAL,
-            line=getattr(node, 'line', 0),
-            column=getattr(node, 'column', 0)
+            line=getattr(node, 'line', 1),
+            column=getattr(node, 'column', 1)
         )
         self.symbol_table.add_symbol(global_symbol)
 

@@ -53,6 +53,9 @@ html_theme = "alabaster"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+html_css_files = [
+    "css/custom.css",
+]
 
 html_title = "Python Lokalise API client"
 html_short_title = "Lokalise API client"
@@ -74,7 +77,7 @@ html_sidebars = {
 }
 
 html_theme_options = {
-    "logo": "lok_logo.png",
+    "logo": "lok_logo_black.png",
     "github_user": "lokalise",
     "github_repo": "python-lokalise-api",
     "github_button": "true",

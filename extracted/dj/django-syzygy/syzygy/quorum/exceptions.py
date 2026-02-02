@@ -1,2 +1,0 @@
-class QuorumDisolved(Exception):
-    pass

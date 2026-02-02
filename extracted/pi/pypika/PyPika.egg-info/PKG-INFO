@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPika
-Version: 0.50.0
+Version: 0.51.0
 Summary: A SQL query builder API for Python
 Home-page: https://github.com/kayak/pypika
 Author: Timothy Heys

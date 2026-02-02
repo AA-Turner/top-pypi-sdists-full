@@ -1,0 +1,50 @@
+[package]
+name = "pysentry"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.79"
+description = "Security vulnerability auditing for Python packages"
+license = "MIT"
+repository = "https://github.com/nyudenkov/pysentry"
+keywords = ["python", "security", "audit", "vulnerabilities"]
+categories = ["development-tools"]
+readme = "README.md"
+
+[lib]
+name = "pysentry"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "pysentry"
+path = "src/main.rs"
+
+[features]
+python = ["pyo3"]
+
+[dependencies]
+anyhow = "1.0.100"
+async-trait = "0.1.89"
+chrono = { version = "0.4.43", features = ["serde"] }
+clap = { version = "4.5.54", features = ["derive"] }
+dirs = "6.0.0"
+fs-err = "3.2.2"
+futures = "0.3.31"
+indicatif = "0.18.3"
+owo-colors = "4.2.3"
+pep440_rs = "0.7.3"
+pyo3 = { version = "0.26.0", features = ["extension-module"], optional = true }
+regex = "1.12.2"
+reqwest = { version = "0.12.28", features = ["json", "stream", "rustls-tls-native-roots"], default-features = false }
+rustc-hash = "2.1.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_yaml = "0.9.34"
+sha2 = "0.10.9"
+tempfile = "3.24.0"
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = ["fs", "io-util", "rt-multi-thread", "macros", "process"] }
+toml = "0.9.11"
+clap-verbosity-flag = { version = "3.0", default-features = false, features = ["tracing"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+zip = { version = "5.1.1", default-features = false, features = ["deflate"] }

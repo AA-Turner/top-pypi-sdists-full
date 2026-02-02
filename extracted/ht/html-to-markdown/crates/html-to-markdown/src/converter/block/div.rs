@@ -149,6 +149,7 @@ fn add_list_continuation_indent(
         output.push('\n');
     }
 
-    let indent = "  ".repeat(list_depth);
-    output.push_str(&indent);
+    for _ in 0..list_depth {
+        output.push_str("  ");
+    }
 }

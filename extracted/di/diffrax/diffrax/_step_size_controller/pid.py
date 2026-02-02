@@ -1,6 +1,5 @@
-import typing
 from collections.abc import Callable
-from typing import cast, Optional, TYPE_CHECKING
+from typing import cast
 
 import equinox as eqx
 import equinox.internal as eqxi
@@ -82,8 +81,8 @@ def _select_initial_step(
     return jnp.minimum(100 * h0, h1)
 
 
-# _PidState = (prev_inv_scaled_error, prev_prev_inv_scaled_error)
-_PidState = tuple[RealScalarLike, RealScalarLike]
+# _PidState = (prev_inv_scaled_error, prev_prev_inv_scaled_error, at_dtmin)
+_PidState = tuple[RealScalarLike, RealScalarLike, BoolScalarLike]
 
 
 # We use a metaclass for backwards compatibility. When a user calls
@@ -94,7 +93,7 @@ class _MetaPID(type(eqx.Module)):
         step_ts = kwargs.pop("step_ts", None)
         jump_ts = kwargs.pop("jump_ts", None)
         if step_ts is not None or jump_ts is not None:
-            return ClipStepSizeController(cls(*args, **kwargs), step_ts, jump_ts)
+            return ClipStepSizeController(cls(*args, **kwargs), step_ts, jump_ts)  # pyright: ignore
         return super().__call__(*args, **kwargs)
 
 
@@ -103,29 +102,12 @@ class _MetaPID(type(eqx.Module)):
 _set_metaclass = dict(metaclass=_MetaPID)
 
 
-if TYPE_CHECKING:
-    rms_norm = optx.rms_norm
-else:
-    # We can't use `optx.rms_norm` itself as a default attribute value. This is because
-    # it is a callable, and then the doc stack thinks that it is a method.
-    if getattr(typing, "GENERATING_DOCUMENTATION", False):
-
-        class _RmsNorm:
-            def __repr__(self):
-                return "<function rms_norm>"
-
-        old_rms_norm = optx.rms_norm
-        rms_norm = _RmsNorm()
-    else:
-        rms_norm = optx.rms_norm
-
-
 # https://diffeq.sciml.ai/stable/extras/timestepping/
 # are good introductory notes on different step size control algorithms.
 # TODO: we don't currently offer a limiter, or a variant accept/reject scheme, as given
 #       in Soderlind and Wang 2006.
 class PIDController(
-    AbstractAdaptiveStepSizeController[_PidState, Optional[RealScalarLike]],
+    AbstractAdaptiveStepSizeController[_PidState, RealScalarLike | None],
     **_set_metaclass,
 ):
     r"""Adapts the step size to produce a solution accurate to a given tolerance.
@@ -316,17 +298,17 @@ class PIDController(
 
     rtol: RealScalarLike
     atol: RealScalarLike
-    norm: Callable[[PyTree], RealScalarLike] = rms_norm
+    norm: Callable[[PyTree], RealScalarLike] = optx.rms_norm
     pcoeff: RealScalarLike = 0
     icoeff: RealScalarLike = 1
     dcoeff: RealScalarLike = 0
-    dtmin: Optional[RealScalarLike] = None
-    dtmax: Optional[RealScalarLike] = None
+    dtmin: RealScalarLike | None = None
+    dtmax: RealScalarLike | None = None
     force_dtmin: bool = True
     factormin: RealScalarLike = 0.2
     factormax: RealScalarLike = 10.0
     safety: RealScalarLike = 0.9
-    error_order: Optional[RealScalarLike] = None
+    error_order: RealScalarLike | None = None
 
     def wrap(self, direction: IntScalarLike):
         return self
@@ -337,10 +319,10 @@ class PIDController(
         t0: RealScalarLike,
         t1: RealScalarLike,
         y0: Y,
-        dt0: Optional[RealScalarLike],
+        dt0: RealScalarLike | None,
         args: Args,
         func: Callable[[PyTree[AbstractTerm], RealScalarLike, Y, Args], VF],
-        error_order: Optional[RealScalarLike],
+        error_order: RealScalarLike | None,
     ) -> tuple[RealScalarLike, _PidState]:
         del t1
         if dt0 is None:
@@ -406,6 +388,7 @@ class PIDController(
         return t1, (
             jnp.array(1.0, dtype=real_dtype),
             jnp.array(1.0, dtype=real_dtype),
+            False,
         )
 
     def adapt_step_size(
@@ -415,7 +398,7 @@ class PIDController(
         y0: Y,
         y1_candidate: Y,
         args: Args,
-        y_error: Optional[Y],
+        y_error: Y | None,
         error_order: RealScalarLike,
         controller_state: _PidState,
     ) -> tuple[
@@ -487,6 +470,7 @@ class PIDController(
         (
             prev_inv_scaled_error,
             prev_prev_inv_scaled_error,
+            at_dtmin,
         ) = controller_state
         error_order = self._get_error_order(error_order)
         prev_dt = t1 - t0
@@ -507,9 +491,9 @@ class PIDController(
 
         scaled_error = self.norm(jtu.tree_map(_scale, y0, y1_candidate, y_error))
         keep_step = scaled_error < 1
-        # Automatically keep the step if we're at dtmin.
+        # Automatically keep the step if it was at dtmin.
         if self.dtmin is not None:
-            keep_step = keep_step | (prev_dt <= self.dtmin)
+            keep_step = keep_step | at_dtmin
         # Make sure it's not a Python scalar and thus getting a ZeroDivisionError.
         inv_scaled_error = 1 / jnp.asarray(scaled_error)
         inv_scaled_error = lax.stop_gradient(
@@ -563,6 +547,11 @@ class PIDController(
         if self.dtmin is not None:
             if not self.force_dtmin:
                 result = RESULTS.where(dt < self.dtmin, RESULTS.dt_min_reached, result)
+            # if we are already at dtmin and dt is unchanged (factor == 1),
+            # reset dt to dtmin to avoid accumulating float precision errors
+            dt = jnp.where(at_dtmin & (factor == 1), self.dtmin, dt)
+            # this flags the next loop to accept step
+            at_dtmin = dt <= self.dtmin
             dt = jnp.maximum(dt, self.dtmin)
 
         next_t0 = jnp.where(keep_step, t1, t0)
@@ -572,12 +561,12 @@ class PIDController(
         prev_inv_scaled_error = jnp.where(
             keep_step, prev_inv_scaled_error, prev_prev_inv_scaled_error
         )
-        controller_state = inv_scaled_error, prev_inv_scaled_error
+        controller_state = inv_scaled_error, prev_inv_scaled_error, at_dtmin
         # made_jump is handled by ClipStepSizeController, so we automatically set it to
         # False
         return keep_step, next_t0, next_t1, False, controller_state, result
 
-    def _get_error_order(self, error_order: Optional[RealScalarLike]) -> RealScalarLike:
+    def _get_error_order(self, error_order: RealScalarLike | None) -> RealScalarLike:
         # Attribute takes priority, if the user knows the correct error order better
         # than our guess.
         error_order = error_order if self.error_order is None else self.error_order

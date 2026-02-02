@@ -1,0 +1,150 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "firebird-driver"
+description = "Firebird driver for Python"
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Pavel Cisar", email = "pcisar@users.sourceforge.net"},
+]
+keywords = ["Firebird", "RDBMS", "driver"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Topic :: Software Development",
+  "Topic :: Database",
+]
+dependencies = [
+  "firebird-base~=2.0",
+  "python-dateutil~=2.8",
+]
+
+[project.urls]
+Home = "https://github.com/FirebirdSQL/python3-driver"
+Documentation = "https://firebird-driver.rtfd.io"
+Issues = "https://github.com/FirebirdSQL/python3-driver/issues"
+Funding = "https://github.com/sponsors/pcisar"
+Source = "https://github.com/FirebirdSQL/python3-driver"
+
+[tool.hatch.version]
+path = "src/firebird/driver/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/firebird"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.default]
+dependencies = [
+]
+
+[tool.hatch.envs.hatch-test]
+extra-args = ["--host=localhost"]
+extra-dependencies = [
+  "packaging>=25.0",
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.11", "3.12", "3.13"]
+
+[tool.hatch.envs.doc]
+detached = false
+platforms = ["linux"]
+dependencies = [
+  "Sphinx==7.2.6",
+  "sphinx-bootstrap-theme>=0.8.1",
+  "sphinx-autodoc-typehints>=1.24.0",
+  "doc2dash>=3.0.0"
+]
+[tool.hatch.envs.doc.scripts]
+build = "cd docs ; make html"
+docset = [
+  "cd docs ; doc2dash -u https://firebird-driver.readthedocs.io/en/latest/ -f -i ./_static/fb-favicon.png -n firebird-driver ./_build/html/",
+  "cd docs; VERSION=`hatch version` ; tar --exclude='.DS_Store' -cvzf ../dist/firebird-driver-$VERSION-docset.tgz firebird-driver.docset",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["A", "ARG", "B", "C", "DTZ", "E", "EM", "F", "FBT", "I", "ICN", "ISC", "N",
+  "PLC", "PLE", "PLR", "PLW", "Q", "RUF", "S", "T", "TID", "UP", "W", "YTT",
+]
+ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  # Ignore checks for possible passwords
+  "S105", "S106", "S107",
+  # Ignore complexity
+  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  #
+  "E741",
+  # Allow relative imports
+  "TID252",
+  # Allow literals in exceptions
+  "EM101", "EM102",
+  # Single quotes instead double
+  "Q000"
+]
+unfixable = [
+  # Don't touch unused imports
+  "F401",
+  # Don't change single quotes to double
+  "Q000"
+]
+exclude = ["*_pb2.py", "*.pyi", "tests/*", "docs/*", "work/*"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["firebird.driver", "firebird.base"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"test_*" = ["PLR2004", "S101", "TID252"]
+"fbapi.py" = ["N801", "E501"]
+"interfaces.py" = ["ARG001", "ARG002", "N801", "N803", "E501", "FBT001"]
+"hooks.py" = ["F401"]
+"core.py" = ["PLR2004", "DTZ007", "S104", "B028", "E501"]
+"config.py" = ["E501"]
+"__init__.py" = ["F401"]
+
+[tool.coverage.run]
+source_pkgs = ["firebird.driver", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/firebird/driver/__about__.py",
+]
+
+[tool.coverage.paths]
+firebird_base = ["src/firebird/driver"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

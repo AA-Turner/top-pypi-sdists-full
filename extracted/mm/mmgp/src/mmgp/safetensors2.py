@@ -1,4 +1,4 @@
-# ------------------ Safetensors2 1.3 by DeepBeepMeep (mmgp)------------------
+# ------------------ Safetensors2 1.4 by DeepBeepMeep (mmgp)------------------
 #
 # This module entirely written in Python is a replacement for the safetensor library which requires much less RAM to load models.
 # It can be conveniently used to keep a low RAM consumption when handling  transit data (for instance when quantizing or transferring tensors to reserver RAM)
@@ -71,9 +71,12 @@ class MmapTracker:
                 print(f"MMap Manager of file '{self.file_path}' : MMap no {map_id} has been released" + text)
             if self.count == self._already_released:
                 # print(f"MMAP Del: {self.file_path}: {mmm.keys()}")
-                del mmm[self.mmm_key ]
+                mmm_ref = globals().get("mmm")
+                if isinstance(mmm_ref, dict):
+                    mmm_ref.pop(self.mmm_key, None)
 
-            self._maps.pop(map_id, None)
+            if isinstance(self._maps, dict):
+                self._maps.pop(map_id, None)
 
         wr = weakref.ref(mmap_obj, finalizer)
         self._maps[map_id] = {
@@ -199,10 +202,6 @@ def _read_safetensors_header(path, file):
 
 
 def load_metadata_state_dict(file_path):
-    if str(file_path).lower().endswith(".gguf"):
-        from shared.qtypes import gguf as gguf_handler
-        metadata = gguf_handler.read_gguf_metadata(file_path)
-        return OrderedDict(), metadata
     with open(file_path, 'rb') as f:
         catalog, metadata, _ = _read_safetensors_header(file_path, f)
     sd = OrderedDict()
@@ -499,6 +498,11 @@ class _SafeTensorLoader:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Clean up resources"""        
         self.close()
+
+    def keys(self):
+        sd, _ = load_metadata_state_dict(self.filename)
+        return list(sd)
+
 
     def get_tensor(self, name):
         if self.sft == None:

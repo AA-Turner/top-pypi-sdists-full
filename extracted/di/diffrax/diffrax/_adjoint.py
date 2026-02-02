@@ -2,7 +2,7 @@ import abc
 import functools as ft
 import warnings
 from collections.abc import Callable, Iterable
-from typing import Any, cast, Optional, Union
+from typing import Any, cast
 
 import equinox as eqx
 import equinox.internal as eqxi
@@ -259,7 +259,7 @@ class RecursiveCheckpointAdjoint(AbstractAdjoint):
         ```
     """
 
-    checkpoints: Optional[int] = None
+    checkpoints: int | None = None
 
     def loop(
         self,
@@ -362,8 +362,7 @@ class DirectAdjoint(AbstractAdjoint):
         if is_unsafe_sde(terms):
             kind = "lax"
             msg = (
-                "Cannot reverse-mode autodifferentiate when using "
-                "`UnsafeBrownianPath`."
+                "Cannot reverse-mode autodifferentiate when using `UnsafeBrownianPath`."
             )
         elif max_steps is None:
             kind = "lax"
@@ -403,6 +402,9 @@ class DirectAdjoint(AbstractAdjoint):
                 final_state, msg=msg, symbolic=True
             )
         return final_state
+
+
+DirectAdjoint.__init__.__doc__ = """**Arguments:** None"""
 
 
 def _vf(ys, residual, inputs):
@@ -450,7 +452,7 @@ if _solve.__globals__["__name__"].startswith("jaxtyping"):
     _solve = _solve.__wrapped__  # pyright: ignore[reportFunctionMemberAccess]
 
 
-def _frozenset(x: Union[object, Iterable[object]]) -> frozenset[object]:
+def _frozenset(x: object | Iterable[object]) -> frozenset[object]:
     try:
         iter_x = iter(x)  # pyright: ignore
     except TypeError:
@@ -754,7 +756,7 @@ class BacksolveAdjoint(AbstractAdjoint):
     passed to [`diffrax.diffeqsolve`][]. If you attempt to compute gradients with
     respect to anything else (for example `t0`, or arguments passed via closure), then
     a `CustomVJPException` will be raised by JAX. See also
-    [this FAQ](../../further_details/faq/#im-getting-a-customvjpexception)
+    [this FAQ](../further_details/faq.md#im-getting-a-customvjpexception)
     entry.
 
     !!! info
@@ -880,6 +882,11 @@ class ForwardMode(AbstractAdjoint):
     as
     [`optimistix.LevenbergMarquardt`](https://docs.kidger.site/optimistix/api/least_squares/#optimistix.LevenbergMarquardt),
     that operate on the residuals.
+
+    For the autodifferentiation geeks: this is 'discretise then optimise' forward-mode,
+    that is to say it operates through the internal numerics of the solver. (As compared
+    to 'optimise then discretise' forward mode, which would set up another ODE to solve
+    in parallel.)
     """  # noqa: E501
 
     def loop(
@@ -908,3 +915,6 @@ class ForwardMode(AbstractAdjoint):
             **kwargs,
         )
         return final_state
+
+
+ForwardMode.__init__.__doc__ = """**Arguments:** None"""

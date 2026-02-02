@@ -484,6 +484,12 @@ class Column:
             if p_list[-1].upper() == "UNIQUE":
                 unique = True
         elif isinstance(p_list[-1], dict) and "references" in p_list[-1]:
+            on_delete = p_list[-1]["references"].get("on_delete")
+            on_update = p_list[-1]["references"].get("on_update")
+            if isinstance(on_delete, str) and on_delete.startswith("SET "):
+                p_list[-1]["references"]["on_delete"] = "SET"
+            if isinstance(on_update, str) and on_update.startswith("SET "):
+                p_list[-1]["references"]["on_update"] = "SET"
             p_list[-1]["references"]["column"] = p_list[-1]["references"]["columns"][0]
             del p_list[-1]["references"]["columns"]
             references = p_list[-1]["references"]
@@ -1019,20 +1025,48 @@ class AlterTable:
 
 
 class Comment:
+    def p_comment_value(self, p: List):
+        """comment_value : STRING
+        | NULL
+        """
+        if isinstance(p[1], str) and p[1].upper() == "NULL":
+            p[0] = None
+        else:
+            p[0] = p[1][1:-1].replace("''", "'")
+
     def p_expression_comment_on(self, p: List):
-        """expr : COMMENT ON TABLE id IS STRING
-        | COMMENT ON TABLE id DOT id IS STRING
-        | COMMENT ON COLUMN id DOT id IS STRING
-        | COMMENT ON COLUMN id DOT id DOT id IS STRING
+        """expr : COMMENT ON TABLE id IS comment_value
+        | COMMENT ON TABLE id DOT id IS comment_value
+        | COMMENT ON COLUMN id DOT id IS comment_value
+        | COMMENT ON COLUMN id DOT id DOT id IS comment_value
+        | COMMENT ON SCHEMA id IS comment_value
+        | COMMENT ON DATABASE id IS comment_value
+        | COMMENT ON SEQUENCE id IS comment_value
+        | COMMENT ON VIEW id IS comment_value
+        | COMMENT ON INDEX id IS comment_value
+        | COMMENT ON AGGREGATE f_call IS comment_value
+        | COMMENT ON FUNCTION f_call IS comment_value
+        | COMMENT ON COLLATION id IS comment_value
+        | COMMENT ON CONVERSION id IS comment_value
+        | COMMENT ON CAST LP id AS id RP IS comment_value
+        | COMMENT ON CONSTRAINT id ON id IS comment_value
+        | COMMENT ON CONSTRAINT id ON id DOT id IS comment_value
         """
         comment_on = {}
         p[0] = {"comment_on": comment_on}
         p_list = list(p)
         obj_type = p_list[3]
 
-        # Cleanse comment quotes and handle escaped quotes
-        comment_on["comment"] = p_list[-1][1:-1].replace("''", "'")
+        comment_on["comment"] = p_list[-1]
         comment_on["object_type"] = obj_type
+
+        def set_object_name(target_key: str = "object_name") -> None:
+            if "DOT" in p_list:
+                comment_on["schema"] = p_list[-5]
+                comment_on[target_key] = p_list[-3]
+            else:
+                comment_on["schema"] = None
+                comment_on[target_key] = p_list[-3]
 
         if obj_type == "COLUMN":
             comment_on["column_name"] = p_list[-3]
@@ -1041,6 +1075,20 @@ class Comment:
         elif obj_type == "TABLE":
             comment_on["table_name"] = p_list[-3]
             comment_on["schema"] = p_list[-5] if len(p_list) > 7 else None
+        elif obj_type == "CONSTRAINT":
+            comment_on["constraint_name"] = p_list[4]
+            if "DOT" in p_list:
+                comment_on["schema"] = p_list[-5]
+                comment_on["table_name"] = p_list[-3]
+            else:
+                comment_on["schema"] = None
+                comment_on["table_name"] = p_list[-3]
+        elif obj_type == "CAST":
+            comment_on["object_name"] = {"cast": {"value": p_list[5], "as": p_list[7]}}
+        elif obj_type in {"AGGREGATE", "FUNCTION"}:
+            comment_on["object_name"] = p_list[4]
+        else:
+            set_object_name()
 
 
 class BaseSQL(
@@ -1383,16 +1431,41 @@ class BaseSQL(
                 ref_data,
                 p_list[3]["constraint"]["name"],
             )
-        elif isinstance(p_list[-2], list):
-            if "ref_columns" not in data:
-                data["ref_columns"] = []
+            return self.add_ref_columns_from_constraints(data, ref_data, ref_col_names)
+        if isinstance(p_list[-2], list):
+            return self.add_ref_columns_from_constraints(
+                data, p_list[-1]["references"], p_list[-2]
+            )
+        return data
 
-            for num, column in enumerate(p_list[-2]):
-                ref = deepcopy(p_list[-1]["references"])
-                ref["column"] = ref["columns"][num]
+    @staticmethod
+    def add_ref_columns_from_constraints(
+        data: Dict, ref_data: Dict, ref_col_names
+    ) -> Dict:
+        def build_ref(name, column):
+            ref = deepcopy(ref_data)
+            if "columns" in ref:
+                ref["column"] = column
                 del ref["columns"]
-                ref["name"] = column
-                data["ref_columns"].append(ref)
+            ref["name"] = name
+            return ref
+
+        if "ref_columns" not in data:
+            data["ref_columns"] = []
+        if isinstance(ref_col_names, list):
+            for num, column in enumerate(ref_col_names):
+                if isinstance(ref_data.get("columns"), list) and num < len(
+                    ref_data["columns"]
+                ):
+                    ref_column = ref_data["columns"][num]
+                else:
+                    ref_column = None
+                data["ref_columns"].append(build_ref(column, ref_column))
+        else:
+            ref_column = None
+            if isinstance(ref_data.get("columns"), list):
+                ref_column = ref_data["columns"][0]
+            data["ref_columns"].append(build_ref(ref_col_names, ref_column))
         return data
 
     @staticmethod
@@ -1893,8 +1966,14 @@ class BaseSQL(
         | ref LP pid RP
         | ref ON DELETE id
         | ref ON UPDATE id
+        | ref ON DELETE SET id
+        | ref ON UPDATE SET id
         | ref ON DELETE SET
         | ref ON UPDATE SET
+        | ref ON DELETE SET NULL
+        | ref ON UPDATE SET NULL
+        | ref ON DELETE SET DEFAULT
+        | ref ON UPDATE SET DEFAULT
         | ref DEFERRABLE INITIALLY id
         | ref NOT DEFERRABLE
         """
@@ -1915,10 +1994,25 @@ class BaseSQL(
     @staticmethod
     def process_references_with_properties(data: Dict, p_list: List) -> Dict:
         if "ON" in p_list:
+            is_set = "SET" in p_list
+            is_column_ref = (
+                isinstance(data.get("references"), dict)
+                and "column" in data["references"]
+            )
             if "DELETE" in p_list:
-                data["references"]["on_delete"] = p_list[-1]
+                if is_set and is_column_ref:
+                    data["references"]["on_delete"] = "SET"
+                elif is_set:
+                    data["references"]["on_delete"] = f"SET {p_list[-1]}"
+                else:
+                    data["references"]["on_delete"] = p_list[-1]
             elif "UPDATE" in p_list:
-                data["references"]["on_update"] = p_list[-1]
+                if is_set and is_column_ref:
+                    data["references"]["on_update"] = "SET"
+                elif is_set:
+                    data["references"]["on_update"] = f"SET {p_list[-1]}"
+                else:
+                    data["references"]["on_update"] = p_list[-1]
         elif "DEFERRABLE" in p_list:
             if "NOT" not in p_list:
                 data["references"]["deferrable_initially"] = p_list[-1]

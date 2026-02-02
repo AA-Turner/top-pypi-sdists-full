@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: ls-buildtools
+Version: 0.1.5
+License-Expression: LicenseRef-All-Rights-Reserved
+Requires-Python: >=3.10
+Requires-Dist: cryptography
+Requires-Dist: localstack-obfuscator>=1.0.4
+Requires-Dist: tomli; python_version < '3.11'
+Requires-Dist: typing-extensions; python_version < '3.11'
+Provides-Extra: hatchling
+Requires-Dist: hatchling; extra == 'hatchling'
+Provides-Extra: setuptools
+Requires-Dist: setuptools; extra == 'setuptools'

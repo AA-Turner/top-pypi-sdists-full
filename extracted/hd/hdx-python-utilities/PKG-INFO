@@ -1,0 +1,85 @@
+Metadata-Version: 2.4
+Name: hdx-python-utilities
+Version: 4.0.4
+Summary: HDX Python Utilities for streaming tabular data, date and time handling and other helpful functions
+Project-URL: Homepage, https://github.com/OCHA-DAP/hdx-python-utilities
+Author-email: Michael Rans <rans@email.com>
+License: MIT
+License-File: LICENSE
+Keywords: HDX,date,datetime,dict,json,library,list,streaming,tabular data,time,timezone,utilities,yaml
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: frictionless>=5.18.0
+Requires-Dist: ijson>=3.2.3
+Requires-Dist: jsonlines>=4.0.0
+Requires-Dist: loguru
+Requires-Dist: openpyxl>=3.1.2
+Requires-Dist: pyphonetics
+Requires-Dist: python-dateutil<2.9.1,>=2.9.0
+Requires-Dist: ratelimit
+Requires-Dist: requests-file
+Requires-Dist: ruamel-yaml
+Requires-Dist: tableschema-to-template>=0.0.13
+Requires-Dist: typing-extensions
+Requires-Dist: xlrd>=2.0.1
+Requires-Dist: xlsx2csv
+Requires-Dist: xlwt>=1.3.0
+Provides-Extra: diff
+Requires-Dist: cydifflib; extra == 'diff'
+Provides-Extra: docs
+Requires-Dist: mkapi; extra == 'docs'
+Provides-Extra: email
+Requires-Dist: email-validator; extra == 'email'
+Provides-Extra: html
+Requires-Dist: beautifulsoup4; extra == 'html'
+Requires-Dist: html5lib; extra == 'html'
+Description-Content-Type: text/markdown
+
+[![Build Status](https://github.com/OCHA-DAP/hdx-python-utilities/actions/workflows/run-python-tests.yaml/badge.svg)](https://github.com/OCHA-DAP/hdx-python-utilities/actions/workflows/run-python-tests.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/OCHA-DAP/hdx-python-utilities/badge.svg?branch=main&ts=1)](https://coveralls.io/github/OCHA-DAP/hdx-python-utilities?branch=main)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Downloads](https://img.shields.io/pypi/dm/hdx-python-utilities.svg)](https://pypistats.org/packages/hdx-python-utilities)
+
+The HDX Python Utilities Library provides a range of helpful utilities for Python developers.
+Note that these are not specific to HDX.
+
+1. Easy downloading of files with support for authentication, streaming and hashing
+1. Retrieval of data from url with saving to file or from data previously saved
+1. Date utilities
+1. Loading and saving JSON and YAML (maintaining order)
+1. Loading and saving HXLated csv and/or JSON
+1. Dictionary and list utilities
+1. HTML utilities (inc. BeautifulSoup helper)
+1. Compare files (eg. for testing)
+1. Simple emailing
+1. Easy logging setup and error logging
+1. State utility
+1. Path utilities
+1. URL utilities
+1. Text processing
+1. Stable file hashing
+1. Matching utilities
+1. Encoding utilities
+1. Check valid UUID
+1. Easy building and packaging
+
+For more information, please read the [documentation](https://hdx-python-utilities.readthedocs.io/en/latest/).
+
+This library is part of the [Humanitarian Data Exchange](https://data.humdata.org/) (HDX) project. If you have
+humanitarian related data, please upload your datasets to HDX.

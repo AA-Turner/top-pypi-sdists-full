@@ -1,0 +1,32 @@
+[project]
+name = "avulto"
+requires-python = ">=3.12"
+authors = [
+    { name = "Warriorstar Orion", email = "orion@snowfrost.garden" }
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+dynamic = ["version", "description"]
+
+[project.urls]
+repository = "https://github.com/warriorstar-orion/avulto"
+
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[tool.cibuildwheel]
+build = ["cp312-*", "cp313-*"]
+archs = "AMD64"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+sdist-include = ["LICENSE", "README.md"]
+
+[dependency-groups]
+dev = [
+    "ipython>=8.37.0",
+    "pillow>=12.0.0",
+    "pytest>=8.4.1",
+]

@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: orbax-export
+Version: 0.0.8
+Summary: Orbax Export
+Keywords: JAX machine learning,serialization,export
+Author-email: Orbax Authors <orbax-dev@google.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: dataclasses-json
+Requires-Dist: etils
+Requires-Dist: jax >= 0.4.34
+Requires-Dist: jaxlib
+Requires-Dist: jaxtyping
+Requires-Dist: numpy
+Requires-Dist: protobuf
+Requires-Dist: orbax-checkpoint >=0.9.0
+Requires-Dist: pytest ; extra == "testing"
+Requires-Dist: pytest-xdist ; extra == "testing"
+Requires-Dist: tf-nightly ; extra == "testing"
+Requires-Dist: requests ; extra == "testing"
+Requires-Dist: chex ; extra == "testing"
+Project-URL: homepage, http://github.com/google/orbax
+Project-URL: repository, http://github.com/google/orbax
+Provides-Extra: testing
+
+# Orbax Export
+
+`pip install orbax-export` (latest PyPi release) OR
+
+`pip install 'git+https://github.com/google/orbax/#subdirectory=export'` (from this repository, at HEAD)
+
+`import orbax.export`
+
+Orbax includes a serialization library for JAX users, enabling the exporting of JAX models to the TensorFlow SavedModel format.
+
+Note that `orbax-export` requires TensorFlow, but does not include it by default to allow for flexibility in version choice. If you wish to install with standard TensorFlow, please use `pip install orbax-export[all]`.
+
+To get started, check out our [documentation](https://orbax.readthedocs.io/en/latest/guides/export/orbax_export_101.html).
+

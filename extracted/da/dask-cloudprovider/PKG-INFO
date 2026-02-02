@@ -1,0 +1,90 @@
+Metadata-Version: 2.4
+Name: dask-cloudprovider
+Version: 2025.9.0
+Summary: Native Cloud Provider integration for Dask
+Home-page: https://github.com/dask/dask-cloudprovider
+License: BSD
+Keywords: dask,cloud,distributed
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.7.3
+Requires-Dist: dask>=2021.01.1
+Requires-Dist: distributed>=2021.01.1
+Requires-Dist: jinja2
+Requires-Dist: tornado>=5
+Provides-Extra: aws
+Requires-Dist: aiobotocore>=0.10.2; extra == "aws"
+Provides-Extra: azure
+Requires-Dist: azure-mgmt-compute>=18.0.0; extra == "azure"
+Requires-Dist: azure-mgmt-network>=16.0.0; extra == "azure"
+Requires-Dist: azure-identity; extra == "azure"
+Provides-Extra: digitalocean
+Requires-Dist: python-digitalocean>=1.15.0; extra == "digitalocean"
+Provides-Extra: gcp
+Requires-Dist: google-api-python-client>=1.12.5; extra == "gcp"
+Requires-Dist: google-auth>=1.23.0; extra == "gcp"
+Provides-Extra: hetzner
+Requires-Dist: hcloud>=1.10.0; extra == "hetzner"
+Provides-Extra: ibm
+Requires-Dist: ibm_code_engine_sdk>=3.1.0; extra == "ibm"
+Requires-Dist: kubernetes>=25.3.0; extra == "ibm"
+Provides-Extra: openstack
+Requires-Dist: openstacksdk>=3.3.0; extra == "openstack"
+Provides-Extra: nebius
+Requires-Dist: nebius>=0.2.0; extra == "nebius"
+Provides-Extra: all
+Requires-Dist: azure-mgmt-network>=16.0.0; extra == "all"
+Requires-Dist: google-api-python-client>=1.12.5; extra == "all"
+Requires-Dist: nebius>=0.2.0; extra == "all"
+Requires-Dist: python-digitalocean>=1.15.0; extra == "all"
+Requires-Dist: hcloud>=1.10.0; extra == "all"
+Requires-Dist: kubernetes>=25.3.0; extra == "all"
+Requires-Dist: openstacksdk>=3.3.0; extra == "all"
+Requires-Dist: ibm_code_engine_sdk>=3.1.0; extra == "all"
+Requires-Dist: azure-mgmt-compute>=18.0.0; extra == "all"
+Requires-Dist: google-auth>=1.23.0; extra == "all"
+Requires-Dist: azure-identity; extra == "all"
+Requires-Dist: aiobotocore>=0.10.2; extra == "all"
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+
+Dask Cloud Provider
+===================
+
+
+.. image:: https://github.com/dask/dask-cloudprovider/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/dask/dask-cloudprovider/actions?query=workflow%3ACI
+   :alt: Build Status
+
+.. image:: https://img.shields.io/readthedocs/dask-cloudprovider?color=%232980B9&logo=read-the-docs&logoColor=white
+   :target: https://cloudprovider.dask.org/
+   :alt: Read the Docs
+
+.. image:: https://img.shields.io/readthedocs/dask-cloudprovider?color=%232980B9&label=developer%20docs&logo=read-the-docs&logoColor=white
+   :target: https://cloudprovider.dask.org/releasing.html
+   :alt: Read the Docs Developer
+
+.. image:: https://img.shields.io/pypi/v/dask-cloudprovider
+   :target: https://pypi.org/project/dask-cloudprovider/
+   :alt: PyPI
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/dask-cloudprovider
+   :target: https://anaconda.org/conda-forge/dask-cloudprovider
+   :alt: Conda Forge
+
+
+Native Cloud integration for Dask.
+
+This library provides tools to enable Dask clusters to more natively integrate with the cloud.
+It includes cluster managers to create dask clusters on a given cloud provider using native resources,
+plugins to more closely integrate Dask components with the cloud platform they are running on and documentation to empower all folks running Dask on the cloud.

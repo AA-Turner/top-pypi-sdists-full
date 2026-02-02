@@ -1,0 +1,435 @@
+[project]
+name = "corvic-engine"
+requires-python = ">=3.10"
+classifiers = [
+  "Environment :: Console",
+  "License :: Other/Proprietary License",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering",
+]
+dynamic = ["version"]
+license = { file = "LICENSE" }
+authors = [
+  { name = "Corvic Team", email = "contact@corvic.ai" },
+]
+readme = "README.md"
+description = "Seamless embedding generation and retrieval."
+version = "0.2.50" # sync this with tool.poetry.version below
+
+# TODO(ddn): Pull dependencies from tool.poetry.dependencies. We use maturin as
+# the build system but poetry for the development environment.
+#
+#   https://github.com/python-poetry/poetry/issues/3332
+#
+# Dependencies here are generally looser than their Poetry counterparts so we
+# don't overimpose on users: either ">= x" or ">= 0.x" for semvar packages or
+# minor versions for notable semvar exceptions: protobuf, numpy
+dependencies = [
+  "cachetools >= 5",
+  "duckdb >= 1.0.0",
+  "more-itertools >= 10",
+  "numpy >= 1.26",
+  "polars >= 1.7.1",
+  "protobuf >= 4.25",
+  "protovalidate >= 0.3",
+  "pyarrow >= 16",
+  "sqlalchemy >= 2",
+  "sqlglot >= 25.6.0, < 26",
+  "structlog >= 24",
+  "tqdm",
+  "typing-extensions >= 4.9",
+  "umap-learn >= 0.5.5",
+  "pillow >= 10.0.0",
+]
+
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[tool.poetry]
+name = "corvic-engine"
+packages = [
+  { include = "corvic", from = "python" },
+  { include = "corvic_generated", from = "python" },
+  { include = "buf", from = "python" },
+]
+description = ""
+authors = []
+version = "0.2.50"
+
+[tool.poetry.scripts]
+check = "corvic_check.cli:main"
+
+[tool.poetry.plugins]
+
+[[tool.poetry.source]]
+name = "torch-cpu-linux"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[[tool.poetry.source]]
+name = "pypi"
+priority = "primary"
+
+[tool.poetry.dependencies]
+cachetools = "^5.3.0"
+duckdb = "^1.0.0"
+more-itertools = "^10.2.0"
+numpy = "^1.26.3"
+polars = "^1.9.0"
+# buf (which we use to generate protobuf code) doesn't yet have a plugin
+# that supports patch versions greater than 3.
+protobuf = ">=4.25.0,<4.25.4"
+protovalidate = "^0.3.1"
+pyarrow = "^16.0.0"
+python = ">=3.10,<3.13"
+sqlalchemy = "^2.0.27"
+sqlglot = "^25.8.1"
+structlog = "^24.1.0"
+tqdm = "^4.66.3"
+types-cachetools = "^5.3.0"
+typing-extensions = "^4.9.0"
+umap-learn = "^0.5.5"
+pillow = "10.4.0"
+
+[tool.poetry.group.dev.dependencies]
+click = "^8.1.7"
+click_default_group = "^1.2.4"
+codespell = "^2.2.6"
+coverage = "^7.3.1"
+grpcio = "1.62.1"
+import-linter = "^2.0"
+maturin = "^1.4.0"
+pdoc = "^14.5.1"
+pre-commit = "^4.0.0"
+pyarrow-stubs = "^10.0.1.7"
+pyright = "^1.1.374"
+pytest = "^8.1.1"
+pytest-benchmark = "^4.0.0"
+pytest-fail-slow = "^0.6.0"
+pytest-socket = "^0.7.0"
+pytest-timeout = "^2.2.0"
+ruff = "^0.6.9"
+tomli = "^2.0.1" # would use tomllib but is not available in 3.10
+hypothesis = "^6.102.4"
+yq = "^3.4.3" # includes xq for parsing xml test results
+
+[tool.poetry.group.docs.dependencies]
+sphinx-autodoc-typehints = "^2.4"
+sphinx-rtd-theme = "^3.0"
+sphinx = "^8.0.2"
+pydata-sphinx-theme = "^0.15.2"
+
+[tool.poetry.group.check-license]
+optional = true
+
+[tool.poetry.group.check-license.dependencies]
+pip-licenses = "^4.3.3"
+
+[tool.poetry.group.test.dependencies]
+fastnode2vec = "^0.0.7"
+# Gensim is broken with SciPy 1.13.0
+# https://github.com/piskvorky/gensim/issues/3525
+scipy = "<1.13.0"
+umap-learn = "^0.5.5"
+scikit-learn = "^1.4.0"
+
+[tool.poetry.group.deep_learning]
+optional = true
+
+[tool.poetry.group.deep_learning.dependencies]
+torch = [
+  { platform = "linux", version = "^2.4.0", source = "torch-cpu-linux" },
+  { platform = "darwin", version = "^2.4.0", source = "pypi" },
+]
+torch-geometric = "^2.5.3"
+deepgnn-torch = "^0.1.60"
+transformers = "^4.45.0"
+
+[tool.maturin]
+module-name = "corvic.engine._native"
+python-source = "python"
+# TODO(ddn): corvic_generated package will conflict with other corvic_generated
+# packages. Move this to an engine specific location.
+python-packages = ["corvic_generated", "buf"]
+features = ["pyo3/extension-module"]
+# Note that these includes are relative to the directory that the manifest is in
+include = [
+  "corvic_generated/*/**/*.py",
+  "corvic_generated/*/**/*.pyi",
+]
+manifest-path = "python/Cargo.toml"
+
+[tool.ruff]
+force-exclude = true
+line-length = 88
+src = ["python"]
+exclude = ["corvic_generated", "buf"]
+
+[tool.ruff.lint]
+select = [
+  "B",
+  "C",
+  "COM",
+  "D",
+  "DTZ",
+  "E",
+  "ERA",
+  "EXE",
+  "F",
+  "FA",
+  "FBT",
+  "FIX",
+  "G",
+  "I",
+  "ICN",
+  "INP",
+  "ISC002",
+  "N",
+  "NPY",
+  "PD",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PL",
+  "PLC",
+  "PLR",
+  "PT",
+  "PTH",
+  "PYI",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "SIM",
+  "SLF",
+  "SLOT",
+  "T10",
+  "T20",
+  "TD",
+  "TID",
+  "TRY",
+  "UP",
+  "W",
+  "YTT",
+]
+
+ignore = [
+  # Conflicts with ruff format
+  "COM812",
+  # Allow explicit concatenation
+  "ISC003",
+  # Having issue link with TODO is not necessary
+  "TD003",
+  # Allow TODO to exist
+  "FIX002",
+  # Do not complain about raising exception without arguments
+  "RSE102",
+  # Allow non-trivial exception messages
+  "TRY003",
+  # Allow use of print
+  "T201",
+  # Don't require docstrings on public methods
+  "D102",
+  # Don't require docstrings on public functions
+  "D103",
+  # Don't require docstrings on magic methods
+  "D105",
+  # Don't complain about __init__ method docstrings
+  "D107",
+  # Commented out code is allowed
+  "ERA001",
+  # We use `+` to concat long log messages across lines
+  "G003",
+  # Largely overlaps with C901
+  "PLR0911",
+  "PLR0912",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  # test functions, among other things, do not need docstrings
+  "D102",
+  "D103",
+  "D104",
+  # test functions can have magic constants
+  "PLR2004",
+  # test functions can access private identifiers
+  "SLF001",
+  # we don't care about importing tests
+  "INP001",
+  # test functions can have a lot of arguments
+  "PLR0913",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 8
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = true
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "corvic",
+  "corvic_check",
+  "corvic_generated",
+]
+# the automatic detection that ruff does to detect first party modules identifies
+# proto sometimes; this was causing a problem with typestub generation when it would
+# make different choices.
+known-third-party = ["proto", "rockset"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pandas".msg = "Use polars instead."
+"matplotlib".msg = "Use plotly instead."
+"seaborn".msg = "Use plotly instead."
+"langchain".msg = "Don't use langchain."
+"dynaconf".msg = "It's not worth the pain."
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+# import aliases beyond the defaults
+"pyarrow.parquet" = "pq" # this alias is used in pyarrow examples
+"sqlalchemy" = "sa" # common way to refer to sqlalchemy
+"sqlalchemy.orm" = "sa_orm" # shortening to disambiguate from corvic.orm
+
+[tool.pyright]
+include = ["python", "tests"]
+ignore = ["python/corvic_generated", "python/buf", "typings_generated"]
+typeCheckingMode = "strict"
+# Enable additional checks beyond strict
+reportCallInDefaultInitializer = "error"
+# typing.overrides will be available in Python 3.12
+# reportImplicitOverride	= "error"
+reportImplicitStringConcatenation = "error"
+reportImportCycles = "error"
+reportPropertyTypeMismatch = "error"
+reportShadowedImports = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+# Disable some checks enabled by strict because we do not require typing
+# everywhere
+reportMissingParameterType = "none"
+reportMissingTypeStubs = "none"
+stubPath = "typings_generated"
+
+[tool.pytest.ini_options]
+markers = [
+  "bench", # https://github.com/ionelmc/pytest-benchmark
+]
+xfail_strict = true
+# Tell tests where python files live
+testpaths = [
+  "tests",
+]
+# Test timeout in seconds.
+#
+# pytest-timeout preemptively kills long running tests, which can break
+# internal invariants in pytest, obscuring information about the long running
+# test and preventing pytest from completing.
+#
+# pytest-fail-slow, configured in conftest.py, fails slow tests, which provides
+# more consistent information if/when a test completes before being forcibly
+# killed.
+#
+# The slow threshold should be less than the timeout threshold.
+timeout = 60
+# pytest-socket
+addopts = "--disable-socket"
+
+[tool.coverage.run]
+branch = true
+omit = [
+  "python/corvic_generated/*",
+  "python/buf/*",
+]
+
+[tool.coverage.report]
+skip_covered = true
+
+[tool.codespell]
+skip = "**/target/*,./docs/build/*,**/typings_generated/*,./htmlcov/*,poetry.lock,./python/corvic_generated/*,./typings/*"
+
+# Hard to avoid crate in Rust
+# Sqlglot uses "ons" as a plural of on
+# fro is sometimes a constant for Frobenius norm
+ignore-words-list = "crate,ons,fro"
+
+[tool.importlinter]
+root_packages = [
+  # importlinter expects an explicit list of "portions" (corvic.clogging) of a
+  # namespace package (corvic), The completeportion contract ensures that the
+  # portions listed here match the modules defined under python/corvic (and
+  # vice versa).
+  "corvic.context",
+  "corvic.embed",
+  "corvic.embedding_metric",
+  "corvic.engine",
+  "corvic.execute",
+  "corvic.lazy_import",
+  "corvic.model",
+  "corvic.op_graph",
+  "corvic.orm",
+  "corvic.pa_scalar",
+  "corvic.proto_wrapper",
+  "corvic.result",
+  "corvic.sql",
+  "corvic.system",
+  "corvic.system_sqlite",
+  "corvic.table",
+  "corvic.version",
+  "corvic.well_known_types",
+  "corvic_check",
+  "corvic_generated",
+]
+
+# Space is significant in, <type>:<space><contract class>
+contract_types = [
+  "tshaped: corvic_check.importcontract.TShapedContract",
+  "safename: corvic_check.importcontract.SafeNameContract",
+  "completeportion: corvic_check.importcontract.CompletePortionContract",
+  "namespacelayers: corvic_check.importcontract.NamespaceLayersContract",
+]
+
+[[tool.importlinter.contracts]]
+name = "all corvic.* portions are accounted for"
+type = "completeportion"
+namespace_package = "corvic"
+local_namespace_path = "python/corvic"
+
+[[tool.importlinter.contracts]]
+name = "corvic modules have safe names"
+type = "safename"
+modules = [
+  "corvic.*",
+  "corvic_check",
+]
+local_namespace_path = "python/corvic"
+
+[[tool.importlinter.contracts]]
+name = "corvic.* is T-shaped"
+type = "tshaped"
+root = "corvic.*"
+local_namespace_path = "python/corvic"
+
+[[tool.importlinter.contracts]]
+name = "corvic_check.* is T-shaped"
+type = "tshaped"
+root = "corvic_check"

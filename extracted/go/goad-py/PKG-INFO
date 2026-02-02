@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: goad-py
+Version: 1.1.9
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Requires-Dist: numpy
+Requires-Dist: pyy
+Requires-Dist: rich
+Requires-Dist: mkdocs>=1.6.1 ; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.7.0 ; extra == 'docs'
+Requires-Dist: mkdocs-macros-plugin>=1.5.0 ; extra == 'docs'
+Requires-Dist: pymdown-extensions>=10.17.1 ; extra == 'docs'
+Requires-Dist: goad ; extra == 'keywords'
+Requires-Dist: light-scattering ; extra == 'keywords'
+Requires-Dist: optics ; extra == 'keywords'
+Requires-Dist: simulation ; extra == 'keywords'
+Requires-Dist: scientific-computing ; extra == 'keywords'
+Requires-Dist: physics ; extra == 'keywords'
+Provides-Extra: docs
+Provides-Extra: keywords
+License-File: LICENSE
+Summary: Physical optics light scattering computation
+Author-email: Harry Ballington <ballington@uni-wuppertal.de>
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://docs.rs/goad/0.1.0/goad/index.html
+Project-URL: Homepage, https://github.com/hballington12/goad
+Project-URL: Repository, https://github.com/hballington12/goad
+Project-URL: Rust Crate, https://crates.io/crates/goad
+
+<div align="center">
+
+<!-- badges: start -->
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Crates.io](https://img.shields.io/crates/v/goad)](https://crates.io/crates/goad)
+[![docs.rs](https://img.shields.io/docsrs/goad)](https://docs.rs/goad)
+[![PyPI](https://img.shields.io/pypi/v/goad-py)](https://pypi.org/project/goad-py/)
+<!-- badges: end -->
+
+</div>
+
+# GOAD - Geometric Optics with Aperture Diffraction
+
+GOAD is a Rust-based physical-optics hybrid light scattering model based on geometric optics with aperture diffraction. It computes the 2D Mueller matrix by using geometric optics and a polygon clipping algorithm to compute the electric field on the particle surface. The surface field is then mapped to the far-field on the basis of the electromagnetic equivalence theorem, which takes the form of a vector surface integral diffraction equation. Green's theorem is used to reduce the surface integral to a line integral around the contours of outgoing beam cross sections, which leads to fast computations compared to some other methods. Compared to the [PBT](https://github.com/hballington12/pbt) method, GOAD uses a beam clipping algorithm instead of ray backtracing on a meshed geometry, which makes the computation more accurate and faster if the particle has smooth planar surfaces.
+
+<div align="center">
+
+> **📖 Reference Paper**
+> If you use this code in your work, please cite:
+> [A Light Scattering Model for Large Particles with Surface Roughness](https://doi.org/10.1016/j.jqsrt.2024.109054)
+> *H. Ballington, E. Hesse*
+> [JQSRT, 2024](https://www.journals.elsevier.com/journal-of-quantitative-spectroscopy-and-radiative-transfer)
+
+</div>
+
+---
+
+For documentation, see the [wiki](https://hballington12.github.io/goad/).
+

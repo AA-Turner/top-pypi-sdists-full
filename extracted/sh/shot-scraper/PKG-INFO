@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shot-scraper
-Version: 1.9
+Version: 1.9.1
 Summary: A command-line utility for scraping and taking automated screenshots of websites
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -9,10 +9,10 @@ Requires-Dist: pyyaml
 Requires-Dist: playwright
 Requires-Dist: click-default-group
 Requires-Python: >=3.10
-Project-URL: CI, https://github.com/simonw/shot-scraper/actions
-Project-URL: Changelog, https://github.com/simonw/shot-scraper/releases
 Project-URL: Homepage, https://shot-scraper.datasette.io/
 Project-URL: Issues, https://github.com/simonw/shot-scraper/issues
+Project-URL: CI, https://github.com/simonw/shot-scraper/actions
+Project-URL: Changelog, https://github.com/simonw/shot-scraper/releases
 Description-Content-Type: text/markdown
 
 # shot-scraper

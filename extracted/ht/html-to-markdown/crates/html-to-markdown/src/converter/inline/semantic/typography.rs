@@ -52,7 +52,7 @@ pub fn handle_subscript(
     depth: usize,
     dom_ctx: &DomContext,
 ) {
-    use crate::converter::walk_node;
+    use crate::converter::{append_inline_suffix, chomp_inline, walk_node};
 
     let Some(node) = node_handle.get(parser) else { return };
 
@@ -61,29 +61,34 @@ pub fn handle_subscript(
         _ => return,
     };
 
-    if !ctx.in_code {
+    let mut content = String::with_capacity(32);
+    let children = tag.children();
+    for child_handle in children.top().iter() {
+        walk_node(child_handle, parser, &mut content, options, ctx, depth + 1, dom_ctx);
+    }
+
+    if ctx.in_code {
+        output.push_str(&content);
+        return;
+    }
+
+    let (prefix, suffix, trimmed) = chomp_inline(&content);
+    if !trimmed.is_empty() {
+        output.push_str(prefix);
         if options.output_format == OutputFormat::Djot {
+            output.push('~');
+            output.push_str(trimmed);
             output.push('~');
         } else if !options.sub_symbol.is_empty() {
             output.push_str(&options.sub_symbol);
-        }
-    }
-
-    let children = tag.children();
-    for child_handle in children.top().iter() {
-        walk_node(child_handle, parser, output, options, ctx, depth + 1, dom_ctx);
-    }
-
-    if !ctx.in_code {
-        if options.output_format == OutputFormat::Djot {
-            output.push('~');
-        } else if !options.sub_symbol.is_empty() {
+            output.push_str(trimmed);
             if options.sub_symbol.starts_with('<') && !options.sub_symbol.starts_with("</") {
                 output.push_str(&options.sub_symbol.replace('<', "</"));
             } else {
                 output.push_str(&options.sub_symbol);
             }
         }
+        append_inline_suffix(output, suffix, !trimmed.is_empty(), node_handle, parser, dom_ctx);
     }
 }
 
@@ -99,7 +104,7 @@ pub fn handle_superscript(
     depth: usize,
     dom_ctx: &DomContext,
 ) {
-    use crate::converter::walk_node;
+    use crate::converter::{append_inline_suffix, chomp_inline, walk_node};
 
     let Some(node) = node_handle.get(parser) else { return };
 
@@ -108,29 +113,34 @@ pub fn handle_superscript(
         _ => return,
     };
 
-    if !ctx.in_code {
+    let mut content = String::with_capacity(32);
+    let children = tag.children();
+    for child_handle in children.top().iter() {
+        walk_node(child_handle, parser, &mut content, options, ctx, depth + 1, dom_ctx);
+    }
+
+    if ctx.in_code {
+        output.push_str(&content);
+        return;
+    }
+
+    let (prefix, suffix, trimmed) = chomp_inline(&content);
+    if !trimmed.is_empty() {
+        output.push_str(prefix);
         if options.output_format == OutputFormat::Djot {
+            output.push('^');
+            output.push_str(trimmed);
             output.push('^');
         } else if !options.sup_symbol.is_empty() {
             output.push_str(&options.sup_symbol);
-        }
-    }
-
-    let children = tag.children();
-    for child_handle in children.top().iter() {
-        walk_node(child_handle, parser, output, options, ctx, depth + 1, dom_ctx);
-    }
-
-    if !ctx.in_code {
-        if options.output_format == OutputFormat::Djot {
-            output.push('^');
-        } else if !options.sup_symbol.is_empty() {
+            output.push_str(trimmed);
             if options.sup_symbol.starts_with('<') && !options.sup_symbol.starts_with("</") {
                 output.push_str(&options.sup_symbol.replace('<', "</"));
             } else {
                 output.push_str(&options.sup_symbol);
             }
         }
+        append_inline_suffix(output, suffix, !trimmed.is_empty(), node_handle, parser, dom_ctx);
     }
 }
 

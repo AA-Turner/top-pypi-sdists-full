@@ -1,0 +1,110 @@
+# Based on
+# <https://github.com/dandi/dandiarchive/blob/master/docker/docker-compose.yml>,
+# <https://github.com/dandi/dandi-api/blob/master/docker-compose.yml>, and
+# <https://github.com/dandi/dandi-api/blob/master/docker-compose.override.yml>,
+# but using images uploaded to Docker Hub instead of building them locally.
+
+services:
+  django:
+    image: dandiarchive/dandiarchive-api
+    command: ["./manage.py", "runserver", "--nothreading", "0.0.0.0:8000"]
+    # Log printing via Rich is enhanced by a TTY
+    tty: true
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment: &django_env
+      DJANGO_SETTINGS_MODULE: dandiapi.settings.development
+      DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
+      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
+      # The Minio URL needs to use 127.0.0.1 instead of localhost so that blob
+      # assets' "S3 URLs" will use 127.0.0.1, and thus tests that try to open
+      # these URLs via fsspec will not fail on systems where localhost is both
+      # 127.0.0.1 and ::1.
+      DJANGO_MINIO_STORAGE_URL: http://minioAccessKey:minioSecretKey@minio:9000/dandi-dandisets
+      DJANGO_MINIO_STORAGE_MEDIA_URL: http://127.0.0.1:9000/dandi-dandisets
+      # When in Docker, the bridge network sends requests from the host machine exclusively via a
+      # dedicated IP address. Since there's no way to determine the real origin address,
+      # consider any IP address (though actually this will only be the single dedicated address) to
+      # be internal. This relies on the host to set up appropriate firewalls for Docker, to prevent
+      # access from non-internal addresses.
+      DJANGO_INTERNAL_IPS: 0.0.0.0/0
+      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
+      DJANGO_DANDI_API_URL: http://localhost:8000
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DJANGO_DANDI_INSTANCE_NAME: ${DANDI_TESTS_INSTANCE_NAME:-DANDI}
+      DJANGO_DANDI_INSTANCE_IDENTIFIER: ${DANDI_TESTS_INSTANCE_IDENTIFIER:-RRID:ABC_123456}
+      DJANGO_DANDI_DOI_API_PREFIX: ${DANDI_TESTS_DOI_PREFIX:-10.80507}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  celery:
+    image: dandiarchive/dandiarchive-api
+    command: [
+      "uv",
+      "run",
+      "celery",
+      "--app", "dandiapi.celery",
+      "worker",
+      "--loglevel", "INFO",
+      "--without-heartbeat",
+      "-Q","celery,calculate_sha256,ingest_zarr_archive,manifest-worker",
+      "-c","1",
+      "-B"
+    ]
+    # Docker Compose does not set the TTY width, which causes Celery errors
+    tty: false
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      << : *django_env
+      DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
+    ulimits:
+      # https://github.com/celery/billiard/pull/417
+      nofile:
+        soft: 1000
+        hard: 3000
+
+  minio:
+    image: minio/minio:latest
+    # When run with a TTY, minio prints credentials on startup
+    tty: true
+    command: ["server", "/data"]
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      MINIO_ROOT_USER: minioAccessKey
+      MINIO_ROOT_PASSWORD: minioSecretKey
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 7s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    environment:
+      POSTGRES_DB: django
+      POSTGRES_PASSWORD: postgres
+    image: postgres
+    command: postgres -c log_lock_waits=on -c log_min_duration_statement=100
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 7s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:management
+    expose:
+      - "5672"

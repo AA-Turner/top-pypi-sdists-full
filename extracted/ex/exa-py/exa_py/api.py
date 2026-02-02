@@ -258,8 +258,8 @@ Category = Literal[
 """Data category to focus on when searching. Each category returns results specialized for that content type."""
 
 # Search type options
-SearchType = Literal["auto", "fast", "deep"]
-"""Search type that determines the search algorithm. 'auto' (default) automatically selects the best approach, 'fast' prioritizes speed, 'deep' performs comprehensive multi-query search."""
+SearchType = Literal["auto", "fast", "deep", "neural"]
+"""Search type that determines the search algorithm. 'auto' (default) automatically selects the best approach, 'fast' prioritizes speed, 'deep' performs comprehensive multi-query search, 'neural' uses embedding-based semantic search."""
 
 SEARCH_OPTIONS_TYPES = {
     "query": [str],  # The query string.
@@ -308,7 +308,7 @@ FIND_SIMILAR_OPTIONS_TYPES = {
     "contents": [dict, bool],  # Options for retrieving page contents
 }
 
-# the livecrawl options
+# Livecrawl options
 LIVECRAWL_OPTIONS = Literal["always", "fallback", "never", "auto", "preferred"]
 
 CONTENTS_OPTIONS_TYPES = {
@@ -405,11 +405,11 @@ class TextContentsOptions(TypedDict, total=False):
         include_html_tags (bool): If true, include HTML tags in the returned text. Default false.
         verbosity (VERBOSITY_OPTIONS): Controls verbosity level of returned content.
             "compact" (default): main content only; "standard": balanced; "full": all sections.
-            Requires livecrawl="always" to take effect.
+            Requires max_age_hours=0 to take effect.
         include_sections (List[SECTION_TAG]): Only include content from these semantic sections.
-            Requires livecrawl="always" to take effect.
+            Requires max_age_hours=0 to take effect.
         exclude_sections (List[SECTION_TAG]): Exclude content from these semantic sections.
-            Requires livecrawl="always" to take effect.
+            Requires max_age_hours=0 to take effect.
     """
 
     max_characters: int
@@ -464,11 +464,13 @@ class HighlightsContentsOptions(TypedDict, total=False):
 
     Attributes:
         query (str): The query string for highlight generation. Highlights will be biased towards this query.
-        num_sentences (int): The number of sentences per highlight.
-        highlights_per_url (int): The number of highlights to return per URL.
+        max_characters (int): The maximum number of characters to return for highlights. Default: None (server default).
+        num_sentences (int): Deprecated. Use max_characters instead. The number of sentences per highlight.
+        highlights_per_url (int): Deprecated. Use max_characters instead. The number of highlights to return per URL.
     """
 
     query: str
+    max_characters: int
     num_sentences: int
     highlights_per_url: int
 
@@ -497,16 +499,16 @@ class ContentsOptions(TypedDict, total=False):
     max_characters=10000 is returned by default.
 
     Attributes:
-        text: Options for text extraction, or True for defaults.
-        highlights: Options for highlight extraction, or True for defaults.
-        summary: Options for summary generation, or True for defaults.
-        context: Options for context aggregation, or True for defaults.
-        livecrawl: When to use live crawling: "always", "fallback", "never", "auto", or "preferred".
-        livecrawl_timeout: Timeout in milliseconds for live crawling.
-        max_age_hours: Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
-        subpages: Number of subpages to crawl.
-        subpage_target: Target subpage path(s) to crawl.
-        extras: Additional extraction options (links, images).
+        text (TextContentsOptions | True): Options for text extraction, or True for defaults.
+        highlights (HighlightsContentsOptions | True): Options for highlight extraction, or True for defaults.
+        summary (SummaryContentsOptions | True): Options for summary generation, or True for defaults.
+        context (ContextContentsOptions | True): Options for context aggregation, or True for defaults.
+        max_age_hours (int): Maximum age of cached content in hours. If content is older, it will be
+            fetched fresh. Special values: 0 = always fetch fresh content,
+            -1 = never fetch fresh (use cached content only). Example: 168 = fetch fresh for pages older than 7 days.
+        subpages (int): Number of subpages to crawl.
+        subpage_target (str | List[str]): Target subpage path(s) to crawl.
+        extras (ExtrasOptions): Additional extraction options (links, images).
     """
 
     text: Union[TextContentsOptions, Literal[True]]
@@ -1020,10 +1022,12 @@ class AnswerResponse:
     Attributes:
         answer (str): The generated answer.
         citations (List[AnswerResult]): A list of citations used to generate the answer.
+        cost_dollars (CostDollars, optional): The cost breakdown for this request.
     """
 
     answer: Union[str, dict[str, Any]]
     citations: List[AnswerResult]
+    cost_dollars: Optional[CostDollars] = None
 
     def __str__(self):
         output = f"Answer: {self.answer}\n\nCitations:"
@@ -1180,6 +1184,7 @@ class SearchResponse(Generic[T]):
         context (str, optional): Combined context string when requested via contents.context.
         statuses (List[ContentStatus], optional): Status list from get_contents.
         cost_dollars (CostDollars, optional): Cost breakdown.
+        search_time (float, optional): Time taken for the search in milliseconds.
     """
 
     results: List[T]
@@ -1188,6 +1193,7 @@ class SearchResponse(Generic[T]):
     context: Optional[str] = None
     statuses: Optional[List[ContentStatus]] = None
     cost_dollars: Optional[CostDollars] = None
+    search_time: Optional[float] = None
 
     def __str__(self):
         output = "\n\n".join(str(result) for result in self.results)
@@ -1195,6 +1201,8 @@ class SearchResponse(Generic[T]):
             output += f"\nContext: {self.context}"
         if self.resolved_search_type:
             output += f"\nResolved Search Type: {self.resolved_search_type}"
+        if self.search_time is not None:
+            output += f"\nSearch Time: {self.search_time}ms"
         if self.cost_dollars:
             output += f"\nCostDollars: total={self.cost_dollars.total}"
             if self.cost_dollars.search:
@@ -1386,7 +1394,7 @@ class Exa:
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            type (SearchType, optional): Search type - 'auto' (default), 'fast', or 'deep'.
+            type (SearchType, optional): Search type - 'auto' (default), 'fast', 'deep', or 'neural'.
             category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
@@ -1458,6 +1466,7 @@ class Exa:
             data["autoDate"] if "autoDate" in data else None,
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     def search_and_contents(self, query: str, **kwargs):
@@ -1542,6 +1551,7 @@ class Exa:
             data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     @overload
@@ -1614,9 +1624,9 @@ class Exa:
             urls (str | List[str] | List[Result]): A single URL, list of URLs, or list of Result objects.
             text (TextContentsOptions | True, optional): Options for text extraction.
             summary (SummaryContentsOptions | True, optional): Options for summary generation.
-            livecrawl (str, optional): Livecrawl option ('always', 'fallback', or 'never').
-            livecrawl_timeout (int, optional): Timeout for livecrawl in milliseconds.
-            max_age_hours (int, optional): Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
+            max_age_hours (int, optional): Maximum age of cached content in hours. If content is older,
+                it will be fetched fresh. Special values: 0 = always fetch fresh content,
+                -1 = never fetch fresh (cache only). Example: 168 = fetch fresh for pages older than 7 days.
             filter_empty_results (bool, optional): Whether to filter out empty results.
             subpages (int, optional): Number of subpages to retrieve.
             subpage_target (str | List[str], optional): Target subpages to retrieve.
@@ -1707,6 +1717,7 @@ class Exa:
             context=data.get("context"),
             cost_dollars=cost_dollars,
             statuses=statuses,
+            search_time=data.get("searchTime"),
         )
 
     def find_similar(
@@ -1803,6 +1814,7 @@ class Exa:
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     @overload
@@ -2018,6 +2030,7 @@ class Exa:
             data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     def wrap(self, client: OpenAI):
@@ -2234,7 +2247,8 @@ class Exa:
                     text=snake_result.get("text"),
                 )
             )
-        return AnswerResponse(response["answer"], citations)
+        cost_dollars = parse_cost_dollars(response.get("costDollars"))
+        return AnswerResponse(response["answer"], citations, cost_dollars)
 
     def stream_answer(
         self,
@@ -2405,7 +2419,7 @@ class AsyncExa(Exa):
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            type (SearchType, optional): Search type - 'auto' (default), 'fast', or 'deep'.
+            type (SearchType, optional): Search type - 'auto' (default), 'fast', 'deep', or 'neural'.
             category (Category, optional): Data category to focus on (e.g. 'company', 'news', 'research paper').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
@@ -2475,6 +2489,7 @@ class AsyncExa(Exa):
             data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     async def search_and_contents(self, query: str, **kwargs):
@@ -2559,6 +2574,7 @@ class AsyncExa(Exa):
             data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     async def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
@@ -2568,9 +2584,9 @@ class AsyncExa(Exa):
             urls (str | List[str] | List[Result]): A single URL, list of URLs, or list of Result objects.
             text (TextContentsOptions | True, optional): Options for text extraction.
             summary (SummaryContentsOptions | True, optional): Options for summary generation.
-            livecrawl (str, optional): Livecrawl option ('always', 'fallback', or 'never').
-            livecrawl_timeout (int, optional): Timeout for livecrawl in milliseconds.
-            max_age_hours (int, optional): Maximum age of indexed content in hours. If older, fetches with livecrawl. 0 = always livecrawl, -1 = never livecrawl (cache only). Cannot be used together with livecrawl.
+            max_age_hours (int, optional): Maximum age of cached content in hours. If content is older,
+                it will be fetched fresh. Special values: 0 = always fetch fresh content,
+                -1 = never fetch fresh (cache only). Example: 168 = fetch fresh for pages older than 7 days.
             filter_empty_results (bool, optional): Whether to filter out empty results.
             subpages (int, optional): Number of subpages to retrieve.
             subpage_target (str | List[str], optional): Target subpages to retrieve.
@@ -2661,6 +2677,7 @@ class AsyncExa(Exa):
             context=data.get("context"),
             cost_dollars=cost_dollars,
             statuses=statuses,
+            search_time=data.get("searchTime"),
         )
 
     async def find_similar(
@@ -2763,6 +2780,7 @@ class AsyncExa(Exa):
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     async def find_similar_and_contents(self, url: str, **kwargs):
@@ -2842,6 +2860,7 @@ class AsyncExa(Exa):
             data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
+            search_time=data.get("searchTime"),
         )
 
     async def answer(
@@ -2909,7 +2928,8 @@ class AsyncExa(Exa):
                     text=snake_result.get("text"),
                 )
             )
-        return AnswerResponse(response["answer"], citations)
+        cost_dollars = parse_cost_dollars(response.get("costDollars"))
+        return AnswerResponse(response["answer"], citations, cost_dollars)
 
     async def stream_answer(
         self,
@@ -2919,6 +2939,7 @@ class AsyncExa(Exa):
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
+        user_location: Optional[str] = None,
     ) -> AsyncStreamAnswerResponse:
         """Generate a streaming answer response.
 
@@ -2928,6 +2949,7 @@ class AsyncExa(Exa):
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+            user_location (str, optional): The user's location for location-aware answers.
 
         Returns:
             AsyncStreamAnswerResponse: An object that can be iterated over to retrieve (partial text, partial citations).

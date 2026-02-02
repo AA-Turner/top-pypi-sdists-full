@@ -1,0 +1,144 @@
+Metadata-Version: 2.1
+Name: gron
+Version: 1.4.0
+Summary: Python library to grep JSON.
+Author-email: Bastian Venthur <mail@venthur.de>
+License: MIT License
+        
+        Copyright (c) 2018 Bastian Venthur
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Documentation, https://gron.readthedocs.io/
+Project-URL: Source, https://github.com/venthur/python-gron
+Project-URL: Changelog, https://github.com/venthur/python-gron/blob/master/CHANGELOG.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: build==1.2.1; extra == "dev"
+Requires-Dist: mkdocs==1.6.0; extra == "dev"
+Requires-Dist: mkdocs-material==9.5.33; extra == "dev"
+Requires-Dist: mkdocstrings[python]==0.25.2; extra == "dev"
+Requires-Dist: mypy==1.11.1; extra == "dev"
+Requires-Dist: pytest-cov==5.0.0; extra == "dev"
+Requires-Dist: pytest==8.3.2; extra == "dev"
+Requires-Dist: ruff==0.6.2; extra == "dev"
+Requires-Dist: sphinx==8.0.2; extra == "dev"
+Requires-Dist: twine==5.1.1; extra == "dev"
+Requires-Dist: wheel==0.44.0; extra == "dev"
+
+# python-gron
+
+Make JSON grep-able, a Python implementation of
+[gron](https://github.com/tomnomnom/gron).
+
+
+## Installation
+
+`gron` is available on [PyPi](https://pypi.org/project/gron/), to install it
+use:
+
+```bash
+$ pip install gron
+```
+
+
+## Documentation
+
+The API documentation can be found
+[here](http://gron.readthedocs.io/en/latest/).
+
+
+## Usage
+
+Given a JSON file with the content:
+
+```json
+{
+  "one": 1,
+  "two": 2.2,
+  "three-b": "3",
+  "four": [1,2,3,4],
+  "five": {
+    "alpha": ["fo", "fum"],
+    "beta": {
+      "hey": "How's tricks?"
+    }
+  },
+  "abool": true,
+  "abool2": false,
+  "isnull": null,
+  "id": 66912849
+}
+```
+
+you can use `gron` like this:
+
+```bash
+$ gron tests/data/one.json
+json = {};
+json.abool = true;
+json.abool2 = false;
+json.five = {};
+json.five.alpha = [];
+json.five.alpha[0] = "fo";
+json.five.alpha[1] = "fum";
+json.five.beta = {};
+json.five.beta.hey = "How's tricks?";
+json.four = [];
+json.four[0] = 1;
+json.four[1] = 2;
+json.four[2] = 3;
+json.four[3] = 4;
+json.id = 66912849;
+json.isnull = null;
+json.one = 1;
+json.two = 2.2;
+json["three-b"] = "3";``
+```
+
+Without any arguments `gron` will read from `STDIN`:
+
+```bash
+$ cat tests/data/one.json | gron
+json = {};
+json.abool = true;
+json.abool2 = false;
+json.five = {};
+json.five.alpha = [];
+json.five.alpha[0] = "fo";
+json.five.alpha[1] = "fum";
+json.five.beta = {};
+json.five.beta.hey = "How's tricks?";
+json.four = [];
+json.four[0] = 1;
+json.four[1] = 2;
+json.four[2] = 3;
+json.four[3] = 4;
+json.id = 66912849;
+json.isnull = null;
+json.one = 1;
+json.two = 2.2;
+json["three-b"] = "3";
+```

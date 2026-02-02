@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: PyDbLite3
+Version: 3.1.1
+Summary: A lightweight database engine in Python
+Author: Bendik Rønning Opstad
+Author-email: Pierre Quentel <pierre.quentel@gmail.com>
+License: BSD
+Project-URL: Homepage, https://github.com/sdh-global/PyDbLite
+Keywords: Python,database,engine,SQLite
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENCE.txt
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: tox; extra == "dev"

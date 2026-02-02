@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cython-lint
-Version: 0.18.1
+Version: 0.19.0
 Summary: Lint Cython files
 Project-URL: Homepage, https://github.com/MarcoGorelli/cython-lint
 Project-URL: Bug Tracker, https://github.com/MarcoGorelli/cython-lint
@@ -9,7 +9,7 @@ License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: cython>=0.29.32
 Requires-Dist: pycodestyle
 Requires-Dist: tokenize-rt>=3.2.0
@@ -69,7 +69,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.18.1
+    rev: v0.19.0
     hooks:
     -   id: cython-lint
     -   id: double-quote-cython-strings
@@ -98,9 +98,9 @@ as well as the following command-line arguments:
 - ``--files`` to pass a Regex pattern with which to match files to include;
 - ``--exclude`` to pass a Regex pattern with which to match files to exclude.
 
-Configuration can be set project-wise in a `pyproject.toml` file at the root of the project.
-Here's an example `pyproject.toml`:
-```
+Configuration can be set project-wide in a `.cython-lint.toml` or `pyproject.toml` file
+at the root of the project. Here's an example:
+```toml
 [tool.cython-lint]
 max-line-length = 88
 ignore = ['E503', 'E504']

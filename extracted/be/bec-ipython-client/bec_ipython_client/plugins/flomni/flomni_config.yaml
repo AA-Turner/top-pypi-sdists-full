@@ -1,0 +1,344 @@
+feyex:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: D
+    host: mpc2844.psi.ch
+    limits:
+    - -30
+    - -1
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: -16.267
+    out: -1
+feyey:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: E
+    host: mpc2844.psi.ch
+    limits:
+    - -1
+    - -10
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: -10.467
+fheater:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: C
+    host: mpc2844.psi.ch
+    limits:
+    - -15
+    - 0
+    port: 8082
+    sign: -1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+flomni_samples:
+  description: phase plate angle
+  deviceClass: FlomniSampleStorage
+  deviceConfig: {}
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+foptx:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: B
+    host: mpc2844.psi.ch
+    limits:
+    - -17
+    - -12
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: true
+  readoutPriority: baseline
+  userParameter:
+    in: -13.761
+fopty:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: F
+    host: mpc2844.psi.ch
+    limits:
+    - 0
+    - 4
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: true
+  readoutPriority: baseline
+  userParameter:
+    in: 0.552
+    out: 0.752
+foptz:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: A
+    host: mpc2844.psi.ch
+    limits:
+    - 0
+    - 27
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: 23
+fosax:
+  description: phase plate angle
+  deviceClass: SmaractMotor
+  deviceConfig:
+    axis_Id: A
+    host: mpc2844.psi.ch
+    limits:
+    - 10.2
+    - 10.6
+    port: 3334
+    sign: -1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: 9.124
+    out: 5.3
+fosay:
+  description: phase plate angle
+  deviceClass: SmaractMotor
+  deviceConfig:
+    axis_Id: B
+    host: mpc2844.psi.ch
+    limits:
+    - -3.1
+    - -2.9
+    port: 3334
+    sign: -1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: 0.367
+fosaz:
+  description: phase plate angle
+  deviceClass: SmaractMotor
+  deviceConfig:
+    axis_Id: C
+    host: mpc2844.psi.ch
+    limits:
+    - -6
+    - -4
+    port: 3334
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+  userParameter:
+    in: 8.5
+    out: 6
+fsamroy:
+  description: phase plate angle
+  deviceClass: FuprGalilMotor
+  deviceConfig:
+    axis_Id: A
+    host: mpc2844.psi.ch
+    limits:
+    - -5
+    - 365
+    port: 8084
+    sign: -1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+fsamx:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: E
+    host: mpc2844.psi.ch
+    limits:
+    - -162
+    - 0
+    port: 8081
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: true
+  readoutPriority: baseline
+  userParameter:
+    in: -1.1
+fsamy:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: F
+    host: mpc2844.psi.ch
+    limits:
+    - 2
+    - 3.1
+    port: 8081
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: true
+  readoutPriority: baseline
+  userParameter:
+    in: 2.75
+ftracky:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: H
+    host: mpc2844.psi.ch
+    limits:
+    - 2.2
+    - 2.8
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+ftrackz:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: G
+    host: mpc2844.psi.ch
+    limits:
+    - 4.5
+    - 5.5
+    port: 8082
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+ftransx:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: C
+    host: mpc2844.psi.ch
+    limits:
+    - 0
+    - 50
+    port: 8081
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+ftransy:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: A
+    host: mpc2844.psi.ch
+    limits:
+    - -100
+    - 0
+    port: 8081
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+ftransz:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: B
+    host: mpc2844.psi.ch
+    limits:
+    - 0
+    - 145
+    port: 8081
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+ftray:
+  description: phase plate angle
+  deviceClass: FlomniGalilMotor
+  deviceConfig:
+    axis_Id: D
+    host: mpc2844.psi.ch
+    limits:
+    - -200
+    - 0
+    port: 8081
+    sign: -1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: baseline
+rtx:
+  description: flomni rt
+  deviceClass: RtFlomniMotor
+  deviceConfig:
+    axis_Id: A
+    host: mpc2844.psi.ch
+    port: 2222
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: on_request
+  userParameter:
+    low_signal: 11000
+    min_signal: 10000
+    rt_pid_voltage: -0.06219
+rty:
+  description: flomni rt
+  deviceClass: RtFlomniMotor
+  deviceConfig:
+    axis_Id: B
+    host: mpc2844.psi.ch
+    port: 2222
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: on_request
+  userParameter:
+    tomo_additional_offsety: 0
+rtz:
+  description: flomni rt
+  deviceClass: RtFlomniMotor
+  deviceConfig:
+    axis_Id: C
+    host: mpc2844.psi.ch
+    port: 2222
+    sign: 1
+  enabled: true
+  onFailure: buffer
+  readOnly: false
+  readoutPriority: on_request

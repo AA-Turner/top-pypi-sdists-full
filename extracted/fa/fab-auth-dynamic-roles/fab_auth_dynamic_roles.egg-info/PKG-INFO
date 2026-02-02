@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: fab-auth-dynamic-roles
+Version: 0.1.7
+Summary: Flask AppBuilder Authentication plugin
+Home-page: https://github.com/hyunjong-lee/fab-auth-dynamic-roles
+Author: Hyunjong Lee
+Author-email: hyunjong.lee.s@gmail.com
+License: LGPLv2+
+Download-URL: https://github.com/hyunjong-lee/fab-auth-dynamic-roles/archive/v0.1.7.tar.gz
+Project-URL: Source, https://github.com/hyunjong-lee/fab-auth-dynamic-roles
+Keywords: dynamic roles,flask appbuilder,keycloak,AzureAD,superset,AUTH_OID,AUTH_OAUTH,OAUTH,OIDC
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+License-File: LICENSE
+
+UNKNOWN
+

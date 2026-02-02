@@ -1,0 +1,135 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+sources = ["src"]
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "fieldz"
+dynamic = ["version"]
+description = "Utilities for providing compatibility with many dataclass-like libraries"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Talley Lambert", email = "talley.lambert@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD License",
+    "Typing :: Typed",
+]
+dependencies = ["typing_extensions"]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "attrs",
+    "dataclassy",
+    "msgspec",
+    "pydantic",
+    "annotated_types",
+]
+dev = ["ipython", "mypy", "pdbpp", "rich", "ruff", "hatch", "pre-commit-uv"]
+
+[project.urls]
+homepage = "https://github.com/pyapp-kit/fieldz"
+repository = "https://github.com/pyapp-kit/fieldz"
+
+
+# these let you run tests across all backends easily with:
+# hatch run test:test
+[tool.hatch.envs.test]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest"
+
+[[tool.hatch.envs.test.matrix]]
+pydantic = ["v1", "v2"]
+python = ["3.8", "3.11"]
+
+[tool.hatch.envs.test.overrides]
+matrix.pydantic.extra-dependencies = [
+    { value = "pydantic<2", if = [
+        "v1",
+    ] },
+    { value = "pydantic>=2", if = [
+        "v2",
+    ] },
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in the docstring
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TC",  # typecheck
+    "TID",  # tidy imports
+]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D401", # First line should be in imperative mood
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S", "RUF009"]
+"setup.py" = ["D"]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/"
+strict = true
+disallow_any_generics = false
+disallow_subclassing_any = false
+show_error_codes = true
+pretty = true
+
+# https://docs.pytest.org/en/6.2.x/customize.html
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+# https://coverage.readthedocs.io/en/6.4/config.html
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "\\.\\.\\.",
+    "raise NotImplementedError()",
+]
+show_missing = true
+
+[tool.coverage.run]
+source = ["fieldz"]
+
+# https://github.com/mgedmin/check-manifest#configuration
+[tool.check-manifest]
+ignore = [".pre-commit-config.yaml", "tests/**/*"]

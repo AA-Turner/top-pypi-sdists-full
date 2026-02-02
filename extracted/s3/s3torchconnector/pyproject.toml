@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools", "build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s3torchconnector"
+version = "1.4.3"
+description = "S3 connector integration for PyTorch"
+requires-python = ">=3.8,<3.14"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Utilities"
+]
+
+dependencies = [
+    "torch >= 2.0.1, != 2.5.0",
+    "s3torchconnectorclient == 1.4.3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-timeout",
+    "hypothesis",
+    "flake8",
+    "black",
+    "mypy"
+]
+
+e2e = [
+    "torchdata<=0.9.0", # we have dependency on deprecated DataPipes, which were removed in 0.10.0
+    "Pillow>=10.3.0",
+    "boto3<1.37.2", # prevent conflict caused by aiobotocore that restrict version of botocore
+    "numpy < 2",
+    "pytest-xdist",
+    "fsspec==2025.3.0; python_version == '3.8'", # pin fsspec version for Python 3.8 to prevent dataset e2e test failures
+]
+
+lightning = [
+    "lightning >= 2.0"
+]
+
+lightning-tests = [
+    "s3torchconnector[lightning]",
+    "s3fs",
+    "torchmetrics != 1.7.0, != 1.7.1", # version 1.7.0 and 1.7.1 breaks lightning checkpoints e2e tests during "lightning" module import
+]
+
+dcp = [
+    "tenacity",
+    "torch >= 2.3, != 2.5.0",
+]
+
+dcp-test = [
+    "s3torchconnector[dcp]",
+    "pytest",
+    "importlib_metadata; python_version == '3.9'",
+]
+
+[tool.setuptools.packages]
+# Pure Python packages/modules
+find = { where = ["src"] }
+
+[tool.setuptools]
+license-files = ["LICENSE", "THIRD-PARTY-LICENSES", "NOTICE"]

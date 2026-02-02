@@ -1,0 +1,18 @@
+[package]
+name = "fm-index"
+version = "2.3.0"
+edition = "2024"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "fm_index"
+crate-type = ["cdylib"]
+
+[dependencies]
+num-integer = "0.1"
+num-traits = "0.2"
+postcard = { version = "1.0", features = ["alloc"] }
+pyo3 = "0.27"
+rayon = "1.11"
+serde = { version = "1.0", features = ["derive"] }

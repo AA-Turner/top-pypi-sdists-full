@@ -1,0 +1,49 @@
+Metadata-Version: 2.2
+Name: google_sheet_writer
+Version: 0.0.7
+Summary: Easy wrapper around gspread and gspread-formatting
+Home-page: https://gitlab.com/peczony/google_sheet_writer
+Author: Alexander Pecheny
+Author-email: ap@pecheny.me
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: gspread
+Requires-Dist: gspread-formatting
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
+
+# google_sheet_writer
+
+**google_sheet_writer** is an object-oriented wrapper around (amazing!) [gspread](https://github.com/burnash/gspread) and [gspread_formatting](https://github.com/robin900/gspread-formatting) that allows to programmatically create Google Sheets tables in an easy way.
+
+On top of being convenient, it strives to minimize the amount of requests to save API quota.
+
+Install in development mode: `pip install -e .`
+
+See examples in `examples` folder.
+
+The examples assume `United Kingdom` spreadsheet locale (can be changed in `File → Settings` **prior to launching generation script**). Other locales (e.g. `Russia`) might not work.
+
+
+## Version history
+
+### v0.0.7
+
+- After successfully finishing table generation, a link to the table is printed to the console
+
+### v0.0.6
+
+- Raise exception if users tries to set cursor's x/y attributes to floats
+
+### v0.0.5
+
+- Added support for older pythons (3.9 and newer)

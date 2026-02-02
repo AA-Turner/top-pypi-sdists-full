@@ -1,0 +1,156 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "indent"
+dynamic = ["version"]
+description = "Indent is an AI Pair Programmer"
+authors = [{ name = "Sashank Thupukari", email = "sashank@exponent.run" }]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "async-timeout>=4.0.3,<5 ; python_version < '3.11'",
+    "aiohttp>=3.13.2,<3.14",
+    "click>=8.1.7,<9",
+
+    "gitignore-parser>=0.1.11,<0.2",
+    "gql[httpx, websockets]~=4.0",
+    "httpx>=0.28.1",
+    "ipykernel>=6.29.4,<7",
+    "jupyter-client>=8.6.1,<8.9",
+    "packaging~=24.1",
+
+    "psutil>=5.9.0,<7",
+    "pydantic[email]>=2.6.4,<3",
+    "pydantic-settings>=2.2.1,<3",
+    "pydantic-ai>=0.0.30,<2",
+    "pygit2>=1.15.0,<1.20",
+    "questionary>=2.0.1,<2.2",
+
+    "rich>=13.7.1,<15",
+    "sentry-sdk>=2.1.1,<3",
+
+    "websockets~=15.0",
+    "anyio>=4.6.0,<4.13",
+    "python-ripgrep>=0.0.9",
+    "certifi>=2024.8.30,<2027",
+
+    "pip>=25.0.1,<26",
+    "colour>=0.1.5,<0.2",
+    "beautifulsoup4[chardet]>=4.13.4,<4.15",
+    "msgspec>=0.19.0,<0.21",
+
+    "pyyaml>=6.0.2,<6.1",
+]
+
+[project.scripts]
+indent = "exponent.cli:cli"
+
+[dependency-groups]
+dev = [
+    "ariadne-codegen[subscriptions]>=0.17.0,<0.18",
+    "coverage>=7.6.1,<8",
+    "freezegun>=1.5.1,<2",
+    "pytest>=8.3.3,<9",
+    "pytest-asyncio>=0.24.0,<1.3",
+    "pytest-cov>=5.0.0,<6",
+    "pytest-httpx>=0.31.0",
+    "pytest-xdist>=3.6.1,<4",
+    "types-passlib>=1.7.7.20240819,<2",
+    "requests>=2.0.0,<3",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["exponent"]
+
+[tool.hatch.build.targets.wheel]
+include = ["exponent"]
+
+[tool.pytest.ini_options]
+# ignore unnecessary folders to increase test discovery speed
+norecursedirs = ".git .github client"
+# execution options, we are skipping markers here.
+addopts = "-vv -m 'not system_prompts' -W 'ignore:_type_definition is deprecated:UserWarning:strawberry.utils.deprecations'"
+# with this setting on, async tests will be automatically wrapped in @pytest.mark.asyncio
+asyncio_mode = "auto"
+# required for pytest >9 compatibility
+asyncio_default_fixture_loop_scope = "session"
+# test discovery paths, reduces startup time
+testpaths = [
+    "python_modules/exponent_server/exponent_server_tests",
+    "python_modules/exponent/exponent_tests",
+]
+# env variables
+env = [
+    "ENVIRONMENT=test",
+    "USE_OPENROUTER=false",
+    "JUPYTER_PLATFORM_DIRS=1", # This is needed to silence a warning from jupyter_client
+    "LANGFUSE_SECRET_KEY=",
+    "LANGFUSE_PUBLIC_KEY=",
+    "MODEL_API_KEYS__OPENAI_API_KEY=abc123",
+    "MODEL_API_KEYS__ANTHROPIC_API_KEY=abc123",
+    "MODEL_API_KEYS__OPENROUTER_API_KEY=abc123",
+    "RATE_LIMIT_CONFIG__ENABLED=true",
+    "MORPH_API_KEY=abc123",
+]
+# custom markers, can be used with `@pytest.mark.<key>`
+markers = [
+    "system_prompts: marks local generation script (select with '-m system_prompts')",
+]
+# filter warnings raised by 3rd party libraries
+filterwarnings = [
+    "ignore::DeprecationWarning:pydantic",
+    # OpenTelemetry 1.39+ deprecated EventLogger/EventLoggerProvider in favor of Logger/LoggerProvider.
+    # These warnings come from opentelemetry-api internals (transitive dep of ddtrace/pydantic-ai-slim)
+    # and will resolve when those packages update their OpenTelemetry usage.
+    "ignore:You should use:DeprecationWarning",
+]
+
+[tool.coverage.run]
+# handle forms of concurrency
+# greenlet is needed for SQLAlchemy async sessions and asyncio-based code
+concurrency = ["thread", "multiprocessing", "greenlet"]
+parallel = true
+# provides sensible defaults for coverage reporting
+plugins = ["covdefaults"]
+# code paths to omit from the coverage report. This ensures that coverage measurement is precise.
+omit = ["python_modules/exponent/exponent/exponent_tests/*", "python_modules/exponent_server/exponent_server/exponent_server_tests/*", "python_modules/exponent_server/alembic/*"]
+# sources from which to gather coverage
+source = ["python_modules/exponent", "python_modules/exponent_server"]
+
+[tool.coverage.report]
+exclude_lines = [
+    # code blocks starting with the following pragamas will be ignores:
+    'if TYPE_CHECKING:',
+]
+# threshold underwhich to fail tests. This is equal to running the command in the CLI with `--cov-fail-under=75`
+fail_under = 75
+
+[tool.mypy]
+python_version = "3.12"
+show_error_codes = true
+strict = true
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+exclude_gitignore = true
+
+[tool.hatch.version]
+source = "code"
+path = "./version.py"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "exponent/__init__.py"
+
+[tool.ariadne-codegen]
+schema_path = "../../schema.graphql"
+queries_path = "exponent/core/graphql/operations"
+target_package_path = "exponent/core/graphql"
+target_package_name = "generated_client"
+client_name = "IndentGraphQLClient"
+base_client_name = "AsyncBaseClient"
+base_client_file_path = "exponent/core/graphql/base_client.py"
+include_all_inputs = false
+include_all_enums = false
+convert_to_snake_case = true
+async_client = true
+

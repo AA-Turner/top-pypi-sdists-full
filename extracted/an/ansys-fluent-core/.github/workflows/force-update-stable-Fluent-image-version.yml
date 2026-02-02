@@ -1,0 +1,61 @@
+name: Force update stable Fluent image version
+
+on:
+  #pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+  issues: read
+
+env:
+  ANSYSLMD_LICENSE_FILE: ${{ format('1055@{0}', secrets.LICENSE_SERVER) }}
+  MAIN_PYTHON_VERSION: "3.10"
+  FLUENT_IMAGE_TAG: v26.1.latest
+  FLUENT_VERSION: 261
+
+jobs:
+  test:
+    name: Update latest Fluent image
+    runs-on: [self-hosted, pyfluent]
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ansys-bot
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Fluent docker image
+        run: make docker-pull
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_IMAGE_TAG }}
+
+      - name: Cleanup previous docker containers
+        if: always()
+        run: make cleanup-previous-docker-containers
+
+      - name: Update Fluent image
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADMIN_ACCESS_TOKEN }}
+          IMAGE_TAG: ${{ env.FLUENT_IMAGE_TAG }}
+        if: github.ref == 'refs/heads/main'
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/ansys/fluent:${IMAGE_TAG} | sed 's/.*@//')
+          gh variable set FLUENT_STABLE_IMAGE_DEV --body $DIGEST
+
+      - name: Remove all docker images
+        if: always()
+        run: make docker-clean-images

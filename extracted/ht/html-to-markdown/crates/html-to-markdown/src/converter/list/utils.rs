@@ -157,9 +157,16 @@ pub fn add_list_continuation_indent(
     let indent_level = calculate_list_continuation_indent(list_depth);
     let indent_char = match options.list_indent_type {
         ListIndentType::Tabs => "\t",
-        ListIndentType::Spaces => &" ".repeat(options.list_indent_width),
+        ListIndentType::Spaces => {
+            for _ in 0..options.list_indent_width {
+                output.push(' ');
+            }
+            return;
+        }
     };
-    output.push_str(&indent_char.repeat(indent_level));
+    for _ in 0..indent_level {
+        output.push_str(indent_char);
+    }
 }
 
 /// Calculate the indentation string for list continuations based on depth and options.
@@ -169,10 +176,19 @@ pub fn continuation_indent_string(list_depth: usize, options: &ConversionOptions
         return None;
     }
 
-    let indent = match options.list_indent_type {
-        ListIndentType::Tabs => "\t".repeat(indent_level),
-        ListIndentType::Spaces => " ".repeat(options.list_indent_width * indent_level),
-    };
+    let mut indent = String::new();
+    match options.list_indent_type {
+        ListIndentType::Tabs => {
+            for _ in 0..indent_level {
+                indent.push('\t');
+            }
+        }
+        ListIndentType::Spaces => {
+            for _ in 0..(options.list_indent_width * indent_level) {
+                indent.push(' ');
+            }
+        }
+    }
     Some(indent)
 }
 

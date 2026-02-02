@@ -54,51 +54,59 @@ async function activate(context) {
         // Get configuration
         const config = vscode.workspace.getConfiguration('cssl');
         const pythonPath = config.get('pythonPath', 'python');
-        const showOutput = config.get('showOutput', true);
+        const useTerminal = config.get('runInTerminal', true);
 
-        // Show output channel
-        if (showOutput) {
-            outputChannel.show(true);
-        }
-
-        outputChannel.clear();
-        outputChannel.appendLine(`[CSSL] Running: ${path.basename(filePath)}`);
-        outputChannel.appendLine(`[CSSL] Path: ${filePath}`);
-        outputChannel.appendLine('\u2500'.repeat(50));
-
-        // Run the CSSL file using includecpp cssl run
-        const args = ['-m', 'includecpp', 'cssl', 'run', filePath];
-
-        const childProcess = spawn(pythonPath, args, {
-            cwd: path.dirname(filePath),
-            env: { ...process.env }
-        });
-
-        let hasError = false;
-
-        childProcess.stdout.on('data', (data) => {
-            outputChannel.append(data.toString());
-        });
-
-        childProcess.stderr.on('data', (data) => {
-            hasError = true;
-            outputChannel.append(data.toString());
-        });
-
-        childProcess.on('close', (code) => {
-            outputChannel.appendLine('');
-            outputChannel.appendLine('\u2500'.repeat(50));
-            if (code === 0) {
-                outputChannel.appendLine(`[CSSL] Finished successfully`);
-            } else {
-                outputChannel.appendLine(`[CSSL] Exited with code: ${code}`);
+        if (useTerminal) {
+            // Run in integrated terminal (supports ANSI colors)
+            const terminalName = `CSSL: ${path.basename(filePath)}`;
+            // Reuse existing CSSL terminal or create new one
+            let terminal = vscode.window.terminals.find(t => t.name === terminalName);
+            if (!terminal) {
+                terminal = vscode.window.createTerminal({
+                    name: terminalName,
+                    cwd: path.dirname(filePath)
+                });
             }
-        });
+            terminal.show();
+            terminal.sendText(`${pythonPath} -m includecpp cssl run "${filePath}"`);
+        } else {
+            // Fallback: run in output channel (no ANSI color support)
+            outputChannel.show(true);
+            outputChannel.clear();
+            outputChannel.appendLine(`[CSSL] Running: ${path.basename(filePath)}`);
+            outputChannel.appendLine(`[CSSL] Path: ${filePath}`);
+            outputChannel.appendLine('\u2500'.repeat(50));
 
-        childProcess.on('error', (err) => {
-            outputChannel.appendLine(`[CSSL] Error: ${err.message}`);
-            vscode.window.showErrorMessage(`Failed to run CSSL: ${err.message}. Make sure IncludeCPP is installed (pip install includecpp).`);
-        });
+            const args = ['-m', 'includecpp', 'cssl', 'run', filePath];
+
+            const childProcess = spawn(pythonPath, args, {
+                cwd: path.dirname(filePath),
+                env: { ...process.env }
+            });
+
+            childProcess.stdout.on('data', (data) => {
+                outputChannel.append(data.toString());
+            });
+
+            childProcess.stderr.on('data', (data) => {
+                outputChannel.append(data.toString());
+            });
+
+            childProcess.on('close', (code) => {
+                outputChannel.appendLine('');
+                outputChannel.appendLine('\u2500'.repeat(50));
+                if (code === 0) {
+                    outputChannel.appendLine(`[CSSL] Finished successfully`);
+                } else {
+                    outputChannel.appendLine(`[CSSL] Exited with code: ${code}`);
+                }
+            });
+
+            childProcess.on('error', (err) => {
+                outputChannel.appendLine(`[CSSL] Error: ${err.message}`);
+                vscode.window.showErrorMessage(`Failed to run CSSL: ${err.message}. Make sure IncludeCPP is installed (pip install includecpp).`);
+            });
+        }
     });
 
     // Register restart server command
@@ -209,7 +217,11 @@ async function startLanguageServer(context) {
         // Register for CSSL files
         documentSelector: [
             { scheme: 'file', language: 'cssl' },
-            { scheme: 'untitled', language: 'cssl' }
+            { scheme: 'untitled', language: 'cssl' },
+            { scheme: 'file', language: 'cssl-mod' },
+            { scheme: 'untitled', language: 'cssl-mod' },
+            { scheme: 'file', language: 'cssl-pl' },
+            { scheme: 'untitled', language: 'cssl-pl' }
         ],
         synchronize: {
             // Watch for .cssl files
@@ -256,9 +268,6 @@ async function startLanguageServer(context) {
         // Start the client
         await languageClient.start();
         serverOutputChannel.appendLine('[LSP] CSSL Language Server started successfully');
-
-        // Register client with context for cleanup
-        context.subscriptions.push(languageClient);
     } catch (error) {
         serverOutputChannel.appendLine(`[LSP] Failed to start Language Server: ${error.message}`);
         serverOutputChannel.appendLine('[LSP] Make sure IncludeCPP is installed: pip install includecpp');
@@ -288,14 +297,19 @@ async function startLanguageServer(context) {
  */
 async function stopLanguageServer() {
     if (languageClient) {
+        const oldClient = languageClient;
+        languageClient = null;
         serverOutputChannel.appendLine('[LSP] Stopping CSSL Language Server...');
         try {
-            await languageClient.stop();
+            await oldClient.stop();
             serverOutputChannel.appendLine('[LSP] Language Server stopped');
         } catch (error) {
             serverOutputChannel.appendLine(`[LSP] Error stopping server: ${error.message}`);
+            // Force dispose if stop timed out
+            try {
+                oldClient.dispose();
+            } catch (_) {}
         }
-        languageClient = null;
     }
 }
 
@@ -303,7 +317,9 @@ async function stopLanguageServer() {
  * Deactivate the extension
  */
 async function deactivate() {
-    await stopLanguageServer();
+    try {
+        await stopLanguageServer();
+    } catch (_) {}
 
     if (outputChannel) {
         outputChannel.dispose();

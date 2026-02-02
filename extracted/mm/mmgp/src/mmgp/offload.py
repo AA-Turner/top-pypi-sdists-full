@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.7.2 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.7.3 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -79,6 +79,8 @@ from .quant_router import (
     sd_split_linear,
     split_linear_modules,
     split_fused_weights,
+    get_extension_handler,
+    normalize_extension_path,
 )
 from optimum.quanto import freeze,  qfloat8, qint4 , qint8, quantize, QModuleMixin, QLinear, QTensor,  quantize_module, register_qmodule
 # support for Embedding module quantization that is not supported by default by quanto
@@ -104,40 +106,34 @@ def cudacontext(device):
         return wrapper
     return decorator
 
+    return _orig_get_parameter_device(parameter)
+
+try:
+    import transformers.modeling_utils as mu # Transfomers v4
+    _orig_get_parameter_device = mu.get_parameter_device
+    def _patched_get_parameter_device(parameter):
+        forced = getattr(parameter, "_force_device", None)
+        if forced is not None:
+            return torch.device(forced)
+        return _orig_get_parameter_device(parameter)    
+    mu.get_parameter_device = _patched_get_parameter_device	
+except:
+    pass
+
+try:
+    import transformers.modeling_utils as mu # Transfomers v5
+    _orig_device = mu.ModuleUtilsMixin.device.fget
+    def _device(self):
+        forced = getattr(self, "_force_device", None)
+        if forced is not None:
+            return torch.device(forced)
+        return _orig_device(self)    
+    mu.ModuleUtilsMixin.device = property(_device)
+except:
+    pass
+
 
 shared_state = {}
-_FILE_EXTENSION_HANDLERS = {}
-
-
-def register_file_extension(extension, handler):
-    if not extension or handler is None:
-        return
-    ext = str(extension).lower()
-    if ext.startswith("."):
-        ext = ext[1:]
-    if not ext:
-        return
-    _FILE_EXTENSION_HANDLERS[ext] = handler
-
-
-def _get_extension_handler(file_path):
-    if not isinstance(file_path, str):
-        return None
-    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
-    if not ext:
-        return None
-    return _FILE_EXTENSION_HANDLERS.get(ext)
-
-
-def _normalize_extension_path(file_path):
-    handler = _get_extension_handler(file_path)
-    if handler is None:
-        return file_path
-    normalizer = getattr(handler, "normalize", None)
-    if not callable(normalizer):
-        ext = os.path.splitext(file_path)[1].lower().lstrip(".")
-        raise Exception(f"Missing normalize for *.{ext} handler")
-    return normalizer(file_path)
 
 def get_cache(cache_name):
     all_cache = shared_state.get("_cache",  None)
@@ -829,7 +825,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.2) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.3) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1561,7 +1557,7 @@ def fast_load_transformers_model(model_path: str,  do_quantize = False, quantiza
         model_path = [model_path]
 
 
-    if not builtins.all(file_name.endswith(".sft") or file_name.endswith(".safetensors") or file_name.endswith(".pt") or file_name.endswith(".ckpt") or _get_extension_handler(file_name) is not None for file_name in model_path):
+    if not builtins.all(file_name.endswith(".sft") or file_name.endswith(".safetensors") or file_name.endswith(".pt") or file_name.endswith(".bin") or file_name.endswith(".ckpt") or get_extension_handler(file_name) is not None for file_name in model_path):
         raise Exception(f"File Extension of file {model_path} is not supported")
 
     model_path = [ _get_model(file) for file in model_path] 
@@ -1766,7 +1762,10 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
     """
     Load a model, detect if it has been previously quantized using quanto and do the extra setup if necessary
     """
-
+    if isinstance(preprocess_sd, dict):
+        preprocess_fn = lambda sd, qm, twm: map_state_dict([sd, qm, twm], rules=preprocess_sd)
+    else:
+        preprocess_fn = preprocess_sd 
     if not isinstance(file_path, list):
         file_path = [file_path]
 
@@ -1783,7 +1782,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
         else:
             resolved = _get_model(file)
             if isinstance(resolved, str):
-                resolved = _normalize_extension_path(resolved)
+                resolved = normalize_extension_path(resolved)
             normalized_paths.append(resolved)
     file_path = normalized_paths
     if any(file is None for file in file_path):
@@ -1816,8 +1815,8 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
                 raise Exception("Expected a tuple of (state_dict, quantization_map, tied_weights_map)")
         elif isinstance(file, dict):
             state_dict = file
-        elif isinstance(file, str) and _get_extension_handler(file) is not None:
-            ext_handler = _get_extension_handler(file)
+        elif isinstance(file, str) and get_extension_handler(file) is not None:
+            ext_handler = get_extension_handler(file)
             load_fn = getattr(ext_handler, "load_state_dict", None)
             if not callable(load_fn):
                 ext = os.path.splitext(file)[1].lower().lstrip(".")
@@ -1871,10 +1870,10 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
                 with open(quantization_map_path, 'r') as f:
                     quantization_map = json.load(f)
 
-        if preprocess_sd != None:
-            num_params = len(inspect.signature(preprocess_sd).parameters)
-            state_dict = preprocess_sd(*[state_dict, quantization_map, tied_weights_map][:num_params])
-            if isinstance(state_dict, tuple):
+        if preprocess_fn != None:
+            num_params = len(inspect.signature(preprocess_fn).parameters)
+            state_dict = preprocess_fn(*[state_dict, quantization_map, tied_weights_map][:num_params])
+            if isinstance(state_dict, (tuple,list)):
                 if len(state_dict)==2: 
                     state_dict, quantization_map = state_dict
                 else:
@@ -1927,7 +1926,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
     if postprocess_sd != None:
         num_params = len(inspect.signature(postprocess_sd).parameters)
         state_dict = postprocess_sd(*[state_dict, quantization_map, tied_weights_map][:num_params])
-        if isinstance(state_dict, tuple):
+        if isinstance(state_dict, (tuple,list)):
             if len(state_dict)==2: 
                 state_dict, quantization_map = state_dict
             else:
@@ -3280,6 +3279,7 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
     #  Hook forward methods of modules 
     for model_id in models: 
         current_model: torch.nn.Module = models[model_id] 
+        current_model._force_device= "cuda"
         towers_names, towers_modules = _detect_main_towers(current_model)
         compilationInThisOne = compileAllModels or model_id in modelsToCompile 
                 

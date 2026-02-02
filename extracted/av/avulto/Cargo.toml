@@ -1,0 +1,33 @@
+[package]
+name = "avulto"
+version = "0.2.6"
+edition = "2024"
+authors = ["Warriorstar Orion <orion@snowfrost.garden>"]
+rust-version = "1.86.0"
+description = "A Python API for working with BYOND projects."
+readme = "README.md"
+
+[lib]
+name = "avulto"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.27.1"
+itertools = "0.14.0"
+lodepng = "3.7.0"
+ndarray = "0.15.6"
+dmi = "0.3.4"
+image = "0.25.2"
+regex = "1.10.3"
+lazy_static = "1.4"
+oxipng = "9.1.5"
+
+[dependencies.dreammaker]
+git = "https://github.com/SpaceManiac/SpacemanDMM"
+tag = "suite-1.11"
+package = "dreammaker"
+
+[dependencies.dmm_tools]
+git = "https://github.com/SpaceManiac/SpacemanDMM"
+tag = "suite-1.11"
+package = "dmm-tools"

@@ -1,0 +1,96 @@
+name: Test Run Solvermode Weekly
+
+on:
+  schedule: # UTC at 0800 on Sunday
+    - cron: "0 8 * * SUN"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+  issues: read
+
+env:
+  ANSYSLMD_LICENSE_FILE: ${{ format('1055@{0}', secrets.LICENSE_SERVER) }}
+  PYFLUENT_TIMEOUT_FORCE_EXIT: 30
+  PYTEST_XDIST_AUTO_NUM_WORKERS: 1
+  PYFLUENT_LAUNCH_CONTAINER: 1
+  PYFLUENT_LOGGING: "DEBUG"
+  PYFLUENT_WATCHDOG_DEBUG: "OFF"
+  PYFLUENT_HIDE_LOG_SECRETS: 1
+  FLUENT_IMAGE_TAG: v25.2.0
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  test:
+    name: Unit Testing
+    runs-on: [self-hosted, pyfluent]
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/pip
+          key: Python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            Python-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+      - name: Add version information
+        run: make version-info
+
+      - name: Install pyfluent
+        run: make install
+
+      - name: Retrieve PyFluent version
+        run: |
+          echo "PYFLUENT_VERSION=$(python -c "from ansys.fluent.core import __version__; print(); print(__version__)" | tail -1)" >> $GITHUB_OUTPUT
+          echo "PYFLUENT version is: $(python -c "from ansys.fluent.core import __version__; print(); print(__version__)" | tail -1)"
+        id: version
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ansys-bot
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull 25.2 Fluent docker image
+        run: make docker-pull
+        env:
+          FLUENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+
+      - name: Run 25.2 API codegen
+        run: make api-codegen
+
+      - name: Print 25.2 Fluent version info
+        run: |
+          cat src/ansys/fluent/core/generated/fluent_version_251.py
+          python -c "from ansys.fluent.core.generated.solver.settings_251 import SHASH; print(f'SETTINGS_HASH = {SHASH}')"
+
+      - name: Install again after codegen
+        run: |
+          rm -rf dist
+          make install > /dev/null
+
+      - name: 25.2 Unit Testing
+        run: |
+          make install-test
+          make unittest-solvermode-251
+
+      - name: Cleanup previous docker containers
+        if: always()
+        run: make cleanup-previous-docker-containers
+
+      - name: Remove all docker images
+        if: always()
+        run: make docker-clean-images

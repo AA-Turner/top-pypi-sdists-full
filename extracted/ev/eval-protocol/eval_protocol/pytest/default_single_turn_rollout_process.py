@@ -1,0 +1,246 @@
+import asyncio
+import json
+import logging
+import os
+import time
+from dataclasses import asdict, is_dataclass
+from types import SimpleNamespace
+from typing import Any, List
+
+import litellm
+from litellm import acompletion
+from litellm.types.utils import ModelResponse, Choices
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+
+from eval_protocol.dataset_logger import default_logger
+from eval_protocol.models import EvaluationRow, Message
+from openai.types import CompletionUsage
+from eval_protocol.pytest.rollout_processor import RolloutProcessor
+from eval_protocol.pytest.types import RolloutProcessorConfig
+from eval_protocol.pytest.utils import normalize_fireworks_model_for_litellm
+
+logger = logging.getLogger(__name__)
+
+
+def _serialize_logprobs(logprobs: Any) -> Any:
+    """Best-effort conversion of provider logprobs into JSON-serializable data."""
+
+    if logprobs is None:
+        return None
+    if hasattr(logprobs, "model_dump"):
+        try:
+            return logprobs.model_dump()
+        except Exception:
+            pass
+    if is_dataclass(logprobs) and not isinstance(logprobs, type):
+        return asdict(logprobs)
+    if isinstance(logprobs, SimpleNamespace):
+        return vars(logprobs)
+    if isinstance(logprobs, dict):
+        return logprobs
+    try:
+        return json.loads(json.dumps(logprobs, default=lambda o: getattr(o, "__dict__", str(o))))
+    except Exception:
+        return logprobs
+
+
+class SingleTurnRolloutProcessor(RolloutProcessor):
+    """Single turn rollout processor for direct LLM calls."""
+
+    def __init__(self, *, drop_trailing_assistant_messages: bool = True) -> None:
+        """
+        Args:
+            drop_trailing_assistant_messages: When True (default), strip any trailing
+                assistant messages from the input conversation before calling the model.
+                This helps when datasets include previous assistant turns and you want
+                the model to answer the latest user query.
+        """
+        self.drop_trailing_assistant_messages = drop_trailing_assistant_messages
+
+    def __call__(self, rows: List[EvaluationRow], config: RolloutProcessorConfig) -> List[asyncio.Task[EvaluationRow]]:
+        """Generate single turn rollout tasks and return them for external handling."""
+        # Do not modify global LiteLLM cache. Disable caching per-request instead.
+
+        async def process_row(row: EvaluationRow) -> EvaluationRow:
+            """Process a single row asynchronously."""
+            start_time = time.perf_counter()
+
+            if len(row.messages) == 0:
+                raise ValueError("Messages is empty. Please provide a non-empty dataset")
+
+            # Optionally drop trailing assistant messages for single-turn prompts
+            messages_for_request: List[Message] = list(row.messages)
+            if self.drop_trailing_assistant_messages:
+                while messages_for_request and messages_for_request[-1].role == "assistant":
+                    messages_for_request.pop()
+
+            # Filter out fields that are not supported by OpenAI/LiteLLM APIs (e.g., weight, control_plane_step, reasoning_content)
+            # Use the Message class method that excludes unsupported fields
+            messages_payload = [message.dump_mdoel_for_chat_completion_request() for message in messages_for_request]
+
+            # Normalize Fireworks model names for LiteLLM routing
+            completion_params = normalize_fireworks_model_for_litellm(config.completion_params) or {}
+            row.input_metadata.completion_params = completion_params
+            request_params = {"messages": messages_payload, **completion_params}
+            # Ensure caching is disabled only for this request (review feedback)
+            request_params["cache"] = {"no-cache": True}
+
+            api_base = os.getenv("EP_LLM_API_BASE") or os.getenv("EP_LLM_BASE_URL")
+            if api_base and "api_base" not in request_params:
+                request_params["api_base"] = api_base
+            # Single-level reasoning effort: expect `reasoning_effort` only
+            effort_val = None
+
+            if "reasoning_effort" in completion_params and completion_params["reasoning_effort"] is not None:
+                effort_val = str(completion_params["reasoning_effort"])  # flat shape
+            elif (
+                isinstance(completion_params.get("extra_body"), dict)
+                and "reasoning_effort" in completion_params["extra_body"]
+                and completion_params["extra_body"]["reasoning_effort"] is not None
+            ):
+                # Accept if user passed it directly inside extra_body
+                effort_val = str(completion_params["extra_body"]["reasoning_effort"])  # already in extra_body
+
+            if effort_val:
+                # Always under extra_body so LiteLLM forwards to provider-specific param set
+                request_params.setdefault("extra_body", {})
+                request_params["extra_body"]["reasoning_effort"] = effort_val
+                # Ensure unsupported top-level keys are not present
+                if "reasoning_effort" in request_params:
+                    request_params.pop("reasoning_effort", None)
+
+            # Handle raw_output - move to extra_body so LiteLLM forwards it
+            if "raw_output" in request_params:
+                request_params.setdefault("extra_body", {})
+                request_params["extra_body"]["raw_output"] = request_params.pop("raw_output")
+
+            if row.tools is not None:
+                request_params["tools"] = row.tools
+
+            if request_params.get("stream") is True:
+                chunks = []
+                stream = await acompletion(**request_params)
+
+                assert isinstance(stream, CustomStreamWrapper), "Stream should be a CustomStreamWrapper"
+
+                async for chunk in stream:  # pyright: ignore[reportGeneralTypeIssues]
+                    chunks.append(chunk)
+                response = litellm.stream_chunk_builder(chunks, messages_payload)
+            else:
+                response = await acompletion(**request_params)
+
+            assert response is not None, "Response is None"
+            assert isinstance(response, ModelResponse), "Response should be ModelResponse"
+            assert isinstance(response.choices[0], Choices), "Response choice should be a Choices"
+
+            assistant_message = response.choices[0].message
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
+            assistant_logprobs = _serialize_logprobs(getattr(response.choices[0], "logprobs", None))
+
+            # Extract content
+            assistant_content = assistant_message.content or ""
+
+            # Extract reasoning content (if present)
+            reasoning_content = getattr(assistant_message, "reasoning_content", None)
+            if reasoning_content is None:
+                reasoning_content = getattr(assistant_message, "reasoning", None)
+            if reasoning_content is not None and not isinstance(reasoning_content, str):
+                try:
+                    reasoning_content = json.dumps(reasoning_content)
+                except Exception:
+                    reasoning_content = str(reasoning_content)
+
+            # Extract tool calls
+            tool_calls = assistant_message.tool_calls if assistant_message.tool_calls else None
+
+            converted_tool_calls = None
+            if tool_calls:
+                converted_tool_calls = []
+                for tool_call in tool_calls:
+                    try:
+                        converted_tool_calls.append(
+                            {
+                                "id": tool_call.id,
+                                "type": tool_call.type,
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments,
+                                },
+                            }
+                        )
+                    except Exception:
+                        # best-effort: fallback to dict form
+                        try:
+                            converted_tool_calls.append(
+                                {
+                                    "id": getattr(tool_call, "id", "toolcall_0"),
+                                    "type": getattr(tool_call, "type", "function"),
+                                    "function": {
+                                        "name": getattr(getattr(tool_call, "function", None), "name", "tool"),
+                                        "arguments": getattr(getattr(tool_call, "function", None), "arguments", "{}"),
+                                    },
+                                }
+                            )
+                        except Exception:
+                            pass
+
+            messages = list(messages_for_request) + [
+                Message(
+                    role="assistant",
+                    content=assistant_content,
+                    reasoning_content=reasoning_content,
+                    tool_calls=converted_tool_calls,
+                    logprobs=assistant_logprobs,
+                )
+            ]
+
+            row.execution_metadata.finish_reason = str(finish_reason) if finish_reason is not None else None
+            row.execution_metadata.tool_call_count = (
+                len(converted_tool_calls) if converted_tool_calls is not None else 0
+            )
+
+            # Extract raw_output if present (when raw_output=True was passed to the API)
+            # Note: raw_output is only captured for non-streaming requests
+            # LiteLLM stores extra fields in model_extra for non-streaming responses
+            choice = response.choices[0]
+            raw_output = None
+
+            # Check model_extra (where LiteLLM puts extra fields for non-streaming)
+            if hasattr(choice, "model_extra") and choice.model_extra:
+                raw_output = choice.model_extra.get("raw_output")
+            # Fallback: check as direct attribute
+            if raw_output is None:
+                raw_output = getattr(choice, "raw_output", None)
+
+            if raw_output is not None and isinstance(raw_output, dict):
+                row.execution_metadata.raw_output = raw_output
+
+            usage = getattr(response, "usage", None)
+            if usage:
+                row.execution_metadata.usage = (
+                    CompletionUsage(  # Note: LiteLLM sets usage dynamically via setattr(), not as a typed field
+                        prompt_tokens=getattr(usage, "prompt_tokens", 0),
+                        completion_tokens=getattr(usage, "completion_tokens", 0),
+                        total_tokens=getattr(usage, "total_tokens", 0),
+                    )
+                )
+            else:
+                row.execution_metadata.usage = None
+
+            row.messages = messages
+
+            row.execution_metadata.rollout_duration_seconds = time.perf_counter() - start_time
+
+            default_logger.log(row)
+            return row
+
+        semaphore = config.semaphore
+
+        async def _sem_wrapper(r: EvaluationRow) -> EvaluationRow:
+            async with semaphore:
+                result = await process_row(r)
+                return result
+
+        # Create and return tasks for external handling
+        tasks = [asyncio.create_task(_sem_wrapper(row)) for row in rows]
+        return tasks

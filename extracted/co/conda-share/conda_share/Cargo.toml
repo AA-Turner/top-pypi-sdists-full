@@ -1,0 +1,21 @@
+[package]
+name = "conda_share"
+version = "2.0.3"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "View and share conda environments in rust."
+repository = "https://github.com/BruskaTech/conda-share"
+readme = "README.md"
+authors = ["James Bruska <bruskatech@protonmail.com>"]
+keywords = ["conda", "python", "sharing", "reproducibility", "dependency"]
+categories = ["development-tools"]
+
+[lib]
+name = "conda_share"
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+serde_yaml_bw = "2.5.1"
+shellexpand = "3.1.1"
+thiserror = "2.0.17"

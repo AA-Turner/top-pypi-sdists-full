@@ -302,3 +302,31 @@ class CacheTestMixin:
             cache = pickle.loads(pickle.dumps(source))
             self.assertEqual(n, len(cache))
             self.assertEqual(source, cache)
+
+
+class CountedLock:
+    def __init__(self):
+        self.count = 0
+
+    def __enter__(self):
+        self.count += 1
+
+    def __exit__(self, *exc):
+        pass
+
+
+class CountedCondition(CountedLock):
+    def __init__(self):
+        super().__init__()
+        self.wait_count = 0
+        self.notify_count = 0
+
+    # only wait_for() and notify_all() are used in the cache tests,
+    # calling wait() or notify() will fail intentionally
+
+    def wait_for(self, predicate):
+        assert callable(predicate)
+        self.wait_count += 1
+
+    def notify_all(self):
+        self.notify_count += 1

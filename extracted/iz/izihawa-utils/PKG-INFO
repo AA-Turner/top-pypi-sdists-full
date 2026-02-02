@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: izihawa_utils
+Version: 1.2.4
+Summary: 
+Author: Pasha Podolsky
+Author-email: ppodolsky@me.com
+Requires-Python: >=3.9,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: protobuf (>=6.30.1,<7.0.0)
+Description-Content-Type: text/markdown
+
+# Izihawa Utils
+
+Izihawa-wide utils package
+

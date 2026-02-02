@@ -43,7 +43,8 @@ class TestGetCustomFieldsResponseDto(unittest.TestCase):
                         entity = null, 
                         allowed_values = [
                             ''
-                            ], )
+                            ], 
+                        framework_id = '', )
                     ]
             )
         else:

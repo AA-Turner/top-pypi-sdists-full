@@ -1,0 +1,12 @@
+Metadata-Version: 2.3
+Name: pykaos
+Version: 0.6.0
+Summary: 
+Requires-Dist: aiofiles>=24.0,<26.0
+Requires-Dist: asyncssh==2.21.1
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+
+# PyKAOS
+
+PyKAOS is a lightweight Python library providing an abstraction layer for agents to interact with operating systems. File operations and command executions via KAOS can be easily switched between local environment and remote systems over SSH.

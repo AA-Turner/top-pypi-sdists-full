@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: tomlq
+Version: 0.1.0
+Summary: A Python wrapper for yq exposing the toml functionality
+Home-page: https://github.com/cmeister2/tomlq
+Author: Max Dymond
+Author-email: cmeister2@gmail.com
+License: MIT license
+Description: # tomlq
+        
+        
+        [![pypi version](https://img.shields.io/pypi/v/tomlq.svg)](https://pypi.python.org/pypi/tomlq)
+        [![Travis Status](https://img.shields.io/travis/cmeister2/tomlq.svg)](https://travis-ci.org/cmeister2/tomlq)
+        [![Documentation Status](https://readthedocs.org/projects/tomlq/badge/?version=latest)](https://tomlq.readthedocs.io/en/latest/?badge=latest)
+        
+        
+        A Python wrapper for yq exposing the toml functionality
+        
+        
+        - Free software: MIT license
+        - Documentation: https://tomlq.readthedocs.io.
+        
+        
+        ## Features
+        - Very simple wrapper layer exposing existing tomlq functionality.
+        
+        ## Credits
+        
+        This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [cmeister2/cookiecutter-pypackage](https://github.com/cmeister2/cookiecutter-pypackage) project template.
+        
+        
+        # Changelog
+        All notable changes to this project will be documented in this file.
+        
+        The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+        and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+        
+        ## [Unreleased]
+        ### Changed
+        
+        ## [0.1.0] - 2019-05-31
+        ### Added
+        - First release on PyPI.
+        
+        [Unreleased]: https://github.com/cmeister2/tomlq/compare/v0.1.0...HEAD
+        [0.1.0]: https://github.com/cmeister2/tomlq/tree/v0.1.0
+        
+Keywords: tomlq
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown

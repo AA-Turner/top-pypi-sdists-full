@@ -1,0 +1,188 @@
+Metadata-Version: 2.3
+Name: click-extra
+Version: 7.4.0
+Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
+Keywords: ansi-colors,cli,cloup,colorization,configuration,console,ini,json,json5,jsonc,hjson,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
+Author: Kevin Deldycke
+Author-email: Kevin Deldycke <kevin@deldycke.com>
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Plugins
+Classifier: Framework :: Pytest
+Classifier: Framework :: Sphinx
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Framework :: Sphinx :: Theme
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: POSIX :: BSD :: NetBSD
+Classifier: Operating System :: POSIX :: BSD :: OpenBSD
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Documentation :: Sphinx
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: User Interfaces
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: System :: Shells
+Classifier: Topic :: Terminals
+Classifier: Topic :: Text Processing :: Filters
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Classifier: Topic :: Text Processing :: Markup :: Markdown
+Classifier: Topic :: Text Processing :: Markup :: XML
+Classifier: Topic :: Text Processing :: Markup :: reStructuredText
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Dist: boltons>=25.0.0
+Requires-Dist: click>=8.3.1
+Requires-Dist: cloup>=3.0.7
+Requires-Dist: deepmerge>=2.0
+Requires-Dist: extra-platforms>=5.0.0
+Requires-Dist: requests>=2.32.5
+Requires-Dist: tabulate[widechars]>=0.9
+Requires-Dist: tomli>=2.3.0 ; python_full_version < '3.11'
+Requires-Dist: wcmatch>=10.0
+Requires-Dist: hjson>=3.1.0 ; extra == 'hjson'
+Requires-Dist: json5>=0.12.1 ; extra == 'json5'
+Requires-Dist: json-with-comments>=1.2.10 ; extra == 'jsonc'
+Requires-Dist: pygments>=2.14 ; extra == 'pygments'
+Requires-Dist: pygments-ansi-color>=0.3.0 ; extra == 'pygments'
+Requires-Dist: pytest>=9.0.0 ; extra == 'pytest'
+Requires-Dist: docutils>=0.20 ; extra == 'sphinx'
+Requires-Dist: pygments>=2.14 ; extra == 'sphinx'
+Requires-Dist: pygments-ansi-color>=0.3.0 ; extra == 'sphinx'
+Requires-Dist: sphinx>=8.0.0 ; extra == 'sphinx'
+Requires-Dist: xmltodict>=1.0.0 ; extra == 'xml'
+Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
+Requires-Python: >=3.10
+Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
+Project-URL: Documentation, https://kdeldycke.github.io/click-extra
+Project-URL: Funding, https://github.com/sponsors/kdeldycke
+Project-URL: Homepage, https://github.com/kdeldycke/click-extra
+Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
+Project-URL: Repository, https://github.com/kdeldycke/click-extra
+Provides-Extra: hjson
+Provides-Extra: json5
+Provides-Extra: jsonc
+Provides-Extra: pygments
+Provides-Extra: pytest
+Provides-Extra: sphinx
+Provides-Extra: xml
+Provides-Extra: yaml
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <a href="https://github.com/kdeldycke/click-extra/">
+    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/main/docs/assets/logo-banner.svg" alt="Click Extra">
+  </a>
+</p>
+
+[![Last release](https://img.shields.io/pypi/v/click-extra.svg)](https://pypi.org/project/click-extra/)
+[![Python versions](https://img.shields.io/pypi/pyversions/click-extra.svg)](https://pypi.org/project/click-extra/)
+[![Downloads](https://static.pepy.tech/badge/click-extra/month)](https://pepy.tech/projects/click-extra)
+[![Unittests status](https://github.com/kdeldycke/click-extra/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/kdeldycke/click-extra/actions/workflows/tests.yaml?query=branch%3Amain)
+[![Coverage status](https://codecov.io/gh/kdeldycke/click-extra/graph/badge.svg?token=PMEcGfrVEs)](https://codecov.io/gh/kdeldycke/click-extra)
+[![Documentation status](https://github.com/kdeldycke/click-extra/actions/workflows/docs.yaml/badge.svg?branch=main)](https://github.com/kdeldycke/click-extra/actions/workflows/docs.yaml?query=branch%3Amain)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7116050.svg)](https://doi.org/10.5281/zenodo.7116050)
+
+## What is Click Extra?
+
+It should be easy to write a good CLI in Python. [Click](https://click.palletsprojects.com) makes it so. But there is still hundrends of tweaks to implement by yourself to have a user-friendly CLI.
+
+Click Extra is a **ready-to-use wrapper around Click** to make your CLI look good and behave well. It is a drop-in replacement with good defaults that saves lots of boilerplate code and frustration by making all parts working together.
+
+It also comes with [workarounds and patches](https://kdeldycke.github.io/click-extra/issues.html) that have not reached upstream yet (or are unlikely to).
+
+## Demo
+
+You can try Click Extra right now in your terminal, without installing any dependency or virtual env [thanks to `uvx`](https://docs.astral.sh/uv/guides/tools/):
+
+```shell-session
+$ uvx --from click-extra -- click-extra-demo
+```
+
+This is a great way to play with Click Extra and check that it runs fine on your system, and renders properly in your terminal.
+
+## Example
+
+It transforms this vanilla `click` CLI:
+
+![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/main/docs/assets/click-help-screen.png)
+
+Into this:
+
+![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/main/docs/assets/click-extra-screen.png)
+
+To undestrand how we ended up with the result above, [go read the tutorial](https://kdeldycke.github.io/click-extra/tutorial.html).
+
+## Features
+
+- [Configuration file](https://kdeldycke.github.io/click-extra/config.html) loader for:
+  - `TOML`
+  - `YAML`
+  - `JSON`, `JSON5`, `JSONC` and `HJSON`
+  - `INI`, with extended interpolation, multi-level sections and non-native types (`list`, `set`, …)
+  - `XML`
+- Automatic inference of the configuration file structure from your CLI's options
+- Remote loading of [configuration from URLs](https://kdeldycke.github.io/click-extra/config.html#remote-url)
+- Optional [strict validation](https://kdeldycke.github.io/click-extra/config.html#strictness) of configuration
+- Respect the [default application path](https://kdeldycke.github.io/click-extra/config.html#default-folder) on each platform (XDG spec. on Linux)
+- [Glob search patterns](https://kdeldycke.github.io/click-extra/config.html#pattern-matching) for configuration files
+- A `--no-config` option to disable configuration file loading
+- Respect of `CLI` > `Configuration` > `Environment` > `Defaults` [precedence](https://kdeldycke.github.io/click-extra/config.html#precedence)
+- Normalization and discoverability of environment variables
+- [`--show-params` option](https://kdeldycke.github.io/click-extra/parameters.html#show-params-option) to debug parameters defaults, values, environment variables and provenance
+- [Click parameters introspection](https://kdeldycke.github.io/click-extra/parameters.html#introspecting-parameters)
+- [Colorization of help screens](https://kdeldycke.github.io/click-extra/colorize.html) at the semantic-level of options, parameters, subheadings, choices, metavars and defaults
+- Global `show_envvar` option to display all environment variables in help screens
+- `-h`/`--help` option names (see [rant on other inconsistencies](https://blog.craftyguy.net/cmdline-help/))
+- `--color`/`--no-color` option flag
+- `--telemetry`/`--no-telemetry` flag to opt-in/out of tracking code
+- Recognize traditional environment variable conventions:
+  - `NO_COLOR` from [`no-color.org`](https://no-color.org)
+  - `DO_NOT_TRACK` from [`consoledonottrack.com`](https://consoledonottrack.com)
+- Colored `--version` option
+- [Colored `--verbosity` option and logs](https://kdeldycke.github.io/click-extra/logging.html)
+- `--time`/`--no-time` flag to measure duration of command execution
+- Global `show_choices` to activate selection of choices on user input prompts
+- [Lazy-loading of subcommands](https://kdeldycke.github.io/click-extra/commands.html#lazily-loading-subcommands) from module paths to speed up CLI startup time
+- [`click:source` and `click:run` Sphinx directives](https://kdeldycke.github.io/click-extra/sphinx.html) in MyST Markdown and reStructuredText to document CLI source code and their execution
+- [Inline testing of CLI examples](https://kdeldycke.github.io/click-extra/sphinx.html#inline-tests) in documentation
+- Render [GitHub alerts](https://kdeldycke.github.io/click-extra/sphinx.html#github-alerts) into MyST admonitions
+- [ANSI-capable Pygments lexers](https://kdeldycke.github.io/click-extra/pygments.html#lexers) for shell session and console output
+- [Fixes 50+ bugs](https://kdeldycke.github.io/click-extra/issues.html) from other Click-related projects
+- Rely on [Cloup](https://github.com/janluke/cloup) to add:
+  - option groups
+  - constraints
+  - subcommands sections
+  - aliases
+  - command suggestion (`Did you mean <subcommand>?`)
+
+## Used in
+
+Check these projects to get real-life examples of `click-extra` usage:
+
+- ![GitHub stars](https://img.shields.io/github/stars/kdeldycke/meta-package-manager?label=%E2%AD%90&style=flat-square) [Meta Package Manager](https://github.com/kdeldycke/meta-package-manager#readme)
+  \- A unifying CLI for multiple package managers.
+- ![GitHub stars](https://img.shields.io/github/stars/kdeldycke/mail-deduplicate?label=%E2%AD%90&style=flat-square) [Mail Deduplicate](https://github.com/kdeldycke/mail-deduplicate#readme) - A
+  CLI to deduplicate similar emails.
+- ![GitHub stars](https://img.shields.io/github/stars/Sprocket-Security/fireproxng?label=%E2%AD%90&style=flat-square) [fireproxng](https://github.com/Sprocket-Security/fireproxng#readme) - A rewrite of the fireprox tool.
+- ![GitHub stars](https://img.shields.io/github/stars/couchbaselabs/agent-catalog?label=%E2%AD%90&style=flat-square) [agent-catalog](https://github.com/couchbaselabs/agent-catalog#readme) - Couchbase agent catalog.
+- ![GitHub stars](https://img.shields.io/github/stars/hugolundin/badger?label=%E2%AD%90&style=flat-square) [badger-proxy](https://github.com/hugolundin/badger#readme) - An mDNS-based reverse
+  proxy for naming services on a local network.
+
+Feel free to send a PR to add your project in this list if you are relying on Click Extra in any way.
+
+## Development
+
+[Development guidelines](https://kdeldycke.github.io/meta-package-manager/development.html)
+are the same as
+[parent project `mpm`](https://github.com/kdeldycke/meta-package-manager), from
+which `click-extra` originated.

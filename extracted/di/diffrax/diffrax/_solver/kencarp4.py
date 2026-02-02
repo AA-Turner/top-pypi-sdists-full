@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import ClassVar
 
+import equinox.internal as eqxi
 import numpy as np
 import optimistix as optx
 
@@ -165,12 +166,23 @@ class KenCarp4(AbstractRungeKutta, AbstractImplicitSolver):
         _explicit_tableau, _implicit_tableau
     )
     calculate_jacobian: ClassVar[CalculateJacobian] = CalculateJacobian.second_stage
-    interpolation_cls: ClassVar[
-        Callable[..., _KenCarp4Interpolation]
-    ] = _KenCarp4Interpolation
+    interpolation_cls: ClassVar[Callable[..., _KenCarp4Interpolation]] = (
+        _KenCarp4Interpolation
+    )
 
     root_finder: optx.AbstractRootFinder = with_stepsize_controller_tols(VeryChord)()
     root_find_max_steps: int = 10
 
     def order(self, terms):
         return 4
+
+
+eqxi.doc_remove_args("scan_kind")(KenCarp4.__init__)
+KenCarp4.__init__.__doc__ = """**Arguments:**
+
+- `root_finder`: an [Optimistix](https://github.com/patrick-kidger/optimistix) root
+    finder to solve the implicit problem at each stage.
+- `root_find_max_steps`: the maximum number of steps that the root finder is allowed to
+    make before unconditionally rejecting the step. (And trying again with whatever
+    smaller step that adaptive stepsize controller proposes.)
+"""

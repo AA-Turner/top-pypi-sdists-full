@@ -1,0 +1,123 @@
+[project]
+name = "clean_ioc"
+version = "1.20.2"
+description = "An IOC Container for Python 3.10+"
+authors = [{ name = "Peter Daly" }]
+requires-python = ">=3.10,<4"
+readme = "README.md"
+license = "MIT"
+keywords = [
+    "dependency",
+    "injection",
+    "ioc",
+    "inversion of control",
+    "type",
+    "hints",
+    "typing",
+]
+classifiers = ["Development Status :: 5 - Production/Stable"]
+dependencies = ["the-utility-belt>=0.3.0,<0.4"]
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.101.0,<0.102"]
+
+[project.urls]
+Homepage = "https://peter-daly.github.io/clean_ioc/"
+Repository = "https://github.com/peter-daly/clean_ioc"
+Documentation = "https://peter-daly.github.io/clean_ioc/"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0,<8",
+    "pytest-cov>=4.0.0,<5",
+    "pytest-asyncio>=0.21.1,<0.22",
+    "assertive>=0.2.1,<0.3",
+    "fastapi>=0.101.0,<0.102",
+    "httpx>=0.26.0,<0.27",
+    "pyright>=1.1.362,<2",
+    "ruff>=0.4.3,<0.5",
+    "mkdocs>=1.5.3,<2",
+    "mkdocstrings[python]>=0.25.0,<0.26",
+    "mkdocs-material>=9.5.9,<10",
+    "mkdocs-glightbox>=0.4.0,<0.5",
+
+]
+
+[tool.uv]
+default-groups = [
+    "dev",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "clean_ioc",
+    "CHANGES.rst",
+    "clean_ioc/py.typed",
+    "clean_ioc/ext/fastapi/py.typed",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "clean_ioc",
+    "CHANGES.rst",
+    "clean_ioc/py.typed",
+    "clean_ioc/ext/fastapi/py.typed",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.coverage.paths]
+source = ["clean_ioc", "*/site-packages"]
+tests = ["tests"]
+
+[tool.black]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+extend-exclude = ["docs", ".tox"]
+target-version = "py38"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "W",  # pycodestyle
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "S",  # flake8-bandit
+    "RUF",  # ruff-specific-rules
+]
+# Ignoring rules problematic with formatter
+# https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+ignore = [
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # Ignore unused imports on init files
+"tests/**/*.py" = ["S101"]  # Allow assert usage on tests
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["clean_ioc", "tests"]

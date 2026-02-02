@@ -1,0 +1,3 @@
+[workspace]
+members = ["conda_share", "conda_share_py"]
+resolver = "2"

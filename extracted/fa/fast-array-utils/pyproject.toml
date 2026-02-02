@@ -1,0 +1,201 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-docstring-description>=1.1.1",
+  "hatch-fancy-pypi-readme",
+  "hatch-min-requirements",
+  "hatch-vcs",
+  "hatchling",
+]
+
+[project]
+name = "fast-array-utils"
+license = "MPL-2.0"
+authors = [
+  { name = "Philipp A.", email = "flying-sheep@web.de" },
+]
+requires-python = ">=3.11"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dynamic = [ "description", "readme", "version" ]
+dependencies = [ "numpy>=2" ]
+optional-dependencies.accel = [ "numba>=0.57" ]
+optional-dependencies.dask = [ "dask>=2023.6.1" ]
+optional-dependencies.doc = [
+  "furo>=2024.8.6",
+  "pytest>=8.4",
+  "scanpydoc>=0.15.4",
+  "sphinx>=8.2.3",
+  "sphinx-autodoc-typehints>=3.2",
+  "sphinx-autofixture>=0.4.1",
+]
+optional-dependencies.full = [ "fast-array-utils[accel,dask,sparse]", "h5py", "zarr" ]
+optional-dependencies.sparse = [ "scipy>=1.13" ]
+optional-dependencies.test = [
+  "anndata",
+  "fast-array-utils[accel,test-min]",
+  "numcodecs<0.16",                   # zarr 2 needs this
+  "zarr<3",                           # anndata needs this
+]
+optional-dependencies.test-min = [
+  "coverage[toml]",
+  "fast-array-utils[sparse,testing]", # include sparse for testing numba-less to_dense
+  "pytest",
+  "pytest-codspeed",
+  "pytest-doctestplus",
+  "pytest-xdist",
+]
+optional-dependencies.testing = [ "packaging" ]
+urls.'Documentation' = "https://icb-fast-array-utils.readthedocs-hosted.com/"
+urls.'Issue Tracker' = "https://github.com/scverse/fast-array-utils/issues"
+urls.'Source Code' = "https://github.com/scverse/fast-array-utils"
+
+entry-points.pytest11.fast_array_utils = "testing.fast_array_utils.pytest"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" } # be able to publish dev version
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/x-rst"
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.rst"
+start-after = ".. begin"
+
+[tool.hatch.metadata.hooks.docstring-description]
+[tool.hatch.metadata.hooks.min_requirements]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/testing", "src/fast_array_utils" ]
+
+[tool.hatch.envs.default]
+installer = "uv"
+
+[tool.hatch.envs.docs]
+features = [ "doc" ]
+scripts.build = "sphinx-build -M html docs docs/_build"
+scripts.clean = "git clean -fdX docs"
+scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
+
+[tool.hatch.envs.hatch-test]
+default-args = [  ]
+features = [ "test-min" ]
+extra-dependencies = [ "ipykernel", "ipycytoscape" ]
+env-vars.CODSPEED_PROFILE_FOLDER = "test-data/codspeed"
+overrides.matrix.extras.features = [
+  { if = [ "full" ], value = "full" },
+  { if = [ "full" ], value = "test" },
+]
+overrides.matrix.extras.dependencies = [
+  { if = [ "full" ], value = "scipy-stubs" },
+  { if = [ "full" ], value = "scikit-learn" },
+]
+overrides.matrix.resolution.features = [
+  { if = [ "lowest" ], value = "min-reqs" }, # feature added by hatch-min-requirements
+]
+overrides.matrix.resolution.dependencies = [
+  # TODO: move to min dep once this is fixed: https://github.com/tlambert03/hatch-min-requirements/issues/11
+  { if = [ "lowest" ], value = "dask==2023.6.1" },
+  { if = [ "lowest" ], value = "scipy==1.13.0" },
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = [ "3.13", "3.11" ]
+extras = [ "full", "min" ]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = [ "3.11" ]
+extras = [ "full" ]
+resolution = [ "lowest" ]
+
+[tool.ruff]
+line-length = 160
+namespace-packages = [ "src/testing" ]
+format.preview = true
+format.docstring-code-format = true
+lint.select = [ "ALL" ]
+lint.ignore = [
+  "A005",    # submodules never shadow builtins.
+  "C408",    # dict() calls are nice
+  "COM812",  # trailing commas handled by black
+  "D203",    # prefer 0 to 1 blank line before class members
+  "D213",    # prefer docstring summary on first line
+  "FIX002",  # “TODO” comments
+  "N812",    # lowercase imports are fine
+  "PLC0415", # we rely heavily on non-top-level imports
+  "PLR0913", # having many (kw)args is fine
+  "Q",       # handled by formatter
+  "S101",    # asserts are fine
+  "TID252",  # relative imports are fine
+]
+lint.per-file-ignores."docs/**/*.py" = [ "INP001" ] # No __init__.py in docs
+lint.per-file-ignores."src/**/stats/*.py" = [ "A001", "A004" ] # Shadows builtins like `sum`
+lint.per-file-ignores."tests/**/*.py" = [
+  "D100",    # tests need no module docstrings
+  "D103",    # tests need no function docstrings
+  "INP001",  # tests should not have __init__.py
+  "PLR2004", # tests use magic values
+  "S101",    # tests use `assert`
+]
+lint.per-file-ignores."typings/**/*.pyi" = [ "A002", "F403", "F405", "N801" ] # Stubs don’t follow name conventions
+lint.allowed-confusables = [ "×", "’" ]
+lint.flake8-bugbear.extend-immutable-calls = [ "testing.fast_array_utils.Flags" ]
+lint.flake8-copyright.notice-rgx = "SPDX-License-Identifier: MPL-2\\.0"
+lint.flake8-type-checking.exempt-modules = [  ]
+lint.flake8-type-checking.strict = true
+lint.isort.known-first-party = [ "fast_array_utils" ]
+lint.isort.lines-after-imports = 2
+lint.pydocstyle.convention = "numpy"
+lint.future-annotations = true
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+  "--strict-markers",
+  "--doctest-modules",
+  "--doctest-plus",
+  "--pyargs",
+]
+testpaths = [ "./tests", "fast_array_utils" ]
+doctest_subpackage_requires = [
+  "src/fast_array_utils/conv/scipy/* = scipy",
+  "src/fast_array_utils/conv/scipy/_to_dense.py = numba",
+  "src/fast_array_utils/stats/* = numba",
+  "src/fast_array_utils/_plugins/dask.py = dask",
+  "src/fast_array_utils/_plugins/numba_sparse.py = numba;scipy",
+]
+filterwarnings = [
+  "error",
+  # codspeed seems to break this dtype added by h5py
+  "ignore:.*numpy[.]longdouble:UserWarning",
+  "ignore:FNV hashing is not implemented in Numba:UserWarning",
+]
+markers = [
+  "benchmark: marks tests as benchmark (to run with `--codspeed`)",
+]
+xfail_strict = true
+
+[tool.coverage]
+run.data_file = "test-data/.coverage"
+xml.output = "test-data/coverage.xml"
+html.directory = "test-data/htmlcov"
+run.omit = [ "src/testing/*", "tests/*" ]
+report.exclude_also = [ "if TYPE_CHECKING:", "@numba[.]njit", "[.]{3}" ]
+
+[tool.mypy]
+strict = true
+# https://github.com/dask/dask/issues/8853
+implicit_reexport = true
+explicit_package_bases = true
+mypy_path = [ "$MYPY_CONFIG_FILE_DIR/typings", "$MYPY_CONFIG_FILE_DIR/src" ]
+
+[tool.pyright]
+stubPath = "./typings"
+reportPrivateUsage = false

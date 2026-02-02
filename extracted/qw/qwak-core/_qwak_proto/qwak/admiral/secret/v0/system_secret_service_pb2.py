@@ -12,9 +12,10 @@ _sym_db = _symbol_database.Default()
 
 
 from _qwak_proto.qwak.admiral.secret.v0 import secret_pb2 as qwak_dot_admiral_dot_secret_dot_v0_dot_secret__pb2
+from _qwak_proto.qwak.admiral.secret.v0 import account_secret_pb2 as qwak_dot_admiral_dot_secret_dot_v0_dot_account__secret__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/admiral/secret/v0/system_secret_service.proto\x12\x16qwak.admiral.secret.v0\x1a#qwak/admiral/secret/v0/secret.proto\"d\n\x16SetSystemSecretRequest\x12J\n\x07options\x18\x01 \x01(\x0b\x32\x39.qwak.admiral.secret.v0.SetSystemEnvironmentSecretOptions\"\x19\n\x17SetSystemSecretResponse\"d\n\x19\x44\x65leteSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"\x1c\n\x1a\x44\x65leteSystemSecretResponse\"a\n\x16GetSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"d\n\x17GetSystemSecretResponse\x12I\n\x11secret_definition\x18\x01 \x01(\x0b\x32..qwak.admiral.secret.v0.SystemSecretDefinition2\xfa\x02\n\x13SystemSecretService\x12r\n\x0fSetSystemSecret\x12..qwak.admiral.secret.v0.SetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.SetSystemSecretResponse\x12{\n\x12\x44\x65leteSystemSecret\x12\x31.qwak.admiral.secret.v0.DeleteSystemSecretRequest\x1a\x32.qwak.admiral.secret.v0.DeleteSystemSecretResponse\x12r\n\x0fGetSystemSecret\x12..qwak.admiral.secret.v0.GetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.GetSystemSecretResponseB\x8c\x01\n\x1d\x63om.qwak.ai.admiral.secret.v0P\x01Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/admiral/secret/v0/system_secret_service.proto\x12\x16qwak.admiral.secret.v0\x1a#qwak/admiral/secret/v0/secret.proto\x1a+qwak/admiral/secret/v0/account_secret.proto\"d\n\x16SetSystemSecretRequest\x12J\n\x07options\x18\x01 \x01(\x0b\x32\x39.qwak.admiral.secret.v0.SetSystemEnvironmentSecretOptions\"\x19\n\x17SetSystemSecretResponse\"d\n\x19\x44\x65leteSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"\x1c\n\x1a\x44\x65leteSystemSecretResponse\"a\n\x16GetSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"d\n\x17GetSystemSecretResponse\x12I\n\x11secret_definition\x18\x01 \x01(\x0b\x32..qwak.admiral.secret.v0.SystemSecretDefinition\"^\n\x1dSetAccountSystemSecretRequest\x12=\n\x04spec\x18\x01 \x01(\x0b\x32/.qwak.admiral.secret.v0.AccountSystemSecretSpec\" \n\x1eSetAccountSystemSecretResponse\"r\n\x1dGetAccountSystemSecretRequest\x12Q\n\x12\x61\x63\x63ount_identifier\x18\x01 \x01(\x0b\x32\x35.qwak.admiral.secret.v0.AccountSystemSecretIdentifier\"z\n\x1eGetAccountSystemSecretResponse\x12X\n\x19\x61\x63\x63ount_secret_definition\x18\x01 \x01(\x0b\x32\x35.qwak.admiral.secret.v0.AccountSystemSecretDefinition\"u\n DeleteAccountSystemSecretRequest\x12Q\n\x12\x61\x63\x63ount_identifier\x18\x01 \x01(\x0b\x32\x35.qwak.admiral.secret.v0.AccountSystemSecretIdentifier\"#\n!DeleteAccountSystemSecretResponse2\xa1\x06\n\x13SystemSecretService\x12r\n\x0fSetSystemSecret\x12..qwak.admiral.secret.v0.SetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.SetSystemSecretResponse\x12{\n\x12\x44\x65leteSystemSecret\x12\x31.qwak.admiral.secret.v0.DeleteSystemSecretRequest\x1a\x32.qwak.admiral.secret.v0.DeleteSystemSecretResponse\x12r\n\x0fGetSystemSecret\x12..qwak.admiral.secret.v0.GetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.GetSystemSecretResponse\x12\x87\x01\n\x16SetAccountSystemSecret\x12\x35.qwak.admiral.secret.v0.SetAccountSystemSecretRequest\x1a\x36.qwak.admiral.secret.v0.SetAccountSystemSecretResponse\x12\x87\x01\n\x16GetAccountSystemSecret\x12\x35.qwak.admiral.secret.v0.GetAccountSystemSecretRequest\x1a\x36.qwak.admiral.secret.v0.GetAccountSystemSecretResponse\x12\x90\x01\n\x19\x44\x65leteAccountSystemSecret\x12\x38.qwak.admiral.secret.v0.DeleteAccountSystemSecretRequest\x1a\x39.qwak.admiral.secret.v0.DeleteAccountSystemSecretResponseB\x8c\x01\n\x1d\x63om.qwak.ai.admiral.secret.v0P\x01Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,18 +24,30 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.qwak.ai.admiral.secret.v0P\001Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0'
-  _globals['_SETSYSTEMSECRETREQUEST']._serialized_start=115
-  _globals['_SETSYSTEMSECRETREQUEST']._serialized_end=215
-  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_start=217
-  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_end=242
-  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_start=244
-  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_end=344
-  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_start=346
-  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_end=374
-  _globals['_GETSYSTEMSECRETREQUEST']._serialized_start=376
-  _globals['_GETSYSTEMSECRETREQUEST']._serialized_end=473
-  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_start=475
-  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_end=575
-  _globals['_SYSTEMSECRETSERVICE']._serialized_start=578
-  _globals['_SYSTEMSECRETSERVICE']._serialized_end=956
+  _globals['_SETSYSTEMSECRETREQUEST']._serialized_start=160
+  _globals['_SETSYSTEMSECRETREQUEST']._serialized_end=260
+  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_start=262
+  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_end=287
+  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_start=289
+  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_end=389
+  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_start=391
+  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_end=419
+  _globals['_GETSYSTEMSECRETREQUEST']._serialized_start=421
+  _globals['_GETSYSTEMSECRETREQUEST']._serialized_end=518
+  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_start=520
+  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_end=620
+  _globals['_SETACCOUNTSYSTEMSECRETREQUEST']._serialized_start=622
+  _globals['_SETACCOUNTSYSTEMSECRETREQUEST']._serialized_end=716
+  _globals['_SETACCOUNTSYSTEMSECRETRESPONSE']._serialized_start=718
+  _globals['_SETACCOUNTSYSTEMSECRETRESPONSE']._serialized_end=750
+  _globals['_GETACCOUNTSYSTEMSECRETREQUEST']._serialized_start=752
+  _globals['_GETACCOUNTSYSTEMSECRETREQUEST']._serialized_end=866
+  _globals['_GETACCOUNTSYSTEMSECRETRESPONSE']._serialized_start=868
+  _globals['_GETACCOUNTSYSTEMSECRETRESPONSE']._serialized_end=990
+  _globals['_DELETEACCOUNTSYSTEMSECRETREQUEST']._serialized_start=992
+  _globals['_DELETEACCOUNTSYSTEMSECRETREQUEST']._serialized_end=1109
+  _globals['_DELETEACCOUNTSYSTEMSECRETRESPONSE']._serialized_start=1111
+  _globals['_DELETEACCOUNTSYSTEMSECRETRESPONSE']._serialized_end=1146
+  _globals['_SYSTEMSECRETSERVICE']._serialized_start=1149
+  _globals['_SYSTEMSECRETSERVICE']._serialized_end=1950
 # @@protoc_insertion_point(module_scope)

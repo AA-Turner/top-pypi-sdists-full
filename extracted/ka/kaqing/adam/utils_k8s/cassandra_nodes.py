@@ -25,10 +25,12 @@ class CassandraNodes:
         return r
 
     def get_host_id(pod_name: str, ns: str, ctx: Context = Context.NULL):
+        # TODO needs state to refactor
+        # return CassandraNAT.build(state, ctx=ctx).host_ids_by_pod[pod_name]
         try:
             user, pw = Secrets.get_user_pass(pod_name, ns)
             command = f'echo "SELECT host_id FROM system.local; exit" | cqlsh --no-color -u {user} -p {pw}'
-            result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, ctx.copy(show_out=ctx.debug))
+            result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, ctx=ctx.copy(show_out=ctx.debug))
             next = False
             for line in result.stdout.splitlines():
                 if next:

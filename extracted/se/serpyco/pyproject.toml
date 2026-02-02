@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=0.61", "setuptools-scm", "cython!=3.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "serpyco"
+authors = [
+  {name = "Sébastien Grignard", email = "pub@amakaze.org"},
+]
+description = "Fast serialization of dataclasses using Cython"
+readme = "README.rst"
+requires-python = ">=3.6"
+license = {text = "MIT"}
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "python-dateutil",
+  "python-rapidjson>=0.8.0",
+  "typing-inspect>=0.6.0",
+  "dataclasses;python_version<'3.7'",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://gitlab.com/sgrignard/serpyco"
+"Bug Tracker" = "https://gitlab.com/sgrignard/serpyco/issues"
+
+[project.optional-dependencies]
+dev = [
+  "black",
+  "build",
+  "dataslots",
+  "mypy",
+  "pytest",
+  "pytest-benchmark",
+  "ruff",
+  "twine",
+]
+build-doc = [
+  "sphinx",
+  "sphinx-autodoc-typehints",
+  "sphinx-rtd-theme",
+  "sphinxcontrib-websupport",
+]
+
+[tool.setuptools_scm]

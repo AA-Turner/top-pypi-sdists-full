@@ -1,0 +1,203 @@
+[build-system]
+requires = ["flit_core >=3.3,<4,!=3.7"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "alluka"
+version = "0.4.0"
+readme = "README.md"
+requires-python = ">=3.11.0,<3.15"
+license = {file = "LICENSE"}
+authors = [ {name = "Faster Speeding", email="lucina@lmbyrne.dev"} ]
+keywords = ["DI", "injection", "dependency injection" ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AnyIO",
+    "Framework :: AsyncIO",
+    "Framework :: Trio",
+    "License :: OSI Approved :: BSD License",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed"
+]
+dependencies = ["typing-extensions>=4.5, <5"]
+dynamic = ["description"]
+
+[project.urls]
+Homepage = "https://github.com/FasterSpeeding/Alluka"
+Repository = "https://github.com/FasterSpeeding/Alluka"
+Documentation = "https://alluka.cursed.solutions/"
+Changelog = "https://alluka.cursed.solutions/changelog"
+
+[tool.black]
+include = ".*pyi?$"
+line-length = 120
+skip-magic-trailing-comma = true
+target-version = ["py311"]
+
+[tool.coverage.run]
+concurrency = ["multiprocessing"]
+parallel = true
+branch = true
+timid = false
+source = ["alluka"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "^\\s*\\.\\.\\.$",
+    "^\\s*@abc.abstractmethod$",
+    "^if typing.TYPE_CHECKING:$"
+]
+
+[tool.flake8]
+accept-encodings = "utf-8"
+count = true
+docstring-convention = "numpy"
+eradicate-aggressive = true
+extend-select = ["TC100", "TC101"]
+force-future-annotations = true
+ignore-decorators = "overload"
+max-complexity = 20
+max-function-length = 100
+# Technically this is 120, but black has a policy of "1 or 2 over is fine if it is tidier", so we have to raise this.
+max-line-length = 130
+min_python_version = "3.11"
+pep585-activation = "always"
+show_source = false
+statistics = false
+ignore = [
+    "A003",    # class attribute is shadowing a builtin
+    "CFQ004",  # Function has too many returns.
+    "CFQ002",  # Function has too many arguments.
+    "D102",    # Missing docstring in public method.
+    "D105",    # Magic methods not having a docstring.
+    "D401",    # Conflicts with property doc-strings too much.
+    "D404",    # Conflicts with property doc-strings too much.
+    "D412",    # No blank lines allowed between a section header and its content
+    "E402",    # Module level import not at top of file (isn't compatible with our import style).
+    "IFS001",  # "use a oneliner here".
+    "N818",    # Exceptions should have an "Error" suffix in their name
+    "SIM105",  # Use contextlib.suppress
+    "TRY003",  # Avoid specifying long messages outside the exception class (this hits way too many std exceptions rn)
+    "T101",    # TO-DO comment detection (T102 is FIX-ME and T103 is XXX).
+    "W503",    # line break before binary operator.
+    "W504",    # line break before binary operator (again, I guess).
+    "S101",    # Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+    "E203",    # whitespace before ':'
+    "E231",    # missing whitespace after ','
+    "E701",    # Incompatible with black: E701 multiple statements on one line (colon)
+    "E704",    # Incompatible with black: E704 multiple statements on one line (def)
+]
+# Doc errors don't matter in the tests
+per-file-ignores = [
+    "alluka/abc.py: A005", # A005 the module is shadowing a Python builtin module "abc"
+    "alluka/py.typed: D100",
+    "docs_src/*.py: ASYNC910, ASYNC911, DALL000, D100, D101, D103, E800, FA100, FA101, F841, INP001, M511, N806, TC001, TC101, T201, VNE002",
+    "noxfile.py: D100, FA101, F401, F403, INP001",
+    "tests/*.py: ASYNC910, CCE002, DALL000, D100, D101, D103, D104, FA100, FA101, M511"
+]
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+
+[tool.mypy]
+# some good strict settings
+strict = true
+warn_unreachable = true
+
+# more narrow type ignores
+show_error_codes = true
+
+# these are used by pyright
+warn_unused_ignores = false
+warn_redundant_casts = false
+
+# compatibility with pyright
+allow_redefinition = true
+
+[tool.piped]
+default_sessions = [
+    "reformat",
+    "verify-markup",
+    "flake8",
+    "spell-check",
+    "slot-check",
+    "type-check",
+    "test",
+    "verify-types",
+]
+extra_test_installs = ["."]
+mypy_allowed_to_fail = true
+mypy_targets = ["alluka"]
+project_name = "alluka"
+top_level_targets = ["./alluka", "./docs_src", "./noxfile.py", "./tests"]
+
+[tool.piped.github_actions.freeze_for_pr]
+[tool.piped.github_actions.lint]
+[tool.piped.github_actions.pr_docs]
+[tool.piped.github_actions.publish]
+[tool.piped.github_actions.py_test]
+codeclimate_token = "a965935acdc9066802d7201945219784c0f24d22e8a2dff0e6529207726bc8af"
+python_versions = ["3.11", "3.12", "3.13", "3.14-dev"]
+
+[tool.piped.github_actions.reformat]
+[tool.piped.github_actions.release_docs]
+[tool.piped.github_actions.resync_piped]
+[tool.piped.github_actions.type_check]
+[tool.piped.github_actions.update_licence]
+[tool.piped.github_actions.upgrade_locks]
+[tool.piped.github_actions.verify_locks]
+[tool.piped.github_actions.verify_types]
+
+[tool.pycln]
+exclude = "docs_src"
+
+[tool.pyright]
+include = ["alluka", "docs_src", "noxfile.py", "tests"]
+
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingModuleSource = "error"  # Is only "warning" on strict mode.
+
+# Error code which are disabled even when general strict.
+reportShadowedImports = "error"
+reportCallInDefaultInitializer = "none"  # Ended up just complaining about cases where this was fine (e.g. timedeltas).
+reportImplicitStringConcatenation = "none"  # Conflicts with flake8 config.
+reportMissingSuperCall = "none"  # Way too strict (requires calls to `object.__init__`).
+reportPropertyTypeMismatch = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnusedCallResult = "none"  # Enforces doing `_ = ...`.
+
+# Error codes which lead to too many false-positives.
+reportUnknownMemberType = "warning"             # This messes with instance checking generic objects
+reportUnknownArgumentType = "warning"           # Pretty much the same as reportUnknownMemberType
+reportImportCycles = "warning"                  # This isn't necessarily an issue if it's type checking only.
+reportUnknownVariableType = "warning"           # Lotta false-positives, might fix/change later.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 15
+required_plugins = ["anyio"]
+filterwarnings = [
+    "error",
+    "ignore:Use Context or CachingContext:DeprecationWarning",
+    "ignore:Use ContextOverride:DeprecationWarning",
+]
+
+[tool.slotscheck]
+strict-imports = true
+require-superclass = true
+require-subclass = true

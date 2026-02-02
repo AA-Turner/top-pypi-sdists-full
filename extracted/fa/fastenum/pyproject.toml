@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "fastenum"
+version = "1.1.2"
+description = "Faster drop-in replacement of Python's enum"
+authors = ["Quantlane <code@quantlane.com>"]
+homepage = "https://gitlab.com/quantlane/libs/fastenum"
+repository = "https://gitlab.com/quantlane/libs/fastenum"
+license = "Apache 2.0"
+readme = "README.md"
+packages = [
+    { include = "fastenum" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Software Development :: Libraries",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+click = "^8"
+mypy = "^1"
+pytest = "^8"
+pytest-benchmark = "^4"
+pytest-cov = "^5"
+pytest-mypy-plugins = "^3"
+ql-cq = "^1"
+ql-orange = "^1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

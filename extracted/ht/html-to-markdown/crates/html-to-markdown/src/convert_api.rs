@@ -567,6 +567,7 @@ fn fast_text_only(html: &str, options: &ConversionOptions) -> Option<String> {
                 options.escape_underscores,
                 options.escape_ascii,
             )
+            .into_owned()
         } else {
             normalized.into_owned()
         };

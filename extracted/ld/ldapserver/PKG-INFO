@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: ldapserver
+Version: 0.1.2
+Summary: Library to implement special-purpose LDAP servers
+Home-page: https://git.cccv.de/uffd/python-ldapserver
+Author: Julian Rother
+Author-email: python-ldapserver@jrother.eu
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: System :: Systems Administration :: Authentication/Directory :: LDAP
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+Python LDAP Server Library
+==========================
+
+Python library that implements the socketserver.BaseRequestHandler interface
+for LDAP. It provides stubs for all operations (BIND, SEARCH, ...). Overwrite
+the stubs you need to provide actual functionality.
+
+See the [documentation](https://uffd.pages.git.cccv.de/python-ldapserver) for
+further details.
+
+

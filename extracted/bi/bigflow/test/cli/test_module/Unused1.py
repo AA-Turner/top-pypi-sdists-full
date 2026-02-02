@@ -1,0 +1,43 @@
+import sys
+
+import bigflow as bf
+from bigflow.bigquery.interactive import InteractiveDatasetManager as Dataset
+
+PROJECT_ID = 'put-you-project-id-here'
+PARAM_REQUIRED_BY_JOB = '--param-required-by-job'
+
+dataset = Dataset(
+    project_id=PROJECT_ID,
+    dataset_name='bigflow_cheatsheet',
+    external_tables={
+        '311_requests': '{}.external_data.311_requests'.format(PROJECT_ID)
+    },
+    internal_tables=['request_aggregate'])
+
+wait_for_requests = bf.bigquery.sensor(
+    '311_requests',
+    where_clause="DATE(TIMESTAMP(created_date)) = DATE(TIMESTAMP_ADD(TIMESTAMP('{dt}'), INTERVAL -24 HOUR))",
+    ds=dataset)
+
+started_jobs = []
+
+class ExampleJob:
+    def __init__(self, id):
+        self.id = id
+
+    def execute(self, context):
+        started_jobs.append(self.id)
+
+class ExampleJobWithParams:
+    def __init__(self, id):
+        self.id = id
+
+    def execute(self, context):
+        sys.argv.index('--param-required-by-job')
+        started_jobs.append(self.id)
+
+workflow_1 = bf.Workflow(workflow_id="ID_1", definition=[wait_for_requests.to_job(), wait_for_requests.to_job()], schedule_interval="@once")
+workflow_2 = bf.Workflow(workflow_id="ID_2", definition=[wait_for_requests.to_job()])
+workflow_3 = bf.Workflow(workflow_id="ID_3", definition=[ExampleJob("J_ID_3"), ExampleJob("J_ID_4")])
+workflow_4 = bf.Workflow(workflow_id="ID_4", definition=[ExampleJob("J_ID_5")])
+workflow_5 = bf.Workflow(workflow_id="ID_6", definition=[ExampleJobWithParams("J_ID_7")])

@@ -1,5 +1,0 @@
-triggers:
-  - gitlab:
-      merge-request-label-filter-config:
-        include: "IncludedLabel"
-        exclude: "ExcludedLabel"

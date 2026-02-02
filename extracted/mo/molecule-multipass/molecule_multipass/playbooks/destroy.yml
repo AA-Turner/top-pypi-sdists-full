@@ -1,0 +1,59 @@
+---
+- name: Destroy
+  hosts: localhost
+  gather_facts: false
+  no_log: "{{ molecule_no_log }}"
+
+  vars:
+    multipass_executable: "multipass"
+
+  tasks:
+    - name: Get multipass executable path  # noqa: command-instead-of-shell
+      ansible.builtin.shell: "command -v {{ multipass_executable }}"
+      register: multipass_path
+      changed_when: false
+
+    - name: Set multipass executable path
+      ansible.builtin.set_fact:
+        multipass_cmd: "{{ multipass_path.stdout }}"
+
+    - name: Prepare VMs config
+      block:
+        - name: Prepare VMs config
+          ansible.builtin.set_fact:
+            instance_conf: "{{ lookup('file', molecule_instance_config) | from_yaml }}"
+      rescue:
+        - name: Prepare VMs config when file missing
+          ansible.builtin.set_fact:
+            instance_conf: {}
+
+    - name: Destroy VMs  # noqa: no-changed-when
+      ansible.builtin.command: >
+        {{ multipass_cmd }} delete --purge {{ item.instance }}
+      loop: "{{ instance_conf }}"
+      loop_control:
+        label: "{{ item.name }}"
+      async: 7200
+      poll: 0
+      register: multipass_destroy
+
+    - name: Wait for VMs to be destroyed
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ multipass_destroy.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: multipass_destroy_status
+      until: multipass_destroy_status.finished
+      retries: 30
+      delay: 5
+
+    - name: Prepare VMs config list
+      ansible.builtin.set_fact:
+        instance_conf: {}
+
+    - name: Dump VMs config
+      ansible.builtin.copy:
+        content: "{{ instance_conf | to_json | from_json | to_yaml }}"
+        dest: "{{ molecule_instance_config }}"
+        mode: "0644"

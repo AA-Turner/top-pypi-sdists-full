@@ -1,0 +1,767 @@
+"""
+Type annotations for bedrock service literal definitions.
+
+[Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/literals/)
+
+Copyright 2026 Vlad Emelianov
+
+Usage::
+
+    ```python
+    from types_boto3_bedrock.literals import AgreementStatusType
+
+    data: AgreementStatusType = "AVAILABLE"
+    ```
+"""
+
+import sys
+
+if sys.version_info >= (3, 12):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
+__all__ = (
+    "AgreementStatusType",
+    "ApplicationTypeType",
+    "AttributeTypeType",
+    "AuthorizationStatusType",
+    "AutomatedReasoningCheckLogicWarningTypeType",
+    "AutomatedReasoningCheckResultType",
+    "AutomatedReasoningPolicyAnnotationStatusType",
+    "AutomatedReasoningPolicyBuildDocumentContentTypeType",
+    "AutomatedReasoningPolicyBuildMessageTypeType",
+    "AutomatedReasoningPolicyBuildResultAssetTypeType",
+    "AutomatedReasoningPolicyBuildWorkflowStatusType",
+    "AutomatedReasoningPolicyBuildWorkflowTypeType",
+    "AutomatedReasoningPolicyTestRunResultType",
+    "AutomatedReasoningPolicyTestRunStatusType",
+    "BedrockServiceName",
+    "CommitmentDurationType",
+    "ConfigurationOwnerType",
+    "CustomModelDeploymentStatusType",
+    "CustomModelDeploymentUpdateStatusType",
+    "CustomizationTypeType",
+    "EntitlementAvailabilityType",
+    "EvaluationJobStatusType",
+    "EvaluationJobTypeType",
+    "EvaluationTaskTypeType",
+    "ExternalSourceTypeType",
+    "FineTuningJobStatusType",
+    "FoundationModelLifecycleStatusType",
+    "GuardrailContentFilterActionType",
+    "GuardrailContentFilterTypeType",
+    "GuardrailContentFiltersTierNameType",
+    "GuardrailContextualGroundingActionType",
+    "GuardrailContextualGroundingFilterTypeType",
+    "GuardrailFilterStrengthType",
+    "GuardrailManagedWordsTypeType",
+    "GuardrailModalityType",
+    "GuardrailPiiEntityTypeType",
+    "GuardrailSensitiveInformationActionType",
+    "GuardrailStatusType",
+    "GuardrailTopicActionType",
+    "GuardrailTopicTypeType",
+    "GuardrailTopicsTierNameType",
+    "GuardrailWordActionType",
+    "InferenceProfileStatusType",
+    "InferenceProfileTypeType",
+    "InferenceTypeType",
+    "InputTagsType",
+    "JobStatusDetailsType",
+    "ListAutomatedReasoningPoliciesPaginatorName",
+    "ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName",
+    "ListAutomatedReasoningPolicyTestCasesPaginatorName",
+    "ListAutomatedReasoningPolicyTestResultsPaginatorName",
+    "ListCustomModelDeploymentsPaginatorName",
+    "ListCustomModelsPaginatorName",
+    "ListEnforcedGuardrailsConfigurationPaginatorName",
+    "ListEvaluationJobsPaginatorName",
+    "ListGuardrailsPaginatorName",
+    "ListImportedModelsPaginatorName",
+    "ListInferenceProfilesPaginatorName",
+    "ListMarketplaceModelEndpointsPaginatorName",
+    "ListModelCopyJobsPaginatorName",
+    "ListModelCustomizationJobsPaginatorName",
+    "ListModelImportJobsPaginatorName",
+    "ListModelInvocationJobsPaginatorName",
+    "ListPromptRoutersPaginatorName",
+    "ListProvisionedModelThroughputsPaginatorName",
+    "ModelCopyJobStatusType",
+    "ModelCustomizationJobStatusType",
+    "ModelCustomizationType",
+    "ModelImportJobStatusType",
+    "ModelInvocationJobStatusType",
+    "ModelModalityType",
+    "ModelStatusType",
+    "OfferTypeType",
+    "PaginatorName",
+    "PerformanceConfigLatencyType",
+    "PromptRouterStatusType",
+    "PromptRouterTypeType",
+    "ProvisionedModelStatusType",
+    "QueryTransformationTypeType",
+    "ReasoningEffortType",
+    "RegionAvailabilityType",
+    "RegionName",
+    "RerankingMetadataSelectionModeType",
+    "ResourceServiceName",
+    "RetrieveAndGenerateTypeType",
+    "S3InputFormatType",
+    "SearchTypeType",
+    "ServiceName",
+    "SortByProvisionedModelsType",
+    "SortJobsByType",
+    "SortModelsByType",
+    "SortOrderType",
+    "StatusType",
+    "VectorSearchRerankingConfigurationTypeType",
+)
+
+AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
+ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
+AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
+AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
+AutomatedReasoningCheckLogicWarningTypeType = Literal["ALWAYS_FALSE", "ALWAYS_TRUE"]
+AutomatedReasoningCheckResultType = Literal[
+    "IMPOSSIBLE",
+    "INVALID",
+    "NO_TRANSLATION",
+    "SATISFIABLE",
+    "TOO_COMPLEX",
+    "TRANSLATION_AMBIGUOUS",
+    "VALID",
+]
+AutomatedReasoningPolicyAnnotationStatusType = Literal["APPLIED", "FAILED"]
+AutomatedReasoningPolicyBuildDocumentContentTypeType = Literal["pdf", "txt"]
+AutomatedReasoningPolicyBuildMessageTypeType = Literal["ERROR", "INFO", "WARNING"]
+AutomatedReasoningPolicyBuildResultAssetTypeType = Literal[
+    "BUILD_LOG", "GENERATED_TEST_CASES", "POLICY_DEFINITION", "POLICY_SCENARIOS", "QUALITY_REPORT"
+]
+AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
+    "BUILDING",
+    "CANCELLED",
+    "CANCEL_REQUESTED",
+    "COMPLETED",
+    "FAILED",
+    "PREPROCESSING",
+    "SCHEDULED",
+    "TESTING",
+]
+AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
+    "IMPORT_POLICY", "INGEST_CONTENT", "REFINE_POLICY"
+]
+AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
+AutomatedReasoningPolicyTestRunStatusType = Literal[
+    "COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED", "SCHEDULED"
+]
+CommitmentDurationType = Literal["OneMonth", "SixMonths"]
+ConfigurationOwnerType = Literal["ACCOUNT"]
+CustomModelDeploymentStatusType = Literal["Active", "Creating", "Failed"]
+CustomModelDeploymentUpdateStatusType = Literal["UpdateCompleted", "UpdateFailed", "Updating"]
+CustomizationTypeType = Literal[
+    "CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED", "REINFORCEMENT_FINE_TUNING"
+]
+EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
+EvaluationJobStatusType = Literal[
+    "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
+]
+EvaluationJobTypeType = Literal["Automated", "Human"]
+EvaluationTaskTypeType = Literal[
+    "Classification", "Custom", "Generation", "QuestionAndAnswer", "Summarization"
+]
+ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]
+FineTuningJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
+FoundationModelLifecycleStatusType = Literal["ACTIVE", "LEGACY"]
+GuardrailContentFilterActionType = Literal["BLOCK", "NONE"]
+GuardrailContentFilterTypeType = Literal[
+    "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
+]
+GuardrailContentFiltersTierNameType = Literal["CLASSIC", "STANDARD"]
+GuardrailContextualGroundingActionType = Literal["BLOCK", "NONE"]
+GuardrailContextualGroundingFilterTypeType = Literal["GROUNDING", "RELEVANCE"]
+GuardrailFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
+GuardrailManagedWordsTypeType = Literal["PROFANITY"]
+GuardrailModalityType = Literal["IMAGE", "TEXT"]
+GuardrailPiiEntityTypeType = Literal[
+    "ADDRESS",
+    "AGE",
+    "AWS_ACCESS_KEY",
+    "AWS_SECRET_KEY",
+    "CA_HEALTH_NUMBER",
+    "CA_SOCIAL_INSURANCE_NUMBER",
+    "CREDIT_DEBIT_CARD_CVV",
+    "CREDIT_DEBIT_CARD_EXPIRY",
+    "CREDIT_DEBIT_CARD_NUMBER",
+    "DRIVER_ID",
+    "EMAIL",
+    "INTERNATIONAL_BANK_ACCOUNT_NUMBER",
+    "IP_ADDRESS",
+    "LICENSE_PLATE",
+    "MAC_ADDRESS",
+    "NAME",
+    "PASSWORD",
+    "PHONE",
+    "PIN",
+    "SWIFT_CODE",
+    "UK_NATIONAL_HEALTH_SERVICE_NUMBER",
+    "UK_NATIONAL_INSURANCE_NUMBER",
+    "UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER",
+    "URL",
+    "USERNAME",
+    "US_BANK_ACCOUNT_NUMBER",
+    "US_BANK_ROUTING_NUMBER",
+    "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER",
+    "US_PASSPORT_NUMBER",
+    "US_SOCIAL_SECURITY_NUMBER",
+    "VEHICLE_IDENTIFICATION_NUMBER",
+]
+GuardrailSensitiveInformationActionType = Literal["ANONYMIZE", "BLOCK", "NONE"]
+GuardrailStatusType = Literal["CREATING", "DELETING", "FAILED", "READY", "UPDATING", "VERSIONING"]
+GuardrailTopicActionType = Literal["BLOCK", "NONE"]
+GuardrailTopicTypeType = Literal["DENY"]
+GuardrailTopicsTierNameType = Literal["CLASSIC", "STANDARD"]
+GuardrailWordActionType = Literal["BLOCK", "NONE"]
+InferenceProfileStatusType = Literal["ACTIVE"]
+InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]
+InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
+InputTagsType = Literal["HONOR", "IGNORE"]
+JobStatusDetailsType = Literal[
+    "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
+]
+ListAutomatedReasoningPoliciesPaginatorName = Literal["list_automated_reasoning_policies"]
+ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName = Literal[
+    "list_automated_reasoning_policy_build_workflows"
+]
+ListAutomatedReasoningPolicyTestCasesPaginatorName = Literal[
+    "list_automated_reasoning_policy_test_cases"
+]
+ListAutomatedReasoningPolicyTestResultsPaginatorName = Literal[
+    "list_automated_reasoning_policy_test_results"
+]
+ListCustomModelDeploymentsPaginatorName = Literal["list_custom_model_deployments"]
+ListCustomModelsPaginatorName = Literal["list_custom_models"]
+ListEnforcedGuardrailsConfigurationPaginatorName = Literal["list_enforced_guardrails_configuration"]
+ListEvaluationJobsPaginatorName = Literal["list_evaluation_jobs"]
+ListGuardrailsPaginatorName = Literal["list_guardrails"]
+ListImportedModelsPaginatorName = Literal["list_imported_models"]
+ListInferenceProfilesPaginatorName = Literal["list_inference_profiles"]
+ListMarketplaceModelEndpointsPaginatorName = Literal["list_marketplace_model_endpoints"]
+ListModelCopyJobsPaginatorName = Literal["list_model_copy_jobs"]
+ListModelCustomizationJobsPaginatorName = Literal["list_model_customization_jobs"]
+ListModelImportJobsPaginatorName = Literal["list_model_import_jobs"]
+ListModelInvocationJobsPaginatorName = Literal["list_model_invocation_jobs"]
+ListPromptRoutersPaginatorName = Literal["list_prompt_routers"]
+ListProvisionedModelThroughputsPaginatorName = Literal["list_provisioned_model_throughputs"]
+ModelCopyJobStatusType = Literal["Completed", "Failed", "InProgress"]
+ModelCustomizationJobStatusType = Literal[
+    "Completed", "Failed", "InProgress", "Stopped", "Stopping"
+]
+ModelCustomizationType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING"]
+ModelImportJobStatusType = Literal["Completed", "Failed", "InProgress"]
+ModelInvocationJobStatusType = Literal[
+    "Completed",
+    "Expired",
+    "Failed",
+    "InProgress",
+    "PartiallyCompleted",
+    "Scheduled",
+    "Stopped",
+    "Stopping",
+    "Submitted",
+    "Validating",
+]
+ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
+ModelStatusType = Literal["Active", "Creating", "Failed"]
+OfferTypeType = Literal["ALL", "PUBLIC"]
+PerformanceConfigLatencyType = Literal["optimized", "standard"]
+PromptRouterStatusType = Literal["AVAILABLE"]
+PromptRouterTypeType = Literal["custom", "default"]
+ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
+QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
+ReasoningEffortType = Literal["high", "low", "medium"]
+RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
+RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
+RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
+S3InputFormatType = Literal["JSONL"]
+SearchTypeType = Literal["HYBRID", "SEMANTIC"]
+SortByProvisionedModelsType = Literal["CreationTime"]
+SortJobsByType = Literal["CreationTime"]
+SortModelsByType = Literal["CreationTime"]
+SortOrderType = Literal["Ascending", "Descending"]
+StatusType = Literal["INCOMPATIBLE_ENDPOINT", "REGISTERED"]
+VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
+BedrockServiceName = Literal["bedrock"]
+ServiceName = Literal[
+    "accessanalyzer",
+    "account",
+    "acm",
+    "acm-pca",
+    "aiops",
+    "amp",
+    "amplify",
+    "amplifybackend",
+    "amplifyuibuilder",
+    "apigateway",
+    "apigatewaymanagementapi",
+    "apigatewayv2",
+    "appconfig",
+    "appconfigdata",
+    "appfabric",
+    "appflow",
+    "appintegrations",
+    "application-autoscaling",
+    "application-insights",
+    "application-signals",
+    "applicationcostprofiler",
+    "appmesh",
+    "apprunner",
+    "appstream",
+    "appsync",
+    "arc-region-switch",
+    "arc-zonal-shift",
+    "artifact",
+    "athena",
+    "auditmanager",
+    "autoscaling",
+    "autoscaling-plans",
+    "b2bi",
+    "backup",
+    "backup-gateway",
+    "backupsearch",
+    "batch",
+    "bcm-dashboards",
+    "bcm-data-exports",
+    "bcm-pricing-calculator",
+    "bcm-recommended-actions",
+    "bedrock",
+    "bedrock-agent",
+    "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
+    "bedrock-data-automation",
+    "bedrock-data-automation-runtime",
+    "bedrock-runtime",
+    "billing",
+    "billingconductor",
+    "braket",
+    "budgets",
+    "ce",
+    "chatbot",
+    "chime",
+    "chime-sdk-identity",
+    "chime-sdk-media-pipelines",
+    "chime-sdk-meetings",
+    "chime-sdk-messaging",
+    "chime-sdk-voice",
+    "cleanrooms",
+    "cleanroomsml",
+    "cloud9",
+    "cloudcontrol",
+    "clouddirectory",
+    "cloudformation",
+    "cloudfront",
+    "cloudfront-keyvaluestore",
+    "cloudhsm",
+    "cloudhsmv2",
+    "cloudsearch",
+    "cloudsearchdomain",
+    "cloudtrail",
+    "cloudtrail-data",
+    "cloudwatch",
+    "codeartifact",
+    "codebuild",
+    "codecatalyst",
+    "codecommit",
+    "codeconnections",
+    "codedeploy",
+    "codeguru-reviewer",
+    "codeguru-security",
+    "codeguruprofiler",
+    "codepipeline",
+    "codestar-connections",
+    "codestar-notifications",
+    "cognito-identity",
+    "cognito-idp",
+    "cognito-sync",
+    "comprehend",
+    "comprehendmedical",
+    "compute-optimizer",
+    "compute-optimizer-automation",
+    "config",
+    "connect",
+    "connect-contact-lens",
+    "connectcampaigns",
+    "connectcampaignsv2",
+    "connectcases",
+    "connectparticipant",
+    "controlcatalog",
+    "controltower",
+    "cost-optimization-hub",
+    "cur",
+    "customer-profiles",
+    "databrew",
+    "dataexchange",
+    "datapipeline",
+    "datasync",
+    "datazone",
+    "dax",
+    "deadline",
+    "detective",
+    "devicefarm",
+    "devops-guru",
+    "directconnect",
+    "discovery",
+    "dlm",
+    "dms",
+    "docdb",
+    "docdb-elastic",
+    "drs",
+    "ds",
+    "ds-data",
+    "dsql",
+    "dynamodb",
+    "dynamodbstreams",
+    "ebs",
+    "ec2",
+    "ec2-instance-connect",
+    "ecr",
+    "ecr-public",
+    "ecs",
+    "efs",
+    "eks",
+    "eks-auth",
+    "elasticache",
+    "elasticbeanstalk",
+    "elb",
+    "elbv2",
+    "emr",
+    "emr-containers",
+    "emr-serverless",
+    "entityresolution",
+    "es",
+    "events",
+    "evidently",
+    "evs",
+    "finspace",
+    "finspace-data",
+    "firehose",
+    "fis",
+    "fms",
+    "forecast",
+    "forecastquery",
+    "frauddetector",
+    "freetier",
+    "fsx",
+    "gamelift",
+    "gameliftstreams",
+    "geo-maps",
+    "geo-places",
+    "geo-routes",
+    "glacier",
+    "globalaccelerator",
+    "glue",
+    "grafana",
+    "greengrass",
+    "greengrassv2",
+    "groundstation",
+    "guardduty",
+    "health",
+    "healthlake",
+    "iam",
+    "identitystore",
+    "imagebuilder",
+    "importexport",
+    "inspector",
+    "inspector-scan",
+    "inspector2",
+    "internetmonitor",
+    "invoicing",
+    "iot",
+    "iot-data",
+    "iot-jobs-data",
+    "iot-managed-integrations",
+    "iotanalytics",
+    "iotdeviceadvisor",
+    "iotevents",
+    "iotevents-data",
+    "iotfleetwise",
+    "iotsecuretunneling",
+    "iotsitewise",
+    "iotthingsgraph",
+    "iottwinmaker",
+    "iotwireless",
+    "ivs",
+    "ivs-realtime",
+    "ivschat",
+    "kafka",
+    "kafkaconnect",
+    "kendra",
+    "kendra-ranking",
+    "keyspaces",
+    "keyspacesstreams",
+    "kinesis",
+    "kinesis-video-archived-media",
+    "kinesis-video-media",
+    "kinesis-video-signaling",
+    "kinesis-video-webrtc-storage",
+    "kinesisanalytics",
+    "kinesisanalyticsv2",
+    "kinesisvideo",
+    "kms",
+    "lakeformation",
+    "lambda",
+    "launch-wizard",
+    "lex-models",
+    "lex-runtime",
+    "lexv2-models",
+    "lexv2-runtime",
+    "license-manager",
+    "license-manager-linux-subscriptions",
+    "license-manager-user-subscriptions",
+    "lightsail",
+    "location",
+    "logs",
+    "lookoutequipment",
+    "m2",
+    "machinelearning",
+    "macie2",
+    "mailmanager",
+    "managedblockchain",
+    "managedblockchain-query",
+    "marketplace-agreement",
+    "marketplace-catalog",
+    "marketplace-deployment",
+    "marketplace-entitlement",
+    "marketplace-reporting",
+    "marketplacecommerceanalytics",
+    "mediaconnect",
+    "mediaconvert",
+    "medialive",
+    "mediapackage",
+    "mediapackage-vod",
+    "mediapackagev2",
+    "mediastore",
+    "mediastore-data",
+    "mediatailor",
+    "medical-imaging",
+    "memorydb",
+    "meteringmarketplace",
+    "mgh",
+    "mgn",
+    "migration-hub-refactor-spaces",
+    "migrationhub-config",
+    "migrationhuborchestrator",
+    "migrationhubstrategy",
+    "mpa",
+    "mq",
+    "mturk",
+    "mwaa",
+    "mwaa-serverless",
+    "neptune",
+    "neptune-graph",
+    "neptunedata",
+    "network-firewall",
+    "networkflowmonitor",
+    "networkmanager",
+    "networkmonitor",
+    "notifications",
+    "notificationscontacts",
+    "nova-act",
+    "oam",
+    "observabilityadmin",
+    "odb",
+    "omics",
+    "opensearch",
+    "opensearchserverless",
+    "organizations",
+    "osis",
+    "outposts",
+    "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
+    "partnercentral-selling",
+    "payment-cryptography",
+    "payment-cryptography-data",
+    "pca-connector-ad",
+    "pca-connector-scep",
+    "pcs",
+    "personalize",
+    "personalize-events",
+    "personalize-runtime",
+    "pi",
+    "pinpoint",
+    "pinpoint-email",
+    "pinpoint-sms-voice",
+    "pinpoint-sms-voice-v2",
+    "pipes",
+    "polly",
+    "pricing",
+    "proton",
+    "qapps",
+    "qbusiness",
+    "qconnect",
+    "quicksight",
+    "ram",
+    "rbin",
+    "rds",
+    "rds-data",
+    "redshift",
+    "redshift-data",
+    "redshift-serverless",
+    "rekognition",
+    "repostspace",
+    "resiliencehub",
+    "resource-explorer-2",
+    "resource-groups",
+    "resourcegroupstaggingapi",
+    "rolesanywhere",
+    "route53",
+    "route53-recovery-cluster",
+    "route53-recovery-control-config",
+    "route53-recovery-readiness",
+    "route53domains",
+    "route53globalresolver",
+    "route53profiles",
+    "route53resolver",
+    "rtbfabric",
+    "rum",
+    "s3",
+    "s3control",
+    "s3outposts",
+    "s3tables",
+    "s3vectors",
+    "sagemaker",
+    "sagemaker-a2i-runtime",
+    "sagemaker-edge",
+    "sagemaker-featurestore-runtime",
+    "sagemaker-geospatial",
+    "sagemaker-metrics",
+    "sagemaker-runtime",
+    "savingsplans",
+    "scheduler",
+    "schemas",
+    "sdb",
+    "secretsmanager",
+    "security-ir",
+    "securityhub",
+    "securitylake",
+    "serverlessrepo",
+    "service-quotas",
+    "servicecatalog",
+    "servicecatalog-appregistry",
+    "servicediscovery",
+    "ses",
+    "sesv2",
+    "shield",
+    "signer",
+    "signin",
+    "simspaceweaver",
+    "snow-device-management",
+    "snowball",
+    "sns",
+    "socialmessaging",
+    "sqs",
+    "ssm",
+    "ssm-contacts",
+    "ssm-guiconnect",
+    "ssm-incidents",
+    "ssm-quicksetup",
+    "ssm-sap",
+    "sso",
+    "sso-admin",
+    "sso-oidc",
+    "stepfunctions",
+    "storagegateway",
+    "sts",
+    "supplychain",
+    "support",
+    "support-app",
+    "swf",
+    "synthetics",
+    "taxsettings",
+    "textract",
+    "timestream-influxdb",
+    "timestream-query",
+    "timestream-write",
+    "tnb",
+    "transcribe",
+    "transfer",
+    "translate",
+    "trustedadvisor",
+    "verifiedpermissions",
+    "voice-id",
+    "vpc-lattice",
+    "waf",
+    "waf-regional",
+    "wafv2",
+    "wellarchitected",
+    "wickr",
+    "wisdom",
+    "workdocs",
+    "workmail",
+    "workmailmessageflow",
+    "workspaces",
+    "workspaces-instances",
+    "workspaces-thin-client",
+    "workspaces-web",
+    "xray",
+]
+ResourceServiceName = Literal[
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
+]
+PaginatorName = Literal[
+    "list_automated_reasoning_policies",
+    "list_automated_reasoning_policy_build_workflows",
+    "list_automated_reasoning_policy_test_cases",
+    "list_automated_reasoning_policy_test_results",
+    "list_custom_model_deployments",
+    "list_custom_models",
+    "list_enforced_guardrails_configuration",
+    "list_evaluation_jobs",
+    "list_guardrails",
+    "list_imported_models",
+    "list_inference_profiles",
+    "list_marketplace_model_endpoints",
+    "list_model_copy_jobs",
+    "list_model_customization_jobs",
+    "list_model_import_jobs",
+    "list_model_invocation_jobs",
+    "list_prompt_routers",
+    "list_provisioned_model_throughputs",
+]
+RegionName = Literal[
+    "af-south-1",
+    "ap-east-2",
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-south-2",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ap-southeast-3",
+    "ap-southeast-4",
+    "ap-southeast-5",
+    "ap-southeast-7",
+    "ca-central-1",
+    "ca-west-1",
+    "eu-central-1",
+    "eu-central-2",
+    "eu-north-1",
+    "eu-south-1",
+    "eu-south-2",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "il-central-1",
+    "me-central-1",
+    "me-south-1",
+    "mx-central-1",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2",
+]

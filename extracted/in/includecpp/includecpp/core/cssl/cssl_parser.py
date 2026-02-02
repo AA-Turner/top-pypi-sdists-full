@@ -183,6 +183,8 @@ KEYWORDS = {
     'supports', 'libinclude',
     # Memory binding (v4.9.0)
     'uses', 'memory',
+    # Memory copying (v4.9.9)
+    'copies',
 }
 
 # Function modifiers that can appear in any order before function name
@@ -386,13 +388,16 @@ class CSSLLexer:
                 self._add_token(TokenType.MULTIPLY, '*')
                 self._advance()
             elif char == '/':
-                # Check for // comment, /* block comment */, or division
+                # Check for // comment, /* block comment */, /d docstring, or division
                 if self._peek(1) == '/':
                     # Single-line comment
                     self._skip_comment()
                 elif self._peek(1) == '*':
                     # Block comment /* ... */
                     self._skip_block_comment()
+                elif self._peek(1) == 'd' and (self.pos + 2 >= len(self.source) or not self.source[self.pos + 2].isalnum()):
+                    # /d docstring comment - skip like a regular comment
+                    self._skip_comment()
                 else:
                     self._add_token(TokenType.DIVIDE, '/')
                     self._advance()
@@ -1588,7 +1593,10 @@ class CSSLParser:
                 is_freezed = True
 
         # Get type name
-        type_name = self._advance().value  # Consume type keyword
+        type_token = self._advance()  # Consume type keyword
+        type_name = type_token.value
+        decl_line = type_token.line
+        decl_column = type_token.column
 
         # Check for generic type <T> or instance<"name"> or nested <map<K,V>>
         element_type = None
@@ -1673,7 +1681,7 @@ class CSSLParser:
             'is_local': is_local,    # v4.9.4: Cannot be accessed via @varName
             'is_static': is_static,  # v4.9.4: Cannot be snapshotted via %varName
             'is_freezed': is_freezed # v4.9.4: Immutable - cannot be reassigned
-        })
+        }, line=decl_line, column=decl_column)
 
     def parse_program(self) -> ASTNode:
         """Parse a standalone program (no service wrapper)"""
@@ -1731,6 +1739,14 @@ class CSSLParser:
                 elif self._looks_like_typed_variable():
                     # v4.8.6: Support 'global int @varname = value' syntax
                     decl = self._parse_typed_variable()
+                    if decl and isinstance(decl.value, dict):
+                        # v4.9.8: Apply consumed modifiers to the typed declaration
+                        if 'static' in modifiers:
+                            decl.value['is_static'] = True
+                        if 'local' in [m for m in modifiers if m == 'local']:
+                            decl.value['is_local'] = True
+                        if 'freezed' in modifiers:
+                            decl.value['is_freezed'] = True
                     if decl and is_global:
                         # Wrap in global_assignment to mark as global variable
                         global_stmt = ASTNode('global_assignment', value=decl)
@@ -1847,10 +1863,16 @@ class CSSLParser:
                   self._check(TokenType.SELF_REF) or self._check(TokenType.SHARED_REF) or
                   self._check(TokenType.KEYWORD) or self._check(TokenType.LANG_INSTANCE_REF) or
                   self._check(TokenType.CAPTURED_REF) or self._check(TokenType.POINTER_REF) or
-                  self._check(TokenType.POINTER_SNAPSHOT_REF)):
+                  self._check(TokenType.POINTER_SNAPSHOT_REF) or
+                  self._check(TokenType.STRING) or self._check(TokenType.NUMBER) or
+                  self._check(TokenType.PAREN_START)):
+                saved_pos = self.pos
                 stmt = self._parse_expression_statement()
                 if stmt:
                     root.children.append(stmt)
+                # Safety: if parsing didn't advance, skip token to prevent infinite loop
+                if self.pos == saved_pos:
+                    self._advance()
             # Skip comments and newlines
             elif self._check(TokenType.COMMENT) or self._check(TokenType.NEWLINE):
                 self._advance()
@@ -2091,6 +2113,12 @@ class CSSLParser:
 
         Access values via EnumName::VALUE1
         """
+        # v4.9.9: Support 'enum this->EnumName' for class member enums
+        this_ref = False
+        if self._check(TokenType.KEYWORD) and self._current().value == 'this':
+            self._advance()  # consume 'this'
+            self._expect(TokenType.FLOW_RIGHT)  # consume '->'
+            this_ref = True
         enum_name = self._advance().value
 
         # v4.3.2: Check for &Target reference (enum replacement)
@@ -2144,7 +2172,8 @@ class CSSLParser:
             'name': enum_name,
             'members': members,
             'is_embedded': is_embedded,
-            'replace_target': replace_target
+            'replace_target': replace_target,
+            'this_ref': this_ref
         })
 
     def _parse_embedded_override(self) -> ASTNode:
@@ -3028,6 +3057,13 @@ class CSSLParser:
             # Syntax: constr ConstructorName() { ... }
             # or: constr ConstructorName() : extends Parent::ConstructorName { ... }
             # v4.8.8: Also supports: secure constr Name(), callable constr Name()
+            # v4.9.9: ~Name() is shorthand for constr ~Name() (destructor)
+            elif self._match(TokenType.TILDE):
+                # Shorthand destructor: ~Name() { ... } without constr keyword
+                # Put tilde back so _parse_constructor can consume it
+                self.pos -= 1
+                constructor = self._parse_constructor(class_name, modifiers=[])
+                node.children.append(constructor)
             elif self._match_keyword('constr'):
                 constructor = self._parse_constructor(class_name, modifiers=[])
                 node.children.append(constructor)
@@ -3348,6 +3384,8 @@ class CSSLParser:
         overwrites_method_ref = None
         supports_language = None  # v4.1.0: Multi-language syntax support
         uses_memory = None  # v4.9.0: Memory binding for deferred execution
+        copies_memory_target = None  # v4.9.9: Copy another function's local scope
+        overwrites_memory_target = None  # v4.9.9: Overwrite another function's local scope
 
         if self._match(TokenType.DOUBLE_COLON) or self._match(TokenType.COLON):
             # Parse extends and/or overwrites (supports :: method-level syntax)
@@ -3381,8 +3419,14 @@ class CSSLParser:
                     if self._match(TokenType.PAREN_START):
                         self._expect(TokenType.PAREN_END)
                 elif self._match_keyword('overwrites'):
+                    # v4.9.9: Check for 'overwrites memory(FuncName)' - overwrite another function's local scope
+                    if (self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD)) and self._current().value == 'memory':
+                        self._advance()  # consume 'memory'
+                        self._expect(TokenType.PAREN_START)
+                        overwrites_memory_target = self._advance().value  # Get function name
+                        self._expect(TokenType.PAREN_END)
                     # Check for qualified reference: Parent::method
-                    if self._check(TokenType.SHARED_REF):
+                    elif self._check(TokenType.SHARED_REF):
                         overwrites_is_python = True
                         overwrites_func = self._advance().value
                         # Check for ::method
@@ -3430,6 +3474,16 @@ class CSSLParser:
                         self._expect(TokenType.PAREN_END)
                     else:
                         raise CSSLSyntaxError("Expected 'memory(address)' after 'uses'")
+                # v4.9.9: Parse 'copies memory(FuncName)' - copy another function's local scope
+                # Syntax: define func() : copies memory(SecureMethod) { }
+                elif self._match_keyword('copies'):
+                    if (self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD)) and self._current().value == 'memory':
+                        self._advance()  # consume 'memory'
+                        self._expect(TokenType.PAREN_START)
+                        copies_memory_target = self._advance().value  # Get function name
+                        self._expect(TokenType.PAREN_END)
+                    else:
+                        raise CSSLSyntaxError("Expected 'memory(FuncName)' after 'copies'")
                 else:
                     break
                 # Check for another :: or : for chaining extends/overwrites
@@ -3557,7 +3611,11 @@ class CSSLParser:
             # v4.5.1: Function modifiers (private, const, static, etc.)
             'modifiers': modifiers or [],
             # v4.9.0: Memory binding for deferred execution
-            'uses_memory': uses_memory
+            'uses_memory': uses_memory,
+            # v4.9.9: Copy another function's local scope
+            'copies_memory': copies_memory_target,
+            # v4.9.9: Overwrite another function's local scope
+            'overwrites_memory': overwrites_memory_target
         }, children=children)
 
         return node
@@ -3596,6 +3654,8 @@ class CSSLParser:
         elif self._match_keyword('supports'):
             # v4.2.0: Standalone supports block for multi-language syntax
             return self._parse_supports_block()
+        elif self._match_keyword('enum'):
+            return self._parse_enum()
         elif self._match_keyword('define'):
             # Nested define function
             return self._parse_define()
@@ -3616,6 +3676,30 @@ class CSSLParser:
                 if stmt:
                     return ASTNode('global_assignment', value=stmt)
                 return None
+        elif self._check(TokenType.KEYWORD) and self._current().value == 'freezed':
+            # v4.9.7: Handle freezed as standalone modifier
+            # freezed %var        — freeze existing snapshot
+            # freezed snapshot(x) — snapshot and freeze
+            saved_pos = self.pos
+            self._advance()  # consume 'freezed'
+
+            if self._check(TokenType.CAPTURED_REF):
+                # freezed %var — freeze an existing snapshot variable
+                snap_name = self._advance().value
+                self._match(TokenType.SEMICOLON)
+                return ASTNode('freeze_snapshot', value={'name': snap_name})
+            elif self._check(TokenType.IDENTIFIER) and self._current().value == 'snapshot':
+                # freezed snapshot(x) — snapshot and freeze
+                expr = self._parse_expression_statement()
+                return ASTNode('freeze_snapshot_call', value={'call': expr})
+            else:
+                # Fall back to typed variable: freezed int x = 5;
+                self.pos = saved_pos
+                if self._looks_like_typed_variable():
+                    return self._parse_typed_variable()
+                # Unknown — parse as expression
+                self._advance()  # re-consume 'freezed'
+                return self._parse_expression_statement()
         elif self._looks_like_typed_variable():
             # Typed variable declaration (e.g., stack<string> myStack;)
             return self._parse_typed_variable()
@@ -3797,15 +3881,27 @@ class CSSLParser:
                     'value': value
                 })
             else:
-                # Simple assignment: i = 0
+                # Could be simple assignment (i = 0) or bare expression (i < n.size())
+                saved_pos = self.pos
                 var_name = self._advance().value
-                self._expect(TokenType.EQUALS)
-                value = self._parse_expression()
-                init = ASTNode('c_for_init', value={
-                    'type': None,
-                    'var': var_name,
-                    'value': value
-                })
+                if self._check(TokenType.EQUALS):
+                    # Simple assignment: i = 0
+                    self._advance()  # consume =
+                    value = self._parse_expression()
+                    init = ASTNode('c_for_init', value={
+                        'type': None,
+                        'var': var_name,
+                        'value': value
+                    })
+                else:
+                    # Bare expression as init (e.g. i < n.size(), or just i)
+                    self.pos = saved_pos
+                    expr = self._parse_expression()
+                    init = ASTNode('c_for_init', value={
+                        'type': None,
+                        'var': None,
+                        'expr': expr
+                    })
 
         self._expect(TokenType.SEMICOLON)
 
@@ -3968,18 +4064,60 @@ class CSSLParser:
         """Parse foreach loop - supports both syntaxes:
 
         Traditional: foreach (var in iterable) { }
+        Traditional with assertion: foreach ([case]*[default]var in iterable) { }
         New 'as' syntax: foreach iterable as var { }
         """
         # Check if this is the new 'as' syntax or traditional syntax
         if self._check(TokenType.PAREN_START):
             # Traditional syntax: foreach (var in iterable) { }
             self._expect(TokenType.PAREN_START)
-            var_name = self._advance().value
+
+            # v4.9.7: Support non-null/conditional assertion on loop variable
+            # e.g., foreach ([10]*[9]x in n) { }
+            # Parse [case]*[default] prefix manually, then grab var name
+            var_assertion = None
+            if self._check(TokenType.BRACKET_START):
+                # Parse [condition]
+                self._advance()  # consume [
+                condition = self._parse_expression()
+                self._expect(TokenType.BRACKET_END)
+
+                # Check for *[fallback] pattern
+                if self._check(TokenType.MULTIPLY):
+                    self._advance()  # consume *
+                    self._expect(TokenType.BRACKET_START)
+                    fallback = self._parse_expression()
+                    self._expect(TokenType.BRACKET_END)
+
+                    # Now grab the variable name
+                    var_name = self._advance().value
+                    var_assertion = ASTNode('conditional_assert', value={
+                        'condition': condition,
+                        'fallback': fallback,
+                        'operand': ASTNode('identifier', value=var_name)
+                    })
+                else:
+                    # Just [fallback] without condition — treat as non-null fallback
+                    var_name = self._advance().value
+                    var_assertion = ASTNode('non_null_assert_fallback', value={
+                        'fallback': condition,
+                        'operand': ASTNode('identifier', value=var_name)
+                    })
+            else:
+                var_name = self._advance().value
+
+            # Support key-value iteration: foreach (k, v in dict) { }
+            value_var = None
+            if self._match(TokenType.COMMA):
+                value_var = self._advance().value
+
             self._match_keyword('in')
             iterable = self._parse_expression()
             self._expect(TokenType.PAREN_END)
         else:
             # NEW: 'as' syntax: foreach iterable as var { }
+            var_assertion = None
+            value_var = None
             iterable = self._parse_expression()
             if self._check(TokenType.AS):
                 self._advance()  # consume 'as'
@@ -3987,7 +4125,14 @@ class CSSLParser:
                 self._match_keyword('as')  # try keyword match as fallback
             var_name = self._advance().value
 
-        node = ASTNode('foreach', value={'var': var_name, 'iterable': iterable}, children=[])
+        foreach_value = {'var': var_name, 'iterable': iterable}
+        # Key-value iteration: foreach (k, v in dict)
+        if value_var is not None:
+            foreach_value['value_var'] = value_var
+        # v4.9.7: Include assertion info if present
+        if var_assertion is not None:
+            foreach_value['var_assertion'] = var_assertion
+        node = ASTNode('foreach', value=foreach_value, children=[])
         self._expect(TokenType.BLOCK_START)
 
         while not self._check(TokenType.BLOCK_END) and not self._is_at_end():
@@ -4701,8 +4846,38 @@ class CSSLParser:
 
         return filters if filters else None
 
+    def _is_injection_operator(self) -> bool:
+        """Check if the current token is any injection/infusion operator."""
+        if self._is_at_end():
+            return False
+        t = self.tokens[self.pos].type
+        return t in (
+            TokenType.INJECT_LEFT, TokenType.INJECT_RIGHT,
+            TokenType.INJECT_PLUS_LEFT, TokenType.INJECT_PLUS_RIGHT,
+            TokenType.INJECT_MINUS_LEFT, TokenType.INJECT_MINUS_RIGHT,
+            TokenType.INFUSE_LEFT, TokenType.INFUSE_RIGHT,
+            TokenType.INFUSE_PLUS_LEFT, TokenType.INFUSE_PLUS_RIGHT,
+            TokenType.INFUSE_MINUS_LEFT, TokenType.INFUSE_MINUS_RIGHT,
+        )
+
     def _parse_expression_statement(self) -> Optional[ASTNode]:
         expr = self._parse_expression()
+
+        # === LEFT-SIDE FILTER: expr [filter] <operator> [filter] source ===
+        # Try to parse left-side filter brackets before injection operators.
+        # e.g. x [dynamic::content=10] ==> [string::where="test"] target
+        source_filter = None
+        if self._check(TokenType.BRACKET_START) and not self._is_injection_operator():
+            saved_pos = self.pos
+            try:
+                left_filter = self._parse_injection_filter()
+                if left_filter and self._is_injection_operator():
+                    source_filter = left_filter
+                else:
+                    # Not a filter + injection combo, restore position
+                    self.pos = saved_pos
+            except Exception:
+                self.pos = saved_pos
 
         # === TUPLE UNPACKING: a, b, c = shuffled_func() ===
         # Check if we have comma-separated identifiers before =
@@ -4742,14 +4917,14 @@ class CSSLParser:
                 filter_info = self._parse_injection_filter()
                 source = self._parse_expression()
                 self._match(TokenType.SEMICOLON)
-                return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'replace', 'filter': filter_info})
+                return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'replace', 'filter': filter_info, 'source_filter': source_filter})
 
         # === PLUS INJECTION: +<== (copy & add to target) ===
         if self._match(TokenType.INJECT_PLUS_LEFT):
             filter_info = self._parse_injection_filter()
             source = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'add', 'filter': filter_info})
+            return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'add', 'filter': filter_info, 'source_filter': source_filter})
 
         # === MINUS INJECTION: -<== or -<==[n] (move & remove from source) ===
         if self._match(TokenType.INJECT_MINUS_LEFT):
@@ -4770,7 +4945,7 @@ class CSSLParser:
             filter_info = self._parse_injection_filter()
             source = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'move', 'filter': filter_info, 'index': remove_index})
+            return ASTNode('inject', value={'target': expr, 'source': source, 'mode': 'move', 'filter': filter_info, 'index': remove_index, 'source_filter': source_filter})
 
         # === CODE INFUSION: <<== (inject code into function) ===
         if self._match(TokenType.INFUSE_LEFT):
@@ -4825,21 +5000,21 @@ class CSSLParser:
             filter_info = self._parse_injection_filter()
             target = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'replace', 'filter': filter_info})
+            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'replace', 'filter': filter_info, 'source_filter': source_filter})
 
         # === PLUS RECEIVE: ==>+ (copy source to target) ===
         if self._match(TokenType.INJECT_PLUS_RIGHT):
             filter_info = self._parse_injection_filter()
             target = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'add', 'filter': filter_info})
+            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'add', 'filter': filter_info, 'source_filter': source_filter})
 
         # === MINUS RECEIVE: -==> (move & remove from source) ===
         if self._match(TokenType.INJECT_MINUS_RIGHT):
             filter_info = self._parse_injection_filter()
             target = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'move', 'filter': filter_info})
+            return ASTNode('receive', value={'source': expr, 'target': target, 'mode': 'move', 'filter': filter_info, 'source_filter': source_filter})
 
         # === CODE INFUSION RIGHT: ==>> ===
         if self._match(TokenType.INFUSE_RIGHT):
@@ -4862,13 +5037,53 @@ class CSSLParser:
         if self._match(TokenType.EQUALS):
             value = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ASTNode('assignment', value={'target': expr, 'value': value})
+            return ASTNode('assignment', value={'target': expr, 'value': value},
+                           line=getattr(expr, 'line', 0), column=getattr(expr, 'column', 0))
 
         self._match(TokenType.SEMICOLON)
         return ASTNode('expression', value=expr)
 
     def _parse_expression(self) -> ASTNode:
-        return self._parse_or()
+        return self._parse_inject_expr()
+
+    def _parse_inject_expr(self) -> ASTNode:
+        """Parse injection operators as right-associative expression operators.
+
+        v4.9.9: Allows chaining like: a +<== b +<== c  →  a +<== (b +<== c) → "abc"
+        Also supports: a <== b, x ==> y, x ==>+ y in expression context.
+        Parentheses and right-to-left evaluation (mathematical rules).
+        """
+        left = self._parse_or()
+
+        # Check for injection/receive operators
+        inject_op = None
+        if self._check(TokenType.INJECT_PLUS_LEFT):
+            inject_op = 'add'
+            self._advance()
+        elif self._check(TokenType.INJECT_MINUS_LEFT):
+            inject_op = 'move'
+            self._advance()
+        elif self._check(TokenType.INJECT_LEFT):
+            inject_op = 'replace'
+            self._advance()
+        elif self._check(TokenType.INJECT_RIGHT):
+            inject_op = 'receive_replace'
+            self._advance()
+        elif self._check(TokenType.INJECT_PLUS_RIGHT):
+            inject_op = 'receive_add'
+            self._advance()
+        elif self._check(TokenType.INJECT_MINUS_RIGHT):
+            inject_op = 'receive_move'
+            self._advance()
+
+        if inject_op:
+            # Parse optional filter [type::helper=value] after the operator
+            filter_info = self._parse_injection_filter()
+            # Right-associative: recurse into _parse_inject_expr for the right side
+            right = self._parse_inject_expr()
+            return ASTNode('inject_expr', value={'op': inject_op, 'left': left, 'right': right, 'filter': filter_info})
+
+        return left
 
     def _parse_or(self) -> ASTNode:
         left = self._parse_and()
@@ -4889,26 +5104,26 @@ class CSSLParser:
         return left
 
     def _parse_comparison(self) -> ASTNode:
-        left = self._parse_term()
+        left = self._parse_stream()
 
         while True:
             if self._match(TokenType.COMPARE_EQ):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '==', 'left': left, 'right': right})
             elif self._match(TokenType.COMPARE_NE):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '!=', 'left': left, 'right': right})
             elif self._match(TokenType.COMPARE_LT):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '<', 'left': left, 'right': right})
             elif self._match(TokenType.COMPARE_GT):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '>', 'left': left, 'right': right})
             elif self._match(TokenType.COMPARE_LE):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '<=', 'left': left, 'right': right})
             elif self._match(TokenType.COMPARE_GE):
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': '>=', 'left': left, 'right': right})
             elif self._check(TokenType.KEYWORD) and self._peek().value == 'not':
                 # Check for 'not in' compound operator: item not in list
@@ -4916,15 +5131,39 @@ class CSSLParser:
                 if next_tok and next_tok.type == TokenType.KEYWORD and next_tok.value == 'in':
                     self._advance()  # consume 'not'
                     self._advance()  # consume 'in'
-                    right = self._parse_term()
+                    right = self._parse_stream()
                     left = ASTNode('binary', value={'op': 'not in', 'left': left, 'right': right})
                 else:
                     break
             elif self._check(TokenType.KEYWORD) and self._peek().value == 'in':
                 # 'in' operator for containment: item in list
                 self._advance()  # consume 'in'
-                right = self._parse_term()
+                right = self._parse_stream()
                 left = ASTNode('binary', value={'op': 'in', 'left': left, 'right': right})
+            else:
+                break
+
+        return left
+
+    def _parse_stream(self) -> ASTNode:
+        """Parse stream operators: << (stream out) and >> (stream in).
+
+        v4.9.8: Enables C++ style stream syntax:
+            cout << "Hello" << " World" << endl;
+            cin >> variable;
+        """
+        left = self._parse_term()
+
+        while True:
+            if self._match(TokenType.STREAM_OUT):
+                right = self._parse_term()
+                left = ASTNode('binary', value={'op': '<<', 'left': left, 'right': right})
+            elif self._check(TokenType.STREAM_IN):
+                # >> can conflict with nested generics, only parse as stream
+                # when left side is a known stream type or identifier
+                self._advance()
+                right = self._parse_term()
+                left = ASTNode('binary', value={'op': '>>', 'left': left, 'right': right})
             else:
                 break
 
@@ -5019,6 +5258,12 @@ class CSSLParser:
                     'type': type_name,
                     'element_type': element_type
                 })
+
+        # v4.9.8: Negated condition: [!expr] — matches if value does NOT equal expr
+        if self._check(TokenType.NOT):
+            self._advance()  # consume !
+            inner = self._parse_condition_value()
+            return ASTNode('condition_negated', value={'inner': inner})
 
         # Default: parse as expression (for complex conditions)
         return self._parse_condition_value()
@@ -5132,11 +5377,16 @@ class CSSLParser:
                 self._expect(TokenType.PAREN_END)
                 node = ASTNode('call', value={'callee': node, 'args': args, 'kwargs': kwargs})
 
-            # Check for member access
-            while self._check(TokenType.DOT):
-                self._advance()
-                member = self._advance().value
-                node = ASTNode('member_access', value={'object': node, 'member': member})
+            # Check for member access (. and ::)
+            while self._check(TokenType.DOT) or self._check(TokenType.DOUBLE_COLON):
+                if self._match(TokenType.DOUBLE_COLON):
+                    # :: enum/namespace access on result of member access
+                    member = self._advance().value
+                    node = ASTNode('scope_access', value={'object': node, 'member': member})
+                else:
+                    self._advance()  # consume .
+                    member = self._advance().value
+                    node = ASTNode('member_access', value={'object': node, 'member': member})
                 # Check for method call
                 if self._check(TokenType.PAREN_START):
                     self._advance()
@@ -5380,11 +5630,16 @@ class CSSLParser:
             if self._check(TokenType.AT):
                 self._advance()  # consume @
                 is_global_ref = True
-            class_name = self._advance().value  # get class name or namespace
+            class_name = self._advance().value  # get class name or namespace/module
             # v4.2.6: Handle Namespace::ClassName syntax
             namespace = None
             if self._check(TokenType.DOUBLE_COLON):
                 self._advance()  # consume ::
+                namespace = class_name
+                class_name = self._advance().value  # get actual class name
+            # Support new Module.ClassName() — dot-access for classes from included modules
+            elif self._check(TokenType.DOT) and self._peek(1) and self._peek(1).type == TokenType.IDENTIFIER:
+                self._advance()  # consume .
                 namespace = class_name
                 class_name = self._advance().value  # get actual class name
             args = []
@@ -5718,6 +5973,8 @@ class CSSLParser:
         if self._check(TokenType.IDENTIFIER) or self._check(TokenType.KEYWORD):
             return self._parse_identifier_or_call()
 
+        # Fallback: consume the unrecognized token to prevent infinite loops
+        self._advance()
         return ASTNode('literal', value=None)
 
     def _parse_module_reference(self) -> ASTNode:
@@ -5985,6 +6242,10 @@ class CSSLParser:
             if self._match(TokenType.DOT) or self._match(TokenType.FLOW_RIGHT):
                 member = self._advance().value
                 node = ASTNode('member_access', value={'object': node, 'member': member})
+            elif self._match(TokenType.DOUBLE_COLON):
+                # :: scope access on result of member access (e.g., obj.enumMember::VALUE)
+                member = self._advance().value
+                node = ASTNode('scope_access', value={'object': node, 'member': member})
             elif self._match(TokenType.PAREN_START):
                 args, kwargs = self._parse_call_arguments()
                 self._expect(TokenType.PAREN_END)

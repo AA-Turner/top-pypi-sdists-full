@@ -12,6 +12,7 @@ import time
 import base64
 import threading
 import logging
+import concurrent.futures
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
@@ -28,9 +29,9 @@ from typing import (
     Union,
 )
 from urllib.parse import urlencode
+import warnings
 
 import httpx
-import msgpack
 from httpx_sse import aconnect_sse, connect_sse
 
 from fal_client.auth import (
@@ -68,6 +69,11 @@ CDN_URL = "https://v3.fal.media"
 USER_AGENT = "fal-client/0.2.2 (python)"
 
 MIN_REQUEST_TIMEOUT_SECONDS = 1
+
+# Global executor for sync client timeout operations
+EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    thread_name_prefix="FAL_CLIENT_EXECUTOR"
+)
 
 
 @dataclass
@@ -538,6 +544,18 @@ class FalClientHTTPError(FalClientError):
         return f"{self.message}"
 
 
+@dataclass
+class FalClientTimeoutError(FalClientError, TimeoutError):
+    timeout: float
+    request_id: Optional[str] = None
+
+    def __str__(self) -> str:
+        if self.request_id is None:
+            return f"Request timed out after {self.timeout} seconds"
+        else:
+            return f"Request {self.request_id} timed out after {self.timeout} seconds"
+
+
 def _raise_for_status(response: httpx.Response) -> None:
     try:
         response.raise_for_status()
@@ -681,7 +699,7 @@ def _serialize_max_buffering(value: int | None) -> str | None:
 
 def _build_runner_ws_url(
     application: str,
-    token: str,
+    token: str | None,
     *,
     path: str = "",
     max_buffering: int | None = None,
@@ -691,18 +709,28 @@ def _build_runner_ws_url(
     url = f"{REALTIME_URL_FORMAT}{app_path}"
     if path:
         url += "/" + path.lstrip("/")
-    query: dict[str, str] = {"fal_jwt_token": token}
+    query: dict[str, str] = {}
+    if token:
+        query["fal_jwt_token"] = token
     serialized_buffering = _serialize_max_buffering(max_buffering)
     if serialized_buffering is not None:
         query["max_buffering"] = serialized_buffering
-    return f"{url}?{urlencode(query)}"
+    if query:
+        return f"{url}?{urlencode(query)}"
+    return url
 
 
-def _build_realtime_url(application: str, token: str, max_buffering: int | None) -> str:
+def _build_realtime_url(
+    application: str,
+    token: str | None,
+    max_buffering: int | None,
+    *,
+    path: str = "realtime",
+) -> str:
     return _build_runner_ws_url(
         application,
         token,
-        path="realtime",
+        path=path,
         max_buffering=max_buffering,
     )
 
@@ -734,12 +762,27 @@ class RealtimeError(RuntimeError):
         super().__init__(message)
 
 
-def _decode_realtime_message(message: Any) -> dict[str, Any] | None:
+def msgpack_decode_message(message: bytes) -> Any:
+    import msgpack
+
+    return msgpack.unpackb(message, raw=False)
+
+
+def msgpack_encode_message(message: Any) -> bytes:
+    import msgpack
+
+    return msgpack.packb(message, use_bin_type=True)
+
+
+def _decode_realtime_message(
+    message: Any, decode_message: Callable[[bytes], Any] | None
+) -> dict[str, Any] | None:
     if isinstance(message, memoryview):
         message = message.tobytes()
 
     if isinstance(message, (bytes, bytearray)):
-        return msgpack.unpackb(message, raw=False)
+        decode = decode_message or msgpack_decode_message
+        return decode(message)
 
     if isinstance(message, str):
         try:
@@ -762,20 +805,30 @@ def _decode_realtime_message(message: Any) -> dict[str, Any] | None:
     return {"payload": message}
 
 
+def _encode_realtime_message(
+    message: dict[str, Any],
+    encode_message: Callable[[Any], bytes] | None,
+) -> bytes:
+    encode = encode_message or msgpack_encode_message
+    return encode(message)
+
+
 @dataclass
 class RealtimeConnection:
     """Synchronous realtime connection wrapper."""
 
     _ws: "Connection"
+    _encode_message: Callable[[Any], bytes] | None = None
+    _decode_message: Callable[[bytes], Any] | None = None
 
     def send(self, arguments: dict[str, Any]) -> None:
-        payload = msgpack.packb(arguments, use_bin_type=True)
+        payload = _encode_realtime_message(arguments, self._encode_message)
         self._ws.send(payload)
 
     def recv(self) -> dict[str, Any]:
         while True:
             response = self._ws.recv()
-            decoded = _decode_realtime_message(response)
+            decoded = _decode_realtime_message(response, self._decode_message)
             if decoded is None:
                 continue
             return decoded
@@ -797,15 +850,17 @@ class AsyncRealtimeConnection:
     """Asynchronous realtime connection wrapper."""
 
     _ws: "WebSocketClientProtocol"
+    _encode_message: Callable[[Any], bytes] | None = None
+    _decode_message: Callable[[bytes], Any] | None = None
 
     async def send(self, arguments: dict[str, Any]) -> None:
-        payload = msgpack.packb(arguments, use_bin_type=True)
+        payload = _encode_realtime_message(arguments, self._encode_message)
         await self._ws.send(payload)
 
     async def recv(self) -> dict[str, Any]:
         while True:
             response = await self._ws.recv()
-            decoded = _decode_realtime_message(response)
+            decoded = _decode_realtime_message(response, self._decode_message)
             if decoded is None:
                 continue
             return decoded
@@ -823,11 +878,14 @@ class AsyncRealtimeConnection:
 
 
 @contextmanager
-def _connect_sync_ws(url: str) -> Iterator["Connection"]:
+def _connect_sync_ws(
+    url: str, headers: dict[str, str] | None = None
+) -> Iterator["Connection"]:
     from websockets.sync import client
 
     with client.connect(
         url,
+        additional_headers=headers,
         open_timeout=REALTIME_OPEN_TIMEOUT,
         max_size=None,
     ) as ws:
@@ -835,11 +893,14 @@ def _connect_sync_ws(url: str) -> Iterator["Connection"]:
 
 
 @asynccontextmanager
-async def _connect_async_ws(url: str) -> AsyncIterator["WebSocketClientProtocol"]:
+async def _connect_async_ws(
+    url: str, headers: dict[str, str] | None = None
+) -> AsyncIterator["WebSocketClientProtocol"]:
     import websockets
 
     async with websockets.connect(
         url,
+        extra_headers=headers,
         open_timeout=REALTIME_OPEN_TIMEOUT,
         max_size=None,
     ) as ws:
@@ -993,6 +1054,20 @@ async def _async_maybe_retry_request(
             raise
     # Should be unreachable, added for type checkers
     raise RuntimeError("Failed to perform request")
+
+
+def _maybe_cancel_request(handle: SyncRequestHandle) -> None:
+    try:
+        handle.cancel()
+    except Exception:
+        pass
+
+
+async def _async_maybe_cancel_request(handle: AsyncRequestHandle) -> None:
+    try:
+        await handle.cancel()
+    except Exception:
+        pass
 
 
 @dataclass(frozen=True)
@@ -1329,6 +1404,7 @@ class AsyncClient:
         priority: Optional[Priority] = None,
         headers: dict[str, str] = {},
         start_timeout: Optional[Union[int, float]] = None,
+        client_timeout: Optional[Union[int, float]] = None,
     ) -> AnyJSON:
         """Subscribe to an application and wait for the result.
 
@@ -1336,26 +1412,60 @@ class AsyncClient:
             start_timeout: Server-side request timeout in seconds. Limits total time spent
                 waiting before processing starts (includes queue wait, retries, and
                 routing). Does not apply once the application begins processing.
+            client_timeout: Client-side total timeout in seconds. Limits the total time
+                spent waiting for the entire request to complete (including queue wait
+                and processing). If not set, waits indefinitely.
         """
+        if client_timeout is not None:
+            if start_timeout is None:
+                start_timeout = client_timeout
+            elif start_timeout > client_timeout:
+                warnings.warn(
+                    f"start_timeout ({start_timeout}s) is larger than client_timeout ({client_timeout}s). "
+                    "The request may timeout on the client before the server-side timeout is reached.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
-        handle = await self.submit(
-            application,
-            arguments,
-            path=path,
-            hint=hint,
-            priority=priority,
-            headers=headers,
-            start_timeout=start_timeout,
-        )
+        handle_ref: list[Optional[AsyncRequestHandle]] = [None]
 
-        if on_enqueue is not None:
-            on_enqueue(handle.request_id)
+        async def _do_subscribe() -> AnyJSON:
+            handle = await self.submit(
+                application,
+                arguments,
+                path=path,
+                hint=hint,
+                priority=priority,
+                headers=headers,
+                start_timeout=start_timeout,
+            )
+            handle_ref[0] = handle
 
-        if on_queue_update is not None:
-            async for event in handle.iter_events(with_logs=with_logs):
-                on_queue_update(event)
+            if on_enqueue is not None:
+                on_enqueue(handle.request_id)
 
-        return await handle.get()
+            if on_queue_update is not None:
+                async for event in handle.iter_events(with_logs=with_logs):
+                    on_queue_update(event)
+
+            return await handle.get()
+
+        if client_timeout is None:
+            return await _do_subscribe()
+
+        try:
+            return await asyncio.wait_for(_do_subscribe(), timeout=client_timeout)
+        except asyncio.TimeoutError as e:
+            request_id = None
+            handle = handle_ref[0]
+            if handle is not None:
+                request_id = handle.request_id
+                await _async_maybe_cancel_request(handle)
+
+            raise FalClientTimeoutError(
+                timeout=client_timeout,
+                request_id=request_id,
+            ) from e
 
     def get_handle(self, application: str, request_id: str) -> AsyncRequestHandle:
         return AsyncRequestHandle.from_request_id(self._client, application, request_id)
@@ -1471,35 +1581,56 @@ class AsyncClient:
         self,
         application: str,
         *,
+        use_jwt: bool = True,
+        path: str = "/realtime",
         max_buffering: int | None = None,
         token_expiration: int = REALTIME_TOKEN_EXPIRATION_SECONDS,
+        encode_message: Callable[[Any], bytes] | None = None,
+        decode_message: Callable[[bytes], Any] | None = None,
     ) -> AsyncIterator[AsyncRealtimeConnection]:
-        token = await self._get_realtime_token(
-            application, token_expiration=token_expiration
-        )
-        url = _build_realtime_url(application, token, max_buffering)
-        async with _connect_async_ws(url) as ws:
-            yield AsyncRealtimeConnection(ws)
+        headers: dict[str, str] | None = None
+        token: str | None = None
+        if use_jwt:
+            token = await self._get_realtime_token(
+                application, token_expiration=token_expiration
+            )
+        else:
+            auth = self._get_auth()
+            headers = {"Authorization": auth.header_value, "User-Agent": USER_AGENT}
+
+        url = _build_realtime_url(application, token, max_buffering, path=path)
+        async with _connect_async_ws(url, headers=headers) as ws:
+            yield AsyncRealtimeConnection(
+                ws, _encode_message=encode_message, _decode_message=decode_message
+            )
 
     @asynccontextmanager
     async def ws_connect(
         self,
         application: str,
         *,
+        use_jwt: bool = True,
         path: str = "",
         max_buffering: int | None = None,
         token_expiration: int = REALTIME_TOKEN_EXPIRATION_SECONDS,
     ) -> AsyncIterator["WebSocketClientProtocol"]:
-        token = await self._get_realtime_token(
-            application, token_expiration=token_expiration
-        )
+        headers: dict[str, str] | None = None
+        token: str | None = None
+        if use_jwt:
+            token = await self._get_realtime_token(
+                application, token_expiration=token_expiration
+            )
+        else:
+            auth = self._get_auth()
+            headers = {"Authorization": auth.header_value, "User-Agent": USER_AGENT}
+
         url = _build_runner_ws_url(
             application,
             token,
             path=path,
             max_buffering=max_buffering,
         )
-        async with _connect_async_ws(url) as ws:
+        async with _connect_async_ws(url, headers=headers) as ws:
             yield ws
 
 
@@ -1540,6 +1671,10 @@ class SyncClient:
     @cached_property
     def _token_manager(self) -> CDNTokenManager:
         return CDNTokenManager(self._get_auth())
+
+    @property
+    def _executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        return EXECUTOR
 
     def _get_cdn_client(self) -> httpx.Client:
         token = self._token_manager.get_token()
@@ -1681,6 +1816,7 @@ class SyncClient:
         priority: Optional[Priority] = None,
         headers: dict[str, str] = {},
         start_timeout: Optional[Union[int, float]] = None,
+        client_timeout: Optional[Union[int, float]] = None,
     ) -> AnyJSON:
         """Subscribe to an application and wait for the result.
 
@@ -1688,26 +1824,61 @@ class SyncClient:
             start_timeout: Server-side request timeout in seconds. Limits total time spent
                 waiting before processing starts (includes queue wait, retries, and
                 routing). Does not apply once the application begins processing.
+            client_timeout: Client-side total timeout in seconds. Limits the total time
+                spent waiting for the entire request to complete (including queue wait
+                and processing). If not set, waits indefinitely.
         """
+        if client_timeout is not None:
+            if start_timeout is None:
+                start_timeout = client_timeout
+            elif start_timeout > client_timeout:
+                warnings.warn(
+                    f"start_timeout ({start_timeout}s) is larger than client_timeout ({client_timeout}s). "
+                    "The request may timeout on the client before the server-side timeout is reached.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
-        handle = self.submit(
-            application,
-            arguments,
-            path=path,
-            hint=hint,
-            priority=priority,
-            headers=headers,
-            start_timeout=start_timeout,
-        )
+        handle_ref: list[Optional[SyncRequestHandle]] = [None]
 
-        if on_enqueue is not None:
-            on_enqueue(handle.request_id)
+        def _do_subscribe() -> AnyJSON:
+            handle = self.submit(
+                application,
+                arguments,
+                path=path,
+                hint=hint,
+                priority=priority,
+                headers=headers,
+                start_timeout=start_timeout,
+            )
+            handle_ref[0] = handle
 
-        if on_queue_update is not None:
-            for event in handle.iter_events(with_logs=with_logs):
-                on_queue_update(event)
+            if on_enqueue is not None:
+                on_enqueue(handle.request_id)
 
-        return handle.get()
+            if on_queue_update is not None:
+                for event in handle.iter_events(with_logs=with_logs):
+                    on_queue_update(event)
+
+            return handle.get()
+
+        if client_timeout is None:
+            return _do_subscribe()
+
+        future = self._executor.submit(_do_subscribe)
+        try:
+            return future.result(timeout=client_timeout)
+        except concurrent.futures.TimeoutError as e:
+            request_id = None
+            handle = handle_ref[0]
+            if handle is not None:
+                request_id = handle.request_id
+                _maybe_cancel_request(handle)
+
+            raise FalClientTimeoutError(
+                timeout=client_timeout,
+                request_id=request_id,
+            ) from e
 
     def get_handle(self, application: str, request_id: str) -> SyncRequestHandle:
         return SyncRequestHandle.from_request_id(self._client, application, request_id)
@@ -1817,31 +1988,56 @@ class SyncClient:
         self,
         application: str,
         *,
+        use_jwt: bool = True,
+        path: str = "/realtime",
         max_buffering: int | None = None,
         token_expiration: int = REALTIME_TOKEN_EXPIRATION_SECONDS,
+        encode_message: Callable[[Any], bytes] | None = None,
+        decode_message: Callable[[bytes], Any] | None = None,
     ) -> Iterator[RealtimeConnection]:
-        token = self._get_realtime_token(application, token_expiration=token_expiration)
-        url = _build_realtime_url(application, token, max_buffering)
-        with _connect_sync_ws(url) as ws:
-            yield RealtimeConnection(ws)
+        headers: dict[str, str] | None = None
+        token: str | None = None
+        if use_jwt:
+            token = self._get_realtime_token(
+                application, token_expiration=token_expiration
+            )
+        else:
+            auth = self._get_auth()
+            headers = {"Authorization": auth.header_value, "User-Agent": USER_AGENT}
+
+        url = _build_realtime_url(application, token, max_buffering, path=path)
+        with _connect_sync_ws(url, headers=headers) as ws:
+            yield RealtimeConnection(
+                ws, _encode_message=encode_message, _decode_message=decode_message
+            )
 
     @contextmanager
     def ws_connect(
         self,
         application: str,
         *,
+        use_jwt: bool = True,
         path: str = "",
         max_buffering: int | None = None,
         token_expiration: int = REALTIME_TOKEN_EXPIRATION_SECONDS,
     ) -> Iterator["Connection"]:
-        token = self._get_realtime_token(application, token_expiration=token_expiration)
+        headers: dict[str, str] | None = None
+        token: str | None = None
+        if use_jwt:
+            token = self._get_realtime_token(
+                application, token_expiration=token_expiration
+            )
+        else:
+            auth = self._get_auth()
+            headers = {"Authorization": auth.header_value, "User-Agent": USER_AGENT}
+
         url = _build_runner_ws_url(
             application,
             token,
             path=path,
             max_buffering=max_buffering,
         )
-        with _connect_sync_ws(url) as ws:
+        with _connect_sync_ws(url, headers=headers) as ws:
             yield ws
 
 

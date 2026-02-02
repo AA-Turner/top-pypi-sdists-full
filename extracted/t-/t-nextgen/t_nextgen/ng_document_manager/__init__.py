@@ -1,1 +1,0 @@
-"""NextGen Document Manager package."""

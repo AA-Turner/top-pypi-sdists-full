@@ -1,2 +1,0 @@
-class IncompatiblePromptRevisionError(Exception):
-    pass

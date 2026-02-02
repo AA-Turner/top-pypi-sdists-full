@@ -1,0 +1,79 @@
+"""Basic types for DynamoDB data and operations"""
+
+from abc import abstractmethod
+import typing as ty
+from decimal import Decimal
+
+from typing_extensions import Literal, TypedDict
+
+KeyAttributeType = ty.Union[int, str, float, Decimal]
+ItemKey = ty.Mapping[str, KeyAttributeType]
+
+AttrInput = ty.Mapping[str, ty.Any]
+InputItem = AttrInput
+
+SchemaKeyAttibute = TypedDict("SchemaKeyAttibute", {"AttributeName": str})
+KeyType = ty.Union[Literal["HASH"], Literal["RANGE"]]
+
+
+class KeyAndType(TypedDict):
+    AttributeName: str
+    KeyType: KeyType
+
+
+KeySchema = ty.List[KeyAndType]
+PrimaryIndex = KeySchema
+
+
+class SecondaryIndex(TypedDict):
+    IndexName: str
+    KeySchema: KeySchema
+
+
+Index = ty.Union[PrimaryIndex, SecondaryIndex]
+
+
+# pylint: disable=unused-argument,no-self-use
+
+
+class TableResource:
+    """A stub for a boto3 DynamoDB Table Resource.
+
+    This can be updated as we use more methods from the type."""
+
+    name: str
+
+    key_schema: KeySchema
+
+    global_secondary_indexes: ty.Optional[ty.List[SecondaryIndex]]
+
+    local_secondary_indexes: ty.Optional[ty.List[SecondaryIndex]]
+
+    @abstractmethod
+    def get_item(self, Key: ItemKey, **kwargs) -> dict: ...
+
+    @abstractmethod
+    def update_item(self, TableName: str, Key: ItemKey, **kwargs) -> dict: ...
+
+    @abstractmethod
+    def put_item(self, Item: InputItem, **kwargs) -> dict: ...
+
+    @abstractmethod
+    def batch_writer(self, overwrite_by_pkeys: ty.Optional[ty.List[str]]) -> ty.ContextManager: ...
+
+    @abstractmethod
+    def delete_item(self, Key: ItemKey, **kwargs) -> dict: ...
+
+    @abstractmethod
+    def query(self, *args, **kwargs) -> dict: ...
+
+    @abstractmethod
+    def scan(self, *args, **kwargs) -> dict: ...
+
+
+AttrDict = ty.Dict[str, ty.Any]
+Item = AttrDict
+
+KeyTuple = ty.Tuple[KeyAttributeType, ...]
+
+TableQuery = ty.Dict[str, ty.Any]

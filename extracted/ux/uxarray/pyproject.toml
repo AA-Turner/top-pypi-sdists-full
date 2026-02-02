@@ -1,0 +1,89 @@
+[project]
+classifiers=[
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+dynamic = ["version"]
+keywords = ["unstructured grids", "xarray", "ugrid", "mpas", "exodus", "scrip", "fesom", "icon", "esmf"]
+description = "Xarray extension for unstructured climate and global weather data analysis and visualization."
+license = {file = "LICENSE"}
+name = "uxarray"
+readme = "README.md"
+requires-python = ">=3.10"
+
+# minimal dependencies start
+dependencies = [
+  "antimeridian",
+  "cartopy",
+  "dask[dataframe]",
+  "datashader",
+  "geoviews",
+  "holoviews",
+  "matplotlib",
+  "matplotlib-inline",
+  "netcdf4",
+  "numba",
+  "numpy<2.3",
+  "pandas",
+  "pyarrow",
+  "requests",
+  "scikit-learn",
+  "scipy",
+  "shapely",
+  "spatialpandas",
+  "geopandas",
+  "xarray",
+  "hvplot",
+  "healpix",
+  "polars",
+  "pyproj"
+]
+# minimal dependencies end
+
+[project.optional-dependencies]
+complete = ["uxarray[dev]"]
+dev = ['pathlib', 'pre_commit', 'pytest', 'pytest-cov', 'ruff', 'asv']
+
+[project.urls]
+Documentation = "https://uxarray.readthedocs.io/"
+Source = "https://github.com/UXARRAY/uxarray"
+Tracker = "https://github.com/UXARRAY/uxarray/issues"
+
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=60",
+  "setuptools-scm>=8",
+]
+
+[tool.setuptools]
+packages = ["uxarray"]
+
+[tool.setuptools_scm]
+fallback_version = "9999"
+
+[tool.ruff]
+extend-exclude = ["test","benchmarks"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+extend-ignore = ["E731"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["uxarray"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/*" = ["E402", "F401"]
+"uxarray/plot/*" = ["E402", "F401"]
+
+[tool.ruff.format]
+docstring-code-format = true

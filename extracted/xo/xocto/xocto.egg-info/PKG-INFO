@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: xocto
+Version: 9.0.2
+Summary: Kraken Technologies Python service utilities
+Author-email: Kraken Technologies <talent@octopus.energy>
+Maintainer-email: Kraken Technologies <talent@octopus.energy>
+License: MIT
+Project-URL: changelog, https://github.com/octoenergy/xocto/blob/main/CHANGELOG.md
+Project-URL: documentation, https://xocto.readthedocs.io
+Project-URL: issues, https://github.com/octoenergy/xocto/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: duckdb>=0.9.0
+Requires-Dist: django>=4.0
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: pact-python>=1.6.0
+Requires-Dist: pandas>=1.5.3
+Requires-Dist: pyarrow>=11.0.0
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: python-magic>=0.4.27
+Requires-Dist: pytz
+Requires-Dist: structlog>=20.2.0
+Requires-Dist: typing-extensions>=4.12.2
+Requires-Dist: xlrd>=2.0.1
+Provides-Extra: dev
+Requires-Dist: boto3==1.26.53; extra == "dev"
+Requires-Dist: botocore==1.29.53; extra == "dev"
+Requires-Dist: hypothesis==6.62.1; extra == "dev"
+Requires-Dist: moto[s3,sqs]==4.1; extra == "dev"
+Requires-Dist: mypy-boto3-s3==1.34.120; extra == "dev"
+Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: numpy==2.0.0; extra == "dev"
+Requires-Dist: pre-commit>=3.7.1; extra == "dev"
+Requires-Dist: psycopg2>=2.8.4; extra == "dev"
+Requires-Dist: pyarrow-stubs==10.0.1.6; extra == "dev"
+Requires-Dist: pytest-benchmark==5.0.1; extra == "dev"
+Requires-Dist: pytest-django==4.8.0; extra == "dev"
+Requires-Dist: pytest-mock==3.12.0; extra == "dev"
+Requires-Dist: pytest==8.0.2; extra == "dev"
+Requires-Dist: ruff==0.4.9; extra == "dev"
+Requires-Dist: time-machine==2.14.1; extra == "dev"
+Requires-Dist: twine==4.0.2; extra == "dev"
+Requires-Dist: types-openpyxl==3.0.4.5; extra == "dev"
+Requires-Dist: types-python-dateutil==2.8.19.20240106; extra == "dev"
+Requires-Dist: types-pytz==2024.1.0.20240203; extra == "dev"
+Requires-Dist: types-requests==2.28.11.8; extra == "dev"
+Requires-Dist: wheel==0.38.4; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: Sphinx==7.2.6; extra == "docs"
+Requires-Dist: myst-parser==2.0.0; extra == "docs"
+Requires-Dist: sphinxcontrib-serializinghtml==1.1.10; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==2.0.0; extra == "docs"
+Dynamic: license-file
+
+# xocto - utilities for Python services
+
+Proven utilities used on Python services at Kraken Technologies. This library
+works with Python 3.9 and above.
+
+CI status:
+
+[![CircleCI](https://circleci.com/gh/octoenergy/xocto/tree/main.svg?style=svg)](https://circleci.com/gh/octoenergy/xocto/tree/main)
+
+Docs status:
+
+[![Documentation Status](https://readthedocs.org/projects/xocto/badge/?version=latest)](https://xocto.readthedocs.io/en/latest/?badge=latest)
+
+- PyPI detail page: <https://pypi.python.org/pypi/xocto>
+- Documentation: <https://xocto.readthedocs.io/>

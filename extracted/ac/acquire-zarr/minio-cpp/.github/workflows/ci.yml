@@ -1,0 +1,148 @@
+name: MinIO C++ Cmake
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# This ensures that previous jobs for the PR are canceled when the PR is
+# updated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - {
+            name: "Ubuntu_Latest_GCC",
+            os: ubuntu-latest,
+            build_type: "Release",
+            cc: "gcc",
+            cxx: "g++"
+          }
+        - {
+            name: "macOS Latest Clang",
+            os: macos-latest,
+            build_type: "Release",
+            cc: "clang",
+            cxx: "clang++"
+          }
+        - {
+            name: "Windows Latest MSVC",
+            os: windows-latest,
+            build_type: "Release",
+            cc: "cl",
+            cxx: "cl"
+          }
+
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+
+    steps:
+    - name: Checkout minio-cpp
+      uses: actions/checkout@v4
+      with:
+        path: "minio-cpp"
+
+    - name: Checkout vcpkg
+      uses: actions/checkout@v4
+      with:
+        repository: microsoft/vcpkg
+        path: "vcpkg"
+
+    - name: Print env
+      run: |
+        echo github.event.action: ${{ github.event.action }}
+        echo github.event_name: ${{ github.event_name }}
+
+    - name: Install dependencies if Ubuntu
+      if: startsWith(matrix.config.name, 'Ubuntu_Latest_GCC')
+      run: |
+        wget --quiet -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+        echo 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-18 main' | sudo tee -a /etc/apt/sources.list
+        sudo apt-get -qy update
+        sudo apt-get -qy install cmake
+        wget --quiet https://dl.min.io/server/minio/release/linux-amd64/minio
+        chmod +x minio
+        cmake --version
+        ./minio --version
+
+    - name: Install dependencies if macOS
+      if: startsWith(matrix.config.os, 'macos')
+      run: |
+        brew install pkg-config cmake minio/stable/minio
+        cmake --version
+        minio --version
+
+    - name: Install dependencies if Windows
+      shell: bash
+      if: startsWith(matrix.config.os, 'windows')
+      run: |
+        choco install -y --no-progress cmake wget
+        wget --quiet https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+        chmod +x minio.exe
+        cmake --version
+
+    - name: Configure and Build
+      shell: bash
+      run: |
+        ./vcpkg/bootstrap-vcpkg.sh
+        cd minio-cpp
+        ../vcpkg/vcpkg install
+        cmake . -B ./build -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DMINIO_CPP_TEST:BOOL=ON
+        cmake --build ./build --config ${{matrix.config.build_type}} -j 4
+
+    - name: Start MinIO server if Ubuntu
+      if: startsWith(matrix.config.name, 'Ubuntu_Latest_GCC')
+      run: |
+        mkdir -p ~/.minio/certs
+        cp ./minio-cpp/tests/public.crt ./minio-cpp/tests/private.key ~/.minio/certs/
+        sudo cp ./minio-cpp/tests/public.crt /usr/local/share/ca-certificates/
+        sudo update-ca-certificates
+        MINIO_CI_CD=true ./minio server /tmp/test-xl/{1...4}/ &
+        sleep 10
+
+    - name: Start MinIO server if macOS
+      if: startsWith(matrix.config.name, 'macos')
+      run: |
+        MINIO_CI_CD=true minio server test-xl/{1...4}/ &
+        sleep 10
+
+    - name: Start MinIO server if Windows
+      if: startsWith(matrix.config.os, 'windows')
+      shell: bash
+      run: |
+        mkdir -p ~/.minio/certs
+        cp ./minio-cpp/tests/public.crt ./minio-cpp/tests/private.key ~/.minio/certs/
+        certutil -addstore -f "ROOT" ./minio-cpp/tests/public.crt
+        MINIO_CI_CD=true ./minio.exe server test-xl/{1...4}/ &
+        sleep 10
+
+    - name: Run tests if Ubuntu
+      if: startsWith(matrix.config.name, 'Ubuntu_Latest_GCC')
+      run: |
+        SERVER_ENDPOINT=localhost:9000 ACCESS_KEY=minioadmin SECRET_KEY=minioadmin ENABLE_HTTPS=1 ./minio-cpp/build/tests
+
+    - name: Run tests if macOS
+      if: startsWith(matrix.config.name, 'macos')
+      run: |
+        SERVER_ENDPOINT=localhost:9000 ACCESS_KEY=minioadmin SECRET_KEY=minioadmin ./minio-cpp/build/tests
+
+    - name: Run tests if Windows
+      shell: bash
+      if: startsWith(matrix.config.os, 'windows')
+      run: |
+        SERVER_ENDPOINT=localhost:9000 ACCESS_KEY=minioadmin SECRET_KEY=minioadmin ENABLE_HTTPS=1 ./minio-cpp/build/Release/tests.exe
+
+    - name: Run CMake test
+      run: |
+        cd minio-cpp/build
+        ctest -C ${{ matrix.config.build_type }}

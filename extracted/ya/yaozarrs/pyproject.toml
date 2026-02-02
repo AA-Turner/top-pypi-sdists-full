@@ -1,0 +1,190 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://hatch.pypa.io/latest/config/metadata/
+[tool.hatch.version]
+source = "vcs"
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "yaozarrs"
+dynamic = ["version"]
+description = "Yet another ome-zarr model."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Talley Lambert", email = "talley.lambert@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.5.0",
+    "pydantic-core>=2.35.0; python_version>='3.14'",
+    "pydantic-core>=2.20.0; python_version>='3.13'",
+    "typing-extensions>=4.6.0",
+]
+
+[project.optional-dependencies]
+io = ["fsspec[http,s3]>=2025.0"]
+storage = ["yaozarrs[io,write-zarr]"]
+write-zarr = ["zarr>=2.18", "zarr>=3.1.0; python_version>='3.11'"]
+write-tensorstore = [
+    "tensorstore>=0.1.71; python_version>='3.13'",
+    "tensorstore>=0.1.66",
+]
+write-zarrs = ["zarrs>=0.1.5; python_version>='3.11'"]
+
+[dependency-groups]
+test = ["pytest>=7.4.0", "pytest-cov>=4.0.0"]
+test-full = [
+    { include-group = "test" },
+    "numpy>=2.3.2; python_version >= '3.14'",          # needed for creating test data to write
+    "numpy>=2.1.0; python_version >= '3.13'",          # needed for creating test data to write
+    "numpy>=2",                                        # needed for creating test data to write
+    "yaozarrs[storage,write-tensorstore,write-zarrs]",
+    "ome-zarr>=0.10.2",
+]
+docs = [
+    "griffe-fieldz>=0.4.0",
+    "mkdocs-material>=9.7.0",
+    "mkdocstrings-python>=2.0.1",
+    "ruff>=0.14.8",
+    "zensical>=0.0.11",
+    "click<8.3",
+]
+dev = [
+    { include-group = "test-full" },
+    { include-group = "docs" },
+    "ipython>=8.37.0",
+    "mypy>=1.18.2",
+    "pdbpp>=0.11.7; sys_platform != 'win32'",
+    "pre-commit-uv>=4.1.5",
+    "pyright>=1.1.407",
+    "pytest-xdist>=3.8.0",
+    "rich>=14.1.0",
+    "ruff>=0.13.1",
+    "ty>=0.0.1a21",
+]
+
+old_docs = [
+    "markdown-exec[ansi]>=1.11.0",
+    "griffe-fieldz>=0.4.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-api-autonav>=0.4.0",
+    "mkdocs-material>=9.6.20",
+    "mkdocstrings-python>=1.18.2",
+    "ruff>=0.13.2",
+]
+
+[project.urls]
+homepage = "https://github.com/tlambert03/yaozarrs"
+repository = "https://github.com/tlambert03/yaozarrs"
+
+[project.scripts]
+yaozarrs = "yaozarrs._cli:main"
+
+[tool.uv.sources]
+yaozarrs = { workspace = true }
+
+# https://docs.astral.sh/ruff
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["src"]
+fix = true
+unsafe-fixes = true
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "W",    # style warnings
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF",  # ruff-specific rules
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D401", # First line should be in imperative mood (remove to opt in)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+"tests/test_realworld.py" = ["E501"]
+"docs/*.py" = ["D", "A"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = false # default is false
+
+# https://docs.pytest.org/
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = ["--color=yes", "--ignore=tests/test_realworld.py"]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/"
+strict = true
+disallow_any_generics = false
+disallow_subclassing_any = false
+show_error_codes = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+# https://coverage.readthedocs.io/
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "raise AssertionError",
+    "\\.\\.\\.",
+    "raise NotImplementedError()",
+    "pass",
+]
+
+[tool.coverage.run]
+source = ["yaozarrs"]
+
+[tool.check-manifest]
+ignore = [
+    ".pre-commit-config.yaml",
+    ".ruff_cache/**/*",
+    "tests/**/*",
+    "uv.lock",
+]
+
+# https://github.com/crate-ci/typos/blob/master/docs/reference.md
+[tool.typos.default]
+extend-ignore-identifiers-re = ["(?i)ome", "AIMD"]
+
+[tool.ty.environment]
+python = "./.venv"
+
+[tool.pyright]
+reportAttributeAccessIssue = false
+
+[tool.ty.rules]
+unresolved-attribute = "ignore"

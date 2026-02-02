@@ -1,0 +1,107 @@
+Metadata-Version: 2.1
+Name: serpyco
+Version: 1.3.13
+Summary: Fast serialization of dataclasses using Cython
+Author-email: Sébastien Grignard <pub@amakaze.org>
+License: MIT
+Project-URL: Homepage, https://gitlab.com/sgrignard/serpyco
+Project-URL: Bug Tracker, https://gitlab.com/sgrignard/serpyco/issues
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: python-dateutil
+Requires-Dist: python-rapidjson>=0.8.0
+Requires-Dist: typing-inspect>=0.6.0
+Requires-Dist: dataclasses; python_version < "3.7"
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: dataslots; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Provides-Extra: build-doc
+Requires-Dist: sphinx; extra == "build-doc"
+Requires-Dist: sphinx-autodoc-typehints; extra == "build-doc"
+Requires-Dist: sphinx-rtd-theme; extra == "build-doc"
+Requires-Dist: sphinxcontrib-websupport; extra == "build-doc"
+
+============================================
+Serpyco: a serializer for python dataclasses
+============================================
+
+What is Serpyco ?
+-----------------
+
+Serpyco is a serialization library for `Python 3.6+ dataclasses <https://docs.python.org/3/library/dataclasses.html>`_ that works just by defining your dataclasses:
+
+.. code-block:: python
+
+    import dataclasses
+    import typing
+
+    import serpyco
+
+    @dataclasses.dataclass
+    class Example(object):
+        name: str
+        num: int
+        tags: typing.List[str]
+
+
+    serializer = serpyco.Serializer(Example)
+
+    result = serializer.dump(Example(name="foo", num=2, tags=["hello", "world"]))
+    print(result)
+
+    {'name': 'foo', 'num': 2, 'tags': ['hello', 'world']}
+
+Serpyco works by analysing the dataclass fields and can recognize many types : `List`, `Set`, `Tuple`, `Optional`, `Union`... You can also embed other dataclasses in a definition.
+
+The main use-case for Serpyco is to serialize objects for an API, but it can be helpful whenever you need to transform objects to/from builtin Python types.
+
+Serpyco is tested for Python versions 3.8 to 3.12.
+
+Features
+--------
+
+- Serialization and unserialization of dataclasses
+- Validation of input/output data
+- Very fast
+- Extensible through custom encoders
+
+Installing
+----------
+
+Serpyco is best installed via pip:
+
+.. code-block:: shell
+
+    pip install serpyco
+
+It has only 3 (4 with python 3.6 dataclasses backport) dependencies:
+
+- rapid-json: used for data validation and fast JSON dump/load
+- python-dateutil: used for serializing datetime objects
+- typing_inspect: used to inspect types as needed to create serializers
+
+Documentation
+-------------
+
+- `Documentation <https://sgrignard.gitlab.io/serpyco/docs>`_
+- `API Reference <https://sgrignard.gitlab.io/serpyco/docs/api.html>`_
+
+Contributing
+------------
+
+Serpyco is written using `Python <https://www.python.org>`_ and `Cython <https://www.cython.org>`_ for parts needing speed.
+
+- `Issue tracker <https://gitlab.com/sgrignard/serpyco/issues>`_
+- `Source code <https://gitlab.com/sgrignard/serpyco>`_

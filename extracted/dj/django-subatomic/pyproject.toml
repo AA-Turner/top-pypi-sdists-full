@@ -1,0 +1,128 @@
+# Project
+# -------
+
+[project]
+name = "django-subatomic"
+description = "Fine-grained database transaction control for Django."
+version = "0.2.0"
+
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+
+requires-python = ">=3.12"
+dependencies = [
+    "attrs",
+    "django",
+]
+
+authors = [
+  {name = "Charlie Denton", email = "charlie@meshy.co.uk"},
+]
+maintainers = [
+  {name = "Charlie Denton", email = "charlie@meshy.co.uk"},
+  {name = "Lily", email = "code@lilyf.org"},
+  {name = "Samuel Searles-Bryant", email = "sam@samueljsb.co.uk"},
+]
+
+classifiers = [
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+]
+
+[project.urls]
+documentation = "https://kraken-tech.github.io/django-subatomic/"
+repository = "https://github.com/kraken-tech/django-subatomic"
+changelog = "https://github.com/kraken-tech/django-subatomic/blob/main/CHANGELOG.md"
+
+# Packaging
+# ---------
+
+[build-system]
+requires = ["setuptools>=67.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"django_subatomic" = ["py.typed"]
+
+# Development
+# -----------
+
+[tool.uv]
+default-groups = []
+
+[dependency-groups]
+dev = [
+    {include-group = "docs"},
+    {include-group = "mypy"},
+    {include-group = "test_runners"},
+    {include-group = "python_tests"},
+    "pre-commit",
+]
+docs = [
+    "mike",
+    "mkdocs-api-autonav",
+    "mkdocs-material>=9.5.0",
+]
+coverage = [
+    "coverage",
+]
+mypy = [
+    {include-group = "python_tests"},
+    "django-stubs[compatible-mypy]",
+    "mypy",
+]
+test_runners = [
+    # Test matrix management
+    "tox",
+    "tox-uv",
+]
+python_tests = [
+    # Python test suite
+    "environs[django]",
+    "psycopg[binary]",
+    "pytest",
+    "pytest-django",
+]
+
+# Mypy
+# ----
+
+[tool.mypy]
+files = "."
+exclude = "build/"
+
+# Use strict defaults
+strict = true
+warn_unreachable = true
+warn_no_return = true
+
+
+# Coverage
+[tool.coverage.run]
+branch = true
+core = "sysmon"
+source_pkgs = [
+    "django_subatomic",
+    "tests",
+]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".tox/*/lib/*/site-packages/",
+]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+skip_empty = true

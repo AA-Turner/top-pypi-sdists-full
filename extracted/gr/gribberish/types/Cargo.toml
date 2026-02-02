@@ -1,0 +1,12 @@
+[package]
+name = "gribberish-types"
+version = "0.27.2"
+authors = ["Matthew Iannucci <mpiannucci@gmail.com>"]
+description = "Common types for the gribberish crate"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/mpiannucci/gribberish"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

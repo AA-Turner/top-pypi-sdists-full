@@ -1,0 +1,125 @@
+[tool.towncrier]
+package = "openskill"
+package_dir = "openskill"
+directory = "changes"
+filename = "CHANGELOG.rst"
+issue_format = "`#{issue} <https://github.com/vivekjoshy/openskill.py/issues/{issue}>`_"
+type = [
+    { name = "Breaking Changes",            directory = "breaking",     showcontent = true },
+    { name = "Deprecation",                 directory = "deprecation",  showcontent = true },
+    { name = "Features",                    directory = "feature",      showcontent = true },
+    { name = "Bugfixes",                    directory = "bugfix",       showcontent = true },
+    { name = "Documentation Improvements",  directory = "doc",          showcontent = true },
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra --strict-markers --ignore=docs/conf.py --ignore=setup.py --ignore=benchmark --ignore=ci --ignore=.eggs --doctest-modules --doctest-glob=/*.py --tb=short"
+norecursedirs = [
+	".git",
+	".tox",
+	".env",
+	"dist",
+	"build",
+	"migrations"
+]
+testpaths = [
+    "tests"
+]
+python_files = [
+	"test_*.py",
+	"*_test.py",
+	"tests.py"
+]
+doctest_optionflags = "NUMBER"
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[project]
+name = "openskill"
+version = "6.2.0"
+authors = [
+    {name = "Vivek Joshy", email = "git@vivekjoshy.com"},
+]
+maintainers = [
+  {name = "Vivek Joshy", email = "git@vivekjoshy.com"}
+]
+description = "Multiplayer Rating System. No Friction."
+readme = "README.md"
+requires-python = "~=3.10"
+keywords = ["ranking", "trueskill", "statistics", "rating", "math", "rank"]
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy"
+]
+
+[project.urls]
+Source = "https://github.com/vivekjoshy/openskill.py"
+Documentation = "https://openskill.me/en/stable"
+Changelog = "https://github.com/vivekjoshy/openskill.py/blob/main/CHANGELOG.rst"
+Funding = "https://github.com/sponsors/vivekjoshy"
+Tracker = "https://github.com/vivekjoshy/openskill.py/issues"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx~=8.1",
+    "nbsphinx~=0.9",
+    "pygments~=2.19",
+    "shibuya~=2026.1",
+    "ipykernel~=7.1",
+    "matplotlib~=3.10",
+    "myst-parser~=4.0",
+    "sphinx-intl~=2.3",
+    "sphinx-favicon~=1.0",
+    "sphinx-docsearch~=0.1",
+    "sphinx-copybutton~=0.5",
+    "sphinxext-opengraph~=0.9",
+    "sphinxcontrib-bibtex~=2.6",
+    "sphinx-autodoc-typehints~=3.0",
+]
+tests = [
+    "tox~=4.24",
+    "mypy~=1.15",
+    "pytest~=9.0",
+    "codecov~=2.1",
+    "coverage~=7.6",
+    "pytest-cov~=7.0",
+]
+build = [
+    "twine~=6.1",
+    "build~=1.2",
+    "isort~=7.0",
+    "mypy[mypyc]~=1.15",
+    "black[jupyter]~=25.1",
+    "towncrier~=25.8",
+    "bump-my-version~=1.1",
+]
+benchmark = [
+    "rich~=14.0",
+    "tqdm~=4.67",
+    "pooch~=1.8",
+    "jsonlines~=4.0",
+    "scikit-learn~=1.6",
+]
+
+[tool.setuptools]
+package-dir = {"openskill" = "openskill"}
+
+[build-system]
+requires = ["setuptools", "mypy"]
+build-backend = "setuptools.build_meta"

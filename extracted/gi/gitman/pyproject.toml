@@ -1,7 +1,7 @@
 [tool.poetry]
 
 name = "gitman"
-version = "3.7"
+version = "3.8"
 description = "A language-agnostic dependency manager using Git."
 
 license = "MIT"
@@ -30,11 +30,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Version Control",
@@ -43,11 +43,11 @@ classifiers = [
 
 [tool.poetry.dependencies]
 
-python = "^3.9,<3.15"
+python = "^3.10,<3.15"
 
 datafiles = "^2.3.1"
 minilog = "^2.3.1"
-universal-startfile = ">=0.2,<0.4"
+universal-startfile = ">=0.2,<0.5"
 
 [tool.poetry.group.dev.dependencies]
 
@@ -65,7 +65,7 @@ types-setuptools = "*"
 # Testing
 pytest = "^8.3"
 pytest-cov = ">=5,<8"
-pytest-describe = "^2.2"
+pytest-describe = ">=2.2,<4.0"
 pytest-expecter = "^3.0"
 pytest-random = "*"
 freezegun = "*"
@@ -76,13 +76,14 @@ coveragespace = "^6.1"
 # Documentation
 mkdocs = "^1.2.3"
 mkdocstrings = ">=0.18.1,<0.31.0"
+mkdocstrings-python = "*"
 pygments = "^2.15.0"
 jinja2 = "~3.1.6"
 
 # Tooling
 pyinstaller = "^6.15"
 sniffer = "*"
-macfsevents = { version = "*", platform = "darwin" }
+macfsevents = { version = "*", platform = "darwin", python = "<3.13" }
 pync = { version = "*", platform = "darwin" }
 rope = ">=0.14,<1.15"
 

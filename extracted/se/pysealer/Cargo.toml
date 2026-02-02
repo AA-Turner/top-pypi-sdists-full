@@ -1,0 +1,23 @@
+[package]
+name = "pysealer"
+version = "0.6.0"
+edition = "2021"
+description = "Cryptographically sign Python functions and classes for defense-in-depth security."
+license = "MIT"
+repository = "https://github.com/MCP-Security-Research/pysealer"
+keywords = ["rust","python","decorator","cryptography"]
+readme = "README.md"
+
+# Rust-Python Bindings Library
+[lib]
+name = "_pysealer"
+path = "src/rust/lib.rs"
+crate-type = ["cdylib"]
+
+# General Project Dependencies
+[dependencies]
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+hex = "0.4"
+bs58 = "0.5"

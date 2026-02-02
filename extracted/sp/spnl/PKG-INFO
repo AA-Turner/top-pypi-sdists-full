@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: spnl
+Version: 0.13.9
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-Expression: Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# Span Queries
+
+What if we had a way to plan and optimize GenAI like we do for
+[SQL](https://en.wikipedia.org/wiki/SQL)?
+
+A **Span Query** is a declarative way to specify which portions of a
+generative AI (GenAI) program should be **run directly on model
+serving components**. As with
+[SQL](https://en.wikipedia.org/wiki/SQL), this declarative structure
+is safe to run on the backend and provides a clean starting point for
+optimization. Also like SQL, some GenAI programs will be entirely
+expressible as queries, though most will be expressed as the
+programmatic interludes around the declarative queries.
+

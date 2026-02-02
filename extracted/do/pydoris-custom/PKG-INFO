@@ -1,0 +1,104 @@
+Metadata-Version: 2.4
+Name: pydoris-custom
+Version: 1.1.0
+Summary: Python interface to Doris (custom build with relaxed dependencies)
+Home-page: https://github.com/apache/doris
+Author: liujiwen-up, bingquanzhao, catpineapple
+Author-email: catpineapple1122@gmail.com
+License: Apache 2.0
+Project-URL: Homepage, https://github.com/apache/doris
+Project-URL: Repository, https://github.com/apache/doris
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Database :: Front-Ends
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: sqlalchemy<2,>=1.4
+Requires-Dist: mysqlclient<3,>=2.1.0
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Apache Doris Python Client (Custom Build)
+
+A Apache Doris client for the Python programming language.
+
+This is a custom build with relaxed dependency constraints (sqlalchemy-utils removed as it's not actually used in the code).
+
+Apache Doris is a high-performance, real-time analytical database based on MPP architecture, known for its extreme speed and ease of use. It only requires a sub-second response time to return query results under massive data and can support not only high-concurrent point query scenarios but also high-throughput complex analysis scenarios.
+
+## Installation
+
+```bash
+pip install pydoris-custom
+```
+
+Or install from source:
+
+```bash
+pip install .
+```
+
+## SQLAlchemy Usage
+
+To connect to doris using SQLAlchemy, use a connection string (URL) following this pattern:
+
+- **User**: User Name
+- **Password**: Password
+- **Host**: doris FE Host
+- **Port**: doris FE port
+- **Catalog**: Catalog Name
+- **Database**: Database Name
+
+Here's what the connection string looks like:
+
+```
+doris://<User>:<Password>@<Host>:<Port>/<Database>
+pydoris://<User>:<Password>@<Host>:<Port>/<Database>
+```
+
+```
+doris://<User>:<Password>@<Host>:<Port>/<Catalog>.<Database>
+pydoris://<User>:<Password>@<Host>:<Port>/<Catalog>.<Database>
+```
+
+## Example
+
+It is recommended to use python 3.x to connect to the doris database, eg:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.schema import Table, MetaData
+from sqlalchemy.sql.expression import select, text
+
+engine = create_engine('doris://root:xxx@localhost:9030/hive_catalog.hive_db')
+connection = engine.connect()
+
+rows = connection.execute(text("SELECT * FROM hive_table")).fetchall()
+```
+
+## Differences from Official Package
+
+This custom build removes the `sqlalchemy-utils` dependency which is not actually used in the code.

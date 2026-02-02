@@ -153,7 +153,7 @@ pub fn convert_table_cell(
                 options.escape_ascii,
             );
             if options.escape_misc {
-                text = escaped;
+                text = escaped.into_owned();
             } else {
                 text = escaped.replace('|', r"\|");
             }
@@ -175,5 +175,7 @@ pub fn convert_table_cell(
 
     output.push(' ');
     output.push_str(&text);
-    output.push_str(&" |".repeat(colspan));
+    for _ in 0..colspan {
+        output.push_str(" |");
+    }
 }

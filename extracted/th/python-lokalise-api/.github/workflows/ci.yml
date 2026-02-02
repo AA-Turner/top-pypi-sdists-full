@@ -6,6 +6,9 @@ on:
   push:
     branches: [ master ]
 
+permissions:
+  contents: read
+  
 env:
   CODECOV_TOKEN: 690ea968-186e-40df-b491-478de6dc0746
 
@@ -15,14 +18,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Sync dependencies
         run: uv sync --group dev --frozen
       - name: Install package (editable)

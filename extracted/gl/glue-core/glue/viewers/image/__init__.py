@@ -1,1 +1,0 @@
-from .pixel_selection_mode import PixelSelectionTool

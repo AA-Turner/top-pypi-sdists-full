@@ -1114,6 +1114,13 @@ def test_greatest(get_session_and_func):
     assert df.select(greatest(df.a, df.b, df.c).alias("greatest")).collect() == [
         Row(greatest=4),
     ]
+    if not isinstance(session, (PySparkSession, BigQuerySession)):
+        df = session.createDataFrame([(1, 4, 3, None)], ["a", "b", "c", "d"])
+        assert df.select(
+            greatest(df.a, df.b, df.c, df.d.cast("bigint")).alias("greatest")
+        ).collect() == [
+            Row(greatest=4),
+        ]
 
 
 def test_least(get_session_and_func):
@@ -1122,6 +1129,11 @@ def test_least(get_session_and_func):
     assert df.select(least(df.a, df.b, df.c).alias("least")).collect() == [
         Row(least=1),
     ]
+    if not isinstance(session, (PySparkSession, BigQuerySession)):
+        df = session.createDataFrame([(1, 4, 3, None)], ["a", "b", "c", "d"])
+        assert df.select(least(df.a, df.b, df.c, df.d.cast("bigint")).alias("least")).collect() == [
+            Row(least=1),
+        ]
 
 
 def test_when(get_session_and_func):
@@ -5117,8 +5129,6 @@ def test_try_element_at(get_session_and_func, get_func):
     else:
         assert df.select(try_element_at(df.data, lit(-1)).alias("r")).first()[0] == "c"
     df = session.createDataFrame([({"a": 1.0, "b": 2.0},)], ["data"])
-    # if isinstance(session, DuckDBSession):
-    #     assert df.select(try_element_at(df.data, lit("a")).alias("r")).first()[0] == [1.0]
     if isinstance(session, PostgresSession):
         pass
     else:

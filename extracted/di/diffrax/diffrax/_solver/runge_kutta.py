@@ -7,12 +7,9 @@ from typing import (
     get_args,
     get_origin,
     Literal,
-    Optional,
-    Tuple,
     TYPE_CHECKING,
-    Union,
+    TypeAlias,
 )
-from typing_extensions import TypeAlias
 
 import equinox as eqx
 import equinox.internal as eqxi
@@ -59,8 +56,8 @@ class ButcherTableau:
     a_lower: tuple[np.ndarray, ...]
 
     # Implicit RK methods
-    a_diagonal: Optional[np.ndarray] = None
-    a_predictor: Optional[tuple[np.ndarray, ...]] = None
+    a_diagonal: np.ndarray | None = None
+    a_predictor: tuple[np.ndarray, ...] | None = None
     c1: float = 0.0
 
     # Properties implied by the above tableaus, e.g. used to define fast-paths.
@@ -189,7 +186,7 @@ Let `k` denote the number of stages of the solver.
 - `a_predictor`: optional. Used in a similar way to `a_lower`; specifies the linear
     combination of previous stages to use as a predictor for the solution to the
     implicit problem at that stage. See
-    [the developer documentation](../../devdocs/predictor_dirk). Used for diagonal
+    [the developer documentation](../../devdocs/predictor_dirk.md). Used for diagonal
     implicit Runge--Kutta methods only.
 
 Whether the solver exhibits either the FSAL or SSAL properties is determined
@@ -242,7 +239,7 @@ class CalculateJacobian(enum.IntEnum):
     second_stage = 3
 
 
-_SolverState: TypeAlias = Optional[tuple[BoolScalarLike, PyTree[Array]]]
+_SolverState: TypeAlias = tuple[BoolScalarLike, PyTree[Array]] | None
 
 
 # TODO: examine termination criterion for Newton iteration
@@ -356,10 +353,15 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
     instance of [`diffrax.CalculateJacobian`][].
     """
 
-    scan_kind: Union[None, Literal["lax", "checkpointed", "bounded"]] = None
+    scan_kind: None | Literal["lax", "checkpointed", "bounded"] = None
 
-    tableau: AbstractClassVar[Union[ButcherTableau, MultiButcherTableau]]
+    tableau: AbstractClassVar[ButcherTableau | MultiButcherTableau]
     calculate_jacobian: AbstractClassVar[CalculateJacobian]
+
+    if TYPE_CHECKING:
+        # Pretend that we're implicit
+        root_finder: ClassVar[optx.AbstractRootFinder]
+        root_find_max_steps: ClassVar[int]
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -377,7 +379,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                 if hasattr(cls, "term_structure"):
                     assert get_origin(cls.term_structure) is MultiTerm
                     [_tmp] = get_args(cls.term_structure)
-                    assert get_origin(_tmp) in (tuple, Tuple)
+                    assert get_origin(_tmp) in (tuple, tuple)
                     assert all(issubclass(x, AbstractTerm) for x in get_args(_tmp))
                 else:
                     terms = tuple(
@@ -807,7 +809,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
             )
             implicit_predictor = np.zeros(
                 (num_stages, num_stages),
-                dtype=np.result_type(*implicit_tableau.a_predictor),
+                dtype=np.result_type(*cast(tuple, implicit_tableau.a_predictor)),
             )
             for i, a_predictor_i in enumerate(implicit_tableau.a_predictor):  # pyright: ignore
                 implicit_predictor[i + 1, : i + 1] = a_predictor_i
@@ -927,7 +929,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     )
 
                 def eval_f_jac():
-                    return self.root_finder.init(  # pyright: ignore
+                    return self.root_finder.init(
                         lambda y, a: (_implicit_relation_f(y, a), None),
                         lax.stop_gradient(f_pred),
                         _filter_stop_gradient(f_implicit_args),
@@ -938,7 +940,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     )
 
                 def eval_k_jac():
-                    return self.root_finder.init(  # pyright: ignore
+                    return self.root_finder.init(
                         lambda y, a: (_implicit_relation_k(y, a), None),
                         lax.stop_gradient(k_pred),
                         _filter_stop_gradient(k_implicit_args),
@@ -983,12 +985,12 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     jac_f = eqxi.nondifferentiable(jac_f, name="jac_f")
                     nonlinear_sol = optx.root_find(
                         _implicit_relation_f,
-                        self.root_finder,  # pyright: ignore
+                        self.root_finder,
                         f_pred,
                         f_implicit_args,
                         options=dict(init_state=jac_f),
                         throw=False,
-                        max_steps=self.root_find_max_steps,  # pyright: ignore
+                        max_steps=self.root_find_max_steps,
                     )
                     implicit_fi = nonlinear_sol.value
                     implicit_ki = _unused
@@ -998,12 +1000,12 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     jac_k = eqxi.nondifferentiable(jac_k, name="jac_k")
                     nonlinear_sol = optx.root_find(
                         _implicit_relation_k,
-                        self.root_finder,  # pyright: ignore
+                        self.root_finder,
                         k_pred,
                         k_implicit_args,
                         options=dict(init_state=jac_k),
                         throw=False,
-                        max_steps=self.root_find_max_steps,  # pyright: ignore
+                        max_steps=self.root_find_max_steps,
                     )
                     implicit_fi = _unused
                     implicit_ki = implicit_inc = nonlinear_sol.value
@@ -1096,7 +1098,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     args,
                     implicit_control,
                 )
-                jac_f = self.root_finder.init(  # pyright: ignore
+                jac_f = self.root_finder.init(
                     lambda y, a: (_implicit_relation_f(y, a), None),
                     jtu.tree_map(jnp.zeros_like, get_implicit(f0)),
                     _filter_stop_gradient(f_implicit_args),
@@ -1118,7 +1120,7 @@ class AbstractRungeKutta(AbstractAdaptiveSolver[_SolverState]):
                     implicit_control,
                 )
                 jac_f = _unused
-                jac_k = self.root_finder.init(  # pyright: ignore
+                jac_k = self.root_finder.init(
                     lambda y, a: (_implicit_relation_k(y, a), None),
                     jtu.tree_map(jnp.zeros_like, y0),
                     _filter_stop_gradient(k_implicit_args),

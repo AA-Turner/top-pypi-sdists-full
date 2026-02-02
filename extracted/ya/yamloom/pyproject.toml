@@ -1,0 +1,48 @@
+[build-system]
+requires = ["maturin>=1.10,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "yamloom"
+description = "Generate GitHub Actions workflows with a Pythonic API."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+]
+dynamic = ["version"]
+keywords = ["github-actions", "workflow", "yaml", "automation", "ci"]
+
+[project.urls]
+Homepage = "https://github.com/denehoffman/yamloom"
+Repository = "https://github.com/denehoffman/yamloom"
+Issues = "https://github.com/denehoffman/yamloom/issues"
+Changelog = "https://github.com/denehoffman/yamloom/releases"
+
+[project.scripts]
+yamloom = "yamloom.__main__:main"
+
+[tool.maturin]
+python-source = "python"
+module-name = "yamloom._yamloom"
+include = [
+    { path = "schemas/NOTICE", format = ["sdist", "wheel"] },
+    { path = "schemas/LICENSE", format = ["sdist", "wheel"] }
+]
+
+
+[tool.ruff.format]
+quote-style = "single"

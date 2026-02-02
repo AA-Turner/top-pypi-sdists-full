@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dc-securex"
+version = "3.3.1"
+description = "Backend-only Discord anti-nuke protection SDK"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["discord", "bot", "antinuke", "security", "protection", "sdk"]
+authors = [
+    {name = "SecureX Team", email = "contact@securex.dev"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "discord.py>=2.0.0",
+    "aiofiles>=23.0.0",
+    "aiosqlite>=0.17.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/securex-antinuke-sdk"
+Repository = "https://github.com/yourusername/securex-antinuke-sdk"
+Issues = "https://github.com/yourusername/securex-antinuke-sdk/issues"

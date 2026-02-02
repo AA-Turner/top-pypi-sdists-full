@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spatialdata
-Version: 0.7.1
+Version: 0.7.1.post1
 Summary: Spatial data format.
 Project-URL: Documentation, https://spatialdata.scverse.org/en/latest
 Project-URL: Source, https://github.com/scverse/spatialdata.git

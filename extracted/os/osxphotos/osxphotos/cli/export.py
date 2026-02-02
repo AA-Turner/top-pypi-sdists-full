@@ -77,6 +77,7 @@ from osxphotos.photoquery import load_uuid_from_file, query_options_from_kwargs
 from osxphotos.phototemplate import PhotoTemplate, RenderOptions
 from osxphotos.platform import get_macos_version, is_macos
 from osxphotos.sidecars import UserSidecarError
+from osxphotos.stat_cache import DirectoryStatCache, are_same_filesystem
 from osxphotos.unicode import normalize_fs_path
 from osxphotos.uti import get_preferred_uti_extension
 from osxphotos.utils import (
@@ -145,6 +146,11 @@ if TYPE_CHECKING:
 
     from .cli import CLI_Obj
 
+# TTL for for DirectoryStatCache
+STAT_CACHE_TTL_SECONDS = os.environ.get(
+    "OSXPHOTOS_STAT_CACHE_TTL_SECONDS", 60 * 60 * 10
+)
+
 
 @click.command(cls=ExportCommand)
 @DB_OPTION
@@ -207,6 +213,21 @@ if TYPE_CHECKING:
     "--dry-run",
     is_flag=True,
     help="Dry run (test) the export but don't actually export any files; most useful with --verbose.",
+)
+@click.option(
+    "--pre-load",
+    is_flag=True,
+    help="Dry run (test) the export and pre-load the export database with metadata about photos that already exist on disk. "
+    "This is an advanced feature that is only needed if you have imported photos into Photos then want to use the originally imported "
+    "files on disk to seed an export. Running osxphotos export with --pre-load will associate files on disk in the export directory with "
+    "assets in the Photos library so that when you subsequently export with --update, the previously exported files will not be re-exported. "
+    "For this to work, the export path used by osxphotos must match the path on disk. For example, if a file path is "
+    "'/Volumes/photos/2026/01/IMG_1234.heic' where 2026/01 is the creation year/month then you would want to run a command similar to: "
+    "'osxphotos export /Volumes/photos --directory '{created.year}/{created.mm} --pre-load'. "
+    "When you run an export with '--pre-load --verbose', you will see output similar to that produced by '--dry-run'. "
+    "Photos are not really being exported even though the message will state they are. "
+    "This option can also be used to re-build an export database if the original is lost or corrupted so that an existing "
+    "export can continue to be used.",
 )
 @click.option(
     "--export-as-hardlink",
@@ -274,6 +295,13 @@ if TYPE_CHECKING:
     "--skip-raw",
     is_flag=True,
     help="Do not export associated RAW image of a RAW+JPEG pair.  Note: this does not skip RAW photos if the RAW photo does not have an associated JPEG image (e.g. the RAW file was imported to Photos without a JPEG preview).",
+)
+@click.option(
+    "--skip-raw-jpeg",
+    is_flag=True,
+    help="Do not export associated JPEG image of a RAW+JPEG pair. "
+    "Note: this does not skip JPEG photos if the JPEG photo does not have "
+    "an associated RAW image.",
 )
 @click.option(
     "--skip-uuid",
@@ -1053,6 +1081,7 @@ def export(
     post_command: tuple[tuple[str, str], ...],
     post_command_error: Literal["continue", "break"] | None,
     post_function: tuple[tuple[Callable, str], ...],
+    pre_load: bool,
     preview: bool,
     preview_if_missing: bool,
     preview_suffix: str | None,
@@ -1083,6 +1112,7 @@ def export(
     skip_live: bool,
     skip_original_if_edited: bool,
     skip_raw: bool,
+    skip_raw_jpeg: bool,
     skip_uuid: bool,
     skip_uuid_from_file: bool,
     slow_mo: bool,
@@ -1263,6 +1293,7 @@ def export_cli(
     post_command: tuple[tuple[str, str], ...] = (),
     post_command_error: Literal["continue", "break"] | None = None,
     post_function: tuple[tuple[Callable, str], ...] = (),
+    pre_load: bool = False,
     preview: bool = False,
     preview_if_missing: bool = False,
     preview_suffix: str | None = None,
@@ -1293,6 +1324,7 @@ def export_cli(
     skip_live: bool = False,
     skip_original_if_edited: bool = False,
     skip_raw: bool = False,
+    skip_raw_jpeg: bool = False,
     skip_uuid: bool = False,
     skip_uuid_from_file: bool = False,
     slow_mo: bool = False,
@@ -1517,6 +1549,7 @@ def export_cli(
         post_command = cfg.post_command
         post_command_error = cfg.post_command_error
         post_function = cfg.post_function
+        pre_load = cfg.pre_load
         preview = cfg.preview
         preview_if_missing = cfg.preview_if_missing
         preview_suffix = cfg.preview_suffix
@@ -1546,6 +1579,7 @@ def export_cli(
         skip_live = cfg.skip_live
         skip_original_if_edited = cfg.skip_original_if_edited
         skip_raw = cfg.skip_raw
+        skip_raw_jpeg = cfg.skip_raw_jpeg
         skip_uuid = cfg.skip_uuid
         skip_uuid_from_file = cfg.skip_uuid_from_file
         slow_mo = cfg.slow_mo
@@ -1626,6 +1660,8 @@ def export_cli(
         ("shared_moment", "not_shared_moment"),
         ("no_exportdb", "update"),
         ("no_exportdb", "force_update"),
+        ("dry_run", "pre_load"),
+        ("skip_raw", "skip_raw_jpeg"),
     ]
     dependent_options = [
         ("append", ("report")),
@@ -1735,6 +1771,10 @@ def export_cli(
         not x for x in [skip_edited, skip_bursts, skip_live, skip_raw]
     ]
 
+    # --skip-raw-jpeg implies export_raw=True (no sense skipping both JPEG and RAW)
+    if skip_raw_jpeg:
+        export_raw = True
+
     # verify exiftool installed and in path if path not provided and exiftool will be used
     # NOTE: this won't catch use of {exiftool:} in a template
     # but those will raise error during template eval if exiftool path not set
@@ -1822,6 +1862,19 @@ def export_cli(
     ramdb = force_use_of_ramdb(ramdb, export_db_path, verbose)
     if dry_run:
         export_db = ExportDBInMemory(dbfile=export_db_path, export_dir=dest)
+        fileutil = FileUtilNoOp
+    elif pre_load:
+        verbose(
+            f"Running in pre-load mode; export database will be created and populated at [filepath]{export_db_path}[/] but files will not be exported."
+        )
+        # pre_load uses dry_run with update code path to rebuild/pre-load the database
+        dry_run = True
+        update = True
+        export_db = (
+            ExportDBInMemory(dbfile=export_db_path, export_dir=dest)
+            if ramdb
+            else ExportDB(dbfile=export_db_path, export_dir=dest)
+        )
         fileutil = FileUtilNoOp
     else:
         export_db = (
@@ -1965,19 +2018,17 @@ def export_cli(
             else None
         )
 
-        def cleanup_lock_files():
-            """Cleanup lock files"""
-            if not under_test():
-                verbose("Cleaning up lock files")
-            if dry_run:
-                return
-            for lock_file in pathlib.Path(dest).rglob("*.osxphotos.lock"):
-                try:
-                    lock_file.unlink()
-                except Exception as e:
-                    logger.debug(f"Error removing lock file {lock_file}: {e}")
-
-        atexit.register(cleanup_lock_files)
+        # Initialize stat cache for efficient network volume operations
+        # Only create cache for update exports where we'll be checking existing files
+        if update or force_update or dry_run:
+            stat_cache = DirectoryStatCache(ttl_seconds=STAT_CACHE_TTL_SECONDS)
+            same_filesystem = are_same_filesystem(photosdb.library_path, dest)
+            verbose(
+                f"Export destination {'is' if same_filesystem else 'is not'} on same filesystem as Photos library"
+            )
+        else:
+            stat_cache = None
+            same_filesystem = None
 
         photo_num = 0
         num_exported = 0
@@ -2227,6 +2278,11 @@ def export_cli(
         if report:
             all_files.append(report)
 
+        if only_new:
+            # keep all previously exported files
+            exported_files = [files[1] for files in export_db.get_exported_files()]
+            all_files.extend(exported_files)
+
         # gather any files that should be kept from both .osxphotos_keep and --keep
         dirs_to_keep = []
         files_to_keep, dirs_to_keep = collect_files_to_keep(keep, dest)
@@ -2309,6 +2365,7 @@ def export_photo(
     favorite_rating=False,
     filename_template=None,
     export_raw=None,
+    skip_raw_jpeg=False,
     album_keyword=None,
     person_keyword=None,
     keyword_template=None,
@@ -2338,6 +2395,8 @@ def export_photo(
     tmpdir=None,
     update_errors=False,
     fix_orientation=False,
+    stat_cache=None,
+    same_filesystem=None,
 ) -> ExportResults:
     """Helper function for export that does the actual export
 
@@ -2390,6 +2449,8 @@ def export_photo(
         verbose: callable for verbose output
         tmpdir: optional str; temporary directory to use for export
         fix_orientation: bool; if True, auto-rotate images based on EXIF orientation
+        stat_cache: DirectoryStatCache to use
+        same_filesystem: bool, True if source and destination are on same file system, otherwise False
 
     Returns:
         list of path(s) of exported photo or None if photo was missing
@@ -2555,6 +2616,7 @@ def export_photo(
                 sidecar_drop_ext=sidecar_drop_ext,
                 sidecar_flags=sidecar_flags,
                 sidecar_template=sidecar_template,
+                skip_raw_jpeg=skip_raw_jpeg,
                 touch_file=touch_file,
                 update=update,
                 update_errors=update_errors,
@@ -2563,6 +2625,8 @@ def export_photo(
                 verbose=verbose,
                 tmpdir=tmpdir,
                 fix_orientation=fix_orientation,
+                stat_cache=stat_cache,
+                same_filesystem=same_filesystem,
             )
 
     if export_edited and photo.hasadjustments:
@@ -2677,6 +2741,7 @@ def export_photo(
                     sidecar_drop_ext=sidecar_drop_ext,
                     sidecar_flags=sidecar_flags,
                     sidecar_template=sidecar_template,
+                    skip_raw_jpeg=False,
                     touch_file=touch_file,
                     update=update,
                     update_errors=update_errors,
@@ -2685,6 +2750,8 @@ def export_photo(
                     verbose=verbose,
                     tmpdir=tmpdir,
                     fix_orientation=fix_orientation,
+                    stat_cache=stat_cache,
+                    same_filesystem=same_filesystem,
                 )
 
     return results
@@ -2768,6 +2835,7 @@ def export_photo_to_directory(
     sidecar_drop_ext,
     sidecar_flags,
     sidecar_template,
+    skip_raw_jpeg,
     touch_file,
     update,
     update_errors,
@@ -2776,6 +2844,8 @@ def export_photo_to_directory(
     verbose,
     tmpdir,
     fix_orientation,
+    stat_cache=None,
+    same_filesystem=None,
 ) -> ExportResults:
     """Export photo to directory dest_path"""
 
@@ -2830,6 +2900,7 @@ def export_photo_to_directory(
                 preview=export_preview or (missing and preview_if_missing),
                 preview_suffix=preview_suffix,
                 raw_photo=export_raw,
+                skip_raw_jpeg=skip_raw_jpeg,
                 render_options=render_options,
                 replace_keywords=replace_keywords,
                 rich=True,
@@ -2847,6 +2918,8 @@ def export_photo_to_directory(
                 use_photos_export=use_photos_export,
                 verbose=verbose,
                 fix_orientation=fix_orientation,
+                stat_cache=stat_cache,
+                same_filesystem=same_filesystem,
             )
             exporter = PhotoExporter(photo)
             export_results = exporter.export(
@@ -3105,10 +3178,22 @@ def collect_files_to_keep(
 
     # have some rules to apply
     matcher = osxphotos.gitignorefile.parse_pattern_list(KEEP_RULEs, export_dir)
-    keepers = []
-    keepers = [path for path in export_dir.rglob("*") if matcher(path)]
-    files_to_keep = [str(k) for k in keepers if k.is_file()]
-    dirs_to_keep = [str(k) for k in keepers if k.is_dir()]
+
+    files_to_keep = []
+    dirs_to_keep = []
+    for root, dirnames, filenames in os.walk(export_dir):
+        root_path = pathlib.Path(root)
+        # Check directories - pass is_dir=True to avoid isdir() call in matcher
+        for dirname in dirnames:
+            dir_path = root_path / dirname
+            if matcher(dir_path, is_dir=True):
+                dirs_to_keep.append(str(dir_path))
+        # Check files - pass is_dir=False to avoid isdir() call in matcher
+        for filename in filenames:
+            file_path = root_path / filename
+            if matcher(file_path, is_dir=False):
+                files_to_keep.append(str(file_path))
+
     return files_to_keep, dirs_to_keep
 
 
@@ -3136,20 +3221,22 @@ def cleanup_files(
         normalize_fs_path(str(filename).lower()): 1 for filename in files_to_keep
     }
 
+    # Use os.walk instead of rglob for better performance on SMB/network volumes
+    # os.walk uses scandir internally which gets file info without extra stat calls
     deleted_files = []
-    for p in pathlib.Path(dest_path).rglob("*"):
-        if (
-            p.is_file()
-            and normalize_fs_path(str(p).lower()) not in keepers
-            and not p.name.startswith(".")
-        ):
-            verbose(f"Deleting [filepath]{p}")
-            try:
-                fileutil.unlink(p)
-                deleted_files.append(str(p))
-            except OSError as e:
-                # ignore errors deleting files, #987
-                verbose(f"Error deleting file {p}: {e}")
+    for dirpath, _, filenames in os.walk(dest_path):
+        for filename in filenames:
+            if filename.startswith("."):
+                continue
+            filepath = os.path.join(dirpath, filename)
+            if normalize_fs_path(filepath.lower()) not in keepers:
+                verbose(f"Deleting [filepath]{filepath}")
+                try:
+                    fileutil.unlink(filepath)
+                    deleted_files.append(filepath)
+                except OSError as e:
+                    # ignore errors deleting files, #987
+                    verbose(f"Error deleting file {filepath}: {e}")
 
     # delete empty directories
     deleted_dirs = []
@@ -3157,8 +3244,13 @@ def cleanup_files(
     for dirpath, _, _ in os.walk(dest_path, topdown=False):
         if dirpath in dirs_to_keep:
             continue
-        if not list(pathlib.Path(dirpath).glob("*")):
-            # directory and directory is empty
+        # Use scandir to efficiently check if directory is empty
+        # This only reads one entry instead of listing the entire directory
+        try:
+            is_empty = next(os.scandir(dirpath), None) is None
+        except OSError:
+            is_empty = False
+        if is_empty:
             verbose(f"Deleting empty directory {dirpath}")
             try:
                 fileutil.rmdir(dirpath)

@@ -6,7 +6,6 @@ import skrf
 
 try:
     from skrf.vi.vna import ValuesFormat, rohde_schwarz
-    from skrf.vi.vna.rohde_schwarz.zva import SweepMode, SweepType
 except ImportError:
     pass
 
@@ -39,14 +38,44 @@ def mocked_ff(mocker):
         ("freq_center", "SENS1:FREQ:CENT?", "SENS1:FREQ:CENT 100", "100", 100, 100),
         ("npoints", "SENS1:SWE:POIN?", "SENS1:SWE:POIN 100", "100", 100, 100),
         ("if_bandwidth", "SENS1:BWID?", "SENS1:BWID 100", "100", 100, 100),
-        ("sweep_step", "SENS1:SWE:STEP?", "SENS1:SWE:STEP 100", "100", 100, 100),
+        ("freq_step", "SENS1:SWE:STEP?", "SENS1:SWE:STEP 100", "100", 100, 100),
         ("sweep_time", "SENS1:SWE:TIME?", "SENS1:SWE:TIME 1.0", "1.0", 1.0, 1),
-        ("sweep_type", "SENS1:SWE:TYPE?", "SENS1:SWE:TYPE LIN", "LIN", SweepType.Linear, SweepType.Linear),
-        ("sweep_mode", "INIT1:CONT?", "INIT1:CONT OFF", "OFF", SweepMode.Single, SweepMode.Single),
-        ("measurements", "CALC1:PAR:CAT?", None, "CH4TR1,S11,CH4TR2,S12", [("CH4TR1", "S11"), ("CH4TR2", "S12")], None),
+        (
+            "sweep_type",
+            "SENS1:SWE:TYPE?",
+            "SENS1:SWE:TYPE LIN",
+            "LIN",
+            rohde_schwarz.SweepType.LINEAR,
+            rohde_schwarz.SweepType.LINEAR,
+        ),
+        (
+            "sweep_mode",
+            "INIT1:CONT?",
+            "INIT1:CONT 0",
+            "0",
+            rohde_schwarz.SweepMode.SINGLE,
+            rohde_schwarz.SweepMode.SINGLE,
+        ),
+        (
+            "measurements",
+            "CALC1:PAR:CAT?",
+            None,
+            "CH4TR1,S11,CH4TR2,S12",
+            [("CH4TR1", "S11"), ("CH4TR2", "S12")],
+            None,
+        ),
     ],
 )
-def test_params(mocker, mocked_ff, param, expected_query, expected_write, query_response, expected_val, write_val):
+def test_params(
+    mocker,
+    mocked_ff,
+    param,
+    expected_query,
+    expected_write,
+    query_response,
+    expected_val,
+    write_val,
+):
     if expected_query is not None:
         mocked_ff.query.return_value = query_response
         test_query = getattr(mocked_ff.ch1, param)
@@ -90,12 +119,13 @@ def test_active_channel_query(mocker, mocked_ff):
 
 
 def test_active_channel_setter(mocker, mocked_ff):
-    mocked_ff.query.side_effect = ["1", "1", "1", "2", "2"]
+    mocked_ff.query.side_effect = ["1", "1", "2"]
     mocked_ff.active_channel = mocked_ff.ch1
     mocked_ff.write.assert_not_called()
 
     mocked_ff.create_channel(2, "Test")
     mocked_ff.active_channel = mocked_ff.ch2
+    mocked_ff.write.assert_called_with("INST:NSEL 2")
 
     assert mocked_ff.active_channel.cnum == 2
 
@@ -148,8 +178,8 @@ def test_create_measurement(mocker, mocked_ff):
     mocked_ff.query.return_value = "1"
     mocked_ff.ch1.create_measurement("CH1_S11_1", "S11")
     write_calls = [
-        mocker.call("CALC1:PAR:SDEF 'CH1_S11_1',S11"),
-        mocker.call("DISP:WIND:TRAC2:FEED 'CH1_S11_1'"),
+        mocker.call("CALC1:PAR:SDEF 'CH1_S11_1','S11'"),
+        mocker.call("DISP:TRAC:EFE 'CH1_S11_1'"),
     ]
 
     mocked_ff.write.assert_has_calls(write_calls)

@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import ClassVar
-from typing_extensions import TypeAlias
+from typing import ClassVar, TypeAlias
 
 import jax.lax as lax
 from equinox.internal import ω
@@ -37,9 +36,9 @@ class ReversibleHeun(AbstractAdaptiveSolver, AbstractStratonovichSolver):
     """
 
     term_structure: ClassVar = AbstractTerm
-    interpolation_cls: ClassVar[
-        Callable[..., LocalLinearInterpolation]
-    ] = LocalLinearInterpolation  # TODO use something better than this?
+    interpolation_cls: ClassVar[Callable[..., LocalLinearInterpolation]] = (
+        LocalLinearInterpolation  # TODO use something better than this?
+    )
 
     def order(self, terms):
         return 2
@@ -85,3 +84,6 @@ class ReversibleHeun(AbstractAdaptiveSolver, AbstractStratonovichSolver):
 
     def func(self, terms: AbstractTerm, t0: RealScalarLike, y0: Y, args: Args) -> VF:
         return terms.vf(t0, y0, args)
+
+
+ReversibleHeun.__init__.__doc__ = """**Arguments:** None"""

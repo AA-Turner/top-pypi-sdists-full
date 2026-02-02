@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: coveo-itertools
+Version: 3.0
+Summary: Collection-related helpers.
+Home-page: https://github.com/coveooss/coveo-python-oss/tree/main/coveo-itertools
+License: Apache-2.0
+Author: Jonathan Piché
+Author-email: tools@coveo.com
+Requires-Python: >=3.9,<4
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Project-URL: Repository, https://github.com/coveooss/coveo-python-oss/tree/main/coveo-itertools
+Description-Content-Type: text/markdown
+
+# coveo-itertools
+
+Another spin on iteration goodness.
+
+
+## dict lookup
+
+A one-liner function to retrieve a value from a dictionary:
+
+
+```python
+from typing import Dict, Any
+from coveo_itertools.lookups import dict_lookup
+
+
+example: Dict[str, Any] = {'nested': {'key': {'lookup': True}}}
+
+assert dict_lookup(example, 'nested', 'key', 'lookup') == True
+assert dict_lookup(example, 'not', 'there', default=None) is None
+```
+

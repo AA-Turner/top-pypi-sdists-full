@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: ntropy_sdk
+Version: 5.3.0
+Summary: SDK for the Ntropy API
+Home-page: https://github.com/ntropy-network/ntropy-sdk
+Author: Ntropy
+Author-email: dev@ntropy.com
+License: MIT license
+Keywords: ntropy_sdk
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: tqdm
+Requires-Dist: requests_toolbelt
+Requires-Dist: pydantic
+Requires-Dist: tabulate
+Requires-Dist: aiohttp
+Provides-Extra: models
+Requires-Dist: pandas; extra == "models"
+Requires-Dist: scikit-learn; extra == "models"
+Requires-Dist: numpy; extra == "models"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Ntropy SDK
+
+This repository hosts the SDK for the Ntropy API. It provides transaction enrichment and categorization, account ledger
+and metrics. The full documentation is available at the [developer portal](https://developers.ntropy.com/).
+
+To obtain an API key, you can follow this [guide](https://docs.ntropy.com/onboarding).
+
+## Installation
+
+```bash
+$ python3 -m pip install --upgrade 'ntropy-sdk'
+```
+
+## Quick Start
+
+Enriching your first transaction requires an `SDK` object and an input `Transaction` object. The API key can be set in
+the environment variable `NTROPY_API_KEY` or in the `SDK` constructor:
+
+```python
+from ntropy_sdk import SDK
+
+sdk = SDK("YOUR-API-KEY")
+r = sdk.transactions.create(
+    id="4yp49x3tbj9mD8DB4fM8DDY6Yxbx8YP14g565Xketw3tFmn",
+    description="AMAZON WEB SERVICES",
+    entry_type="outgoing",
+    amount=12042.37,
+    currency="USD",
+    date="2021-11-01",
+    location=dict(
+        country="US"
+    ),
+)
+print(r)
+```
+
+The returned `EnrichedTransaction` contains the added information by Ntropy API. You can consult the Enrichment section
+of the documentation for more information on the parameters for both `Transaction` and `EnrichedTransaction`.
+
+## Documentation
+
+You can consult in-depth documentation and examples at
+the [developer portal](https://developers.ntropy.com/docs/enrichment) and at
+the [SDK reference](https://developers.ntropy.com/sdk).
+
+## License:
+Free software: MIT license
+
+

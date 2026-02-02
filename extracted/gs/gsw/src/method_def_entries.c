@@ -1,0 +1,11 @@
+/* Entries in the GswMethods table. */
+{"geo_strf_dyn_height", geo_strf_dyn_height, METH_VARARGS,
+    "geostrophic streamfunction dynamic height"},
+{"geo_strf_dyn_height_1", geo_strf_dyn_height_1, METH_VARARGS,
+    "geostrophic streamfunction dynamic height"},
+{"util_pchip_interp", util_pchip_interp, METH_VARARGS,
+    "PCHIP interpolation"},
+{"sa_ct_interp", sa_ct_interp, METH_VARARGS,
+    "SA and CT interpolation"},
+{"tracer_ct_interp", tracer_ct_interp, METH_VARARGS,
+    "Tracer and CT interpolation"},

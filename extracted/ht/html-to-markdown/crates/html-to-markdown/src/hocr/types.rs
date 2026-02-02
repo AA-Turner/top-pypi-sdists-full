@@ -3,7 +3,7 @@
 //!
 //! Complete type system for hOCR 1.2 specification elements and properties.
 
-use std::collections::HashMap;
+use ahash::AHashMap as HashMap;
 
 /// All hOCR 1.2 element types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -62,6 +62,12 @@ class StatefulSets:
 
         return [pod.metadata.name for pod in StatefulSets.pods(sts, ns)]
 
+    def pod_name_n_ips(sts: str, ns: str) -> list[tuple[str, str]]:
+        if not sts:
+            return []
+
+        return [(pod.metadata.name, pod.status.pod_ip) for pod in StatefulSets.pods(sts, ns)]
+
     def restarted_at(ss: str, ns: str):
         # returns timestamp and if being rolled out
         restarted: float = 0.0

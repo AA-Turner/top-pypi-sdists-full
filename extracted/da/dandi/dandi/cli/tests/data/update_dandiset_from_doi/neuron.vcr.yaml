@@ -1,0 +1,324 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
+      accept:
+      - application/json
+    method: GET
+    uri: https://doi.org/10.1016/j.neuron.2019.10.012
+  response:
+    body:
+      string: '<html><head><title>Handle Redirect</title></head>
+
+        <body><a href="https://api.crossref.org/v1/works/10.1016%2Fj.neuron.2019.10.012/transform">https://api.crossref.org/v1/works/10.1016%2Fj.neuron.2019.10.012/transform</a></body></html>'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 8172769f4bf141e9-EWR
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '233'
+      Content-Type:
+      - text/html;charset=utf-8
+      Date:
+      - Mon, 16 Oct 2023 18:46:13 GMT
+      NEL:
+      - '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}'
+      Report-To:
+      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=oMaESedfgox6sztDGRLRnf4k%2FlMOpQdL8gWy8qgcvw%2B%2Fo8sKFzOPd%2Bshy4pKl4SVfIEmcJDf0YExoEqk0ZkIX9CCWpDo131GZjHrKYlTVs%2FIiDjIM%2FChY8E%3D"}],"group":"cf-nel","max_age":604800}'
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      alt-svc:
+      - h3=":443"; ma=86400
+      expires:
+      - Mon, 16 Oct 2023 19:27:25 GMT
+      link:
+      - <https://dul.usage.elsevier.com/doi/>; rel=dul
+      - <https://dul.usage.elsevier.com/doi/>; rel=dul
+      location:
+      - https://api.crossref.org/v1/works/10.1016%2Fj.neuron.2019.10.012/transform
+      permissions-policy:
+      - interest-cohort=(),browsing-topics=()
+      vary:
+      - Accept
+    status:
+      code: 302
+      message: Found
+- request:
+    body: null
+    headers:
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
+      accept:
+      - application/json
+    method: GET
+    uri: https://api.crossref.org/v1/works/10.1016%2Fj.neuron.2019.10.012/transform
+  response:
+    body:
+      string: '{"indexed":{"date-parts":[[2023,9,27]],"date-time":"2023-09-27T21:31:39Z","timestamp":1695850299681},"reference-count":107,"publisher":"Elsevier
+        BV","issue":"1","license":[{"start":{"date-parts":[[2020,1,1]],"date-time":"2020-01-01T00:00:00Z","timestamp":1577836800000},"content-version":"tdm","delay-in-days":0,"URL":"https:\/\/www.elsevier.com\/tdm\/userlicense\/1.0\/"},{"start":{"date-parts":[[2021,1,8]],"date-time":"2021-01-08T00:00:00Z","timestamp":1610064000000},"content-version":"vor","delay-in-days":373,"URL":"http:\/\/www.elsevier.com\/open-access\/userlicense\/1.0\/"}],"funder":[{"DOI":"10.13039\/100000002","name":"NIH","doi-asserted-by":"publisher","award":["MH54671","MH107396","U19
+        NS107616","U19 NS104590","NS090583"]},{"name":"NSF","award":["1545858"]},{"DOI":"10.13039\/100000893","name":"Simons
+        Foundation","doi-asserted-by":"publisher","award":["351109"]}],"content-domain":{"domain":["cell.com","elsevier.com","sciencedirect.com"],"crossmark-restriction":true},"published-print":{"date-parts":[[2020,1]]},"DOI":"10.1016\/j.neuron.2019.10.012","type":"journal-article","created":{"date-parts":[[2019,11,26]],"date-time":"2019-11-26T15:49:05Z","timestamp":1574783345000},"page":"138-149.e5","update-policy":"http:\/\/dx.doi.org\/10.1016\/elsevier_cm_policy","source":"Crossref","is-referenced-by-count":33,"title":"Routing
+        of Hippocampal Ripples to Subcortical Structures via the Lateral Septum","prefix":"10.1016","volume":"105","author":[{"given":"David","family":"Tingley","sequence":"first","affiliation":[]},{"given":"Gy\u00f6rgy","family":"Buzs\u00e1ki","sequence":"additional","affiliation":[]}],"member":"78","reference":[{"key":"10.1016\/j.neuron.2019.10.012_bib1","doi-asserted-by":"crossref","first-page":"522","DOI":"10.1016\/j.cell.2013.12.040","article-title":"Control
+        of stress-induced persistent anxiety by an extra-amygdala septohypothalamic
+        circuit","volume":"156","author":"Anthony","year":"2014","journal-title":"Cell"},{"key":"10.1016\/j.neuron.2019.10.012_bib2","article-title":"Lateral
+        septum neurotensin neurons link stress and anorexia","author":"Azevedo","year":"2019","journal-title":"bioArxiv"},{"key":"10.1016\/j.neuron.2019.10.012_bib3","first-page":"1","article-title":"CircStat:
+        a MATLAB toolbox for circular statistics","volume":"31","author":"Berens","year":"2009","journal-title":"J.\u00a0Stat.
+        Softw."},{"key":"10.1016\/j.neuron.2019.10.012_bib4","doi-asserted-by":"crossref","first-page":"436","DOI":"10.1038\/s41593-018-0330-y","article-title":"Dorsolateral
+        septum somatostatin interneurons gate mobility to calibrate context-specific
+        behavioral fear responses","volume":"22","author":"Besnard","year":"2019","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib5","doi-asserted-by":"crossref","first-page":"339","DOI":"10.1037\/h0059531","article-title":"Subcortical
+        mechanisms in emotional behavior: affective changes following septal forebrain
+        lesions in the albino rat","volume":"46","author":"Brady","year":"1953","journal-title":"J.\u00a0Comp.
+        Physiol. Psychol."},{"key":"10.1016\/j.neuron.2019.10.012_bib6","doi-asserted-by":"crossref","first-page":"1621","DOI":"10.1162\/089976699300016179","article-title":"Fast
+        global oscillations in networks of integrate-and-fire neurons with low firing
+        rates","volume":"11","author":"Brunel","year":"1999","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib7","doi-asserted-by":"crossref","first-page":"415","DOI":"10.1152\/jn.01095.2002","article-title":"What
+        determines the frequency of fast network oscillations with irregular neural
+        discharges? I. Synaptic dynamics and excitation-inhibition balance","volume":"90","author":"Brunel","year":"2003","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib8","doi-asserted-by":"crossref","first-page":"1073","DOI":"10.1002\/hipo.22488","article-title":"Hippocampal
+        sharp wave-ripple: a cognitive biomarker for episodic memory and planning","volume":"25","author":"Buzs\u00e1ki","year":"2015","journal-title":"Hippocampus"},{"key":"10.1016\/j.neuron.2019.10.012_bib9","series-title":"The
+        Brain from Inside Out","author":"Buzs\u00e1ki","year":"2019"},{"key":"10.1016\/j.neuron.2019.10.012_bib10","doi-asserted-by":"crossref","first-page":"139","DOI":"10.1016\/0165-0173(83)90037-1","article-title":"Cellular
+        bases of hippocampal EEG in the behaving rat","volume":"287","author":"Buzs\u00e1ki","year":"1983","journal-title":"Brain
+        Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib11","doi-asserted-by":"crossref","first-page":"147","DOI":"10.1038\/nn.2732","article-title":"Hippocampal
+        replay in the awake state: a potential substrate for memory consolidation
+        and retrieval","volume":"14","author":"Carr","year":"2011","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib12","doi-asserted-by":"crossref","first-page":"232","DOI":"10.1038\/nature21066","article-title":"Gamma
+        oscillations organize top-down signalling to hypothalamus and enable food
+        seeking","volume":"542","author":"Carus-Cadavieco","year":"2017","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib13","doi-asserted-by":"crossref","first-page":"66","DOI":"10.1016\/j.physbeh.2013.03.016","article-title":"The
+        histaminergic H1, H2, and H3 receptors of the lateral septum differentially
+        mediate the anxiolytic-like effects of histamine on rats\u2019 defensive behaviors
+        in the elevated plus maze and novelty-induced suppression of feeding paradigm","volume":"116-117","author":"Chee","year":"2013","journal-title":"Physiol.
+        Behav."},{"key":"10.1016\/j.neuron.2019.10.012_bib14","doi-asserted-by":"crossref","first-page":"303","DOI":"10.1016\/j.neuron.2007.11.035","article-title":"New
+        experiences enhance coordinated neural activity in the hippocampus","volume":"57","author":"Cheng","year":"2008","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib15","doi-asserted-by":"crossref","first-page":"81","DOI":"10.1016\/j.neuroimage.2019.05.048","article-title":"A
+        better way to define and describe Morlet wavelets for time-frequency analysis","volume":"199","author":"Cohen","year":"2019","journal-title":"NeuroImage"},{"key":"10.1016\/j.neuron.2019.10.012_bib16","doi-asserted-by":"crossref","first-page":"100","DOI":"10.1016\/j.neuroscience.2012.01.004","article-title":"Regional
+        c-Fos and FosB\/\u0394FosB expression associated with chronic methamphetamine
+        self-administration and methamphetamine-seeking behavior in rats","volume":"206","author":"Cornish","year":"2012","journal-title":"Neuroscience"},{"key":"10.1016\/j.neuron.2019.10.012_bib17","doi-asserted-by":"crossref","first-page":"RC20","DOI":"10.1523\/JNEUROSCI.19-16-j0001.1999","article-title":"Fast
+        network oscillations in the hippocampal CA1 region of the behaving rat","volume":"19","author":"Csicsvari","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib18","doi-asserted-by":"crossref","first-page":"497","DOI":"10.1016\/j.neuron.2009.07.027","article-title":"Hippocampal
+        replay of extended experience","volume":"63","author":"Davidson","year":"2009","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib19","first-page":"11","article-title":"PyNN:
+        A common interface for neuronal network simulators","volume":"2","author":"Davison","year":"2009","journal-title":"Front.
+        Neuroinform."},{"key":"10.1016\/j.neuron.2019.10.012_bib20","doi-asserted-by":"crossref","first-page":"802","DOI":"10.1038\/nature06028","article-title":"Correlation
+        between neural spike trains increases with firing rate","volume":"448","author":"de
+        la Rocha","year":"2007","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib21","series-title":"The
+        Hypothalamus-Pituitary-Adrenal Axis","author":"del Rey","year":"2007"},{"key":"10.1016\/j.neuron.2019.10.012_bib22","doi-asserted-by":"crossref","first-page":"1241","DOI":"10.1038\/nn1961","article-title":"Forward
+        and reverse hippocampal place-cell sequences during ripples","volume":"10","author":"Diba","year":"2007","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib23","doi-asserted-by":"crossref","first-page":"1743","DOI":"10.1038\/nn.4430","article-title":"A
+        viral strategy for targeting and manipulating interneurons across vertebrate
+        species","volume":"19","author":"Dimidschstein","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib24","doi-asserted-by":"crossref","first-page":"397","DOI":"10.1038\/nature09633","article-title":"Preplay
+        of future place cell sequences by hippocampal cellular assemblies","volume":"469","author":"Dragoi","year":"2011","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib25","doi-asserted-by":"crossref","first-page":"6191","DOI":"10.1523\/JNEUROSCI.19-14-06191.1999","article-title":"Interactions
+        between hippocampus and medial septum during sharp waves and theta oscillation
+        in the behaving rat","volume":"19","author":"Dragoi","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib26","doi-asserted-by":"crossref","first-page":"145","DOI":"10.1016\/j.neuron.2006.02.023","article-title":"Temporal
+        encoding of place sequences by hippocampal cell assemblies","volume":"50","author":"Dragoi","year":"2006","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib27","doi-asserted-by":"crossref","first-page":"581","DOI":"10.1146\/annurev-neuro-072116-031538","article-title":"Replay
+        comes of age","volume":"40","author":"Foster","year":"2017","journal-title":"Annu.
+        Rev. Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib28","doi-asserted-by":"crossref","first-page":"680","DOI":"10.1038\/nature04587","article-title":"Reverse
+        replay of behavioural sequences in hippocampal place cells during the awake
+        state","volume":"440","author":"Foster","year":"2006","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib29","doi-asserted-by":"crossref","first-page":"4344","DOI":"10.1152\/jn.00510.2004","article-title":"Contributions
+        of intrinsic membrane dynamics to fast network oscillations with irregular
+        neuronal discharges","volume":"94","author":"Geisler","year":"2005","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib30","doi-asserted-by":"crossref","first-page":"1634","DOI":"10.1038\/nn.4637","article-title":"Reactivations
+        of emotional memory in the hippocampus-amygdala system during sleep","volume":"20","author":"Girardeau","year":"2017","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib31","doi-asserted-by":"crossref","first-page":"866","DOI":"10.1523\/JNEUROSCI.1950-18.2018","article-title":"Hippocampal
+        reactivation extends for several hours following novel experience","volume":"39","author":"Giri","year":"2019","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib32","doi-asserted-by":"crossref","first-page":"1","DOI":"10.7554\/eLife.05360","article-title":"VTA
+        neurons coordinate with the hippocampal reactivation of spatial experience","volume":"4","author":"Gomperts","year":"2015","journal-title":"eLife"},{"key":"10.1016\/j.neuron.2019.10.012_bib33","doi-asserted-by":"crossref","first-page":"275","DOI":"10.1016\/j.ygcen.2013.09.022","article-title":"Involvements
+        of the lateral hypothalamic area in gastric motility and its regulation by
+        the lateral septum","volume":"194","author":"Gong","year":"2013","journal-title":"Gen.
+        Comp. Endocrinol."},{"key":"10.1016\/j.neuron.2019.10.012_bib34","doi-asserted-by":"crossref","first-page":"1440","DOI":"10.1126\/science.aad1935","article-title":"Diversity
+        in neural firing dynamics supports both rigid and learned hippocampal sequences","volume":"351","author":"Grosmark","year":"2016","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib35","doi-asserted-by":"crossref","first-page":"695","DOI":"10.1016\/j.neuron.2010.01.034","article-title":"Hippocampal
+        replay is not a simple function of experience","volume":"65","author":"Gupta","year":"2010","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib36","doi-asserted-by":"crossref","first-page":"110","DOI":"10.1152\/jn.00107.2014","article-title":"High-frequency
+        oscillations are prominent in the extended amygdala","volume":"112","author":"Haufler","year":"2014","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib37","doi-asserted-by":"crossref","first-page":"571","DOI":"10.1176\/ajp.120.6.571","article-title":"Electrical
+        self-stimulation of the brain in man","volume":"120","author":"Heath","year":"1963","journal-title":"Am.
+        J. Psychiatry"},{"key":"10.1016\/j.neuron.2019.10.012_bib38","doi-asserted-by":"crossref","first-page":"1179","DOI":"10.1162\/neco.1997.9.6.1179","article-title":"The
+        neuron simulation environment","volume":"9","author":"Hines","year":"1997","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib39","doi-asserted-by":"crossref","first-page":"792","DOI":"10.1038\/nn.2328","article-title":"Sparse
+        temporal coding of elementary tactile features during active whisker sensation","volume":"12","author":"Jadhav","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib40","doi-asserted-by":"crossref","first-page":"339","DOI":"10.1016\/S0928-4257(97)87915-6","article-title":"Long-term
+        potentiation and long-term depression in the lateral septum in spatial working
+        and reference memory","volume":"90","author":"Jaffard","year":"1996","journal-title":"J.\u00a0Physiol.
+        Paris"},{"key":"10.1016\/j.neuron.2019.10.012_bib41","doi-asserted-by":"crossref","first-page":"7715","DOI":"10.1523\/JNEUROSCI.5136-13.2014","article-title":"Modeling
+        inheritance of phase precession in the hippocampal formation","volume":"34","author":"Jaramillo","year":"2014","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib42","doi-asserted-by":"crossref","first-page":"9","DOI":"10.1016\/0163-1047(93)90664-4","article-title":"On
+        the role of the hippocampus in learning and memory in the rat","volume":"60","author":"Jarrard","year":"1993","journal-title":"Behav.
+        Neural Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib43","doi-asserted-by":"crossref","first-page":"100","DOI":"10.1038\/nn1825","article-title":"Coordinated
+        memory replay in the visual cortex and hippocampus during sleep","volume":"10","author":"Ji","year":"2007","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib103","doi-asserted-by":"crossref","first-page":"2379","DOI":"10.1162\/NECO_a_00661","article-title":"High-dimensional
+        cluster analysis with the masked EM algorithm","volume":"26","author":"Kadir","year":"2014","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib44","doi-asserted-by":"crossref","first-page":"913","DOI":"10.1038\/nn.2344","article-title":"Awake
+        replay of remote experiences in the hippocampus","volume":"12","author":"Karlsson","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib45","doi-asserted-by":"crossref","first-page":"4090","DOI":"10.1523\/JNEUROSCI.19-10-04090.1999","article-title":"Reactivation
+        of hippocampal cell assemblies: effects of behavioral state, experience, and
+        EEG dynamics","volume":"19","author":"Kudrimoti","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib46","doi-asserted-by":"crossref","first-page":"e1000173","DOI":"10.1371\/journal.pbio.1000173","article-title":"Hippocampus
+        leads ventral striatum in replay of place-reward information","volume":"7","author":"Lansink","year":"2009","journal-title":"PLoS
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib47","doi-asserted-by":"crossref","first-page":"203","DOI":"10.1016\/j.bbr.2007.03.014","article-title":"Morphine
+        self-administration into the lateral septum depends on dopaminergic mechanisms:
+        Evidence from pharmacology and Fos neuroimaging","volume":"180","author":"Le
+        Merrer","year":"2007","journal-title":"Behav. Brain Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib48","doi-asserted-by":"crossref","first-page":"213","DOI":"10.1038\/s41586-018-0772-0","article-title":"A
+        circuit from hippocampal CA2 to lateral septum disinhibits social aggression","volume":"564","author":"Leroy","year":"2018","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib49","doi-asserted-by":"crossref","first-page":"655","DOI":"10.1016\/S0306-4522(02)00101-X","article-title":"Context-specific
+        spatial representations by lateral septal cells","volume":"112","author":"Leutgeb","year":"2002","journal-title":"Neuroscience"},{"key":"10.1016\/j.neuron.2019.10.012_bib50","doi-asserted-by":"crossref","first-page":"2478","DOI":"10.1038\/s41467-019-10327-5","article-title":"NREM
+        sleep in the rodent neocortex and hippocampus reflects excitable dynamics","volume":"10","author":"Levenstein","year":"2019","journal-title":"Nat.
+        Commun."},{"key":"10.1016\/j.neuron.2019.10.012_bib51","doi-asserted-by":"crossref","first-page":"36","DOI":"10.1016\/j.brs.2014.09.003","article-title":"Cortical
+        network switching: possible role of the lateral septum and cholinergic arousal","volume":"8","author":"Li","year":"2015","journal-title":"Brain
+        Stimul."},{"key":"10.1016\/j.neuron.2019.10.012_bib52","doi-asserted-by":"crossref","first-page":"547","DOI":"10.1038\/nature11618","article-title":"Hippocampal-cortical
+        interaction during periods of subcortical silence","volume":"491","author":"Logothetis","year":"2012","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib53","doi-asserted-by":"crossref","first-page":"916","DOI":"10.1016\/j.psyneuen.2012.09.018","article-title":"Oxytocin
+        mediates rodent social memory within the lateral septum and the medial amygdala
+        depending on the relevance of the social stimulus: male juvenile versus female
+        adult conspecifics","volume":"38","author":"Lukas","year":"2013","journal-title":"Psychoneuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib54","doi-asserted-by":"crossref","first-page":"353","DOI":"10.1126\/science.1204622","article-title":"Linking
+        context with reward: a functional circuit from hippocampal CA3 to ventral
+        tegmental area","volume":"333","author":"Luo","year":"2011","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib55","doi-asserted-by":"crossref","first-page":"1","DOI":"10.7554\/eLife.38471","article-title":"Unsupervised
+        discovery of temporal sequences in high-dimensional datasets, with applications
+        to neuroscience","volume":"8","author":"Mackevicius","year":"2019","journal-title":"eLife"},{"key":"10.1016\/j.neuron.2019.10.012_bib56","doi-asserted-by":"crossref","first-page":"987","DOI":"10.1038\/npp.2017.144","article-title":"Dorsal
+        hippocampus drives context-induced cocaine seeking via inputs to Lateral Septum","volume":"43","author":"McGlinchey","year":"2018","journal-title":"Neuropsychopharmacology"},{"key":"10.1016\/j.neuron.2019.10.012_bib104","doi-asserted-by":"crossref","first-page":"8","DOI":"10.3389\/fninf.2013.00008","article-title":"The
+        neural decoding toolbox","volume":"7","author":"Meyers","year":"2013","journal-title":"Front
+        Neuroinform"},{"key":"10.1016\/j.neuron.2019.10.012_bib57","doi-asserted-by":"crossref","first-page":"1436","DOI":"10.1016\/j.cub.2019.03.048","article-title":"Post-learning
+        hippocampal replay selectively reinforces spatial memory for highly rewarded
+        locations","volume":"29","author":"Michon","year":"2019","journal-title":"Curr.
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib58","doi-asserted-by":"crossref","first-page":"1174","DOI":"10.1038\/nn.2894","article-title":"Hippocampal
+        CA1 pyramidal cells form functionally distinct sublayers","volume":"14","author":"Mizuseki","year":"2011","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib59","doi-asserted-by":"crossref","first-page":"792","DOI":"10.1038\/nn.4291","article-title":"Coordinated
+        grid and place cell replay during rest","volume":"19","author":"\u00d3lafsd\u00f3ttir","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib60","doi-asserted-by":"crossref","first-page":"419","DOI":"10.1037\/h0058775","article-title":"Positive
+        reinforcement produced by electrical stimulation of septal area and other
+        regions of rat brain","volume":"47","author":"Olds","year":"1954","journal-title":"J.\u00a0Comp.
+        Physiol. Psychol."},{"key":"10.1016\/j.neuron.2019.10.012_bib61","doi-asserted-by":"crossref","first-page":"975","DOI":"10.1016\/j.neuron.2016.10.028","article-title":"Interplay
+        between hippocampal sharp-wave-ripple events and vicarious trial and error
+        behaviors in decision making","volume":"92","author":"Papale","year":"2016","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib62","doi-asserted-by":"crossref","first-page":"1715","DOI":"10.1038\/npp.2017.56","article-title":"Bidirectional
+        control of anxiety-related behaviors in mice: role of inputs arising from
+        the ventral hippocampus to the lateral septum and medial prefrontal cortex","volume":"42","author":"Parfitt","year":"2017","journal-title":"Neuropsychopharmacology"},{"key":"10.1016\/j.neuron.2019.10.012_bib63","doi-asserted-by":"crossref","first-page":"2907","DOI":"10.1523\/JNEUROSCI.09-08-02907.1989","article-title":"Influences
+        of hippocampal place cell firing in the awake state on the activity of these
+        cells during subsequent sleep episodes","volume":"9","author":"Pavlides","year":"1989","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib64","doi-asserted-by":"crossref","first-page":"6446","DOI":"10.1523\/JNEUROSCI.0575-04.2004","article-title":"The
+        ventral striatum in off-line processing: ensemble reactivation during sleep
+        and modulation by hippocampal ripples","volume":"24","author":"Pennartz","year":"2004","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib65","doi-asserted-by":"crossref","first-page":"919","DOI":"10.1038\/nn.2337","article-title":"Replay
+        of rule-learning related neural patterns in the prefrontal cortex during sleep","volume":"12","author":"Peyrache","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib66","article-title":"The
+        content of hippocampal \u201creplay\u201d","author":"Pfeiffer","year":"2017","journal-title":"Hippocampus"},{"key":"10.1016\/j.neuron.2019.10.012_bib67","doi-asserted-by":"crossref","first-page":"180","DOI":"10.1126\/science.aaa9633","article-title":"Place
+        cells. Autoassociative dynamics in the generation of sequences of hippocampal
+        place cells","volume":"349","author":"Pfeiffer","year":"2015","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib68","doi-asserted-by":"crossref","first-page":"115","DOI":"10.1016\/S0165-0173(97)00009-X","article-title":"Connections
+        of the rat lateral septal complex","volume":"24","author":"Risold","year":"1997","journal-title":"Brain
+        Res. Brain Res. Rev."},{"key":"10.1016\/j.neuron.2019.10.012_bib105","doi-asserted-by":"crossref","first-page":"634","DOI":"10.1038\/nn.4268","article-title":"Spike
+        sorting for large, dense electrode arrays","volume":"19","author":"Rossant","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib69","doi-asserted-by":"crossref","first-page":"251","DOI":"10.1038\/nn.4457","article-title":"A
+        cortical-hippocampal-cortical loop of information processing during memory
+        consolidation","volume":"20","author":"Rothschild","year":"2017","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib70","doi-asserted-by":"crossref","first-page":"4623","DOI":"10.1523\/JNEUROSCI.4561-11.2012","article-title":"A
+        septal-hypothalamic pathway drives orexin neurons, which is necessary for
+        conditioned cocaine preference","volume":"32","author":"Sartor","year":"2012","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib106","doi-asserted-by":"crossref","first-page":"11798","DOI":"10.1523\/JNEUROSCI.0656-12.2012","article-title":"The
+        spiking component of oscillatory extracellular potentials in the rat hippocampus","volume":"32","author":"Schomburg","year":"2012","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib71","doi-asserted-by":"crossref","first-page":"470","DOI":"10.1016\/j.neuron.2014.08.051","article-title":"Theta
+        phase segregation of input-specific gamma patterns in entorhinal-hippocampal
+        networks","volume":"84","author":"Schomburg","year":"2014","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib72","doi-asserted-by":"crossref","first-page":"752","DOI":"10.1038\/bjp.2008.295","article-title":"\u03b1(1)-adrenoceptors
+        in the lateral septal area modulate food intake behaviour in rats","volume":"155","author":"Scopinho","year":"2008","journal-title":"Br.
+        J. Pharmacol."},{"key":"10.1016\/j.neuron.2019.10.012_bib73","doi-asserted-by":"crossref","first-page":"185","DOI":"10.1002\/dmr.5610030109","article-title":"Neuronal
+        regulation of hepatic glucose metabolism in mammals","volume":"3","author":"Shimazu","year":"1987","journal-title":"Diabetes
+        Metab. Rev."},{"key":"10.1016\/j.neuron.2019.10.012_bib74","doi-asserted-by":"crossref","first-page":"195","DOI":"10.1016\/j.neuron.2017.11.040","article-title":"Drd3
+        signaling in the lateral septum mediates early life stress-induced social
+        dysfunction","volume":"97","author":"Shin","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib75","doi-asserted-by":"crossref","first-page":"7","DOI":"10.1016\/0166-4328(86)90042-2","article-title":"Deficits
+        in spatial-memory tasks following lesions of septal dopaminergic terminals
+        in the rat","volume":"19","author":"Simon","year":"1986","journal-title":"Behav.
+        Brain Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib76","doi-asserted-by":"crossref","first-page":"2065","DOI":"10.1073\/pnas.0437938100","article-title":"Communication
+        between neocortex and hippocampus during sleep in rodents","volume":"100","author":"Sirota","year":"2003","journal-title":"Proc.
+        Natl. Acad. Sci. USA"},{"key":"10.1016\/j.neuron.2019.10.012_bib77","doi-asserted-by":"crossref","first-page":"2065","DOI":"10.1073\/pnas.0437938100","article-title":"Communication
+        between neocortex and hippocampus during sleep in rodents","volume":"100","author":"Sirota","year":"2003","journal-title":"Proc.
+        Natl. Acad. Sci. USA"},{"key":"10.1016\/j.neuron.2019.10.012_bib78","doi-asserted-by":"crossref","first-page":"926","DOI":"10.1016\/j.neuron.2018.04.015","article-title":"Cocaine
+        place conditioning strengthens location-specific hippocampal coupling to the
+        nucleus accumbens","volume":"98","author":"Sjulson","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib79","doi-asserted-by":"crossref","first-page":"1870","DOI":"10.1126\/science.271.5257.1870","article-title":"Replay
+        of neuronal firing sequences in rat hippocampus during sleep following spatial
+        experience","volume":"271","author":"Skaggs","year":"1996","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib80","doi-asserted-by":"crossref","first-page":"538","DOI":"10.1152\/jn.1940.3.6.538","article-title":"Forebrain
+        and rage reactions","volume":"3","author":"Spiegel","year":"1940","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib81","doi-asserted-by":"crossref","first-page":"450","DOI":"10.1016\/j.neuron.2019.01.052","article-title":"Hippocampal
+        reactivation of random trajectories resembling brownian diffusion","volume":"102","author":"Stella","year":"2019","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib82","doi-asserted-by":"crossref","first-page":"303","DOI":"10.1126\/science.49928","article-title":"Hippocampo-hypothalamic
+        connections: origin in subicular cortex, not Ammon\u2019s horn","volume":"189","author":"Swanson","year":"1975","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib83","doi-asserted-by":"crossref","first-page":"621","DOI":"10.1002\/cne.901860408","article-title":"The
+        connections of the septal region in the rat","volume":"186","author":"Swanson","year":"1979","journal-title":"J.\u00a0Comp.
+        Neurol."},{"key":"10.1016\/j.neuron.2019.10.012_bib84","doi-asserted-by":"crossref","first-page":"548","DOI":"10.1523\/JNEUROSCI.01-05-00548.1981","article-title":"Evidence
+        for collateral projections by neurons in Ammon\u2019s horn, the dentate gyrus,
+        and the subiculum: a multiple retrograde labeling study in the rat","volume":"1","author":"Swanson","year":"1981","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib85","doi-asserted-by":"crossref","first-page":"10188","DOI":"10.1038\/ncomms10188","article-title":"An
+        excitatory ventral hippocampus to lateral septum circuit that suppresses feeding","volume":"6","author":"Sweeney","year":"2015","journal-title":"Nat.
+        Commun."},{"key":"10.1016\/j.neuron.2019.10.012_bib86","doi-asserted-by":"crossref","first-page":"11185","DOI":"10.1523\/JNEUROSCI.2042-16.2016","article-title":"An
+        inhibitory septum to lateral hypothalamus circuit that suppresses feeding","volume":"36","author":"Sweeney","year":"2016","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib87","doi-asserted-by":"crossref","first-page":"11789","DOI":"10.1523\/JNEUROSCI.2291-17.2017","article-title":"Hippocampal-prefrontal
+        reactivation during learning is stronger in awake compared with sleep states","volume":"37","author":"Tang","year":"2017","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib88","doi-asserted-by":"crossref","first-page":"R124","DOI":"10.1152\/ajpregu.00460.2015","article-title":"Role
+        of lateral septum glucagon-like peptide 1 receptors in food intake","volume":"311","author":"Terrill","year":"2016","journal-title":"Am.
+        J. Physiol. Regul. Integr. Comp. Physiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib89","doi-asserted-by":"crossref","first-page":"1229","DOI":"10.1016\/j.neuron.2018.04.028","article-title":"Transformation
+        of a spatial map across the hippocampal-lateral septal circuit","volume":"98","author":"Tingley","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib107","article-title":"On
+        the methods for reactivation and replay analysis","author":"Tingley","year":"2019","journal-title":"Philos.
+        Trans. R. Soc. B Biol. Sci."},{"key":"10.1016\/j.neuron.2019.10.012_bib90","series-title":"The
+        Radon Transform - Theory and Implementation","author":"Toft","year":"1996"},{"key":"10.1016\/j.neuron.2019.10.012_bib91","doi-asserted-by":"crossref","first-page":"299","DOI":"10.3389\/fnins.2014.00299","article-title":"Neuroanatomy
+        and sex differences of the lordosis-inhibiting system in the lateral septum","volume":"8","author":"Tsukahara","year":"2014","journal-title":"Front.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib92","doi-asserted-by":"crossref","first-page":"156","DOI":"10.1159\/000122562","article-title":"Pituitary
+        adrenal function after small and large lesions in the lateral septal area
+        in food-deprived rats","volume":"16","author":"Usher","year":"1974","journal-title":"Neuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib93","doi-asserted-by":"crossref","first-page":"2554","DOI":"10.1016\/j.psyneuen.2013.06.002","article-title":"Sex-specific
+        modulation of juvenile social play by vasopressin","volume":"38","author":"Veenema","year":"2013","journal-title":"Psychoneuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib94","doi-asserted-by":"crossref","first-page":"112","DOI":"10.1016\/j.neuroimage.2010.01.073","article-title":"The
+        pairwise phase consistency: a bias-free measure of rhythmic neuronal synchronization","volume":"51","author":"Vinck","year":"2010","journal-title":"Neuroimage"},{"key":"10.1016\/j.neuron.2019.10.012_bib95","doi-asserted-by":"crossref","first-page":"875","DOI":"10.1037\/0735-7044.112.4.875","article-title":"Opposite
+        effects of lateral septal LTP and lateral septal lesions on contextual fear
+        conditioning in mice","volume":"112","author":"Vouimba","year":"1998","journal-title":"Behav.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib96","doi-asserted-by":"crossref","first-page":"10663","DOI":"10.1523\/JNEUROSCI.1042-16.2016","article-title":"Coordinated
+        interaction between hippocampal sharp-wave ripples and anterior cingulate
+        unit activity","volume":"36","author":"Wang","year":"2016","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib97","doi-asserted-by":"crossref","first-page":"839","DOI":"10.1016\/j.neuron.2016.03.036","article-title":"Network
+        homeostasis and state dynamics of neocortical sleep","volume":"90","author":"Watson","year":"2016","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib98","doi-asserted-by":"crossref","first-page":"593","DOI":"10.1016\/j.cub.2015.12.065","article-title":"Effective
+        modulation of male aggression through lateral septum to medial hypothalamus
+        projection","volume":"26","author":"Wong","year":"2016","journal-title":"Curr.
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib99","doi-asserted-by":"crossref","first-page":"6459","DOI":"10.1523\/JNEUROSCI.3414-13.2014","article-title":"Hippocampal
+        replay captures the unique topological structure of a novel environment","volume":"34","author":"Wu","year":"2014","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib100","doi-asserted-by":"crossref","first-page":"883","DOI":"10.1016\/0031-9384(95)02184-1","article-title":"Stimulation
+        of the lateral septum attenuates immobilization-induced stress ulcers","volume":"59","author":"Yadin","year":"1996","journal-title":"Physiol.
+        Behav."},{"key":"10.1016\/j.neuron.2019.10.012_bib101","doi-asserted-by":"crossref","first-page":"30","DOI":"10.1523\/JNEUROSCI.15-01-00030.1995","article-title":"Sharp
+        wave-associated high-frequency oscillation (200\u00a0Hz) in the intact hippocampus:
+        network and intracellular mechanisms","volume":"15","author":"Ylinen","year":"1995","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib102","doi-asserted-by":"crossref","first-page":"445","DOI":"10.1038\/npp.2009.149","article-title":"Fos
+        after single and repeated self-administration of cocaine and saline in the
+        rat: emphasis on the Basal forebrain and recalibration of expression","volume":"35","author":"Zahm","year":"2010","journal-title":"Neuropsychopharmacology"}],"container-title":"Neuron","original-title":[],"language":"en","link":[{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0896627319308852?httpAccept=text\/xml","content-type":"text\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0896627319308852?httpAccept=text\/plain","content-type":"text\/plain","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2021,1,10]],"date-time":"2021-01-10T21:01:55Z","timestamp":1610312515000},"score":1,"resource":{"primary":{"URL":"https:\/\/linkinghub.elsevier.com\/retrieve\/pii\/S0896627319308852"}},"subtitle":[],"short-title":[],"issued":{"date-parts":[[2020,1]]},"references-count":107,"journal-issue":{"issue":"1","published-print":{"date-parts":[[2020,1]]}},"alternative-id":["S0896627319308852"],"URL":"http:\/\/dx.doi.org\/10.1016\/j.neuron.2019.10.012","relation":{},"ISSN":["0896-6273"],"subject":["General
+        Neuroscience"],"container-title-short":"Neuron","published":{"date-parts":[[2020,1]]},"assertion":[{"value":"Elsevier","name":"publisher","label":"This
+        article is maintained by"},{"value":"Routing of Hippocampal Ripples to Subcortical
+        Structures via the Lateral Septum","name":"articletitle","label":"Article
+        Title"},{"value":"Neuron","name":"journaltitle","label":"Journal Title"},{"value":"https:\/\/doi.org\/10.1016\/j.neuron.2019.10.012","name":"articlelink","label":"CrossRef
+        DOI link to publisher maintained version"},{"value":"article","name":"content_type","label":"Content
+        Type"},{"value":"\u00a9 2019 Elsevier Inc.","name":"copyright","label":"Copyright"}]}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '8830'
+      content-type:
+      - application/json
+      date:
+      - Mon, 16 Oct 2023 18:46:13 GMT
+      link:
+      - <http://dx.doi.org/10.1016/j.neuron.2019.10.012>; rel="canonical", <https://api.elsevier.com/content/article/PII:S0896627319308852?httpAccept=text/xml>;
+        version="vor"; type="text/xml"; rel="item", <https://api.elsevier.com/content/article/PII:S0896627319308852?httpAccept=text/plain>;
+        version="vor"; type="text/plain"; rel="item", <https://www.elsevier.com/tdm/userlicense/1.0/>;
+        version="tdm"; rel="license", <http://www.elsevier.com/open-access/userlicense/1.0/>;
+        version="vor"; rel="license"
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept, Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    status:
+      code: 200
+      message: OK
+version: 1

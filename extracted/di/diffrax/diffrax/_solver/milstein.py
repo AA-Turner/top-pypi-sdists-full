@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import Any, ClassVar
-from typing_extensions import TypeAlias
+from typing import Any, ClassVar, TypeAlias
 
 import jax
 import jax.numpy as jnp
@@ -45,9 +44,9 @@ class StratonovichMilstein(AbstractStratonovichSolver):
     term_structure: ClassVar = MultiTerm[
         tuple[AbstractTerm[Any, RealScalarLike], AbstractTerm]
     ]
-    interpolation_cls: ClassVar[
-        Callable[..., LocalLinearInterpolation]
-    ] = LocalLinearInterpolation
+    interpolation_cls: ClassVar[Callable[..., LocalLinearInterpolation]] = (
+        LocalLinearInterpolation
+    )
 
     def order(self, terms):
         raise ValueError("`StratonovichMilstein` should not be used to solve ODEs.")
@@ -103,6 +102,9 @@ class StratonovichMilstein(AbstractStratonovichSolver):
         return drift.vf(t0, y0, args), diffusion.vf(t0, y0, args)
 
 
+StratonovichMilstein.__init__.__doc__ = """**Arguments:** None"""
+
+
 class ItoMilstein(AbstractItoSolver):
     r"""Milstein's method; Itô version.
 
@@ -121,9 +123,9 @@ class ItoMilstein(AbstractItoSolver):
     term_structure: ClassVar = MultiTerm[
         tuple[AbstractTerm[Any, RealScalarLike], AbstractTerm]
     ]
-    interpolation_cls: ClassVar[
-        Callable[..., LocalLinearInterpolation]
-    ] = LocalLinearInterpolation
+    interpolation_cls: ClassVar[Callable[..., LocalLinearInterpolation]] = (
+        LocalLinearInterpolation
+    )
 
     def order(self, terms):
         raise ValueError("`ItoMilstein` should not be used to solve ODEs.")
@@ -376,3 +378,6 @@ class ItoMilstein(AbstractItoSolver):
     ) -> VF:
         drift, diffusion = terms.terms
         return drift.vf(t0, y0, args), diffusion.vf(t0, y0, args)
+
+
+ItoMilstein.__init__.__doc__ = """**Arguments:** None"""

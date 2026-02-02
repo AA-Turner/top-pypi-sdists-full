@@ -1,8 +1,9 @@
 from typing import ClassVar
 
+import equinox.internal as eqxi
 import numpy as np
 
-from .base import AbstractStratonovichSolver
+from .base import AbstractAdaptiveSolver, AbstractStratonovichSolver
 from .srk import AbstractSRK, GeneralCoeffs, StochasticButcherTableau
 
 
@@ -34,7 +35,7 @@ _tab = StochasticButcherTableau(
 )
 
 
-class SPaRK(AbstractSRK, AbstractStratonovichSolver):
+class SPaRK(AbstractSRK, AbstractStratonovichSolver, AbstractAdaptiveSolver):
     r"""The Splitting Path Runge-Kutta method.
 
     It uses three evaluations of the drift and diffusion per step, and has the following
@@ -69,7 +70,13 @@ class SPaRK(AbstractSRK, AbstractStratonovichSolver):
     tableau: ClassVar[StochasticButcherTableau] = _tab
 
     def order(self, terms):
+        del terms
         return 2
 
     def strong_order(self, terms):
+        del terms
         return 0.5
+
+
+eqxi.doc_remove_args("scan_kind")(SPaRK.__init__)
+SPaRK.__init__.__doc__ = """**Arguments:** None"""

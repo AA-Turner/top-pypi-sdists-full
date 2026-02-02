@@ -10,10 +10,10 @@ fn long_multibyte_link_label_does_not_panic() {
     html.push_str("</a>");
 
     let markdown = convert(&html, Some(ConversionOptions::default())).unwrap();
-    let expected_label = format!("{}…", "a".repeat(511));
+    let expected_label = format!("{}👍", "a".repeat(511));
 
     assert!(
         markdown.contains(&format!("[{}]", expected_label)),
-        "expected truncated label to appear in markdown output; got: {markdown}"
+        "expected full label to appear in markdown output; got: {markdown}"
     );
 }

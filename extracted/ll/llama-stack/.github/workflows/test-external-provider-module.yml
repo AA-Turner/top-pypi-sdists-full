@@ -1,0 +1,86 @@
+name: Test External Providers Installed via Module
+
+run-name: Test External Provider installation via Python module
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/llama_stack/**'
+      - 'tests/integration/**'
+      - 'uv.lock'
+      - 'pyproject.toml'
+      - 'tests/external/*'
+      - '.github/workflows/test-external-provider-module.yml' # This workflow
+
+jobs:
+  test-external-providers-from-module:
+    # This workflow is disabled. See https://github.com/meta-llama/llama-stack/pull/2975#issuecomment-3138702984 for details
+    if: false
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image-type: [venv]
+        # We don't do container yet, it's tricky to install a package from the host into the
+        # container and point 'uv pip install' to the correct path...
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-runner
+
+      - name: Install Ramalama
+        shell: bash
+        run: |
+          uv pip install ramalama
+
+      - name: Run Ramalama
+        shell: bash
+        run: |
+          nohup ramalama serve llama3.2:3b-instruct-fp16  > ramalama_server.log 2>&1 &
+      - name: Apply image type to config file
+        run: |
+          yq -i '.image_type = "${{ matrix.image-type }}"' tests/external/ramalama-stack/config.yaml
+          cat tests/external/ramalama-stack/config.yaml
+
+      - name: Install distribution dependencies
+        run: |
+          uv run llama stack list-deps tests/external/ramalama-stack/build.yaml | xargs -L1 uv pip install
+
+      - name: Start Llama Stack server in background
+        if: ${{ matrix.image-type }} == 'venv'
+        env:
+          INFERENCE_MODEL: "llama3.2:3b-instruct-fp16"
+          LLAMA_STACK_LOG_FILE: "server.log"
+        run: |
+          # Use the virtual environment created by the build step (name comes from build config)
+          source ramalama-stack-test/bin/activate
+          uv pip list
+          nohup llama stack run tests/external/ramalama-stack/config.yaml > server.log 2>&1 &
+
+      - name: Wait for Llama Stack server to be ready
+        run: |
+          for i in {1..30}; do
+            if ! grep -q "successfully connected to Ramalama" server.log; then
+              echo "Waiting for Llama Stack server to load the provider..."
+              sleep 1
+            else
+              echo "Provider loaded"
+              exit 0
+            fi
+          done
+          echo "Provider failed to load"
+          cat server.log
+          exit 1
+
+      - name: Upload all logs to artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: logs-${{ github.run_id }}-${{ github.run_attempt }}-external-provider-module-test
+          path: |
+            *.log
+          retention-days: 1

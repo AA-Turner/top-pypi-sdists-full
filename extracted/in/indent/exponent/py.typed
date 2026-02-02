@@ -1,0 +1,4 @@
+# This is a typing sentinel. It's required to make type checkers regard this as a typed library when the library is installed as a dependency.
+# since this code is installed inside the exponent_server package as well, via a dependency, we have to ensure this sentinel is in place.
+
+# further reading: https://peps.python.org/pep-0561/

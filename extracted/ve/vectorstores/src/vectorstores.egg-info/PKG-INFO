@@ -1,0 +1,115 @@
+Metadata-Version: 2.4
+Name: vectorstores
+Version: 0.1.2.dev50
+Summary: Project for uploading vector embeddings directly to weaviate.
+Author-email: Bohdan Babii <bohdanbabii2000@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/BohdanBabii/vectorstores
+Project-URL: Issues, https://github.com/BohdanBabii/vectorstores/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: importlib-metadata<9.0,>=6.5
+Requires-Dist: jsonpatch<2.0.0,>=1.33.0
+Requires-Dist: langsmith<1.0.0,>=0.3.45
+Requires-Dist: numpy>=1.26.4; python_version < "3.13"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: stubs~=1.0.0
+Requires-Dist: packaging<26.0.0,>=23.2.0
+Requires-Dist: pydantic<3.0.0,>=2.7.4
+Requires-Dist: PyYAML<7.0.0,>=5.3.0
+Requires-Dist: requests~=2.28
+Requires-Dist: tqdm~=4.64
+Requires-Dist: tenacity!=8.4.0,<10.0.0,>=8.1.0
+Provides-Extra: tests
+Requires-Dist: bandit[toml]~=1.7; extra == "tests"
+Requires-Dist: mypy~=1.6; extra == "tests"
+Requires-Dist: pytest<9.0,>=7.2; extra == "tests"
+Requires-Dist: pytest-cov<8,>=4; extra == "tests"
+Requires-Dist: ruff<0.15.0,>=0.2.1; extra == "tests"
+Requires-Dist: types-requests~=2.31; extra == "tests"
+Requires-Dist: types-tqdm~=4.66; extra == "tests"
+Dynamic: license-file
+
+# vectorstores
+
+Utilities for pushing vectors and metadata into a Weaviate instance. The package ships a `WeaviateVectorStore` implementation plus a simple `VectorStore` interface you can build on.
+
+## Installation
+
+```bash
+pip install vectorstores
+```
+
+## Quickstart
+
+```python
+import weaviate
+from vectorstores import WeaviateVectorStore
+
+# create a client (configure URL/auth to match your deployment)
+client = weaviate.connect_to_local()  # or weaviate.connect_to_wcs(...)
+
+store = WeaviateVectorStore(
+    client=client,
+    index_name="MyIndex",
+    text_key="text",
+)
+
+# add data (stores text plus optional metadata; vectors can be provided explicitly)
+ids = store.add_vector(
+    vectors=["Hello world", "Another sample"],
+    metadatas=[{"topic": "greeting"}, {"topic": "example"}],
+)
+print(ids)
+
+# delete by id
+store.delete(ids=[ids[0]])
+```
+
+### Notes
+- If you want multi-tenancy, pass `use_multi_tenancy=True` when constructing the store and provide `tenant=...` to write/delete calls.
+- If you already have embeddings and want to bypass internal embedding, pass them via `vectors` and supply matching `metadatas`/`ids`.
+
+## Development
+
+Create a virtual environment and install dependencies with tests:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[tests]
+```
+
+Run checks:
+
+```bash
+ruff check .
+mypy .
+pytest
+```
+
+## Building and uploading to PyPI
+
+1) Clean old artifacts (optional but recommended):
+```bash
+rm -rf dist build *.egg-info
+```
+2) Build the wheel and sdist:
+```bash
+python -m build
+```
+3) Upload to PyPI with Twine:
+```bash
+twine upload dist/*
+```
+Make sure your PyPI credentials are configured (e.g., via `~/.pypirc` or environment variables) before running the upload.

@@ -1,10 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sec-edgar-downloader
-Version: 5.0.3
+Version: 5.1.0
 Summary: Download SEC filings from the EDGAR database using Python
 Keywords: sec,edgar,filing,financial,finance,stocks,mutual-funds,sec.gov
 Author-email: Jad Chaar <jad.chaar@gmail.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -16,16 +16,16 @@ Classifier: Topic :: Office/Business :: Financial
 Classifier: Topic :: Office/Business :: Financial :: Investment
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Operating System :: OS Independent
+License-File: LICENSE
 Requires-Dist: requests
-Requires-Dist: pyrate-limiter>=3.6.0
+Requires-Dist: pyrate-limiter>=4.0.0
 Requires-Dist: doc8 ; extra == "doc"
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: sphinx-autobuild ; extra == "doc"
@@ -397,6 +397,7 @@ Below is an exhaustive list of all filings types that can be downloaded by this 
 - N-MFP
 - N-MFP1
 - N-MFP2
+- N-MFP3
 - N-PX
 - N-Q
 - NO ACT

@@ -1,0 +1,19 @@
+[project]
+name = "apsw_sqlite3mc"
+dynamic = ["version", "urls", "classifiers", "keywords", "authors", "license", "requires-python", "readme", "description"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+apsw = "apsw.__main__:main"
+
+[tool.ruff]
+line-length = 120
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.cibuildwheel]
+archs = ["auto64", "auto32"]

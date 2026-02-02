@@ -1,0 +1,76 @@
+Metadata-Version: 1.1
+Name: TGScheduler
+Version: 1.7.0
+Summary: Pure Python Scheduler
+Home-page: https://bitbucket.org/xcg/tgscheduler
+Author: Vince Spicer
+Author-email: vinces1979@gmail.com
+License: MIT
+Description: TGScheduler
+        ===========
+        
+        This is a pure Python scheduler that can be used in any application. Tasks can be run in-process
+        (within threads), forked (as new processes) or synchronously into the code.
+        
+        The scheduler makes it easy to have one-time or recurring tasks run as needed.
+        
+        
+        Documentation
+        -------------
+        
+        The documentation is hosted on `ReadTheDocs`_.
+        
+        .. _ReadTheDocs: http://tgscheduler.readthedocs.org
+        
+        
+        History
+        -------
+        
+        This package is based on the TurboGears 1 built-in scheduler, which is based on Kronos by Irmen de Jong.
+        
+        Contributors
+        ============
+        
+        The many contributors to the initial TGScheduler 1.6.3:
+        
+            - Irmen de Jong
+            - Vince Spicer
+            - Christoph Zwerschke
+            - Many more lost in the TurboGears commit history...
+        
+        
+        In the version ported to a mercurial repository on 2015-05-15:
+        
+            - Andronikos Nedos, <https://github.com/anedos>
+            - Houzéfa Abbasbhay, <houzefa.abba@xcg-consulting.fr>
+            - Florent Aide, <florent.aide@xcg-consulting.fr>
+        
+        Changelog
+        =========
+        
+        
+        1.7.0 Initial import + Python 3 (2015-05-15)
+        --------------------------------------------
+        
+          - Initial import from `Andronikos's git fork`_, which was
+            itself imported from `Sourceforge`_.
+            See the CONTRIBUTORS.rst file for credits.
+        
+          .. _Andronikos's git fork: https://github.com/anedos/tgscheduler
+          .. _Sourceforge: http://sourceforge.net/p/turbogears1/code/7424/tree/projects/TGScheduler/trunk/
+        
+          - Support Python 3; require "six".
+        
+        
+        1.6.3 (2011-12-01)
+        ------------------
+        
+          - Last release before the import.
+        
+Keywords: turbogears tg tg2 scheduler
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

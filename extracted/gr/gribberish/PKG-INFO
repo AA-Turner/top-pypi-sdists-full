@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: gribberish
+Version: 0.27.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: numpy>=2
+Requires-Dist: matplotlib ; extra == 'dev'
+Requires-Dist: cf-xarray ; extra == 'dev'
+Requires-Dist: zarr>=3.1.1 ; extra == 'dev'
+Requires-Dist: numcodecs ; extra == 'dev'
+Requires-Dist: fsspec ; extra == 'dev'
+Requires-Dist: ujson ; extra == 'dev'
+Requires-Dist: dask[complete] ; extra == 'dev'
+Requires-Dist: ipywidgets ; extra == 'dev'
+Requires-Dist: scipy ; extra == 'dev'
+Requires-Dist: gcsfs ; extra == 'dev'
+Requires-Dist: s3fs ; extra == 'dev'
+Requires-Dist: cfgrib ; extra == 'dev'
+Requires-Dist: pyproj ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-asyncio ; extra == 'dev'
+Requires-Dist: kerchunk ; extra == 'kerchunk'
+Requires-Dist: zarr ; extra == 'kerchunk'
+Requires-Dist: numcodecs ; extra == 'kerchunk'
+Requires-Dist: fsspec ; extra == 'kerchunk'
+Requires-Dist: xarray ; extra == 'xarray'
+Requires-Dist: fsspec ; extra == 'xarray'
+Requires-Dist: zarr>=3.1.1 ; extra == 'zarr'
+Provides-Extra: dev
+Provides-Extra: kerchunk
+Provides-Extra: xarray
+Provides-Extra: zarr
+Requires-Python: >=3.11

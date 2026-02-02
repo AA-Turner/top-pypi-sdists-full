@@ -1,0 +1,30 @@
+{% set pyproject = load_file_data('../../../pyproject.toml', from_recipe_dir=True) %}
+{% set project = pyproject['project'] %}
+
+package:
+  name: {{ project["name"] }}
+  version: {{ VERSION }}
+
+source:
+  url: ../../../dist/{{ project["name"] }}-{{ VERSION }}.tar.gz
+
+build:
+  noarch: python
+
+requirements:
+  host:
+    - python {{ project['requires-python'] }}
+    {% for dep in pyproject['build-system']['requires'] %}
+    - {{ dep }}
+    {% endfor %}
+  run:
+    - python {{ project['requires-python'] }}
+    - geoviews-core =={{ VERSION }}
+    {% for dep in project['optional-dependencies']['recommended'] %}
+    - {{ dep.replace("geopandas", "geopandas-base").replace("matplotlib", "matplotlib-base") }}
+    {% endfor %}
+
+about:
+  home: {{ project['urls']['Homepage'] }}
+  summary: {{ project['description'] }}
+  license: {{ project['license'] }}

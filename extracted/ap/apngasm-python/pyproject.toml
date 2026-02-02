@@ -1,0 +1,96 @@
+[project] # Project metadata
+name = "apngasm-python"
+description = "A nanobind python API for apngasm, a tool/library for APNG assembly & disassembly with compression support."
+requires-python = ">=3.8"
+readme = "README.md"
+license = { "file" = "LICENSE" }
+authors = [{ "name" = "chaudominic", "email" = "chaudominic2@gmail.com" }]
+keywords = ["apng", "png", "nanobind", "pybind11"]
+classifiers = ["Topic :: Multimedia :: Graphics"]
+dependencies = []
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/laggykiller/apngasm-python"
+Documentation = "https://apngasm-python.readthedocs.io/en/latest/"
+Tracker = "https://github.com/laggykiller/apngasm-python/issues"
+
+[project.optional-dependencies]
+full = [
+    "Pillow",
+    "numpy",
+]
+
+test = [
+    "pytest",
+]
+
+lint = [
+    "ruff",
+    "mypy",
+    "isort",
+    "types-Pillow",
+]
+
+[build-system] # How pip and other frontends should build this project
+requires = [
+    "py-build-cmake>=0.4.3",
+    "nanobind>=2.0.0",
+    "conan>=2.0",
+    "lipomerge>=0.1.1"
+]
+build-backend = "py_build_cmake.build"
+
+[tool.py-build-cmake.module] # Where to find the Python module to package
+name = "apngasm_python"
+directory = "src-python"
+
+[tool.py-build-cmake.sdist] # What to include in source distributions
+include = [
+    "CMakeLists.txt",
+    "PreLoad.cmake",
+    "cmake/*.cmake",
+    "src/*",
+    "src-python/*",
+    "scripts/*",
+    "conanfile.py",
+    "apngasm/*"
+]
+
+[tool.py-build-cmake.cmake] # How to build the CMake project
+build_type = "Release"
+source_path = "."
+args = ["-Wdev"]
+find_python3 = false
+find_python = true
+build_args = ["-j", "--verbose"]
+build_tool_args = []
+install_args = ["--verbose"]
+install_components = ["python_modules"]
+env = {}
+
+[tool.py-build-cmake.linux.cmake] # Linux-specific options
+config = "Release"
+env = { "CMAKE_PREFIX_PATH" = "${HOME}/.local" }
+
+[tool.py-build-cmake.mac.cmake] # macOS-specific options
+config = "Release"
+
+[tool.py-build-cmake.windows.cmake] # Windows-specific options
+config = "Release"
+
+[tool.py-build-cmake.wheel]
+python_abi = 'abi3'
+abi3_minimum_cpython_version = 312
+
+[tool.cibuildwheel]
+build-verbosity = 1
+environment = { PY_BUILD_CMAKE_VERBOSE="1" }
+
+[tool.pyright]
+include = ["src-python", "scripts", "tests", "example"]
+strict = ["*"]
+
+[tool.mypy]
+python_version = "3.9"
+files = ["src-python", "scripts", "tests", "example"]

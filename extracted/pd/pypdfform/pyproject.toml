@@ -1,0 +1,138 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyPDFForm"
+dynamic = ["version"]
+description = "The Python library for PDF forms."
+readme = "README.md"
+authors = [
+    {name = "Jinge Li"}
+]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography>=46.0.3,<47.0.0",
+    "fonttools>=4.60.1,<5.0.0",
+    "pikepdf>=10.0.2,<11.0.0",
+    "pillow>=12.0.0,<13.0.0",
+    "pypdf>=6.3.0,<7.0.0",
+    "reportlab>=4.4.6,<5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/chinapandaman/PyPDFForm"
+Documentation = "https://chinapandaman.github.io/PyPDFForm/"
+
+[project.optional-dependencies]
+dev = [
+    "black>=25.11.0,<27.0.0",
+    "coverage>=7.12.0,<8.0.0",
+    "isort>=7.0.0,<8.0.0",
+    "jsonschema>=4.25.1,<5.0.0",
+    "mkdocs>=1.6.1,<2.0.0",
+    "mkdocs-material>=9.7.0,<10.0.0",
+    "pudb>=2025.1.3,<2026.0.0",
+    "pylint>=4.0.3,<5.0.0",
+    "pyright>=1.1.407,<2.0.0",
+    "pytest>=9.0.1,<10.0.0",
+    "requests>=2.32.5,<3.0.0",
+    "ruff>=0.14.6,<1.0.0",
+]
+
+[tool.coverage.run]
+include = ["PyPDFForm/*"]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "C0103",
+    "R0913",
+    "R0902",
+    "R0903",
+    "R0914",
+    "C0209",
+    "C0123",
+    "R0917",
+    "C2801",
+    "C0301",
+    "W0511",
+]
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "DTZ",
+    "E",
+    "EM",
+    "F",
+    "FLY",
+    "G",
+    "ISC",
+    "ICN",
+    "INT",
+    "LOG",
+    "N",
+    "PIE",
+    "PT",
+    "PERF",
+    "Q",
+    "R",
+    "RSE",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "TRY",
+    "TCH",
+    "YTT",
+    "W",
+]
+ignore = ["B009", "E501", "N999", "Q000", "TC006", "N816"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+reportArgumentType = "none"
+reportAttributeAccessIssue = "none"
+reportIndexIssue = "none"
+reportOperatorIssue = "none"
+reportGeneralTypeIssues = "none"
+reportOptionalMemberAccess = "error"
+reportPossiblyUnboundVariable = "error"
+reportUnusedImport = "error"
+reportIncompatibleMethodOverride = "error"
+reportMissingSuperCall = "error"
+reportPrivateUsage = "error"
+reportSelfClsParameterName = "error"
+reportReturnType = "error"
+reportAssignmentType = "error"
+reportOptionalSubscript = "error"
+
+[tool.setuptools.dynamic]
+version = {attr = "PyPDFForm.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["PyPDFForm*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "posix_only",
+]

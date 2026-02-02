@@ -20,7 +20,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "prettytable<4",
-        "sqlglot>=28.0.0,<28.7",
+        "sqlglot>=28.0.0,<28.8",
         "typing_extensions",
         "more-itertools",
     ],
@@ -36,14 +36,14 @@ setup(
             "mirakuru<3.0.0",
             "mypy>=1.10.0,<1.20",
             "openai>=1.30,<3",
-            "pandas>=2,<3",
+            "pandas>=2,<4",
             "pandas-stubs>=2,<3",
             "psycopg>=3.1,<4",
             "pyarrow>=10,<24",
             "pyspark>=2,<3.6",
             "pytest>=8.2.0,<9.1",
             "pytest-forked",
-            "pytest-postgresql>=6,<8",
+            "pytest-postgresql>=6,<9",
             "pytest-rerunfailures",
             "pytest-xdist>=3.6,<3.9",
             "pre-commit>=3.7,<5",
@@ -59,13 +59,13 @@ setup(
         ],
         "duckdb": [
             "duckdb>=1.2,<1.5",
-            "pandas>=2,<3",
+            "pandas>=2,<4",
         ],
         "openai": [
             "openai>=1.30,<3",
         ],
         "pandas": [
-            "pandas>=2,<3",
+            "pandas>=2,<4",
         ],
         "postgres": [
             "psycopg2>=2.8,<3",

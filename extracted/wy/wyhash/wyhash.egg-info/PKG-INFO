@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: wyhash
+Version: 0.1.2
+Summary: python binding for wyhash
+Home-page: https://github.com/synodriver/python-wyhash
+Author: synodriver
+Author-email: diguohuangjiajinweijun@gmail.com
+License: BSD
+Keywords: hash
+Classifier: Development Status :: 3 - Alpha
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+<h1 align="center"><i>✨ python-wyhash ✨ </i></h1>
+
+<h3 align="center">The python binding for <a href="https://github.com/wangyi-fudan/wyhash">wyhash</a> </h3>
+
+
+
+[![pypi](https://img.shields.io/pypi/v/wyhash.svg)](https://pypi.org/project/wyhash/)
+![python](https://img.shields.io/pypi/pyversions/wyhash)
+![implementation](https://img.shields.io/pypi/implementation/wyhash)
+![wheel](https://img.shields.io/pypi/wheel/wyhash)
+![license](https://img.shields.io/github/license/synodriver/python-wyhash.svg)
+![action](https://img.shields.io/github/workflow/status/synodriver/python-wyhash/build%20wheel)
+
+
+### Usage
+
+```python
+import wyhash
+from random import randint
+
+seed = randint(0, 255)
+sec = wyhash.make_secret(seed)
+print(wyhash.hash(b"121", seed, sec))
+```

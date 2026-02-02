@@ -1,4 +1,8 @@
+from copy import copy
+import ipaddress
 import sys
+import threading
+import traceback
 from kubernetes import client
 
 from adam.commands.cql.utils_cql import cassandra
@@ -8,16 +12,11 @@ from adam.utils import Color, log_timing
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_context import Context
 from adam.repl_state import ReplState
-from adam.utils_k8s.cassandra_nodes import CassandraNodes
-from adam.utils_k8s.pods import Pods
-from adam.utils_k8s.statefulsets import StatefulSets
+from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_tabulize import tabulize
 
 class CassandraStatus:
-    # remembers last ip to pod mappings
-    pods_by_ip = {}
-
-    def merged_nodetool_status(state: ReplState, samples: int = 0, ctx: Context = Context.NULL) -> tuple[dict, int, int]:
+    def merged_nodetool_status(state: ReplState, samples: int = 0, ctx: Context = Context.NULL) -> tuple[list[dict], int, int]:
         if not samples:
             samples = Config().get('nodetool.samples', sys.maxsize)
 
@@ -93,33 +92,25 @@ class CassandraStatus:
         if (pod, state.namespace) in in_restartings:
             return NodeRestartability(pod, err=f'{pod} is already in restart.')
 
-        host_ids_by_pod, pods_by_host_id = CassandraStatus.pods_host_mappings(state, ctx)
-        #   status = NodeTools.merged_nodetool_status(state, samples=Config().get('nodetool.samples', sys.maxsize), ctx=ctx.copy(show_out=False))
-        status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
-        status_by_ip = {s['address']: s for s in status}
-        status_by_host_id = {s['host_id']: s for s in status}
+        nat: CassandraNAT = CassandraNAT.build(state, ctx=ctx)
 
-        if pod not in host_ids_by_pod:
-            return NodeRestartability(pod, host_ids_by_pod=host_ids_by_pod, err=f'Cannot locate host id from pod: {pod}.')
-
-        host_id = host_ids_by_pod[pod]
-
-        if host_id not in status_by_host_id or 'address' not in status_by_host_id[host_id]:
-            return NodeRestartability(pod, host_ids_by_pod=host_ids_by_pod, err=f'Cannot locate IP address from host_id: {pod} -> {host_id}.')
-
-        ip = status_by_host_id[host_id]['address']
+        ip: str = None
+        try:
+            ip = nat.local_ip_from_pod_name(pod)
+        except NATError as e:
+            return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=str(e))
 
         # find pod that's up
         pod_to_run_on: str = None
-        for p, host_id in host_ids_by_pod.items():
-            if host_id in status_by_host_id:
-               status = status_by_host_id[host_id]
+        for p, host_id in nat._host_ids_by_pod.items():
+            if host_id in nat.status_by_host_id(state):
+               status = nat.status_by_host_id(state)[host_id]
                if 'status' in status and status['status'] == 'UN':
                   pod_to_run_on = p
                   break
 
         if not pod_to_run_on:
-            return NodeRestartability(pod, host_ids_by_pod=host_ids_by_pod, err=f'Cannot locate any pod that works at the moment.')
+            return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=f'[DOWN] Cannot locate any pod that works at the moment.')
 
         ctx.log(f'Chose {pod_to_run_on} for running nodetool ring.')
 
@@ -131,58 +122,35 @@ class CassandraStatus:
                r = r[0]
 
             tokens, my_tokens = CassandraStatus.replica_ips(ip, r.stdout)
-            for k in tokens.keys():
-               p = '-'
-               if k in status_by_ip:
-                  if 'host_id' in status_by_ip[k]:
-                     host_id = status_by_ip[k]['host_id']
-                     if host_id in pods_by_host_id:
-                           p = pods_by_host_id[host_id]
-
-               CassandraStatus.pods_by_ip[k] = p
 
             if ctx.show_verbose:
                ctx.log2(f'{ip} has {len(my_tokens)} primary token ranges.', verbose=True)
                ctx.log2(verbose=True)
                tabulize(sorted(tokens.keys()),
-                        lambda k: f'{status_by_ip[k]["status"]}\t{k}\t{CassandraStatus.pods_by_ip[k]}\t{len(tokens[k])}',
+                        lambda k: f'{nat.status_by_ip(state)[k]["status"]}\t{k}\t{nat.pod_name_from_local_ip[k]}\t{len(tokens[k])}',
                         header='--\tAddress\tPOD\t# Tokens Shared',
                         separator='\t',
                         ctx=ctx.copy(show_out=True, text_color=Color.gray))
 
             downs = {}
             has_multiple_copies = {}
-            for k, status in status_by_ip.items():
-               if k in CassandraStatus.pods_by_ip:
-                  p = (CassandraStatus.pods_by_ip[k], state.namespace)
+            try:
+                for k, status in nat.status_by_ip(state).items():
+                    if p := (nat.pod_name_from_local_ip(k), state.namespace):
+                        in_restart = 'yes' if p in in_restartings else 'no'
 
-                  in_restart = 'no'
-                  if p in in_restartings:
-                     in_restart = 'yes'
+                        if status["status"] != 'UN' or in_restart == 'yes':
+                            token_list = ['Unknown']
+                            if k in tokens:
+                                token_list = tokens[k]
+                            downs[k] = {'status': status['status'], 'pod': p[0], 'namespace': p[1], 'tokens': token_list, 'in_restart': in_restart}
 
-                  if status["status"] != 'UN' or in_restart == 'yes':
-                     token_list = ['Unknown']
-                     if k in tokens:
-                         token_list = tokens[k]
-                     downs[k] = {'status': status['status'], 'pod': p[0], 'namespace': p[1], 'tokens': token_list, 'in_restart': in_restart}
-               else:
-                  return NodeRestartability(pod, host_ids_by_pod=host_ids_by_pod, err=f'Cannot locate pod from ip: {k}.')
+                    if k == ip:
+                        has_multiple_copies = tokens[k]
+            except NATError as e:
+                return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=str(e))
 
-               if k == ip:
-                  has_multiple_copies = tokens[k]
-
-            return NodeRestartability(pod, downs, has_multiple_copies, host_ids_by_pod=host_ids_by_pod)
-
-    def pods_host_mappings(state: ReplState, ctx: Context = Context.NULL):
-        with log_timing('pods_host_mappings'):
-            pod_names = StatefulSets.pod_names(state.sts, state.namespace)
-            msg = 'd`Retrieving|Retrived {size} host ids'
-            with Pods.parallelize(pod_names, msg=msg, action = 'get-host-id') as exec:
-               host_pods = exec.map(lambda pod: (CassandraNodes.get_host_id(pod, state.namespace, ctx), pod))
-               pods_by_host_id = {id: pod for id, pod in host_pods}
-               host_ids_by_pod = {pod: id for id, pod in host_pods}
-
-               return host_ids_by_pod, pods_by_host_id
+            return NodeRestartability(pod, downs, has_multiple_copies, host_ids_by_pod=nat._host_ids_by_pod)
 
     def replica_ips(ip: str, ring_out: str):
          ring = NodeTools.parse_nodetool_ring(ring_out)
@@ -229,12 +197,12 @@ class CassandraStatus:
 
         return s
 
+    # TODO remove this; used only by a test
     def nodetool_status(state: ReplState, pod: str, ctx: Context = Context.NULL) -> str:
-        host_ids_by_pod, _ = CassandraStatus.pods_host_mappings(state, ctx)
-        if pod not in host_ids_by_pod:
+        if pod not in CassandraNAT.host_ids_by_pod:
             return 'Uknown'
 
-        host_id = host_ids_by_pod[pod]
+        host_id = CassandraNAT.host_ids_by_pod[pod]
 
         status = CassandraStatus.merged_nodetool_status(state, samples=Config().get('nodetool.samples', sys.maxsize), ctx=ctx.copy(show_out=False))
         status_by_host_id = {s['host_id']: s for s in status}
@@ -243,3 +211,86 @@ class CassandraStatus:
             return 'Unknown'
 
         return status_by_host_id[host_id]['status']
+
+class CassandraNAT:
+    # additive; remembers last ip to pod mappings
+    pods_by_ip: dict[str, str] = {}
+    ips_by_pod: dict[str, str] = {}
+    host_ids_by_pod: dict[str, str] = {}
+
+    lock = threading.Lock()
+
+    def build(state: ReplState, ctx: Context = Context.NULL):
+        host_ids_by_ip = {}
+
+        try:
+            with cassandra(state) as pods:
+                cql = 'select broadcast_address, host_id from system.local; select peer, host_id from system.peers'
+                result: PodExecResult = pods.cql(cql, ctx=ctx.copy(show_out=ctx.debug), no_color=True, on_any=True)
+                result = result[0]
+
+                for line in result.stdout.splitlines():
+                    if line:
+                        #    172.18.6.43 | 87625c74-b1f3-4694-b4e7-e6b9dec4bcb5
+                        tokens = [t.strip(' \r\n\t') for t in line.strip(' ').split('|')]
+                        if len(tokens) == 2 and CassandraNAT.is_valid_ip(tokens[0]):
+                            host_ids_by_ip[tokens[0]] = tokens[1]
+
+                for pod, ip in pods.pod_name_n_ips():
+                    with CassandraNAT.lock:
+                        CassandraNAT.pods_by_ip[ip] = pod
+                        CassandraNAT.ips_by_pod[pod] = ip
+                        if ip in host_ids_by_ip:
+                            CassandraNAT.host_ids_by_pod[pod] = host_ids_by_ip[ip]
+
+        except Exception as e:
+            traceback.print_exc()
+            pass
+            # return str(e)
+
+        return CassandraNAT(copy(CassandraNAT.host_ids_by_pod))
+
+    def __init__(self):
+        pass
+
+    def __init__(self, host_ids_by_pod: dict):
+        self._host_ids_by_pod = host_ids_by_pod
+        self._status: list[dict] = None
+
+    def local_ip_from_pod_name(self, pod_name: str) -> str:
+        with CassandraNAT.lock:
+            if pod_name not in CassandraNAT.ips_by_pod:
+                raise NATError(f'Cannot locate local ip from pod: {pod_name}.', self)
+
+            return CassandraNAT.ips_by_pod[pod_name]
+
+    def pod_name_from_local_ip(self, local_ip: str) -> str:
+        with CassandraNAT.lock:
+            if local_ip not in CassandraNAT.pods_by_ip:
+                raise NATError(f'Cannot locate pod name from local ip: {local_ip}.', self)
+
+            return CassandraNAT.pods_by_ip[local_ip]
+
+    def status_by_host_id(self, state: ReplState):
+        if not self._status:
+            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
+
+        return {s['host_id']: s for s in self._status}
+
+    def status_by_ip(self, state: ReplState):
+        if not self._status:
+            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
+
+        return {s['address']: s for s in self._status}
+
+    def is_valid_ip(ip_string):
+        try:
+            ipaddress.ip_address(ip_string)
+            return True
+        except ValueError:
+            return False
+
+class NATError(Exception):
+    def __init__(self, message, nat: CassandraNAT = None):
+        super().__init__(message)
+        self.nat = nat

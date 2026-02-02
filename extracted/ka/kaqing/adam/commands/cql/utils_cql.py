@@ -1,6 +1,5 @@
 import functools
 import re
-import sys
 from typing import Union
 
 from adam.commands.command import Command
@@ -68,16 +67,22 @@ def run_cql(state: ReplState,
             opts: list = [],
             use_single_quotes = False,
             on_any = False,
+            no_color = False,
             ctx: Context = Context.NULL) -> list[PodExecResult]:
     # ctx.log2(cql) alter tables double outs
 
     command = None
     with log_timing('Secrets.get_user_pass'):
         user, pw = Secrets.get_user_pass(state.sts if state.sts else state.pod, state.namespace, secret_path='cql.secret')
-        if use_single_quotes:
-            command = f"cqlsh -u {user} -p {pw} {' '.join(opts)} -e '{cql}'"
+        if no_color:
+            command = f'echo "{cql}; exit" | cqlsh --no-color -u {user} -p {pw}'
         else:
-            command = f'cqlsh -u {user} -p {pw} {" ".join(opts)} -e "{cql}"'
+            if use_single_quotes:
+                command = f"cqlsh -u {user} -p {pw} {' '.join(opts)} -e '{cql}'"
+            else:
+                command = f'cqlsh -u {user} -p {pw} {" ".join(opts)} -e "{cql}"'
+
+            # result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, ctx=ctx.copy(show_out=ctx.debug))
 
     with log_timing(cql):
         with cassandra(state) as pods:
@@ -268,7 +273,7 @@ class CassandraPodService:
 
         return []
 
-    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, ctx: Context = Context.NULL):
+    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, no_color = False, ctx: Context = Context.NULL):
         state = self.handler.state
         query: str = args
 
@@ -293,7 +298,7 @@ class CassandraPodService:
             query = ' '.join(cqls)
             # ctx = ctx.copy(show_out=True)
 
-        return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, ctx=ctx)
+        return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, no_color=no_color, ctx=ctx)
 
     def display_table(self, cols: str, header: str, ctx: Context = Context.NULL):
         if ctx.background:
@@ -332,6 +337,11 @@ class CassandraPodService:
         state = self.handler.state
 
         return StatefulSets.pod_names(state.sts, state.namespace)
+
+    def pod_name_n_ips(self):
+        state = self.handler.state
+
+        return StatefulSets.pod_name_n_ips(state.sts, state.namespace)
 
 class CassandraExecHandler:
     def __init__(self, state: ReplState, pod: str = None):

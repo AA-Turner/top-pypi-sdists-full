@@ -107,8 +107,9 @@ fn add_list_continuation_indent(
     if needs_space && !output.ends_with(' ') && !output.ends_with('\n') {
         output.push(' ');
     }
-    let indent = " ".repeat(4 * list_depth);
-    output.push_str(&indent);
+    for _ in 0..(4 * list_depth) {
+        output.push(' ');
+    }
 }
 
 /// Check if an element is empty (has no text content).

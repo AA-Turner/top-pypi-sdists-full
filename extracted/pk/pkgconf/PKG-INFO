@@ -1,0 +1,82 @@
+Metadata-Version: 2.1
+Name: pkgconf
+Version: 2.5.1.post0
+Summary: `pkgconf` is a program which helps with discovering library dependencies and configuring compiler and linker flags.
+Author-Email: Ralf Gommers <ralf.gommers@gmail.com>, =?utf-8?q?Filipe_La=C3=ADns?= <lains@riseup.net>
+License: Copyright (c) 2024 pypackaging-native contributors
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy of
+         this software and associated documentation files (the “Software”), to deal in
+         the Software without restriction, including without limitation the rights to
+         use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+         of the Software, and to permit persons to whom the Software is furnished to do
+         so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+         
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: ISC License (ISCL)
+Classifier: Programming Language :: C
+Classifier: Topic :: Software Development
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Project-URL: homepage, https://pkgconf-pypi.readthedocs.io/en/latest/
+Project-URL: issues, https://github.com/pypackaging-native/pkgconf-pypi/issues
+Project-URL: source, https://github.com/pypackaging-native/pkgconf-pypi
+Requires-Python: >=3.10
+Requires-Dist: colorama; os_name == "nt"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov>=5; extra == "test"
+Requires-Dist: pytest-mock>=2; extra == "test"
+Requires-Dist: pytest-order>=1; extra == "test"
+Requires-Dist: pytest-github-actions-annotate-failures; extra == "test"
+Requires-Dist: meson-python; extra == "test"
+Requires-Dist: environment-helpers>=0.1.3; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx~=7.0; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx-design; extra == "docs"
+Description-Content-Type: text/markdown
+
+# pkgconf-pypi
+
+[![CI test](https://github.com/pypackaging-native/pkgconf-pypi/actions/workflows/test.yml/badge.svg)](https://github.com/pypackaging-native/pkgconf-pypi/actions/workflows/test.yml)
+[![CI build](https://github.com/pypackaging-native/pkgconf-pypi/actions/workflows/build.yml/badge.svg)](https://github.com/pypackaging-native/pkgconf-pypi/actions/workflows/build.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/pypackaging-native/pkgconf-pypi/main.svg)](https://results.pre-commit.ci/latest/github/pypackaging-native/pkgconf-pypi/main)
+[![codecov](https://codecov.io/gh/pypackaging-native/pkgconf-pypi/graph/badge.svg)](https://codecov.io/gh/pypackaging-native/pkgconf-pypi)
+
+[![Documentation Status](https://readthedocs.org/projects/pkgconf-pypi/badge/?version=latest)](https://pkgconf-pypi.readthedocs.io/en/latest/?badge=latest)
+[![PyPI version](https://badge.fury.io/py/pkgconf.svg)](https://pypi.org/project/pkgconf/)
+[![Discord](https://img.shields.io/discord/803025117553754132?label=Discord%20chat%20pkgconf-pypi)](https://discord.gg/pypa)
+
+This goal of this repo is to facilitate building and publishing of
+[pkgconf](https://github.com/pkgconf/pkgconf) binaries on PyPI, primarily for
+ease of installing in a cross-platform manner. This is useful when `pkgconf` is
+for example needed in workflows of other Python packages.
+
+## Choices
+
+The intent is to:
+
+- distribute `pkgconf` without any modifications
+- configure the build with no system directory
+- install `pkg-config` as an alias in the scripts directory of the Python
+  environment
+
+## Links
+
+Documentation: https://pkgconf-pypi.readthedocs.io

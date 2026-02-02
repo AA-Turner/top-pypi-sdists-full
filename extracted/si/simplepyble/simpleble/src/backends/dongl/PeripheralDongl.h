@@ -7,6 +7,7 @@
 
 #include <TaskRunner.hpp>
 #include <kvn_safe_callback.hpp>
+#include <kvn_safe_map.hpp>
 
 #include <atomic>
 #include <map>
@@ -61,6 +62,7 @@ class PeripheralDongl : public PeripheralBase {
     virtual void set_callback_on_disconnected(std::function<void()> on_disconnected) override;
 
     // Internal methods not exposed to the user.
+    // TODO: Make these private and the adapter a friend.
     uint16_t conn_handle() const;
     void update_advertising_data(advertising_data_t advertising_data);
     void notify_connected(uint16_t conn_handle);
@@ -69,6 +71,7 @@ class PeripheralDongl : public PeripheralBase {
     void notify_characteristic_discovered(simpleble_CharacteristicDiscoveredEvt const& characteristic_discovered_evt);
     void notify_descriptor_discovered(simpleble_DescriptorDiscoveredEvt const& descriptor_discovered_evt);
     void notify_attribute_discovery_complete();
+    void notify_value_changed(simpleble_ValueChangedEvt const& value_changed_evt);
 
     const uint16_t BLE_CONN_HANDLE_INVALID = 0xFFFF;
     const uint16_t BLE_CONN_HANDLE_PENDING = 0xFFFE;
@@ -134,6 +137,7 @@ class PeripheralDongl : public PeripheralBase {
 
     kvn::safe_callback<void()> _callback_on_connected;
     kvn::safe_callback<void()> _callback_on_disconnected;
+    kvn::safe_map<uint16_t, std::function<void(ByteArray payload)>> _callbacks_on_value_changed;
 };
 
 }  // namespace SimpleBLE

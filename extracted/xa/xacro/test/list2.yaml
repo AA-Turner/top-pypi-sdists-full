@@ -1,6 +1,0 @@
-- name: foo
-  val:
-    x: 1
-- name: bar
-  val:
-    x: 2

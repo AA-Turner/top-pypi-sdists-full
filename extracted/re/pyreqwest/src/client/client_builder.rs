@@ -1,0 +1,576 @@
+use crate::client::Client;
+use crate::client::client::{BaseClient, SyncClient};
+use crate::client::internal::ConnectionLimiter;
+use crate::cookie::{CookieStore, CookieStorePyProxy};
+use crate::exceptions::BuilderError;
+use crate::http::{HeaderMap, Url, UrlType};
+use crate::internal::asyncio::is_async_callable;
+use crate::internal::json::JsonHandler;
+use crate::logging::logger::init_verbose_logging;
+use crate::proxy::ProxyBuilder;
+use crate::runtime::RuntimeHandle;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use pyo3::{PyTraverseError, PyVisit, intern};
+use pyo3_bytes::PyBytes;
+use reqwest::redirect;
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+
+const DEFAULT_UA: &str = "python-pyreqwest/1.0.0";
+
+#[derive(Default)]
+#[pyclass(subclass)]
+pub struct BaseClientBuilder {
+    inner: Option<reqwest::ClientBuilder>,
+    middlewares: Option<Vec<Py<PyAny>>>,
+    json_handler: Option<JsonHandler>,
+    max_connections: Option<usize>,
+    total_timeout: Option<Duration>,
+    pool_timeout: Option<Duration>,
+    http1_lower_case_headers: bool,
+    error_for_status: bool,
+    default_headers: Option<HeaderMap>,
+    runtime_multithreaded: Option<bool>,
+    base_url: Option<Url>,
+    connection_verbose: bool,
+    http1: bool,
+    http2: bool,
+}
+
+#[pyclass(extends=BaseClientBuilder)]
+pub struct ClientBuilder;
+
+#[pyclass(extends=BaseClientBuilder)]
+pub struct SyncClientBuilder;
+
+#[pymethods]
+impl BaseClientBuilder {
+    fn base_url(mut slf: PyRefMut<Self>, url: UrlType) -> PyResult<PyRefMut<Self>> {
+        if !url.0.as_str().ends_with('/') {
+            return Err(PyValueError::new_err("base_url must end with a trailing slash '/'"));
+        }
+        slf.check_inner()?;
+        slf.base_url = Some(url.into());
+        Ok(slf)
+    }
+
+    fn runtime_multithreaded(mut slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.runtime_multithreaded = Some(enable);
+        Ok(slf)
+    }
+
+    fn max_connections(mut slf: PyRefMut<Self>, max_connections: Option<usize>) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.max_connections = max_connections;
+        Ok(slf)
+    }
+
+    #[pyo3(signature = (enable=true))]
+    fn error_for_status(mut slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.error_for_status = enable;
+        Ok(slf)
+    }
+
+    fn user_agent(slf: PyRefMut<Self>, value: String) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.user_agent(value)))
+    }
+
+    fn default_headers(mut slf: PyRefMut<'_, Self>, headers: HeaderMap) -> PyResult<PyRefMut<'_, Self>> {
+        slf.check_inner()?;
+        slf.default_headers = Some(headers);
+        Ok(slf)
+    }
+
+    fn default_cookie_store(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.cookie_store(enable)))
+    }
+
+    fn cookie_provider(slf: PyRefMut<'_, Self>, provider: Py<CookieStore>) -> PyResult<PyRefMut<'_, Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.cookie_provider(Arc::new(CookieStorePyProxy(provider)))))
+    }
+
+    fn gzip(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.gzip(enable)))
+    }
+
+    fn brotli(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.brotli(enable)))
+    }
+
+    fn zstd(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.zstd(enable)))
+    }
+
+    fn deflate(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.deflate(enable)))
+    }
+
+    fn max_redirects(slf: PyRefMut<Self>, max_redirects: usize) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.redirect(redirect::Policy::limited(max_redirects))))
+    }
+
+    fn referer(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.referer(enable)))
+    }
+
+    fn proxy<'py>(slf: PyRefMut<'py, Self>, proxy: Bound<'_, ProxyBuilder>) -> PyResult<PyRefMut<'py, Self>> {
+        let proxy = proxy.try_borrow_mut()?.build()?;
+        Self::apply(slf, false, |builder| Ok(builder.proxy(proxy)))
+    }
+
+    fn no_proxy(slf: PyRefMut<Self>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.no_proxy()))
+    }
+
+    fn timeout(mut slf: PyRefMut<Self>, timeout: Duration) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.total_timeout = Some(timeout);
+        Ok(slf)
+    }
+
+    fn read_timeout(slf: PyRefMut<Self>, timeout: Duration) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.read_timeout(timeout)))
+    }
+
+    fn connect_timeout(slf: PyRefMut<Self>, timeout: Duration) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.connect_timeout(timeout)))
+    }
+
+    fn pool_timeout(mut slf: PyRefMut<Self>, timeout: Duration) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.pool_timeout = Some(timeout);
+        Ok(slf)
+    }
+
+    fn pool_idle_timeout(slf: PyRefMut<Self>, timeout: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.pool_idle_timeout(timeout)))
+    }
+
+    fn pool_max_idle_per_host(slf: PyRefMut<Self>, max_idle: usize) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.pool_max_idle_per_host(max_idle)))
+    }
+
+    fn connection_verbose(mut slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        slf.connection_verbose = enable;
+        Self::apply(slf, false, |builder| Ok(builder.connection_verbose(enable)))
+    }
+
+    fn http1_lower_case_headers(mut slf: PyRefMut<Self>) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.http1_lower_case_headers = true;
+        Ok(slf)
+    }
+
+    fn http1_allow_obsolete_multiline_headers_in_responses(
+        slf: PyRefMut<Self>,
+        value: bool,
+    ) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| {
+            Ok(builder.http1_allow_obsolete_multiline_headers_in_responses(value))
+        })
+    }
+
+    fn http1_ignore_invalid_headers_in_responses(slf: PyRefMut<Self>, value: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http1_ignore_invalid_headers_in_responses(value)))
+    }
+
+    fn http1_allow_spaces_after_header_name_in_responses(slf: PyRefMut<Self>, value: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http1_allow_spaces_after_header_name_in_responses(value)))
+    }
+
+    fn http1_only(mut slf: PyRefMut<Self>) -> PyResult<PyRefMut<Self>> {
+        slf.http1 = true;
+        slf.http2 = false;
+        Ok(slf)
+    }
+
+    fn http2(mut slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        slf.http2 = enable;
+        Ok(slf)
+    }
+
+    fn http2_prior_knowledge(mut slf: PyRefMut<Self>) -> PyResult<PyRefMut<Self>> {
+        slf.http1 = false;
+        slf.http2 = true;
+        Ok(slf)
+    }
+
+    fn http2_initial_stream_window_size(slf: PyRefMut<Self>, value: Option<u32>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_initial_stream_window_size(value)))
+    }
+
+    fn http2_initial_connection_window_size(slf: PyRefMut<Self>, value: Option<u32>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_initial_connection_window_size(value)))
+    }
+
+    fn http2_adaptive_window(slf: PyRefMut<Self>, enabled: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_adaptive_window(enabled)))
+    }
+
+    fn http2_max_frame_size(slf: PyRefMut<Self>, value: Option<u32>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_max_frame_size(value)))
+    }
+
+    fn http2_max_header_list_size(slf: PyRefMut<Self>, value: u32) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_max_header_list_size(value)))
+    }
+
+    fn http2_keep_alive_interval(slf: PyRefMut<Self>, value: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_keep_alive_interval(value)))
+    }
+
+    fn http2_keep_alive_timeout(slf: PyRefMut<Self>, timeout: Duration) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_keep_alive_timeout(timeout)))
+    }
+
+    fn http2_keep_alive_while_idle(slf: PyRefMut<Self>, enabled: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http2_keep_alive_while_idle(enabled)))
+    }
+
+    fn http09_responses(slf: PyRefMut<Self>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.http09_responses()))
+    }
+
+    fn tcp_nodelay(slf: PyRefMut<Self>, enabled: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tcp_nodelay(enabled)))
+    }
+
+    fn local_address(slf: PyRefMut<Self>, addr: Option<String>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let addr = addr
+                .map(|v| IpAddr::from_str(v.as_str()))
+                .transpose()
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.local_address(addr))
+        })
+    }
+
+    // :NOCOV_START
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn interface(slf: PyRefMut<Self>, value: String) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.interface(value.as_str())))
+    }
+
+    #[allow(unused_variables)]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn interface(slf: PyRefMut<Self>, value: String) -> PyResult<PyRefMut<Self>> {
+        Err(PyValueError::new_err("interface is not supported on this platform"))
+    } // :NOCOV_END
+
+    fn tcp_keepalive(slf: PyRefMut<Self>, duration: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tcp_keepalive(duration)))
+    }
+
+    fn tcp_keepalive_interval(slf: PyRefMut<Self>, interval: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tcp_keepalive_interval(interval)))
+    }
+
+    fn tcp_keepalive_retries(slf: PyRefMut<Self>, count: Option<u32>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tcp_keepalive_retries(count)))
+    }
+
+    // :NOCOV_START
+    #[cfg(target_os = "linux")]
+    fn tcp_user_timeout(slf: PyRefMut<Self>, timeout: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tcp_user_timeout(timeout)))
+    }
+
+    #[allow(unused_variables)]
+    #[cfg(not(target_os = "linux"))]
+    fn tcp_user_timeout(slf: PyRefMut<Self>, timeout: Option<Duration>) -> PyResult<PyRefMut<Self>> {
+        Err(PyValueError::new_err("tcp_user_timeout is not supported on this platform"))
+    } // :NOCOV_END
+
+    fn add_root_certificate_der(slf: PyRefMut<Self>, cert: PyBytes) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let cert =
+                reqwest::Certificate::from_der(cert.as_slice()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.add_root_certificate(cert))
+        })
+    }
+
+    fn add_root_certificate_pem(slf: PyRefMut<Self>, cert: PyBytes) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let cert =
+                reqwest::Certificate::from_pem(cert.as_slice()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.add_root_certificate(cert))
+        })
+    }
+
+    fn add_crl_pem(slf: PyRefMut<Self>, cert: PyBytes) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let cert = reqwest::tls::CertificateRevocationList::from_pem(cert.as_slice())
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.add_crl(cert))
+        })
+    }
+
+    fn identity_pem(slf: PyRefMut<Self>, buf: PyBytes) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let identity =
+                reqwest::Identity::from_pem(buf.as_slice()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.identity(identity))
+        })
+    }
+
+    fn danger_accept_invalid_certs(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.danger_accept_invalid_certs(enable)))
+    }
+
+    fn tls_sni(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.tls_sni(enable)))
+    }
+
+    fn min_tls_version(slf: PyRefMut<Self>, value: String) -> PyResult<PyRefMut<Self>> {
+        Self::apply(
+            slf,
+            false,
+            |builder| Ok(builder.min_tls_version(Self::parse_tls_version(value.as_str())?)),
+        )
+    }
+
+    fn max_tls_version(slf: PyRefMut<Self>, value: String) -> PyResult<PyRefMut<Self>> {
+        Self::apply(
+            slf,
+            false,
+            |builder| Ok(builder.max_tls_version(Self::parse_tls_version(value.as_str())?)),
+        )
+    }
+
+    fn https_only(slf: PyRefMut<Self>, enable: bool) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, false, |builder| Ok(builder.https_only(enable)))
+    }
+
+    fn resolve(slf: PyRefMut<Self>, domain: String, ip: String, port: u16) -> PyResult<PyRefMut<Self>> {
+        Self::apply(slf, true, |builder| {
+            let ip = IpAddr::from_str(ip.as_str()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            Ok(builder.resolve(domain.as_str(), SocketAddr::new(ip, port)))
+        })
+    }
+
+    // :NOCOV_START
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(middlewares) = &self.middlewares {
+            for mw in middlewares.iter() {
+                visit.call(mw)?;
+            }
+        }
+        if let Some(json_handler) = &self.json_handler {
+            json_handler.__traverse__(&visit)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.middlewares = None;
+        self.json_handler = None;
+    } // :NOCOV_END
+}
+impl BaseClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            inner: Some(reqwest::ClientBuilder::new().user_agent(DEFAULT_UA)),
+            http1: true,
+            // HTTP2 is opt-in as in reqwest its also opt-in via crate features. Default reqwest HTTP2 params
+            // usual require tuning based on the workload.
+            http2: false,
+            ..Default::default()
+        }
+    }
+
+    pub fn build_client_base(&mut self, py: Python) -> PyResult<BaseClient> {
+        py.detach(|| {
+            let runtime = RuntimeHandle::global_handle(self.runtime_multithreaded)?.clone();
+
+            let mut inner_builder = self
+                .inner
+                .take()
+                .ok_or_else(|| PyRuntimeError::new_err("Client was already built"))?
+                .tls_backend_rustls();
+
+            if self.http1 && self.http2 {
+                // Both enabled (default with reqwest http2 feature enabled)
+            } else if self.http1 && !self.http2 {
+                inner_builder = inner_builder.http1_only();
+            } else if !self.http1 && self.http2 {
+                inner_builder = inner_builder.http2_prior_knowledge();
+            } else {
+                return Err(BuilderError::from_msg("At least one of http1 or http2 must be enabled")); // :NOCOV
+            }
+
+            if !self.http1_lower_case_headers {
+                inner_builder = inner_builder.http1_title_case_headers();
+            }
+            if self.connection_verbose {
+                init_verbose_logging()?;
+            }
+
+            let client = BaseClient::new(
+                inner_builder
+                    .build()
+                    .map_err(|e| BuilderError::from_err("builder error", &e))?,
+                runtime,
+                self.middlewares.take(),
+                self.json_handler.take(),
+                self.total_timeout,
+                self.max_connections
+                    .map(|max| ConnectionLimiter::new(max, self.pool_timeout)),
+                self.error_for_status,
+                self.default_headers.take(),
+                self.base_url.take(),
+                self.connection_verbose,
+            );
+            Ok(client)
+        })
+    }
+
+    fn inner_with_middleware(&mut self, middleware: Bound<PyAny>) -> PyResult<()> {
+        self.check_inner()?;
+        self.middlewares.get_or_insert_with(Vec::new).push(middleware.unbind());
+        Ok(())
+    }
+
+    fn inner_json_handler<'py>(&mut self, kwargs: &Bound<'py, PyDict>) -> PyResult<()> {
+        self.check_inner()?;
+        let py = kwargs.py();
+        let json_handler = self.json_handler.get_or_insert_default();
+
+        if kwargs.contains(intern!(py, "loads"))? {
+            json_handler.set_loads(kwargs.get_item(intern!(py, "loads"))?);
+        }
+
+        if kwargs.contains(intern!(py, "dumps"))? {
+            if let Some(cb) = kwargs.get_item(intern!(py, "dumps"))?
+                && is_async_callable(&cb)?
+            {
+                return Err(PyValueError::new_err("dumps must be a sync function"));
+            }
+            json_handler.set_dumps(kwargs.get_item(intern!(py, "dumps"))?);
+        }
+        Ok(())
+    }
+
+    fn apply<F>(mut slf: PyRefMut<Self>, py_detach: bool, fun: F) -> PyResult<PyRefMut<Self>>
+    where
+        F: FnOnce(reqwest::ClientBuilder) -> PyResult<reqwest::ClientBuilder>,
+        F: Send,
+    {
+        let builder = slf
+            .inner
+            .take()
+            .ok_or_else(|| PyRuntimeError::new_err("Client was already built"))?;
+        if py_detach {
+            slf.inner = Some(slf.py().detach(|| fun(builder))?);
+        } else {
+            slf.inner = Some(fun(builder)?);
+        }
+        Ok(slf)
+    }
+
+    fn check_inner(&self) -> PyResult<()> {
+        self.inner
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("Client was already built"))
+            .map(|_| ())
+    }
+
+    fn parse_tls_version(version: &str) -> PyResult<reqwest::tls::Version> {
+        match version {
+            "TLSv1.0" => Ok(reqwest::tls::Version::TLS_1_0),
+            "TLSv1.1" => Ok(reqwest::tls::Version::TLS_1_1),
+            "TLSv1.2" => Ok(reqwest::tls::Version::TLS_1_2),
+            "TLSv1.3" => Ok(reqwest::tls::Version::TLS_1_3),
+            _ => Err(PyValueError::new_err(
+                "Invalid TLS version. Use 'TLSv1.0', 'TLSv1.1', 'TLSv1.2', or 'TLSv1.3'",
+            )),
+        }
+    }
+}
+
+#[pymethods]
+impl ClientBuilder {
+    #[new]
+    fn new() -> PyClassInitializer<Self> {
+        PyClassInitializer::from(BaseClientBuilder::new()).add_subclass(Self)
+    }
+
+    fn build(mut slf: PyRefMut<Self>, py: Python) -> PyResult<Py<Client>> {
+        Client::new_py(py, slf.as_super().build_client_base(py)?)
+    }
+
+    fn with_middleware<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        middleware: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if !is_async_callable(&middleware)? {
+            return Err(PyValueError::new_err("Middleware must be an async function"));
+        }
+        slf.as_super().inner_with_middleware(middleware)?;
+        Ok(slf)
+    }
+
+    #[pyo3(signature = (*, **kwargs))]
+    fn json_handler<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        py: Python<'py>,
+        kwargs: Option<&Bound<'py, PyDict>>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let Some(kwargs) = kwargs else {
+            return Ok(slf);
+        };
+        if let Some(cb) = kwargs.get_item(intern!(py, "loads"))?
+            && !is_async_callable(&cb)?
+        {
+            return Err(PyValueError::new_err("loads must be an async function"));
+        }
+        slf.as_super().inner_json_handler(kwargs)?;
+        Ok(slf)
+    }
+}
+
+#[pymethods]
+impl SyncClientBuilder {
+    #[new]
+    fn new() -> PyClassInitializer<Self> {
+        PyClassInitializer::from(BaseClientBuilder::new()).add_subclass(Self)
+    }
+
+    fn build(mut slf: PyRefMut<Self>, py: Python) -> PyResult<Py<SyncClient>> {
+        SyncClient::new_py(py, slf.as_super().build_client_base(py)?)
+    }
+
+    fn with_middleware<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        middleware: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        if is_async_callable(&middleware)? {
+            return Err(PyValueError::new_err("Middleware must be a sync function"));
+        }
+        slf.as_super().inner_with_middleware(middleware)?;
+        Ok(slf)
+    }
+
+    #[pyo3(signature = (*, **kwargs))]
+    fn json_handler<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        py: Python<'py>,
+        kwargs: Option<&Bound<'py, PyDict>>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let Some(kwargs) = kwargs else {
+            return Ok(slf);
+        };
+        if let Some(cb) = kwargs.get_item(intern!(py, "loads"))?
+            && is_async_callable(&cb)?
+        {
+            return Err(PyValueError::new_err("loads must be a sync function"));
+        }
+        slf.as_super().inner_json_handler(kwargs)?;
+        Ok(slf)
+    }
+}

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mangum"
-version = "0.20.0"
+version = "0.21.0"
 authors = [
     { name = "Jordan Eremieff", email = "jordan@eremieff.com" },
     { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" },
@@ -26,9 +26,6 @@ classifiers = [
 ]
 dependencies = ["typing_extensions"]
 
-[tool.uv]
-default-groups = ["dev"]
-
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -39,7 +36,7 @@ dev = [
     "hypercorn>=0.15.0",
     "mypy",
     "brotli",
-    "brotli-asgi",
+    "brotli-asgi>=1.6.0",
     "mkautodoc",
     "mkdocs>=1.6.0; python_version >= '3.12'",
     "mkdocs-material; python_version >= '3.12'",
@@ -86,7 +83,6 @@ filterwarnings = [
 
 [tool.coverage.run]
 source_pkgs = ["mangum", "tests"]
-omit = ["mangum/_compat.py"]
 
 [tool.coverage.report]
 fail_under = 100

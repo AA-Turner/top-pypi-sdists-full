@@ -1,0 +1,97 @@
+[project]
+name = "vectorstores"
+authors = [
+    { name = "Bohdan Babii", email = "bohdanbabii2000@gmail.com" },
+]
+description = "Project for uploading vector embeddings directly to weaviate."
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "importlib-metadata>=6.5,<9.0",
+    "jsonpatch>=1.33.0,<2.0.0",
+    "langsmith>=0.3.45,<1.0.0",
+    "numpy>=1.26.4; python_version<'3.13'",
+    "numpy>=2.1.0; python_version>='3.13'",
+    "stubs~=1.0.0",
+    "packaging>=23.2.0,<26.0.0",
+    "pydantic>=2.7.4,<3.0.0",
+    "PyYAML>=5.3.0,<7.0.0",
+    "requests~=2.28",
+    "tqdm~=4.64",
+    "tenacity!=8.4.0,>=8.1.0,<10.0.0",
+]
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.optional-dependencies]
+tests = [
+    "bandit[toml]~=1.7",
+    "mypy~=1.6",
+    "pytest>=7.2,<9.0",
+    "pytest-cov>=4,<8",
+    "ruff>=0.2.1,<0.15.0",
+    "types-requests~=2.31",
+    "types-tqdm~=4.66",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/BohdanBabii/vectorstores"
+"Issues" = "https://github.com/BohdanBabii/vectorstores/issues"
+
+[build-system]
+requires = ["setuptools>=50", "setuptools_scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = [
+    "build",
+    "venv",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md", "*.rst"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+
+[tool.ruff]
+exclude = [
+    "build",
+    "venv",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = [
+    "build",
+    "venv",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    "build",
+    "venv",
+]
+
+[tool.bandit.assert_used]
+skips = ["**/test_*.py"]
+
+[tool.pytest.ini_options]
+log_cli = "True"

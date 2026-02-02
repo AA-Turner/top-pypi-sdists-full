@@ -1,0 +1,93 @@
+Metadata-Version: 2.1
+Name: aioqbt
+Version: 1.0.0
+Summary: API library for qBittorrent with asyncio
+Author: Aaron Tsang
+License: MIT
+Project-URL: Homepage, https://github.com/tsangwpx/aioqbt
+Project-URL: Documentation, https://aioqbt.readthedocs.io/en/latest/
+Project-URL: Source, https://github.com/tsangwpx/aioqbt
+Keywords: qbittorrent,asyncio
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Typing :: Typed
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.1
+Requires-Dist: typing-extensions>=4.2.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.5.1; extra == "dev"
+Requires-Dist: black>=23.9.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.2.5; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest>=7.4.2; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "test"
+Requires-Dist: coverage[toml]>=6.4.4; extra == "test"
+
+# aioqbt
+
+[![Documentation Status](https://readthedocs.org/projects/aioqbt/badge/?version=latest)](https://aioqbt.readthedocs.io/en/latest/?badge=latest)
+
+Python library for qBittorrent WebAPI with asyncio.
+
+Features:
+* Async typed interfaces.
+* Complete qBittorrent WebAPI.
+* Tested with qBittorrent v4.1.5 to v5.0.2 on Debian/Ubuntu.
+
+## Documentation
+
+https://aioqbt.readthedocs.io/en/latest/
+
+## Quick Start
+
+Install with `pip`
+
+```shell
+$ pip install aioqbt
+```
+
+```python
+import asyncio
+
+from aioqbt.api import InfoFilter
+from aioqbt.client import create_client
+
+
+async def main():
+    client = await create_client(
+        "http://localhost:8080/api/v2/",
+        username="admin",
+        password="adminadmin",
+    )
+
+    async with client:
+        # print client and API versions
+        print(await client.app.version())  # v4.6.1
+        print(await client.app.webapi_version())  # 2.9.3
+
+        # print torrents in downloading
+        for info in await client.torrents.info(filter=InfoFilter.DOWNLOADING):
+            print(f"{info.added_on.isoformat()} added {info.name!r}")
+            # 2023-11-06T17:59:00 added 'ubuntu-22.04.3-desktop-amd64.iso'
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+See [detailed usage on Read the Docs][1].
+
+[1]: https://aioqbt.readthedocs.io/en/latest/usage.html

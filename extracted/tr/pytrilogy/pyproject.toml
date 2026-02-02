@@ -1,0 +1,66 @@
+[tool.pytest.ini_options]
+markers = [
+    "adventureworks",
+    "adventureworks_execution",
+]
+log_cli_level="INFO"
+
+[tool.ruff]
+# Allow lines to be as long as 200 characters.
+line-length = 200
+lint.extend-select = ["I"]
+
+[tool.ruff.lint.per-file-ignores]
+# E402: Module level import not at top of file - needed for warning filter before imports
+"trilogy/__init__.py" = ["E402"]
+
+[project]
+name = "pytrilogy"
+description = "Declarative, typed query language that compiles to SQL."
+dynamic = ["dependencies", "version"]
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.scripts]
+trilogy = "trilogy.scripts.trilogy:cli"
+
+[project.optional-dependencies]
+odbc = ["pyodbc"]
+postgres = ["psycopg2-binary"]
+bigquery = ["sqlalchemy-bigquery"]
+snowflake = ["snowflake-sqlalchemy"]
+ai = ["httpx"]
+cli = ["rich", "plotext"]
+serve = ["fastapi", "uvicorn"]
+analysis = ["altair"]
+
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools]
+packages = {find = {exclude = ["dist", "build", "*.tests", "*.tests.*", "tests.*", "tests", "docs", ".github", "examples"]}}
+
+[tool.setuptools.package-data]
+"*" = ["*.tf", "*.jinja", "py.typed", "*.lark", "*.preql"]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "build_backend"
+backend-path = [".scripts"]
+
+[tool.maturin]
+python-source = "."
+module-name = "_preql_import_resolver"
+manifest-path = "trilogy/scripts/dependency/Cargo.toml"
+features = ["pyo3/extension-module"]
+python-packages = ["trilogy"]
+include = ["trilogy/**/*.preql", "trilogy/**/*.lark", "trilogy/**/*.jinja", "trilogy/**/*.tf", "trilogy/py.typed", "_preql_import_resolver/__init__.py", "LICENSE.md"]

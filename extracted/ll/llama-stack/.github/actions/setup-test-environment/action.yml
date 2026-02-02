@@ -1,0 +1,100 @@
+name: 'Setup Test Environment'
+description: 'Common setup steps for integration tests including dependencies, providers, and build'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+  client-version:
+    description: 'Client version (latest or published)'
+    required: true
+  sdk_install_url:
+    description: 'URL to install Python SDK from (for testing preview builds). If provided, overrides client-version.'
+    required: false
+    default: ''
+  setup:
+    description: 'Setup to configure (ollama, vllm, gpt, etc.)'
+    required: false
+    default: 'ollama'
+  suite:
+    description: 'Test suite to use: base, responses, vision, etc.'
+    required: false
+    default: ''
+  inference-mode:
+    description: 'Inference mode (record or replay)'
+    required: true
+  branch:
+    description: 'Explicit branch override (used by scheduled CI to pass the matrix branch)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      uses: ./.github/actions/setup-runner
+      with:
+        python-version: ${{ inputs.python-version }}
+        client-version: ${{ inputs.client-version }}
+        sdk_install_url: ${{ inputs.sdk_install_url }}
+        branch: ${{ inputs.branch }}
+
+    - name: Setup ollama
+      if: ${{ (inputs.setup == 'ollama' || inputs.setup == 'ollama-vision') && inputs.inference-mode == 'record' }}
+      uses: ./.github/actions/setup-ollama
+      with:
+        suite: ${{ inputs.suite }}
+
+    - name: Setup vllm
+      if: ${{ inputs.setup == 'vllm' && inputs.inference-mode == 'record' }}
+      uses: ./.github/actions/setup-vllm
+
+    - name: Start Postgres service
+      if: ${{ contains(inputs.setup, 'postgres') }}
+      shell: bash
+      run: |
+        sudo docker rm -f postgres-ci || true
+        sudo docker run -d --name postgres-ci \
+          -e POSTGRES_USER=llamastack \
+          -e POSTGRES_PASSWORD=llamastack \
+          -e POSTGRES_DB=llamastack \
+          -p 5432:5432 \
+          postgres:16
+
+        echo "Waiting for Postgres to become ready..."
+        for i in {1..30}; do
+          if sudo docker exec postgres-ci pg_isready -U llamastack -d llamastack >/dev/null 2>&1; then
+            echo "Postgres is ready"
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "Postgres failed to start in time"
+            sudo docker logs postgres-ci || true
+            exit 1
+          fi
+          sleep 2
+        done
+
+    - name: Verify client installation
+      shell: bash
+      run: |
+        echo "Verifying llama-stack-client installation:"
+        uv pip show llama-stack-client || echo "llama-stack-client not found"
+        echo ""
+        echo "All installed llama packages:"
+        uv pip list | grep llama || true
+
+    - name: Build Llama Stack
+      shell: bash
+      run: |
+        # Client is already installed by setup-runner (handles both main and release branches)
+        echo "Building Llama Stack"
+
+        LLAMA_STACK_DIR=. \
+          uv run --no-sync llama stack list-deps ci-tests | xargs -L1 uv pip install
+
+    - name: Configure git for commits
+      shell: bash
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"

@@ -29,6 +29,21 @@ class SystemSecretServiceStub(object):
                 request_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretRequest.SerializeToString,
                 response_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretResponse.FromString,
                 )
+        self.SetAccountSystemSecret = channel.unary_unary(
+                '/qwak.admiral.secret.v0.SystemSecretService/SetAccountSystemSecret',
+                request_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretRequest.SerializeToString,
+                response_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretResponse.FromString,
+                )
+        self.GetAccountSystemSecret = channel.unary_unary(
+                '/qwak.admiral.secret.v0.SystemSecretService/GetAccountSystemSecret',
+                request_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretRequest.SerializeToString,
+                response_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretResponse.FromString,
+                )
+        self.DeleteAccountSystemSecret = channel.unary_unary(
+                '/qwak.admiral.secret.v0.SystemSecretService/DeleteAccountSystemSecret',
+                request_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretRequest.SerializeToString,
+                response_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretResponse.FromString,
+                )
 
 
 class SystemSecretServiceServicer(object):
@@ -55,6 +70,27 @@ class SystemSecretServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetAccountSystemSecret(self, request, context):
+        """Create or Update a value for an account system secret
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAccountSystemSecret(self, request, context):
+        """Get account system secret
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteAccountSystemSecret(self, request, context):
+        """Delete account level secret
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SystemSecretServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -72,6 +108,21 @@ def add_SystemSecretServiceServicer_to_server(servicer, server):
                     servicer.GetSystemSecret,
                     request_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretRequest.FromString,
                     response_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretResponse.SerializeToString,
+            ),
+            'SetAccountSystemSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetAccountSystemSecret,
+                    request_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretRequest.FromString,
+                    response_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretResponse.SerializeToString,
+            ),
+            'GetAccountSystemSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAccountSystemSecret,
+                    request_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretRequest.FromString,
+                    response_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretResponse.SerializeToString,
+            ),
+            'DeleteAccountSystemSecret': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteAccountSystemSecret,
+                    request_deserializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretRequest.FromString,
+                    response_serializer=qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -131,5 +182,56 @@ class SystemSecretService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.admiral.secret.v0.SystemSecretService/GetSystemSecret',
             qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretRequest.SerializeToString,
             qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetSystemSecretResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetAccountSystemSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.admiral.secret.v0.SystemSecretService/SetAccountSystemSecret',
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretRequest.SerializeToString,
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.SetAccountSystemSecretResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetAccountSystemSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.admiral.secret.v0.SystemSecretService/GetAccountSystemSecret',
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretRequest.SerializeToString,
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.GetAccountSystemSecretResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteAccountSystemSecret(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.admiral.secret.v0.SystemSecretService/DeleteAccountSystemSecret',
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretRequest.SerializeToString,
+            qwak_dot_admiral_dot_secret_dot_v0_dot_system__secret__service__pb2.DeleteAccountSystemSecretResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

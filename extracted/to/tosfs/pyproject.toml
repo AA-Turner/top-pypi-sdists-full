@@ -1,0 +1,132 @@
+[tool.poetry]
+name = "tosfs"
+version = "2025.6.0"
+description = "TOSFS is a Pythonic file-system interface for TOS（Tinder Object Storage）."
+authors = ["Vino Yang <yanghua@bytedance.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/fsspec/tosfs"
+repository = "https://github.com/fsspec/tosfs"
+documentation = "https://tosfs.readthedocs.io/en/latest/"
+keywords = ["fsspec", "tos", "volcengine"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fsspec = ">=2023.5.0"
+tos = ">=2.8.0"
+volcengine= "^1.0.154"
+
+[tool.poetry.group.dev.dependencies]
+fsspec = ">=2023.5.0"
+tos = ">=2.8.0"
+black = "^24.4.1"
+isort = "^5.13.2"
+mypy = "^1.10.0"
+pytest = "^8.1.1"
+pytest-cov = "^5.0.0"
+coverage = "^7.5.0"
+ruff = "^0.6.0"
+types-requests = "^2.32.0.20240907"
+volcengine= "^1.0.154"
+
+[tool.pydocstyle]
+convention = "numpy"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "A",        # Annotations rules
+    "ASYNC",    # Asynchronous programming rules
+    "B",        # Bugbear rules
+    "C",        # Complexity rules
+    "D",        # Docstring rules
+    "E",        # Error rules
+    "F",        # Pyflakes rules
+    "FURB",     # FURB rules
+    "G",        # General rules
+    "I",        # Import rules
+    "LOG",      # Logging rules
+    "N",        # Naming rules
+    "PERF",     # Performance rules
+    "PIE",      # PIE rules
+    "PLC",      # Pylint convention rules
+    "PLE",      # Pylint error rules
+    "PLR",      # Pylint refactor rules
+    "PLW",      # Pylint warning rules
+    "PT",       # Pytest rules
+    "PYI",      # Pyright rules
+    "Q",        # Quotes rules
+    "RUF",      # Ruff-specific rules
+    "S",        # Security rules
+    "SIM",      # Similarity rules
+    "SLOT",     # Slot rules
+    "T",        # Testing rules
+    "W",        # Whitespace rules
+    "YTT",      # YTT rules
+]
+ignore = [
+    "S101", # Use of `assert` detected
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "S108", # Probable insecure usage of temporary file or directory
+    "D203", # no-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    "PLR0913", # Too many arguments in function definition
+    "SIM105", # Use `contextlib.suppress(IOError)` instead of `try`-`except`-`pass`
+    "SIM117", # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "PERF203", # `try`-`except` within a loop incurs performance overhead
+    "PLR1714", # Consider merging multiple comparisons. Use a `set` if the elements are hashable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tosfs/tests/*" = [
+    #D103 Missing docstring in public function
+    "D103",
+    #D100 Missing docstring in public module
+    "D100"
+]
+"tosfs/__init__.py" = [
+    #D104 Missing docstring in public package
+    "D104",
+    #D107 Missing docstring in __init__
+    "D107"
+]
+"tosfs/fsspec_utils.py" = [
+    #SIM108 Use ternary operator xxx instead of `if`-`else`-block
+    "SIM108",
+    #N803 Argument name should be lowercase
+    "N803",
+    #PLR0915 Too many statements
+    "PLR0915",
+    #PLR0912 Too many branches
+    "PLR0912",
+    #C901 is too complex
+    "C901",
+]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+strict_optional = true
+exclude = [
+    "tosfs/tests/.*",
+    "tosfs/fsspec_utils.py"
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

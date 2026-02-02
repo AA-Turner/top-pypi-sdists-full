@@ -219,6 +219,7 @@ class CSSLBuiltins:
         self.runtime = runtime
         self._functions: Dict[str, Callable] = {}
         self._snapshots: Dict[str, Any] = {}  # v4.8.8: Snapshot storage for %variable access
+        self._frozen_snapshots: set = set()  # v4.9.8: Frozen snapshots that cannot be reassigned
         self._register_all()
 
     def _register_all(self):
@@ -247,7 +248,10 @@ class CSSLBuiltins:
         self._functions['memory'] = self.builtin_memory  # v4.8.9: Python repr() for debugging
         self._functions['address'] = self.builtin_address  # v4.9.0: Get address of object
         self._functions['reflect'] = self.builtin_reflect  # v4.9.0: Reflect address to object
+        self._functions['introspect'] = self.builtin_introspect  # v4.9.8: Module/object introspection
         self._functions['destroy'] = self.builtin_destroy  # v4.9.2: Destroy object and free memory
+        self._functions['bind'] = self.builtin_bind  # v4.9.9: Bind child object as member of parent
+        self._functions['unbind'] = self.builtin_unbind  # v4.9.9: Unbind/remove member from parent and return it
         self._functions['execute'] = self.builtin_execute  # v4.9.2: Execute CSSL code string inline
         self._functions['isinstance'] = self.builtin_isinstance
         self._functions['isint'] = self.builtin_isint
@@ -649,7 +653,11 @@ class CSSLBuiltins:
         try:
             from .cssl_gui import (
                 CsslWidget, CsslLabel, CsslButton, CsslPicture, CsslSound,
-                CsslToolbar, CsslInputField, CsslGui, CSSLInputField, CsslParent
+                CsslToolbar, CsslInputField, CsslGui, CSSLInputField, CsslParent,
+                CsslCheckBox, CsslRadioButton, CsslComboBox, CsslTextArea,
+                CsslSlider, CsslProgressBar, CsslTable, CsslListBox,
+                CsslTimePicker, CsslDatePicker, CsslTabControl, CsslScrollPanel,
+                CsslMenuBar, CsslMenu, CsslSeparator, CsslFileDialog
             )
 
             # Register widget classes
@@ -660,6 +668,22 @@ class CSSLBuiltins:
             self._functions['CsslSound'] = CsslSound
             self._functions['CsslToolbar'] = CsslToolbar
             self._functions['CsslInputField'] = CsslInputField
+            self._functions['CsslCheckBox'] = CsslCheckBox
+            self._functions['CsslRadioButton'] = CsslRadioButton
+            self._functions['CsslComboBox'] = CsslComboBox
+            self._functions['CsslTextArea'] = CsslTextArea
+            self._functions['CsslSlider'] = CsslSlider
+            self._functions['CsslProgressBar'] = CsslProgressBar
+            self._functions['CsslTable'] = CsslTable
+            self._functions['CsslListBox'] = CsslListBox
+            self._functions['CsslTimePicker'] = CsslTimePicker
+            self._functions['CsslDatePicker'] = CsslDatePicker
+            self._functions['CsslTabControl'] = CsslTabControl
+            self._functions['CsslScrollPanel'] = CsslScrollPanel
+            self._functions['CsslMenuBar'] = CsslMenuBar
+            self._functions['CsslMenu'] = CsslMenu
+            self._functions['CsslSeparator'] = CsslSeparator
+            self._functions['CsslFileDialog'] = CsslFileDialog
 
             # Register the CsslGui namespace for position constants
             self._functions['CsslGui'] = CsslGui
@@ -1059,6 +1083,200 @@ class CSSLBuiltins:
 
         return result
 
+    def builtin_introspect(self, obj: Any) -> dict:
+        """Introspect a module, class, or object to show its complete API.
+
+        Usage:
+            introspect(include("cssl-gui"))
+            introspect(@Time)
+            introspect(myObj)
+
+        Returns a dict with module_name, classes (with methods/params),
+        functions, and constants. Also prints formatted output to console.
+        """
+        import inspect
+
+        result = {
+            'module_name': '',
+            'classes': {},
+            'functions': [],
+            'constants': {}
+        }
+
+        # Determine module name
+        cls_name = type(obj).__name__
+        module_names = {
+            'CsslGuiModule': 'cssl-gui',
+            'CsslKeyboardModule': 'cssl-keyboard',
+            'CsslMessageBoxModule': 'cssl-gui.MessageBox',
+        }
+        result['module_name'] = module_names.get(cls_name, cls_name)
+
+        # Handle CSSLModuleBase (@Time, @Secrets, etc.)
+        try:
+            from .cssl_modules import CSSLModuleBase
+            if isinstance(obj, CSSLModuleBase):
+                result['module_name'] = cls_name.replace('Module', '')
+                for mname in obj.list_methods():
+                    method = obj._methods.get(mname)
+                    params = []
+                    if method:
+                        try:
+                            sig = inspect.signature(method)
+                            for pname, param in sig.parameters.items():
+                                if pname == 'self':
+                                    continue
+                                p = pname
+                                if param.default != inspect.Parameter.empty:
+                                    p += f"={repr(param.default)}"
+                                params.append(p)
+                        except (ValueError, TypeError):
+                            pass
+                    result['functions'].append({'name': mname, 'params': params})
+                self._print_introspection(result)
+                return result
+        except ImportError:
+            pass
+
+        # Handle CSSL class instances
+        try:
+            from .cssl_types import CSSLInstance
+            if isinstance(obj, CSSLInstance):
+                result['module_name'] = obj._class.name
+                result['classes'][obj._class.name] = {
+                    'methods': [{'name': m, 'params': []} for m in obj._class.methods.keys()],
+                    'constructor_params': [],
+                    'constants': {}
+                }
+                self._print_introspection(result)
+                return result
+        except ImportError:
+            pass
+
+        # Handle Python module objects (CsslGuiModule, CsslKeyboardModule, etc.)
+        for name in sorted(dir(obj)):
+            if name.startswith('_'):
+                continue
+            try:
+                attr = getattr(obj, name)
+            except (AttributeError, Exception):
+                continue
+
+            if inspect.isclass(attr):
+                class_info = {
+                    'methods': [],
+                    'constructor_params': [],
+                    'constants': {}
+                }
+
+                # Get constructor params
+                try:
+                    init = getattr(attr, '__init__', None)
+                    if init:
+                        sig = inspect.signature(init)
+                        for pname, param in sig.parameters.items():
+                            if pname == 'self':
+                                continue
+                            p = pname
+                            if param.default != inspect.Parameter.empty:
+                                p += f"={repr(param.default)}"
+                            class_info['constructor_params'].append(p)
+                except (ValueError, TypeError):
+                    pass
+
+                # Get methods (skip inherited from object and private)
+                for mname in sorted(dir(attr)):
+                    if mname.startswith('_'):
+                        continue
+                    try:
+                        mattr = getattr(attr, mname)
+                    except (AttributeError, Exception):
+                        continue
+                    if callable(mattr) and not inspect.isclass(mattr):
+                        method_info = {'name': mname, 'params': []}
+                        try:
+                            sig = inspect.signature(mattr)
+                            for pname, param in sig.parameters.items():
+                                if pname == 'self':
+                                    continue
+                                p = pname
+                                if param.default != inspect.Parameter.empty:
+                                    p += f"={repr(param.default)}"
+                                method_info['params'].append(p)
+                        except (ValueError, TypeError):
+                            pass
+                        class_info['methods'].append(method_info)
+                    elif not callable(mattr):
+                        try:
+                            class_info['constants'][mname] = repr(mattr)
+                        except Exception:
+                            class_info['constants'][mname] = '<value>'
+
+                result['classes'][name] = class_info
+
+            elif callable(attr):
+                func_info = {'name': name, 'params': []}
+                try:
+                    sig = inspect.signature(attr)
+                    for pname, param in sig.parameters.items():
+                        if pname == 'self':
+                            continue
+                        p = pname
+                        if param.default != inspect.Parameter.empty:
+                            p += f"={repr(param.default)}"
+                        func_info['params'].append(p)
+                except (ValueError, TypeError):
+                    pass
+                result['functions'].append(func_info)
+            else:
+                try:
+                    result['constants'][name] = repr(attr)
+                except Exception:
+                    result['constants'][name] = '<value>'
+
+        self._print_introspection(result)
+        return result
+
+    def _print_introspection(self, info: dict) -> None:
+        """Pretty-print introspection results to console."""
+        lines = []
+        lines.append(f"=== Module: {info['module_name']} ===")
+        lines.append("")
+
+        if info['classes']:
+            lines.append("CLASSES:")
+            for cls_name, cls_info in info['classes'].items():
+                params = ', '.join(cls_info.get('constructor_params', []))
+                lines.append(f"  class {cls_name}({params})")
+
+                for method in cls_info.get('methods', []):
+                    if isinstance(method, dict):
+                        mparams = ', '.join(method['params'])
+                        lines.append(f"    .{method['name']}({mparams})")
+                    else:
+                        lines.append(f"    .{method}()")
+
+                for cname, cval in cls_info.get('constants', {}).items():
+                    lines.append(f"    .{cname} = {cval}")
+                lines.append("")
+
+        if info['functions']:
+            lines.append("FUNCTIONS:")
+            for func in info['functions']:
+                if isinstance(func, dict):
+                    fparams = ', '.join(func['params'])
+                    lines.append(f"  {func['name']}({fparams})")
+                else:
+                    lines.append(f"  {func}()")
+            lines.append("")
+
+        if info['constants']:
+            lines.append("CONSTANTS:")
+            for cname, cval in sorted(info['constants'].items()):
+                lines.append(f"  {cname} = {cval}")
+
+        print('\n'.join(lines))
+
     def builtin_address(self, value: Any) -> 'Address':
         """Get memory address of an object as an Address type.
 
@@ -1165,15 +1383,16 @@ class CSSLBuiltins:
 
         # Call destructor if it's a CSSL instance
         if isinstance(obj, CSSLInstance):
-            # Try to call destructor (~ConstructorName)
             if hasattr(obj, '_class') and obj._class:
                 class_def = obj._class
-                # Look for destructor in class definition
-                if hasattr(class_def, 'node') and class_def.node:
-                    for child in class_def.node.children:
-                        if child.type == 'destructor':
-                            # Destructor exists - would need runtime to call it
-                            pass
+                # v4.9.9: Call destructors via runtime._call_destructor
+                if hasattr(class_def, 'destructors') and class_def.destructors:
+                    for destr in class_def.destructors:
+                        if self.runtime and hasattr(self.runtime, '_call_destructor'):
+                            try:
+                                self.runtime._call_destructor(obj, destr)
+                            except Exception:
+                                pass  # Destructor failed - continue cleanup
 
         # Remove from Address registry
         if addr_key and addr_key in Address._registry:
@@ -1188,6 +1407,102 @@ class CSSLBuiltins:
             obj.clear()
 
         return True
+
+    def builtin_bind(self, parent: Any, child: Any, call_name: str = "") -> Any:
+        """v4.9.9: Bind a child object as a member of a parent object.
+
+        Usage:
+            mainwindow = new CsslWidget();
+            button = new CsslButton();
+            bind(mainwindow, button);              // mainwindow.button (uses class name lowercase)
+            bind(mainwindow, button, "myBtn");     // mainwindow.myBtn (uses custom name)
+            bind(mainwindow, button, call_name="ok_btn");  // named arg
+
+        Args:
+            parent: The parent object to bind into
+            child: The child object to bind as a member
+            call_name: Optional member name. If empty, derives from child's class name.
+
+        Returns:
+            The parent object (for chaining)
+        """
+        from .cssl_types import CSSLInstance, UniversalInstance
+
+        # Determine the member name
+        if not call_name:
+            # Derive name from child's class name
+            if isinstance(child, CSSLInstance) and hasattr(child, '_class') and child._class:
+                # Use lowercase class name: CsslButton -> csslbutton or Button -> button
+                class_name = child._class.name
+                # Use class name as-is but lowercased first char
+                call_name = class_name[0].lower() + class_name[1:] if class_name else 'child'
+            elif isinstance(child, UniversalInstance):
+                call_name = getattr(child, 'name', 'child') or 'child'
+            elif hasattr(child, '__class__'):
+                call_name = child.__class__.__name__.lower()
+            else:
+                call_name = 'child'
+
+        # Bind child as member of parent
+        if isinstance(parent, CSSLInstance):
+            parent.set_member(call_name, child)
+        elif isinstance(parent, UniversalInstance):
+            parent.set_member(call_name, child)
+        elif isinstance(parent, dict):
+            parent[call_name] = child
+        elif hasattr(parent, '__setattr__'):
+            setattr(parent, call_name, child)
+
+        return parent
+
+    def builtin_unbind(self, parent: Any, member_name: str = "", _remove: bool = True) -> Any:
+        """v4.9.9: Unbind/remove a member from a parent object and return it.
+
+        Usage:
+            bind(mainwindow, button, "btn");
+            single = unbind(mainwindow.btn);           // removes btn from mainwindow, returns it
+            single = unbind(mainwindow, "btn");         // explicit form: same result
+            single <== unbind(mainwindow.btn);          // copies without removing (injection mode)
+
+        Args:
+            parent: The parent object (or the member value if called with member access syntax)
+            member_name: The member name to unbind (auto-filled by runtime for a.b.c syntax)
+            _remove: Internal flag - True to remove from parent, False to just return (for <== injection)
+
+        Returns:
+            The unbound member value
+        """
+        from .cssl_types import CSSLInstance, UniversalInstance
+
+        # If called with explicit parent + member_name
+        if member_name:
+            value = None
+            if isinstance(parent, CSSLInstance) and parent.has_member(member_name):
+                value = parent.get_member(member_name)
+                if _remove:
+                    if hasattr(parent, '_members') and member_name in parent._members:
+                        del parent._members[member_name]
+            elif isinstance(parent, UniversalInstance) and parent.has_member(member_name):
+                value = parent.get_member(member_name)
+                if _remove:
+                    if hasattr(parent, '_members') and member_name in parent._members:
+                        del parent._members[member_name]
+            elif isinstance(parent, dict) and member_name in parent:
+                value = parent[member_name]
+                if _remove:
+                    del parent[member_name]
+            elif hasattr(parent, member_name):
+                value = getattr(parent, member_name)
+                if _remove:
+                    try:
+                        delattr(parent, member_name)
+                    except (AttributeError, TypeError):
+                        pass
+            return value
+
+        # If called with just a value (runtime couldn't resolve parent chain),
+        # just return it as-is
+        return parent
 
     def builtin_execute(self, code: str, context: dict = None) -> Any:
         """v4.9.2: Execute CSSL code string inline.
@@ -3735,8 +4050,15 @@ class CSSLBuiltins:
 
             ast = parse_cssl(source)
 
+            # Set current file path so payload() etc. can resolve relative paths
+            prev_file_path = getattr(self.runtime, '_current_file_path', None)
+            self.runtime._current_file_path = filepath
+
             # Execute the service to get definitions
-            service_def = self.runtime._exec_service(ast)
+            try:
+                service_def = self.runtime._exec_service(ast)
+            finally:
+                self.runtime._current_file_path = prev_file_path
 
             # Cache the result
             self.runtime._include_cache[filepath] = service_def
@@ -4939,6 +5261,17 @@ class CSSLBuiltins:
                     if func_val is value and not func_name.startswith('_'):
                         name = func_name
                         break
+            # v4.9.8: Fallback — also try equality check (is can fail for boxed values)
+            if name is None:
+                for var_name, var_val in self.runtime.scope.variables.items():
+                    if var_val == value and not var_name.startswith('_'):
+                        name = var_name
+                        break
+                if name is None:
+                    for var_name, var_val in self.runtime.global_scope.variables.items():
+                        if var_val == value and not var_name.startswith('_'):
+                            name = var_name
+                            break
 
         if name is None:
             # Use a generic name based on type and hash
@@ -4957,6 +5290,9 @@ class CSSLBuiltins:
             except:
                 snapped_value = value
 
+        # v4.9.8: Cannot overwrite frozen snapshots
+        if name in self._frozen_snapshots:
+            return False
         self._snapshots[name] = snapped_value
         return True
 
@@ -4987,6 +5323,9 @@ class CSSLBuiltins:
         Usage:
             clear_snapshot("variableName")
         """
+        # v4.9.8: Cannot clear frozen snapshots
+        if name in self._frozen_snapshots:
+            return False
         if name in self._snapshots:
             del self._snapshots[name]
             return True

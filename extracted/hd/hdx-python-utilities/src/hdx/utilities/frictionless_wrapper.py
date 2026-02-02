@@ -1,0 +1,195 @@
+"""Frictionless wrapper"""
+
+from typing import Any
+
+import requests
+from frictionless import (
+    Control,
+    Detector,
+    Dialect,
+    FrictionlessException,
+    system,
+)
+from frictionless.errors import ResourceError
+from frictionless.formats import CsvControl, ExcelControl, JsonControl
+from frictionless.resources import TableResource
+
+
+def get_frictionless_control(**kwargs: Any) -> tuple[Control, Any]:
+    """Get Frictionless Control.
+
+    Args:
+        **kwargs: See below
+        file_type (str | None): Type of file. Defaults to inferring.
+        format (str | None): Type of file. Defaults to inferring.
+        delimiter (str | None): Delimiter for values in csv rows. Defaults to inferring.
+        skip_initial_space (bool): Ignore whitespace straight after delimiter. Defaults to False.
+        sheet (int | str | None): Sheet in Excel. Defaults to inferring.
+        fill_merged_cells (bool): Whether to fill merged cells. Defaults to True.
+        keyed (bool): Whether JSON is keyed. Defaults to True.
+        keys (list[str] | None): JSON keys to get. Defaults to None (all of them).
+        property (str | None): Path to table in JSON. Defaults to None.
+        control (Control): This can be set to override the above. See Frictionless docs.
+
+    Returns:
+        (frictionless Control object, kwargs)
+    """
+    control = kwargs.get("control")
+    file_type = kwargs.pop("file_type", None)
+    file_format = kwargs.get("format", file_type)
+    if file_format is not None:
+        kwargs["format"] = file_format
+        if control is None:
+            if file_format == "csv":
+                control = CsvControl()
+                delimiter = kwargs.pop("delimiter", None)
+                if delimiter is not None:
+                    control.delimiter = delimiter
+                skip_initial_space = kwargs.pop("skip_initial_space", None)
+                if skip_initial_space is not None:
+                    control.skip_initial_space = skip_initial_space
+            elif file_format in ("xls", "xlsx"):
+                control = ExcelControl()
+                sheet = kwargs.pop("sheet", None)
+                if sheet is not None:
+                    control.sheet = sheet
+                fill_merged_cells = kwargs.pop("fill_merged_cells", True)
+                control.fill_merged_cells = fill_merged_cells
+            elif file_format == "json":
+                control = JsonControl()
+                keyed = kwargs.pop("keyed", True)
+                control.keyed = keyed
+                keys = kwargs.pop("keys", None)
+                if keys is not None:
+                    control.keys = keys
+                property = kwargs.pop("property", None)
+                if property is not None:
+                    control.property = property
+    return control, kwargs
+
+
+def get_frictionless_detector(infer_types: bool, **kwargs: Any) -> tuple[Detector, Any]:
+    """Get Frictionless Detector.
+
+    Args:
+        infer_types: Whether to infer types. Defaults to False (strings).
+        **kwargs:
+        default_type (str | None): Default field type if infer_types False. Defaults to any.
+        float_numbers (bool): Use float not Decimal if infer_types True. Defaults to True.
+        null_values (list[Any]): Values that will return None. Defaults to [""].
+        detector (Detector): This can be set to override the above. See Frictionless docs.
+
+    Returns:
+        (frictionless Detector object, kwargs)
+    """
+    detector = kwargs.get("detector", Detector())
+    if infer_types:
+        default = None
+    else:
+        default = "any"
+    default_type = kwargs.pop("default_type", default)
+    detector.field_type = default_type
+    float_numbers = kwargs.pop("float_numbers", True)
+    detector.field_float_numbers = float_numbers
+    null_values = kwargs.pop("null_values", [""])
+    detector.field_missing_values = null_values
+    return detector, kwargs
+
+
+def get_frictionless_dialect(
+    ignore_blank_rows: bool, **kwargs: Any
+) -> tuple[Dialect, Any]:
+    """Get Frictionless Dialect.
+
+    Args:
+        ignore_blank_rows: Whether to ignore blank rows. Defaults to True.
+        **kwargs: See below
+        columns (Sequence[int] | Sequence[str] | None): Columns to pick. Defaults to all.
+        dialect (Dialect): This can be set to override the above. See Frictionless docs.
+
+    Returns:
+        (frictionless Dialect object, Any)
+    """
+    dialect = kwargs.get("dialect", Dialect())
+    columns = kwargs.pop("columns", None)
+    if columns:
+        dialect.pick_fields = columns
+    dialect.skip_blank_rows = ignore_blank_rows
+    return dialect, kwargs
+
+
+def get_frictionless_tableresource(
+    url: str | None = None,
+    ignore_blank_rows: bool = True,
+    infer_types: bool = False,
+    session: requests.Session | None = None,
+    data: Any | None = None,
+    **kwargs: Any,
+) -> TableResource:
+    """Get Frictionless TableResource. Either url or data must be supplied.
+
+    Args:
+        url: URL or path to download. Defaults to None.
+        ignore_blank_rows: Whether to ignore blank rows. Defaults to True.
+        infer_types: Whether to infer types. Defaults to False (strings).
+        session: Session to use. Defaults to not setting a session.
+        data: Data to parse. Defaults to None.
+        **kwargs: See below
+        has_header (bool): Whether data has a header. Defaults to True.
+        headers (int | Sequence[int] | Sequence[str]): Number of row(s) containing headers or list of headers.  # pylint: disable=line-too-long
+        columns (Sequence[int] | Sequence[str] | None): Columns to pick. Defaults to all.
+        file_type (str | None): Type of file. Defaults to inferring.
+        format (str | None): Type of file. Defaults to inferring.
+        encoding (str | None): Type of encoding. Defaults to inferring.
+        compression (str | None): Type of compression. Defaults to inferring.
+        delimiter (str | None): Delimiter for values in csv rows. Defaults to inferring.
+        skip_initial_space (bool): Ignore whitespace straight after delimiter. Defaults to False.
+        sheet (int | str | None): Sheet in Excel. Defaults to inferring.
+        fill_merged_cells (bool): Whether to fill merged cells. Defaults to True.
+        keyed (bool): Whether JSON is keyed. Defaults to True.
+        keys (list[str] | None): JSON keys to get. Defaults to None (all of them).
+        property (str | None): Path to table in JSON. Defaults to None.
+        http_session (Session): Session object to use. Defaults to downloader session.
+        default_type (str | None): Default field type if infer_types False. Defaults to any.
+        float_numbers (bool): Use float not Decimal if infer_types True. Defaults to True.
+        null_values (list[Any]): Values that will return None. Defaults to [""].
+        control (Control): This can be set to override the above. See Frictionless docs.
+        detector (Detector): This can be set to override the above. See Frictionless docs.
+        dialect (Dialect): This can be set to override the above. See Frictionless docs.
+        schema (Schema): This can be set to override the above. See Frictionless docs.
+
+    Returns:
+        frictionless TableResource object
+    """
+    if not url and not data:
+        error = ResourceError(note="Neither url or data supplied!")
+        raise FrictionlessException(error=error)
+    control, kwargs = get_frictionless_control(**kwargs)
+    detector, kwargs = get_frictionless_detector(infer_types, **kwargs)
+    dialect, kwargs = get_frictionless_dialect(ignore_blank_rows, **kwargs)
+    has_header = kwargs.pop("has_header", None)
+    headers = kwargs.pop("headers", None)
+    if headers is not None:
+        if isinstance(headers, int):
+            headers = [headers]
+        if isinstance(headers[0], int):
+            dialect.header_rows = headers
+        else:
+            detector.field_names = headers
+            if has_header is None:
+                has_header = False
+    if has_header is None:
+        has_header = True
+    dialect.header = has_header
+    kwargs["detector"] = detector
+    kwargs["dialect"] = dialect
+    if control:
+        kwargs["control"] = control
+    http_session = kwargs.pop("http_session", session)
+    with system.use_context(http_session=http_session):
+        if url:
+            resource = TableResource(path=str(url), **kwargs)
+        else:
+            resource = TableResource(data=data, **kwargs)
+        resource.open()
+        return resource

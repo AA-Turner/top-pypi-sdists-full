@@ -3,6 +3,7 @@ import inspect
 import os
 
 import torch
+
 from optimum.quanto import QModuleMixin, register_qmodule
 from optimum.quanto.tensor.qtype import qtype as _quanto_qtype
 
@@ -268,6 +269,39 @@ def _load_handlers():
 
 def _handler_name(handler):
     return getattr(handler, "HANDLER_NAME", handler.__name__.split(".")[-1])
+
+_FILE_EXTENSION_HANDLERS = {}
+
+
+def register_file_extension(extension, handler):
+    if not extension or handler is None:
+        return
+    ext = str(extension).lower()
+    if ext.startswith("."):
+        ext = ext[1:]
+    if not ext:
+        return
+    _FILE_EXTENSION_HANDLERS[ext] = handler
+
+
+def get_extension_handler(file_path):
+    if not isinstance(file_path, str):
+        return None
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+    if not ext:
+        return None
+    return _FILE_EXTENSION_HANDLERS.get(ext)
+
+
+def normalize_extension_path(file_path):
+    handler = get_extension_handler(file_path)
+    if handler is None:
+        return file_path
+    normalizer = getattr(handler, "normalize", None)
+    if not callable(normalizer):
+        ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+        raise Exception(f"Missing normalize for *.{ext} handler")
+    return normalizer(file_path)
 
 def _normalize_kind_key(value):
     if value is None:
@@ -933,6 +967,17 @@ def _infer_qtype_from_quantization_map(quantization_map):
     return best_key
 
 
+def load_metadata_state_dict(file_path):
+
+    if isinstance(file_path, str) and get_extension_handler(file_path) is not None:
+        ext_handler = get_extension_handler(file_path)
+        if hasattr(ext_handler, "get_file_metadata"):
+            return ext_handler.get_file_metadata(file_path)
+        else:
+            return {}, {}
+    state_dict, metadata = safetensors2.load_metadata_state_dict(file_path)
+    return state_dict, metadata
+
 def detect_quantization_kind_for_file(file_path, verboseLevel=1):
     cached = get_cached_quantization_for_file(file_path)
     if cached:
@@ -968,7 +1013,7 @@ def detect_quantization_kind_for_file(file_path, verboseLevel=1):
 
     metadata_only = False
     try:
-        state_dict, metadata = safetensors2.load_metadata_state_dict(file_path)
+        state_dict, metadata = load_metadata_state_dict(file_path)
         metadata_only = True
     except Exception:
         try:

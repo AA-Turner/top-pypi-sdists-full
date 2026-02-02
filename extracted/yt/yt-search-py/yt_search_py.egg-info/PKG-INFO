@@ -1,0 +1,107 @@
+Metadata-Version: 2.4
+Name: yt-search-py
+Version: 1.0.0
+Summary: Lightweight YouTube search library with async support - Search for videos, channels, playlists and get playlist details
+Author-email: Sparrow <108956698+sparrow9616@users.noreply.github.com>
+License: MIT
+Project-URL: Homepage, https://github.com/sparrow9616/yt-search
+Project-URL: Documentation, https://github.com/sparrow9616/yt-search/blob/main/README.md
+Project-URL: Repository, https://github.com/sparrow9616/yt-search
+Project-URL: Bug Tracker, https://github.com/sparrow9616/yt-search/issues
+Keywords: youtube,search,youtube-search,playlist,async,youtube-api
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.28.1
+Dynamic: license-file
+
+# YT Search
+
+A lightweight, modern YouTube search library with async/await support. Search for videos, channels, playlists, and retrieve complete playlist information with ease.
+
+[![PyPI version](https://badge.fury.io/py/yt-search-lite.svg)](https://pypi.org/project/yt-search-lite/)
+[![Python](https://img.shields.io/pypi/pyversions/yt-search-lite.svg)](https://pypi.org/project/yt-search-lite/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## Features
+
+✨ **Search Functionality**
+- 🎥 Search for videos with filters
+- 👤 Search for channels
+- 📝 Search for playlists
+- 🔍 Custom search with sorting options
+- 🔄 Pagination support
+
+✨ **Playlist Features**
+- 📋 Get full playlist information with videos
+- ℹ️ Get playlist metadata only
+- 🎬 Get playlist videos only
+- ♾️ Pagination for large playlists (100+ videos)
+
+✨ **Modern API**
+- ⚡ Async/await support
+- 🎯 Type hints
+- 🚀 Fast and lightweight
+- 🛡️ No API key required
+
+## Installation
+
+```bash
+pip install yt-search
+```
+
+## Quick Start
+
+### Search for Videos
+
+```python
+import asyncio
+from ytSearch import VideosSearch
+
+async def main():
+    search = VideosSearch('Python tutorials', limit=5)
+    result = await search.next()
+    
+    for video in result['result']:
+        print(f"{video['title']} - {video['link']}")
+
+asyncio.run(main())
+```
+
+### Get Playlist Information
+
+```python
+import asyncio
+from ytSearch import Playlist
+
+async def main():
+    # Get full playlist with videos
+    playlist = await Playlist.get('https://www.youtube.com/playlist?list=PLRBp0Fe2GpgmsW46rJyudVFlY6IYjFBIK')
+    
+    print(f"Playlist: {playlist['info']['title']}")
+    print(f"Videos: {len(playlist['videos'])}")
+
+asyncio.run(main())
+```
+
+## Requirements
+
+- Python 3.7+
+- httpx >= 0.28.1
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.

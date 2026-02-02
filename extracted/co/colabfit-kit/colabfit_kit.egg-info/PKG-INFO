@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: colabfit-kit
+Version: 0.0.10
+Summary: A suite of tools for working with training datasets for interatomic potentials
+Author: ColabFit
+License: The ColabFit Tools package is copyrighted by the Regents of the University of
+        Minnesota. It can be freely used for educational and research purposes by
+        non-profit institutions and US government agencies only. Other organizations are
+        allowed to use the ColabFit Tools package only for evaluation purposes, and any
+        further uses will require prior approval. The software may not be sold or
+        redistributed without prior approval. One may make copies of the software for
+        their use provided that the copies, are not sold or distributed, are used under
+        the same terms and conditions. As unestablished research software, this code is
+        provided on an "as is'' basis without warranty of any kind, either expressed or
+        implied. The downloading, or executing any part of this software constitutes an
+        implicit agreement to these terms. These terms and conditions are subject to
+        change at any time without prior notice.
+        
+Project-URL: Homepage, http://colabfit.org
+Keywords: machine learning,interatomic potentials
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: BSD License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: ase
+Requires-Dist: kim_property
+Requires-Dist: numpy
+Requires-Dist: tqdm
+Requires-Dist: markdown
+Requires-Dist: plotly
+Requires-Dist: django
+Requires-Dist: periodictable
+Requires-Dist: unidecode
+Requires-Dist: notebook
+Requires-Dist: vastdb
+Requires-Dist: psycopg
+Requires-Dist: pyspark
+Requires-Dist: click>=7.0
+Dynamic: license-file
+
+# colabfit-tools
+Tools for constructing and manipulating datasets for fitting interatomic potentials
+
+# Installation
+
+Using `pip`:
+```
+pip install colabfit-kit
+```
+
+# Documentation
+Full documentation is currently a work in progress.
+
+# CLI Tool
+Provides a CLI for querying data present on local PostgreSql database.
+
+Basic usage is `colabfit query <options>`. `colabfit query --help` will display all search options.
+
+Use option `-c` to specify the json credential file of form:
+`{
+    "database_port": <>,
+    "database_path": <>,
+    "database_name": <>,
+    "database_password": <>,
+    "database_user": <>,
+    "external_file": <>
+}`
+
+# Contact
+Contact [Eric](https://github.com/EFuem/) if you have questions or comments.
+
+# License
+The ColabFit Tools package is copyrighted by the Regents of the University of
+Minnesota. It can be freely used for educational and research purposes by
+non-profit institutions and US government agencies only. Other organizations are
+allowed to use the ColabFit Tools package only for evaluation purposes, and any
+further uses will require prior approval. The software may not be sold or
+redistributed without prior approval. One may make copies of the software for
+their use provided that the copies, are not sold or distributed, are used under
+the same terms and conditions. As unestablished research software, this code is
+provided on an "as is'' basis without warranty of any kind, either expressed or
+implied. The downloading, or executing any part of this software constitutes an
+implicit agreement to these terms. These terms and conditions are subject to
+change at any time without prior notice.
+

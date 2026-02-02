@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: link
+Version: 2.1.4
+Summary: Easy and consistent access to the objects you care about
+Home-page: 
+Maintainer: David Buonasera
+Maintainer-email: 
+License: Apache 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE
+Requires-Dist: requests>=2.0.0
+Requires-Dist: requests_oauthlib>=0.4.0
+Requires-Dist: xmltodict
+Requires-Dist: six
+Provides-Extra: pandas
+Requires-Dist: pandas>=1.0.0; extra == "pandas"
+
+Easy and consistent access to the objects you care about

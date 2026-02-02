@@ -1,0 +1,48 @@
+stages:
+  - style
+  - test
+  - doc
+
+image: python:3.8
+
+before_script:
+  - pip install -r requirements.txt
+
+ruff:
+  stage: style
+  script:
+    - ruff check .
+
+black:
+  stage: style
+  script:
+    - black .
+
+mypy:
+  stage: style
+  script:
+    - mypy --strict serpyco
+
+test:
+  stage: test
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+  image: python:${PYTHON_VERSION}
+  script:
+    - pip install -e ".[dev]"
+    - pytest
+
+pages:
+  stage: doc
+  script:
+    - pip install -e "[.build-doc]"
+    - apt-get update -qy
+    - apt-get install -qy make
+    - make html
+    - mv _build/html/ public
+  artifacts:
+    paths:
+    - public
+  only:
+    - tags

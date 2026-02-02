@@ -10542,6 +10542,24 @@ def _show_sdk_documentation():
 ''')
 
 
+@cssl.command(name='guimaker')
+@click.argument('file', required=False, default='')
+def cssl_guimaker(file):
+    """Launch the visual CSSL GUI Builder.
+
+    \b
+    Usage:
+      includecpp cssl guimaker              # New project
+      includecpp cssl guimaker gui.cssl     # Open existing file
+    """
+    try:
+        from includecpp.gui.guimaker import run_guimaker
+        run_guimaker(file)
+    except ImportError as e:
+        click.secho(f"Failed to launch GUI Builder: {e}", fg='red')
+        click.secho("Make sure PyQt6 is installed: pip install PyQt6", fg='yellow')
+
+
 # Register hidden cssl command group
 cli.add_command(cssl)
 

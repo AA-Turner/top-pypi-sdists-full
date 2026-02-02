@@ -1,0 +1,23 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  tasks:
+    - name: Update available packages
+      ansible.builtin.raw: apt update -yq
+      changed_when: false
+
+    - name: Install prerequisites
+      ansible.builtin.raw: >
+        apt install -yq --no-install-recommends
+        ca-certificates
+        curl
+        unzip
+      changed_when: false
+
+    - name: Install Python 3.x
+      ansible.builtin.raw: >
+        test -e /usr/bin/python3 || apt install -yq --no-install-recommends
+        python3-minimal
+        python3-zipstream
+      changed_when: false

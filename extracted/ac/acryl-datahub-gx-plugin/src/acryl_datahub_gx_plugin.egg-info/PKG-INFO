@@ -1,0 +1,119 @@
+Metadata-Version: 2.4
+Name: acryl-datahub-gx-plugin
+Version: 1.3.1.10
+Summary: Datahub GX plugin to capture executions and send to Datahub
+Home-page: https://docs.datahub.com/
+License: Apache-2.0
+Project-URL: Documentation, https://docs.datahub.com/docs/
+Project-URL: Source, https://github.com/datahub-project/datahub
+Project-URL: Changelog, https://github.com/datahub-project/datahub/releases
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
+Classifier: Topic :: Software Development
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: great-expectations<1.0.0,>=0.17.15
+Requires-Dist: sqlalchemy<2,>=1.4.39
+Requires-Dist: requests_file
+Requires-Dist: pydantic>=2.1.0
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.3.1.10
+Requires-Dist: requests
+Requires-Dist: traitlets!=5.2.2
+Provides-Extra: ignore
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.16.0; extra == "dev"
+Requires-Dist: types-cachetools; extra == "dev"
+Requires-Dist: sqlalchemy-stubs; extra == "dev"
+Requires-Dist: packaging; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.3.1.10; extra == "dev"
+Requires-Dist: types-freezegun; extra == "dev"
+Requires-Dist: requests-mock; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: pydantic>=2.1.0; extra == "dev"
+Requires-Dist: requests_file; extra == "dev"
+Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: types-tabulate; extra == "dev"
+Requires-Dist: ruff==0.11.7; extra == "dev"
+Requires-Dist: deepdiff!=8.0.0; extra == "dev"
+Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "dev"
+Requires-Dist: requests; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: types-six; extra == "dev"
+Requires-Dist: types-click==0.1.12; extra == "dev"
+Requires-Dist: types-pytz; extra == "dev"
+Requires-Dist: types-dataclasses; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
+Requires-Dist: great-expectations<1.0.0,>=0.17.15; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: jsonpickle; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: traitlets!=5.2.2; extra == "dev"
+Provides-Extra: integration-tests
+Requires-Dist: pytest-asyncio>=0.16.0; extra == "integration-tests"
+Requires-Dist: types-cachetools; extra == "integration-tests"
+Requires-Dist: sqlalchemy-stubs; extra == "integration-tests"
+Requires-Dist: packaging; extra == "integration-tests"
+Requires-Dist: types-requests; extra == "integration-tests"
+Requires-Dist: build; extra == "integration-tests"
+Requires-Dist: types-PyYAML; extra == "integration-tests"
+Requires-Dist: types-toml; extra == "integration-tests"
+Requires-Dist: freezegun; extra == "integration-tests"
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.3.1.10; extra == "integration-tests"
+Requires-Dist: types-freezegun; extra == "integration-tests"
+Requires-Dist: requests-mock; extra == "integration-tests"
+Requires-Dist: pytest>=6.2.2; extra == "integration-tests"
+Requires-Dist: pydantic>=2.1.0; extra == "integration-tests"
+Requires-Dist: requests_file; extra == "integration-tests"
+Requires-Dist: types-python-dateutil; extra == "integration-tests"
+Requires-Dist: types-tabulate; extra == "integration-tests"
+Requires-Dist: ruff==0.11.7; extra == "integration-tests"
+Requires-Dist: deepdiff!=8.0.0; extra == "integration-tests"
+Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "integration-tests"
+Requires-Dist: requests; extra == "integration-tests"
+Requires-Dist: mypy==1.17.1; extra == "integration-tests"
+Requires-Dist: types-six; extra == "integration-tests"
+Requires-Dist: types-click==0.1.12; extra == "integration-tests"
+Requires-Dist: types-pytz; extra == "integration-tests"
+Requires-Dist: types-dataclasses; extra == "integration-tests"
+Requires-Dist: coverage>=5.1; extra == "integration-tests"
+Requires-Dist: pytest-docker>=1.1.0; extra == "integration-tests"
+Requires-Dist: pytest-cov>=2.8.1; extra == "integration-tests"
+Requires-Dist: great-expectations<1.0.0,>=0.17.15; extra == "integration-tests"
+Requires-Dist: acryl-datahub[testing-utils]==1.3.1.10; extra == "integration-tests"
+Requires-Dist: types-setuptools; extra == "integration-tests"
+Requires-Dist: jsonpickle; extra == "integration-tests"
+Requires-Dist: pyspark; extra == "integration-tests"
+Requires-Dist: tox; extra == "integration-tests"
+Requires-Dist: twine; extra == "integration-tests"
+Requires-Dist: psycopg2-binary; extra == "integration-tests"
+Requires-Dist: traitlets!=5.2.2; extra == "integration-tests"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Datahub GX Plugin
+
+See the [DataHub GX docs](https://docs.datahub.com/docs/metadata-ingestion/integration_docs/great-expectations) for details.

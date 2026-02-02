@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import ClassVar
-from typing_extensions import TypeAlias
+from typing import ClassVar, TypeAlias
 
 from equinox.internal import ω
 from jaxtyping import ArrayLike, Float, PyTree
@@ -15,8 +14,8 @@ from .base import AbstractSolver
 _ErrorEstimate: TypeAlias = None
 _SolverState: TypeAlias = None
 
-Ya: TypeAlias = PyTree[Float[ArrayLike, "?*y"], " Y"]
-Yb: TypeAlias = PyTree[Float[ArrayLike, "?*y"], " Y"]
+Ya: TypeAlias = PyTree[Float[ArrayLike, "?*y"], " Y"]  # pyright: ignore[reportUndefinedVariable]
+Yb: TypeAlias = PyTree[Float[ArrayLike, "?*y"], " Y"]  # pyright: ignore[reportUndefinedVariable]
 
 
 class SemiImplicitEuler(AbstractSolver):
@@ -27,9 +26,9 @@ class SemiImplicitEuler(AbstractSolver):
     """
 
     term_structure: ClassVar = (AbstractTerm, AbstractTerm)
-    interpolation_cls: ClassVar[
-        Callable[..., LocalLinearInterpolation]
-    ] = LocalLinearInterpolation
+    interpolation_cls: ClassVar[Callable[..., LocalLinearInterpolation]] = (
+        LocalLinearInterpolation
+    )
 
     def order(self, terms):
         return 1
@@ -80,3 +79,6 @@ class SemiImplicitEuler(AbstractSolver):
         f1 = term_1.vf(t0, y0_2, args)
         f2 = term_2.vf(t0, y0_1, args)
         return f1, f2
+
+
+SemiImplicitEuler.__init__.__doc__ = """**Arguments:** None"""

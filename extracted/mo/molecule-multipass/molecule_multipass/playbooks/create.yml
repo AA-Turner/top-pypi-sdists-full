@@ -1,0 +1,122 @@
+---
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  no_log: "{{ molecule_no_log }}"
+
+  vars:
+    molecule_ephemeral_directory: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}"
+    molecule_scenario_name: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"
+    molecule_project_name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+    multipass_executable: "multipass"
+    multipass_vm_cpus: 1
+    multipass_vm_memory: 1024M
+    multipass_vm_disk: 4G
+    multipass_vm_image: "20.04"
+
+  tasks:
+    - name: Register VMs data
+      ansible.builtin.set_fact:
+        instance: {
+          "instance": "molecule-{{ molecule_project_name }}-{{ molecule_scenario_name }}-{{ item.name }}",
+          "name": "{{ item.name }}",
+          "vm_cpus": "{{ item.vm_cpus | default(multipass_vm_cpus) }}",
+          "vm_memory": "{{ item.vm_memory | default(multipass_vm_memory) }}",
+          "vm_disk": "{{ item.vm_disk | default(multipass_vm_disk) }}",
+          "vm_image": "{{ item.vm_image | default(multipass_vm_image) }}",
+        }
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: molecule_instances
+
+    - name: Prepare VMs data
+      ansible.builtin.set_fact:
+        molecule_instances: "{{ molecule_instances.results | map(attribute='ansible_facts.instance') | list }}"
+
+    - name: Get multipass executable path  # noqa: command-instead-of-shell
+      ansible.builtin.shell: "command -v {{ multipass_executable }}"
+      register: multipass_path
+      changed_when: false
+
+    - name: Register multipass executable path
+      ansible.builtin.set_fact:
+        multipass_cmd: "{{ multipass_path.stdout }}"
+
+    - name: Generate OpenSSH key pair
+      community.crypto.openssh_keypair:
+        path: "{{ molecule_ephemeral_directory }}/id_ed25519"
+        type: ed25519
+      register: multipass_ssh
+
+    - name: Create cloud-init from template
+      ansible.builtin.template:
+        src: "templates/cloud-init.yml.j2"
+        dest: "{{ molecule_ephemeral_directory }}/cloud-init.yml"
+        mode: "0644"
+
+    - name: Launch VMs  # noqa: no-changed-when
+      ansible.builtin.command: >
+        {{ multipass_cmd }} launch
+        --name {{ item.instance }}
+        --cpus {{ item.vm_cpus }}
+        --memory {{ item.vm_memory }}
+        --disk {{ item.vm_disk }}
+        --cloud-init {{ molecule_ephemeral_directory }}/cloud-init.yml
+        {{ item.vm_image | default(multipass_vm_image) }}
+      loop: "{{ molecule_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      async: 7200
+      poll: 0
+      register: multipass_launch
+
+    - name: Wait for VMs to be ready
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ multipass_launch.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: multipass_launch_status
+      until: multipass_launch_status.finished
+      retries: 30
+      delay: 10
+
+    - name: Register VMs info  # noqa: no-changed-when
+      ansible.builtin.command: >
+        {{ multipass_cmd }} info
+        --format json
+        {{ item.instance }}
+      loop: "{{ molecule_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: instance_info
+
+    - name: Parse VMs info
+      ansible.builtin.set_fact:
+        instance_info: "{{ instance_info.results | map(attribute='stdout') | map('from_json') | list | map(attribute='info') | combine }}"
+
+    - name: Prepare VMs config dict
+      ansible.builtin.set_fact:
+        instance_conf_dict: {
+          "instance": "{{ item.instance }}",
+          "name": "{{ item.name }}",
+          "address": "{{ instance_info[item.instance].ipv4[0] }}",
+          "user": "ubuntu",
+          "port": "22",
+          "identity_file": "{{ multipass_ssh.filename }}",
+        }
+      loop: "{{ molecule_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: instance_config_dict
+
+    - name: Prepare VMs config list
+      ansible.builtin.set_fact:
+        instance_conf: "{{ instance_config_dict.results | map(attribute='ansible_facts.instance_conf_dict') | list }}"
+
+    - name: Dump VMs config
+      ansible.builtin.copy:
+        content: "{{ instance_conf | to_json | from_json | to_yaml }}"
+        dest: "{{ molecule_instance_config }}"
+        mode: "0644"

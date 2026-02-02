@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+  # Essentials
+  "setuptools >= 64",
+
+  # Plugins
+  "setuptools_scm[toml] >= 8",  # version is required for "no-local-version" scheme + toml extra is needed for supporting config in this file
+]
+build-backend = "setuptools.build_meta"
+
+# ATTENTION: the following section must be kept last in
+# `pyproject.toml` because the CI appends one line in
+# the end when publishing non-tagged versions.
+[tool.setuptools_scm]
+write_to = "src/sphinxcontrib/towncrier/_scm_version.py"
+# ATTENTION: DO NOT ADD ANYTHING AFTER THIS SECTION ^

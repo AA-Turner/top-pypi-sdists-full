@@ -1,3 +1,0 @@
-publishers:
-  - discord-notifier:
-      webhook-url: "https://discord.com/api/webhooks/token"

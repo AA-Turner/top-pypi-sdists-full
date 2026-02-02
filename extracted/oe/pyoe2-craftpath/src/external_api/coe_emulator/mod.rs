@@ -1,2 +1,0 @@
-mod coe_emulator_item_snapshot_definition;
-pub mod coe_emulator_item_snapshot_provider;

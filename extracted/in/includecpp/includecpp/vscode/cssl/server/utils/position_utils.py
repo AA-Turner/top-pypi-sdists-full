@@ -179,7 +179,7 @@ def get_trigger_character(text: str, line: int, column: int) -> Optional[str]:
     """
     Get the trigger character at the given position.
 
-    Trigger characters are: . :: ? @ $ %
+    Trigger characters are: . :: -> ? @ $ %
 
     Args:
         text: The source text
@@ -202,6 +202,10 @@ def get_trigger_character(text: str, line: int, column: int) -> Optional[str]:
     # Check for ::
     if column >= 2 and line_text[column-2:column] == '::':
         return '::'
+
+    # Check for ->
+    if column >= 2 and line_text[column-2:column] == '->':
+        return '->'
 
     # Check for single character triggers
     char = line_text[column - 1] if column <= len(line_text) else ''
@@ -256,6 +260,28 @@ def get_context_before(text: str, line: int, column: int) -> Tuple[Optional[str]
 
         if start < end:
             return ('.', line_text[start:end])
+
+    elif trigger == '->':
+        # Find the expression before ->
+        end = column - 2
+        start = end
+        paren_depth = 0
+
+        while start > 0:
+            char = line_text[start - 1]
+            if char == ')':
+                paren_depth += 1
+            elif char == '(':
+                if paren_depth > 0:
+                    paren_depth -= 1
+                else:
+                    break
+            elif not _is_word_char(char) and paren_depth == 0:
+                break
+            start -= 1
+
+        if start < end:
+            return ('->', line_text[start:end])
 
     elif trigger == '::':
         # Find the namespace before ::

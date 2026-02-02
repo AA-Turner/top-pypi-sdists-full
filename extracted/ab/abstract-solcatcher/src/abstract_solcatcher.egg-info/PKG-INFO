@@ -1,0 +1,241 @@
+Metadata-Version: 2.4
+Name: abstract_solcatcher
+Version: 0.0.3.260
+Summary: `abstract_solcatcher` provides a comprehensive solution for making HTTP requests specifically tailored for interacting with Solcatcher.io's APIs. It simplifies complex tasks such as data fetching, data manipulation, and interacting with the Flask backend of Solcatcher.io.
+Home-page: https://github.com/AbstractEndeavors/abstract_solcatcher
+Author: putkoff
+Author-email: partners@abstractendeavors.com
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Typing :: Typed
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: abstract_utilities
+Requires-Dist: abstract_solana
+Requires-Dist: abstract_apis
+Requires-Dist: requests
+Requires-Dist: abstract_security
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# abstract_solcatcher (v0.0.3.233)
+
+`abstract_solcatcher` provides a comprehensive solution for making HTTP requests specifically tailored for interacting with Solcatcher.io's APIs. It simplifies complex tasks such as data fetching, data manipulation, and interacting with the Flask backend of Solcatcher.io.
+
+## Installation
+
+```bash
+pip install abstract_solcatcher
+```
+
+## Dependencies
+
+abstract_utilities, abstract_solana, abstract_apis, requests, abstract_security
+
+## Modules
+
+### src/abstract_solcatcher/solcatcher_processing/pair_utils/getTransactions.py
+
+Description of script based on prompt: You are analyzing a Python script 'getTransactions (mock response)
+
+### src/abstract_solcatcher/solcatcher_db_calls/jamail_busineses.py
+
+Description of script based on prompt: You are analyzing a Python script 'jamail_businese (mock response)
+
+### src/abstract_solcatcher/managers/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/logManager.py
+
+Description of script based on prompt: You are analyzing a Python script 'logManager.py'  (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/dbFuncs.py
+
+Description of script based on prompt: You are analyzing a Python script 'dbFuncs.py' loc (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/pair_utils/getSignatures.py
+
+Description of script based on prompt: You are analyzing a Python script 'getSignatures.p (mock response)
+
+### src/abstract_solcatcher/imageUtils/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/api_calls.py
+
+Description of script based on prompt: You are analyzing a Python script 'api_calls.py' l (mock response)
+
+### src/abstract_solcatcher/dbConfig/dbCalls2.py
+
+Description of script based on prompt: You are analyzing a Python script 'dbCalls2.py' lo (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/poolMetrics.py
+
+Description of script based on prompt: You are analyzing a Python script 'poolMetrics.py' (mock response)
+
+### src/abstract_solcatcher/asyncUtils.py
+
+Description of script based on prompt: You are analyzing a Python script 'asyncUtils.py'  (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/pair_utils/testit.py
+
+Description of script based on prompt: You are analyzing a Python script 'testit.py' loca (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/utilities.py
+
+Description of script based on prompt: You are analyzing a Python script 'utilities.py' l (mock response)
+
+### src/abstract_solcatcher/solcatcher_db_calls/db_call_functions.py
+
+Description of script based on prompt: You are analyzing a Python script 'db_call_functio (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/utils.py
+
+Description of script based on prompt: You are analyzing a Python script 'utils.py' locat (mock response)
+
+### src/abstract_solcatcher/old/database_calls/solcatcherCalls.py
+
+Description of script based on prompt: You are analyzing a Python script 'solcatcherCalls (mock response)
+
+### src/abstract_solcatcher/dbConfig/db.py
+
+Description of script based on prompt: You are analyzing a Python script 'db.py' located  (mock response)
+
+### src/abstract_solcatcher/solcatcher_db_calls/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/pair_utils/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/websocketFuncs.py
+
+Description of script based on prompt: You are analyzing a Python script 'websocketFuncs. (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/requestFunctions.py
+
+Description of script based on prompt: You are analyzing a Python script 'requestFunction (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/utils.py
+
+Description of script based on prompt: You are analyzing a Python script 'utils.py' locat (mock response)
+
+### src/abstract_solcatcher/old/database_calls/checkManager.py
+
+Description of script based on prompt: You are analyzing a Python script 'checkManager.py (mock response)
+
+### src/abstract_solcatcher/dbConfig/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/transactionProcessor.py
+
+Description of script based on prompt: You are analyzing a Python script 'transactionProc (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/programData.py
+
+Description of script based on prompt: You are analyzing a Python script 'programData.py' (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/abstract_rate_limit.py
+
+Description of script based on prompt: You are analyzing a Python script 'abstract_rate_l (mock response)
+
+### src/abstract_solcatcher/old/sniping/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/unique_functions.py
+
+Description of script based on prompt: You are analyzing a Python script 'unique_function (mock response)
+
+### src/abstract_solcatcher/old/database_calls/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/solcatcher_funcs/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/solcatcher_db_calls/db_call_utils.py
+
+Description of script based on prompt: You are analyzing a Python script 'db_call_utils.p (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/utils.py
+
+Description of script based on prompt: You are analyzing a Python script 'utils.py' locat (mock response)
+
+### src/abstract_solcatcher/tryapi.py
+
+Description of script based on prompt: You are analyzing a Python script 'tryapi.py' loca (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/decode.py
+
+Description of script based on prompt: You are analyzing a Python script 'decode.py' loca (mock response)
+
+### src/abstract_solcatcher/imageUtils/imageUtils.py
+
+Description of script based on prompt: You are analyzing a Python script 'imageUtils.py'  (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/pair_utils/getMetaData.py
+
+Description of script based on prompt: You are analyzing a Python script 'getMetaData.py' (mock response)
+
+### src/abstract_solcatcher/solcatcher_db_calls/solcatcher_db_calls.py
+
+Description of script based on prompt: You are analyzing a Python script 'solcatcher_db_c (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/__init__.py
+
+Description of script based on prompt: You are analyzing a Python script '__init__.py' lo (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/idfs.py
+
+Description of script based on prompt: You are analyzing a Python script 'idfs.py' locate (mock response)
+
+### src/abstract_solcatcher/managers/metaDataManager.py
+
+Description of script based on prompt: You are analyzing a Python script 'metaDataManager (mock response)
+
+### src/abstract_solcatcher/old/sniping/pumpFun/db_credentials.py
+
+Description of script based on prompt: You are analyzing a Python script 'db_credentials. (mock response)
+
+### src/abstract_solcatcher/solcatcher_processing/analyzeTxns.py
+
+Description of script based on prompt: You are analyzing a Python script 'analyzeTxns.py' (mock response)
+
+### src/abstract_solcatcher/dbConfig/dbCalls.py
+
+Description of script based on prompt: You are analyzing a Python script 'dbCalls.py' loc (mock response)
+

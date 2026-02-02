@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "pydoll-python"
+version = "2.15.1"
+description = "Pydoll is a library for automating chromium-based browsers without a WebDriver, offering realistic interactions."
+authors = ["Thalison Fernandes <thalissfernandes99@gmail.com>"]
+readme = "README.md"
+packages = [
+    {include = "pydoll"}
+]
+include = ["pydoll/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+websockets = "^14"
+aiohttp = "^3.9.5"
+aiofiles = "^25.1.0"
+typing_extensions = "^4.14.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.7.1"
+pytest = "^8.3.3"
+taskipy = "^1.14.0"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+aioresponses = "^0.7.7"
+mkdocs = "^1.6.1"
+mkdocs-material = "^9.6.11"
+pymdown-extensions = "^10.14.3"
+mkdocstrings = {extras = ["python"], version = "^0.29.1"}
+griffe-typingdoc = "^0.2.8"
+mkdocs-static-i18n = "^1.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+
+[tool.ruff.lint]
+preview = true
+select = ['I', 'F', 'E', 'W', 'PL', 'PT']
+ignore = ['PLR0913', 'PLR0917', 'PLR0904', 'E701']
+exclude = ['tests', 'tests/*']
+
+[tool.ruff.format]
+preview = true
+quote-style = 'single'
+docstring-code-format = true
+docstring-code-line-length = 79
+exclude = ['tests', 'tests/*']
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = '-p no:warnings'
+
+[tool.taskipy.tasks]
+lint = 'ruff check .; ruff check . --diff'
+format = 'ruff check . --fix; ruff format .'
+test = 'pytest -s -x --cov=pydoll -vv'
+post_test = 'coverage html'
+
+[tool.mypy]
+exclude = [
+    "tests/",
+]

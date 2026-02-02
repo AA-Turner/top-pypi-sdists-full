@@ -1,0 +1,127 @@
+Metadata-Version: 2.4
+Name: gladiaio-sdk
+Version: 0.4.0
+Summary: Gladia SDK for Python
+Requires-Python: <4,>=3.10
+Requires-Dist: anyio==4.11.0
+Requires-Dist: certifi==2025.8.3
+Requires-Dist: dataclasses-json==0.6.7
+Requires-Dist: exceptiongroup==1.3.0; python_full_version < '3.11'
+Requires-Dist: h11==0.16.0
+Requires-Dist: httpcore==1.0.9
+Requires-Dist: httpx==0.28.1
+Requires-Dist: idna==3.10
+Requires-Dist: marshmallow==3.26.1
+Requires-Dist: mypy-extensions==1.1.0
+Requires-Dist: packaging==25.0
+Requires-Dist: pyee==13.0.0
+Requires-Dist: sniffio==1.3.1
+Requires-Dist: typing-extensions==4.15.0
+Requires-Dist: typing-inspect==0.9.0
+Requires-Dist: websockets==15.0.1
+Description-Content-Type: text/markdown
+
+# Gladia Python SDK
+
+A Python SDK for the Gladia API.
+
+## Requirements
+
+You need Python 3.10+ for this package.  
+It may work on lower versions but they are not supported / tested.
+
+## Installation
+
+### Using pip
+
+```bash
+pip install gladiaio-sdk
+```
+
+### Using uv
+
+```bash
+uv add gladiaio-sdk
+```
+
+## Usage
+
+To use the SDK, import `GladiaClient` and create a new instance of it.
+
+You can also configure `api_key`, `api_url` and `region` through their respective environment variables: `GLADIA_API_KEY`, `GLADIA_API_URL` and `GLADIA_REGION`.
+
+```python
+from gladiaio_sdk import GladiaClient
+
+gladia_client = GladiaClient(
+  api_key="your_api_key"
+)
+```
+
+## Live V2
+
+### Threaded vs Async
+
+Our Python SDK supports sync/threaded and asyncio versions.  
+To get the sync/threaded version, do:
+
+```python
+live_client = gladia_client.live_v2()
+```
+
+And to get the async version:
+
+```python
+live_client = gladia_client.live_v2_async()
+```
+
+### Usage
+
+Once you decided between sync and async client, you can use the client to run a Live session:
+
+```python
+# Create session
+live_session = live_client.start_session(
+  LiveV2InitRequest(
+    language_config=LiveV2LanguageConfig(
+      languages=["en"],
+    ),
+    messages_config=LiveV2MessagesConfig(
+      receive_partial_transcripts=True,
+    ),
+  )
+)
+
+
+# Add listeners
+@live_session.on("message")
+def on_message(message: LiveV2WebSocketMessage):
+  if message.type == "transcript":
+    print(f"{'F' if message.data.is_final else 'P'} | {message.data.utterance.text.strip()}")
+
+
+@live_session.once("started")
+def on_started(response: LiveV2InitResponse):
+  print(f"Session {response.id} started")
+
+
+@live_session.on("error")
+def on_error(error: Exception):
+  print(f"An error occurred during live session: {error}")
+
+
+@live_session.once("ended")
+def on_ended(ended: LiveV2EndedMessage):
+  print(f"Session {live_session.session_id} ended")
+
+
+# Send audio
+live_session.send_audio(audio_bytes)
+# ...
+live_session.send_audio(audio_bytes)
+
+# Stop the recording when all audio have been sent.
+# Remaining audio will be processed and after post-processing,
+# the session is ended.
+live_session.stop_recording()
+```

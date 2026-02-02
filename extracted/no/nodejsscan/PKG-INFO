@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: nodejsscan
+Version: 3.7
+Summary: Static security code scanner (SAST) for Node.js applications
+Home-page: http://pypi.python.org/pypi/nodejsscan/
+Author: Ajin Abraham
+Author-email: ajin25@gmail.com
+License: GPL v3
+Description: open("README.md").read()
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown

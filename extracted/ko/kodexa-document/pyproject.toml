@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "cffi>=1.14.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kodexa-document"
+version = "8.0.0.dev20745964609"
+description = "High-performance Python bindings for the Go-based Kodexa Document SDK with in-memory processing"
+authors = [
+    {name = "Kodexa", email = "support@kodexa.com"}
+]
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.12"
+dependencies = [
+    "cffi>=1.14.0",
+    "addict>=2.4.0",
+    "pydantic>=2.0.0",
+    "simpleeval>=0.9.0",
+]
+keywords = ["document", "processing", "extraction", "nlp", "ai", "sqlite", "kddb"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database",
+    "Topic :: Text Processing :: Markup",
+]
+
+[project.urls]
+Homepage = "https://github.com/kodexa/kodexa-document"
+Repository = "https://github.com/kodexa/kodexa-document"
+Documentation = "https://docs.kodexa.com"
+"Bug Tracker" = "https://github.com/kodexa/kodexa-document/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "black",
+    "isort",
+    "mypy",
+    "flake8",
+    "build",
+    "twine"
+]
+test = [
+    "pytest>=6.0",
+    "pytest-cov"
+]
+lambda = [
+    # No extra dependencies needed for Lambda, but marks Lambda compatibility
+]
+# Dependencies for platform, assistant, and spatial modules
+platform = [
+    "requests>=2.25.0",
+    "pyfunctional>=1.4.0",
+    "pydantic-yaml>=1.0.0",
+    "pyyaml>=6.0",
+    "numpy>=1.20.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kodexa_document*"]
+
+[tool.setuptools.package-data]
+kodexa_document = [
+    "_native/*.so", 
+    "_native/*.dll", 
+    "_native/*.dylib", 
+    "_native/*.h",
+    "_native/**/*.so",
+    "_native/**/*.dll", 
+    "_native/**/*.dylib", 
+    "_native/**/*.h"
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

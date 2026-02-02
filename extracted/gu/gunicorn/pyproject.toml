@@ -9,7 +9,7 @@ authors = [{name = "Benoit Chesneau", email = "benoitc@gunicorn.org"}]
 license = "MIT"
 license-files = ["LICENSE"]
 description = "WSGI HTTP Server for UNIX"
-readme = "README.rst"
+readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Other Environment",
@@ -52,13 +52,17 @@ eventlet = ["eventlet>=0.40.3"]
 tornado = ["tornado>=6.5.0"]
 gthread = []
 setproctitle = ["setproctitle"]
+http2 = ["h2>=4.1.0"]
 testing = [
     "gevent>=24.10.1",
     "eventlet>=0.40.3",
+    "h2>=4.1.0",
     "coverage",
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
+    "uvloop>=0.19.0",
+    "httpx[http2]",
 ]
 
 [project.scripts]
@@ -74,6 +78,11 @@ main = "gunicorn.app.pasterapp:serve"
 norecursedirs = ["examples", "lib", "local", "src", "tests/docker"]
 testpaths = ["tests/"]
 addopts = "--assert=plain --cov=gunicorn --cov-report=xml"
+filterwarnings = [
+    # Eventlet patches select module, which breaks asyncio event loop cleanup
+    # This is expected behavior when testing eventlet worker
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.setuptools]
 zip-safe = false

@@ -1,0 +1,239 @@
+Metadata-Version: 2.4
+Name: boto3-assume
+Version: 0.2.1
+Summary: Easily create boto3 assume role sessions with automatic credential refreshing.
+Home-page: https://github.com/btemplep/boto3-assume
+Author: Brandon Temple Paul
+Author-email: btemplepgit@gmail.com
+License: Apache License 2.0
+Project-URL: Repository, https://github.com/btemplep/boto3-assume
+Keywords: assume,aws,boto3,botocore,credentials,creds,iam,refresh,refreshable,role,sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boto3
+Requires-Dist: botocore
+Provides-Extra: dev
+Requires-Dist: aioboto3; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: moto[server]; extra == "dev"
+Requires-Dist: nox; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytz; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
+
+# boto3-assume
+
+
+Easily create `boto3` assume role sessions with automatic credential refreshing.
+
+> **NOTE** - For `aioboto3` support, see [aioboto3-assume](https://pypi.org/project/aioboto3-assume/).
+
+
+## Installation
+
+Install with pip:
+
+```text
+$ pip install boto3-assume
+```
+
+## Tutorial
+
+A minimal example: 
+
+```python
+import boto3
+from boto3_assume import assume_role
+
+assume_session = assume_role(
+    source_session=boto3.Session(), # You must pass in a boto3 session that automatically refreshes!
+    assume_role_kwargs={
+        "RoleArn": "arn:aws:iam::123412341234:role/my_role",
+        "RoleSessionName": "my-role-session"
+    }
+)
+
+# Create clients, and their credentials will auto-refresh when expired!
+sts_client = assume_session.client("sts", region_name="us-east-1")
+print(sts_client.get_caller_identity())
+# {
+#     "UserId": "EXAMPLEID", 
+#     "Account": "123412341234", 
+#     "Arn": "arn:aws:sts::123412341234:role/my_role", 
+#     "ResponseMetadata": {
+#         "RequestId": "asdfqwfqwfasdfasdfasfsdf", 
+#         "HTTPStatusCode": 200, 
+#         "HTTPHeaders": {
+#             "server": "amazon.com", 
+#             "date": "Tue, 27 Jun 2023 00:00:00 GMT"
+#         }, 
+#         "RetryAttempts": 0
+#     }
+# }
+```
+
+Under the hood a `boto3` sts client will be created and `assume_role` called to get/refresh credentials.
+
+You can pass the kwargs parameters as so:
+- `assume_role_kwargs` - Keyword arguments to pass when calling [assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/assume_role.html) with a boto3 STS client. 
+    - Must at least provide `RoleArn` and `RoleSessionName` as outlined in the boto3 docs.
+- `sts_client_kwargs` - Kwargs to pass when creating the [boto3 low level client](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html#boto3.session.Session.client) for [STS](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html)
+    - By default only the service argument will be passed as ``"sts"``. 
+    - Note that you should not pass in the ``service_name`` or credentials here. 
+- `target_session_kwargs` - Keyword arguments to pass when creating a the new target [boto3 Session](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html)
+    - By default no arguments are passed. 
+    - Note that you should only pass in `region_name` or `aws_account_id` or other variables that will not effect credentials or credential refreshing. 
+
+A more complex example:
+
+```python
+import boto3
+from boto3_assume import assume_role
+from botocore.config import Config
+
+assume_session = assume_role(
+    source_session=boto3.Session(), 
+    assume_role_kwargs={
+        "RoleArn": "arn:aws:iam::123412341234:role/my_role",
+        "RoleSessionName": "my-role-session",
+        "DurationSeconds": 900,
+        "Tags": [
+            {
+                "Key": "MyKey",
+                "Value": "MyValue"
+            }
+        ]
+    },
+    sts_client_kwargs={
+        "config": Config(
+            retries={
+                "total_max_attempts": 10,
+                "mode": "adaptive"
+            }
+        )
+    },
+    target_session_kwargs={
+        "region_name": "us-east-1"
+    }
+)
+```
+
+## Development
+
+Install the package in editable mode with dev dependencies.
+
+```text
+(venv) $ pip install -e .[dev]
+```
+
+[nox](https://nox.thea.codes/en/stable/) is used to manage various dev functions.
+Start with
+
+```text
+(venv) $ nox --help
+```
+
+[pyenv](https://github.com/pyenv/pyenv) is used to manage python versions. 
+To run the nox tests for applicable python version you will first need to install them. 
+In the root project dir run:
+
+```text
+(venv) $ pyenv install
+```
+
+# Changelog
+
+Changelog for `boto3-assume`.
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+<!--
+## [Unreleased] - YYYY-MM-DD
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security 
+-->
+
+## [0.2.1] - 2026-01-14
+
+### Fixed
+
+- type hints and docstrings on `assume_role`
+- README formatting
+
+
+### Security 
+
+## [0.2.0] - 2026-01-13
+
+### Added
+
+- `assume_role` 
+    - replaces `assume_role_session`
+    - Allowed to pass parameters for the created session
+    - simplifies assume role APIs
+
+### Deprecated
+
+- `assume_role_session` - Deprecated in favor of the new `assume_role` function
+- `assume_role_aio_session` - Deprecated and moved to a new python package `aioboto3-assume` to simplify dependencies and split boto3 and aioboto3 functionality.
+
+
+## [0.1.3] - 2025-11-28
+
+### Added
+
+- Tags for support of python 3.13 and 3.14
+
+### Removed
+
+- Support for python 3.7-3.9
+
+
+## [0.1.2] - 2024-05-18
+
+### Removed
+    - `boto3` and `aioboto3` package extras.  They didn't work and weren't documented correctly. 
+
+### Fixed
+    - `datetime.datetime.utcnow()` deprecation in tests for python 3.12
+
+
+## [0.1.1] - 2023-06-28
+
+### Fixed
+    - Formatting for Changelog, README
+
+
+## [0.1.0] - 2023-06-28
+
+Initial Release.
+

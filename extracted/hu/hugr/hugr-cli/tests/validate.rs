@@ -1,0 +1,277 @@
+//! Tests for the CLI
+//!
+//! Miri is globally disabled for these tests because they mostly involve
+//! calling the CLI binary, which Miri doesn't support.
+#![cfg(all(test, not(miri)))]
+
+use assert_cmd::Command;
+use assert_fs::{NamedTempFile, fixture::FileWriteStr};
+use hugr::builder::{DFGBuilder, DataflowSubContainer, ModuleBuilder};
+use hugr::envelope::EnvelopeConfig;
+use hugr::envelope::description::GeneratorDesc;
+use hugr::extension::Version;
+use hugr::metadata;
+use hugr::package::Package;
+use hugr::types::Type;
+use hugr::{
+    builder::{Container, Dataflow},
+    extension::prelude::{bool_t, qb_t},
+    hugr::HugrView,
+    hugr::hugrmut::HugrMut,
+    std_extensions::arithmetic::float_types::float64_type,
+    types::Signature,
+};
+use hugr_cli::CliArgs;
+use hugr_cli::validate::VALID_PRINT;
+use predicates::{prelude::*, str::contains};
+use rstest::{fixture, rstest};
+
+#[fixture]
+fn cmd() -> Command {
+    assert_cmd::cargo::cargo_bin_cmd!("hugr")
+}
+
+#[fixture]
+fn val_cmd(mut cmd: Command) -> Command {
+    cmd.arg("validate");
+    cmd
+}
+
+// path to the fully serialized float extension
+const FLOAT_EXT_FILE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../specification/std_extensions/arithmetic/float/types.json"
+);
+
+/// A test package, containing a module-rooted HUGR.
+#[fixture]
+fn test_package(#[default(bool_t())] id_type: Type) -> Package {
+    let mut module = ModuleBuilder::new();
+    let df = module
+        .define_function("test", Signature::new_endo(id_type))
+        .unwrap();
+    let [i] = df.input_wires_arr();
+    df.finish_with_outputs([i]).unwrap();
+    let hugr = module.hugr().clone(); // unvalidated
+
+    Package::new(vec![hugr])
+}
+
+#[fixture]
+fn test_envelope_str(test_package: Package) -> String {
+    test_package.store_str(EnvelopeConfig::text()).unwrap()
+}
+
+#[fixture]
+fn test_envelope_file(test_envelope_str: String) -> NamedTempFile {
+    let file = assert_fs::NamedTempFile::new("sample.hugr").unwrap();
+    file.write_str(&test_envelope_str).unwrap();
+    file
+}
+
+#[rstest]
+fn test_doesnt_exist(mut val_cmd: Command) {
+    val_cmd.arg("foobar");
+    val_cmd
+        .assert()
+        .failure()
+        // clap now prints something like:
+        //   error: Invalid value for [INPUT]: Could not open "foobar": (os error 2)
+        // so just look for "Could not open"
+        .stderr(contains("Could not open"));
+}
+
+#[rstest]
+fn test_validate(test_envelope_file: NamedTempFile, mut val_cmd: Command) {
+    val_cmd.arg(test_envelope_file.path());
+    val_cmd.assert().success().stderr(contains(VALID_PRINT));
+}
+
+#[rstest]
+fn test_stdin(test_envelope_str: String, mut val_cmd: Command) {
+    val_cmd.write_stdin(test_envelope_str);
+    val_cmd.arg("-");
+
+    val_cmd.assert().success().stderr(contains(VALID_PRINT));
+}
+
+#[rstest]
+#[cfg(feature = "tracing")]
+fn test_stdin_silent(test_envelope_str: String, mut val_cmd: Command) {
+    val_cmd.args(["-", "-q"]);
+    val_cmd.write_stdin(test_envelope_str);
+
+    val_cmd
+        .assert()
+        .success()
+        .stderr(contains(VALID_PRINT).not());
+}
+
+#[rstest]
+fn test_mermaid(test_envelope_file: NamedTempFile, mut cmd: Command) {
+    const MERMAID: &str = "graph LR";
+    cmd.arg("mermaid");
+    cmd.arg(test_envelope_file.path());
+    cmd.assert().success().stdout(contains(MERMAID));
+}
+
+#[fixture]
+fn bad_hugr_string() -> String {
+    let df = DFGBuilder::new(Signature::new_endo(vec![qb_t()])).unwrap();
+    let bad_hugr = df.hugr().clone();
+
+    bad_hugr.store_str(EnvelopeConfig::text()).unwrap()
+}
+
+#[rstest]
+fn test_mermaid_invalid(bad_hugr_string: String, mut cmd: Command) {
+    cmd.arg("mermaid");
+    cmd.arg("--validate");
+    cmd.write_stdin(bad_hugr_string);
+    cmd.assert()
+        .failure()
+        .stderr(contains("unconnected port"))
+        .stderr(contains("Error validating HUGR"));
+}
+
+#[rstest]
+fn test_bad_hugr(bad_hugr_string: String, mut val_cmd: Command) {
+    val_cmd.write_stdin(bad_hugr_string);
+    val_cmd.arg("-");
+
+    val_cmd
+        .assert()
+        .failure()
+        .stderr(contains("unconnected port"))
+        .stderr(contains("Error validating HUGR"));
+}
+
+#[rstest]
+fn test_bad_json(mut val_cmd: Command) {
+    const TEXT_HEADER: &str = "HUGRiHJv?@";
+    val_cmd.write_stdin(format!("{TEXT_HEADER}{}", r#"{"foo": "bar"}"#));
+    val_cmd.arg("-");
+
+    val_cmd
+        .assert()
+        .failure()
+        .stderr(contains("Error reading package payload in envelope"))
+        .stderr(contains("missing field"));
+}
+
+#[rstest]
+fn test_bad_json_silent(mut val_cmd: Command) {
+    const TEXT_HEADER: &str = "HUGRiHJv?@";
+    val_cmd.write_stdin(format!("{TEXT_HEADER}{}", r#"{"foo": "bar"}"#));
+    val_cmd.args(["-", "-qqq"]);
+
+    val_cmd
+        .assert()
+        .failure()
+        .stderr(contains("Error decoding HUGR envelope").not());
+}
+
+#[rstest]
+fn test_no_std(test_envelope_str: String, mut val_cmd: Command) {
+    val_cmd.write_stdin(test_envelope_str);
+    val_cmd.arg("-");
+    val_cmd.arg("--no-std");
+    // test hugr doesn't have any standard extensions, so this should succeed
+
+    val_cmd.assert().success().stderr(contains(VALID_PRINT));
+}
+
+#[fixture]
+fn float_hugr_string(#[with(float64_type())] test_package: Package) -> String {
+    test_package.store_str(EnvelopeConfig::text()).unwrap()
+}
+
+#[rstest]
+fn test_float_extension(float_hugr_string: String, mut val_cmd: Command) {
+    val_cmd.write_stdin(float_hugr_string);
+    val_cmd.arg("-");
+    val_cmd.arg("--no-std");
+    val_cmd.arg("--extensions");
+    val_cmd.arg(FLOAT_EXT_FILE);
+
+    val_cmd.assert().success().stderr(contains(VALID_PRINT));
+}
+#[fixture]
+fn package_string(#[with(float64_type())] test_package: Package) -> String {
+    test_package.store_str(EnvelopeConfig::text()).unwrap()
+}
+
+#[rstest]
+fn test_package_validation(package_string: String, mut val_cmd: Command) {
+    // package with float extension and hugr that uses floats can validate
+    val_cmd.write_stdin(package_string);
+    val_cmd.arg("-");
+
+    val_cmd.assert().success().stderr(contains(VALID_PRINT));
+}
+
+/// Create a deliberately invalid HUGR with a known generator
+#[fixture]
+fn invalid_hugr_with_generator() -> Vec<u8> {
+    // Create an invalid HUGR (missing outputs in a dataflow)
+    let df = DFGBuilder::new(Signature::new_endo(vec![qb_t()])).unwrap();
+    let mut bad_hugr = df.hugr().clone(); // Missing outputs makes this invalid
+    bad_hugr.set_metadata::<metadata::HugrGenerator>(
+        bad_hugr.module_root(),
+        GeneratorDesc::new("test-generator", Version::new(1, 0, 1)),
+    );
+    // Create envelope with a specific generator
+    let envelope_config = EnvelopeConfig::binary();
+
+    let mut buff = Vec::new();
+    // Serialize to string
+    bad_hugr.store(&mut buff, envelope_config).unwrap();
+    buff
+}
+
+#[rstest]
+fn test_validate_known_generator(invalid_hugr_with_generator: Vec<u8>, mut val_cmd: Command) {
+    // Write the invalid HUGR to stdin
+    val_cmd.write_stdin(invalid_hugr_with_generator);
+    val_cmd.arg("-");
+
+    // Expect a failure with the generator name in the error message
+    val_cmd
+        .assert()
+        .failure()
+        .stderr(contains("Error validating HUGR"))
+        .stderr(contains("unconnected port"))
+        .stderr(contains("generated by test-generator-v1.0.1"));
+}
+
+#[rstest]
+fn test_validate_programmatic_api(test_package: Package) {
+    // Serialize the test package to bytes
+    let mut package_bytes = Vec::new();
+    test_package
+        .store(&mut package_bytes, EnvelopeConfig::binary())
+        .unwrap();
+
+    // Create CLI args for validate command
+    let cli_args = CliArgs::new_from_args(vec!["hugr", "validate"]);
+
+    let result = cli_args.run_with_io(package_bytes.as_slice());
+
+    let output = result.unwrap();
+    assert!(output.is_empty());
+}
+
+#[rstest]
+fn test_validate_programmatic_api_invalid(invalid_hugr_with_generator: Vec<u8>) {
+    // Create CLI args for validate command
+    let cli_args = CliArgs::new_from_args(vec!["hugr", "validate"]);
+
+    // Run validation with invalid bytes input
+    let result = cli_args.run_with_io(invalid_hugr_with_generator.as_slice());
+
+    // Should fail
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    let err_string = format!("{:?}", err);
+    assert!(err_string.contains("unconnected port"));
+}

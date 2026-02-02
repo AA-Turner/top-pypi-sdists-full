@@ -1,0 +1,42 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pysentry-rs"
+description = "Security vulnerability auditing tool for Python packages"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "nyudenkov", email = "nyudenkov@pm.me" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/nyudenkov/pysentry"
+Repository = "https://github.com/nyudenkov/pysentry"
+Issues = "https://github.com/nyudenkov/pysentry/issues"
+
+[project.scripts]
+pysentry-rs = "pysentry:main"
+
+[tool.maturin]
+features = ["python", "pyo3/extension-module"]
+python-source = "python"
+module-name = "pysentry._internal"

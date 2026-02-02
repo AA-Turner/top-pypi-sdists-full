@@ -110,13 +110,14 @@ pub fn process_text_node(
     } else if ctx.in_table_cell {
         let escaped = if options.whitespace_mode == crate::options::WhitespaceMode::Normalized {
             let normalized_text = text::normalize_whitespace_cow(text.as_ref());
-            text::escape(
+            let escaped_result = text::escape(
                 normalized_text.as_ref(),
                 options.escape_misc,
                 options.escape_asterisks,
                 options.escape_underscores,
                 options.escape_ascii,
-            )
+            );
+            escaped_result.into_owned()
         } else {
             text::escape(
                 text.as_ref(),
@@ -125,6 +126,7 @@ pub fn process_text_node(
                 options.escape_underscores,
                 options.escape_ascii,
             )
+            .into_owned()
         };
         if options.escape_misc {
             escaped
@@ -139,6 +141,7 @@ pub fn process_text_node(
             options.escape_underscores,
             options.escape_ascii,
         )
+        .into_owned()
     } else {
         let has_double_newline = text.contains("\n\n") || text.contains("\r\n\r\n");
         let has_trailing_single_newline =

@@ -1,0 +1,88 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling", "uv-dynamic-versioning" ]
+
+[project]
+name = "install-playwright"
+description = "Execute `playwright install` from Python"
+readme = "README.md"
+keywords = [
+  "browser",
+  "install",
+  "playwright",
+]
+license = { text = "MIT" }
+authors = [ { name = "eggplants", email = "w10776e8w@yahoo.co.jp" } ]
+requires-python = ">=3.10,<4"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Typing :: Typed",
+]
+dynamic = [ "version" ]
+dependencies = [ "playwright>=1.49.1,<2" ]
+
+urls.Repository = "https://github.com/eggplants/install-playwright-python"
+
+[dependency-groups]
+dev = [
+  "pymarkdownlnt>=0.9.33",
+  "pyproject-fmt>=2.11.1",
+  "pytest>=9.0.2",
+  "pytest-asyncio>=1.3",
+  "pytest-cov>=7",
+]
+docs = [
+  "pdoc>=16",
+]
+
+[tool.hatch.version]
+# tool.hatch.version.source is not listed in official schema.
+# https://github.com/ninoseki/uv-dynamic-versioning/issues/21
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.sdist]
+include = [ "install_playwright" ]
+
+[tool.hatch.build.targets.wheel]
+include = [ "install_playwright" ]
+
+[tool.uv]
+preview = true
+default-groups = [
+  "dev",
+  "docs",
+]
+exclude-newer = "P7D"
+
+[tool.ruff]
+line-length = 120
+format.indent-style = "space"
+format.quote-style = "double"
+lint.select = [ "ALL" ]
+lint.ignore = [ "COM812" ]
+lint.per-file-ignores."main.py" = [
+  "T201", # `print` found
+]
+lint.per-file-ignores."tests/*.py" = [
+  "D",
+  "S101", # Use of assert detected
+]
+lint.pydocstyle.convention = "google"
+
+[tool.coverage]
+report.exclude_lines = [
+  "if TYPE_CHECKING:",
+]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "semver"
+fallback-version = "0.0.0"

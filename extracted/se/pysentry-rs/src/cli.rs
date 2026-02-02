@@ -1,0 +1,1555 @@
+// SPDX-License-Identifier: MIT
+
+//! CLI interface definitions shared between binary and Python bindings
+
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand, ValueEnum};
+use futures::future::try_join_all;
+use std::path::Path;
+use std::sync::Once;
+
+use crate::dependency::resolvers::ResolverRegistry;
+use crate::logging::AppVerbosity;
+use crate::notifications::NotificationClient;
+use crate::parsers::{requirements::RequirementsParser, DependencyStats};
+use crate::types::{ResolverType, Version};
+use crate::{
+    AuditCache, AuditReport, Config, ConfigLoader, DependencyScanner, MatcherConfig,
+    ReportGenerator, VulnerabilityDatabase, VulnerabilityMatcher, VulnerabilitySource,
+};
+use std::str::FromStr;
+
+#[derive(Debug, Clone, PartialEq, ValueEnum)]
+pub enum AuditFormat {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "sarif")]
+    Sarif,
+    #[value(name = "markdown")]
+    Markdown,
+}
+
+#[derive(Debug, Clone, PartialEq, ValueEnum)]
+pub enum SeverityLevel {
+    #[value(name = "low")]
+    Low,
+    #[value(name = "medium")]
+    Medium,
+    #[value(name = "high")]
+    High,
+    #[value(name = "critical")]
+    Critical,
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
+pub enum VulnerabilitySourceType {
+    #[value(name = "pypa")]
+    Pypa,
+    #[value(name = "pypi")]
+    Pypi,
+    #[value(name = "osv")]
+    Osv,
+}
+
+#[derive(Debug, Clone, PartialEq, ValueEnum)]
+pub enum ResolverTypeArg {
+    #[value(name = "uv")]
+    Uv,
+    #[value(name = "pip-tools")]
+    PipTools,
+}
+
+#[derive(Parser)]
+#[command(
+    name = "pysentry",
+    about = "Security vulnerability auditing for Python packages",
+    version
+)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
+    /// Audit arguments (used when no subcommand specified)
+    #[command(flatten)]
+    pub audit_args: AuditArgs,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    /// Check available dependency resolvers
+    Resolvers(ResolversArgs),
+    /// Check if a newer version is available
+    CheckVersion(CheckVersionArgs),
+    /// Configuration management
+    #[command(subcommand)]
+    Config(ConfigCommands),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConfigCommands {
+    /// Initialize a new configuration file
+    Init(ConfigInitArgs),
+    /// Validate configuration file
+    Validate(ConfigValidateArgs),
+    /// Show effective configuration
+    Show(ConfigShowArgs),
+    /// Show configuration file path
+    Path(ConfigPathArgs),
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct AuditArgs {
+    /// Path to the project directory to audit
+    #[arg(value_name = "PATH", default_value = ".")]
+    pub path: std::path::PathBuf,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "human")]
+    pub format: AuditFormat,
+
+    /// Minimum severity level to report
+    #[arg(long, value_enum, default_value = "low")]
+    pub severity: SeverityLevel,
+
+    /// Fail (exit non-zero) if vulnerabilities of this severity or higher are found
+    #[arg(long, value_enum, default_value = "medium")]
+    pub fail_on: SeverityLevel,
+
+    /// Vulnerability IDs to ignore (can be specified multiple times)
+    #[arg(long = "ignore", value_name = "ID")]
+    pub ignore_ids: Vec<String>,
+
+    /// Vulnerability IDs to ignore only while no fix is available (can be specified multiple times)
+    #[arg(long = "ignore-while-no-fix", value_name = "ID")]
+    pub ignore_while_no_fix: Vec<String>,
+
+    /// Output file path (defaults to stdout)
+    #[arg(long, short, value_name = "FILE")]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Include ALL dependencies (main + dev, optional, etc) [DEPRECATED: extras now included by default]
+    #[arg(long, hide = true)]
+    pub all: bool,
+
+    /// Include ALL extra dependencies (main + dev, optional, etc) [DEPRECATED: extras now included by default]
+    #[arg(long, hide = true)]
+    pub all_extras: bool,
+
+    /// Exclude extra dependencies (dev, optional, etc - only include main dependencies)
+    #[arg(long)]
+    pub exclude_extra: bool,
+
+    /// Only check direct dependencies (exclude transitive)
+    #[arg(long)]
+    pub direct_only: bool,
+
+    /// Include withdrawn vulnerabilities in results
+    #[arg(long)]
+    pub include_withdrawn: bool,
+
+    /// Disable caching
+    #[arg(long)]
+    pub no_cache: bool,
+
+    /// Custom cache directory
+    #[arg(long, value_name = "DIR")]
+    pub cache_dir: Option<std::path::PathBuf>,
+
+    /// Resolution cache TTL in hours (default: 24)
+    #[arg(long, value_name = "HOURS", default_value = "24")]
+    pub resolution_cache_ttl: u64,
+
+    /// Disable resolution caching only
+    #[arg(long)]
+    pub no_resolution_cache: bool,
+
+    /// Clear resolution cache on startup
+    #[arg(long)]
+    pub clear_resolution_cache: bool,
+
+    /// Vulnerability data sources (can be specified multiple times or comma-separated)
+    #[arg(long = "sources", value_name = "SOURCE")]
+    pub sources: Vec<String>,
+
+    /// Dependency resolver for requirements.txt files
+    #[arg(long, value_enum, default_value = "uv")]
+    pub resolver: ResolverTypeArg,
+
+    /// Specific requirements files to audit (disables auto-discovery)
+    #[arg(long = "requirements-files", value_name = "FILE", num_args = 1..)]
+    pub requirements_files: Vec<std::path::PathBuf>,
+
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+
+    /// Show detailed vulnerability descriptions (full text instead of truncated)
+    #[arg(long)]
+    pub detailed: bool,
+
+    /// Custom configuration file path
+    #[arg(long, value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
+
+    /// Disable configuration file loading
+    #[arg(long)]
+    pub no_config: bool,
+
+    // PEP 792 Project Status Markers options
+    /// Disable PEP 792 project status checks
+    #[arg(long)]
+    pub no_maintenance_check: bool,
+
+    /// Fail on archived packages (not receiving updates)
+    #[arg(long)]
+    pub forbid_archived: bool,
+
+    /// Fail on deprecated packages (obsolete)
+    #[arg(long)]
+    pub forbid_deprecated: bool,
+
+    /// Fail on quarantined packages (malware/compromised)
+    #[arg(long)]
+    pub forbid_quarantined: bool,
+
+    /// Fail on any unmaintained packages (enables --forbid-archived, --forbid-deprecated, --forbid-quarantined)
+    #[arg(long)]
+    pub forbid_unmaintained: bool,
+
+    /// Only check direct dependencies for maintenance status (skip transitive)
+    #[arg(long)]
+    pub maintenance_direct_only: bool,
+}
+
+impl AuditArgs {
+    /// Check if quiet mode is enabled (either via -q flag or config).
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+
+    /// Check if verbose mode is enabled (via -v flags or config).
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    fn include_all_dependencies(&self) -> bool {
+        static DEPRECATION_WARNING_SHOWN: Once = Once::new();
+
+        if self.all || self.all_extras {
+            DEPRECATION_WARNING_SHOWN.call_once(|| {
+                eprintln!("Warning: --all and --all-extras flags are deprecated. Extra dependencies are now included by default. Use --exclude-extra to exclude them.");
+            });
+        }
+
+        !self.exclude_extra
+    }
+
+    pub fn include_dev(&self) -> bool {
+        self.include_all_dependencies()
+    }
+
+    pub fn include_optional(&self) -> bool {
+        self.include_all_dependencies()
+    }
+
+    /// Check if maintenance checks are enabled
+    pub fn maintenance_enabled(&self) -> bool {
+        !self.no_maintenance_check
+    }
+
+    /// Create a MaintenanceCheckConfig from CLI args
+    pub fn maintenance_check_config(&self) -> crate::MaintenanceCheckConfig {
+        crate::MaintenanceCheckConfig {
+            forbid_archived: self.forbid_archived || self.forbid_unmaintained,
+            forbid_deprecated: self.forbid_deprecated || self.forbid_unmaintained,
+            forbid_quarantined: self.forbid_quarantined || self.forbid_unmaintained,
+            check_direct_only: self.maintenance_direct_only,
+        }
+    }
+
+    pub fn scope_description(&self) -> &'static str {
+        if self.include_all_dependencies() {
+            "all (main + dev,optional,prod,etc)"
+        } else {
+            "main only (extras excluded)"
+        }
+    }
+
+    pub fn filter_dependencies(
+        &self,
+        dependencies: Vec<crate::parsers::ParsedDependency>,
+    ) -> Vec<crate::parsers::ParsedDependency> {
+        if self.include_all_dependencies() {
+            dependencies
+        } else {
+            dependencies
+                .into_iter()
+                .filter(|dep| matches!(dep.dependency_type, crate::parsers::DependencyType::Main))
+                .collect()
+        }
+    }
+
+    pub fn resolve_sources(&self) -> Result<Vec<VulnerabilitySourceType>, String> {
+        if self.sources.is_empty() {
+            return Ok(vec![
+                VulnerabilitySourceType::Pypa,
+                VulnerabilitySourceType::Pypi,
+                VulnerabilitySourceType::Osv,
+            ]);
+        }
+
+        let mut resolved_sources = Vec::new();
+        for source_arg in &self.sources {
+            for source_str in source_arg.split(',') {
+                let source_str = source_str.trim();
+                if source_str.is_empty() {
+                    continue;
+                }
+                let source_type = match source_str {
+                    "pypa" => VulnerabilitySourceType::Pypa,
+                    "pypi" => VulnerabilitySourceType::Pypi,
+                    "osv" => VulnerabilitySourceType::Osv,
+                    _ => {
+                        return Err(format!(
+                            "Invalid vulnerability source: '{source_str}'. Valid sources: pypa, pypi, osv"
+                        ))
+                    }
+                };
+                if !resolved_sources.contains(&source_type) {
+                    resolved_sources.push(source_type);
+                }
+            }
+        }
+
+        Ok(resolved_sources)
+    }
+
+    pub fn load_and_merge_config(&self) -> Result<(Self, Option<Config>)> {
+        let config_loader = if let Some(ref config_path) = self.config {
+            ConfigLoader::load_from_file(config_path)?
+        } else {
+            ConfigLoader::load_with_options(self.no_config)?
+        };
+
+        let config = config_loader.config.clone();
+        let merged_args = self.merge_with_config(&config);
+
+        Ok((merged_args, Some(config)))
+    }
+
+    pub fn merge_with_config(&self, config: &Config) -> Self {
+        let mut merged = self.clone();
+
+        if self.format == AuditFormat::Human && config.defaults.format != "human" {
+            merged.format = match config.defaults.format.as_str() {
+                "json" => AuditFormat::Json,
+                "sarif" => AuditFormat::Sarif,
+                "markdown" => AuditFormat::Markdown,
+                _ => AuditFormat::Human, // fallback
+            };
+        }
+
+        if self.severity == SeverityLevel::Low && config.defaults.severity != "low" {
+            merged.severity = match config.defaults.severity.as_str() {
+                "medium" => SeverityLevel::Medium,
+                "high" => SeverityLevel::High,
+                "critical" => SeverityLevel::Critical,
+                _ => SeverityLevel::Low, // fallback
+            };
+        }
+
+        if self.fail_on == SeverityLevel::Medium && config.defaults.fail_on != "medium" {
+            merged.fail_on = match config.defaults.fail_on.as_str() {
+                "low" => SeverityLevel::Low,
+                "high" => SeverityLevel::High,
+                "critical" => SeverityLevel::Critical,
+                _ => SeverityLevel::Medium, // fallback
+            };
+        }
+
+        if !self.exclude_extra && config.defaults.scope == "main" {
+            merged.exclude_extra = true;
+        }
+
+        if !self.direct_only {
+            merged.direct_only = config.defaults.direct_only;
+        }
+
+        if !self.detailed {
+            merged.detailed = config.defaults.detailed;
+        }
+
+        if !self.include_withdrawn {
+            merged.include_withdrawn = config.defaults.include_withdrawn;
+        }
+
+        if self.resolver == ResolverTypeArg::Uv && config.resolver.resolver_type != "uv" {
+            merged.resolver = match config.resolver.resolver_type.as_str() {
+                "pip-tools" => ResolverTypeArg::PipTools,
+                _ => ResolverTypeArg::Uv, // fallback
+            };
+        }
+
+        if !self.no_cache && !config.cache.enabled {
+            merged.no_cache = true;
+        }
+
+        if self.cache_dir.is_none() {
+            if let Some(ref cache_dir) = config.cache.directory {
+                merged.cache_dir = Some(std::path::PathBuf::from(cache_dir));
+            }
+        }
+
+        if self.resolution_cache_ttl == 24 {
+            merged.resolution_cache_ttl = config.cache.resolution_ttl;
+        }
+
+        if self.sources.is_empty() && !config.sources.enabled.is_empty() {
+            merged.sources = config.sources.enabled.clone();
+        }
+
+        let mut ignore_ids = self.ignore_ids.clone();
+        ignore_ids.extend(config.ignore.ids.clone());
+        merged.ignore_ids = ignore_ids;
+
+        let mut ignore_while_no_fix = self.ignore_while_no_fix.clone();
+        ignore_while_no_fix.extend(config.ignore.while_no_fix.clone());
+        merged.ignore_while_no_fix = ignore_while_no_fix;
+
+        // Note: verbosity is controlled via CLI flags (-v/-q) and RUST_LOG env var.
+        // Config file output.quiet and output.verbose are respected for backward compatibility
+        // but CLI flags always take precedence through the verbosity struct.
+
+        // Merge maintenance (PEP 792) settings
+        if !self.no_maintenance_check && !config.maintenance.enabled {
+            merged.no_maintenance_check = true;
+        }
+        if !self.forbid_archived && config.maintenance.forbid_archived {
+            merged.forbid_archived = true;
+        }
+        if !self.forbid_deprecated && config.maintenance.forbid_deprecated {
+            merged.forbid_deprecated = true;
+        }
+        if !self.forbid_quarantined && config.maintenance.forbid_quarantined {
+            merged.forbid_quarantined = true;
+        }
+        if !self.forbid_unmaintained && config.maintenance.forbid_unmaintained {
+            merged.forbid_unmaintained = true;
+        }
+        if !self.maintenance_direct_only && config.maintenance.check_direct_only {
+            merged.maintenance_direct_only = true;
+        }
+
+        merged
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ResolversArgs {
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl ResolversArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct CheckVersionArgs {
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl CheckVersionArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ConfigInitArgs {
+    #[arg(long, short, value_name = "FILE")]
+    pub output: Option<std::path::PathBuf>,
+
+    #[arg(long)]
+    pub force: bool,
+
+    #[arg(long)]
+    pub minimal: bool,
+
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl ConfigInitArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ConfigValidateArgs {
+    #[arg(value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
+
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl ConfigValidateArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ConfigShowArgs {
+    #[arg(long, value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
+
+    #[arg(long)]
+    pub toml: bool,
+
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl ConfigShowArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        crate::logging::is_quiet(&self.verbosity)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ConfigPathArgs {
+    /// Verbosity level: use -v, -vv, -vvv for more output, -q for quiet
+    #[command(flatten)]
+    pub verbosity: AppVerbosity,
+}
+
+impl ConfigPathArgs {
+    pub fn is_verbose(&self) -> bool {
+        crate::logging::is_verbose(&self.verbosity)
+    }
+}
+
+impl From<AuditFormat> for crate::AuditFormat {
+    fn from(format: AuditFormat) -> Self {
+        match format {
+            AuditFormat::Human => crate::AuditFormat::Human,
+            AuditFormat::Json => crate::AuditFormat::Json,
+            AuditFormat::Sarif => crate::AuditFormat::Sarif,
+            AuditFormat::Markdown => crate::AuditFormat::Markdown,
+        }
+    }
+}
+
+impl From<SeverityLevel> for crate::SeverityLevel {
+    fn from(severity: SeverityLevel) -> Self {
+        match severity {
+            SeverityLevel::Low => crate::SeverityLevel::Low,
+            SeverityLevel::Medium => crate::SeverityLevel::Medium,
+            SeverityLevel::High => crate::SeverityLevel::High,
+            SeverityLevel::Critical => crate::SeverityLevel::Critical,
+        }
+    }
+}
+
+impl From<VulnerabilitySourceType> for crate::VulnerabilitySourceType {
+    fn from(source: VulnerabilitySourceType) -> Self {
+        match source {
+            VulnerabilitySourceType::Pypa => crate::VulnerabilitySourceType::Pypa,
+            VulnerabilitySourceType::Pypi => crate::VulnerabilitySourceType::Pypi,
+            VulnerabilitySourceType::Osv => crate::VulnerabilitySourceType::Osv,
+        }
+    }
+}
+
+impl From<ResolverTypeArg> for ResolverType {
+    fn from(resolver: ResolverTypeArg) -> Self {
+        match resolver {
+            ResolverTypeArg::Uv => ResolverType::Uv,
+            ResolverTypeArg::PipTools => ResolverType::PipTools,
+        }
+    }
+}
+
+pub async fn check_resolvers(args: &ResolversArgs) -> Result<()> {
+    // Info commands always show output - -q flag is accepted for CLI consistency but ignored
+    if !args.is_verbose() {
+        println!("Checking available dependency resolvers...");
+        println!();
+    }
+
+    let all_resolvers = vec![ResolverType::Uv, ResolverType::PipTools];
+
+    let mut available_resolvers = Vec::new();
+    let mut unavailable_resolvers = Vec::new();
+
+    for resolver_type in all_resolvers {
+        if args.is_verbose() {
+            println!("Checking {resolver_type}...");
+        }
+
+        let resolver = ResolverRegistry::create_resolver(resolver_type);
+        let is_available = resolver.is_available().await;
+
+        if is_available {
+            available_resolvers.push(resolver_type);
+        } else {
+            unavailable_resolvers.push(resolver_type);
+        }
+    }
+
+    if !available_resolvers.is_empty() {
+        println!("✓ Available resolvers ({}):", available_resolvers.len());
+        for resolver in &available_resolvers {
+            println!("  {resolver}");
+        }
+        println!();
+    }
+
+    if !unavailable_resolvers.is_empty() {
+        println!("✗ Unavailable resolvers ({}):", unavailable_resolvers.len());
+        for resolver in &unavailable_resolvers {
+            println!("  {resolver} - not installed or not in PATH");
+        }
+        println!();
+    }
+
+    if available_resolvers.is_empty() {
+        println!("⚠️  No dependency resolvers are available!");
+        println!("Please install at least one resolver:");
+        println!("  • UV (recommended): https://docs.astral.sh/uv/");
+        println!("  • pip-tools: pip install pip-tools");
+        return Ok(());
+    }
+
+    match ResolverRegistry::detect_best_resolver().await {
+        Ok(best) => {
+            println!("🎯 Auto-detected resolver: {best}");
+        }
+        Err(_) => {
+            println!("⚠️  No resolver can be auto-detected");
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn check_version(args: &CheckVersionArgs) -> Result<()> {
+    const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+    const GITHUB_REPO: &str = "nyudenkov/pysentry";
+
+    // Info commands always show output - -q flag is accepted for CLI consistency but ignored
+    if args.is_verbose() {
+        println!("Checking for updates...");
+        println!("Current version: {CURRENT_VERSION}");
+        println!("Repository: {GITHUB_REPO}");
+    } else {
+        println!("Checking for updates...");
+    }
+
+    let client = reqwest::Client::new();
+    let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
+
+    if args.is_verbose() {
+        println!("Fetching: {url}");
+    }
+
+    let response = match client
+        .get(&url)
+        .header("User-Agent", format!("pysentry/{CURRENT_VERSION}"))
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            eprintln!("Failed to check for updates: {e}");
+            return Ok(());
+        }
+    };
+
+    if !response.status().is_success() {
+        eprintln!("Failed to check for updates: HTTP {}", response.status());
+        return Ok(());
+    }
+
+    let release_info: serde_json::Value = match response.json().await {
+        Ok(json) => json,
+        Err(e) => {
+            eprintln!("Failed to parse release information: {e}");
+            return Ok(());
+        }
+    };
+
+    let latest_tag = match release_info["tag_name"].as_str() {
+        Some(tag) => tag,
+        None => {
+            eprintln!("Failed to get latest version information");
+            return Ok(());
+        }
+    };
+
+    let latest_version_str = latest_tag.strip_prefix('v').unwrap_or(latest_tag);
+
+    if args.is_verbose() {
+        println!("Latest release tag: {latest_tag}");
+    }
+
+    let current_version = match Version::from_str(CURRENT_VERSION) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Failed to parse current version: {e}");
+            return Ok(());
+        }
+    };
+
+    let latest_version = match Version::from_str(latest_version_str) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Failed to parse latest version '{latest_version_str}': {e}");
+            return Ok(());
+        }
+    };
+
+    if latest_version > current_version {
+        println!("✨ Update available!");
+        println!("Current version: {CURRENT_VERSION}");
+        println!("Latest version:  {latest_version_str}");
+        println!();
+        println!("To update:");
+        println!("  • Rust CLI: cargo install pysentry");
+        println!("  • Python package: pip install --upgrade pysentry-rs");
+        if let Some(release_url) = release_info["html_url"].as_str() {
+            println!("  • Release notes: {release_url}");
+        }
+    } else if latest_version < current_version {
+        println!("🚀 You're running a development version!");
+        println!("Current version: {CURRENT_VERSION}");
+        println!("Latest stable:   {latest_version_str}");
+    } else {
+        println!("✅ You're running the latest version!");
+        println!("Current version: {CURRENT_VERSION}");
+    }
+
+    Ok(())
+}
+
+pub async fn check_for_update_silent() -> Result<Option<String>> {
+    const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+    const GITHUB_REPO: &str = "nyudenkov/pysentry";
+
+    let client = reqwest::Client::new();
+    let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
+
+    let response = match client
+        .get(&url)
+        .header("User-Agent", format!("pysentry/{CURRENT_VERSION}"))
+        .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return Ok(None);
+        }
+    };
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let release_info: serde_json::Value = match response.json().await {
+        Ok(json) => json,
+        Err(_) => {
+            return Ok(None);
+        }
+    };
+
+    let latest_tag = match release_info["tag_name"].as_str() {
+        Some(tag) => tag,
+        None => {
+            return Ok(None);
+        }
+    };
+
+    let latest_version_str = latest_tag.strip_prefix('v').unwrap_or(latest_tag);
+
+    let current_version = match Version::from_str(CURRENT_VERSION) {
+        Ok(v) => v,
+        Err(_) => {
+            return Ok(None);
+        }
+    };
+
+    let latest_version = match Version::from_str(latest_version_str) {
+        Ok(v) => v,
+        Err(_) => {
+            return Ok(None);
+        }
+    };
+
+    if latest_version > current_version {
+        Ok(Some(latest_version_str.to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Fetch remote notifications silently, returning empty vec on any error
+async fn fetch_remote_notifications_silent(
+    cache: &AuditCache,
+) -> Vec<crate::notifications::RemoteNotification> {
+    let client = NotificationClient::new(cache.clone());
+    client.get_displayable_notifications().await
+}
+
+/// Display a notification to the user
+fn display_notification(notification: &crate::notifications::RemoteNotification) {
+    println!("\n\u{1f4e2} {}", notification.title);
+    println!("   {}", notification.message);
+    if let Some(url) = &notification.url {
+        println!("   \u{2192} {}", url);
+    }
+}
+
+/// Mark a notification as shown in the cache
+async fn mark_notification_shown(cache: &AuditCache, notification_id: &str) -> anyhow::Result<()> {
+    let client = NotificationClient::new(cache.clone());
+    client.mark_as_shown(notification_id).await
+}
+
+pub async fn audit(
+    audit_args: &AuditArgs,
+    cache_dir: &Path,
+    http_config: crate::config::HttpConfig,
+    vulnerability_ttl: u64,
+    notifications_enabled: bool,
+) -> Result<i32> {
+    // Resolve sources early to avoid duplicate resolution and ensure errors are surfaced
+    let source_types = match audit_args.resolve_sources() {
+        Ok(sources) => sources,
+        Err(e) => {
+            eprintln!("Error: Invalid vulnerability sources: {e}");
+            return Ok(1);
+        }
+    };
+
+    if audit_args.is_verbose() {
+        eprintln!(
+            "Auditing dependencies for vulnerabilities in {}...",
+            audit_args.path.display()
+        );
+    }
+
+    if audit_args.is_verbose() {
+        eprintln!(
+            "Configuration: format={:?}, severity={:?}, fail_on={:?}, sources={:?}, scope='{}', direct_only={}",
+            audit_args.format,
+            audit_args.severity,
+            audit_args.fail_on,
+            source_types,
+            audit_args.scope_description(),
+            audit_args.direct_only
+        );
+        eprintln!("Cache directory: {}", cache_dir.display());
+
+        if !audit_args.ignore_ids.is_empty() {
+            eprintln!(
+                "Ignoring vulnerability IDs: {}",
+                audit_args.ignore_ids.join(", ")
+            );
+        }
+
+        if !audit_args.ignore_while_no_fix.is_empty() {
+            eprintln!(
+                "Ignoring unfixable vulnerability IDs: {}",
+                audit_args.ignore_while_no_fix.join(", ")
+            );
+        }
+    }
+
+    let audit_result = perform_audit(
+        audit_args,
+        cache_dir,
+        http_config,
+        vulnerability_ttl,
+        &source_types,
+    )
+    .await;
+
+    let report = match audit_result {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("Error: Audit failed: {e}");
+            return Ok(1);
+        }
+    };
+
+    let report_output = ReportGenerator::generate(
+        &report,
+        audit_args.format.clone().into(),
+        Some(&audit_args.path),
+        audit_args.detailed,
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to generate report: {e}"))?;
+
+    if let Some(output_path) = &audit_args.output {
+        fs_err::write(output_path, &report_output)?;
+        if !audit_args.is_quiet() {
+            eprintln!("Audit results written to: {}", output_path.display());
+        }
+    } else {
+        println!("{report_output}");
+    }
+
+    // Show feedback message (once per day)
+    if !audit_args.is_quiet() {
+        let audit_cache = AuditCache::new(cache_dir.to_path_buf());
+        if audit_cache.should_show_feedback().await {
+            println!("\n💬 Found a bug? Have ideas for improvements? Or maybe PySentry saved you some time?");
+            println!("   I welcome all feedback, suggestions, and collaboration ideas at nikita@pysentry.com");
+
+            if let Err(e) = audit_cache.record_feedback_shown().await {
+                tracing::debug!("Failed to record feedback shown: {}", e);
+            }
+        }
+
+        // Check for updates (once per day)
+        if audit_cache.should_check_for_updates().await {
+            if let Ok(Some(latest_version)) = check_for_update_silent().await {
+                const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+                println!("\n✨ Update available! PySentry {latest_version} is now available (you're running {CURRENT_VERSION})");
+            }
+
+            if let Err(e) = audit_cache.record_update_check().await {
+                tracing::debug!("Failed to record update check: {}", e);
+            }
+        }
+
+        // Check for remote notifications
+        if notifications_enabled {
+            let notifications = fetch_remote_notifications_silent(&audit_cache).await;
+            for notification in notifications {
+                display_notification(&notification);
+                if notification.show_once {
+                    if let Err(e) = mark_notification_shown(&audit_cache, &notification.id).await {
+                        tracing::debug!("Failed to mark notification as shown: {}", e);
+                    }
+                }
+            }
+        }
+    }
+
+    // Check if we should fail due to vulnerabilities
+    let fail_vulns = report.should_fail_on_severity(&audit_args.fail_on.clone().into());
+
+    // Check if we should fail due to maintenance issues (PEP 792)
+    let maintenance_config = audit_args.maintenance_check_config();
+    let fail_maintenance = report.should_fail_on_maintenance(&maintenance_config);
+
+    if fail_vulns || fail_maintenance {
+        Ok(1)
+    } else {
+        Ok(0)
+    }
+}
+
+async fn perform_audit(
+    audit_args: &AuditArgs,
+    cache_dir: &Path,
+    http_config: crate::config::HttpConfig,
+    vulnerability_ttl: u64,
+    source_types: &[VulnerabilitySourceType],
+) -> Result<AuditReport> {
+    std::fs::create_dir_all(cache_dir)?;
+    let audit_cache = AuditCache::new(cache_dir.to_path_buf());
+
+    let vuln_sources: Vec<_> = source_types
+        .iter()
+        .map(|source_type| {
+            VulnerabilitySource::new(
+                source_type.clone().into(),
+                audit_cache.clone(),
+                audit_args.no_cache,
+                http_config.clone(),
+                vulnerability_ttl,
+            )
+        })
+        .collect();
+
+    let source_names: Vec<_> = vuln_sources.iter().map(|s| s.name()).collect();
+    if audit_args.is_verbose() {
+        if source_names.len() == 1 {
+            eprintln!("Fetching vulnerability data from {}...", source_names[0]);
+        } else {
+            eprintln!(
+                "Fetching vulnerability data from {} sources: {}...",
+                source_names.len(),
+                source_names.join(", ")
+            );
+        }
+    }
+
+    if audit_args.is_verbose() {
+        eprintln!("Scanning project dependencies...");
+    }
+
+    let (dependencies, skipped_packages, detected_parser_name) =
+        if !audit_args.requirements_files.is_empty() {
+            if !audit_args.is_quiet() {
+                eprintln!(
+                    "Using explicit requirements files: {}",
+                    audit_args
+                        .requirements_files
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+            (
+                scan_explicit_requirements(
+                    &audit_args.requirements_files,
+                    audit_args.include_dev(),
+                    audit_args.include_optional(),
+                    audit_args.direct_only,
+                    audit_args.resolver.clone(),
+                )
+                .await?,
+                Vec::new(), // No skipped packages for explicit requirements files
+                "requirements.txt".to_string(),
+            )
+        } else {
+            let resolver_type: ResolverType = audit_args.resolver.clone().into();
+
+            let parse_dev = audit_args.include_dev();
+            let parse_optional = audit_args.include_optional();
+
+            use crate::parsers::{DependencyType, ParserRegistry};
+            let parser_registry = ParserRegistry::new(Some(resolver_type));
+            let (raw_parsed_deps, skipped_packages, parser_name) = parser_registry
+                .parse_project(
+                    &audit_args.path,
+                    parse_dev,
+                    parse_optional,
+                    audit_args.direct_only,
+                )
+                .await?;
+
+            if audit_args.is_verbose() {
+                eprintln!(
+                    "Raw parsed dependencies before filtering: {} (from {})",
+                    raw_parsed_deps.len(),
+                    parser_name
+                );
+                let (main_count, optional_count) =
+                    raw_parsed_deps
+                        .iter()
+                        .fold((0, 0), |(m, o), dep| match dep.dependency_type {
+                            DependencyType::Main => (m + 1, o),
+                            DependencyType::Optional => (m, o + 1),
+                        });
+                eprintln!("  Main: {main_count}, Optional: {optional_count}");
+            }
+
+            let filtered_parsed_deps = audit_args.filter_dependencies(raw_parsed_deps);
+
+            if audit_args.is_verbose() {
+                eprintln!(
+                    "Filtered dependencies after scope filtering: {}",
+                    filtered_parsed_deps.len()
+                );
+                eprintln!("  Scope: {}", audit_args.scope_description());
+            }
+
+            (
+                filtered_parsed_deps
+                    .into_iter()
+                    .map(|dep| crate::dependency::scanner::ScannedDependency {
+                        name: dep.name,
+                        version: dep.version,
+                        is_direct: dep.is_direct,
+                        source: dep.source.into(),
+                        path: dep.path,
+                        source_file: dep.source_file,
+                    })
+                    .collect(),
+                skipped_packages,
+                parser_name.to_string(),
+            )
+        };
+
+    let dependency_stats = if !audit_args.requirements_files.is_empty() {
+        calculate_dependency_stats(&dependencies)
+    } else {
+        let scanner = DependencyScanner::new(
+            audit_args.include_dev(),
+            audit_args.include_optional(),
+            audit_args.direct_only,
+            None,
+        );
+        scanner.get_stats(&dependencies)
+    };
+
+    if audit_args.is_verbose() {
+        eprintln!("{dependency_stats}");
+    }
+
+    let warnings = if !audit_args.requirements_files.is_empty() {
+        if dependencies.is_empty() {
+            vec!["No dependencies found in specified requirements files.".to_string()]
+        } else {
+            vec![]
+        }
+    } else {
+        let scanner = DependencyScanner::new(
+            audit_args.include_dev(),
+            audit_args.include_optional(),
+            audit_args.direct_only,
+            None,
+        );
+        scanner.validate_dependencies(&dependencies, &skipped_packages, &detected_parser_name)
+    };
+
+    for warning in &warnings {
+        if !audit_args.is_quiet() {
+            eprintln!("Warning: {warning}");
+        }
+    }
+
+    let packages: Vec<(String, String)> = dependencies
+        .iter()
+        .map(|dep| (dep.name.to_string(), dep.version.to_string()))
+        .collect();
+
+    if audit_args.is_verbose() {
+        if source_names.len() == 1 {
+            eprintln!(
+                "Fetching vulnerabilities for {} packages from {}...",
+                packages.len(),
+                source_names[0]
+            );
+        } else {
+            eprintln!(
+                "Fetching vulnerabilities for {} packages from {} sources concurrently...",
+                packages.len(),
+                source_names.len()
+            );
+        }
+    }
+
+    let fetch_tasks = vuln_sources.into_iter().map(|source| {
+        let packages = packages.clone();
+        async move { source.fetch_vulnerabilities(&packages).await }
+    });
+
+    // Fetch maintenance status (PEP 792) in parallel if enabled
+    let maintenance_future = async {
+        if audit_args.maintenance_enabled() {
+            if audit_args.is_verbose() {
+                eprintln!("Checking PEP 792 project status markers...");
+            }
+            let maintenance_client = crate::maintenance::SimpleIndexClient::new(
+                http_config.clone(),
+                Some(audit_cache.clone()),
+            );
+            let config = audit_args.maintenance_check_config();
+            maintenance_client
+                .check_maintenance_status(&dependencies, &config)
+                .await
+                .unwrap_or_else(|e| {
+                    // Always log failures - quiet mode only affects stdout, not diagnostics
+                    tracing::warn!("Failed to check maintenance status: {}", e);
+                    if !audit_args.is_quiet() {
+                        eprintln!("Warning: Failed to check maintenance status: {}", e);
+                    }
+                    Vec::new()
+                })
+        } else {
+            Vec::new()
+        }
+    };
+
+    // Run vulnerability fetching and maintenance checks in parallel
+    let (vuln_result, maintenance_issues) =
+        tokio::join!(try_join_all(fetch_tasks), maintenance_future);
+
+    let databases = vuln_result?;
+
+    let database = if databases.len() == 1 {
+        databases.into_iter().next().unwrap()
+    } else {
+        if !audit_args.is_quiet() {
+            eprintln!(
+                "Merging vulnerability data from {} sources...",
+                databases.len()
+            );
+        }
+        VulnerabilityDatabase::merge(databases)
+    };
+
+    if audit_args.is_verbose() {
+        eprintln!("Matching against vulnerability database...");
+    }
+    let matcher_config = MatcherConfig::new(
+        audit_args.severity.clone().into(),
+        audit_args.ignore_ids.to_vec(),
+        audit_args.ignore_while_no_fix.to_vec(),
+        audit_args.direct_only,
+        audit_args.include_withdrawn,
+    );
+    let matcher = VulnerabilityMatcher::new(database, matcher_config);
+
+    let matches = matcher.find_vulnerabilities(&dependencies)?;
+    let filtered_matches = matcher.filter_matches(matches);
+
+    let database_stats = matcher.get_database_stats();
+    let fix_analysis = matcher.analyze_fixes(&filtered_matches);
+
+    let report = AuditReport::new(
+        dependency_stats,
+        database_stats,
+        filtered_matches,
+        fix_analysis,
+        warnings,
+        maintenance_issues,
+    );
+
+    let summary = report.summary();
+    let maint_summary = report.maintenance_summary();
+    if audit_args.is_verbose() {
+        eprintln!(
+            "Audit complete: {} vulnerabilities found in {} packages",
+            summary.total_vulnerabilities, summary.vulnerable_packages
+        );
+        if maint_summary.has_issues() {
+            eprintln!(
+                "Maintenance issues: {} archived, {} deprecated, {} quarantined",
+                maint_summary.archived_count,
+                maint_summary.deprecated_count,
+                maint_summary.quarantined_count
+            );
+        }
+    }
+
+    Ok(report)
+}
+
+async fn scan_explicit_requirements(
+    requirements_files: &[std::path::PathBuf],
+    _dev: bool,
+    _optional: bool,
+    direct_only: bool,
+    resolver: ResolverTypeArg,
+) -> Result<Vec<crate::dependency::scanner::ScannedDependency>> {
+    let resolver_type: ResolverType = resolver.into();
+
+    let parser = RequirementsParser::new(Some(resolver_type));
+
+    let parsed_deps = parser
+        .parse_explicit_files(requirements_files, direct_only)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to parse requirements files: {}", e))?;
+
+    let scanned_dependencies: Vec<crate::dependency::scanner::ScannedDependency> = parsed_deps
+        .into_iter()
+        .map(|dep| crate::dependency::scanner::ScannedDependency {
+            name: dep.name,
+            version: dep.version,
+            is_direct: dep.is_direct,
+            source: dep.source.into(),
+            path: dep.path,
+            source_file: dep.source_file,
+        })
+        .collect();
+
+    Ok(scanned_dependencies)
+}
+
+fn calculate_dependency_stats(
+    dependencies: &[crate::dependency::scanner::ScannedDependency],
+) -> DependencyStats {
+    let parsed_deps: Vec<crate::parsers::ParsedDependency> = dependencies
+        .iter()
+        .map(|dep| crate::parsers::ParsedDependency {
+            name: dep.name.clone(),
+            version: dep.version.clone(),
+            is_direct: dep.is_direct,
+            source: dep.source.clone().into(),
+            path: dep.path.clone(),
+            dependency_type: crate::parsers::DependencyType::Main,
+            source_file: dep.source_file.clone(),
+        })
+        .collect();
+
+    DependencyStats::from_dependencies(&parsed_deps)
+}
+
+// Config command handlers
+
+pub async fn config_init(args: &ConfigInitArgs) -> Result<()> {
+    let output_path = args
+        .output
+        .clone()
+        .unwrap_or_else(|| std::path::PathBuf::from(".pysentry.toml"));
+
+    if output_path.exists() && !args.force {
+        anyhow::bail!(
+            "Configuration file already exists: {}. Use --force to overwrite.",
+            output_path.display()
+        );
+    }
+
+    let config_content = if args.minimal {
+        generate_minimal_config()
+    } else {
+        Config::generate_default_toml()
+    };
+
+    fs_err::write(&output_path, config_content)?;
+
+    println!("Created configuration file: {}", output_path.display());
+    println!();
+    println!("You can now customize your settings in this file.");
+    println!("Configuration reference:");
+    println!("- Format: human, json, sarif, markdown");
+    println!("- Severity: low, medium, high, critical");
+    println!("- Sources: pypa, pypi, osv");
+    println!("- Resolver: uv, pip-tools");
+    println!("- HTTP: Configure timeouts, retries, and progress indication");
+    println!("- Include withdrawn: true/false");
+
+    Ok(())
+}
+
+pub async fn config_validate(args: &ConfigValidateArgs) -> Result<()> {
+    let config_loader = if let Some(ref config_path) = args.config {
+        ConfigLoader::load_from_file(config_path)?
+    } else {
+        ConfigLoader::load()?
+    };
+
+    let config_path = config_loader.config_path_display();
+
+    if args.is_verbose() {
+        println!("Validating configuration file: {config_path}");
+    }
+
+    // The configuration is already validated during loading
+    // If we get here, validation passed
+
+    if config_loader.config_path.is_some() {
+        println!("✅ Configuration is valid: {config_path}");
+
+        if args.is_verbose() {
+            println!("Configuration details:");
+            println!("  Version: {}", config_loader.config.version);
+            println!("  Format: {}", config_loader.config.defaults.format);
+            println!("  Severity: {}", config_loader.config.defaults.severity);
+            println!(
+                "  Sources: {}",
+                config_loader.config.sources.enabled.join(", ")
+            );
+            println!(
+                "  Resolver: {}",
+                config_loader.config.resolver.resolver_type
+            );
+            println!("  Cache enabled: {}", config_loader.config.cache.enabled);
+        }
+    } else {
+        println!("No configuration file found. Using built-in defaults.");
+    }
+
+    Ok(())
+}
+
+pub async fn config_show(args: &ConfigShowArgs) -> Result<()> {
+    let config_loader = if let Some(ref config_path) = args.config {
+        ConfigLoader::load_from_file(config_path)?
+    } else {
+        ConfigLoader::load()?
+    };
+
+    if args.toml {
+        // Show raw TOML format
+        let toml_content = toml::to_string_pretty(&config_loader.config)
+            .context("Failed to serialize configuration to TOML")?;
+        println!("{toml_content}");
+    } else {
+        // Show human-readable format
+        println!(
+            "Configuration loaded from: {}",
+            config_loader.config_path_display()
+        );
+        println!();
+        println!("Effective configuration:");
+        println!("  Version: {}", config_loader.config.version);
+        println!("  Format: {}", config_loader.config.defaults.format);
+        println!("  Severity: {}", config_loader.config.defaults.severity);
+        println!("  Fail on: {}", config_loader.config.defaults.fail_on);
+        println!("  Scope: {}", config_loader.config.defaults.scope);
+        println!(
+            "  Direct only: {}",
+            config_loader.config.defaults.direct_only
+        );
+        println!("  Detailed: {}", config_loader.config.defaults.detailed);
+        println!(
+            "  Include withdrawn: {}",
+            config_loader.config.defaults.include_withdrawn
+        );
+        println!();
+        println!(
+            "  Sources: {}",
+            config_loader.config.sources.enabled.join(", ")
+        );
+        println!();
+        println!(
+            "  Resolver: {}",
+            config_loader.config.resolver.resolver_type
+        );
+        println!();
+        println!("  Cache enabled: {}", config_loader.config.cache.enabled);
+        if let Some(ref cache_dir) = config_loader.config.cache.directory {
+            println!("  Cache directory: {cache_dir}");
+        }
+        println!(
+            "  Resolution cache TTL: {} hours",
+            config_loader.config.cache.resolution_ttl
+        );
+        println!(
+            "  Vulnerability cache TTL: {} hours",
+            config_loader.config.cache.vulnerability_ttl
+        );
+        println!();
+        if !config_loader.config.ignore.ids.is_empty() {
+            println!(
+                "  Ignored IDs: {}",
+                config_loader.config.ignore.ids.join(", ")
+            );
+        }
+        println!();
+        println!("  HTTP timeout: {}s", config_loader.config.http.timeout);
+        println!(
+            "  HTTP connect timeout: {}s",
+            config_loader.config.http.connect_timeout
+        );
+        println!(
+            "  HTTP max retries: {}",
+            config_loader.config.http.max_retries
+        );
+        println!(
+            "  HTTP retry backoff: {}-{}s",
+            config_loader.config.http.retry_initial_backoff,
+            config_loader.config.http.retry_max_backoff
+        );
+        println!(
+            "  HTTP show progress: {}",
+            config_loader.config.http.show_progress
+        );
+    }
+
+    Ok(())
+}
+
+pub async fn config_path(args: &ConfigPathArgs) -> Result<()> {
+    let config_loader = ConfigLoader::load()?;
+
+    if let Some(config_path) = config_loader.config_path {
+        println!("{}", config_path.display());
+
+        if args.is_verbose() {
+            println!();
+            println!("Configuration file found and loaded successfully.");
+
+            // Show file size and modification time
+            if let Ok(metadata) = fs_err::metadata(&config_path) {
+                println!("Size: {} bytes", metadata.len());
+                if let Ok(modified) = metadata.modified() {
+                    println!("Modified: {modified:?}");
+                }
+            }
+        }
+    } else if args.is_verbose() {
+        println!("No configuration file found.");
+        println!("Using built-in defaults.");
+        println!();
+        println!("To create a configuration file, run:");
+        println!("  pysentry config init");
+    } else {
+        // Exit with code 1 to indicate no config file found
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn generate_minimal_config() -> String {
+    r#"# PySentry minimal configuration
+version = 1
+
+[defaults]
+# Set your preferred severity level
+severity = "medium"
+fail_on = "high"
+
+# Uncomment to include dev/optional dependencies
+# scope = "all"
+
+# Uncomment to include withdrawn vulnerabilities by default
+# include_withdrawn = true
+
+[sources]
+# All vulnerability sources are enabled by default: PyPA, PyPI, and OSV
+# enabled = ["pypa", "pypi", "osv"]
+
+# Uncomment to use specific sources only
+# enabled = ["pypa"]
+
+[ignore]
+# Add vulnerability IDs to ignore
+ids = []
+
+# Add vulnerability IDs to ignore only while they have no fix available
+# This is useful for acknowledging unfixable vulnerabilities temporarily
+# Once a fix becomes available, the scan will fail again
+while_no_fix = []
+
+# Example:
+# ids = ["GHSA-1234-5678-90ab", "CVE-2024-12345"]
+# while_no_fix = ["CVE-2025-8869"]
+"#
+    .to_string()
+}

@@ -1,0 +1,22 @@
+[package]
+name = "python-flirt"
+version = "0.9.10"
+authors = ["William Ballenthin <william.ballenthin@fireeye.com>"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/williballenthin/lancelot/tree/master/pyflirt"
+homepage = "https://github.com/williballenthin/lancelot/tree/master/pyflirt"
+readme = "README.md"
+
+[lib]
+name = "flirt"
+crate-type = ["cdylib"]
+
+[dependencies]
+lancelot-flirt = { path = "../flirt", version = "0.9.10" }
+pyo3 = { version = "0.27", features = ["generate-import-lib"] }
+anyhow = "1"
+
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]

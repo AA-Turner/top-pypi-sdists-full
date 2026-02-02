@@ -1,0 +1,53 @@
+[project]
+name = "isocodes"
+version = "2025.8.25"
+description = "This project provides lists of various ISO standards (e.g. country, language, language scripts, and currency names) in one place"
+readme = "README.md"
+keywords = [ "iso" ]
+license = { file = "LICENSE" }
+authors = [ { name = "Atem18", email = "contact@atemlire.com" } ]
+requires-python = ">=3.9"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [  ]
+
+urls.homepage = "https://github.com/Atem18/isocodes"
+urls.repository = "https://github.com/Atem18/isocodes"
+
+[project.scripts]
+isocodes = "isocodes.cli:main"
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "isocodes.__pyinstaller:get_hook_dirs"
+tests = "isocodes.__pyinstaller:get_hook_dirs"
+
+[tool.setuptools.package-data]
+isocodes = ["share/**/*"]
+
+[tool.ty.src]
+exclude = [
+    "tests/**",
+]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[dependency-groups]
+test = [
+    "pyinstaller>=6.14.2",
+    "pytest>=8.4.1",
+    "ruff>=0.12.10",
+    "tox>=4.27.0",
+    "tox-uv>=1.26.1",
+    "ty>=0.0.1a19",
+]

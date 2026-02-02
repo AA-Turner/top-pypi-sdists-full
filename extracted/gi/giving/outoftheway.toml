@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "giving"
+version = "0.4.2"
+description = "Reactive logging"
+authors = ["Olivier Breuleux <breuleux@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/breuleux/giving"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+varname = "^0.10.0"
+reactivex = "^4.0.0"
+asttokens = "^2.2.1"
+
+[tool.poetry.dev-dependencies]
+black = ">=21.7b0"
+breakword = "^0.3.1"
+isort = ">=5.9.3"
+flake8 = ">=3.9.2"
+pytest = ">=6.2.4"
+pytest-cov = ">=2.12.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+known_first_party = "giving"
+known_third_party = ""
+multi_line_output = 3
+include_trailing_comma = true
+combine_as_imports = true
+skip = 'examples/mnist/main.py'
+
+[tool.black]
+exclude = 'examples/mnist/main.py'

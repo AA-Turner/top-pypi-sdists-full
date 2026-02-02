@@ -126,7 +126,9 @@ pub fn handle_summary(
                 output.push_str(trimmed);
             } else {
                 // Block mode: output with strong markers
-                let symbol = options.strong_em_symbol.to_string().repeat(2);
+                let mut symbol = String::with_capacity(2);
+                symbol.push(options.strong_em_symbol);
+                symbol.push(options.strong_em_symbol);
                 output.push_str(&symbol);
                 output.push_str(trimmed);
                 output.push_str(&symbol);

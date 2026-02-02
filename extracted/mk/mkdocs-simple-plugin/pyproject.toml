@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkdocs-simple-plugin"
+dynamic = ["version"]
+description = "Plugin for adding simple wiki site creation from markdown files interspersed within your code with MkDocs."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3"
+authors = [
+    { name = "Allison Thackston", email = "allison@allisonthackston.com" },
+]
+keywords = [
+    "mkdocs",
+    "readme",
+    "wiki",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+# md file="versions.snippet"
+# _Python 3.x, 3.8, 3.9, 3.10, 3.11 supported._
+# /md
+dependencies = [
+    "click>=7.1",
+    "MarkupSafe>=2.1.1",
+    "mkdocs>=1.6.0",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+mkdocs_simple_gen = "mkdocs_simple_plugin.generator:main"
+
+[project.entry-points."mkdocs.plugins"]
+simple = "mkdocs_simple_plugin.plugin:SimplePlugin"
+
+[project.urls]
+Documentation = "http://www.althack.dev/mkdocs-simple-plugin"
+Homepage = "http://www.althack.dev/mkdocs-simple-plugin"
+Issues = "https://github.com/athackst/mkdocs-simple-plugin/issues"
+"Source Code" = "https://github.com/athackst/mkdocs-simple-plugin"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/mkdocs_simple_plugin",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mkdocs_simple_plugin"]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "mkdocs",
+  "mkdocs-simple-plugin"
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs_simple_gen --build"
+serve = "mkdocs_simple_gen --serve"

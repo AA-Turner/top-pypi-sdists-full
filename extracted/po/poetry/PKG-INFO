@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry
-Version: 2.3.1
+Version: 2.3.2
 Summary: Python dependency management and packaging made easy.
 License-Expression: MIT
 License-File: LICENSE
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: build (>=1.2.1,<2.0.0)
 Requires-Dist: cachecontrol[filecache] (>=0.14.0,<0.15.0)
 Requires-Dist: cleo (>=2.1.0,<3.0.0)
-Requires-Dist: dulwich (>=0.25.0,<0.26.0)
+Requires-Dist: dulwich (>=0.25.0,<2)
 Requires-Dist: fastjsonschema (>=2.18.0,<3.0.0)
 Requires-Dist: findpython (>=0.6.2,<0.8.0)
 Requires-Dist: installer (>=0.7.0,<0.8.0)
@@ -30,7 +30,7 @@ Requires-Dist: packaging (>=24.2)
 Requires-Dist: pbs-installer[download,install] (>=2025.6.10)
 Requires-Dist: pkginfo (>=1.12,<2.0)
 Requires-Dist: platformdirs (>=3.0.0,<5)
-Requires-Dist: poetry-core (==2.3.0)
+Requires-Dist: poetry-core (==2.3.1)
 Requires-Dist: pyproject-hooks (>=1.0.0,<2.0.0)
 Requires-Dist: requests (>=2.26,<3.0)
 Requires-Dist: requests-toolbelt (>=1.0.0,<2.0.0)

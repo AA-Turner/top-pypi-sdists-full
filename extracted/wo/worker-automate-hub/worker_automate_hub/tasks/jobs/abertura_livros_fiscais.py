@@ -8,7 +8,9 @@ import os
 from pywinauto.findwindows import ElementNotFoundError
 from pywinauto.keyboard import send_keys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
@@ -46,7 +48,8 @@ console = Console()
 emsys = EMSys()
 
 # ASSETS_PATH = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros"
-ASSETS_PATH  = r"assets\abertura_livros"
+ASSETS_PATH = r"assets\abertura_livros"
+
 
 @repeat(times=10, delay=5)
 async def wait_aguarde_window_closed(app, timeout=60):
@@ -194,7 +197,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             saida_checkbox.click_input()
 
             console.print("Aguardar marcar caixa de saida")
-            imagem = fr"{ASSETS_PATH}\saida_marcada.png"
+            imagem = rf"{ASSETS_PATH}\saida_marcada.png"
 
             tempo_limite = 600  # 10 minutos
             intervalo = 2  # segundos entre verificações
@@ -330,7 +333,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(5)
 
             console.print("Aguardar o término de carregar")
-            imagem = fr"{ASSETS_PATH}\livros_incluidos.png"
+            imagem = rf"{ASSETS_PATH}\livros_incluidos.png"
 
             tempo_limite = 6600  # 1h
             intervalo = 2  # segundos entre as verificações
@@ -372,7 +375,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
                 # 2. Verifica e trata janela de confirmação TMessageForm
                 try:
-                    img_dialog = fr"{ASSETS_PATH}\notas_rejeitadas.png"
+                    img_dialog = rf"{ASSETS_PATH}\notas_rejeitadas.png"
                     if os.path.exists(img_dialog):
                         caixa = pyautogui.locateOnScreen(
                             img_dialog, confidence=0.9, grayscale=True
@@ -396,7 +399,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
                             await worker_sleep(5)
 
-                            img_dialog = fr"{ASSETS_PATH}\gerar_rel_notas_rejeitadas.png"
+                            img_dialog = (
+                                rf"{ASSETS_PATH}\gerar_rel_notas_rejeitadas.png"
+                            )
                             if os.path.exists(img_dialog):
                                 caixa = pyautogui.locateOnScreen(
                                     img_dialog, confidence=0.9, grayscale=True
@@ -453,7 +458,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 )
                 time.sleep(intervalo)
 
-            await worker_sleep(5)
+            await worker_sleep(8)
 
             try:
                 app_msg = Application().connect(class_name="TMessageForm", timeout=5)
@@ -465,6 +470,8 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             except:
                 pass
 
+            await worker_sleep(5)
+
             ##### Janela Pré-visualizando Relatório #####
             console.print("Fechar Janela Pré-visualizando Relatório ")
             app = Application().connect(class_name="TFrmPreviewRelatorio", timeout=60)
@@ -474,7 +481,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # Verificando se a foi confirmado os livres
             console.print("Verificando se os livros foram confirmados")
 
-            imagem = fr"{ASSETS_PATH}\confirmado_livros.png"
+            imagem = rf"{ASSETS_PATH}\confirmado_livros.png"
             if os.path.exists(imagem):
                 caixa = pyautogui.locateOnScreen(imagem, confidence=0.9, grayscale=True)
             else:
@@ -486,6 +493,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
 
+            await worker_sleep(5)
             # Clicar em fechar
             main_window.close()
 
@@ -607,7 +615,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             console.print("Clicando no botão incluir apuração")
             # Clicar em incluir apuração
-            imagem = fr"{ASSETS_PATH}\btn_incluir_apuracao.png"
+            imagem = rf"{ASSETS_PATH}\btn_incluir_apuracao.png"
 
             # Tenta localizar a imagem na tela
             localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)
@@ -644,4 +652,3 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
-

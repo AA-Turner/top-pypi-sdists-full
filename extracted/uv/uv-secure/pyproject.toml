@@ -1,0 +1,74 @@
+[project]
+name = "uv-secure"
+version = "0.15.4"
+description = "Scan your uv.lock file for dependencies with known vulnerabilities"
+readme = "README.md"
+authors = [
+    { name = "Owen Lamont", email = "owenrlamont@gmail.com" }
+]
+requires-python = ">=3.10"
+keywords = [
+  "uv", "uv.lock", "vulnerabilities"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "anyio>=4.7.0",
+    "httpx>=0.28.1",
+    "humanize>=4.11.0",
+    "inflect>=7.4.0",
+    "orjson>=3.11.5",
+    "packaging>=25.0",
+    "pydantic[email]>=2.10.3",
+    "rich>=13.9.4",
+    "stamina>=25.1.0",
+    "tomli; python_version < '3.11'",
+    "typer>=0.15.1",
+]
+
+[project.optional-dependencies]
+faster-async = [
+    "winloop>=0.1.8; sys_platform == 'win32'",
+    "uvloop>=0.21.0; sys_platform != 'win32'"
+]
+
+[project.scripts]
+uv-secure = "uv_secure.run:app"
+
+[project.urls]
+Repository = "https://github.com/owenlamont/uv-secure"
+Releases = "https://github.com/owenlamont/uv-secure/releases"
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.9",
+    "freezegun>=1.5.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.2",
+    "pytest-cov>=6.0.0",
+    "pytest-httpx>=0.35.0",
+    "pytest-mock>=3.14.0",
+    "pytest-randomly>=4.0.1",
+    "pytest-xdist[psutil]>=3.8.0",
+]

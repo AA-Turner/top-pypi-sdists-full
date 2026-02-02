@@ -15,47 +15,46 @@ import pickle
 import random
 import sys
 import tempfile
-import unittest
-from operator import methodcaller
 
 import pytest
 
 from babel import Locale, UnknownLocaleError, localedata
 
 
-class MergeResolveTestCase(unittest.TestCase):
+def test_merge_items():
+    d = {1: 'foo', 3: 'baz'}
+    localedata.merge(d, {1: 'Foo', 2: 'Bar'})
+    assert d == {1: 'Foo', 2: 'Bar', 3: 'baz'}
 
-    def test_merge_items(self):
-        d = {1: 'foo', 3: 'baz'}
-        localedata.merge(d, {1: 'Foo', 2: 'Bar'})
-        assert d == {1: 'Foo', 2: 'Bar', 3: 'baz'}
 
-    def test_merge_nested_dict(self):
-        d1 = {'x': {'a': 1, 'b': 2, 'c': 3}}
-        d2 = {'x': {'a': 1, 'b': 12, 'd': 14}}
-        localedata.merge(d1, d2)
-        assert d1 == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}}
+def test_merge_nested_dict():
+    d1 = {'x': {'a': 1, 'b': 2, 'c': 3}}
+    d2 = {'x': {'a': 1, 'b': 12, 'd': 14}}
+    localedata.merge(d1, d2)
+    assert d1 == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}}
 
-    def test_merge_nested_dict_no_overlap(self):
-        d1 = {'x': {'a': 1, 'b': 2}}
-        d2 = {'y': {'a': 11, 'b': 12}}
-        localedata.merge(d1, d2)
-        assert d1 == {'x': {'a': 1, 'b': 2}, 'y': {'a': 11, 'b': 12}}
 
-    def test_merge_with_alias_and_resolve(self):
-        alias = localedata.Alias('x')
-        d1 = {
-            'x': {'a': 1, 'b': 2, 'c': 3},
-            'y': alias,
-        }
-        d2 = {
-            'x': {'a': 1, 'b': 12, 'd': 14},
-            'y': {'b': 22, 'e': 25},
-        }
-        localedata.merge(d1, d2)
-        assert d1 == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}, 'y': (alias, {'b': 22, 'e': 25})}
-        d = localedata.LocaleDataDict(d1)
-        assert dict(d.items()) == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}, 'y': {'a': 1, 'b': 22, 'c': 3, 'd': 14, 'e': 25}}
+def test_merge_nested_dict_no_overlap():
+    d1 = {'x': {'a': 1, 'b': 2}}
+    d2 = {'y': {'a': 11, 'b': 12}}
+    localedata.merge(d1, d2)
+    assert d1 == {'x': {'a': 1, 'b': 2}, 'y': {'a': 11, 'b': 12}}
+
+
+def test_merge_with_alias_and_resolve():
+    alias = localedata.Alias('x')
+    d1 = {
+        'x': {'a': 1, 'b': 2, 'c': 3},
+        'y': alias,
+    }
+    d2 = {
+        'x': {'a': 1, 'b': 12, 'd': 14},
+        'y': {'b': 22, 'e': 25},
+    }
+    localedata.merge(d1, d2)
+    assert d1 == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}, 'y': (alias, {'b': 22, 'e': 25})}
+    d = localedata.LocaleDataDict(d1)
+    assert dict(d.items()) == {'x': {'a': 1, 'b': 12, 'c': 3, 'd': 14}, 'y': {'a': 1, 'b': 22, 'c': 3, 'd': 14, 'e': 25}}
 
 
 def test_load():
@@ -94,14 +93,13 @@ def test_unique_ids():
     all_ids = localedata.locale_identifiers()
     assert len(all_ids) == len(set(all_ids))
     # Check locale IDs don't collide after lower-case normalization.
-    lower_case_ids = list(map(methodcaller('lower'), all_ids))
+    lower_case_ids = [id.lower() for id in all_ids]
     assert len(lower_case_ids) == len(set(lower_case_ids))
 
 
 def test_mixedcased_locale():
     for locale in localedata.locale_identifiers():
-        locale_id = ''.join([
-            methodcaller(random.choice(['lower', 'upper']))(c) for c in locale])
+        locale_id = ''.join(c.lower() if random.random() < 0.5 else c.upper() for c in locale)
         assert localedata.exists(locale_id)
 
 

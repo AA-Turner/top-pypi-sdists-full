@@ -1,0 +1,252 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+# Storing project metadata in pyproject.toml https://peps.python.org/pep-0621/
+name = "ucumvert"
+description = "Python parser & interface for UCUM (Unified Code for Units of Measure)."
+authors = [
+  # Authors sorted by number of commits
+  {name = "David Linke", email = "david.linke@catalysis.de"},
+]
+maintainers = [
+  {name = "David Linke", email = "david.linke@catalysis.de"},
+]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.11"
+
+keywords = ["UCUM", "units of measurement", "parser"]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+dependencies = [
+  "lark",
+  "pint>=0.25.0",
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://github.com/dalito/ucumvert"
+GitHub = "https://github.com/dalito/ucumvert"
+Changelog = "https://github.com/dalito/ucumvert/releases"
+
+[project.optional-dependencies]
+tests = [
+  "pytest",
+  "coverage",
+]
+lint = [
+  "ruff",
+]
+dev = [
+  "ucumvert[tests,lint]",
+  "openpyxl",
+  "pydot",
+]
+
+[project.scripts]
+ucumvert = "ucumvert.cli:run_cli_app"
+
+[tool.hatch.metadata]
+# Hatch disallows direct references for dependencies by default.
+# Enable them to allow installing dependencies from github repositories.
+# allow-direct-references = true
+
+# Build targets for hatch are defined as sections within tool.hatch.build.targets:
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+]
+[tool.hatch.build.targets.wheel]
+packages = ["src/ucumvert"]
+
+# integrates git-tag-based versions into hatch, https://github.com/ofek/hatch-vcs
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/ucumvert/_version.py"
+
+[tool.pytest.ini_options]
+# pytest configuration:
+# https://docs.pytest.org/en/stable/customize.html
+
+# Sets directories to be searched for tests. Useful when all project tests are
+# in a known location to speed up test collection and to avoid picking up
+# undesired tests by accident.
+testpaths = [
+  "tests",
+ ]
+
+# Directories that are not visited by pytest collector:
+norecursedirs = "dist build .tox .git .cache __pycache__ .venv"
+
+# Treat typos in function markers as an error (pytest)
+# --strict-markers
+# Raise an error instead of a warning for pytest related config issues (pytest)
+# --strict-config
+# Degree of detail of trace-backs (pytest)
+# --tb=short
+# Execute doctests in classes, functions, and test modules (pytest)
+# --doctest-modules
+addopts = "--strict-markers --strict-config --tb=short"
+
+[tool.coverage.run]
+# https://coverage.readthedocs.io/en/latest/config.html
+parallel = true
+branch = true
+source = ["ucumvert"]
+omit = [
+    "**/ucumvert/_version.py",
+]
+
+[tool.coverage.paths]
+# Specify where coverage schould look for source files.
+source = [
+    "src",
+    "**/site-packages", # for not using tox
+    # ".tox/**/site-packages",
+]
+
+[tool.coverage.report]
+# Show in report which lines are not covered
+show_missing = false
+# Any line of the source code that matches one of these regexes is excluded
+# from being reported as missing.
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "return NotImplemented",
+    "if __name__ == .__main__.:",
+]
+
+[tool.coverage.html]
+# Directory where to write the HTML report files.
+directory = ".htmlcov"
+title = "ucumvert coverage report"
+
+[tool.ruff]
+# https://docs.astral.sh/ruff/configuration/
+
+exclude = [
+    "__pycache__",
+    "*.egg",
+    ".*",
+]
+
+# Assume Python 3.9 syntax and semantics for linting.
+target-version = "py39"
+
+# Same as Black.
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+    "B905",  # zip() without an explicit strict= parameter set. (requires python >= 3.10)
+    "E501",  # line too long
+    "ISC001", # Conficts with ruff formatter
+]
+
+# Avoid trying to fix these violations
+unfixable = [
+    "B",  # flake8-bugbear
+]
+# Rule selection https://docs.astral.sh/ruff/rules/
+select = [
+    # sort order as in ruff docs
+    "F",   # Pyflakes
+    "E",   # pycodestyle (errors)
+    "W",   # pycodestyle (warnings)
+    "C90", # mccabe
+    "I",   # isort
+    "N",   # pep8-naming
+    # "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "YTT", # flake8-2020
+    # flake8-annotations (ANN)
+    # flake8-async (ASYNC)
+    # flake8-trio (TRIO)
+    "S",   # flake8-bandit
+    "BLE", # flake8-blind-except
+    "FBT", # flake8-boolean-trap
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    # flake8-commas (COM)
+    # flake8-copyright (CPY)
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    # "DJ",  # flake8-django
+    "EM",  # flake8-errmsg
+    # flake8-executable (EXE)
+    "FA",  # flake8-future-annotations
+    "ISC", # flake8-implicit-str-concat
+    # flake8-import-conventions (ICN)
+    "G",   # flake8-logging-format
+    # flake8-no-pep420 (INP)
+    "PIE", # flake8-pie
+    # "T20", # flake8-print
+    # flake8-pyi (PYI)
+    "PT",  # flake8-pytest-style
+    "Q",   # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SLOT",# flake8-slots
+    "SIM", # flake8-simplify
+    # flake8-tidy-imports (TID)
+    # "TCH", # flake8-type-checking
+    "INT", # flake8-gettext
+    "ARG", # flake8-unused-arguments (ARG)
+    "PTH", # flake8-use-pathlib (PTH)
+    # "TD",  # flake8-todos
+    # "FIX", # flake8-fixme
+    # "ERA", # eradicate - commented out code
+    # "PD",  #pandas-vet
+    "PGH", # pygrep-hooks
+    "PL",  # whole Pylint (Convention, Error, Refactor, Warning)
+    "TRY", # tryceratops (TRY)
+    "FLY", # flynt
+    # "NPY" , # NumPy-specific rules
+    # Airflow (AIR)
+    "PERF", # Perflint
+    "FURB", # refurb
+    "LOG", # flake8-logging
+    "RUF", # Ruff-specific rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = [
+  "S101",   # assert in tests is OK
+]
+
+[tool.ruff.lint.mccabe]
+# Flake8-mccabe uses a default level of 7, ruff of 10.
+max-complexity = 10
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
+[tool.codespell]
+skip = "pyproject.toml,src/ucumvert/vendor/ucum-essence.xml,src/ucumvert/vendor/ucum_examples.tsv,src/ucumvert/ucum_grammar.lark,src/ucumvert/pint_ucum_defs_mapping_report.txt"
+# Note: words have to be lowercased for the ignore-words-list
+ignore-words-list = "linke,tne,sie,smoot"
+quiet-level = 3

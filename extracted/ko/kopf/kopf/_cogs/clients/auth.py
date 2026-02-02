@@ -1,9 +1,5 @@
-import base64
 import functools
-import os
-import ssl
-import tempfile
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any, TypeVar, cast
 
@@ -68,7 +64,7 @@ class APIContext:
     """
     A container for an aiohttp session and the caches of the environment info.
 
-    The container is constructed only once for every :class:`ConnectionInfo`,
+    The container is constructed only once for every :class:`KubeContext`,
     and then cached for later re-use (see :meth:`Vault.extended`).
 
     We assume that the whole operator runs in the same event loop, so there is
@@ -87,102 +83,37 @@ class APIContext:
     # List of open responses.
     responses: list[aiohttp.ClientResponse]
 
-    # Temporary caches of the information retrieved for and from the environment.
-    _tempfiles: "_TempFiles"
-
     def __init__(
             self,
-            info: credentials.ConnectionInfo,
+            info: credentials.KubeContext,
     ) -> None:
         super().__init__()
 
-        # Some SSL data are not accepted directly, so we have to use temp files.
-        tempfiles = _TempFiles()
-        ca_path: str | None
-        certificate_path: str | None
-        private_key_path: str | None
-
-        if info.ca_path and info.ca_data:
-            raise credentials.LoginError("Both CA path & data are set. Need only one.")
-        elif info.ca_path:
-            ca_path = info.ca_path
-        elif info.ca_data:
-            ca_path = tempfiles[base64.b64decode(info.ca_data)]
-        else:
-            ca_path = None
-
-        if info.certificate_path and info.certificate_data:
-            raise credentials.LoginError("Both certificate path & data are set. Need only one.")
-        elif info.certificate_path:
-            certificate_path = info.certificate_path
-        elif info.certificate_data:
-            certificate_path = tempfiles[base64.b64decode(info.certificate_data)]
-        else:
-            certificate_path = None
-
-        if info.private_key_path and info.private_key_data:
-            raise credentials.LoginError("Both private key path & data are set. Need only one.")
-        elif info.private_key_path:
-            private_key_path = info.private_key_path
-        elif info.private_key_data:
-            private_key_path = tempfiles[base64.b64decode(info.private_key_data)]
-        else:
-            private_key_path = None
-
-        # The SSL part (both client certificate auth and CA verification).
-        context: ssl.SSLContext
-        if certificate_path and private_key_path:
-            context = ssl.create_default_context(
-                purpose=ssl.Purpose.SERVER_AUTH,
-                cafile=ca_path)
-            context.load_cert_chain(
-                certfile=certificate_path,
-                keyfile=private_key_path)
-        else:
-            context = ssl.create_default_context(
-                cafile=ca_path)
-
-        if info.insecure:
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-
-        # The token auth part.
-        headers: dict[str, str] = {}
-        if info.scheme and info.token:
-            headers['Authorization'] = f'{info.scheme} {info.token}'
-        elif info.scheme:
-            headers['Authorization'] = f'{info.scheme}'
-        elif info.token:
-            headers['Authorization'] = f'Bearer {info.token}'
-
-        # The basic auth part.
-        auth: aiohttp.BasicAuth | None
-        if info.username and info.password:
-            auth = aiohttp.BasicAuth(info.username, info.password)
-        else:
-            auth = None
-
-        # It is a good practice to self-identify a bit.
-        headers['User-Agent'] = f'kopf/{versions.version or "unknown"}'
-
         # Generic aiohttp session based on the constructed credentials.
-        self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(
-                limit=0,
-                ssl=context,
-            ),
-            headers=headers,
-            auth=auth,
-        )
+        match info:
+            case credentials.ConnectionInfo():
+                self.session = aiohttp.ClientSession(
+                    connector=aiohttp.TCPConnector(
+                        limit=0,
+                        ssl=info.as_ssl_context(),
+                    ),
+                    headers=info.as_http_headers(),
+                    auth=info.as_aiohttp_basic_auth(),
+                )
+            case credentials.AiohttpSession():
+                self.session = info.aiohttp_session
+            case _:
+                raise TypeError(f"Unsupported credentials type: {info!r}")
+
+        # It is a good practice to self-identify a bit, even with a user-provided session.
+        if self.session.headers.get('User-Agent') is None:
+            self.session.headers['User-Agent'] = f'kopf/{versions.version or "unknown"}'
 
         # Add the extra payload information. We avoid overriding the constructor.
         self.server = info.server
         self.default_namespace = info.default_namespace
 
         self.responses = []
-
-        # For purging on garbage collection.
-        self._tempfiles = tempfiles
 
     def flush_closed_responses(self) -> None:
         # There's no point keeping references to already closed responses.
@@ -208,46 +139,3 @@ class APIContext:
 
         # Closing is triggered by `Vault._flush_caches()` -- forward it to the actual session.
         await self.session.close()
-
-        # Additionally, explicitly remove any temporary files we have created.
-        # They will be purged on garbage collection anyway, but it is better to make it sooner.
-        self._tempfiles.purge()
-
-
-class _TempFiles(Mapping[bytes, str]):
-    """
-    A container for the temporary files, which are purged on garbage collection.
-
-    The files are purged when the container is garbage-collected.
-    The container is garbage-collected when its parent :class:`APISession`
-    is garbage-collected or explicitly closed
-    (e.g., by :class:`Vault` on removal of corresponding credentials).
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._paths: dict[bytes, str] = {}
-
-    def __del__(self) -> None:
-        self.purge()
-
-    def __len__(self) -> int:
-        return len(self._paths)
-
-    def __iter__(self) -> Iterator[bytes]:
-        return iter(self._paths)
-
-    def __getitem__(self, item: bytes) -> str:
-        if item not in self._paths:
-            with tempfile.NamedTemporaryFile(delete=False) as f:
-                f.write(item)
-            self._paths[item] = f.name
-        return self._paths[item]
-
-    def purge(self) -> None:
-        for _, path in self._paths.items():
-            try:
-                os.remove(path)
-            except OSError:
-                pass  # already removed
-        self._paths.clear()

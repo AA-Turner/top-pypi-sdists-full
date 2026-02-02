@@ -1,0 +1,42 @@
+#
+# https://github.com/wntrblm/nox/
+# Documentation: https://nox.thea.codes/
+#
+import nox
+from nox.sessions import Session
+
+
+PYTHON_VERSIONS = ('3.13', '3.12', '3.11')  # TODO: Add v3.14 https://github.com/boxine/bx_django_utils/issues/202
+DJANGO_VERSIONS = ('5.2', '5.1', '4.2')  # TODO: Add v6.x https://github.com/boxine/bx_django_utils/issues/201
+
+
+@nox.session(
+    python=PYTHON_VERSIONS,
+    venv_backend='uv',
+    download_python='auto',
+)
+@nox.parametrize('django', DJANGO_VERSIONS)
+def tests(session: Session, django: str):
+    session.install('uv')
+    session.run(
+        'uv',
+        'sync',
+        '--all-extras',
+        '--python',
+        session.python,
+        env={'UV_PROJECT_ENVIRONMENT': session.virtualenv.location},
+    )
+    session.run(
+        'uv',
+        'pip',
+        'install',
+        f'django~={django}',
+        env={'UV_PROJECT_ENVIRONMENT': session.virtualenv.location},
+    )
+    session.run('python', '-m', 'coverage', 'run', '--context', f'py{session.python}-django{django}')
+
+
+@nox.session
+def lint(session: Session):
+    session.install('flake8', 'flake8-bugbear')
+    session.run('flake8', '.')

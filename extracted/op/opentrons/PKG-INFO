@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: opentrons
+Version: 8.8.1
+Summary: The Opentrons API is a simple framework designed to make writing automated biology lab protocols easy.
+Project-URL: opentrons.com, https://www.opentrons.com
+Project-URL: Source Code On Github, https://github.com/Opentrons/opentrons/tree/edge/api
+Project-URL: Documentation, https://docs.opentrons.com
+Author-email: Opentrons <engineering@opentrons.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: automation,lab,pcr,protocols,robots,synbio
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.10
+Requires-Dist: aionotify==0.3.1
+Requires-Dist: anyio<5.0.0,>=4.9.0
+Requires-Dist: click<9,>=8.0.0
+Requires-Dist: importlib-metadata>=1.0; python_version < '3.8'
+Requires-Dist: jsonschema<4.18.0,>=3.0.1
+Requires-Dist: numpy<2,>=1.20.0
+Requires-Dist: opentrons-shared-data==8.8.1
+Requires-Dist: packaging>=21.0
+Requires-Dist: pydantic-settings<3,>=2
+Requires-Dist: pydantic<3,>=2.0.0
+Requires-Dist: pyserial>=3.5
+Requires-Dist: pyusb==1.2.1
+Requires-Dist: typing-extensions<5,>=4.0.0
+Provides-Extra: flex-hardware
+Requires-Dist: opentrons-hardware[flex]==8.8.1; extra == 'flex-hardware'
+Provides-Extra: ot2-hardware
+Requires-Dist: opentrons-hardware==8.8.1; extra == 'ot2-hardware'

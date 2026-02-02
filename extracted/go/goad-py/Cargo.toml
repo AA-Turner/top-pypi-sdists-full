@@ -1,0 +1,60 @@
+[package]
+    name = "goad"
+    version = "1.1.9"
+    edition = "2021"
+    license = "GPL-3.0"
+    description = "Compute the single scattering properties of particles much larger than the wavelength of light with geometric optics and aperture diffraction theory."
+    default-run = "goad"
+readme = "README.md"
+
+[dependencies]
+    anyhow = "1.0.95"
+    chrono = "0.4.42"
+    clap = { version = "4.5.27", features = ["derive"] }
+    config = "0.15.7"
+    crossbeam-deque = "0.8"
+    env_logger = "0.11.8"
+    geo = "0.32"
+    geo-types = "0.7.14"
+    indicatif = "0.17.9"
+    itertools = "0.14.0"
+    log = "0.4.29"
+    nalgebra = { version = "0.33.2", features = ["serde"] }
+    ndarray = "0.15"
+    num-complex = { version = "0.4.6", features = ["serde"] }
+    numpy = "0.27.0"
+    pyo3 = { version = "0.27.1"}
+    pyo3-stub-gen = { version = "0.17", optional = true }
+    rand = "0.9.0"
+    rand_distr = "0.5.1"
+    sobol_burley = "0.5"
+    rayon = "1.10.0"
+    serde = { version = "1.0.217", features = ["derive"] }
+    serde_json = "1.0.140"
+    tobj = "4.0.2"
+    toml = "0.8.19"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tikv-jemallocator = "0.6"
+
+[dev-dependencies]
+plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "line_series", "point_series", "ttf"] }
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+stub-gen = ["pyo3-stub-gen"]
+visualization = []
+
+[lib]
+name = "goad"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "stub_gen"
+doc = false
+required-features = ["stub-gen"]
+
+[[example]]
+name = "backscattering"
+path = "examples/backscattering/main.rs"

@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: sqlescapy
+Version: 1.0.1
+Summary: Python module to escape SQL special characters and quotes in strings
+Home-page: https://github.com/elouajib/sqlescapy
+Author: Imad ElOuajib
+Author-email: elouajib.im@gmail.com
+License: UNKNOWN
+Description: Python module to escape SQL special characters and quotes in strings
+        
+        install:
+        `pip install sqlescapy`
+        
+        Assuming `dangerous_input` is a variable coming from a user input, a bad actor can exploit it to start injecting your database.
+        ```python
+        from sqlescapy import sqlescape
+        
+        dangerous_input = "JhonWick'"
+        
+        protected_raw_statement = "\"foo_table\".username='%s'" % sqlescape(dangerous_input)
+        
+        protected_query = """
+        
+        SELECT "foo_table".*, "bar_table".*
+        FROM "foo_table", "bar_table"
+        WHERE "foo_table".id = "bar_table".id
+              AND %s
+        """ % protected_raw_statement
+        
+        ```
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=2.7
+Description-Content-Type: text/markdown

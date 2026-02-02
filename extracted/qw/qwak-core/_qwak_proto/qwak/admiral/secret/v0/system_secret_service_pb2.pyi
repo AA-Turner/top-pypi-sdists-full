@@ -5,6 +5,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import qwak.admiral.secret.v0.account_secret_pb2
 import qwak.admiral.secret.v0.secret_pb2
 import sys
 
@@ -99,3 +100,85 @@ class GetSystemSecretResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["secret_definition", b"secret_definition"]) -> None: ...
 
 global___GetSystemSecretResponse = GetSystemSecretResponse
+
+class SetAccountSystemSecretRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SPEC_FIELD_NUMBER: builtins.int
+    @property
+    def spec(self) -> qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretSpec: ...
+    def __init__(
+        self,
+        *,
+        spec: qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretSpec | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["spec", b"spec"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["spec", b"spec"]) -> None: ...
+
+global___SetAccountSystemSecretRequest = SetAccountSystemSecretRequest
+
+class SetAccountSystemSecretResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___SetAccountSystemSecretResponse = SetAccountSystemSecretResponse
+
+class GetAccountSystemSecretRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
+    @property
+    def account_identifier(self) -> qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretIdentifier: ...
+    def __init__(
+        self,
+        *,
+        account_identifier: qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretIdentifier | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["account_identifier", b"account_identifier"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_identifier", b"account_identifier"]) -> None: ...
+
+global___GetAccountSystemSecretRequest = GetAccountSystemSecretRequest
+
+class GetAccountSystemSecretResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ACCOUNT_SECRET_DEFINITION_FIELD_NUMBER: builtins.int
+    @property
+    def account_secret_definition(self) -> qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretDefinition: ...
+    def __init__(
+        self,
+        *,
+        account_secret_definition: qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretDefinition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["account_secret_definition", b"account_secret_definition"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_secret_definition", b"account_secret_definition"]) -> None: ...
+
+global___GetAccountSystemSecretResponse = GetAccountSystemSecretResponse
+
+class DeleteAccountSystemSecretRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
+    @property
+    def account_identifier(self) -> qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretIdentifier: ...
+    def __init__(
+        self,
+        *,
+        account_identifier: qwak.admiral.secret.v0.account_secret_pb2.AccountSystemSecretIdentifier | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["account_identifier", b"account_identifier"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_identifier", b"account_identifier"]) -> None: ...
+
+global___DeleteAccountSystemSecretRequest = DeleteAccountSystemSecretRequest
+
+class DeleteAccountSystemSecretResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___DeleteAccountSystemSecretResponse = DeleteAccountSystemSecretResponse

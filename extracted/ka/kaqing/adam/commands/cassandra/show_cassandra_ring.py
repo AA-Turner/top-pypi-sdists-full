@@ -3,12 +3,14 @@ import re
 from adam.commands import extract_trailing_options, validate_args
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra
+from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class ShowCassandraRing(Command):
-    COMMAND = 'show cassandra ring'
+    COMMAND = 'show tokens'
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -29,7 +31,7 @@ class ShowCassandraRing(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        with self.validate(args, state) as (args, state):
+        with self.validate(args, state, apply=False) as (args, state):
             with extract_trailing_options(args, '&') as (args, background):
                 with validate_args(args, state, name='Cassandra Node IP'):
                     ip = args[0]
@@ -39,7 +41,7 @@ class ShowCassandraRing(Command):
                         if isinstance(r, list):
                             r = r[0]
 
-                        ring = parse_nodetool_ring(r.stdout)
+                        ring = NodeTools.parse_nodetool_ring(r.stdout)
 
                         lines : dict[str, set] = {}
 
@@ -75,38 +77,38 @@ class ShowCassandraRing(Command):
                         return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None})
+        return super().completion(state, lambda: {p: {'-s': {'&': None}, '&': None} for p in StatefulSets.pod_names(state.sts, state.namespace)})
 
     def help(self, state: ReplState):
         return super().help(state, 'show Cassandra tokens', args='[&]')
 
-def parse_nodetool_ring(stdout: str):
-    # Datacenter: cs-a7b13e29bd
-    # ==========
-    # Address           Rack        Status State   Load            Owns                Token
-    #                                                                                 9092166997895998344
-    # 172.18.7.7        default     Up     Normal  8.32 MiB        ?                   -9051871175443108837
-    nodes: list[dict] = []
+# def parse_nodetool_ring(stdout: str):
+#     # Datacenter: cs-a7b13e29bd
+#     # ==========
+#     # Address           Rack        Status State   Load            Owns                Token
+#     #                                                                                 9092166997895998344
+#     # 172.18.7.7        default     Up     Normal  8.32 MiB        ?                   -9051871175443108837
+#     nodes: list[dict] = []
 
-    s = 0
-    for line in stdout.splitlines():
-        if s == 0:
-            if line.startswith('Address'):
-                s = 1
-        elif s == 1:
-            nodes.append({'address': None, 'token': line.strip(' ')})
-            s = 2
-        elif s == 2:
-            groups = re.match(r"(\S*)\s+(\S*)\s+(\S*)\s+(\S*)\s+(.*B)\s+(\S*)\s+(\S*)", line)
-            if groups:
-                nodes.append({
-                    'address': groups[1],
-                    'rack': groups[2],
-                    'status': groups[3],
-                    'state': groups[4],
-                    'load': groups[5],
-                    'owns': groups[6],
-                    'token': groups[7]
-                })
+#     s = 0
+#     for line in stdout.splitlines():
+#         if s == 0:
+#             if line.startswith('Address'):
+#                 s = 1
+#         elif s == 1:
+#             nodes.append({'address': None, 'token': line.strip(' ')})
+#             s = 2
+#         elif s == 2:
+#             groups = re.match(r"(\S*)\s+(\S*)\s+(\S*)\s+(\S*)\s+(.*B)\s+(\S*)\s+(\S*)", line)
+#             if groups:
+#                 nodes.append({
+#                     'address': groups[1],
+#                     'rack': groups[2],
+#                     'status': groups[3],
+#                     'state': groups[4],
+#                     'load': groups[5],
+#                     'owns': groups[6],
+#                     'token': groups[7]
+#                 })
 
-    return nodes
+#     return nodes

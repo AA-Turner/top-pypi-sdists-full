@@ -1,0 +1,92 @@
+Metadata-Version: 2.4
+Name: django-sendfile2
+Version: 0.7.2
+Summary: Abstraction to offload file uploads to web-server (e.g. Apache with mod_xsendfile) once Django has checked permissions etc.
+Home-page: https://codeberg.org/moggers87/django-sendfile2
+Author: Matt Molyneaux
+Author-email: moggers87+git@moggers87.co.uk
+License: BSD
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE
+Requires-Dist: django
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+=================
+Django Sendfile 2
+=================
+
+.. image:: https://readthedocs.org/projects/django-sendfile2/badge/?version=latest
+   :target: https://django-sendfile2.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. inclusion-marker-do-not-remove-start
+
+This is a wrapper around web-server specific methods for sending files to web
+clients.  This is useful when Django needs to check permissions associated
+files, but does not want to serve the actual bytes of the file itself.  i.e. as
+serving large files is not what Django is made for.
+
+Note this should not be used for regular file serving (e.g. CSS etc), only for
+cases where you need Django to do some work before serving the actual file.
+
+- Download: https://pypi.org/project/django-sendfile2/
+- Source: https://codeberg.org/moggers87/django-sendfile2
+- Documentation: https://django-sendfile2.readthedocs.io/
+
+Supported Python Versions
+=========================
+
+Python 3.9, 3.10, 3.11, 3.12, and 3.13 are currently supported by this library.
+
+Supported Django Versions
+=========================
+
+Django 4.2, 5.0, 5.1, and 5.2 are currently supported by this library.
+
+Fork
+====
+
+This project is a fork of `django-sendfile
+<https://github.com/johnsensible/django-sendfile>`_. The original project
+appears mostly dead and has a number of outstanding bugs (especially with
+Python 3).
+
+Funding
+=======
+
+If you have found django-sendfile2 to be useful and would like to see its continued
+development, please consider `buying me a coffee
+<https://ko-fi.com/moggers87>`_.
+
+.. inclusion-marker-do-not-remove-end

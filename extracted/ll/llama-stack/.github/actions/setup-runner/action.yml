@@ -1,0 +1,62 @@
+name: Setup runner
+description: Prepare a runner for the tests (install uv, python, project dependencies, etc.)
+inputs:
+  python-version:
+    description: The Python version to use
+    required: false
+    default: "3.12"
+  client-version:
+    description: The llama-stack-client-python version to test against (latest or published)
+    required: false
+    default: "latest"
+  sdk_install_url:
+    description: 'URL to install Python SDK from (for testing preview builds). If provided, overrides client-version.'
+    required: false
+    default: ""
+  branch:
+    description: 'Explicit branch override (used by scheduled CI to pass the matrix branch)'
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Configure client installation
+      id: client-config
+      uses: ./.github/actions/install-llama-stack-client
+      with:
+        client-version: ${{ inputs.client-version }}
+        sdk_install_url: ${{ inputs.sdk_install_url }}
+        branch: ${{ inputs.branch }}
+
+    - name: Install dependencies
+      shell: bash
+      env:
+        UV_EXTRA_INDEX_URL: ${{ steps.client-config.outputs.uv-extra-index-url }}
+      run: |
+        # Export UV env vars for current step and persist to GITHUB_ENV for subsequent steps
+        if [ -n "$UV_EXTRA_INDEX_URL" ]; then
+          export UV_INDEX_STRATEGY=unsafe-best-match
+          echo "UV_EXTRA_INDEX_URL=$UV_EXTRA_INDEX_URL" >> $GITHUB_ENV
+          echo "UV_INDEX_STRATEGY=$UV_INDEX_STRATEGY" >> $GITHUB_ENV
+          echo "Exported UV environment variables for current and subsequent steps"
+        fi
+
+        echo "Updating project dependencies via uv sync"
+        uv sync --all-groups
+
+        echo "Installing ad-hoc dependencies"
+        uv pip install faiss-cpu
+
+        # Install specific client version after sync if needed
+        if [ "${{ steps.client-config.outputs.install-after-sync }}" = "true" ]; then
+          echo "Installing llama-stack-client from: ${{ steps.client-config.outputs.install-source }}"
+          uv pip install ${{ steps.client-config.outputs.install-source }}
+        fi
+
+        echo "Installed llama packages"
+        uv pip list | grep llama

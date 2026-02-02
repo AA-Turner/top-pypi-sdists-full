@@ -1,0 +1,101 @@
+name:  Build and Test C++, Javascript, and Python
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+concurrency:
+  # SHA is added to the end if on `main` to let all main workflows run
+  group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}-${{ (github.ref == 'refs/heads/main') && github.sha || '' }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Collect coverage data
+        run: |
+          sudo apt-get update
+          sudo apt-get install lcov -y
+          sudo apt-get install snap -y
+          sudo snap install cmake --classic
+          hash -r
+          cmake -B ../build -DCMAKE_BUILD_TYPE=Debug -DWITH_COVERAGE=1 -DBUILD_BLS_PYTHON_BINDINGS=0 -DBUILD_BLS_BENCHMARKS=0
+          cmake --build ../build -- -j 6
+          ../build/src/runtest
+          lcov --directory ../build --capture --output-file lcov.info
+          lcov --remove lcov.info '*_deps/*' '/usr/*' --output-file lcov.info
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        if: always()
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        with:
+          path-to-lcov: './lcov.info'
+
+  build_wheels:
+    name: Build and Test on ${{ matrix.os }} CPython ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - uses: chia-network/actions/setup-python@main
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Ubuntu build C++ and test with valgrind
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install valgrind -y
+        sudo apt-get install snap -y
+        sudo apt-get remove --purge cmake -y
+        sudo snap install cmake --classic
+        hash -r
+        cmake --version
+        mkdir -p build
+        cd build
+        cmake ../
+        cmake --build . -- -j 6
+        echo "Running ./src/runtest"
+        ./src/runtest
+        valgrind --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all  ./src/runtest
+
+    - name: Mac OS build C++ and test
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        export MACOSX_DEPLOYMENT_TARGET=11
+        mkdir -p build
+        cd build
+        cmake ../
+        cmake --build . -- -j 6
+        echo "Running ./src/runtest"
+        ./src/runtest
+
+    - name: Test pure python implementation
+      run: |
+        python python-impl/impl-test.py
+
+    - name: Install emsdk
+      uses: mymindstorm/setup-emsdk@v12
+
+    - name: Test javascript bindings
+      run: |
+        emcc -v
+        sh emsdk_build.sh
+        sh js_test.sh

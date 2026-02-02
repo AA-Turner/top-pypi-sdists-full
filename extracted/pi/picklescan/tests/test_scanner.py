@@ -287,7 +287,9 @@ def test_scan_file_path():
     malicious10 = ScanResult([Global("__builtin__", "exec", SafetyLevel.Dangerous)], 1, 1, 1)
     compare_scan_results(scan_file_path(f"{_root_path}/data/malicious10.pkl"), malicious10)
 
-    bad_pytorch = ScanResult([], 0, 0, 0, True)
+    # bad_pytorch.pt is a PNG file with .pt extension - scanner should recognize it's not a valid pickle
+    # and report it as scanned (scanned_files=1) but without errors (scan_err=False) since no threats were found
+    bad_pytorch = ScanResult([], 1, 0, 0, False)
     compare_scan_results(scan_file_path(f"{_root_path}/data/bad_pytorch.pt"), bad_pytorch)
 
     malicious14 = ScanResult([Global("runpy", "_run_code", SafetyLevel.Dangerous)], 1, 1, 1)
@@ -395,6 +397,22 @@ def test_scan_file_path():
     )
     assert_scan("io_FileIO.pkl", [Global("_io", "FileIO", SafetyLevel.Dangerous)])
     assert_scan("urllib_request_urlopen.pkl", [Global("urllib.request", "urlopen", SafetyLevel.Dangerous)])
+    # logging.FileHandler can create arbitrary files on the filesystem
+    assert_scan("logging_FileHandler.pkl", [Global("logging", "FileHandler", SafetyLevel.Dangerous)])
+    # types.CodeType can construct arbitrary code objects for execution
+    assert_scan("types_CodeType.pkl", [Global("types", "CodeType", SafetyLevel.Dangerous)])
+    # cloudpickle uses _make_function and _builtin_type with CodeType to reconstruct arbitrary callables
+    assert_scan(
+        "cloudpickle_codeinjection.pkl",
+        [
+            Global("cloudpickle.cloudpickle", "_function_setstate", SafetyLevel.Dangerous),
+            Global("cloudpickle.cloudpickle", "_builtin_type", SafetyLevel.Dangerous),
+            Global("cloudpickle.cloudpickle", "_make_function", SafetyLevel.Dangerous),
+            Global("cloudpickle.cloudpickle", "_make_cell", SafetyLevel.Dangerous),
+            Global("cloudpickle.cloudpickle", "_make_empty_cell", SafetyLevel.Dangerous),
+            Global("cloudpickle.cloudpickle", "subimport", SafetyLevel.Dangerous),
+        ],
+    )
 
 
 def test_scan_file_path_npz():
@@ -508,9 +526,11 @@ def test_scan_directory_path():
             Global("builtins", "eval", SafetyLevel.Dangerous),
             Global("builtins", "eval", SafetyLevel.Dangerous),
         ],
-        scanned_files=42,
+        scanned_files=44,
         issues_count=43,
         infected_files=37,
+        # scan_err=True because some files (broken_model.pkl, malicious-invalid-bytes.pkl) have partial parsing errors
+        scan_err=True,
     )
     compare_scan_results(scan_directory_path(f"{_root_path}/data/"), sr)
 
@@ -556,3 +576,13 @@ def test_invalid_bytes_err():
             scan_pickle_bytes(file, f"{_root_path}/data/malicious-invalid-bytes.pkl"),
             malicious_invalid_bytes,
         )
+
+
+def test_not_a_pickle_file():
+    """Test scanning a binary file that starts with pickle GLOBAL opcode but has invalid UTF-8.
+    This reproduces the 'utf-8' codec can't decode byte error seen with files like vitpose_h_wholebody_data.bin.
+    The scanner should handle this gracefully: file is scanned, no threats found, no error.
+    """
+    # File is not a valid pickle, but scanner should not error - just report no threats
+    not_a_pickle = ScanResult([], scanned_files=1, issues_count=0, infected_files=0, scan_err=False)
+    compare_scan_results(scan_file_path(f"{_root_path}/data/not_a_pickle.bin"), not_a_pickle)

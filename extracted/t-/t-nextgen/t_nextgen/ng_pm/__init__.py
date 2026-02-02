@@ -1,1 +1,0 @@
-"""NextGen Practice Management package."""

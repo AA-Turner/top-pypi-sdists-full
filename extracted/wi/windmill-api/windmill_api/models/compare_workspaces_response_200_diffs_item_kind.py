@@ -5,6 +5,7 @@ class CompareWorkspacesResponse200DiffsItemKind(str, Enum):
     APP = "app"
     FLOW = "flow"
     RESOURCE = "resource"
+    RESOURCE_TYPE = "resource_type"
     SCRIPT = "script"
     VARIABLE = "variable"
 

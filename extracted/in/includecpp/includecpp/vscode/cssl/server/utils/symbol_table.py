@@ -137,10 +137,24 @@ class SymbolTable:
         return [s for s in self.get_all_symbols_flat() if s.kind == SymbolKind.SHARED]
 
     def mark_symbol_used(self, name: str) -> None:
-        """Mark a symbol as used."""
+        """Mark a symbol as used, searching all scopes (including children)."""
+        # Search current scope and parents
         symbol = self.get_symbol(name)
         if symbol:
             symbol.is_used = True
+            return
+        # Search child scopes (for symbols declared in functions, blocks, etc.)
+        self._mark_used_in_children(name)
+
+    def _mark_used_in_children(self, name: str) -> bool:
+        """Recursively search child scopes to mark a symbol as used."""
+        for scope in self.scopes.values():
+            if name in scope.symbols:
+                scope.symbols[name].is_used = True
+                return True
+            if scope._mark_used_in_children(name):
+                return True
+        return False
 
     def get_unused_symbols(self) -> List[Symbol]:
         """Get all symbols that were declared but never used."""

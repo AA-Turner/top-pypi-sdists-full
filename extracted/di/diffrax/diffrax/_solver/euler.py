@@ -1,6 +1,5 @@
 from collections.abc import Callable
-from typing import ClassVar
-from typing_extensions import TypeAlias
+from typing import ClassVar, TypeAlias
 
 from equinox.internal import ω
 
@@ -25,9 +24,9 @@ class Euler(AbstractItoSolver):
     """
 
     term_structure: ClassVar = AbstractTerm
-    interpolation_cls: ClassVar[
-        Callable[..., LocalLinearInterpolation]
-    ] = LocalLinearInterpolation
+    interpolation_cls: ClassVar[Callable[..., LocalLinearInterpolation]] = (
+        LocalLinearInterpolation
+    )
 
     def order(self, terms):
         return 1
@@ -69,3 +68,6 @@ class Euler(AbstractItoSolver):
         args: Args,
     ) -> VF:
         return terms.vf(t0, y0, args)
+
+
+Euler.__init__.__doc__ = """**Arguments:** None"""

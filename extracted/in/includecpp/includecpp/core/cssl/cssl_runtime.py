@@ -29,6 +29,20 @@ from .cssl_types import (
 _custom_filters: Dict[str, Callable[[Any, Any, Any], Any]] = {}
 
 
+class _PositionedValue:
+    """Internal wrapper for positional injection modifiers.
+
+    When a [position::begin/end/at=N] filter is used, the filtered value
+    is wrapped in this class so the injection handler knows WHERE to place it.
+    """
+    __slots__ = ('value', 'position', 'index')
+
+    def __init__(self, value: Any, position: str, index: int = None):
+        self.value = value
+        self.position = position  # 'begin', 'end', 'at'
+        self.index = index
+
+
 def register_filter(filter_type: str, helper: str, callback: Callable[[Any, Any, Any], Any]) -> None:
     """Register a custom filter.
 
@@ -401,6 +415,10 @@ class CSSLRuntime:
         self._promoted_globals: Dict[str, Any] = {}  # NEW: Variables promoted via global()
         self._current_instance: Optional[CSSLInstance] = None  # Current class instance for this-> access
         self._var_meta: Dict[str, Dict[str, bool]] = {}  # v4.9.4: Track local/static/freezed modifiers
+        self._function_scopes: Dict[str, Dict[str, Any]] = {}  # v4.9.9: Store last-run scope for copies memory
+        self._copied_memory: Dict[str, Dict[str, Any]] = {}  # v4.9.9: Copied memory from other functions
+        self._copies_memory_allowed: set = set()  # v4.9.9: Which functions the current context can access via ::
+        self._overwrites_memory_allowed: set = set()  # v4.9.9: Which functions the current context can write back to via ::
         self._running = False
         self._exit_code = 0
         self._output_callback = output_callback  # Callback for console output (text, level)
@@ -716,6 +734,10 @@ class CSSLRuntime:
                 ns_def = self._exec_namespace(child)
                 if ns_def:
                     service.namespaces[ns_name] = ns_def
+            else:
+                # Execute other statements (expression calls like payload(), assignments, etc.)
+                # This allows program-type files loaded via include() to run their setup code
+                self._execute_node(child)
 
         return service
 
@@ -1097,6 +1119,13 @@ class CSSLRuntime:
         else:
             # Regular enum - just register it
             enum_obj = new_values
+            # v4.9.9: Support 'enum this->EnumName' for class member enums
+            this_ref = enum_info.get('this_ref', False)
+            if this_ref and self._current_instance is not None:
+                if hasattr(self._current_instance, 'set_member'):
+                    self._current_instance.set_member(enum_name, enum_obj)
+                else:
+                    setattr(self._current_instance, enum_name, enum_obj)
             self.scope.set(enum_name, enum_obj)
             self.global_scope.set(enum_name, enum_obj)
 
@@ -2442,6 +2471,22 @@ class CSSLRuntime:
                     self.builtins._functions[ref_class] = make_wrapper(replacement_node, self)
                 return
 
+            # v4.9.7: Handle embedded variable overwrite (&varName)
+            # When target is a plain variable (not function/class/builtin),
+            # execute the embedded function and replace the variable with its return value
+            if target_class is not None and not is_cssl_class and not callable(target_class) and not is_cssl_function:
+                # Mark as applied BEFORE calling to prevent infinite recursion
+                replacement_node.value['_target_applied'] = True
+                # Execute the replacement function immediately and store result
+                try:
+                    result = self._call_function(replacement_node, [])
+                    self.scope.set(ref_class, result)
+                    self.global_scope.set(ref_class, result)
+                except CSSLReturn as ret:
+                    self.scope.set(ref_class, ret.value)
+                    self.global_scope.set(ref_class, ret.value)
+                return
+
         if target_class is None:
             return
 
@@ -2898,6 +2943,58 @@ class CSSLRuntime:
 
         return instance
 
+    def _exec_freeze_snapshot(self, node: ASTNode) -> None:
+        """Execute: freezed %varName - freeze an existing snapshot so it can never be changed.
+
+        Usage:
+            snapshot(i);
+            freezed %i;
+            %i = 999;      // ignored - %i stays at original value
+            snapshot(i);    // ignored - cannot re-snapshot frozen name
+        """
+        name = node.value.get('name')
+        # If snapshot doesn't exist yet, take one before freezing
+        if name not in self.builtins._snapshots:
+            val = self.scope.get(name)
+            if val is None:
+                val = self.global_scope.get(name)
+            self.builtins._snapshots[name] = val
+        self.builtins._frozen_snapshots.add(name)
+        return None
+
+    def _exec_freeze_snapshot_call(self, node: ASTNode) -> None:
+        """Execute: freezed snapshot(x) - take a snapshot and immediately freeze it.
+
+        Usage:
+            int i = 0;
+            freezed snapshot(i);
+            i = 100;
+            printl(%i);  // always 0
+        """
+        call_node = node.value.get('call')
+        # Execute the snapshot() call first
+        self._execute_node(call_node)
+        # Extract the argument name to know which snapshot to freeze
+        snap_name = None
+        if isinstance(call_node, ASTNode):
+            src = call_node
+            # Unwrap expression wrapper if present
+            if src.type == 'expression' and isinstance(src.value, ASTNode):
+                src = src.value
+            if src.type == 'call':
+                call_val = src.value
+                if isinstance(call_val, dict):
+                    args = call_val.get('args', [])
+                    if args and len(args) > 0:
+                        arg = args[0]
+                        if isinstance(arg, ASTNode) and arg.type == 'identifier':
+                            snap_name = arg.value
+                        elif isinstance(arg, str):
+                            snap_name = arg
+        if snap_name:
+            self.builtins._frozen_snapshots.add(snap_name)
+        return None
+
     def _exec_instance_declaration(self, node: ASTNode) -> Any:
         """Execute instance declaration: instance<"name"> varName;
 
@@ -3155,6 +3252,76 @@ class CSSLRuntime:
                         new_scope.set(name, value)
                     self.scope = old_scope
 
+        # v4.9.9: Handle 'copies memory(FuncName)' - execute target and copy its scope
+        copies_memory = func_info.get('copies_memory')
+        old_copies_allowed = None
+        if copies_memory:
+            # Save and set access permission
+            old_copies_allowed = self._copies_memory_allowed.copy()
+            self._copies_memory_allowed.add(copies_memory)
+            # Prefer cached/overwritten scope if available (overwrites memory may have changed it)
+            if copies_memory in self._function_scopes:
+                self._copied_memory[copies_memory] = dict(self._function_scopes[copies_memory])
+            else:
+                # Find the target function and execute it to capture its locals
+                target_func = self.scope.get(copies_memory) or self.global_scope.get(copies_memory)
+                if target_func is None:
+                    target_func = self.builtins.get(copies_memory)
+                if target_func and isinstance(target_func, ASTNode) and target_func.type == 'function':
+                    old_scope_cm = self.scope
+                    temp_scope_cm = Scope(parent=self.scope)
+                    self.scope = temp_scope_cm
+                    try:
+                        for child in target_func.children:
+                            if not self._running:
+                                break
+                            self._execute_node(child)
+                    except CSSLReturn:
+                        pass  # Target returned - we just want its locals
+                    except Exception:
+                        pass  # Target failed - still copy what we got
+                    finally:
+                        self._copied_memory[copies_memory] = dict(temp_scope_cm.variables)
+                        self._function_scopes[copies_memory] = dict(temp_scope_cm.variables)
+                        self.scope = old_scope_cm
+
+        # v4.9.9: Handle 'overwrites memory(FuncName)' - allow writing back to target's scope
+        overwrites_memory = func_info.get('overwrites_memory')
+        old_overwrites_allowed = None
+        if overwrites_memory:
+            old_overwrites_allowed = self._overwrites_memory_allowed.copy()
+            self._overwrites_memory_allowed.add(overwrites_memory)
+            # Also grant copies access so FuncName::var can be read (copies is implicit with overwrites)
+            if old_copies_allowed is None:
+                old_copies_allowed = self._copies_memory_allowed.copy()
+            self._copies_memory_allowed.add(overwrites_memory)
+            # If no copies memory was set for this target, populate it from cached scopes
+            if overwrites_memory not in self._copied_memory:
+                if overwrites_memory in self._function_scopes:
+                    self._copied_memory[overwrites_memory] = dict(self._function_scopes[overwrites_memory])
+                else:
+                    # Execute the target to get its locals (same as copies memory)
+                    target_func = self.scope.get(overwrites_memory) or self.global_scope.get(overwrites_memory)
+                    if target_func is None:
+                        target_func = self.builtins.get(overwrites_memory)
+                    if target_func and isinstance(target_func, ASTNode) and target_func.type == 'function':
+                        old_scope_om = self.scope
+                        temp_scope_om = Scope(parent=self.scope)
+                        self.scope = temp_scope_om
+                        try:
+                            for child in target_func.children:
+                                if not self._running:
+                                    break
+                                self._execute_node(child)
+                        except CSSLReturn:
+                            pass
+                        except Exception:
+                            pass
+                        finally:
+                            self._copied_memory[overwrites_memory] = dict(temp_scope_om.variables)
+                            self._function_scopes[overwrites_memory] = dict(temp_scope_om.variables)
+                            self.scope = old_scope_om
+
         # Bind parameters - handle both positional and named arguments
         for i, param in enumerate(params):
             # Extract param name, type, and default from dict format: {'name': 'a', 'type': 'int', 'default': ...}
@@ -3337,6 +3504,19 @@ class CSSLRuntime:
                 return None
             raise
         finally:
+            # v4.9.9: Save function's local scope for 'copies memory' access
+            func_name = func_info.get('name', '')
+            if func_name:
+                self._function_scopes[func_name] = dict(new_scope.variables)
+            # v4.9.9: Propagate overwrites memory changes back to target's stored scope
+            if overwrites_memory and overwrites_memory in self._copied_memory:
+                self._function_scopes[overwrites_memory] = dict(self._copied_memory[overwrites_memory])
+            # v4.9.9: Restore copies memory permissions
+            if old_copies_allowed is not None:
+                self._copies_memory_allowed = old_copies_allowed
+            # v4.9.9: Restore overwrites memory permissions
+            if old_overwrites_allowed is not None:
+                self._overwrites_memory_allowed = old_overwrites_allowed
             self.scope = old_scope
 
         return None
@@ -3418,8 +3598,15 @@ class CSSLRuntime:
         # Execute init statement
         if init:
             var_name = init.value.get('var')
-            init_value = self._evaluate(init.value.get('value'))
-            self.scope.set(var_name, init_value)
+            if var_name is not None:
+                # Standard init: int i = 0 or i = 0
+                init_value = self._evaluate(init.value.get('value'))
+                self.scope.set(var_name, init_value)
+            else:
+                # Bare expression init: e.g. i < n.size() (just evaluate it)
+                expr = init.value.get('expr')
+                if expr:
+                    self._evaluate(expr)
         else:
             var_name = None
 
@@ -3472,17 +3659,68 @@ class CSSLRuntime:
             self.scope.set(var_name, new_value)
 
     def _exec_foreach(self, node: ASTNode) -> Any:
-        """Execute foreach loop"""
+        """Execute foreach loop
+
+        v4.9.7: Support non-null/conditional assertions on loop variable:
+            foreach ([case]*[default]x in items) { }
+            - If item matches case, use it; otherwise use default
+        """
         var_name = node.value.get('var')
+        value_var = node.value.get('value_var')
         iterable = self._evaluate(node.value.get('iterable'))
+        var_assertion = node.value.get('var_assertion')
 
         if iterable is None:
+            return None
+
+        # Key-value iteration: foreach (k, v in dict) iterates over key-value pairs
+        if value_var and isinstance(iterable, dict):
+            iter_items = iterable.items()
+        elif value_var and isinstance(iterable, (list, tuple)):
+            iter_items = enumerate(iterable)
+        else:
+            iter_items = None
+
+        if iter_items is not None:
+            for key, value in iter_items:
+                if not self._running:
+                    break
+                self.scope.set(var_name, key)
+                self.scope.set(value_var, value)
+                try:
+                    for child in node.children:
+                        if not self._running:
+                            break
+                        self._execute_node(child)
+                except CSSLBreak:
+                    break
+                except CSSLContinue:
+                    continue
             return None
 
         for item in iterable:
             if not self._running:
                 break
-            self.scope.set(var_name, item)
+
+            # v4.9.7: Apply assertion to each loop variable value
+            if var_assertion is not None:
+                if var_assertion.type == 'conditional_assert':
+                    # [case]*[default]var — if item matches case, replace with default
+                    condition = self._evaluate(var_assertion.value.get('condition'))
+                    fallback = self._evaluate(var_assertion.value.get('fallback'))
+                    if item == condition:
+                        self.scope.set(var_name, fallback)
+                    else:
+                        self.scope.set(var_name, item)
+                elif var_assertion.type == 'non_null_assert_fallback':
+                    # *[fallback]var — if item is null, use fallback
+                    fallback = self._evaluate(var_assertion.value.get('fallback'))
+                    self.scope.set(var_name, item if item is not None else fallback)
+                else:
+                    self.scope.set(var_name, item)
+            else:
+                self.scope.set(var_name, item)
+
             try:
                 for child in node.children:
                     if not self._running:
@@ -4161,6 +4399,17 @@ class CSSLRuntime:
                             result = result if filter_val in result else None
                         elif isinstance(result, list):
                             result = [item for item in result if isinstance(item, str) and filter_val in item]
+                    elif helper == 'find':
+                        # Find substring - returns the string if found (non-exact match)
+                        # Like contains but more intuitive name: [string::find="n"]
+                        if isinstance(result, str):
+                            result = result if str(filter_val) in result else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, str) and str(filter_val) in item]
+                    elif helper == 'findIndex':
+                        # Find index of substring - returns position (int), -1 if not found
+                        if isinstance(result, str):
+                            result = result.find(str(filter_val))
                     elif helper == 'not':
                         # Exclude matching
                         if isinstance(result, str):
@@ -4594,6 +4843,366 @@ class CSSLRuntime:
                     else:
                         result = None
 
+                # === DATASTRUCT HELPERS ===
+                elif filter_type == 'datastruct':
+                    from .cssl_types import DataStruct
+                    if helper == 'at':
+                        idx = int(filter_val) if not isinstance(filter_val, int) else filter_val
+                        if isinstance(result, (list, DataStruct)) and 0 <= idx < len(result):
+                            result = result[idx]
+                        else:
+                            result = None
+                    elif helper == 'first':
+                        if isinstance(result, (list, DataStruct)) and len(result) > 0:
+                            n = int(filter_val) if filter_val and filter_val is not True else 1
+                            result = result[:n] if n > 1 else result[0]
+                        else:
+                            result = None
+                    elif helper == 'last':
+                        if isinstance(result, (list, DataStruct)) and len(result) > 0:
+                            n = int(filter_val) if filter_val and filter_val is not True else 1
+                            result = result[-n:] if n > 1 else result[-1]
+                        else:
+                            result = None
+                    elif helper == 'size':
+                        if isinstance(result, (list, DataStruct)):
+                            result = len(result)
+                    elif helper == 'empty':
+                        if isinstance(result, (list, DataStruct)):
+                            result = result if len(result) == 0 else None
+                    elif helper == 'notEmpty':
+                        if isinstance(result, (list, DataStruct)):
+                            result = result if len(result) > 0 else None
+                    elif helper == 'contains':
+                        if isinstance(result, (list, DataStruct)):
+                            result = result if filter_val in result else None
+                    elif helper == 'where':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [item for item in result if item == filter_val]
+                    elif helper == 'not':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [item for item in result if item != filter_val]
+                    elif helper == 'slice':
+                        if isinstance(result, (list, DataStruct)) and isinstance(filter_val, str) and ':' in filter_val:
+                            parts = filter_val.split(':')
+                            start = int(parts[0]) if parts[0] else 0
+                            end = int(parts[1]) if parts[1] else len(result)
+                            result = list(result[start:end])
+                    elif helper == 'reversed':
+                        if isinstance(result, (list, DataStruct)):
+                            result = list(reversed(result))
+                    elif helper == 'sorted':
+                        if isinstance(result, (list, DataStruct)):
+                            try:
+                                result = sorted(result, reverse=(filter_val == 'desc'))
+                            except TypeError:
+                                result = list(result)
+                    elif helper == 'unique':
+                        if isinstance(result, (list, DataStruct)):
+                            seen = []
+                            for item in result:
+                                if item not in seen:
+                                    seen.append(item)
+                            result = seen
+                    elif helper == 'flatten':
+                        if isinstance(result, (list, DataStruct)):
+                            flat = []
+                            for item in result:
+                                if isinstance(item, (list, DataStruct)):
+                                    flat.extend(item)
+                                else:
+                                    flat.append(item)
+                            result = flat
+                    elif helper == 'count':
+                        if isinstance(result, (list, DataStruct)):
+                            result = result.count(filter_val) if filter_val is not True else len(result)
+                    elif helper == 'min':
+                        if isinstance(result, (list, DataStruct)) and len(result) > 0:
+                            try:
+                                result = min(result)
+                            except TypeError:
+                                pass
+                    elif helper == 'max':
+                        if isinstance(result, (list, DataStruct)) and len(result) > 0:
+                            try:
+                                result = max(result)
+                            except TypeError:
+                                pass
+                    elif helper == 'sum':
+                        if isinstance(result, (list, DataStruct)):
+                            try:
+                                result = sum(result)
+                            except TypeError:
+                                pass
+                    elif helper == 'avg':
+                        if isinstance(result, (list, DataStruct)) and len(result) > 0:
+                            try:
+                                result = sum(result) / len(result)
+                            except TypeError:
+                                pass
+                    elif helper == 'join':
+                        if isinstance(result, (list, DataStruct)):
+                            sep = str(filter_val) if filter_val and filter_val is not True else ','
+                            result = sep.join(str(item) for item in result)
+                    elif helper == 'map':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [str(item) for item in result]
+                    elif helper == 'type':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [item for item in result if type(item).__name__ == str(filter_val)]
+                    elif helper == 'gt':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [item for item in result if isinstance(item, (int, float)) and item > filter_val]
+                    elif helper == 'lt':
+                        if isinstance(result, (list, DataStruct)):
+                            result = [item for item in result if isinstance(item, (int, float)) and item < filter_val]
+                    elif helper == 'range':
+                        if isinstance(result, (list, DataStruct)) and isinstance(filter_val, str) and ':' in filter_val:
+                            parts = filter_val.split(':')
+                            lo = int(parts[0]) if parts[0] else 0
+                            hi = int(parts[1]) if parts[1] else None
+                            result = [item for item in result if isinstance(item, (int, float)) and item >= lo and (hi is None or item <= hi)]
+
+                # === STACK HELPERS ===
+                elif filter_type == 'stack':
+                    if helper == 'peek':
+                        if hasattr(result, 'peek'):
+                            result = result.peek()
+                        elif isinstance(result, list) and len(result) > 0:
+                            result = result[-1]
+                        else:
+                            result = None
+                    elif helper == 'size':
+                        result = len(result) if hasattr(result, '__len__') else 0
+                    elif helper == 'empty':
+                        result = result if hasattr(result, '__len__') and len(result) == 0 else None
+                    elif helper == 'notEmpty':
+                        result = result if hasattr(result, '__len__') and len(result) > 0 else None
+                    elif helper == 'contains':
+                        result = result if filter_val in result else None
+                    elif helper == 'toList':
+                        result = list(result) if hasattr(result, '__iter__') else [result]
+
+                # === QUEUE HELPERS ===
+                elif filter_type == 'queue':
+                    if helper == 'front':
+                        if hasattr(result, 'front'):
+                            result = result.front()
+                        elif isinstance(result, (list,)) and len(result) > 0:
+                            result = result[0]
+                        else:
+                            result = None
+                    elif helper == 'back':
+                        if hasattr(result, 'back'):
+                            result = result.back()
+                        elif isinstance(result, (list,)) and len(result) > 0:
+                            result = result[-1]
+                        else:
+                            result = None
+                    elif helper == 'size':
+                        result = len(result) if hasattr(result, '__len__') else 0
+                    elif helper == 'empty':
+                        result = result if hasattr(result, '__len__') and len(result) == 0 else None
+                    elif helper == 'notEmpty':
+                        result = result if hasattr(result, '__len__') and len(result) > 0 else None
+                    elif helper == 'contains':
+                        result = result if filter_val in result else None
+                    elif helper == 'toList':
+                        result = list(result) if hasattr(result, '__iter__') else [result]
+
+                # === MAP / DICTIONARY HELPERS ===
+                elif filter_type in ('map', 'dictionary', 'dict'):
+                    if helper == 'key':
+                        if isinstance(result, dict):
+                            result = result.get(filter_val)
+                    elif helper == 'keys':
+                        if isinstance(result, dict):
+                            result = list(result.keys())
+                    elif helper == 'values':
+                        if isinstance(result, dict):
+                            result = list(result.values())
+                    elif helper == 'items':
+                        if isinstance(result, dict):
+                            result = [[k, v] for k, v in result.items()]
+                    elif helper == 'size':
+                        result = len(result) if isinstance(result, dict) else 0
+                    elif helper == 'hasKey':
+                        if isinstance(result, dict):
+                            result = result if filter_val in result else None
+                    elif helper == 'hasValue':
+                        if isinstance(result, dict):
+                            result = result if filter_val in result.values() else None
+                    elif helper == 'where':
+                        if isinstance(result, dict):
+                            result = {k: v for k, v in result.items() if v == filter_val}
+                    elif helper == 'not':
+                        if isinstance(result, dict):
+                            result = {k: v for k, v in result.items() if v != filter_val}
+                    elif helper == 'empty':
+                        if isinstance(result, dict):
+                            result = result if len(result) == 0 else None
+                    elif helper == 'notEmpty':
+                        if isinstance(result, dict):
+                            result = result if len(result) > 0 else None
+                    elif helper == 'merge':
+                        if isinstance(result, dict) and isinstance(filter_val, dict):
+                            result = {**result, **filter_val}
+                    elif helper == 'sorted':
+                        if isinstance(result, dict):
+                            result = dict(sorted(result.items(), reverse=(filter_val == 'desc')))
+                    elif helper == 'keyType':
+                        if isinstance(result, dict):
+                            result = {k: v for k, v in result.items() if type(k).__name__ == str(filter_val)}
+                    elif helper == 'valueType':
+                        if isinstance(result, dict):
+                            result = {k: v for k, v in result.items() if type(v).__name__ == str(filter_val)}
+
+                # === SET HELPERS ===
+                elif filter_type == 'set':
+                    if helper == 'contains':
+                        if isinstance(result, (set, frozenset)):
+                            result = result if filter_val in result else None
+                        elif isinstance(result, list):
+                            result = result if filter_val in result else None
+                    elif helper == 'size':
+                        result = len(result) if hasattr(result, '__len__') else 0
+                    elif helper == 'empty':
+                        result = result if hasattr(result, '__len__') and len(result) == 0 else None
+                    elif helper == 'toList':
+                        result = list(result) if hasattr(result, '__iter__') else [result]
+                    elif helper == 'union':
+                        if isinstance(result, set) and isinstance(filter_val, (set, list)):
+                            result = result | set(filter_val)
+                    elif helper == 'intersect':
+                        if isinstance(result, set) and isinstance(filter_val, (set, list)):
+                            result = result & set(filter_val)
+                    elif helper == 'diff':
+                        if isinstance(result, set) and isinstance(filter_val, (set, list)):
+                            result = result - set(filter_val)
+
+                # === TUPLE HELPERS ===
+                elif filter_type == 'tuple':
+                    if helper == 'at':
+                        idx = int(filter_val) if not isinstance(filter_val, int) else filter_val
+                        if isinstance(result, (tuple, list)) and 0 <= idx < len(result):
+                            result = result[idx]
+                        else:
+                            result = None
+                    elif helper == 'first':
+                        if isinstance(result, (tuple, list)) and len(result) > 0:
+                            result = result[0]
+                        else:
+                            result = None
+                    elif helper == 'last':
+                        if isinstance(result, (tuple, list)) and len(result) > 0:
+                            result = result[-1]
+                        else:
+                            result = None
+                    elif helper == 'size':
+                        result = len(result) if isinstance(result, (tuple, list)) else 0
+                    elif helper == 'contains':
+                        if isinstance(result, (tuple, list)):
+                            result = result if filter_val in result else None
+                    elif helper == 'toList':
+                        result = list(result) if isinstance(result, tuple) else result
+
+                # === FLOAT HELPERS ===
+                elif filter_type == 'float':
+                    if helper == 'round':
+                        n = int(filter_val) if filter_val and filter_val is not True else 0
+                        if isinstance(result, (int, float)):
+                            result = round(float(result), n)
+                            if n == 0:
+                                result = int(result)
+                        elif isinstance(result, list):
+                            rounded = [round(float(item), n) for item in result if isinstance(item, (int, float))]
+                            result = [int(x) if n == 0 else x for x in rounded]
+                    elif helper == 'floor':
+                        import math
+                        if isinstance(result, (int, float)):
+                            result = math.floor(result)
+                        elif isinstance(result, list):
+                            result = [math.floor(item) for item in result if isinstance(item, (int, float))]
+                    elif helper == 'ceil':
+                        import math
+                        if isinstance(result, (int, float)):
+                            result = math.ceil(result)
+                        elif isinstance(result, list):
+                            result = [math.ceil(item) for item in result if isinstance(item, (int, float))]
+                    elif helper == 'abs':
+                        if isinstance(result, (int, float)):
+                            result = abs(result)
+                        elif isinstance(result, list):
+                            result = [abs(item) for item in result if isinstance(item, (int, float))]
+                    elif helper == 'toInt':
+                        if isinstance(result, (int, float)):
+                            result = int(result)
+                    elif helper == 'gt':
+                        if isinstance(result, (int, float)):
+                            result = result if result > float(filter_val) else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, (int, float)) and item > float(filter_val)]
+                    elif helper == 'lt':
+                        if isinstance(result, (int, float)):
+                            result = result if result < float(filter_val) else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, (int, float)) and item < float(filter_val)]
+                    elif helper == 'between':
+                        if isinstance(filter_val, str) and ':' in filter_val:
+                            parts = filter_val.split(':')
+                            lo, hi = float(parts[0]), float(parts[1])
+                            if isinstance(result, (int, float)):
+                                result = result if lo <= result <= hi else None
+                            elif isinstance(result, list):
+                                result = [item for item in result if isinstance(item, (int, float)) and lo <= item <= hi]
+                    elif helper == 'positive':
+                        if isinstance(result, (int, float)):
+                            result = result if result > 0 else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, (int, float)) and item > 0]
+                    elif helper == 'negative':
+                        if isinstance(result, (int, float)):
+                            result = result if result < 0 else None
+                        elif isinstance(result, list):
+                            result = [item for item in result if isinstance(item, (int, float)) and item < 0]
+
+                # === BOOL HELPERS ===
+                elif filter_type == 'bool':
+                    if helper == 'isTrue':
+                        result = result if result is True else None
+                    elif helper == 'isFalse':
+                        result = result if result is False else None
+                    elif helper == 'flip':
+                        result = not result if isinstance(result, bool) else result
+                    elif helper == 'toInt':
+                        result = 1 if result else 0
+
+                # === ITERATOR HELPERS ===
+                elif filter_type == 'iterator':
+                    if helper == 'toList':
+                        result = list(result) if hasattr(result, '__iter__') else [result]
+                    elif helper == 'count':
+                        result = sum(1 for _ in result) if hasattr(result, '__iter__') else 0
+                    elif helper == 'first':
+                        if hasattr(result, '__iter__'):
+                            for item in result:
+                                result = item
+                                break
+
+                # === POSITION MODIFIERS ===
+                # These wrap the value so the injection handler knows WHERE to place it.
+                # Usage: arr +<== [position::begin] value;
+                #        arr +<== [position::end] value;
+                #        arr +<== [position::at=2] value;
+                elif filter_type == 'position':
+                    if helper == 'begin':
+                        result = _PositionedValue(result, 'begin')
+                    elif helper == 'end':
+                        result = _PositionedValue(result, 'end')
+                    elif helper == 'at':
+                        idx = int(filter_val) if filter_val is not True else 0
+                        result = _PositionedValue(result, 'at', idx)
+
         return result
 
     def _exec_inject(self, node: ASTNode) -> Any:
@@ -4608,6 +5217,7 @@ class CSSLRuntime:
         source_node = node.value.get('source')
         mode = node.value.get('mode', 'replace')
         filter_info = node.value.get('filter')
+        source_filter = node.value.get('source_filter')
 
         # Check if target is a function call (for permanent injection)
         if isinstance(target, ASTNode) and target.type == 'call':
@@ -4633,9 +5243,15 @@ class CSSLRuntime:
             # Evaluate source normally
             source = self._evaluate(source_node)
 
-        # Apply filter if present
+        # Apply right-side filter (after operator) to source data
         if filter_info:
             source = self._apply_injection_filter(source, filter_info)
+
+        # Apply left-side filter (before operator) to source data
+        # e.g. target [dynamic::content=10] <== source
+        # Here source_filter filters what gets injected from source
+        if source_filter:
+            source = self._apply_injection_filter(source, source_filter)
 
         # Get current target value for add/move/replace modes (needed for UniversalInstance handling)
         current_value = None
@@ -4645,9 +5261,15 @@ class CSSLRuntime:
             # Target might not exist yet, that's okay for add mode
             current_value = None
 
+        # Check if target is an index_access (e.g. myds[0] <== value)
+        is_indexed = isinstance(target, ASTNode) and target.type == 'index_access'
+
+        # For indexed targets, skip the container-level mode logic — it's handled in target setting
+        if is_indexed:
+            final_value = source
         # Determine final value based on mode
-        if mode == 'replace':
-            from .cssl_types import CSSLInstance, UniversalInstance, CSSLClass
+        elif mode == 'replace':
+            from .cssl_types import CSSLInstance, UniversalInstance, CSSLClass, DataStruct
             # Special handling for UniversalInstance targets - inject instead of replace
             if isinstance(current_value, UniversalInstance):
                 if isinstance(source, CSSLClass):
@@ -4665,6 +5287,16 @@ class CSSLRuntime:
                 else:
                     # For other types, store as member with source type name
                     final_value = source
+            elif not is_indexed and isinstance(current_value, (list, DataStruct)):
+                if isinstance(source, _PositionedValue):
+                    # Position-aware injection into list/DataStruct
+                    self._positioned_add(current_value, source)
+                    final_value = current_value
+                else:
+                    # DataStruct/list <== value: overwrite ALL elements with the source value
+                    for i in range(len(current_value)):
+                        current_value[i] = source
+                    final_value = current_value
             else:
                 final_value = source
         elif mode == 'add':
@@ -4696,18 +5328,28 @@ class CSSLRuntime:
                 current_value._members[class_name] = source
                 final_value = current_value
             elif isinstance(current_value, list):
-                if isinstance(source, list):
+                if isinstance(source, _PositionedValue):
+                    self._positioned_add(current_value, source)
+                    final_value = current_value
+                elif isinstance(source, list):
                     final_value = current_value + source
                 else:
                     final_value = current_value + [source]
-            elif isinstance(current_value, dict) and isinstance(source, dict):
-                final_value = {**current_value, **source}
-            elif isinstance(current_value, str) and isinstance(source, str):
-                final_value = current_value + source
+            elif isinstance(current_value, dict) and isinstance(source, (dict, _PositionedValue)):
+                src = self._unwrap_positioned(source)
+                if isinstance(src, dict):
+                    final_value = {**current_value, **src}
+                else:
+                    final_value = current_value
+            elif isinstance(current_value, str):
+                src = self._unwrap_positioned(source)
+                final_value = current_value + str(src)
             # Handle CSSL container types (DataStruct, Vector, Stack, etc.)
             elif hasattr(current_value, 'append') or hasattr(current_value, 'push') or hasattr(current_value, 'add') or hasattr(current_value, 'update'):
+                if isinstance(source, _PositionedValue):
+                    self._positioned_add(current_value, source)
                 # v4.9.2: Special handling for dict source into containers with update method
-                if isinstance(source, dict) and hasattr(current_value, 'update'):
+                elif isinstance(source, dict) and hasattr(current_value, 'update'):
                     current_value.update(source)
                 elif isinstance(source, dict) and hasattr(current_value, '__setitem__'):
                     # DataStruct, Map, etc. - merge dict key-value pairs
@@ -4768,7 +5410,63 @@ class CSSLRuntime:
             final_value = source
 
         # Set the target
-        if target.type == 'identifier':
+        if target.type == 'index_access':
+            # myds[0] <== value — indexed injection
+            obj = self._evaluate(target.value.get('object'))
+            index = self._evaluate(target.value.get('index'))
+            if obj is not None:
+                from .cssl_types import DataStruct
+                if mode == 'replace':
+                    # myds[0] <== value → overwrite element at index
+                    try:
+                        obj[index] = final_value
+                    except (IndexError, TypeError):
+                        # If index doesn't exist yet and obj supports append, extend
+                        if hasattr(obj, 'append'):
+                            while len(obj) <= index:
+                                obj.append(None)
+                            obj[index] = final_value
+                elif mode == 'add':
+                    # myds[2] +<== value → merge/append value into element at index
+                    try:
+                        existing = obj[index]
+                        if isinstance(existing, list):
+                            if isinstance(final_value, list):
+                                obj[index] = existing + final_value
+                            else:
+                                existing.append(final_value)
+                        elif isinstance(existing, str) and isinstance(final_value, str):
+                            obj[index] = existing + final_value
+                        elif isinstance(existing, dict) and isinstance(final_value, dict):
+                            existing.update(final_value)
+                        else:
+                            obj[index] = [existing, final_value]
+                    except (IndexError, TypeError):
+                        if hasattr(obj, 'append'):
+                            while len(obj) <= index:
+                                obj.append(None)
+                            obj[index] = final_value
+                elif mode == 'move':
+                    # myds[1] -<== value → remove items matching value from element at index
+                    try:
+                        existing = obj[index]
+                        if isinstance(existing, list):
+                            if isinstance(source, list):
+                                obj[index] = [item for item in existing if item not in source]
+                            else:
+                                obj[index] = [item for item in existing if item != source]
+                        elif isinstance(existing, str) and isinstance(source, str):
+                            obj[index] = existing.replace(source, '')
+                        elif existing == source:
+                            # Remove the element entirely
+                            try:
+                                del obj[index]
+                            except (IndexError, TypeError):
+                                pass
+                    except (IndexError, TypeError):
+                        pass
+            return final_value
+        elif target.type == 'identifier':
             self.scope.set(target.value, final_value)
         elif target.type == 'module_ref':
             self._set_module_value(target.value, final_value)
@@ -4785,7 +5483,14 @@ class CSSLRuntime:
             if self._current_instance is None:
                 raise CSSLRuntimeError("'this' used outside of class method context")
             member = target.value.get('member')
-            if hasattr(self._current_instance, 'set_member'):
+            if 'object' in target.value:
+                obj = self._evaluate(target.value.get('object'))
+                if obj is not None:
+                    if hasattr(obj, 'set_member'):
+                        obj.set_member(member, final_value)
+                    else:
+                        setattr(obj, member, final_value)
+            elif hasattr(self._current_instance, 'set_member'):
                 self._current_instance.set_member(member, final_value)
             else:
                 setattr(self._current_instance, member, final_value)
@@ -4812,21 +5517,33 @@ class CSSLRuntime:
         target = node.value.get('target')
         mode = node.value.get('mode', 'replace')
         filter_info = node.value.get('filter')
+        source_filter = node.value.get('source_filter')
 
         # Evaluate source
         source = self._evaluate(source_node)
 
-        # Apply filter if present
+        # Apply left-side filter (before operator) to source
+        # e.g. source [dynamic::content=10] ==> target
+        if source_filter:
+            source = self._apply_injection_filter(source, source_filter)
+
+        # Apply right-side filter (after operator) to source
         if filter_info:
             source = self._apply_injection_filter(source, filter_info)
 
+        # Check if target is indexed (handled separately in target-setting)
+        is_indexed = isinstance(target, ASTNode) and target.type == 'index_access'
+
         # Get current target value for add mode
         current_value = None
-        if mode == 'add':
+        if mode == 'add' and not is_indexed:
             current_value = self._evaluate(target)
 
+        # For indexed targets, skip container-level mode logic — handled in target setting
+        if is_indexed:
+            final_value = source
         # Determine final value based on mode
-        if mode == 'replace':
+        elif mode == 'replace':
             final_value = source
         elif mode == 'add':
             if isinstance(current_value, list):
@@ -4898,7 +5615,41 @@ class CSSLRuntime:
             final_value = source
 
         # Set the target
-        if target.type == 'identifier':
+        if target.type == 'index_access':
+            # source ==> myds[0] — indexed receive
+            obj = self._evaluate(target.value.get('object'))
+            index = self._evaluate(target.value.get('index'))
+            if obj is not None:
+                if mode == 'add':
+                    try:
+                        existing = obj[index]
+                        if isinstance(existing, list):
+                            if isinstance(final_value, list):
+                                obj[index] = existing + final_value
+                            else:
+                                existing.append(final_value)
+                        elif isinstance(existing, str) and isinstance(final_value, str):
+                            obj[index] = existing + final_value
+                        elif isinstance(existing, dict) and isinstance(final_value, dict):
+                            existing.update(final_value)
+                        else:
+                            obj[index] = [existing, final_value]
+                    except (IndexError, TypeError):
+                        if hasattr(obj, 'append'):
+                            while len(obj) <= index:
+                                obj.append(None)
+                            obj[index] = final_value
+                else:
+                    # replace or move mode
+                    try:
+                        obj[index] = final_value
+                    except (IndexError, TypeError):
+                        if hasattr(obj, 'append'):
+                            while len(obj) <= index:
+                                obj.append(None)
+                            obj[index] = final_value
+            return final_value
+        elif target.type == 'identifier':
             self.scope.set(target.value, final_value)
         elif target.type == 'module_ref':
             self._set_module_value(target.value, final_value)
@@ -4921,7 +5672,14 @@ class CSSLRuntime:
             if self._current_instance is None:
                 raise CSSLRuntimeError("'this' used outside of class method context")
             member = target.value.get('member')
-            if hasattr(self._current_instance, 'set_member'):
+            if 'object' in target.value:
+                obj = self._evaluate(target.value.get('object'))
+                if obj is not None:
+                    if hasattr(obj, 'set_member'):
+                        obj.set_member(member, final_value)
+                    else:
+                        setattr(obj, member, final_value)
+            elif hasattr(self._current_instance, 'set_member'):
                 self._current_instance.set_member(member, final_value)
             else:
                 setattr(self._current_instance, member, final_value)
@@ -5186,6 +5944,18 @@ class CSSLRuntime:
 
         if isinstance(target, ASTNode):
             if target.type == 'identifier':
+                # v4.9.9: Handle FuncName::var = value for copies/overwrites memory
+                if '::' in target.value:
+                    parts = target.value.split('::', 1)
+                    container_name = parts[0]
+                    member_name = parts[1]
+                    # Check if this is a copies_memory context with write permission
+                    if container_name in self._copies_memory_allowed and container_name in self._copied_memory:
+                        self._copied_memory[container_name][member_name] = value
+                        # If overwrites memory is active, also propagate back to the target's stored scope
+                        if container_name in getattr(self, '_overwrites_memory_allowed', set()) and container_name in self._function_scopes:
+                            self._function_scopes[container_name][member_name] = value
+                        return value
                 # Check if we're in a class method and this is a class member
                 # If so, set the member instead of creating a local variable
                 if self._current_instance is not None and self._current_instance.has_member(target.value):
@@ -5206,6 +5976,9 @@ class CSSLRuntime:
                 # v4.8.9: %name = value - assign to snapshot directly
                 # This allows: %xyz = othervar, %xyz = "hello", %xyz = (int number = 200)
                 name = target.value
+                # v4.9.8: Cannot reassign frozen snapshots
+                if name in self.builtins._frozen_snapshots:
+                    return None
                 self.builtins._snapshots[name] = value
             elif target.type == 'pointer_ref':
                 # v4.9.0: ?name = value - create pointer to value
@@ -5223,17 +5996,40 @@ class CSSLRuntime:
             elif target.type == 'index_access':
                 self._set_index(target, value)
             elif target.type == 'this_access':
-                # this->member = value
+                # this->member = value (or this->a->b = value for chained)
                 if self._current_instance is None:
                     raise CSSLRuntimeError("'this' used outside of class method context")
                 member = target.value.get('member')
-                instance = self._current_instance
-                # Check if instance is a CSSL instance or a plain Python object
-                if hasattr(instance, 'set_member'):
-                    instance.set_member(member, value)
+                # Check if it's a chained access (this->a->b = value)
+                if 'object' in target.value:
+                    # Evaluate the object chain to get the intermediate object
+                    obj = self._evaluate(target.value.get('object'))
+                    if obj is not None:
+                        is_cssl = hasattr(obj, 'has_member') and hasattr(obj, 'set_member')
+                        if is_cssl:
+                            obj.set_member(member, value)
+                        else:
+                            setattr(obj, member, value)
                 else:
-                    # Plain Python object - use setattr
-                    setattr(instance, member, value)
+                    instance = self._current_instance
+                    # Check if instance is a CSSL instance or a plain Python object
+                    if hasattr(instance, 'set_member'):
+                        instance.set_member(member, value)
+                    else:
+                        # Plain Python object - use setattr
+                        setattr(instance, member, value)
+            elif target.type == 'scope_access':
+                # obj::member = value — set member on namespace/dict/object
+                obj = self._evaluate(target.value.get('object'))
+                member = target.value.get('member')
+                if isinstance(obj, dict):
+                    obj[member] = value
+                elif isinstance(obj, CSSLNamespace):
+                    # Set on namespace's internal storage
+                    if hasattr(obj, '__dict__'):
+                        setattr(obj, member, value)
+                elif hasattr(obj, '__setattr__'):
+                    setattr(obj, member, value)
         elif isinstance(target, str):
             # v4.9.4: Check if string target is freezed - return null if so
             if target in self._var_meta and self._var_meta[target].get('is_freezed', False):
@@ -5390,9 +6186,28 @@ class CSSLRuntime:
                     # If it's a dict-like object (enum or namespace), get the member
                     elif isinstance(container, dict):
                         return container.get(member_name)
+                    # v4.9.7: Handle chained :: access on any object (ps::ok_btn::onClick)
+                    elif '::' in member_name:
+                        current = container
+                        for part in member_name.split('::'):
+                            if current is None:
+                                return None
+                            if isinstance(current, dict):
+                                current = current.get(part)
+                            elif hasattr(current, part):
+                                current = getattr(current, part)
+                            else:
+                                return None
+                        return current
                     # If it's an object with the member as an attribute
                     elif hasattr(container, member_name):
                         return getattr(container, member_name)
+
+                # v4.9.9: Check copied memory for FuncName::var access (only if allowed)
+                if container_name in self._copies_memory_allowed and container_name in self._copied_memory:
+                    copied = self._copied_memory[container_name]
+                    if member_name in copied:
+                        return copied[member_name]
 
                 # v4.3.2: Check if full name exists as builtin function (json::write, string::cut, etc.)
                 if self.builtins.has_function(name):
@@ -5802,6 +6617,9 @@ class CSSLRuntime:
         if node.type == 'binary':
             return self._eval_binary(node)
 
+        if node.type == 'inject_expr':
+            return self._eval_inject_expr(node)
+
         if node.type == 'unary':
             return self._eval_unary(node)
 
@@ -5937,6 +6755,32 @@ class CSSLRuntime:
         if node.type == 'member_access':
             return self._eval_member_access(node)
 
+        if node.type == 'scope_access':
+            # obj::key — evaluate obj, then do dict/namespace key lookup
+            obj = self._evaluate(node.value.get('object'))
+            member = node.value.get('member')
+            if isinstance(obj, dict):
+                if member in obj:
+                    return obj[member]
+                raise self._format_error(
+                    node.line if hasattr(node, 'line') else 0,
+                    f"Key '{member}' not found in dict",
+                    f"Available keys: {', '.join(str(k) for k in list(obj.keys())[:10])}"
+                )
+            if isinstance(obj, CSSLNamespace):
+                if member in obj.functions:
+                    return obj.functions[member]
+                if member in obj.classes:
+                    return obj.classes[member]
+                if member in obj.enums:
+                    return obj.enums[member]
+            if hasattr(obj, member):
+                return getattr(obj, member)
+            raise self._format_error(
+                node.line if hasattr(node, 'line') else 0,
+                f"Cannot resolve '::{member}' on object of type {type(obj).__name__}"
+            )
+
         if node.type == 'index_access':
             return self._eval_index_access(node)
 
@@ -5995,6 +6839,285 @@ class CSSLRuntime:
                 if result is not None:
                     last_value = result
         return last_value
+
+    def _inject_set_target(self, target_node: 'ASTNode', value: Any) -> None:
+        """Set the target of an injection expression (v4.9.9).
+        Handles identifier, module_ref, member_access, shared_ref targets."""
+        if not isinstance(target_node, ASTNode):
+            return
+        if target_node.type == 'identifier':
+            self.scope.set(target_node.value, value)
+        elif target_node.type == 'module_ref':
+            self._set_module_value(target_node.value, value)
+        elif target_node.type == 'member_access':
+            self._set_member(target_node, value)
+        elif target_node.type == 'shared_ref':
+            from ..cssl_bridge import _live_objects, SharedObjectProxy
+            name = target_node.value
+            _live_objects[name] = value
+            self.global_scope.set(f'${name}', SharedObjectProxy(name, value))
+
+    def _eval_inject_expr(self, node: ASTNode) -> Any:
+        """Evaluate injection operators as expressions (v4.9.9).
+
+        Supports right-associative chaining:
+            a +<== b +<== c  →  a +<== (b +<== c)  →  "abc"
+            a <== b          →  b (replace, sets a)
+            a ==> b          →  a flows into b (sets b), returns a
+            a ==>+ b         →  a added to b (sets b), returns combined
+
+        DataStruct/list-aware:
+            ds <== value     →  append value to ds
+            ds[i] <== value  →  set element at index i (auto-grow if needed)
+            ds[i] +<== value →  concatenate value into element at index i
+            ds[i] -<== value →  remove value from element at index i
+
+        When used at statement level, also sets the target variable.
+        When used inside sub-expressions (parentheses, assignments), returns value.
+        """
+        op = node.value.get('op')
+        left_node = node.value.get('left')
+        right_node = node.value.get('right')
+        filter_info = node.value.get('filter')
+
+        from .cssl_types import DataStruct
+
+        # Detect indexed target: MeinSpeicher[0] <== value
+        is_left_indexed = isinstance(left_node, ASTNode) and left_node.type == 'index_access'
+        is_right_indexed = isinstance(right_node, ASTNode) and right_node.type == 'index_access'
+
+        # For indexed targets, evaluate container and index separately to avoid IndexError
+        if is_left_indexed and op in ('replace', 'add', 'move'):
+            container = self._evaluate(left_node.value.get('object'))
+            index = self._evaluate(left_node.value.get('index'))
+            # Get existing element safely
+            try:
+                left = container[index]
+            except (IndexError, KeyError, TypeError):
+                left = None
+        else:
+            left = self._evaluate(left_node)
+
+        if is_right_indexed and op in ('receive_replace', 'receive_add', 'receive_move'):
+            r_container = self._evaluate(right_node.value.get('object'))
+            r_index = self._evaluate(right_node.value.get('index'))
+            try:
+                right = r_container[r_index]
+            except (IndexError, KeyError, TypeError):
+                right = None
+        else:
+            right = self._evaluate(right_node)
+
+        # Apply filter to source data if present
+        # For inject ops (<==), source is right; for receive ops (==>), source is left
+        if filter_info:
+            if op in ('receive_replace', 'receive_add', 'receive_move'):
+                left = self._apply_injection_filter(left, filter_info)
+            else:
+                right = self._apply_injection_filter(right, filter_info)
+
+        if op == 'add':
+            # +<== : combine left and right, set left target
+            if is_left_indexed:
+                # ds[i] +<== value → combine into element at index
+                if left is None:
+                    result = right
+                elif isinstance(left, str) and isinstance(right, str):
+                    result = left + right
+                elif isinstance(left, list):
+                    result = left + ([right] if not isinstance(right, list) else right)
+                elif isinstance(left, dict) and isinstance(right, dict):
+                    result = {**left, **right}
+                else:
+                    result = str(left) + str(right)
+                # Set element in container, auto-grow if needed
+                self._indexed_set(container, index, result)
+                return result
+            elif isinstance(left, (list, DataStruct)):
+                # DataStruct/list +<== value → add value (position-aware)
+                if isinstance(right, _PositionedValue):
+                    self._positioned_add(left, right)
+                elif isinstance(right, list) and not isinstance(right, DataStruct):
+                    left.extend(right)
+                else:
+                    left.append(right)
+                return left
+            elif isinstance(left, str):
+                right_val = self._unwrap_positioned(right)
+                result = left + str(right_val)
+            elif isinstance(left, list) and isinstance(right, list):
+                result = left + right
+            elif isinstance(left, list):
+                result = left + [right]
+            elif isinstance(left, dict) and isinstance(right, dict):
+                result = {**left, **right}
+            elif isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                result = left + right
+            else:
+                result = str(left) + str(right)
+            self._inject_set_target(left_node, result)
+            return result
+
+        elif op == 'replace':
+            if is_left_indexed:
+                # ds[i] <== value → set element at index
+                self._indexed_set(container, index, right)
+                return right
+            elif isinstance(left, (list, DataStruct)):
+                # DataStruct/list <== value → add value (position-aware)
+                if isinstance(right, _PositionedValue):
+                    self._positioned_add(left, right)
+                else:
+                    left.append(right)
+                return left
+            else:
+                # <== : right replaces left, set left target
+                val = self._unwrap_positioned(right)
+                self._inject_set_target(left_node, val)
+                return val
+
+        elif op == 'move':
+            # -<== : remove right from left, set left target
+            right = self._unwrap_positioned(right)
+            if is_left_indexed:
+                # ds[i] -<== value → remove value from element at index
+                if isinstance(left, str) and isinstance(right, str):
+                    result = left.replace(right, '')
+                elif isinstance(left, list):
+                    result = [item for item in left if item != right]
+                elif left == right:
+                    result = None
+                else:
+                    result = left
+                self._indexed_set(container, index, result)
+                return result
+            elif isinstance(left, str) and isinstance(right, str):
+                result = left.replace(right, '', 1)
+            elif isinstance(left, list):
+                result = list(left)
+                if isinstance(right, list):
+                    for item in right:
+                        if item in result:
+                            result.remove(item)
+                elif right in result:
+                    result.remove(right)
+            elif isinstance(left, dict) and isinstance(right, (list, tuple)):
+                result = {k: v for k, v in left.items() if k not in right}
+            else:
+                result = left
+            self._inject_set_target(left_node, result)
+            return result
+
+        elif op == 'receive_replace':
+            # ==> : left flows into right (sets right target)
+            if is_right_indexed:
+                self._indexed_set(r_container, r_index, left)
+            else:
+                self._inject_set_target(right_node, left)
+            return left
+
+        elif op == 'receive_add':
+            # ==>+ : left added to right (sets right target)
+            if is_right_indexed:
+                if right is None:
+                    result = left
+                elif isinstance(right, str) and isinstance(left, str):
+                    result = right + left
+                elif isinstance(right, list):
+                    result = right + ([left] if not isinstance(left, list) else left)
+                else:
+                    result = str(right) + str(left)
+                self._indexed_set(r_container, r_index, result)
+                return result
+            elif isinstance(right, (list, DataStruct)):
+                if isinstance(left, list) and not isinstance(left, DataStruct):
+                    right.extend(left)
+                else:
+                    right.append(left)
+                return right
+            elif isinstance(left, str) and isinstance(right, str):
+                result = right + left
+            elif isinstance(right, list):
+                result = right + ([left] if not isinstance(left, list) else left)
+            elif isinstance(right, (int, float)) and isinstance(left, (int, float)):
+                result = right + left
+            else:
+                result = str(right) + str(left)
+            self._inject_set_target(right_node, result)
+            return result
+
+        elif op == 'receive_move':
+            # ==>- : move from left, remove from left
+            if is_right_indexed:
+                self._indexed_set(r_container, r_index, left)
+            else:
+                self._inject_set_target(right_node, left)
+            return left
+
+        return left
+
+    def _indexed_set(self, container: Any, index: Any, value: Any) -> None:
+        """Set a value at an index in a container, auto-growing if needed."""
+        if container is None:
+            return
+        try:
+            container[index] = value
+        except IndexError:
+            # Auto-grow list/DataStruct to accommodate index
+            if hasattr(container, 'append'):
+                while len(container) <= index:
+                    container.append(None)
+                container[index] = value
+        except (TypeError, KeyError):
+            pass
+
+    def _positioned_add(self, container: Any, value: Any) -> Any:
+        """Add a value to a container respecting _PositionedValue placement.
+
+        If value is a _PositionedValue, inserts at the specified position.
+        Otherwise falls back to append (default end behavior).
+
+        Returns the container after modification.
+        """
+        if isinstance(value, _PositionedValue):
+            actual = value.value
+            pos = value.position
+            if pos == 'begin':
+                if isinstance(container, (list,)):
+                    container.insert(0, actual)
+                elif hasattr(container, 'insert'):
+                    container.insert(0, actual)
+                elif hasattr(container, 'appendleft'):
+                    container.appendleft(actual)
+                else:
+                    container.append(actual)
+            elif pos == 'at':
+                idx = value.index if value.index is not None else 0
+                if isinstance(container, (list,)):
+                    container.insert(idx, actual)
+                elif hasattr(container, 'insert'):
+                    container.insert(idx, actual)
+                else:
+                    container.append(actual)
+            else:  # 'end' or default
+                if hasattr(container, 'append'):
+                    container.append(actual)
+                elif hasattr(container, 'push'):
+                    container.push(actual)
+            return container
+        else:
+            # Default: append
+            if hasattr(container, 'append'):
+                container.append(value)
+            elif hasattr(container, 'push'):
+                container.push(value)
+            return container
+
+    def _unwrap_positioned(self, value: Any) -> Any:
+        """Unwrap a _PositionedValue to get the actual value."""
+        if isinstance(value, _PositionedValue):
+            return value.value
+        return value
 
     def _eval_binary(self, node: ASTNode) -> Any:
         """Evaluate binary operation with auto-casting support"""
@@ -6378,6 +7501,12 @@ class CSSLRuntime:
                 return False
             return value == pattern_value
 
+        elif condition_node.type == 'condition_negated':
+            # v4.9.8: [!expr] — matches if value does NOT equal expr
+            inner = condition_node.value.get('inner')
+            inner_value = self._evaluate(inner)
+            return value != inner_value
+
         else:
             # Generic expression condition - evaluate and compare
             condition_value = self._evaluate(condition_node)
@@ -6478,18 +7607,57 @@ class CSSLRuntime:
         # If function is FULLY REPLACED (<<==), run injection and skip original
         # This allows creating new functions via infusion: new_func <<== { ... }
         if is_replaced:
-            self._execute_function_injections(func_name)
-            return None  # Injection ran, don't try to find original
+            return self._execute_function_injections(func_name)
 
         # Now evaluate the callee (only if not replaced)
         callee = self._evaluate(callee_node)
 
         # Execute added injections (+<<==) before original
         if has_injections and not is_replaced:
-            self._execute_function_injections(func_name)
+            injection_result = self._execute_function_injections(func_name)
+            # v4.9.7: If injection explicitly returned a value, use it
+            if injection_result is not None:
+                return injection_result
 
         # Execute original function
         if callable(callee):
+            # v4.9.9: For snapshot(), pass the AST argument name so it doesn't rely on
+            # identity scanning (which fails for Python-interned values like small ints)
+            if func_name == 'snapshot':
+                arg_nodes = node.value.get('args', [])
+                if arg_nodes and isinstance(arg_nodes[0], ASTNode) and arg_nodes[0].type == 'identifier':
+                    hint_name = arg_nodes[0].value
+                    if len(args) == 1:
+                        return callee(args[0], hint_name)
+                    # If user already passed explicit name, don't override
+
+            # v4.9.9: For unbind(), extract parent object and member name from AST
+            # unbind(a.b.c) -> unbind(parent=a.b, member_name="c")
+            if func_name == 'unbind':
+                arg_nodes = node.value.get('args', [])
+                if len(args) == 1 and arg_nodes and isinstance(arg_nodes[0], ASTNode) and arg_nodes[0].type == 'member_access':
+                    # Extract parent and member from AST before evaluation
+                    ma_node = arg_nodes[0]
+                    parent_obj = self._evaluate(ma_node.value.get('object'))
+                    member_name = ma_node.value.get('member')
+                    return callee(parent_obj, member_name)
+
+            # v4.9.7: Wrap ASTNode function args into callables for Python method calls
+            # Only wrap when calling bound methods on external Python objects (e.g., onClick(myFunc))
+            # Do NOT wrap for builtins/lambdas/regular functions to avoid printing lambda refs
+            import types
+            is_bound_method = isinstance(callee, types.MethodType)
+            if is_bound_method:
+                wrapped_args = []
+                for a in args:
+                    if isinstance(a, ASTNode) and a.type == 'function':
+                        func_node = a
+                        wrapped_args.append(lambda *call_args, _fn=func_node: self._call_function(_fn, list(call_args)))
+                    else:
+                        wrapped_args.append(a)
+                if kwargs:
+                    return callee(*wrapped_args, **kwargs)
+                return callee(*wrapped_args)
             if kwargs:
                 return callee(*args, **kwargs)
             return callee(*args)
@@ -6497,31 +7665,27 @@ class CSSLRuntime:
         if isinstance(callee, ASTNode) and callee.type == 'function':
             return self._call_function(callee, args, kwargs)
 
-        # Extract callee name for error messages
-        if isinstance(callee_node, ASTNode) and hasattr(callee_node, 'value'):
-            val = callee_node.value
+        # v4.9.7: Extract human-readable callee name for error messages
+        def _extract_callee_name(ast_node) -> str:
+            """Recursively build a readable name from nested AST nodes"""
+            if not isinstance(ast_node, ASTNode):
+                return str(ast_node)
+            val = ast_node.value
             if isinstance(val, str):
-                callee_name = val
-            elif isinstance(val, dict):
-                # For member access nodes like obj.method, get the member name
+                return val
+            if isinstance(val, dict):
                 if 'member' in val:
-                    obj_node = val.get('object')
-                    member = val.get('member')
-                    obj_name = obj_node.value if isinstance(obj_node, ASTNode) else str(obj_node)
-                    callee_name = f"{obj_name}.{member}"
-                # For call nodes, try to get the callee name
+                    obj_part = _extract_callee_name(val.get('object'))
+                    return f"{obj_part}.{val['member']}"
                 elif 'callee' in val:
-                    callee_val = val.get('callee')
-                    if isinstance(callee_val, ASTNode):
-                        callee_name = callee_val.value if isinstance(callee_val.value, str) else str(callee_val.value)
-                    else:
-                        callee_name = str(callee_val)
+                    callee_part = _extract_callee_name(val.get('callee'))
+                    return f"{callee_part}()"
                 elif 'name' in val:
-                    callee_name = str(val.get('name'))
-                else:
-                    callee_name = str(val)
-            else:
-                callee_name = str(val)
+                    return str(val['name'])
+            return str(val) if not isinstance(val, dict) else '...'
+
+        if isinstance(callee_node, ASTNode):
+            callee_name = _extract_callee_name(callee_node)
         else:
             callee_name = str(callee_node)
 
@@ -6530,6 +7694,8 @@ class CSSLRuntime:
         similar = _find_similar_names(callee_name, available_funcs)
 
         if callee is None:
+            if func_name == 'caro' and not args:
+                return "Love"
             # Function not found at all
             if similar:
                 hint = f"Did you mean: {', '.join(similar)}?"
@@ -6686,6 +7852,8 @@ class CSSLRuntime:
             # v4.8: Handle CSSLNamespace objects
             if isinstance(ns_obj, CSSLNamespace):
                 class_def = ns_obj.classes.get(class_name)
+            elif isinstance(ns_obj, ServiceDefinition):
+                class_def = ns_obj.classes.get(class_name)
             elif isinstance(ns_obj, dict) and class_name in ns_obj:
                 class_def = ns_obj[class_name]
 
@@ -6789,8 +7957,25 @@ class CSSLRuntime:
         param_values = {}
         for i, param in enumerate(class_params):
             param_name = param.get('name') if isinstance(param, dict) else param
+            param_type = param.get('type') if isinstance(param, dict) else None
             if i < len(args):
-                param_values[param_name] = args[i]
+                value = args[i]
+                # ptr/instance parameters: auto-instantiate CSSLClass references
+                # class MyClass(ptr Dependency) → new MyClass(?module.Dep) auto-creates Dep instance
+                # class MyClass(instance Dependency) → same behavior
+                if param_type in ('ptr', 'instance') and isinstance(value, CSSLClass):
+                    ptr_instance = CSSLInstance(value)
+                    ptr_instance._parent_class = value.parent
+                    ptr_instance._parent_constructor_called = False
+                    # Run constructors on the ptr instance
+                    ptr_constrs = getattr(value, 'constructors', [])
+                    for pc in ptr_constrs:
+                        if not pc.value.get('is_destructor', False):
+                            self._call_constructor(ptr_instance, pc, [], {}, {})
+                    if value.constructor:
+                        self._call_method(ptr_instance, value.constructor, [], {})
+                    value = ptr_instance
+                param_values[param_name] = value
             elif param_name in kwargs:
                 param_values[param_name] = kwargs[param_name]
             else:
@@ -7143,6 +8328,24 @@ class CSSLRuntime:
             obj = self._evaluate(node.value.get('object'))
             if obj is None:
                 return None
+            # Auto-dereference Address pointers in chained access
+            from .cssl_types import Address
+            if isinstance(obj, Address):
+                dereferenced = obj.reflect()
+                if dereferenced is not None:
+                    obj = dereferenced
+            # Check if obj is a CSSL instance
+            is_cssl = hasattr(obj, 'has_member') and hasattr(obj, 'has_method')
+            if is_cssl:
+                if obj.has_member(member):
+                    return obj.get_member(member)
+                if obj.has_method(member):
+                    method_node = obj.get_method(member)
+                    if isinstance(method_node, tuple) and method_node[0] == 'python_method':
+                        python_method = method_node[1]
+                        return lambda *args, **kwargs: python_method(*args, **kwargs)
+                    return lambda *args, **kwargs: self._call_method(obj, method_node, list(args), kwargs)
+            # Fallback to Python attribute access
             if hasattr(obj, member):
                 return getattr(obj, member)
             if isinstance(obj, dict):
@@ -7375,8 +8578,17 @@ class CSSLRuntime:
 
     def _eval_member_access(self, node: ASTNode) -> Any:
         """Evaluate member access"""
+        from .cssl_types import Address
         obj = self._evaluate(node.value.get('object'))
         member = node.value.get('member')
+
+        # Auto-dereference Address objects for member access (like ptr->member in C)
+        # This allows ?module.ClassName to work: ?module creates Address, .ClassName accesses the module
+        if isinstance(obj, Address) and member not in ('reflect', 'get_address', 'hex', 'is_null',
+                                                        'is_address', 'value', 'from_object'):
+            dereferenced = obj.reflect()
+            if dereferenced is not None:
+                obj = dereferenced
 
         # v4.9.3: Special handling for null checks - null.is_null() returns true
         if obj is None:
@@ -8048,10 +9260,11 @@ class CSSLRuntime:
 
         Includes protection against recursive execution to prevent doubled output.
         Uses captured values for %<name> references.
+        v4.9.7: Now catches CSSLReturn and stores return value.
         """
         # Prevent recursive injection execution (fixes doubled output bug)
         if getattr(self, '_injection_executing', False):
-            return
+            return None
 
         if func_name in self._function_injections:
             self._injection_executing = True
@@ -8075,9 +9288,12 @@ class CSSLRuntime:
                                 self._execute_node(child)
                         else:
                             self._execute_node(code_block)
+            except CSSLReturn as ret:
+                return ret.value
             finally:
                 self._injection_executing = False
                 self._current_captured_values = old_captured
+        return None
 
     # Output functions for builtins
     def set_output_callback(self, callback: Callable[[str, str], None]):

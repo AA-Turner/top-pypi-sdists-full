@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: flock
+Version: 0.1
+Summary: Flock object for with statement 
+Home-page: https://github.com/misli/python-flock
+Author: Jakub Dorňák
+Author-email: jdornak@redhat.com
+License: UNKNOWN
+Description: Flock uses fcntl.flock to lock (resp. unlock) file descriptor (fd) with operation (op) when entering (resp. leaving) runtime context related to it.
+Platform: UNKNOWN

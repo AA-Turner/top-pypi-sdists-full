@@ -176,7 +176,9 @@ pub fn handle_legend(
             if ctx.convert_as_inline {
                 output.push_str(trimmed);
             } else {
-                let symbol = options.strong_em_symbol.to_string().repeat(2);
+                let mut symbol = String::with_capacity(2);
+                symbol.push(options.strong_em_symbol);
+                symbol.push(options.strong_em_symbol);
                 output.push_str(&symbol);
                 output.push_str(trimmed);
                 output.push_str(&symbol);
@@ -381,7 +383,9 @@ pub fn handle_optgroup(
             .map_or(Cow::Borrowed(""), |v| v.as_utf8_str());
 
         if !label.is_empty() {
-            let symbol = options.strong_em_symbol.to_string().repeat(2);
+            let mut symbol = String::with_capacity(2);
+            symbol.push(options.strong_em_symbol);
+            symbol.push(options.strong_em_symbol);
             output.push_str(&symbol);
             output.push_str(&label);
             output.push_str(&symbol);

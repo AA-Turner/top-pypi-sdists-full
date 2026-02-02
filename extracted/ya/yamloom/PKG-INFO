@@ -1,0 +1,296 @@
+Metadata-Version: 2.4
+Name: yamloom
+Version: 0.5.2
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Code Generators
+License-File: LICENSE
+Summary: Generate GitHub Actions workflows with a Pythonic API.
+Keywords: github-actions,workflow,yaml,automation,ci
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/denehoffman/yamloom/releases
+Project-URL: Homepage, https://github.com/denehoffman/yamloom
+Project-URL: Issues, https://github.com/denehoffman/yamloom/issues
+Project-URL: Repository, https://github.com/denehoffman/yamloom
+
+# yamloom
+
+`yamloom` is a Python library for generating GitHub Actions workflow YAML with a Pythonic API. The core implementation is a Rust extension module built with PyO3, with Python helpers layered on top.
+
+## Installation
+
+```bash
+uv pip install yamloom
+```
+
+## Usage
+
+The main goal of `yamloom` is to never touch a YAML file and instead produce them through code. All of the possible allowed keys of a GitHub workflow are implemented as Python objects. The top-level object is a `Workflow` itself:
+
+```python
+class Workflow:
+    def __init__(
+        self,
+        *,
+        jobs: Mapping[str, Job],
+        on: Events,
+        name: str | None = None,
+        run_name:  str | StringExpression | None = None,
+        permissions: Permissions | None = None,
+        env: Mapping[str, str | StringExpression] | None = None,
+        defaults: Defaults | None = None,
+        concurrency: Concurrency | None = None,
+    ) -> None: ...
+    def dump(
+        self, path: Path | str, *, overwrite: bool = True, validate: bool = True
+    ) -> None: ...
+```
+
+Every part of the constructor represents a key in a workflow file, and the `dump` method will write formatted YAML to a given path. The `validate` kwarg checks the produced YAML against the GitHub Actions workflow [JSON schema from SchemaStore](https://www.schemastore.org/github-workflow.json). Jobs are given as a `dict` of `Job` objects:
+
+```python
+class Job:
+    def __init__(
+        self,
+        *,
+        steps: list[Step] | None = None,
+        name: str | StringExpression | None = None,
+        permissions: Permissions | None = None,
+        use_recommended_permissions: bool = True,
+        needs: list[str] | None = None,
+        condition: str | BooleanExpression | None = None,
+        runs_on: RunsOnSpec | list[str | StringExpression] | str | StringExpression | None = None,
+        snapshot: str | None = None,
+        environment: Environment | None = None,
+        concurrency: Concurrency | None = None,
+        outputs: Mapping[str, str | StringExpression] | None = None,
+        env: Mapping[str, str | StringExpression] | None = None,
+        defaults: Defaults | None = None,
+        timeout_minutes: int | None = None,
+        strategy: Strategy | None = None,
+        continue_on_error: str | bool | StringExpression | BooleanExpression | None = None,
+        container: Container | None = None,
+        services: Mapping[str, Container] | None = None,
+        uses: str | None = None,
+        with_opts: Mapping | None = None,
+        secrets: JobSecrets | None = None,
+    ) -> None: ...
+```
+
+When ``use_recommended_permissions`` is True, job permissions are merged with any recommended permissions provided by steps (neither side overwrites the other; the merge keeps the most permissive value per scope).
+
+Note that some of the type hints refer to "Expressions" (more on this later). Furthermore, `Jobs` contain a sequence of `Step` objects, which cannot be constructed directly but instead are formed from either scripts or actions:
+
+```python
+def script(
+    *script: str | StringExpression,
+    name: str | StringExpression | None = None,
+    condition: str | BooleanExpression | None = None,
+    working_directory: str | StringExpression | None = None,
+    shell: str | None = None,
+    id: str | None = None,
+    env: Mapping[str, str | StringExpression] | None = None,
+    permissions: Permissions | None = None,
+    continue_on_error: bool | BooleanExpression | None = None,
+    timeout_minutes: int | NumberExpression | None = None,
+) -> Step: ...
+
+def action(
+    name: str | StringExpression | None,
+    action: str,
+    *,
+    ref: str | None = None,
+    with_opts: Mapping | None = None,
+    args: str | StringExpression | None= None,
+    entrypoint: str | StringExpression | None = None,
+    condition: str | BooleanExpression | None = None,
+    id: str | None = None,
+    env: Mapping[str, str | StringExpression] | None = None,
+    continue_on_error: bool | BooleanExpression | None= None,
+    timeout_minutes: int | NumberExpression | None= None,
+) -> Step: ...
+```
+
+In practice, most workflows use hardly any of the keyword parameters, so most of the time we just need to define a few things. Let's look at one of the example workflows that GitHub provides:
+
+```yaml
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+on: [push]
+jobs:
+  check-bats-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g bats
+      - run: bats -v
+```
+
+We can replicate this in Python with `yamloom` as follows:
+
+```python
+from yamloom.expressions import context
+from yamloom import Workflow, Events, PushEvent, Job, action, script
+
+print(
+    Workflow(
+        jobs={
+            'check-bats-version': Job(
+                steps=[
+                    action('Checkout', 'actions/checkout', ref='v5'),
+                    action(
+                        'Setup Node',
+                        'actions/setup-node',
+                        ref='v4',
+                        with_opts={'node-version': '20'},
+                    ),
+                    script('npm install -g bats', name='Install bats'),
+                    script('bats -v'),
+                ],
+                runs_on='ubuntu-latest',
+            )
+        },
+        on=Events(push=PushEvent()),
+        name='learn-github-actions',
+        run_name=f'{context.github.actor} is learning GitHub Actions',
+    )
+)
+```
+
+This will produce the following YAML:
+
+```yaml
+---
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+"on": push
+jobs:
+  check-bats-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install bats
+        run: npm install -g bats
+      - run: bats -v
+```
+
+Notice that these aren't quite the same. The most obvious things one might notice about the above Python code is that it's longer and more verbose than just writing the YAML directly. The main benefit comes from type hints and function signatures which give you the set of allowed keys and their types without having to wade through GitHub's documentation. The other benefit of this library comes from using prebuilt actions. For example, we could have written the code as:
+
+```python
+from yamloom.actions.github.scm import Checkout
+from yamloom.actions.toolchains.node import SetupNode
+from yamloom.expressions import context
+from yamloom import Workflow, Events, PushEvent, Job, script
+
+print(
+    Workflow(
+        jobs={
+            'check-bats-version': Job(
+                steps=[
+                    Checkout(),
+                    SetupNode(node_version='20'),
+                    script('npm install -g bats', name='Install bats'),
+                    script('bats -v'),
+                ],
+                runs_on='ubuntu-latest',
+            )
+        },
+        on=Events(push=PushEvent()),
+        name='learn-github-actions',
+        run_name=f'{context.github.actor} is learning GitHub Actions',
+    )
+)
+```
+
+These custom actions contain their own nice signatures and type hints taken directly from their own documentation. `yamloom` provides a curated list of actions that might be commonly used, e.g. common programming language "setup" actions, common GitHub operations like working with caches or artifacts, and common third-party actions (like `maturin` to build this project). With these building blocks, complex workflows can be designed programmatically. YAML workflows may contain lots of repetition, but actual code can solve this with functions and loops!
+
+### Expressions
+
+GitHub defines a syntax for expressions which are enclosed in `${{ ... }}` delimiters. These expressions range from environment variables to references to parts of the workflow to repository secrets. Expressions aren't actually allowed in every field (in fact, some expressions are only allowed in certain places, but `yamloom` doesn't check for that yet), and some types of expressions have operations which can be used to build complex logic that is processed before the workflow runs. We've already seen in the example above that contexts all exist as members of the `context` object. These members have their own sets of allowed fields, some of which represent different types of expressions (`StringExpression`s, `BooleanExpression`s, `NumberExpression`s, `ArrayExpression`s, and `ObjectExpression`s). The latter supports dot notation (as well as square-bracket access) which can be useful for matrix strategies. These expressions can usually be cast into other expression types using methods like `as_str`, `as_bool`, and so on. These also support some logical operations (comparisons, equality, `|`, `&`, and `~`). For example, we could write `condition=context.github.ref.startswith('refs/tags/') | (context.github.event_name == 'workflow_dispatch')` to run a job if it's from a tag push or from a workflow dispatch event.
+
+### Custom actions
+
+To implement a custom action, define a class that subclasses ``ActionStep`` and implement ``__new__`` to call ``super().__new__`` with the action name and options. Because it's all just code, it's fairly easy to distribute third-party actions as Python libraries (or by extending existing Python libraries). This repository is also open to contributions, and I plan to make it host a more curated set of essential actions that can be used with most important workflows.
+
+## CLI Usage
+
+You can create a workflow generator script (defaults to `$YAMLOOM_FILE`, `.yamloom.py`, or `yamloom.py` in this resolution order) and run it with:
+
+```bash
+yamloom
+```
+
+You can also point to a specific script:
+
+```bash
+yamloom --file path/to/workflow_builder.py
+```
+
+This script should have the form
+
+```python
+workflow1 = Workflow(...).dump('.github/workflows/workflow1.yml')
+workflow2 = Workflow(...).dump('.github/workflows/workflow2.yml')
+...
+```
+
+Right now, the script and associated pre-commit hook just run the Python file at the given path, but I have some eventual plans to add to the functionality of the `yamloom` command.
+
+## Pre-commit
+
+Install and run the hooks:
+
+```yaml
+
+  - repo: https://github.com/denehoffman/yamloom
+    rev: v0.1.0
+    hooks:
+      - id : yamloom-sync
+      # args: ["--file", "path/to/workflow_builder.py"] # optional
+```
+
+```bash
+uv tool install pre-commit --with pre-commit-uv
+pre-commit install
+```
+
+or use `prek`:
+```bash
+uv tool install prek
+prek install
+```
+
+## Third-party notices
+
+This project vendors the GitHub Actions workflow JSON schema from JSON Schema Store (Apache-2.0).
+See `schemas/NOTICE` and `schemas/LICENSE` for attribution and license text.
+
+## Why Rust?
+
+This could have been implemented in pure Python (the original draft was), I'll admit, but if you've ever worked with YAML you'll know that the Python libraries for it are awful (mostly because YAML itself is awful). Rust has a nice YAML crate, and it helps to use strict enums for YAML fields rather than the optional type hints in Python. Also, the trait structure is much better than the amount of subclassing I was doing in my original Python code. The error handling is also much easier to implement, rather than having a mess of validators or some pyndantic models for everything. I have plans to make this a more robust tool, so Rust will eventually come in handy there as well. That being said, using a compiled language for a string-building library is maybe a bit overkill, but here we are.
+
+## TODOs
+
+- Docstrings (I've been a bit lazy on this)
+- Tests
+- More custom actions
+

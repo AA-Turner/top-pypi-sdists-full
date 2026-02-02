@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: picklescan
-Version: 1.0.0
+Version: 1.0.1
 Summary: Security scanner detecting Python Pickle files performing suspicious actions
 Home-page: https://github.com/mmaitre314/picklescan
 Author: Matthieu Maitre

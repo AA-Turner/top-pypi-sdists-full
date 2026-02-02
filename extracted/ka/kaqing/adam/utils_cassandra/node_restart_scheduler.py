@@ -2,6 +2,7 @@ from copy import copy
 from datetime import datetime
 import threading
 import time
+import traceback
 
 from adam.config import Config
 from adam.repl_state import ReplState
@@ -110,7 +111,6 @@ class NodeRestartScheduler:
                             ctx.log2(f'[{ts()}] {pod}@{namespace} is not restartable{ir}.')
 
                     if not restarted:
-                        # ctx.log2(f'[{ts()}] Did not find any restartable pods.')
                         time.sleep(5)
 
                 # trigger cleaning up of restartings

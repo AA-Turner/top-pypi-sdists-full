@@ -4,9 +4,12 @@ Document Manager for the CSSL Language Server.
 Handles document tracking, parsing, and caching of analysis results.
 """
 
+import logging
 import threading
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
+
+logger = logging.getLogger('cssl-lsp.document_manager')
 
 # Import CSSL parser components
 try:
@@ -103,27 +106,58 @@ class DocumentManager:
         Returns:
             The analysis result
         """
+        # Run expensive analysis WITHOUT holding the lock
+        analysis = self._analyze_document(uri, text, version)
+        # Only hold lock for the quick dict update
         with self._lock:
-            analysis = self._analyze_document(uri, text, version)
+            self._documents[uri] = analysis
+        return analysis
+
+    def update_document_fast(self, uri: str, text: str, version: int = 0) -> DocumentAnalysis:
+        """
+        Fast update: tokenize only (no parsing/symbol table).
+
+        Used for immediate responsiveness during typing.
+        Completions can work from tokens alone.
+        """
+        with self._lock:
+            analysis = DocumentAnalysis(uri=uri, source=text, version=version)
+
+            if PARSER_AVAILABLE:
+                try:
+                    lexer = CSSLLexer(text)
+                    analysis.tokens = lexer.tokenize()
+                except Exception:
+                    pass  # Tokens from previous analysis will be used
+
+            # Preserve AST and symbol table from previous analysis if available
+            prev = self._documents.get(uri)
+            if prev:
+                analysis.ast = prev.ast
+                analysis.symbol_table = prev.symbol_table
+                analysis.is_valid = prev.is_valid
+                if not analysis.tokens and prev.tokens:
+                    analysis.tokens = prev.tokens
+
             self._documents[uri] = analysis
             return analysis
 
     def update_document(self, uri: str, text: str, version: int = 0) -> DocumentAnalysis:
         """
-        Update an existing document and re-analyze.
+        Full update: tokenize, parse, and build symbol table.
 
-        Args:
-            uri: Document URI
-            text: New document content
-            version: New document version
-
-        Returns:
-            The updated analysis result
+        This is the expensive operation - should be run in a background thread.
+        Lock is NOT held during analysis to avoid blocking the event loop.
         """
+        # Run expensive analysis WITHOUT holding the lock
+        analysis = self._analyze_document(uri, text, version)
+        # Only hold lock for the quick dict update
         with self._lock:
-            analysis = self._analyze_document(uri, text, version)
-            self._documents[uri] = analysis
-            return analysis
+            # Only update if no newer version has been stored while we were parsing
+            existing = self._documents.get(uri)
+            if existing is None or existing.version <= version:
+                self._documents[uri] = analysis
+        return analysis
 
     def close_document(self, uri: str) -> None:
         """Close a document and remove from cache."""
@@ -141,6 +175,7 @@ class DocumentManager:
         Perform full analysis of a CSSL document.
 
         Includes tokenization, parsing, and symbol extraction.
+        Uses a timeout to prevent parser hangs from blocking the server.
         """
         analysis = DocumentAnalysis(uri=uri, source=text, version=version)
 
@@ -154,8 +189,10 @@ class DocumentManager:
 
         # Step 1: Tokenize
         try:
+            logger.debug(f"Step 1: Tokenizing {uri}")
             lexer = CSSLLexer(text)
             analysis.tokens = lexer.tokenize()
+            logger.debug(f"Tokenized: {len(analysis.tokens)} tokens")
         except Exception as e:
             analysis.syntax_errors.append(SyntaxError(
                 line=1,
@@ -164,18 +201,20 @@ class DocumentManager:
             ))
             return analysis
 
-        # Step 2: Parse
+        # Step 2: Parse (with timeout to prevent hangs)
         try:
-            parser = CSSLParser(analysis.tokens, analysis.source_lines, text)
-
-            # Auto-detect format
-            stripped = text.lstrip()
-            if stripped.startswith('{') or stripped.startswith('service-'):
-                analysis.ast = parser.parse()
+            logger.debug(f"Step 2: Parsing {uri}")
+            ast_result = self._parse_with_timeout(analysis.tokens, analysis.source_lines, text, timeout=1)
+            if ast_result is not None:
+                analysis.ast = ast_result
+                analysis.is_valid = True
+                logger.debug(f"Parsed successfully")
             else:
-                analysis.ast = parser.parse_program()
-
-            analysis.is_valid = True
+                analysis.syntax_errors.append(SyntaxError(
+                    line=1, column=1,
+                    message="Parser timed out"
+                ))
+                analysis.is_valid = False
 
         except CSSLSyntaxError as e:
             analysis.syntax_errors.append(SyntaxError(
@@ -184,7 +223,6 @@ class DocumentManager:
                 message=str(e),
                 source_line=getattr(e, 'source_line', '')
             ))
-            # Still try to use partial tokens for analysis
             analysis.is_valid = False
 
         except Exception as e:
@@ -195,11 +233,66 @@ class DocumentManager:
             ))
             analysis.is_valid = False
 
-        # Step 3: Build symbol table from AST
+        # Step 3: Build symbol table from AST (with timeout)
         if analysis.ast:
-            self._build_symbol_table(analysis)
+            try:
+                logger.debug(f"Step 3: Building symbol table for {uri}")
+                self._build_symbol_table_with_timeout(analysis, timeout=1)
+                logger.debug(f"Symbol table built")
+            except Exception as e:
+                logger.warning(f"Symbol table build failed: {e}")
 
         return analysis
+
+    def _parse_with_timeout(self, tokens, source_lines, text, timeout=3):
+        """Run the parser in a thread with a timeout to prevent hangs."""
+        result = [None]
+        error = [None]
+
+        def do_parse():
+            try:
+                parser = CSSLParser(tokens, source_lines, text)
+                stripped = text.lstrip()
+                if stripped.startswith('{') or stripped.startswith('service-'):
+                    result[0] = parser.parse()
+                else:
+                    result[0] = parser.parse_program()
+            except Exception as e:
+                error[0] = e
+
+        thread = threading.Thread(target=do_parse, daemon=True)
+        thread.start()
+        thread.join(timeout)
+
+        if thread.is_alive():
+            logger.warning(f"Parser timed out after {timeout}s")
+            return None
+
+        if error[0]:
+            raise error[0]
+
+        return result[0]
+
+    def _build_symbol_table_with_timeout(self, analysis, timeout=3):
+        """Build symbol table with a timeout to prevent hangs."""
+        error = [None]
+
+        def do_build():
+            try:
+                self._build_symbol_table(analysis)
+            except Exception as e:
+                error[0] = e
+
+        thread = threading.Thread(target=do_build, daemon=True)
+        thread.start()
+        thread.join(timeout)
+
+        if thread.is_alive():
+            logger.warning(f"Symbol table build timed out after {timeout}s")
+            return
+
+        if error[0]:
+            raise error[0]
 
     def _build_symbol_table(self, analysis: DocumentAnalysis) -> None:
         """Build the symbol table from the AST."""
@@ -207,6 +300,74 @@ class DocumentManager:
 
         analyzer = SemanticAnalyzer()
         analysis.symbol_table = analyzer.analyze(analysis.ast, analysis.tokens)
+
+        # Extract /d docstrings from source text and attach to symbols
+        self._extract_docstrings(analysis)
+
+    def _extract_docstrings(self, analysis: DocumentAnalysis) -> None:
+        """Extract /d docstring comments and attach to nearest symbols.
+
+        Scans source text for /d lines and associates them with the
+        class, constructor, or function that contains them.
+
+        Supports:
+            /d This is a docstring for the enclosing construct.
+            /d Multiple /d lines are joined together.
+        """
+        import re
+        if not analysis.text or not analysis.symbol_table:
+            return
+
+        lines = analysis.text.splitlines()
+        all_symbols = analysis.symbol_table.get_all_symbols_flat()
+        if not all_symbols:
+            return
+
+        # Build a map of line_number -> symbol for quick lookup
+        # Symbols are classes, functions, constructors
+        from ..utils.symbol_table import SymbolKind
+        target_kinds = {SymbolKind.CLASS, SymbolKind.FUNCTION, SymbolKind.METHOD, SymbolKind.CONSTRUCTOR}
+        declared_symbols = [s for s in all_symbols if s.kind in target_kinds and s.line > 0]
+
+        # Collect consecutive /d lines and their line numbers
+        docstring_blocks = []  # [(start_line, end_line, text)]
+        i = 0
+        while i < len(lines):
+            stripped = lines[i].strip()
+            if stripped.startswith('/d ') or stripped == '/d':
+                doc_lines = []
+                start = i
+                while i < len(lines):
+                    s = lines[i].strip()
+                    if s.startswith('/d '):
+                        doc_lines.append(s[3:].strip())
+                    elif s == '/d':
+                        doc_lines.append('')
+                    else:
+                        break
+                    i += 1
+                docstring_blocks.append((start + 1, i, '\n'.join(doc_lines)))
+            else:
+                i += 1
+
+        # For each docstring block, find the enclosing symbol
+        # The /d is inside a construct's body, so find the symbol whose
+        # declaration line is the closest BEFORE the /d line
+        for doc_start_line, doc_end_line, doc_text in docstring_blocks:
+            best_symbol = None
+            best_dist = float('inf')
+            for sym in declared_symbols:
+                # Symbol must be declared before or at the docstring
+                if sym.line <= doc_start_line:
+                    dist = doc_start_line - sym.line
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_symbol = sym
+            if best_symbol and not best_symbol.documentation:
+                best_symbol.documentation = doc_text
+            elif best_symbol and best_symbol.documentation:
+                # Append if symbol already has docs (e.g. from registry)
+                best_symbol.documentation += '\n\n' + doc_text
 
     def get_all_documents(self) -> List[DocumentAnalysis]:
         """Get all open documents."""

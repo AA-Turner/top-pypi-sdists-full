@@ -1,0 +1,28 @@
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - run: uv sync --locked
+
+      - run: uv build
+      - run: uv publish --token ${{ secrets.PYPI_TOKEN }}
+      - run: gh release create $(uv version --short) --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

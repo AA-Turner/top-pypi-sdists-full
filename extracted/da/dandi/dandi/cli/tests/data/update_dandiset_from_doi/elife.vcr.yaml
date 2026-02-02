@@ -1,0 +1,358 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
+      accept:
+      - application/json
+    method: GET
+    uri: https://doi.org/10.7554/eLife.48198
+  response:
+    body:
+      string: '<html><head><title>Handle Redirect</title></head>
+
+        <body><a href="https://api.crossref.org/v1/works/10.7554%2FeLife.48198/transform">https://api.crossref.org/v1/works/10.7554%2FeLife.48198/transform</a></body></html>'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 817276a29b4e8c27-EWR
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '215'
+      Content-Type:
+      - text/html;charset=utf-8
+      Date:
+      - Mon, 16 Oct 2023 18:46:14 GMT
+      NEL:
+      - '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}'
+      Report-To:
+      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=7qGy5%2BKy6LRTIOWYMy8lpDgvEKsVVtVYXiyDO%2BXzuuY%2Bm1a9zI7wHNfPZXVqHJLuLgmFmAhl4ZRPCgNEs%2BRn%2B%2FZa2d1PshMMKBLDYphsrLbuR0C%2FYDtJZQQ%3D"}],"group":"cf-nel","max_age":604800}'
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      alt-svc:
+      - h3=":443"; ma=86400
+      expires:
+      - Mon, 16 Oct 2023 19:01:13 GMT
+      location:
+      - https://api.crossref.org/v1/works/10.7554%2FeLife.48198/transform
+      permissions-policy:
+      - interest-cohort=(),browsing-topics=()
+      vary:
+      - Accept
+    status:
+      code: 302
+      message: Found
+- request:
+    body: null
+    headers:
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
+      accept:
+      - application/json
+    method: GET
+    uri: https://api.crossref.org/v1/works/10.7554%2FeLife.48198/transform
+  response:
+    body:
+      string: '{"indexed":{"date-parts":[[2023,10,15]],"date-time":"2023-10-15T04:56:03Z","timestamp":1697345763946},"reference-count":98,"publisher":"eLife
+        Sciences Publications, Ltd","license":[{"start":{"date-parts":[[2020,1,23]],"date-time":"2020-01-23T00:00:00Z","timestamp":1579737600000},"content-version":"vor","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/4.0\/"},{"start":{"date-parts":[[2020,1,23]],"date-time":"2020-01-23T00:00:00Z","timestamp":1579737600000},"content-version":"am","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/4.0\/"},{"start":{"date-parts":[[2020,1,23]],"date-time":"2020-01-23T00:00:00Z","timestamp":1579737600000},"content-version":"tdm","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"funder":[{"DOI":"10.13039\/100000001","name":"National
+        Science Foundation","doi-asserted-by":"publisher","award":["Graduate Research
+        Fellowship DGE-1324585"]},{"DOI":"10.13039\/100000002","name":"National Institutes
+        of Health","doi-asserted-by":"publisher","award":["R01 NS095251"]}],"content-domain":{"domain":[],"crossmark-restriction":false},"abstract":"<jats:p>Proprioception,
+        the sense of body position, movement, and associated forces, remains poorly
+        understood, despite its critical role in movement. Most studies of area 2,
+        a proprioceptive area of somatosensory cortex, have simply compared neurons\u2019
+        activities to the movement of the hand through space. Using motion tracking,
+        we sought to elaborate this relationship by characterizing how area 2 activity
+        relates to whole arm movements. We found that a whole-arm model, unlike classic
+        models, successfully predicted how features of neural activity changed as
+        monkeys reached to targets in two workspaces. However, when we then evaluated
+        this whole-arm model across active and passive movements, we found that many
+        neurons did not consistently represent the whole arm over both conditions.
+        These results suggest that 1) neural activity in area 2 includes representation
+        of the whole arm during reaching and 2) many of these neurons represented
+        limb state differently during active and passive movements.<\/jats:p>","DOI":"10.7554\/elife.48198","type":"journal-article","created":{"date-parts":[[2020,1,23]],"date-time":"2020-01-23T11:00:19Z","timestamp":1579777219000},"source":"Crossref","is-referenced-by-count":37,"title":"Area
+        2 of primary somatosensory cortex encodes kinematics of the whole arm","prefix":"10.7554","volume":"9","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-5934-919X","authenticated-orcid":true,"given":"Raeed
+        H","family":"Chowdhury","sequence":"first","affiliation":[{"name":"Department
+        of Biomedical Engineering, Northwestern University, Evanston, United States"},{"name":"Systems
+        Neuroscience Institute, University of Pittsburgh, Pittsburgh, United States"}]},{"ORCID":"http:\/\/orcid.org\/0000-0003-2906-115X","authenticated-orcid":true,"given":"Joshua
+        I","family":"Glaser","sequence":"additional","affiliation":[{"name":"Interdepartmental
+        Neuroscience Program, Northwestern University, Chicago, United States"},{"name":"Department
+        of Statistics, Columbia University, New York, United States"},{"name":"Zuckerman
+        Mind Brain Behavior Institute, Columbia University, New York, United States"}]},{"ORCID":"http:\/\/orcid.org\/0000-0001-8675-7140","authenticated-orcid":true,"given":"Lee
+        E","family":"Miller","sequence":"additional","affiliation":[{"name":"Department
+        of Biomedical Engineering, Northwestern University, Evanston, United States"},{"name":"Department
+        of Physiology, Northwestern University, Chicago, United States"},{"name":"Department
+        of Physical Medicine and Rehabilitation, Northwestern University, Chicago,
+        United States"},{"name":"Shirley Ryan AbilityLab, Chicago, United States"}]}],"member":"4374","published-online":{"date-parts":[[2020,1,23]]},"reference":[{"key":"bib1","doi-asserted-by":"publisher","first-page":"280","DOI":"10.1115\/1.3138494","article-title":"Determination
+        of muscle orientations and moment arms","volume":"106","author":"An","year":"1984","journal-title":"Journal
+        of Biomechanical Engineering"},{"key":"bib2","doi-asserted-by":"publisher","DOI":"10.7554\/eLife.32904","article-title":"Proprioceptive
+        and cutaneous sensations in humans elicited by intracortical microstimulation","volume":"7","author":"Armenta
+        Salas","year":"2018","journal-title":"eLife"},{"key":"bib3","doi-asserted-by":"publisher","first-page":"1745","DOI":"10.1073\/pnas.0709212105","article-title":"Variable
+        gearing in pennate muscles","volume":"105","author":"Azizi","year":"2008","journal-title":"PNAS"},{"key":"bib4","doi-asserted-by":"publisher","first-page":"450","DOI":"10.1126\/science.7291985","article-title":"An
+        efference copy which is modified by reafferent input","volume":"214","author":"Bell","year":"1981","journal-title":"Science"},{"key":"bib5","doi-asserted-by":"publisher","article-title":"The
+        reach cage environment for wireless neural recordings during structured goal-directed
+        behavior of unrestrained monkeys","volume-title":"bioRxiv","author":"Berger","year":"2018","DOI":"10.1101\/305334"},{"key":"bib6","doi-asserted-by":"publisher","first-page":"715","DOI":"10.1152\/jn.1996.76.2.715","article-title":"Representation
+        of passive hindlimb postures in cat spinocerebellar activity","volume":"76","author":"Bosco","year":"1996","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib7","doi-asserted-by":"publisher","first-page":"2931","DOI":"10.1152\/jn.2000.83.5.2931","article-title":"Reference
+        frames for spinal proprioception: limb endpoint based or joint-level based?","volume":"83","author":"Bosco","year":"2000","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib8","first-page":"209","article-title":"R-squared
+        measures for count data regression models with applications to health-care
+        utilization","volume":"14","author":"Cameron","year":"1996","journal-title":"Journal
+        of Business & Economic Statistics"},{"key":"bib9","doi-asserted-by":"publisher","first-page":"329","DOI":"10.1016\/S0304-4076(96)01818-0","article-title":"An
+        R-squared measure of goodness of fit for some common nonlinear regression
+        models","volume":"77","author":"Cameron","year":"1997","journal-title":"Journal
+        of Econometrics"},{"key":"bib10","doi-asserted-by":"publisher","first-page":"2039","DOI":"10.1523\/JNEUROSCI.10-07-02039.1990","article-title":"Making
+        arm movements within different parts of space: dynamic aspects in the primate
+        motor cortex","volume":"10","author":"Caminiti","year":"1990","journal-title":"The
+        Journal of Neuroscience"},{"key":"bib11","doi-asserted-by":"publisher","first-page":"1182","DOI":"10.1523\/JNEUROSCI.11-05-01182.1991","article-title":"Making
+        arm movements within different parts of space: the premotor and motor cortical
+        representation of a coordinate system for reaching to visual targets","volume":"11","author":"Caminiti","year":"1991","journal-title":"The
+        Journal of Neuroscience"},{"key":"bib12","doi-asserted-by":"publisher","first-page":"327","DOI":"10.1088\/1741-2560\/3\/4\/010","article-title":"Computational
+        model of a primate arm: from hand position to joint angles, joint torques
+        and muscle forces","volume":"3","author":"Chan","year":"2006","journal-title":"Journal
+        of Neural Engineering"},{"key":"bib13","doi-asserted-by":"publisher","first-page":"63","DOI":"10.1016\/0006-8993(84)91011-4","article-title":"Discharge
+        properties of area 5 neurones during arm movements triggered by sensory stimuli
+        in the monkey","volume":"309","author":"Chapman","year":"1984","journal-title":"Brain
+        Research"},{"key":"bib14","doi-asserted-by":"publisher","first-page":"234","DOI":"10.1152\/jn.00695.2016","article-title":"Musculoskeletal
+        geometry accounts for apparent extrinsic representation of paw position in
+        dorsal spinocerebellar tract","volume":"118","author":"Chowdhury","year":"2017","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib15","article-title":"KinectTracking","volume-title":"GitHub","author":"Chowdhury","year":"2020","unstructured":"Chowdhury
+        RH. 2020a. KinectTracking. GitHub. 052b0f1. https:\/\/github.com\/limblab\/KinectTracking."},{"key":"bib16","article-title":"S1
+        kinematic encoding analysis","volume-title":"GitHub","author":"Chowdhury","year":"2020","unstructured":"Chowdhury
+        RH. 2020b. S1 kinematic encoding analysis. GitHub. e6363cf. https:\/\/github.com\/raeedcho\/s1-kinematics."},{"key":"bib17","article-title":"monkeyArmModel","volume-title":"GitHub","author":"Chowdhury","year":"2020","unstructured":"Chowdhury
+        RH. 2020c. monkeyArmModel. GitHub. d766701. https:\/\/github.com\/limblab\/monkeyArmModel."},{"key":"bib18","doi-asserted-by":"publisher","first-page":"387","DOI":"10.1016\/j.neuron.2010.09.015","article-title":"Cortical
+        preparatory activity: representation of\u00a0Movement or First Cog in a Dynamical
+        Machine?","volume":"68","author":"Churchland","year":"2010","journal-title":"Neuron"},{"key":"bib19","doi-asserted-by":"publisher","first-page":"557","DOI":"10.1016\/S0140-6736(12)61816-9","article-title":"High-performance
+        neuroprosthetic control by an individual with tetraplegia","volume":"381","author":"Collinger","year":"2013","journal-title":"The
+        Lancet"},{"key":"bib20","doi-asserted-by":"publisher","first-page":"138","DOI":"10.1038\/nn.3883","article-title":"A
+        learning-based approach to artificial sensory feedback leads to optimal integration","volume":"18","author":"Dadarlat","year":"2015","journal-title":"Nature
+        Neuroscience"},{"key":"bib21","doi-asserted-by":"publisher","DOI":"10.1038\/s41467-018-05959-y","article-title":"Single
+        reach plans in dorsal premotor cortex during a two-target task","volume":"9","author":"Dekleva","year":"2018","journal-title":"Nature
+        Communications"},{"key":"bib22","doi-asserted-by":"publisher","first-page":"224","DOI":"10.1017\/S0140525X07001641","article-title":"Somatosensory
+        processing subserving perception and action: dissociations, interactions,
+        and integration","volume":"30","author":"Dijkerman","year":"2007","journal-title":"Behavioral
+        and Brain Sciences"},{"key":"bib23","doi-asserted-by":"publisher","DOI":"10.1038\/ncomms13239","article-title":"Reorganization
+        between preparatory and movement population responses in motor cortex","volume":"7","author":"Elsayed","year":"2016","journal-title":"Nature
+        Communications"},{"key":"bib24","article-title":"Get CI and p-values for cross
+        validated performance measures","volume-title":"Cross Validated","author":"Ernst","year":"2017","unstructured":"Ernst
+        D. 2017. Get CI and p-values for cross validated performance measures. Cross
+        Validated. https:\/\/stats.stackexchange.com\/q\/305807 [Accessed December
+        1, 2017]."},{"key":"bib25","doi-asserted-by":"publisher","first-page":"368","DOI":"10.1038\/nature10987","article-title":"Restoration
+        of grasp following paralysis through brain-controlled stimulation of muscles","volume":"485","author":"Ethier","year":"2012","journal-title":"Nature"},{"key":"bib26","doi-asserted-by":"publisher","first-page":"14","DOI":"10.1152\/jn.1968.31.1.14","article-title":"Relation
+        of pyramidal tract activity to force exerted during voluntary movement","volume":"31","author":"Evarts","year":"1968","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib27","doi-asserted-by":"publisher","first-page":"1","DOI":"10.1093\/cercor\/1.1.1","article-title":"Distributed
+        hierarchical processing in the primate cerebral cortex","volume":"1","author":"Felleman","year":"1991","journal-title":"Cerebral
+        Cortex"},{"key":"bib28","doi-asserted-by":"crossref","first-page":"437","volume-title":"Progress
+        in Brain Research: Afferent Control of Posture and Locomotion","author":"Fetz","year":"1989","DOI":"10.1016\/S0079-6123(08)62241-4"},{"key":"bib29","doi-asserted-by":"publisher","first-page":"679","DOI":"10.1017\/S0140525X00072599","article-title":"Are
+        movement parameters recognizably coded in activity of single neurons?","volume":"15","author":"Fetz","year":"1992","journal-title":"Behavioral
+        and Brain Sciences"},{"key":"bib30","doi-asserted-by":"publisher","DOI":"10.1126\/scitranslmed.aaf8083","article-title":"Intracortical
+        microstimulation of human somatosensory cortex","volume":"8","author":"Flesher","year":"2016","journal-title":"Science
+        Translational Medicine"},{"key":"bib31","doi-asserted-by":"publisher","first-page":"164","DOI":"10.1152\/jn.00494.2009","article-title":"Where
+        is your arm? variations in proprioception across space and tasks","volume":"103","author":"Fuentes","year":"2010","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib32","doi-asserted-by":"publisher","first-page":"978","DOI":"10.1016\/j.neuron.2017.05.025","article-title":"Neural
+        manifolds for the control of movement","volume":"94","author":"Gallego","year":"2017","journal-title":"Neuron"},{"key":"bib33","doi-asserted-by":"publisher","first-page":"1527","DOI":"10.1523\/JNEUROSCI.02-11-01527.1982","article-title":"On
+        the relations between the direction of two-dimensional arm movements and cell
+        discharge in primate motor cortex","volume":"2","author":"Georgopoulos","year":"1982","journal-title":"The
+        Journal of Neuroscience"},{"key":"bib34","doi-asserted-by":"publisher","first-page":"1416","DOI":"10.1126\/science.3749885","article-title":"Neuronal
+        population coding of movement direction","volume":"233","author":"Georgopoulos","year":"1986","journal-title":"Science"},{"key":"bib35","doi-asserted-by":"publisher","first-page":"273","DOI":"10.1139\/y95-038","article-title":"Proprioceptive
+        control of interjoint coordination","volume":"73","author":"Ghez","year":"1995","journal-title":"Canadian
+        Journal of Physiology and Pharmacology"},{"key":"bib36","doi-asserted-by":"publisher","first-page":"347","DOI":"10.1152\/jn.1995.73.1.347","article-title":"Impairments
+        of reaching movements in patients without proprioception. I. spatial errors","volume":"73","author":"Gordon","year":"1995","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib37","doi-asserted-by":"publisher","first-page":"2164","DOI":"10.1152\/jn.01147.2003","article-title":"Movement
+        reduces the dynamic response of muscle spindle afferents and motoneuron synaptic
+        potentials in rat","volume":"91","author":"Haftel","year":"2004","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib38","doi-asserted-by":"publisher","first-page":"1349","DOI":"10.1152\/jn.00019.2012","article-title":"Energy
+        margins in dynamic object manipulation","volume":"108","author":"Hasson","year":"2012","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib39","doi-asserted-by":"publisher","first-page":"199","DOI":"10.1113\/jphysiol.1976.sp011364","article-title":"Inputs
+        from low threshold muscle and cutaneous afferents of hand and forearm to Areas
+        3a and 3b of baboon''s cerebral cortex","volume":"257","author":"Heath","year":"1976","journal-title":"The
+        Journal of Physiology"},{"key":"bib40","doi-asserted-by":"publisher","first-page":"253","DOI":"10.1016\/S0167-9473(03)00062-8","article-title":"Pseudo
+        R-squared measures for Poisson regression models with over- or underdispersion","volume":"44","author":"Heinzl","year":"2003","journal-title":"Computational
+        Statistics & Data Analysis"},{"key":"bib41","doi-asserted-by":"publisher","first-page":"574","DOI":"10.1113\/jphysiol.1959.sp006308","article-title":"Receptive
+        fields of single neurones in the cat''s striate cortex","volume":"148","author":"Hubel","year":"1959","journal-title":"The
+        Journal of Physiology"},{"key":"bib42","doi-asserted-by":"publisher","first-page":"106","DOI":"10.1113\/jphysiol.1962.sp006837","article-title":"Receptive
+        fields, binocular interaction and functional architecture in the cat''s visual
+        cortex","volume":"160","author":"Hubel","year":"1962","journal-title":"The
+        Journal of Physiology"},{"key":"bib43","doi-asserted-by":"publisher","first-page":"539","DOI":"10.1113\/jphysiol.1978.sp012518","article-title":"Receptive
+        field integration and submodality convergence in the hand area of the post-central
+        gyrus of the alert monkey","volume":"283","author":"Hyv\u00e4rinen","year":"1978","journal-title":"The
+        Journal of Physiology"},{"key":"bib44","doi-asserted-by":"publisher","first-page":"1216","DOI":"10.1152\/jn.1983.49.5.1216","article-title":"Somatosensory
+        cortex activity related to position and force","volume":"49","author":"Jennings","year":"1983","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib45","doi-asserted-by":"publisher","first-page":"521","DOI":"10.1126\/science.107591","article-title":"Multiple
+        representations of the body within the primary somatosensory cortex of primates","volume":"204","author":"Kaas","year":"1979","journal-title":"Science"},{"key":"bib46","doi-asserted-by":"publisher","first-page":"2136","DOI":"10.1126\/science.285.5436.2136","article-title":"Muscle
+        and movement representations in the primary motor cortex","volume":"285","author":"Kakei","year":"1999","journal-title":"Science"},{"key":"bib47","doi-asserted-by":"publisher","DOI":"10.1038\/ncomms8759","article-title":"Single-trial
+        dynamics of motor cortex and their applications to brain-machine interfaces","volume":"6","author":"Kao","year":"2015","journal-title":"Nature
+        Communications"},{"key":"bib48","doi-asserted-by":"publisher","first-page":"440","DOI":"10.1038\/nn.3643","article-title":"Cortical
+        activity in the null space: permitting preparation without movement","volume":"17","author":"Kaufman","year":"2014","journal-title":"Nature
+        Neuroscience"},{"key":"bib49","first-page":"1097","volume-title":"Advances
+        in Neural Information Processing Systems","author":"Krizhevsky","year":"2012"},{"key":"bib50","doi-asserted-by":"publisher","first-page":"168","DOI":"10.1016\/j.neuron.2012.10.041","article-title":"Preference
+        distributions of primary motor cortex neurons reflect control solutions optimized
+        for limb biomechanics","volume":"77","author":"Lillicrap","year":"2013","journal-title":"Neuron"},{"key":"bib51","doi-asserted-by":"publisher","first-page":"578","DOI":"10.1152\/jn.1985.54.3.578","article-title":"Activity
+        of spindle afferents from cat anterior thigh muscles. III. effects of external
+        stimuli","volume":"54","author":"Loeb","year":"1985","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib52","first-page":"7521","article-title":"Designing
+        stimulation patterns for an afferent BMI: representation of kinetics in somatosensory
+        cortex","author":"London","year":"2011","unstructured":"London BM, Ruiz-Torres
+        R, Slutzky MW, Miller LE. 2011. Designing stimulation patterns for an afferent
+        BMI: representation of kinetics in somatosensory cortex. Engineering in Medicine
+        and Biology Society, EMBC, 2011 Annual International Conference of the IEEE."},{"key":"bib53","doi-asserted-by":"publisher","first-page":"1505","DOI":"10.1152\/jn.00372.2012","article-title":"Responses
+        of somatosensory area 2 neurons to actively and passively generated limb movements","volume":"109","author":"London","year":"2013","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib54","doi-asserted-by":"publisher","DOI":"10.3389\/fnsys.2019.00013","article-title":"Neural
+        networks for modeling neural spiking in S1 cortex","volume":"13","author":"Lucas","year":"2019","journal-title":"Frontiers
+        in Systems Neuroscience"},{"key":"bib55","doi-asserted-by":"publisher","first-page":"1493","DOI":"10.1016\/j.neuron.2017.02.049","article-title":"Somatosensory
+        cortex plays an essential role in forelimb motor adaptation in mice","volume":"93","author":"Mathis","year":"2017","journal-title":"Neuron"},{"key":"bib56","doi-asserted-by":"publisher","first-page":"1671","DOI":"10.1152\/jn.00475.2018","article-title":"Highlights
+        from the 28th annual meeting of the society for the neural control of movement","volume":"120","author":"Mazurek","year":"2018","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib57","volume-title":"Quantitative Methods for
+        Analyzing Travel Behavior of Individuals: Some Recent Developments","author":"McFadden","year":"1977"},{"key":"bib58","doi-asserted-by":"publisher","first-page":"57","DOI":"10.1016\/0166-4328(82)90081-X","article-title":"Contribution
+        of striate inputs to the visuospatial functions of parieto-preoccipital cortex
+        in monkeys","volume":"6","author":"Mishkin","year":"1982","journal-title":"Behavioural
+        Brain Research"},{"key":"bib59","doi-asserted-by":"publisher","first-page":"2676","DOI":"10.1152\/jn.1999.82.5.2676","article-title":"Motor
+        cortical representation of speed and direction during reaching","volume":"82","author":"Moran","year":"1999","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib60","doi-asserted-by":"publisher","first-page":"1786","DOI":"10.1152\/jn.00150.2006","article-title":"Direct
+        comparison of the Task-Dependent discharge of M1 in hand space and muscle
+        space","volume":"97","author":"Morrow","year":"2007","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib61","doi-asserted-by":"publisher","first-page":"871","DOI":"10.1152\/jn.1975.38.4.871","article-title":"Posterior
+        parietal association cortex of the monkey: command functions for operations
+        within extrapersonal space","volume":"38","author":"Mountcastle","year":"1975","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib62","doi-asserted-by":"publisher","first-page":"106","DOI":"10.1016\/0304-3940(88)90257-1","article-title":"Do
+        neurons in the motor cortex encode movement direction? an alternative hypothesis","volume":"91","author":"Mussa-Ivaldi","year":"1988","journal-title":"Neuroscience
+        Letters"},{"key":"bib63","doi-asserted-by":"crossref","first-page":"239","DOI":"10.1023\/A:1024068626366","article-title":"Inference
+        for the generalization error","volume":"52","author":"Nadeau","year":"2003","journal-title":"Machine
+        Learning"},{"key":"bib64","doi-asserted-by":"publisher","first-page":"2077","DOI":"10.1152\/jn.00719.2012","article-title":"Sensorimotor
+        adaptation changes the neural coding of somatosensory stimuli","volume":"109","author":"Nasir","year":"2013","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib65","doi-asserted-by":"publisher","first-page":"402","DOI":"10.1016\/0006-8993(87)90815-8","article-title":"Activity
+        of monkey primary somatosensory cortical neurons changes prior to active movement","volume":"406","author":"Nelson","year":"1987","journal-title":"Brain
+        Research"},{"key":"bib66","doi-asserted-by":"publisher","first-page":"666","DOI":"10.1152\/jn.00331.2012","article-title":"Movement
+        representation in the primary motor cortex and its contribution to generalizable
+        EMG predictions","volume":"109","author":"Oby","year":"2013","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib67","doi-asserted-by":"publisher","DOI":"10.7554\/eLife.13141","article-title":"Distributed
+        task-specific processing of somatosensory feedback for voluntary motor control","volume":"5","author":"Omrani","year":"2016","journal-title":"eLife"},{"key":"bib68","doi-asserted-by":"publisher","first-page":"718","DOI":"10.1002\/cne.24453","article-title":"Cortical
+        connections of area 2 and posterior parietal area 5 in macaque monkeys","volume":"527","author":"Padberg","year":"2019","journal-title":"Journal
+        of Comparative Neurology"},{"key":"bib69","doi-asserted-by":"publisher","first-page":"964","DOI":"10.1016\/j.neuron.2018.09.030","article-title":"A
+        neural population mechanism for rapid learning","volume":"100","author":"Perich","year":"2018","journal-title":"Neuron"},{"key":"bib70","doi-asserted-by":"publisher","first-page":"419","DOI":"10.1113\/jphysiol.1971.sp009579","article-title":"Projection
+        from low-threshold muscle afferents of hand and forearm to area 3a of baboon''s
+        cortex","volume":"217","author":"Phillips","year":"1971","journal-title":"The
+        Journal of Physiology"},{"key":"bib71","doi-asserted-by":"publisher","first-page":"445","DOI":"10.1002\/cne.902410405","article-title":"The
+        somatotopic organization of area 2 in macaque monkeys","volume":"241","author":"Pons","year":"1985","journal-title":"The
+        Journal of Comparative Neurology"},{"key":"bib72","doi-asserted-by":"publisher","first-page":"1090","DOI":"10.1152\/jn.1976.39.5.1090","article-title":"Discharges
+        of single hindlimb afferents in the freely moving cat","volume":"39","author":"Prochazka","year":"1976","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib73","doi-asserted-by":"publisher","first-page":"229","volume-title":"Muscle
+        Receptors and Movement","author":"Prochazka","year":"1981","DOI":"10.1007\/978-1-349-06022-1_24"},{"key":"bib74","doi-asserted-by":"publisher","first-page":"1","DOI":"10.1113\/jphysiol.1985.sp015843","article-title":"The
+        initial burst of impulses in responses of toad muscle spindles during stretch","volume":"368","author":"Proske","year":"1985","journal-title":"The
+        Journal of Physiology"},{"key":"bib75","doi-asserted-by":"publisher","first-page":"2280","DOI":"10.1152\/jn.1994.72.5.2280","article-title":"Proprioceptive
+        activity in primate primary somatosensory cortex during active arm reaching
+        movements","volume":"72","author":"Prud''homme","year":"1994","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib76","doi-asserted-by":"publisher","first-page":"479","DOI":"10.1113\/jphysiol.1984.sp015077","article-title":"Elastic
+        properties of the cat soleus tendon and their functional importance","volume":"347","author":"Rack","year":"1984","journal-title":"The
+        Journal of Physiology"},{"key":"bib77","doi-asserted-by":"publisher","first-page":"2255","DOI":"10.1152\/jn.01083.2015","article-title":"A
+        chronic neural interface to the macaque dorsal column nuclei","volume":"115","author":"Richardson","year":"2016","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib78","doi-asserted-by":"publisher","first-page":"387","DOI":"10.1038\/32891","article-title":"Somatosensory
+        discrimination based on cortical microstimulation","volume":"392","author":"Romo","year":"1998","journal-title":"Nature"},{"key":"bib79","doi-asserted-by":"publisher","first-page":"953","DOI":"10.1016\/j.neuron.2018.01.004","article-title":"Motor
+        cortex embeds Muscle-like commands in an untangled population response","volume":"97","author":"Russo","year":"2018","journal-title":"Neuron"},{"key":"bib80","doi-asserted-by":"publisher","first-page":"2136","DOI":"10.1152\/jn.1993.70.5.2136","article-title":"Loss
+        of proprioception produces deficits in interjoint coordination","volume":"70","author":"Sainburg","year":"1993","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib81","doi-asserted-by":"publisher","first-page":"820","DOI":"10.1152\/jn.1995.73.2.820","article-title":"Control
+        of limb dynamics in normal subjects and patients without proprioception","volume":"73","author":"Sainburg","year":"1995","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib82","doi-asserted-by":"publisher","first-page":"979","DOI":"10.1073\/pnas.81.3.979","article-title":"Motor
+        deficits in patients with large-fiber sensory neuropathy","volume":"81","author":"Sanes","year":"1984","journal-title":"PNAS"},{"key":"bib83","doi-asserted-by":"publisher","first-page":"2563","DOI":"10.1152\/jn.1995.73.6.2563","article-title":"Changes
+        in motor cortex activity during reaching movements with similar hand paths
+        but different arm postures","volume":"73","author":"Scott","year":"1995","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib84","doi-asserted-by":"publisher","first-page":"291","DOI":"10.1007\/s12264-012-1223-9","article-title":"Dorsal
+        and ventral streams across sensory modalities","volume":"28","author":"Sedda","year":"2012","journal-title":"Neuroscience
+        Bulletin"},{"key":"bib85","doi-asserted-by":"publisher","first-page":"1834","DOI":"10.1093\/cercor\/bhr257","article-title":"Topographic
+        maps within brodmann''s Area 5 of macaque monkeys","volume":"22","author":"Seelke","year":"2012","journal-title":"Cerebral
+        Cortex"},{"key":"bib86","doi-asserted-by":"publisher","first-page":"3208","DOI":"10.1523\/JNEUROSCI.14-05-03208.1994","article-title":"Adaptive
+        representation of dynamics during learning of a motor task","volume":"14","author":"Shadmehr","year":"1994","journal-title":"The
+        Journal of Neuroscience"},{"key":"bib87","article-title":"What can spatiotemporal
+        characteristics of movements in RAMIS tell Us?","volume-title":"arXiv","author":"Sharon","year":"2017","unstructured":"Sharon
+        Y, Nisky I. 2017. What can spatiotemporal characteristics of movements in
+        RAMIS tell Us?. arXiv. https:\/\/arxiv.org\/abs\/1710.05818."},{"key":"bib88","doi-asserted-by":"publisher","first-page":"3271","DOI":"10.1152\/jn.00436.2017","article-title":"Methodological
+        considerations for a chronic neural interface with the cuneate nucleus of
+        macaques","volume":"118","author":"Suresh","year":"2017","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib89","doi-asserted-by":"publisher","first-page":"1025","DOI":"10.1038\/nn.4042","article-title":"A
+        neural network that finds a naturalistic solution for the production of muscle
+        activity","volume":"18","author":"Sussillo","year":"2015","journal-title":"Nature
+        Neuroscience"},{"key":"bib90","doi-asserted-by":"publisher","first-page":"18279","DOI":"10.1073\/pnas.1221113110","article-title":"Restoring
+        the sense of touch with a prosthetic hand through a brain interface","volume":"110","author":"Tabot","year":"2013","journal-title":"PNAS"},{"key":"bib91","volume-title":"Progress
+        in Motor Control: Theories and Translations","author":"Tomlinson","year":"2016"},{"key":"bib92","doi-asserted-by":"publisher","first-page":"1074","DOI":"10.1152\/jn.00697.2004","article-title":"A
+        point process framework for relating neural spiking activity to spiking history,
+        neural ensemble, and extrinsic covariate effects","volume":"93","author":"Truccolo","year":"2005","journal-title":"Journal
+        of Neurophysiology"},{"key":"bib93","doi-asserted-by":"publisher","first-page":"240","DOI":"10.1109\/TNSRE.2006.875575","article-title":"Decoding
+        sensory feedback from firing rates of afferent ensembles recorded in cat dorsal
+        root ganglia in normal locomotion","volume":"14","author":"Weber","year":"2006","journal-title":"IEEE
+        Transactions on Neural Systems and Rehabilitation Engineering"},{"key":"bib94","doi-asserted-by":"publisher","first-page":"501","DOI":"10.1109\/TNSRE.2011.2163145","article-title":"Limb-state
+        information encoded by peripheral and central somatosensory neurons: implications
+        for an afferent interface","volume":"19","author":"Weber","year":"2011","journal-title":"IEEE
+        Transactions on Neural Systems and Rehabilitation Engineering"},{"key":"bib95","doi-asserted-by":"publisher","first-page":"1880","DOI":"10.1126\/science.7569931","article-title":"An
+        internal model for sensorimotor integration","volume":"269","author":"Wolpert","year":"1995","journal-title":"Science"},{"key":"bib96","doi-asserted-by":"publisher","DOI":"10.1371\/journal.pone.0163948","article-title":"Representation
+        of afferent signals from forearm muscle and cutaneous nerves in the primary
+        somatosensory cortex of the macaque monkey","volume":"11","author":"Yamada","year":"2016","journal-title":"PLOS
+        ONE"},{"key":"bib97","doi-asserted-by":"publisher","DOI":"10.1088\/1741-2552\/aaf606","article-title":"Closed-loop
+        cortical control of virtual reach and posture using cartesian and joint velocity
+        commands","volume":"16","author":"Young","year":"2019","journal-title":"Journal
+        of Neural Engineering"},{"key":"bib98","doi-asserted-by":"publisher","DOI":"10.1088\/1741-2560\/10\/5\/056013","article-title":"Multi-electrode
+        stimulation in somatosensory cortex increases probability of detection","volume":"10","author":"Zaaimi","year":"2013","journal-title":"Journal
+        of Neural Engineering"}],"container-title":"eLife","original-title":[],"language":"en","link":[{"URL":"https:\/\/cdn.elifesciences.org\/articles\/48198\/elife-48198-v1.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/cdn.elifesciences.org\/articles\/48198\/elife-48198-v1.xml","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/elifesciences.org\/articles\/48198","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,12]],"date-time":"2023-10-12T00:55:15Z","timestamp":1697072115000},"score":1,"resource":{"primary":{"URL":"https:\/\/elifesciences.org\/articles\/48198"}},"subtitle":[],"short-title":[],"issued":{"date-parts":[[2020,1,23]]},"references-count":98,"alternative-id":["10.7554\/eLife.48198"],"URL":"http:\/\/dx.doi.org\/10.7554\/eLife.48198","relation":{"is-supplemented-by":[{"id-type":"doi","id":"10.5061\/dryad.nk98sf7q7","asserted-by":"subject"}]},"ISSN":["2050-084X"],"subject":["General
+        Immunology and Microbiology","General Biochemistry, Genetics and Molecular
+        Biology","General Medicine","General Neuroscience"],"published":{"date-parts":[[2020,1,23]]}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '8764'
+      content-type:
+      - application/json
+      date:
+      - Mon, 16 Oct 2023 18:46:14 GMT
+      link:
+      - <http://dx.doi.org/10.7554/elife.48198>; rel="canonical", <https://cdn.elifesciences.org/articles/48198/elife-48198-v1.pdf>;
+        version="vor"; type="application/pdf"; rel="item", <https://cdn.elifesciences.org/articles/48198/elife-48198-v1.xml>;
+        version="vor"; type="application/xml"; rel="item", <https://elifesciences.org/articles/48198>;
+        version="vor"; rel="item", <http://creativecommons.org/licenses/by/4.0/>;
+        version="vor"; rel="license", <http://creativecommons.org/licenses/by/4.0/>;
+        version="am"; rel="license", <http://creativecommons.org/licenses/by/4.0/>;
+        version="tdm"; rel="license", <http://orcid.org/0000-0002-5934-919X>; title="Raeed
+        H Chowdhury"; rel="author", <http://orcid.org/0000-0003-2906-115X>; title="Joshua
+        I Glaser"; rel="author", <http://orcid.org/0000-0001-8675-7140>; title="Lee
+        E Miller"; rel="author"
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept, Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    status:
+      code: 200
+      message: OK
+version: 1

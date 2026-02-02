@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: bec_ipython_client
+Version: 3.94.0
+Summary: BEC IPython client
+Project-URL: Bug Tracker, https://github.com/bec-project/bec/issues
+Project-URL: Homepage, https://github.com/bec-project/bec
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.11
+Requires-Dist: bec-lib~=3.0
+Requires-Dist: ipython~=8.22
+Requires-Dist: numpy<3.0,>=1.24
+Requires-Dist: pyepics~=3.5
+Requires-Dist: requests~=2.31
+Requires-Dist: rich~=13.7
+Provides-Extra: dev
+Requires-Dist: black~=25.0; extra == 'dev'
+Requires-Dist: coverage~=7.0; extra == 'dev'
+Requires-Dist: isort>=5.13.2,~=5.13; extra == 'dev'
+Requires-Dist: pylint~=3.0; extra == 'dev'
+Requires-Dist: pytest-bec-e2e~=3.0; extra == 'dev'
+Requires-Dist: pytest-random-order~=1.1; extra == 'dev'
+Requires-Dist: pytest-redis~=3.1; extra == 'dev'
+Requires-Dist: pytest-retry~=1.1; extra == 'dev'
+Requires-Dist: pytest-timeout~=2.2; extra == 'dev'
+Requires-Dist: pytest~=8.0; extra == 'dev'

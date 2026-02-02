@@ -1,0 +1,414 @@
+Metadata-Version: 2.4
+Name: kodexa-document
+Version: 8.0.0.dev20745964609
+Summary: High-performance Python bindings for the Go-based Kodexa Document SDK with in-memory processing
+Author-email: Kodexa <support@kodexa.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/kodexa/kodexa-document
+Project-URL: Repository, https://github.com/kodexa/kodexa-document
+Project-URL: Documentation, https://docs.kodexa.com
+Project-URL: Bug Tracker, https://github.com/kodexa/kodexa-document/issues
+Keywords: document,processing,extraction,nlp,ai,sqlite,kddb
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Database
+Classifier: Topic :: Text Processing :: Markup
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: cffi>=1.14.0
+Requires-Dist: addict>=2.4.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: simpleeval>=0.9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=6.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: lambda
+Provides-Extra: platform
+Requires-Dist: requests>=2.25.0; extra == "platform"
+Requires-Dist: pyfunctional>=1.4.0; extra == "platform"
+Requires-Dist: pydantic-yaml>=1.0.0; extra == "platform"
+Requires-Dist: pyyaml>=6.0; extra == "platform"
+Requires-Dist: numpy>=1.20.0; extra == "platform"
+
+# Kodexa Document Python
+
+High-performance Python bindings for the Go-based Kodexa Document SDK using CFFI. Provides comprehensive document processing capabilities with ~100x performance improvement through in-memory operations.
+
+## Overview
+
+This package provides mature Python bindings for the Go-based Kodexa Document SDK. It uses CFFI (C Foreign Function Interface) to communicate with the Go library, offering full access to hierarchical document processing, advanced querying, and rich metadata management.
+
+**Key Highlights:**
+- **Production Ready**: 413+ comprehensive tests covering all functionality
+- **High Performance**: ~100x faster with in-memory mode (1.19ms vs 121ms)
+- **Full Feature Set**: Complete document manipulation, querying, and persistence
+- **Cross Platform**: Linux, macOS (Intel/ARM), Windows, AWS Lambda
+
+## Features
+
+### Core Document Operations
+- **Document Creation**: From text, JSON, KDDB files, or scratch
+- **In-Memory Processing**: ~100x performance boost for temporary operations
+- **Context Managers**: Automatic resource cleanup with `with` statements
+- **Multiple Formats**: JSON export/import, KDDB persistence, dict conversion
+
+### Content Structure & Navigation
+- **Hierarchical Nodes**: Document tree structure like DOM for web pages
+- **Content Operations**: Rich text handling with content parts
+- **Tree Navigation**: Parent/child relationships, sibling traversal, path queries
+- **Node Management**: Create, modify, remove nodes with full hierarchy support
+
+### Advanced Querying
+- **Selector Language**: XPath-like queries (`//paragraph[contains(@content, 'text')]`)
+- **Variable Support**: Parameterized queries with variable substitution
+- **Performance Options**: First-only results, relative queries from nodes
+- **Rich Filtering**: Content-based, tag-based, and feature-based selection
+
+### Metadata & Annotations
+- **Features System**: Key-value metadata with type organization
+- **Tagging**: Content annotation with confidence scores and values
+- **Document Labels**: Classification and categorization
+- **Mixins**: Capability flags and behavior markers
+- **External Data**: Arbitrary data storage with custom keys
+- **Processing Steps**: Workflow tracking and validation rules
+
+### Spatial & Geometric Operations
+- **Bounding Boxes**: Position and dimension tracking
+- **Spatial Queries**: Location-based content selection
+- **Coordinate Systems**: Flexible positioning support
+
+### Enterprise Features
+- **Extraction Engine**: Advanced content extraction with taxonomies
+- **Validation Framework**: Rule-based document validation
+- **Statistics**: Comprehensive document metrics and analysis
+- **Error Handling**: Comprehensive exception system with specific error types
+- **Memory Management**: Automatic cleanup with finalizers
+
+## Installation
+
+```bash
+pip install kodexa-document
+```
+
+## Quick Start
+
+```python
+from kodexa_document import Document
+
+# Create high-performance in-memory document
+with Document(inmemory=True) as doc:
+    # Create document structure
+    root = doc.create_node("document", "My Document")
+    doc.content_node = root
+
+    section = doc.create_node("section", "Introduction", parent=root)
+    para = doc.create_node("paragraph", "Important content", parent=section)
+
+    # Add rich metadata
+    para.tag("important", confidence=0.95, value="key-point")
+    para.add_feature("style", "emphasis", "bold")
+    doc.add_label("technical-document")
+
+    # Query with selectors
+    important_nodes = doc.select("//paragraph[@tag='important']")
+    all_content = doc.select("//*[contains(@content, 'content')]")
+
+    # Export to different formats
+    json_str = doc.to_json(indent=2)
+    doc.save("output.kddb")
+
+print(f"Found {len(important_nodes)} important paragraphs")
+```
+
+## Advanced Usage Examples
+
+### Document Processing Pipeline
+
+```python
+from kodexa_document import Document
+from kodexa_document.errors import DocumentError
+
+def process_document(input_path, output_path):
+    """Complete document processing pipeline."""
+    with Document.from_kddb(input_path, inmemory=True) as doc:
+        # Analyze structure
+        all_nodes = doc.select("//*")
+        paragraphs = doc.select("//paragraph")
+
+        # Process content
+        for i, para in enumerate(paragraphs):
+            if len(para.content) > 100:  # Long paragraphs
+                para.tag("detailed", confidence=0.8)
+                para.add_feature("analysis", "length", len(para.content))
+
+            if i == 0:  # First paragraph
+                para.tag("introduction")
+
+        # Add document metadata
+        doc.set_metadata("processed", True)
+        doc.set_metadata("node_count", len(all_nodes))
+        doc.add_label("processed-document")
+
+        # Save results
+        doc.save(output_path)
+
+        return {
+            "uuid": doc.uuid,
+            "nodes": len(all_nodes),
+            "tagged": len(doc.get_all_tagged_nodes())
+        }
+
+# Process with error handling
+try:
+    result = process_document("input.kddb", "processed.kddb")
+    print(f"Processed document {result['uuid']}: {result['nodes']} nodes")
+except DocumentError as e:
+    print(f"Processing failed: {e}")
+```
+
+### Content Analysis and Extraction
+
+```python
+# Load and analyze document structure
+with Document.from_text("Chapter 1\nIntroduction\nContent here",
+                       separator="\n", inmemory=True) as doc:
+
+    # Navigate document hierarchy
+    root = doc.content_node
+    children = root.get_children()
+
+    # Rich querying
+    headers = doc.select("//paragraph[1]")  # First paragraphs (likely headers)
+    long_content = doc.select("//paragraph[string-length(@content) > 50]")
+
+    # Feature analysis
+    for node in children:
+        node.add_feature("position", "index", node.index)
+        if "Chapter" in node.content:
+            node.tag("chapter-header")
+            node.add_feature("structure", "type", "header")
+
+    # Get comprehensive statistics
+    stats = doc.get_statistics()
+    tagged_nodes = doc.get_all_tagged_nodes()
+
+    print(f"Document structure: {len(children)} top-level nodes")
+    print(f"Tagged content: {len(tagged_nodes)} nodes")
+    print(f"Statistics: {stats}")
+```
+
+## Performance Comparison
+
+```python
+import time
+
+# In-memory processing (recommended for temporary operations)
+start = time.time()
+with Document(inmemory=True) as doc:
+    root = doc.create_node("document", "Fast processing")
+    doc.content_node = root
+    for i in range(1000):
+        doc.create_node("item", f"Item {i}", parent=root)
+    nodes = doc.select("//*")
+inmemory_time = time.time() - start
+
+# File-based processing (for persistence)
+start = time.time()
+with Document(inmemory=False) as doc:
+    root = doc.create_node("document", "Persistent processing")
+    doc.content_node = root
+    for i in range(1000):
+        doc.create_node("item", f"Item {i}", parent=root)
+    nodes = doc.select("//*")
+file_time = time.time() - start
+
+print(f"In-memory: {inmemory_time:.3f}s")
+print(f"File-based: {file_time:.3f}s")
+print(f"Performance improvement: {file_time/inmemory_time:.1f}x faster")
+```
+
+## Loading Documents
+
+The `from_kddb` method supports flexible loading modes:
+
+```python
+# Standard loading modes
+doc = Document.from_kddb("input.kddb")  # Detached copy (safe, default)
+doc = Document.from_kddb("input.kddb", detached=False)  # In-place editing
+doc = Document.from_kddb("input.kddb", inmemory=True)  # 100x performance boost
+
+# Load from bytes (API responses, downloads, etc.)
+with open("document.kddb", "rb") as f:
+    kddb_bytes = f.read()
+doc = Document.from_kddb(kddb_bytes, inmemory=True)
+
+# Temporary files with auto-cleanup
+doc = Document.from_kddb("temp.kddb", delete_on_close=True)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `detached` | `True` | Creates working copy vs editing original |
+| `inmemory` | `False` | Loads into memory for ~100x performance |
+| `delete_on_close` | `False` | Auto-deletes file when document closes |
+
+## Error Handling
+
+```python
+from kodexa_document.errors import DocumentError, DocumentNotFoundError
+
+# Robust error handling
+try:
+    with Document.from_kddb("document.kddb", inmemory=True) as doc:
+        # Process document
+        nodes = doc.select("//paragraph")
+        for node in nodes:
+            node.tag("processed")
+
+        # Validate results
+        if not doc.uuid:
+            raise DocumentError("Invalid document state")
+
+except DocumentNotFoundError:
+    print("Document file not found")
+except DocumentError as e:
+    print(f"Document processing error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+## Architecture
+
+```
+Python Application
+       ↓
+CFFI Python Wrapper (413+ Tests)
+       ↓
+Go Shared Library (CGO)
+       ↓
+GORM Domain Layer
+       ↓
+SQLite Database (File/Memory)
+```
+
+**Performance Modes:**
+- **In-Memory SQLite**: `:memory:` database for maximum speed
+- **File-Based SQLite**: Persistent `.kddb` files for storage
+- **Hybrid Mode**: Load from file, process in-memory, save back
+
+## Requirements
+
+- Python 3.12+
+- cffi >= 1.14.0
+- Go shared library (automatically bundled in wheel)
+
+## Platform Support
+
+- **Linux x86_64** - Primary development platform
+- **macOS x86_64 & ARM64** - Intel and Apple Silicon support
+- **Windows x86_64** - Full Windows compatibility
+- **AWS Lambda** - Amazon Linux 2 optimization
+
+## Testing & Quality
+
+- **413+ Comprehensive Tests** covering all functionality
+- **100% Feature Coverage** - All advertised features are tested and working
+- **Error Path Testing** - Comprehensive error handling validation
+- **Performance Testing** - Memory usage and speed benchmarks
+- **Cross-Platform Testing** - Validated on all supported platforms
+
+```bash
+# Run comprehensive test suite
+cd lib/python
+source ../../venv/bin/activate
+python -m pytest tests/ -v
+
+# Test categories
+python -m pytest tests/test_document.py -v                    # Core document operations
+python -m pytest tests/test_contentnode_features_tags.py -v  # Features and tags
+python -m pytest tests/test_contentnode_selectors.py -v      # Query system
+python -m pytest tests/test_extraction.py -v                 # Advanced extraction
+```
+
+## Development Setup
+
+```bash
+# Quick setup from repository root
+python3 -m venv venv
+source venv/bin/activate
+pip install cffi pytest
+
+# Build Go library and Python bindings
+cd lib/go && make linux  # or: make darwin, make windows
+cd ../python
+
+# Test installation
+python -c "from kodexa_document import Document; print('Success!')"
+
+# Run tests
+python -m pytest tests/ -v
+```
+
+## Documentation
+
+### User Documentation
+- **[USAGE.md](USAGE.md)** - Comprehensive usage examples and best practices
+- **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** - Complete API reference
+
+### Build Documentation
+- **[docs/BUILD_SCRIPTS_GUIDE.md](docs/BUILD_SCRIPTS_GUIDE.md)** - Build automation guide
+- **[build/docs/BUILD.md](build/docs/BUILD.md)** - Detailed build instructions
+- **[build/docs/WINDOWS_SETUP.md](build/docs/WINDOWS_SETUP.md)** - Windows development setup
+
+## Best Practices
+
+1. **Use `inmemory=True`** for temporary processing (~100x faster)
+2. **Use context managers** (`with` statements) for automatic cleanup
+3. **Handle specific exceptions** (DocumentError, DocumentNotFoundError)
+4. **Structure documents hierarchically** with proper parent-child relationships
+5. **Leverage selectors** for efficient document querying
+6. **Use features and tags** for rich content annotation
+7. **Set meaningful metadata** for document tracking and organization
+
+## Use Cases
+
+- **Document Processing Pipelines** - ETL workflows for structured documents
+- **Content Analysis** - Text mining, information extraction, document understanding
+- **Document Transformation** - Format conversion, structure normalization
+- **Search and Indexing** - Content indexing with rich metadata
+- **Validation and Quality** - Document structure validation and quality assessment
+- **Machine Learning** - Feature extraction for ML pipelines
+- **Enterprise Integration** - High-performance document processing systems
+
+## Performance Characteristics
+
+| Operation | In-Memory | File-Based | Improvement |
+|-----------|-----------|------------|-------------|
+| Document Creation | ~1.2ms | ~121ms | 100x |
+| Node Creation (1000 nodes) | ~15ms | ~1.5s | 100x |
+| Selector Queries | ~2ms | ~45ms | 22x |
+| Feature/Tag Operations | ~0.5ms | ~25ms | 50x |
+
+## License
+
+Same as the main Kodexa Document SDK.
+
+---
+
+**Ready to get started?** Check out [USAGE.md](USAGE.md) for comprehensive examples and [run the test suite](#testing--quality) to see all features in action!

@@ -1,0 +1,46 @@
+"""
+geo_get_sample_info
+
+Get sample information for a GEO dataset including sample characteristics and experimental condit...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def geo_get_sample_info(
+    dataset_id: str,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> dict[str, Any]:
+    """
+    Get sample information for a GEO dataset including sample characteristics and experimental condit...
+
+    Parameters
+    ----------
+    dataset_id : str
+        GEO dataset ID (e.g., 'GDS1234', 'GSE12345')
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    dict[str, Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {"name": "geo_get_sample_info", "arguments": {"dataset_id": dataset_id}},
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["geo_get_sample_info"]

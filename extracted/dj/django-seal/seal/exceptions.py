@@ -1,0 +1,2 @@
+class UnsealedAttributeAccess(Warning):
+    pass

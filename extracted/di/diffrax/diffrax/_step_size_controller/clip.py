@@ -1,5 +1,5 @@
-from collections.abc import Callable
-from typing import cast, Generic, Optional, TypeVar
+from collections.abc import Callable, Sequence
+from typing import cast, Generic, TypeVar
 
 import equinox as eqx
 import equinox.internal as eqxi
@@ -19,17 +19,17 @@ from .._custom_types import (
 from .._misc import upcast_or_raise
 from .._solution import is_okay, RESULTS
 from .._term import AbstractTerm
-from .base import AbstractStepSizeController
+from .base import AbstractAdaptiveStepSizeController
 
 
 _ControllerState = TypeVar("_ControllerState")
-_Dt0 = TypeVar("_Dt0", bound=Optional[RealScalarLike])
+_Dt0 = TypeVar("_Dt0", bound=RealScalarLike | None)
 
 
 class _ClipState(eqx.Module, Generic[_ControllerState]):
-    step_info: Optional[tuple[IntScalarLike, Array]]
-    jump_info: Optional[tuple[IntScalarLike, Array]]
-    reject_info: Optional[tuple[IntScalarLike, Array]]
+    step_info: tuple[IntScalarLike, Array] | None
+    jump_info: tuple[IntScalarLike, Array] | None
+    reject_info: tuple[IntScalarLike, Array] | None
     inner_state: _ControllerState
 
 
@@ -98,7 +98,7 @@ def _bump_next_t0(next_t0, ts):
     return next_t0, made_jump1 | made_jump2
 
 
-def _find_idx_with_hint(t: RealScalarLike, ts: Optional[Array], hint: IntScalarLike):
+def _find_idx_with_hint(t: RealScalarLike, ts: Array | None, hint: IntScalarLike):
     # Find index of first element of `ts` strictly greater than `t`.
     # Uses a linear search starting from `hint`. The value `hint` is assumed to be in
     # `{0, 1, ..., len(ts)}`
@@ -118,7 +118,7 @@ def _find_idx_with_hint(t: RealScalarLike, ts: Optional[Array], hint: IntScalarL
 
 
 class ClipStepSizeController(
-    AbstractStepSizeController[_ClipState[_ControllerState], _Dt0]
+    AbstractAdaptiveStepSizeController[_ClipState[_ControllerState], _Dt0]
 ):
     """Wraps an existing step controller with three pieces of functionality:
 
@@ -166,20 +166,32 @@ class ClipStepSizeController(
         ```
     """
 
-    controller: AbstractStepSizeController[_ControllerState, _Dt0]
-    step_ts: Optional[Real[Array, " steps"]]
-    jump_ts: Optional[Real[Array, " jumps"]]
-    store_rejected_steps: Optional[int] = eqx.field(static=True)
-    callback_on_reject: Optional[Callable] = eqx.field(static=True)
+    controller: AbstractAdaptiveStepSizeController[_ControllerState, _Dt0]
+    step_ts: Real[Array, " steps"] | None
+    jump_ts: Real[Array, " jumps"] | None
+    store_rejected_steps: int | None = eqx.field(static=True)
+    callback_on_reject: Callable | None = eqx.field(static=True)
+
+    @property
+    def atol(self):
+        return self.controller.atol
+
+    @property
+    def rtol(self):
+        return self.controller.rtol
+
+    @property
+    def norm(self):  # pyright: ignore[reportIncompatibleMethodOverride]
+        return self.controller.norm
 
     @eqxi.doc_remove_args("_callback_on_reject")
     def __init__(
         self,
-        controller,
-        step_ts=None,
-        jump_ts=None,
-        store_rejected_steps=None,
-        _callback_on_reject=None,
+        controller: AbstractAdaptiveStepSizeController[_ControllerState, _Dt0],
+        step_ts: None | Sequence[RealScalarLike] | Real[Array, " steps"] = None,
+        jump_ts: None | Sequence[RealScalarLike] | Real[Array, " jumps"] = None,
+        store_rejected_steps: int | None = None,
+        _callback_on_reject: Callable | None = None,
     ):
         """**Arguments**:
 
@@ -198,13 +210,17 @@ class ClipStepSizeController(
             that this is not the total number of rejected steps in a solve, but just the
             maximum number of *consecutive* rejected steps.)
         """
+        if not isinstance(controller, AbstractAdaptiveStepSizeController):
+            raise ValueError(
+                "Can only apply `ClipStepSizeController` to adaptive step size "
+                f"controllers, but got {controller}."
+            )
         self.controller = controller
         self.step_ts = _none_or_sorted_array(step_ts)
         self.jump_ts = _none_or_sorted_array(jump_ts)
         if (store_rejected_steps is not None) and (store_rejected_steps <= 0):
             raise ValueError(
-                "`store_rejected_steps must either be `None`"
-                " or a non-negative integer."
+                "`store_rejected_steps must either be `None` or a non-negative integer."
             )
         self.store_rejected_steps = store_rejected_steps
         self.callback_on_reject = _callback_on_reject
@@ -237,7 +253,7 @@ class ClipStepSizeController(
         dt0: _Dt0,
         args: Args,
         func: Callable[[PyTree[AbstractTerm], RealScalarLike, Y, Args], VF],
-        error_order: Optional[RealScalarLike],
+        error_order: RealScalarLike | None,
     ) -> tuple[RealScalarLike, _ClipState[_ControllerState]]:
         t_dtype = jnp.result_type(t0)
         _assert_floating(t0, "t0", t_dtype)
@@ -292,7 +308,7 @@ class ClipStepSizeController(
         y0: Y,
         y1_candidate: Y,
         args: Args,
-        y_error: Optional[Y],
+        y_error: Y | None,
         error_order: RealScalarLike,
         controller_state: _ClipState[_ControllerState],
     ) -> tuple[
@@ -340,7 +356,7 @@ class ClipStepSizeController(
             step_info = None
         else:
             step_index, step_ts = controller_state.step_info
-            # We actaully bump `next_t0` past any `step_ts` whilst checking where to
+            # We actually bump `next_t0` past any `step_ts` whilst checking where to
             # clip `next_t1`. This is in case we have a set up like the following:
             # ```python
             # ClipStepSizeController(
@@ -360,6 +376,24 @@ class ClipStepSizeController(
         else:
             jump_index, jump_ts = controller_state.jump_info
             next_t0, made_jump2 = _bump_next_t0(next_t0, jump_ts)
+            # This next line is to fix
+            # https://github.com/patrick-kidger/diffrax/issues/713
+            # TODO: should we add this to the `step_ts` branch as well?
+            #
+            # What's going on here is that we may have
+            # the `diffeqsolve(t0=...)` be prevbefore a jump time (for example due to a
+            # previous diffeqsolve targeting that time), in which case during `.init`
+            # we will obtain `t0 = t1 = prevbefore(jump_time)`.
+            # The `_bump_next_t0` will then move `next_t0` to after the `jump_time`...
+            # whilst leaving `next_t1` unchanged! We actually end up `next_t1 < next_t0`
+            # which is very not okay.
+            #
+            # The fix is to ensure that `next_t1` is itself bumped to at least this
+            # value. As a final detail, we need to make it `nextafter` so that we don't
+            # have a zero-length interval – in this case an underlying PID controller
+            # would just never change the interval size at all, since it acts
+            # multiplicatively. (And even just 1 ULP is enough to unstick it.)
+            next_t1 = jnp.maximum(eqxi.nextafter(next_t0), next_t1)
             made_jump = made_jump | made_jump2
             jump_index = _find_idx_with_hint(next_t0, jump_ts, jump_index)
             next_t1 = _clip_t(next_t1, jump_index, jump_ts, True)

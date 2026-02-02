@@ -58,7 +58,15 @@ class NodeRestartability:
        if self.downs:
            ip = sorted(list(self.downs.keys()))[0]
            if 'pod' in self.downs[ip]:
-               return f'DN: {self.downs[ip]["pod"]}'
+               pod = self.downs[ip]['pod']
+
+               if self.downs[ip]['status'] != 'UN':
+                   return f'DN: {pod}'
+
+               if 'in_restart' in self.downs[ip] and self.downs[ip]['in_restart'] == 'yes':
+                   return f'GP: {self.downs[ip]["pod"]}'
+
+               return f'DN: {pod}'
 
            return '-'
 

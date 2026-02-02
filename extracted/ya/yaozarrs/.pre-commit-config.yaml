@@ -1,0 +1,41 @@
+# enable pre-commit.ci at https://pre-commit.ci/
+# it adds:
+# 1. auto fixing pull requests
+# 2. auto updating the pre-commit configuration
+ci:
+  autoupdate_schedule: monthly
+  autofix_commit_msg: "style(pre-commit.ci): auto fixes [...]"
+  autoupdate_commit_msg: "ci(pre-commit.ci): autoupdate"
+
+repos:
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.9
+    hooks:
+      - id: actionlint
+        files: "^\\.github/workflows/.*\\.ya?ml$"
+
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.40.0
+    hooks:
+      - id: typos
+        files: "^src/"
+        args: [--force-exclude] # omitting --write-changes
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.7
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty check
+        entry: ty check --project .
+        language: python
+        pass_filenames: false

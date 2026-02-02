@@ -1,0 +1,49 @@
+"""
+InterPro_get_protein_domains
+
+Get protein domain annotations from InterPro database using UniProt protein ID. Returns domain fa...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def InterPro_get_protein_domains(
+    protein_id: str,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> dict[str, Any]:
+    """
+    Get protein domain annotations from InterPro database using UniProt protein ID. Returns domain fa...
+
+    Parameters
+    ----------
+    protein_id : str
+        UniProt protein ID (e.g., P05067, Q9Y6K9)
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    dict[str, Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {
+            "name": "InterPro_get_protein_domains",
+            "arguments": {"protein_id": protein_id},
+        },
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["InterPro_get_protein_domains"]

@@ -1,0 +1,58 @@
+[build-system]
+requires = [
+    "cmake<4.0.0",
+    "ninja",
+    "pybind11[global]",
+    "setuptools>=42",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acquire-zarr"
+version = "0.6.0"
+description = "Performant streaming to Zarr storage, on filesystem or cloud"
+authors = [
+    {name = "Alan Liddell", email = "aliddell@chanzuckerberg.com"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+testing = [
+    "black",
+    "dask",
+    "mypy",
+    "ome-zarr",
+    "pytest>=7",
+    "pytest-cov",
+    "python-dotenv",
+    "ruff",
+    "s3fs",
+    "scikit-image",
+    "tifffile",
+    "zarr>=3.0.0",
+]
+
+[tool.black]
+target-version = ['py39', 'py310', 'py311', 'py312']
+line-length = 79
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --color=yes"
+log_cli = true # when true, messages are printed immediately
+testpaths = [
+    "python/tests",
+]
+
+[tool.setuptools]
+zip-safe = false
+packages = ["acquire_zarr"]
+package-dir = { "" = "python" }
+
+[tool.setuptools.package-data]
+acquire_zarr = ["*.pyi", "py.typed"]

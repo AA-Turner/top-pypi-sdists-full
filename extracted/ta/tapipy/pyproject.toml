@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "tapipy"
+version = "25.4.0"
+description = "Python lib for interacting with an instance of the Tapis API Framework"
+license = "BSD-4-Clause"
+authors = ["Joe Stubbs <jstubbs@tacc.utexas.edu>"]
+maintainers = ["Joe Stubbs <jstubbs@tacc.utexas.edu>",
+			   "Christian Garcia <cgarcia@tacc.utexas.edu>"]
+readme = "README.md"
+repository = "https://github.com/tapis-project/tapipy"
+include = ["tapipy/specs",
+           "tapipy/resources"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+certifi = ">= 2020.11.8"
+six = "^1.10"
+python_dateutil = "^2.5.3"
+setuptools = ">= 21.0.0"
+urllib3 = ">=2.1.0"
+PyJWT = ">= 1.7.1"
+openapi_core = "0.16.0"
+openapi_spec_validator = "^0.5.0"
+requests = "^2.20.0"
+atomicwrites = "^1.4.0"
+cryptography = ">= 3.3.2"
+# jsonschema from 4.0.0 -> 4.3.0 slows tapipy import to 8+ seconds.
+jsonschema = "^4.8.0"
+pyyaml = ">= 5.4"
+cloudpickle = ">= 1.6.0"
+
+[build-system]
+requires = ["poetry>=2.0"]
+build-backend = "poetry.masonry.api"

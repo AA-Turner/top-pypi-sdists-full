@@ -1,0 +1,27 @@
+[tool.black]
+extend-exclude = 'capabilities-data'
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--doctest-modules --cov escpos --cov-report=xml"
+testpaths = [
+    "test",
+    "src",
+    "src/escpos",
+    "escpos",
+]
+
+[[tool.mypy.overrides]]
+module = ["pytest",
+          "jaconv",
+          "scripttest",
+          "barcode.*",
+          "qrcode",
+          "usb.*",
+          "cups",
+          "win32print"
+         ]
+ignore_missing_imports = true

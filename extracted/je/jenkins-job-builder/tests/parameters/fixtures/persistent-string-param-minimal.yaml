@@ -1,3 +1,0 @@
-parameters:
-  - persistent-string:
-      name: FOO

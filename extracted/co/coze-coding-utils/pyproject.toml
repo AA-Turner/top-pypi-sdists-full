@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coze-coding-utils"
+version = "0.2.2"
+description = "Utilities for Coze coding client runtime context and helpers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Bytedance Stone Team" }]
+keywords = ["coze", "utils", "context"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://code.byted.org/stone/coze-coding-client"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coze_coding_utils"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/coze_coding_utils",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]

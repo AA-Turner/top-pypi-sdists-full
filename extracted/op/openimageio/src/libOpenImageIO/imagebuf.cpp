@@ -150,10 +150,11 @@ public:
                      stride_t ystride = AutoStride,
                      stride_t zstride = AutoStride)
     {
-        m_bufspan = image_span(reinterpret_cast<std::byte*>(data),
-                               m_spec.nchannels, m_spec.width, m_spec.height,
-                               m_spec.depth, m_spec.format.size(), xstride,
-                               ystride, zstride);
+        auto formatsize = m_spec.format.size();
+        m_bufspan       = image_span(reinterpret_cast<std::byte*>(data),
+                                     m_spec.nchannels, m_spec.width, m_spec.height,
+                                     m_spec.depth, formatsize, xstride, ystride,
+                                     zstride, formatsize);
     }
 
     bool init_spec(string_view filename, int subimage, int miplevel,
@@ -2135,6 +2136,22 @@ ImageBuf::localpixels()
 {
     m_impl->validate_pixels();
     return m_impl->localpixels();
+}
+
+
+
+image_span<const std::byte>
+ImageBuf::localpixels_as_byte_image_span() const
+{
+    return m_impl->m_bufspan;
+}
+
+
+
+image_span<std::byte>
+ImageBuf::localpixels_as_writable_byte_image_span()
+{
+    return m_impl->m_readonly ? image_span<std::byte>() : m_impl->m_bufspan;
 }
 
 

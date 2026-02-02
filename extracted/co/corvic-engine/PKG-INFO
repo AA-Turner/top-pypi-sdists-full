@@ -1,0 +1,36 @@
+Metadata-Version: 2.3
+Name: corvic-engine
+Version: 0.2.50
+Classifier: Environment :: Console
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: cachetools >=5
+Requires-Dist: duckdb >=1.0.0
+Requires-Dist: more-itertools >=10
+Requires-Dist: numpy >=1.26
+Requires-Dist: polars >=1.7.1
+Requires-Dist: protobuf >=4.25
+Requires-Dist: protovalidate >=0.3
+Requires-Dist: pyarrow >=16
+Requires-Dist: sqlalchemy >=2
+Requires-Dist: sqlglot >=25.6.0, <26
+Requires-Dist: structlog >=24
+Requires-Dist: tqdm
+Requires-Dist: typing-extensions >=4.9
+Requires-Dist: umap-learn >=0.5.5
+Requires-Dist: pillow >=10.0.0
+License-File: LICENSE
+Summary: Seamless embedding generation and retrieval.
+Author-email: Corvic Team <contact@corvic.ai>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# Corvic Engine [![CI](https://github.com/corvicai/corvic-engine/actions/workflows/ci.yaml/badge.svg)](https://github.com/corvicai/corvic-engine/actions/workflows/ci.yaml) [![Python Version](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/downloads/release/python-3110/)
+

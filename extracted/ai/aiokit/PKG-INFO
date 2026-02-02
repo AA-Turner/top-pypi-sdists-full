@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: aiokit
+Version: 1.3.9
+Summary: Routines for asynchronous programming
+Author: Pasha Podolsky
+Author-email: ppodolsky@me.com
+Requires-Python: >=3.8,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Description-Content-Type: text/markdown
+
+# AioKIT
+
+Routines for asynchronous programming
+

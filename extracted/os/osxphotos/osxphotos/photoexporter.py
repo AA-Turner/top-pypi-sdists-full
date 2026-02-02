@@ -8,10 +8,10 @@ import json
 import logging
 import os
 import pathlib
+import re
 import subprocess
 import typing as t
 from enum import Enum
-import re
 
 from ._version import __version__
 from .dictdiff import dictdiff
@@ -32,9 +32,8 @@ from .uti import get_preferred_uti_extension
 from .utils import (
     increment_filename,
     increment_filename_with_count,
+    isdir_cache,
     lineno,
-    lock_filename,
-    unlock_filename,
 )
 
 if is_macos:
@@ -78,7 +77,7 @@ class ShouldUpdate(Enum):
     DEST_SIG_DIFFERENT = 4
     EXPORT_OPTIONS_DIFFERENT = 5
     EXIFTOOL_DIFFERENT = 6
-    EDITED_SIG_DIFFERENT = 7
+    DATE_MODIFIED_DIFFERENT = 7
     DIGEST_DIFFERENT = 8
     UPDATE_ERRORS = 9
 
@@ -103,6 +102,7 @@ class StagedFiles:
         aae: t.Optional[str] = None,
         original_aae: t.Optional[str] = None,
         error: t.Optional[t.List[str]] = None,
+        update_skipped: bool = False,
     ):
         self.original = original
         self.original_live = original_live
@@ -113,6 +113,8 @@ class StagedFiles:
         self.aae = aae
         self.original_aae = original_aae
         self.error = error or []
+        # True if download was skipped because no update needed (#1086)
+        self.update_skipped = update_skipped
 
         # TODO: bursts?
 
@@ -126,6 +128,7 @@ class StagedFiles:
         self.aae = self.aae or other.aae
         self.original_aae = self.original_aae or other.original_aae
         self.error += other.error
+        self.update_skipped = self.update_skipped or other.update_skipped
         return self
 
     def __str__(self):
@@ -145,6 +148,7 @@ class StagedFiles:
             "aae": self.aae,
             "original_aae": self.original_aae,
             "error": self.error,
+            "update_skipped": self.update_skipped,
         }
 
 
@@ -254,7 +258,7 @@ class PhotoExporter:
         # verify destination is a valid path
         if dest is None:
             raise ValueError("dest must not be None")
-        elif not options.dry_run and not os.path.isdir(dest):
+        elif not options.dry_run and not isdir_cache(dest):
             raise FileNotFoundError("Invalid path passed to export")
 
         if export_edited:
@@ -268,20 +272,35 @@ class PhotoExporter:
         # Is there something to convert with convert_to_jpeg?
         dest, options = self._should_convert_to_jpeg(dest, options)
 
-        # stage files for export by finding path in local library or downloading from iCloud as appropriate
-        # for '--download-missing' and '--update' case, this may cause unnecessary downloads
-        # as it will download the file even if it's not needed (won't be checked until the _should_update_photo() call from _export_photo()
-        # fixing this will require major refactoring of the export code, see #1086
-        # leaving it for now as this should not be a common use case
-        # (if using '--update' it is much better to be using "Download originals to this Mac" in Photos)
-        staged_files = self._stage_photos_for_export(options)
+        dest = self._get_dest_path(dest, options)
+
+        # In dry_run mode without update, register the claimed path in stat_cache
+        # so that subsequent photos with the same filename get correctly
+        # incremented. Skip this for update/force_update exports where real stat
+        # data is needed for change detection.
+        if (
+            options.dry_run
+            and not options.update
+            and not options.force_update
+            and options.stat_cache is not None
+        ):
+            options.stat_cache.register_virtual_file(dest)
+
+        staged_files = self._stage_photos_for_export(options, dest=dest)
         src = staged_files.edited if options.edited else staged_files.original
 
-        # get the right destination path depending on options.update, etc.
-        dest = self._get_dest_path(dest, options)
+        # skip the JPEG component of a RAW+JPEG pair if requested
+        if options.skip_raw_jpeg and self.photo.has_raw and not options.edited:
+            src = None
 
         self._render_options.filepath = str(dest)
         all_results = ExportResults()
+
+        # Helper to check exists using stat_cache when available
+        def _dest_exists(path: pathlib.Path) -> bool:
+            if options.stat_cache is not None:
+                return options.stat_cache.exists(path)
+            return path.exists()
 
         if src:
             # export the dest file
@@ -290,12 +309,14 @@ class PhotoExporter:
                 dest,
                 options=options,
             )
+        elif staged_files.update_skipped and _dest_exists(dest):
+            all_results.skipped.append(str(dest))
+            options.export_db.set_history(str(dest), self.photo.uuid, "skip", None)
         else:
             verbose(
                 f"Skipping missing {'edited' if options.edited else 'original'} photo {self._filename(self.photo.original_filename)} ({self._uuid(self.photo.uuid)})"
             )
             all_results.missing.append(dest)
-            unlock_filename(dest)
 
         # copy live photo associated .mov if requested
         if export_original and options.live_photo and self.photo.live_photo:
@@ -307,6 +328,11 @@ class PhotoExporter:
                     live_name,
                     # don't try to convert the live photo
                     options=dataclasses.replace(options, convert_to_jpeg=False),
+                )
+            elif staged_files.update_skipped and _dest_exists(live_name):
+                all_results.skipped.append(str(live_name))
+                options.export_db.set_history(
+                    str(live_name), self.photo.uuid, "skip", None
                 )
             else:
                 verbose(
@@ -323,6 +349,11 @@ class PhotoExporter:
                     live_name,
                     # don't try to convert the live photo
                     options=dataclasses.replace(options, convert_to_jpeg=False),
+                )
+            elif staged_files.update_skipped and _dest_exists(live_name):
+                all_results.skipped.append(str(live_name))
+                options.export_db.set_history(
+                    str(live_name), self.photo.uuid, "skip", None
                 )
             else:
                 verbose(
@@ -350,10 +381,16 @@ class PhotoExporter:
                 )
                 raw_ext = raw_ext or "raw"
                 raw_name = dest.parent / f"{dest.stem}.{raw_ext}"
-                all_results.missing.append(raw_name)
-                verbose(
-                    f"Skipping missing raw photo for {self._filename(self.photo.original_filename)} ({self._uuid(self.photo.uuid)})"
-                )
+                if staged_files.update_skipped and _dest_exists(raw_name):
+                    all_results.skipped.append(str(raw_name))
+                    options.export_db.set_history(
+                        str(raw_name), self.photo.uuid, "skip", None
+                    )
+                else:
+                    all_results.missing.append(raw_name)
+                    verbose(
+                        f"Skipping missing raw photo for {self._filename(self.photo.original_filename)} ({self._uuid(self.photo.uuid)})"
+                    )
 
         # copy preview image if requested
         if options.preview:
@@ -371,9 +408,7 @@ class PhotoExporter:
                 preview_name = (
                     preview_name
                     if any([options.overwrite, options.update, options.force_update])
-                    else pathlib.Path(
-                        increment_filename(preview_name, lock=not options.dry_run)
-                    )
+                    else pathlib.Path(increment_filename(preview_name))
                 )
                 all_results += self._export_photo(
                     preview_path,
@@ -483,32 +518,29 @@ class PhotoExporter:
             new dest path (pathlib.Path)
         """
 
-        # lock files are used to minimize chance of name collision when in parallel mode
-        # don't create lock files if in dry_run mode
-        lock = not options.dry_run
+        stat_cache = options.stat_cache
 
-        def _lock_filename(filename):
-            """Lock filename if not in dry_run mode"""
-            return lock_filename(filename) if lock else filename
+        def _dest_exists(path: pathlib.Path) -> bool:
+            """Check if destination exists, using stat cache if available."""
+            if stat_cache is not None:
+                return stat_cache.exists(path)
+            return path.exists()
 
         # if overwrite==False and #increment==False, export should fail if file exists
-        if (
-            not any(
-                [
-                    options.increment,
-                    options.update,
-                    options.force_update,
-                    options.overwrite,
-                ]
-            )
-            and dest.exists()
-        ):
+        if not any(
+            [
+                options.increment,
+                options.update,
+                options.force_update,
+                options.overwrite,
+            ]
+        ) and _dest_exists(dest):
             raise FileExistsError(
                 f"destination exists ({dest}); overwrite={options.overwrite}, increment={options.increment}"
             )
 
         # if overwrite, we don't care if the file exists or not
-        if options.overwrite and _lock_filename(dest):
+        if options.overwrite:
             return dest
 
         # if not update or overwrite, check to see if file exists and if so, add (1), (2), etc
@@ -520,21 +552,19 @@ class PhotoExporter:
         if options.increment and not any(
             [options.update, options.force_update, options.overwrite]
         ):
-            return pathlib.Path(increment_filename(dest, lock=lock))
+            return pathlib.Path(increment_filename(dest, stat_cache=stat_cache))
 
         # if update and file exists, need to check to see if it's the right file by checking export db
         if options.update or options.force_update:
             export_db = options.export_db
             dest_uuid = export_db.get_uuid_for_file(dest)
-            if dest_uuid is None and not dest.exists() and _lock_filename(dest):
+            if dest_uuid is None and not _dest_exists(dest):
                 # destination doesn't exist in export db and doesn't exist on disk
                 # so we can just use it
                 return dest
 
             if dest_uuid == self.photo.uuid:
                 # destination is the right file
-                # will use it even if locked so don't check return value of _lock_filename
-                _lock_filename(dest)
                 return dest
 
             # either dest_uuid is wrong or file exists and there's no associated UUID, so find a name that matches
@@ -543,20 +573,35 @@ class PhotoExporter:
             # first, find all matching files in export db and see if there's a match
             if dest_target := export_db.get_target_for_file(self.photo.uuid, dest):
                 # there's a match so use that
-                _lock_filename(dest_target)
                 return pathlib.Path(dest_target)
 
             # no match so need to create a new name
             # increment the destination file until we find one that doesn't exist and doesn't match another uuid in the database
-            count = 0
-            dest, count = increment_filename_with_count(dest, count, lock=lock)
-            count += 1
-            while export_db.get_uuid_for_file(dest) is not None:
-                dest, count = increment_filename_with_count(dest, count, lock=lock)
-            return pathlib.Path(dest)
+            if options.dry_run:
+                # In dry_run mode (or pre-load), use db-only collision
+                # resolution so we can claim filenames that exist on disk
+                # but haven't been assigned to another photo yet.
+                count = 0
+                candidate = str(dest)
+                while export_db.get_uuid_for_file(candidate) is not None:
+                    count += 1
+                    candidate = normalize_fs_path(
+                        str(dest.parent / f"{dest.stem} ({count}){dest.suffix}")
+                    )
+                return pathlib.Path(candidate)
+            else:
+                count = 0
+                dest, count = increment_filename_with_count(
+                    dest, count, stat_cache=stat_cache
+                )
+                count += 1
+                while export_db.get_uuid_for_file(dest) is not None:
+                    dest, count = increment_filename_with_count(
+                        dest, count, stat_cache=stat_cache
+                    )
+                return pathlib.Path(dest)
 
         # fail safe...I can't think of a case that gets here
-        _lock_filename(dest)
         return dest
 
     def _should_update_photo(
@@ -573,8 +618,10 @@ class PhotoExporter:
             False if photo should not be updated otherwise a truthy ShouldUpdate value
         """
 
-        # NOTE: The order of certain checks is important
-        # read the comments below to understand why before changing
+        # NOTE: The order of checks is optimized for performance on network volumes.
+        # Database-only checks are done first to avoid filesystem operations when possible.
+        # If any database check indicates we need to update, we can skip expensive
+        # filesystem operations like stat() and samefile().
 
         export_db = options.export_db
         fileutil = options.fileutil
@@ -585,20 +632,7 @@ class PhotoExporter:
             # photo doesn't exist in database, should update
             return ShouldUpdate.NOT_IN_DATABASE
 
-        if options.export_as_hardlink and (not src or not dest.samefile(src)):
-            # different files, should update
-            return ShouldUpdate.HARDLINK_DIFFERENT_FILES
-
-        if not options.export_as_hardlink and (not src or dest.samefile(src)):
-            # same file but not exporting as hardlink, should update
-            return ShouldUpdate.NOT_HARDLINK_SAME_FILES
-
-        if not options.ignore_signature and not fileutil.cmp_file_sig(
-            dest, file_record.dest_sig
-        ):
-            # destination file doesn't match what was last exported
-            return ShouldUpdate.DEST_SIG_DIFFERENT
-
+        # --- Database-only checks first (fast, no filesystem access) ---
         if file_record.export_options != options.bit_flags:
             # exporting with different set of options (e.g. exiftool), should update
             # need to check this before exiftool in case exiftool options are different
@@ -614,33 +648,181 @@ class PhotoExporter:
             # this must be checked before exiftool which will return False if exif data matches
             return ShouldUpdate.UPDATE_ERRORS
 
+        if options.edited and self.photo.date_modified != file_record.date_modified:
+            # edited file date modified in Photos doesn't match what was last exported
+            # this is a database-only check so it goes before filesystem checks
+            return ShouldUpdate.DATE_MODIFIED_DIFFERENT
+
+        # --- Filesystem checks (use stat_cache for efficiency) ---
+        # Hardlink checks: skip expensive samefile() calls when source and destination
+        # are on different filesystems (hardlinks can't span filesystems)
+        # same_filesystem is None if not yet determined, True if same, False if different
+        if not options.same_filesystem:
+            # Cross-volume export: hardlinks are impossible
+            if options.export_as_hardlink:
+                # Can't verify hardlink on different filesystem, need to update
+                return ShouldUpdate.HARDLINK_DIFFERENT_FILES
+            # If not exporting as hardlink, no need to check samefile - they can't be same
+        else:
+            # Same filesystem or unknown: do the full check
+            if options.export_as_hardlink and (not src or not dest.samefile(src)):
+                # different files, should update
+                return ShouldUpdate.HARDLINK_DIFFERENT_FILES
+
+            if not options.export_as_hardlink and (not src or dest.samefile(src)):
+                # same file but not exporting as hardlink, should update
+                return ShouldUpdate.NOT_HARDLINK_SAME_FILES
+
+        if not options.ignore_signature and not fileutil.cmp_file_sig(
+            dest, file_record.dest_sig, stat_cache=options.stat_cache
+        ):
+            # destination file doesn't match what was last exported
+            return ShouldUpdate.DEST_SIG_DIFFERENT
+
+        # --- Additional checks that may involve computation ---
         if options.exiftool:
             current_exifdata = exiftool_json_sidecar(photo=self.photo, options=options)
-            rv = current_exifdata != file_record.exifdata
-            # if using exiftool, don't need to continue checking edited below
-            # as exiftool will be used to update edited file
-            return ShouldUpdate.EXIFTOOL_DIFFERENT if rv else False
-
-        if options.edited and (
-            not src or not fileutil.cmp_file_sig(src, file_record.src_sig)
-        ):
-            # edited file in Photos doesn't match what was last exported
-            return ShouldUpdate.EDITED_SIG_DIFFERENT
+            if current_exifdata != file_record.exifdata:
+                return ShouldUpdate.EXIFTOOL_DIFFERENT
+            return False
 
         if options.force_update:
-            current_digest = self.photo.hexdigest
-            if current_digest != file_record.digest:
+            if self.photo.hexdigest != file_record.digest:
                 # metadata in Photos changed, force update
                 return ShouldUpdate.DIGEST_DIFFERENT
 
         # photo should not be updated
         return False
 
-    def _stage_photos_for_export(self, options: ExportOptions) -> StagedFiles:
+    def _should_update_photo_for_missing(
+        self, dest: pathlib.Path, options: ExportOptions
+    ) -> bool | ShouldUpdate:
+        """Check if a missing photo needs to be updated (before downloading).
+
+        This performs checks that don't require the source file, allowing us to
+        skip unnecessary iCloud downloads when in update mode. This is called
+        BEFORE downloading from iCloud.
+
+        Args:
+            dest: destination path to check
+            options: export options
+
+        Returns:
+            False if no update needed, otherwise a ShouldUpdate value indicating
+            why update is needed.
+        """
+        export_db = options.export_db
+        fileutil = options.fileutil
+
+        file_record = export_db.get_file_record(dest)
+
+        if not file_record:
+            return ShouldUpdate.NOT_IN_DATABASE
+
+        # --- Database-only checks first (fast, no filesystem access) ---
+        if file_record.export_options != options.bit_flags:
+            return ShouldUpdate.EXPORT_OPTIONS_DIFFERENT
+
+        if options.update_errors and file_record.error is not None:
+            return ShouldUpdate.UPDATE_ERRORS
+
+        if options.edited and self.photo.date_modified != file_record.date_modified:
+            # edited file date modified in Photos doesn't match what was last exported
+            # this is a database-only check so it goes before filesystem checks
+            return ShouldUpdate.DATE_MODIFIED_DIFFERENT
+
+        # --- Filesystem check (uses stat_cache for efficiency) ---
+        if not options.ignore_signature and not fileutil.cmp_file_sig(
+            dest, file_record.dest_sig, stat_cache=options.stat_cache
+        ):
+            return ShouldUpdate.DEST_SIG_DIFFERENT
+
+        # --- Additional checks that may involve computation ---
+        if options.exiftool:
+            current_exifdata = exiftool_json_sidecar(photo=self.photo, options=options)
+            if current_exifdata != file_record.exifdata:
+                return ShouldUpdate.EXIFTOOL_DIFFERENT
+            return False
+
+        if options.force_update:
+            if self.photo.hexdigest != file_record.digest:
+                return ShouldUpdate.DIGEST_DIFFERENT
+
+        return False
+
+    def _needs_download_for_update(
+        self, staged: "StagedFiles", dest: pathlib.Path, options: ExportOptions
+    ) -> bool:
+        """Check if any missing files need to be downloaded for update.
+
+        This checks the main photo, live photo, and raw photo to determine
+        if any of them need to be downloaded from iCloud for updating.
+
+        Args:
+            staged: currently staged files
+            dest: destination path for the main photo
+            options: export options
+
+        Returns:
+            True if at least one missing file needs updating, False if all can be skipped.
+        """
+        live_photo = staged.edited_live if options.edited else staged.original_live
+
+        # Helper to check exists using stat_cache when available
+        def _dest_exists(path: pathlib.Path) -> bool:
+            if options.stat_cache is not None:
+                return options.stat_cache.exists(path)
+            return path.exists()
+
+        # Check main photo
+        main_missing = (
+            self.photo.hasadjustments and options.edited and not staged.edited
+        ) or (not options.edited and not staged.original)
+        if main_missing:
+            if not _dest_exists(dest):
+                return True  # New file, need to download
+            if self._should_update_photo_for_missing(dest, options):
+                return True  # Needs updating
+
+        # Check live photo
+        live_missing = self.photo.live_photo and options.live_photo and not live_photo
+        if live_missing:
+            live_dest = dest.parent / f"{dest.stem}.mov"
+            if not _dest_exists(live_dest):
+                return True  # New file, need to download
+            if self._should_update_photo_for_missing(live_dest, options):
+                return True  # Needs updating
+
+        # Check raw photo
+        raw_missing = self.photo.has_raw and options.raw_photo and not staged.raw
+        if raw_missing:
+            raw_ext = (
+                get_preferred_uti_extension(self.photo.uti_raw)
+                if self.photo.uti_raw
+                else "raw"
+            )
+            raw_ext = raw_ext or "raw"
+            raw_dest = dest.parent / f"{dest.stem}.{raw_ext}"
+            if not _dest_exists(raw_dest):
+                return True  # New file, need to download
+            if self._should_update_photo_for_missing(raw_dest, options):
+                return True  # Needs updating
+
+        # Nothing needs updating
+        return False
+
+    def _stage_photos_for_export(
+        self, options: ExportOptions, dest: pathlib.Path | None = None
+    ) -> StagedFiles:
         """Stages photos for export
 
         If photo is present on disk in the library, uses path to the photo on disk.
         If photo is missing and download_missing is true, downloads the photo from iCloud to temporary location.
+
+        Args:
+            options: ExportOptions instance
+            dest: destination path for the main photo (used to check if update is needed
+                before downloading from iCloud)
         """
 
         staged = StagedFiles()
@@ -673,20 +855,29 @@ class PhotoExporter:
         # download any missing files
         if options.download_missing:
             staged |= self._stage_missing_photos_for_export(
-                staged=staged, options=options
+                staged=staged, options=options, dest=dest
             )
 
         return staged
 
     def _stage_missing_photos_for_export(
-        self, staged: StagedFiles, options: ExportOptions
+        self,
+        staged: StagedFiles,
+        options: ExportOptions,
+        dest: pathlib.Path | None = None,
     ) -> StagedFiles:
-        """Download and stage any missing files for export"""
+        """Download and stage any missing files for export
+
+        Args:
+            staged: currently staged files
+            options: export options
+            dest: destination path for the main photo (used to check if update is needed
+                before downloading from iCloud)
+        """
 
         # if live photo and requesting edited version need the edited live photo
         live_photo = staged.edited_live if options.edited else staged.original_live
 
-        # is there actually a missing file? (#1086)
         something_to_download = (
             (self.photo.hasadjustments and options.edited and not staged.edited)
             or (self.photo.live_photo and options.live_photo and not live_photo)
@@ -697,12 +888,22 @@ class PhotoExporter:
         if not something_to_download:
             return staged
 
+        # In update mode, check if any missing files actually need updating
+        # before downloading from iCloud (#1086)
+        # Skip this check in dry_run mode since we want to return predicted filenames
+        if not options.dry_run and dest and (options.update or options.force_update):
+            if not self._needs_download_for_update(staged, dest, options):
+                # No update needed, skip the download
+                staged.update_skipped = True
+                return staged
+
         missing_options = ExportOptions(
             edited=options.edited,
             preview=options.preview and not staged.preview,
             raw_photo=self.photo.has_raw and options.raw_photo and not staged.raw,
             live_photo=self.photo.live_photo and options.live_photo and not live_photo,
             use_photokit=options.use_photokit,
+            dry_run=options.dry_run,
         )
         missing_staged = self._stage_missing_photos_for_export_helper(
             options=missing_options
@@ -718,6 +919,61 @@ class PhotoExporter:
             return self._stage_photo_for_export_with_photokit(options=options)
         else:
             return self._stage_photo_for_export_with_applescript(options=options)
+
+    def _predict_export_filenames(
+        self,
+        dest: pathlib.Path,
+        filestem: str | None,
+        edited: bool,
+        live_photo: bool,
+    ) -> list[str]:
+        """Predict the filenames that would be exported.
+
+        This helper is used for dry_run mode to return expected filenames without
+        actually calling AppleScript or PhotoKit.
+
+        Args:
+            dest: destination directory
+            filestem: stem to use for filename, or None to use photo's filename
+            edited: True if exporting edited version
+            live_photo: True if exporting live photo video
+
+        Returns:
+            List of predicted file paths
+        """
+        # Determine the extension based on UTI
+        if edited and self.photo.uti_edited:
+            uti = self.photo.uti_edited
+        else:
+            uti = self.photo.uti
+        ext = get_preferred_uti_extension(uti) or "jpeg"
+
+        # Determine the base filename
+        if filestem:
+            stem = filestem
+        else:
+            stem = pathlib.Path(self.photo.original_filename).stem
+
+        predicted_files = []
+
+        # Main photo file
+        main_file = dest / f"{stem}.{ext}"
+        predicted_files.append(str(main_file))
+
+        # Live photo .mov file - only for original, not edited (AppleScript limitation)
+        if live_photo and self.photo.live_photo and not edited:
+            mov_file = dest / f"{stem}.mov"
+            predicted_files.append(str(mov_file))
+
+        # RAW+JPEG pair - AppleScript exports both when exporting original (not edited)
+        if not edited and self.photo.has_raw:
+            raw_uti = self.photo.uti_raw
+            raw_ext = get_preferred_uti_extension(raw_uti) if raw_uti else None
+            if raw_ext and raw_ext.lower() != ext.lower():
+                raw_file = dest / f"{stem}.{raw_ext}"
+                predicted_files.append(str(raw_file))
+
+        return predicted_files
 
     def _stage_photo_for_export_with_photokit(
         self,
@@ -754,6 +1010,30 @@ class PhotoExporter:
         )
         ext = get_preferred_uti_extension(uti)
         dest = dest.parent / f"{dest.stem}.{ext}"
+
+        # In dry_run mode, return predicted filenames without calling PhotoKit
+        if options.dry_run:
+            predicted = self._predict_export_filenames(
+                dest=dest.parent,
+                filestem=dest.stem,
+                edited=options.edited,
+                live_photo=live_photo,
+            )
+            results = StagedFiles()
+            for filepath in predicted:
+                if filepath.lower().endswith(".mov"):
+                    results_attr = "edited_live" if options.edited else "original_live"
+                elif self.photo.has_raw and pathlib.Path(
+                    filepath
+                ).suffix.lower() not in [".jpg", ".jpeg", ".heic"]:
+                    results_attr = "raw" if options.raw_photo else None
+                else:
+                    results_attr = "edited" if options.edited else "original"
+                if results_attr:
+                    setattr(results, results_attr, filepath)
+            if options.preview and self.photo.path_derivatives:
+                results.preview = self.photo.path_derivatives[0]
+            return results
 
         photolib = PhotoLibrary()
         results = StagedFiles()
@@ -867,6 +1147,7 @@ class PhotoExporter:
                 live_photo=live_photo,
                 timeout=options.timeout,
                 burst=self.photo.burst,
+                dry_run=options.dry_run,
                 overwrite=overwrite,
             )
         except ExportError as e:
@@ -985,10 +1266,17 @@ class PhotoExporter:
         exif_results = ExportResults()
 
         dest_str = str(dest)
-        dest_exists = dest.exists()
+        # Use stat cache for exists check if available
+        if options.stat_cache is not None:
+            dest_exists = options.stat_cache.exists(dest)
+        else:
+            dest_exists = dest.exists()
 
         fileutil = options.fileutil
         export_db = options.export_db
+
+        if options.update or options.force_update:
+            export_db.prefetch_directory_records(dest.parent)
 
         action = None
         if options.update or options.force_update:  # updating
@@ -1009,18 +1297,19 @@ class PhotoExporter:
             action = "export"
 
         export_files = update_new_files + update_updated_files + exported_files
+        # Compute src_sig before any modifications by convert_to_jpeg or exiftool
+        # but defer writing to database until the context manager block to batch commits
+        src_sig = fileutil.file_sig(src)
         for export_dest in export_files:
-            # set src_sig before any modifications by convert_to_jpeg or exiftool
-            export_record = export_db.create_or_get_file_record(
-                export_dest, self.photo.uuid
-            )
-            export_record.src_sig = fileutil.file_sig(src)
             if dest_exists and any(
                 [options.overwrite, options.update, options.force_update]
             ):
                 # need to remove the destination first
                 try:
                     fileutil.unlink(dest)
+                    # Update stat cache to reflect deleted file
+                    if options.stat_cache is not None:
+                        options.stat_cache.remove_file(dest)
                 except Exception as e:
                     raise ExportError(
                         f"Error removing file {dest}: {e} (({lineno(__file__)})"
@@ -1028,6 +1317,9 @@ class PhotoExporter:
             if options.export_as_hardlink:
                 try:
                     fileutil.hardlink(src, dest)
+                    # Update stat cache to reflect new file
+                    if options.stat_cache is not None:
+                        options.stat_cache.update_file(dest)
                 except Exception as e:
                     raise ExportError(
                         f"Error hardlinking {src} to {dest}: {e} ({lineno(__file__)})"
@@ -1069,6 +1361,9 @@ class PhotoExporter:
 
                 try:
                     fileutil.copy(src, dest_str)
+                    # Update stat cache to reflect new file
+                    if options.stat_cache is not None:
+                        options.stat_cache.update_file(dest_str)
                     verbose(
                         f"Exported {self._filename(self.photo.original_filename)} to {self._filepath(normalize_fs_path(dest_str))}"
                     )
@@ -1129,7 +1424,7 @@ class PhotoExporter:
                 diff = None
             rec.photoinfo = self.photo.json(shallow=False)
             rec.export_options = options.bit_flags
-            # don't set src_sig as that is set above before any modifications by convert_to_jpeg or exiftool
+            rec.src_sig = src_sig
             if not options.ignore_signature:
                 rec.dest_sig = fileutil.file_sig(dest)
             if options.exiftool:
@@ -1137,6 +1432,7 @@ class PhotoExporter:
             if self.photo.hexdigest != rec.digest:
                 results.metadata_changed = [dest_str]
             rec.digest = self.photo.hexdigest
+            rec.date_modified = self.photo.date_modified
             # save errors to the export database (#872)
             if (
                 results.error
@@ -1152,9 +1448,6 @@ class PhotoExporter:
         export_db.set_history(
             filename=dest_str, uuid=self.photo.uuid, action=action, diff=diff
         )
-
-        # clean up lock file
-        unlock_filename(dest_str)
 
         return results
 
@@ -1190,9 +1483,10 @@ class PhotoExporter:
             live_photo: (boolean) if True, export associated .mov live photo; default = False
             timeout: timeout value in seconds; export will fail if applescript run time exceeds timeout
             burst: (boolean) set to True if file is a burst image to avoid Photos export error
-            dry_run: (boolean) set to True to run in "dry run" mode which will download file but not actually copy to destination
+            dry_run: (boolean) set to True to run in "dry run" mode which returns predicted
+                    filenames without calling AppleScript or downloading files
 
-        Returns: list of paths to exported file(s) or None if export failed
+        Returns: list of paths to exported file(s), or predicted paths if dry_run is True
 
         Raises: ExportError if error during export
 
@@ -1200,23 +1494,32 @@ class PhotoExporter:
             has not been edited. This is due to how Photos Applescript interface works.
         """
 
+        dest = pathlib.Path(dest)
+
+        if not original ^ edited:
+            raise ValueError("edited or original must be True but not both")
+
+        # In dry_run mode, return predicted filenames without calling AppleScript
+        if dry_run:
+            return self._predict_export_filenames(
+                dest=dest,
+                filestem=filestem,
+                edited=edited,
+                live_photo=live_photo,
+            )
+
         global _consecutive_export_errors
 
         # Check if we've hit the error threshold and need to restart Photos
         if _consecutive_export_errors >= APPLESCRIPT_ERROR_THRESHOLD:
             logger.warning(
-                f"AppleScript export has failed {_consecutive_export_errors} consecutive times, "
-                f"restarting Photos app"
+                f"AppleScript export has failed {_consecutive_export_errors} consecutive times, restarting Photos app"
             )
             self._kill_photos_process()
             _consecutive_export_errors = 0
 
-        dest = pathlib.Path(dest)
         if not dest.is_dir():
             raise ValueError(f"dest {dest} must be a directory")
-
-        if not original ^ edited:
-            raise ValueError("edited or original must be True but not both")
 
         # export to a subdirectory of tmpdir
         tmpdir = self.fileutil.tmpdir(

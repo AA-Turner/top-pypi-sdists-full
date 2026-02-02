@@ -1,0 +1,143 @@
+Metadata-Version: 2.2
+Name: sqlalchemy-cratedb
+Version: 0.41.0
+Summary: SQLAlchemy dialect for CrateDB.
+Author-email: "Crate.io" <office@crate.io>
+License: Apache License 2.0
+Project-URL: changelog, https://github.com/crate/sqlalchemy-cratedb/blob/main/CHANGES.md
+Project-URL: documentation, https://cratedb.com/docs/sqlalchemy-cratedb/
+Project-URL: homepage, https://cratedb.com/docs/sqlalchemy-cratedb/
+Project-URL: repository, https://github.com/crate/sqlalchemy-cratedb
+Keywords: CrateDB,dask,data io,orm,pandas,PostgreSQL,rdbms,sql,SQLAlchemy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: Customer Service
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Adaptive Technologies
+Classifier: Topic :: Communications
+Classifier: Topic :: Database
+Classifier: Topic :: Documentation
+Classifier: Topic :: Education
+Classifier: Topic :: Internet
+Classifier: Topic :: Office/Business
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Pre-processors
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Version Control
+Classifier: Topic :: System :: Archiving
+Classifier: Topic :: System :: Benchmark
+Classifier: Topic :: System :: Clustering
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: backports.zoneinfo<1; python_version < "3.9"
+Requires-Dist: crate<3,>=2
+Requires-Dist: geojson<4,>=2.5
+Requires-Dist: importlib-resources; python_version < "3.9"
+Requires-Dist: sqlalchemy<2.1,>=1
+Requires-Dist: verlib2==0.2
+Provides-Extra: all
+Requires-Dist: sqlalchemy-cratedb[vector]; extra == "all"
+Provides-Extra: develop
+Requires-Dist: mypy<1.15; extra == "develop"
+Requires-Dist: poethepoet<0.33; extra == "develop"
+Requires-Dist: pyproject-fmt<2.6; extra == "develop"
+Requires-Dist: ruff<0.10; extra == "develop"
+Requires-Dist: validate-pyproject<0.24; extra == "develop"
+Provides-Extra: doc
+Requires-Dist: crate-docs-theme>=0.26.5; extra == "doc"
+Requires-Dist: sphinx<9,>=3.5; extra == "doc"
+Provides-Extra: release
+Requires-Dist: build<2; extra == "release"
+Requires-Dist: twine<7; extra == "release"
+Provides-Extra: test
+Requires-Dist: cratedb-toolkit[testing]; extra == "test"
+Requires-Dist: dask[dataframe]; python_version < "3.13" and extra == "test"
+Requires-Dist: pandas<2.3; extra == "test"
+Requires-Dist: pueblo>=0.0.7; extra == "test"
+Requires-Dist: pytest<9; extra == "test"
+Requires-Dist: pytest-cov<7; extra == "test"
+Requires-Dist: pytest-mock<4; extra == "test"
+Provides-Extra: vector
+Requires-Dist: numpy; extra == "vector"
+
+# SQLAlchemy dialect for CrateDB
+
+[![Tests](https://github.com/crate/sqlalchemy-cratedb/actions/workflows/tests.yml/badge.svg)](https://github.com/crate/sqlalchemy-cratedb/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/crate/sqlalchemy-cratedb/branch/main/graph/badge.svg)](https://app.codecov.io/gh/crate/sqlalchemy-cratedb)
+[![Build status (documentation)](https://readthedocs.org/projects/sqlalchemy-cratedb/badge/)](https://cratedb.com/docs/sqlalchemy-cratedb/)
+[![PyPI Version](https://img.shields.io/pypi/v/sqlalchemy-cratedb.svg)](https://pypi.org/project/sqlalchemy-cratedb/)
+[![Python Version](https://img.shields.io/pypi/pyversions/sqlalchemy-cratedb.svg)](https://pypi.org/project/sqlalchemy-cratedb/)
+[![PyPI Downloads](https://pepy.tech/badge/sqlalchemy-cratedb/month)](https://pepy.tech/project/sqlalchemy-cratedb/)
+[![Wheel](https://img.shields.io/pypi/wheel/sqlalchemy-cratedb.svg)](https://pypi.org/project/sqlalchemy-cratedb/)
+[![Status](https://img.shields.io/pypi/status/sqlalchemy-cratedb.svg)](https://pypi.org/project/sqlalchemy-cratedb/)
+[![License](https://img.shields.io/pypi/l/sqlalchemy-cratedb.svg)](https://pypi.org/project/sqlalchemy-cratedb/)
+
+
+## About
+
+The [SQLAlchemy] dialect for [CrateDB], based on the HTTP-based DBAPI client
+library [crate-python].
+
+## Installation
+
+The package is available from [PyPI] at [sqlalchemy-cratedb]. 
+To install the most recent version, run:
+```shell
+pip install --upgrade sqlalchemy-cratedb
+```
+
+## Documentation and help
+
+- [SQLAlchemy dialect for CrateDB](https://cratedb.com/docs/sqlalchemy-cratedb/)
+- [CrateDB Python Client documentation](https://cratedb.com/docs/python/)
+- [CrateDB reference documentation](https://cratedb.com/docs/reference/)
+- [Developer documentation](DEVELOP.md)
+- [Contributing](CONTRIBUTING.md)
+- Other [support channels](https://cratedb.com/support)
+
+## Contributing
+
+The SQLAlchemy dialect for CrateDB is an open source project, and is
+[managed on GitHub](https://github.com/crate/sqlalchemy-cratedb). We
+appreciate contributions of any kind.
+
+
+[CrateDB]: https://github.com/crate/crate
+[crate-python]: https://github.com/crate/crate-python
+[SQLAlchemy]: https://www.sqlalchemy.org
+[sqlalchemy-cratedb]: https://pypi.org/project/sqlalchemy-cratedb/
+[PyPI]: https://pypi.org/

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kcidb-io"
+dynamic = ["version"]
+description = "KCIDB = Linux Kernel CI reporting - I/O data library"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-2.0-or-later"
+authors = [
+    {name = "kernelci.org", email = "kernelci@lists.linux.dev"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "jsonschema[format]",
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8",
+    "pylint",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/kernelci/kcidb-io"
+
+[tool.setuptools_scm]
+# Version will be provided via SETUPTOOLS_SCM_PRETEND_VERSION environment variable in CI.
+# Local builds without this variable will generate a dev version based on git history.

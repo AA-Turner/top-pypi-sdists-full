@@ -1,0 +1,798 @@
+import uuid
+from functools import singledispatchmethod
+from pathlib import Path
+from typing import Any, Generator, List, Optional
+
+from sqlalchemy import text
+
+from trilogy.constants import MagicConstants, Rendering, logger
+from trilogy.core.enums import (
+    AddressType,
+    ComparisonOperator,
+    CreateMode,
+    FunctionType,
+    Granularity,
+    IOType,
+    PersistMode,
+    ValidationScope,
+)
+from trilogy.core.models.author import Comment, Comparison, Concept, Function
+from trilogy.core.models.build import BuildFunction
+from trilogy.core.models.core import ListWrapper, MapWrapper
+from trilogy.core.models.datasource import Address, Datasource, UpdateKeys
+from trilogy.core.models.environment import Environment
+from trilogy.core.statements.author import (
+    STATEMENT_TYPES,
+    ChartStatement,
+    ConceptDeclarationStatement,
+    CopyStatement,
+    CreateStatement,
+    ImportStatement,
+    MergeStatementV2,
+    MockStatement,
+    MultiSelectStatement,
+    PersistStatement,
+    PublishStatement,
+    RawSQLStatement,
+    SelectStatement,
+    ShowStatement,
+    ValidateStatement,
+)
+from trilogy.core.statements.execute import (
+    PROCESSED_STATEMENT_TYPES,
+    ProcessedChartStatement,
+    ProcessedCopyStatement,
+    ProcessedCreateStatement,
+    ProcessedMockStatement,
+    ProcessedPublishStatement,
+    ProcessedQuery,
+    ProcessedQueryPersist,
+    ProcessedRawSQLStatement,
+    ProcessedShowStatement,
+    ProcessedValidateStatement,
+)
+from trilogy.core.validation.common import (
+    ValidationTest,
+)
+from trilogy.dialect.base import BaseDialect
+from trilogy.dialect.config import DialectConfig, RetryPolicy
+from trilogy.dialect.enums import Dialects
+from trilogy.dialect.metadata import (
+    handle_concept_declaration,
+    handle_datasource,
+    handle_import_statement,
+    handle_merge_statement,
+    handle_processed_show_statement,
+    handle_processed_validate_statement,
+    handle_publish_statement,
+    handle_show_statement_outputs,
+)
+from trilogy.dialect.mock import handle_processed_mock_statement
+from trilogy.dialect.results import ChartResult, MockResult
+from trilogy.engine import EngineConnection, ExecutionEngine, ResultProtocol
+from trilogy.hooks.base_hook import BaseHook
+from trilogy.parser import parse_text
+from trilogy.render import get_dialect_generator
+
+
+class Executor(object):
+    def __init__(
+        self,
+        dialect: Dialects,
+        engine: ExecutionEngine,
+        environment: Optional[Environment] = None,
+        rendering: Rendering | None = None,
+        hooks: List[BaseHook] | None = None,
+        config: DialectConfig | None = None,
+    ):
+
+        self.dialect: Dialects = dialect
+        self.engine = engine
+        self.environment = environment or Environment()
+        self.generator: BaseDialect
+        self.logger = logger
+        self.hooks = hooks
+        self.config = config
+        self._instance_id = str(uuid.uuid4())
+        self.generator = get_dialect_generator(self.dialect, rendering, config)
+        self.connection = self.connect()
+        # TODO: make generic
+        if self.dialect == Dialects.DATAFRAME:
+            self.engine.setup(self.environment, self.connection)
+        # Setup DuckDB extensions
+        if self.dialect == Dialects.DUCK_DB:
+            self._setup_duckdb_python_datasources()
+            self._setup_duckdb_gcs()
+
+    def connect(self) -> EngineConnection:
+        self.connection = self.engine.connect()
+        self.connected = True
+        return self.connection
+
+    def _setup_duckdb_python_datasources(self) -> None:
+        """Setup DuckDB macro for Python script datasources."""
+        import sys
+
+        from trilogy.dialect.config import DuckDBConfig
+        from trilogy.dialect.duckdb import get_python_datasource_setup_sql
+
+        enabled = (
+            isinstance(self.config, DuckDBConfig)
+            and self.config.enable_python_datasources
+        )
+        is_windows = sys.platform == "win32"
+        self.execute_raw_sql(
+            get_python_datasource_setup_sql(enabled, is_windows, self._instance_id)
+        )
+        self.connection.commit()
+
+    def _setup_duckdb_gcs(self) -> None:
+        """Setup DuckDB GCS extension with application default credentials."""
+        from trilogy.dialect.config import DuckDBConfig
+        from trilogy.dialect.duckdb import get_gcs_setup_sql
+
+        enabled = isinstance(self.config, DuckDBConfig) and self.config.enable_gcs
+        if not enabled:
+            return
+        sql = get_gcs_setup_sql(enabled)
+        if sql:
+            self.execute_raw_sql(sql)
+            self.connection.commit()
+
+    def close(self):
+        self.engine.dispose(close=True)
+        if self.dialect == Dialects.DUCK_DB:
+            import gc
+
+            gc.collect()
+        self.connected = False
+
+    def update_datasource(
+        self, datasource: Datasource, keys: UpdateKeys | None = None
+    ) -> None:
+        """Update a datasource with optional filtering based on update keys.
+
+        Args:
+            datasource: The datasource to update
+            keys: Optional UpdateKeys specifying incremental filters
+        """
+        where = keys.to_where_clause(self.environment) if keys else None
+        # Skip CREATE for file-backed datasources (parquet, csv, etc.) - the file is the source
+        is_file_backed = (
+            isinstance(datasource.address, Address) and datasource.address.is_file
+        )
+        if not is_file_backed:
+            create_stmt = CreateStatement(
+                scope=ValidationScope.DATASOURCES,
+                create_mode=CreateMode.CREATE_IF_NOT_EXISTS,
+                targets=[datasource.name],
+            )
+            self.execute_statement(create_stmt)
+        select_stmt = datasource.create_update_statement(
+            self.environment, where, line_no=None
+        )
+        statement = PersistStatement(
+            datasource=datasource,
+            select=select_stmt,
+        )
+        self.execute_statement(statement)
+
+    def execute_statement(
+        self,
+        statement: PROCESSED_STATEMENT_TYPES | STATEMENT_TYPES,
+    ) -> Optional[ResultProtocol]:
+        if isinstance(statement, STATEMENT_TYPES):
+            generate = self.generator.generate_queries(
+                self.environment, [statement], hooks=self.hooks  # type: ignore[list-item]
+            )
+            if not generate:
+                return None
+            statement = generate[0]
+
+        if not isinstance(statement, PROCESSED_STATEMENT_TYPES):
+            return None
+
+        return self.execute_query(statement)
+
+    @singledispatchmethod
+    def execute_query(self, query) -> ResultProtocol | None:
+        raise NotImplementedError("Cannot execute type {}".format(type(query)))
+
+    @execute_query.register
+    def _(self, query: Comment) -> ResultProtocol | None:
+        return None
+
+    @execute_query.register
+    def _(self, query: ConceptDeclarationStatement) -> ResultProtocol | None:
+        return handle_concept_declaration(query)
+
+    @execute_query.register
+    def _(self, query: Datasource) -> ResultProtocol | None:
+        return handle_datasource(query)
+
+    @execute_query.register
+    def _(self, query: str) -> ResultProtocol | None:
+        results = self.execute_text(query)
+        if results:
+            return results[-1]
+        return None
+
+    @execute_query.register
+    def _(self, query: SelectStatement) -> ResultProtocol | None:
+        sql = self.generator.generate_queries(
+            self.environment, [query], hooks=self.hooks
+        )
+        return self.execute_query(sql[0])
+
+    @execute_query.register
+    def _(self, query: PersistStatement) -> ResultProtocol | None:
+        sql = self.generator.generate_queries(
+            self.environment, [query], hooks=self.hooks
+        )
+        return self.execute_query(sql[0])
+
+    @execute_query.register
+    def _(self, query: RawSQLStatement) -> ResultProtocol | None:
+        return self.execute_raw_sql(query.text)
+
+    @execute_query.register
+    def _(self, query: ShowStatement) -> ResultProtocol | None:
+        sql = self.generator.generate_queries(
+            self.environment, [query], hooks=self.hooks
+        )
+        return self.execute_query(sql[0])
+
+    @execute_query.register
+    def _(self, query: ProcessedShowStatement) -> ResultProtocol | None:
+        return handle_processed_show_statement(
+            query,
+            [
+                self.generator.compile_statement(x)
+                for x in query.output_values
+                if isinstance(x, (ProcessedQuery, ProcessedQueryPersist))
+            ],
+        )
+
+    @execute_query.register
+    def _(self, query: ProcessedValidateStatement) -> ResultProtocol | None:
+        return handle_processed_validate_statement(
+            query, self.generator, self.validate_environment
+        )
+
+    @execute_query.register
+    def _(self, query: ProcessedMockStatement) -> ResultProtocol | None:
+
+        return handle_processed_mock_statement(query, self.environment, self)
+
+    @execute_query.register
+    def _(self, query: ProcessedCreateStatement) -> ResultProtocol | None:
+        sql = self.generator.compile_statement(query)
+        output = self.execute_raw_sql(sql)
+        return output
+
+    @execute_query.register
+    def _(self, query: ProcessedPublishStatement) -> ResultProtocol | None:
+        return handle_publish_statement(query, self.environment)
+
+    @execute_query.register
+    def _(self, query: ImportStatement) -> ResultProtocol | None:
+        return handle_import_statement(query)
+
+    @execute_query.register
+    def _(self, query: MergeStatementV2) -> ResultProtocol | None:
+        return handle_merge_statement(query, self.environment)
+
+    @execute_query.register
+    def _(self, query: ProcessedRawSQLStatement) -> ResultProtocol | None:
+        return self.execute_raw_sql(query.text)
+
+    @execute_query.register
+    def _(self, query: ProcessedQuery) -> ResultProtocol | None:
+        sql = self.generator.compile_statement(query)
+        output = self.execute_raw_sql(sql, local_concepts=query.local_concepts)
+        return output
+
+    def _address_type_to_io_type(self, addr_type: AddressType) -> IOType:
+        if addr_type == AddressType.PARQUET:
+            return IOType.PARQUET
+        elif addr_type == AddressType.CSV:
+            return IOType.CSV
+        raise NotImplementedError(f"File persist not supported for type {addr_type}")
+
+    @execute_query.register
+    def _(self, query: ProcessedQueryPersist) -> ResultProtocol | None:
+        # Check if target is a file - convert to CopyStatement
+        addr = query.output_to.address
+        if addr.is_file:
+            io_type = self._address_type_to_io_type(addr.type)
+            # Build column alias mapping from datasource columns
+            column_aliases: dict[str, str] = {}
+            for col in query.datasource.columns:
+                if col.is_concrete and isinstance(col.alias, str):
+                    column_aliases[col.concept.address] = col.alias
+            copy_statement = ProcessedCopyStatement(
+                output_columns=query.output_columns,
+                ctes=query.ctes,
+                base=query.base,
+                hidden_columns=query.hidden_columns,
+                limit=query.limit,
+                order_by=query.order_by,
+                local_concepts=query.local_concepts,
+                locally_derived=query.locally_derived,
+                target=addr.write_location or addr.location,
+                target_type=io_type,
+                column_aliases=column_aliases,
+            )
+            self.execute_query(copy_statement)
+            if query.persist_mode == PersistMode.OVERWRITE:
+                self.environment.add_datasource(query.datasource)
+            return None
+
+        sql = self.generator.compile_statement(query)
+        output = self.execute_raw_sql(sql, local_concepts=query.local_concepts)
+
+        if query.persist_mode == PersistMode.OVERWRITE:
+            self.environment.add_datasource(query.datasource)
+        return output
+
+    def _build_aliased_copy_sql(self, query: ProcessedCopyStatement) -> str:
+        """Build SQL with column aliases for file output."""
+        base_sql = self.generator.compile_statement(query)
+        if not query.column_aliases:
+            return base_sql
+        quote = self.generator.QUOTE_CHARACTER
+        alias_clauses = []
+        for col in query.output_columns:
+            target_name = query.column_aliases.get(col.address)
+            if target_name:
+                alias_clauses.append(
+                    f"{quote}{col.safe_address}{quote} as {quote}{target_name}{quote}"
+                )
+            else:
+                alias_clauses.append(f"{quote}{col.safe_address}{quote}")
+        select_clause = ", ".join(alias_clauses)
+        return f"SELECT {select_clause} FROM ({base_sql}) as _copy_source"
+
+    def _resolve_copy_target(self, target: str) -> str:
+        """Resolve copy target path, making relative paths relative to working_path."""
+        target_path = Path(target)
+        if not target_path.is_absolute() and not target.startswith(("gcs://", "gs://")):
+            return str(self.environment.working_path / target_path)
+        return target
+
+    @execute_query.register
+    def _(self, query: ProcessedCopyStatement) -> ResultProtocol | None:
+        sql = self._build_aliased_copy_sql(query)
+        target = self._resolve_copy_target(query.target)
+        if self.dialect == Dialects.DUCK_DB:
+            # Check for GCS write credentials if target is a GCS path
+            if target.startswith("gcs://") or target.startswith("gs://"):
+                from trilogy.dialect.duckdb import check_gcs_write_credentials
+
+                check_gcs_write_credentials()
+
+            if query.target_type == IOType.PARQUET:
+                copy_sql = f"COPY ({sql}) TO '{target}' (FORMAT PARQUET)"
+            elif query.target_type == IOType.CSV:
+                copy_sql = f"COPY ({sql}) TO '{target}' (FORMAT CSV, HEADER)"
+            elif query.target_type == IOType.JSON:
+                copy_sql = f"COPY ({sql}) TO '{target}' (FORMAT JSON, ARRAY true)"
+            else:
+                raise NotImplementedError(f"Unsupported IO Type {query.target_type}")
+            self.execute_raw_sql(copy_sql, local_concepts=query.local_concepts)
+        else:
+            raise NotImplementedError(
+                f"COPY statement not supported for dialect {self.dialect}"
+            )
+        return MockResult(
+            [{"query": self.generator.compile_statement(query)}],
+            ["query"],
+        )
+
+    @execute_query.register
+    def _(self, query: ProcessedChartStatement) -> ResultProtocol | None:
+        from trilogy.rendering.altair_renderer import ALTAIR_AVAILABLE, AltairRenderer
+
+        sql = self.generator.compile_statement(query.query)
+        result = self.execute_raw_sql(sql, local_concepts=query.query.local_concepts)
+
+        if result is None:
+            return ChartResult(chart=None, data=[], config=query.config)
+
+        data = [dict(zip(result.keys(), row)) for row in result.fetchall()]
+
+        chart = None
+        if ALTAIR_AVAILABLE:
+            renderer = AltairRenderer()
+            chart = renderer.render(query.config, data)
+
+        return ChartResult(chart=chart, data=data, config=query.config)
+
+    @singledispatchmethod
+    def generate_sql(self, command) -> list[str]:
+        raise NotImplementedError(
+            "Cannot generate sql for type {}".format(type(command))
+        )
+
+    @generate_sql.register  # type: ignore
+    def _(self, command: ProcessedQuery) -> list[str]:
+        output = []
+        compiled_sql = self.generator.compile_statement(command)
+        output.append(compiled_sql)
+        return output
+
+    @generate_sql.register  # type: ignore
+    def _(self, command: ProcessedCopyStatement) -> list[str]:
+        output = []
+        compiled_sql = self.generator.compile_statement(command)
+        output.append(compiled_sql)
+        return output
+
+    @generate_sql.register
+    def _(self, command: ProcessedShowStatement) -> list[str]:
+        output = []
+        for statement in command.output_values:
+            if isinstance(statement, (ProcessedQuery, ProcessedQueryPersist)):
+                compiled_sql = self.generator.compile_statement(statement)
+                output.append(compiled_sql)
+        return output
+
+    @generate_sql.register  # type: ignore
+    def _(self, command: MultiSelectStatement) -> list[str]:
+        output = []
+        sql = self.generator.generate_queries(
+            self.environment, [command], hooks=self.hooks
+        )
+        for statement in sql:
+            compiled_sql = self.generator.compile_statement(statement)
+            output.append(compiled_sql)
+        return output
+
+    @generate_sql.register
+    def _(self, command: SelectStatement) -> list[str]:
+        output = []
+        sql = self.generator.generate_queries(
+            self.environment, [command], hooks=self.hooks
+        )
+        for statement in sql:
+            compiled_sql = self.generator.compile_statement(statement)
+            output.append(compiled_sql)
+        return output
+
+    @generate_sql.register
+    def _(self, command: ProcessedCreateStatement) -> list[str]:
+        output = []
+        compiled_sql = self.generator.compile_statement(command)
+        output.append(compiled_sql)
+        return output
+
+    @generate_sql.register
+    def _(self, command: ProcessedPublishStatement) -> list[str]:
+        output = []
+        compiled_sql = self.generator.compile_statement(command)
+        output.append(compiled_sql)
+        return output
+
+    @generate_sql.register
+    def _(self, command: str) -> list[str]:
+        _, parsed = parse_text(command, self.environment)
+        generatable = [
+            x
+            for x in parsed
+            if isinstance(
+                x,
+                (
+                    SelectStatement,
+                    ShowStatement,
+                    PersistStatement,
+                    MultiSelectStatement,
+                ),
+            )
+        ]
+        sql = self.generator.generate_queries(
+            self.environment, generatable, hooks=self.hooks
+        )
+        output = []
+        for statement in sql:
+            compiled_sql = self.generator.compile_statement(statement)
+            output.append(compiled_sql)
+        return output
+
+    def parse_file(
+        self, file: str | Path, persist: bool = False
+    ) -> list[PROCESSED_STATEMENT_TYPES]:
+        return list(self.parse_file_generator(file, persist=persist))
+
+    def parse_file_generator(
+        self, file: str | Path, persist: bool = False
+    ) -> Generator[
+        PROCESSED_STATEMENT_TYPES,
+        None,
+        None,
+    ]:
+        file = Path(file)
+        candidates = [file, self.environment.working_path / file]
+        err = None
+        for file in candidates:
+            try:
+                with open(file, "r") as f:
+                    command = f.read()
+                    return self.parse_text_generator(
+                        command, persist=persist, root=file
+                    )
+            except FileNotFoundError as e:
+                if not err:
+                    err = e
+                continue
+        if err:
+            raise err
+        raise FileNotFoundError(f"File {file} not found")
+
+    def parse_text(
+        self, command: str, persist: bool = False, root: Path | None = None
+    ) -> List[PROCESSED_STATEMENT_TYPES]:
+        return list(self.parse_text_generator(command, persist=persist, root=root))
+
+    def parse_text_generator(
+        self, command: str, persist: bool = False, root: Path | None = None
+    ) -> Generator[
+        PROCESSED_STATEMENT_TYPES,
+        None,
+        None,
+    ]:
+        """Process a preql text command"""
+        _, parsed = parse_text(command, self.environment, root=root)
+        generatable = [
+            x
+            for x in parsed
+            if isinstance(
+                x,
+                (
+                    SelectStatement,
+                    PersistStatement,
+                    MultiSelectStatement,
+                    ShowStatement,
+                    RawSQLStatement,
+                    CopyStatement,
+                    ValidateStatement,
+                    CreateStatement,
+                    PublishStatement,
+                    MockStatement,
+                    ChartStatement,
+                ),
+            )
+        ]
+        while generatable:
+            t = generatable.pop(0)
+            x = self.generator.generate_queries(
+                self.environment, [t], hooks=self.hooks
+            )[0]
+
+            yield x
+
+            if persist and isinstance(x, ProcessedQueryPersist):
+                self.environment.add_datasource(x.datasource)
+
+    def _atom_to_value(self, val: Any) -> Any:
+        if val == MagicConstants.NULL:
+            return None
+        return val
+
+    def _concept_to_value(
+        self,
+        concept: Concept,
+        local_concepts: dict[str, Concept] | None = None,
+    ) -> Any:
+        if not concept.granularity == Granularity.SINGLE_ROW:
+            raise SyntaxError(
+                f"Cannot bind non-singleton concept {concept.address} ({concept.granularity}, lineage {concept.lineage}) to a parameter."
+            )
+        # TODO: to get rid of function here - need to figure out why it's getting passed in
+        if (
+            isinstance(concept.lineage, (BuildFunction, Function))
+            and concept.lineage.operator == FunctionType.CONSTANT
+        ):
+            rval = concept.lineage.arguments[0]
+            if isinstance(rval, ListWrapper):
+                return [self._atom_to_value(x) for x in rval]
+            if isinstance(rval, MapWrapper):
+                # duckdb expects maps in this format as variables
+                if self.dialect == Dialects.DUCK_DB:
+                    return {
+                        "key": [self._atom_to_value(x) for x in rval],
+                        "value": [self._atom_to_value(rval[x]) for x in rval],
+                    }
+                return {k: self._atom_to_value(v) for k, v in rval.items()}
+            # if isinstance(rval, ConceptRef):
+            #     return self._concept_to_value(self.environment.concepts[rval.address], local_concepts=local_concepts)
+            return rval
+        elif isinstance(concept.lineage, Comparison):
+            # evaluate the comparison to get the value
+            left_value = self._atom_to_value(concept.lineage.left)
+            right_value = self._atom_to_value(concept.lineage.right)
+            operator = concept.lineage.operator
+            if operator == ComparisonOperator.EQ:
+                return left_value == right_value
+            elif operator == ComparisonOperator.NE:
+                return left_value != right_value
+            elif operator == ComparisonOperator.LT:
+                return left_value < right_value
+            elif operator == ComparisonOperator.LTE:
+                return left_value <= right_value
+            elif operator == ComparisonOperator.GT:
+                return left_value > right_value
+            elif operator == ComparisonOperator.GTE:
+                return left_value >= right_value
+            elif operator == ComparisonOperator.IS:
+                return left_value is right_value
+            elif operator == ComparisonOperator.IS_NOT:
+                return left_value is not right_value
+            else:
+                raise SyntaxError(
+                    f"Cannot bind comparison with operator {operator} to a parameter."
+                )
+
+        else:
+            results = self.execute_query(f"select {concept.name} limit 1;")
+            if results:
+                fetcher = results.fetchone()
+                if fetcher:
+                    return fetcher[0]
+            return None
+
+    def _hydrate_param(
+        self, param: str, local_concepts: dict[str, Concept] | None = None
+    ) -> Any:
+        matched = [
+            v
+            for v in self.environment.concepts.values()
+            if v.safe_address == param or v.address == param
+        ]
+        if local_concepts and not matched:
+            matched = [
+                v
+                for v in local_concepts.values()
+                if v.safe_address == param or v.address == param
+            ]
+        if not matched:
+            raise SyntaxError(f"No concept found for parameter {param};")
+
+        concept: Concept = matched.pop()
+        return self._concept_to_value(concept, local_concepts=local_concepts)
+
+    def _get_retry_policy(self, error: Exception) -> RetryPolicy | None:
+        """Get retry policy for an error if configured."""
+        if not self.config or not self.config.retry_config:
+            return None
+        return self.config.retry_config.get_policy_for_error(str(error))
+
+    def _execute_with_retry(
+        self,
+        command: str,
+        final_params: dict | None,
+    ) -> ResultProtocol:
+        """Execute SQL with retry logic based on configured retry policy."""
+        import time
+
+        attempt = 0
+
+        while True:
+            attempt += 1
+            try:
+                if final_params:
+                    return self.connection.execute(text(command), final_params)
+                else:
+                    return self.connection.execute(text(command))
+            except Exception as e:
+                policy = self._get_retry_policy(e)
+                if policy is None or attempt >= policy.max_attempts:
+                    raise
+                delay = policy.get_delay(attempt)
+                self.logger.warning(
+                    f"Query failed (attempt {attempt}/{policy.max_attempts}), "
+                    f"retrying in {delay:.1f}s: {e}"
+                )
+                time.sleep(delay)
+
+    def execute_raw_sql(
+        self,
+        command: str | Path,
+        variables: dict | None = None,
+        local_concepts: dict[str, Concept] | None = None,
+    ) -> ResultProtocol:
+        """Run a command against the raw underlying
+        execution engine."""
+        final_params = None
+        if isinstance(command, Path):
+            with open(command, "r") as f:
+                command = f.read()
+        q = text(command)
+        if variables:
+            final_params = variables
+        else:
+            params = q.compile().params
+            if params:
+                final_params = {
+                    x: self._hydrate_param(x, local_concepts=local_concepts)
+                    for x in params
+                }
+
+        return self._execute_with_retry(command, final_params)
+
+    def execute_text(
+        self, command: str, non_interactive: bool = False
+    ) -> List[ResultProtocol]:
+        if not self.connected:
+            self.connect()
+
+        """Run a trilogy query expressed as text."""
+        output: list[ResultProtocol] = []
+        # connection = self.engine.connect()
+        for statement in self.parse_text_generator(command):
+            if isinstance(statement, ProcessedShowStatement):
+                results = handle_show_statement_outputs(
+                    statement,
+                    [
+                        self.generator.compile_statement(x)
+                        for x in statement.output_values
+                        if isinstance(x, (ProcessedQuery, ProcessedQueryPersist))
+                    ],
+                    self.environment,
+                    self.generator,
+                )
+                output.extend(results)
+                continue
+            elif isinstance(statement, ProcessedValidateStatement):
+                validate_result = handle_processed_validate_statement(
+                    statement, self.generator, self.validate_environment
+                )
+                if validate_result:
+                    output.append(validate_result)
+                continue
+            if non_interactive:
+                if not isinstance(
+                    statement,
+                    (
+                        ProcessedCopyStatement,
+                        ProcessedQueryPersist,
+                        ProcessedValidateStatement,
+                        ProcessedRawSQLStatement,
+                        ProcessedPublishStatement,
+                    ),
+                ):
+                    continue
+            result = self.execute_statement(statement)
+            if result:
+                output.append(result)
+        return output
+
+    def execute_file(
+        self, file: str | Path, non_interactive: bool = False
+    ) -> List[ResultProtocol]:
+        file = Path(file)
+        candidates = [file, self.environment.working_path / file]
+        err = None
+        for file in candidates:
+            if not file.exists():
+                continue
+            with open(file, "r") as f:
+                command = f.read()
+            if file.suffix == ".sql":
+                return [self.execute_raw_sql(command)]
+            else:
+                return self.execute_text(command, non_interactive=non_interactive)
+        if err:
+            raise err
+        raise FileNotFoundError(f"File {file} not found")
+
+    def validate_environment(
+        self,
+        scope: ValidationScope = ValidationScope.ALL,
+        targets: Optional[list[str]] = None,
+        generate_only: bool = False,
+    ) -> list[ValidationTest]:
+        from trilogy.core.validation.environment import validate_environment
+
+        return validate_environment(
+            self.environment, scope, targets, exec=None if generate_only else self
+        )

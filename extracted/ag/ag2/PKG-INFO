@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.10.4
+Version: 0.10.5
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -252,6 +252,9 @@ Requires-Dist: selenium<5,>=4.28.1; extra == 'rag'
 Requires-Dist: webdriver-manager==4.0.2; extra == 'rag'
 Provides-Extra: redis
 Requires-Dist: redis; extra == 'redis'
+Provides-Extra: remyx
+Requires-Dist: docker>=6.0.0; extra == 'remyx'
+Requires-Dist: remyxai>=0.2.0; extra == 'remyx'
 Provides-Extra: retrievechat
 Requires-Dist: beautifulsoup4; extra == 'retrievechat'
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'retrievechat'

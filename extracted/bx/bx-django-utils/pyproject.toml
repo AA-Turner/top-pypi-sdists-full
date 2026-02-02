@@ -1,0 +1,167 @@
+[project]
+name = "bx_django_utils"
+dynamic = ["version"]
+description = "Various Django utility functions"
+authors = [
+    {name = 'Jens Diemer', email = 'jens.diemer@boxine.de'},
+    {name = 'Philipp Hagemeister', email = 'phihag@phihag.de'},
+    {name = 'Florian Braun', email = 'mail@chiron-online.de'},
+    {name = 'Christian Schneider', email = 'christian@cnschn.com'},
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    'Framework :: Django',
+    'Intended Audience :: Developers',
+]
+license = {text = "MIT"}
+readme="README.md"
+
+requires-python = ">=3.11,<3.14" # TODO: Add v3.14 https://github.com/boxine/bx_django_utils/issues/202
+
+dependencies = [
+    'django>=4.2,<6.0',  # TODO: Add v6.x https://github.com/boxine/bx_django_utils/issues/201
+    'bx_py_utils>=92',  # https://github.com/boxine/bx_py_utils
+    'python-stdnum',  # https://arthurdejong.org/python-stdnum/
+]
+[dependency-groups]
+dev = [
+    'boto3>=1.25.0',  # needed for e.g.: bx_django_utils/aws/ stuff!
+    'requests-mock',
+    'coverage',  # https://github.com/nedbat/coveragepy
+    'flake8',  # https://github.com/pycqa/flake8
+    'flake8-bugbear',  # https://github.com/PyCQA/flake8-bugbear
+    'manageprojects',  # https://github.com/jedie/manageprojects
+    'twine',  # https://github.com/pypa/twine/
+    'django-debug-toolbar',
+    'beautifulsoup4',
+    'lxml',
+    'playwright',  # https://playwright.dev/python/
+    'pdoc',  # https://pdoc.dev/
+    'model-bakery',  # https://github.com/model-bakers/model_bakery
+    'tblib',  # https://github.com/ionelmc/python-tblib
+    'packaging',  # https://pypi.org/project/packaging/
+    'build',  # https://github.com/pypa/build
+    'EditorConfig',  # https://pypi.org/project/EditorConfig/
+    'pip-audit',  # https://github.com/pypa/pip-audit
+    'uv',  # https://github.com/astral-sh/uv
+    'hatchling',  # https://github.com/pypa/hatch/tree/master/backend
+    'nox',  # https://github.com/wntrblm/nox
+    #
+    'setuptools',  # Because of: https://github.com/jazzband/django-polymorphic/issues/599
+    'django-polymorphic',  # https://github.com/jazzband/django-polymorphic/
+    #
+    "ruff", # https://github.com/astral-sh/ruff
+    'typeguard',  # https://github.com/agronholm/typeguard/
+]
+
+[project.urls]
+Documentation = "https://github.com/boxine/bx_django_utils/"
+Source = "https://github.com/boxine/bx_django_utils/"
+
+
+[project.scripts]
+bx_django_utils = "bx_django_utils.__main__:main"
+
+
+[tool.bx_py_utils.doc_write]
+docstring_prefix = 'DocWrite:'
+macro_prefix = 'DocWriteMacro:'
+output_base_path = './docs/'
+search_paths = ['./bx_django_utils/', './bx_django_utils_tests/']
+delete_obsolete_files = true
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bx_django_utils"]
+
+[tool.hatch.version]
+path = "bx_django_utils/__init__.py"
+
+
+[tool.ruff]
+# https://docs.astral.sh/ruff/configuration/
+line-length = 120
+exclude = [
+  ".*/",
+]
+
+
+[tool.ruff.lint]
+preview = true  # Needed for some of the rules
+extend-select = [
+    "E", # pycodestyle: https://docs.astral.sh/ruff/rules/#error-e
+    "I", # isort: https://docs.astral.sh/ruff/rules/#isort-i
+]
+ignore = [
+    "E402", # https://docs.astral.sh/ruff/rules/module-import-not-at-top-of-file/
+    "E731", # https://docs.astral.sh/ruff/rules/lambda-assignment/
+]
+
+[tool.ruff.lint.isort]
+# https://docs.astral.sh/ruff/settings/#lintisort
+lines-after-imports = 2
+force-sort-within-sections = true  # TODO: Remove this
+
+[tool.ruff.format]
+quote-style = "single"
+
+
+[tool.coverage.run]
+branch = true
+parallel = true
+concurrency = ["multiprocessing"]
+source_pkgs=['bx_django_utils']
+command_line = 'manage.py test --parallel --shuffle'
+
+[tool.coverage.report]
+omit = ['.*', '*/tests/*','*/migrations/*']
+skip_empty = true
+fail_under = 30
+show_missing = true
+exclude_lines = [
+    'if self.debug:',
+    'pragma: no cover',
+    'raise NotImplementedError',
+    'if __name__ == .__main__.:',
+]
+
+
+[tool.mypy]
+warn_unused_configs = true
+ignore_missing_imports = true
+allow_redefinition = true  # https://github.com/python/mypy/issues/7165
+show_error_codes = true
+plugins = []
+exclude = ['.venv', 'tests', 'migrations']
+
+
+[manageprojects] # https://github.com/jedie/manageprojects
+initial_revision = "013cb11"
+initial_date = 2024-07-08T14:39:09+02:00
+cookiecutter_template = "https://github.com/jedie/cookiecutter_templates/"
+cookiecutter_directory = "make-uv-python"
+applied_migrations = [
+    "4662321", # 2025-04-22T20:40:34+02:00
+    "af6dd62", # 2026-01-26T16:04:53+01:00
+]
+
+[manageprojects.cookiecutter_context.cookiecutter]
+full_name = "Jens Diemer"
+github_username = "jedie"
+author_email = "jens.diemer@boxine.de"
+package_name = "bx_django_utils"
+package_version = "85"
+package_description = "Various Django utility functions"
+package_url = "https://github.com/boxine/bx_django_utils"
+issues_url = "https://github.com/boxine/bx_django_utils/issues"
+license = "MIT"
+_template = "https://github.com/jedie/cookiecutter_templates/"

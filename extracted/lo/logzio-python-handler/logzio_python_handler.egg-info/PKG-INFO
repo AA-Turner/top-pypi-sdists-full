@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logzio-python-handler
-Version: 4.1.7
+Version: 4.1.9
 Summary: Logging handler to send logs to your Logz.io account with bulk SSL
 Home-page: https://github.com/logzio/logzio-python-handler/
 Author: roiravhon

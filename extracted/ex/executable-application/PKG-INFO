@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: executable-application
+Version: 0.3.0
+Summary: An example of an executable application.
+Author-email: Charlie Marsh <hey@astral.sh>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# `executable-application`
+
+An example of an executable application, used for testing in [uv](https://github.com/astral-sh/uv).
